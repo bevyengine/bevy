@@ -10,7 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
     message::{message_update_system, MessageCursor},
     observer::IntoObserver,
@@ -93,7 +93,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
-    default_error_handler: Option<ErrorHandler>,
+    fallback_error_handler: Option<ErrorHandler>,
 }
 
 impl Debug for App {
@@ -153,7 +153,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
-            default_error_handler: None,
+            fallback_error_handler: None,
         }
     }
 
@@ -694,6 +694,59 @@ impl App {
         self
     }
 
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<i32>()
+    ///     .register_type::<String>()
+    ///     .register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        self.main_mut().register_type_conversion(function);
+        self
+    }
+
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<u8>()
+    ///     .register_type::<u32>()
+    ///     .register_into_type_conversion::<u8, u32>();
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        self.main_mut().register_into_type_conversion::<T, U>();
+        self
+    }
+
     /// Registers the given function into the [`AppFunctionRegistry`] resource.
     ///
     /// The given function will internally be stored as a [`DynamicFunction`]
@@ -1181,10 +1234,10 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
-        if let Some(handler) = self.default_error_handler {
+        if let Some(handler) = self.fallback_error_handler {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
@@ -1413,10 +1466,10 @@ impl App {
     ///
     /// Note that the error handler of existing subapps may differ.
     pub fn get_error_handler(&self) -> Option<ErrorHandler> {
-        self.default_error_handler
+        self.fallback_error_handler
     }
 
-    /// Set the [default error handler] for the all subapps (including the main one and future ones)
+    /// Set the [fallback error handler] for the all subapps (including the main one and future ones)
     /// that do not have one.
     ///
     /// May only be called once and should be set by the application, not by libraries.
@@ -1437,17 +1490,17 @@ impl App {
     ///     .run();
     /// ```
     ///
-    /// [default error handler]: bevy_ecs::error::DefaultErrorHandler
+    /// [fallback error handler]: bevy_ecs::error::FallbackErrorHandler
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
         assert!(
-            self.default_error_handler.is_none(),
+            self.fallback_error_handler.is_none(),
             "`set_error_handler` called multiple times on same `App`"
         );
-        self.default_error_handler = Some(handler);
+        self.fallback_error_handler = Some(handler);
         for sub_app in self.sub_apps.iter_mut() {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self
     }

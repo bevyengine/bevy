@@ -267,11 +267,11 @@ impl Plugin for MipGenerationPlugin {
         let shader_template_source = include_str!("downsample.wgsl");
         let general_shaders: HashMap<_, _> = TEXTURE_FORMATS
             .iter()
-            .map(|(texture_format, identifier)| {
+            .map(|(target_format, identifier)| {
                 let shader_source =
                     shader_template_source.replace("##TEXTURE_FORMAT##", identifier);
                 (
-                    *texture_format,
+                    *target_format,
                     shader_assets.add(Shader::from_wgsl(shader_source, "downsample.wgsl")),
                 )
             })
@@ -571,24 +571,24 @@ fn get_or_create_mip_generation_pipelines<'a>(
     pipeline_cache: &PipelineCache,
     downsample_shaders: &DownsampleShaders,
     mip_generation_pipelines: &'a mut HashMap<TextureFormat, MipGenerationTextureFormatPipelines>,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     mip_generation_job: &AssetId<Image>,
     combine_downsampling_bind_groups: bool,
 ) -> Option<&'a MipGenerationTextureFormatPipelines> {
-    match mip_generation_pipelines.entry(texture_format) {
+    match mip_generation_pipelines.entry(target_format) {
         Entry::Vacant(vacant_entry) => {
-            let Some(downsample_shader) = downsample_shaders.general.get(&texture_format) else {
+            let Some(downsample_shader) = downsample_shaders.general.get(&target_format) else {
                 error!(
                     "Attempted to generate mips for texture {:?} with format {:?}, but no \
                      downsample shader was available for that texture format",
-                    mip_generation_job, texture_format
+                    mip_generation_job, target_format
                 );
                 return None;
             };
 
             let (downsampling_bind_group_layout_pass_1, downsampling_bind_group_layout_pass_2) =
                 create_downsampling_bind_group_layouts(
-                    texture_format,
+                    target_format,
                     combine_downsampling_bind_groups,
                 );
 
@@ -599,7 +599,7 @@ fn get_or_create_mip_generation_pipelines<'a>(
                     &downsampling_bind_group_layout_pass_1,
                     &downsampling_bind_group_layout_pass_2,
                     downsample_shader,
-                    texture_format,
+                    target_format,
                     combine_downsampling_bind_groups,
                 );
 
@@ -618,13 +618,13 @@ fn get_or_create_mip_generation_pipelines<'a>(
 /// Creates the [`BindGroupLayoutDescriptor`]s for the single-pass downsampling
 /// shader for a single texture format.
 fn create_downsampling_bind_group_layouts(
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     combine_downsampling_bind_groups: bool,
 ) -> (BindGroupLayoutDescriptor, BindGroupLayoutDescriptor) {
-    let texture_sample_type = texture_format.sample_type(None, None).expect(
+    let texture_sample_type = target_format.sample_type(None, None).expect(
         "Depth and multisample texture formats shouldn't have mip generation shaders to begin with",
     );
-    let mips_storage = texture_storage_2d(texture_format, StorageTextureAccess::WriteOnly);
+    let mips_storage = texture_storage_2d(target_format, StorageTextureAccess::WriteOnly);
 
     if combine_downsampling_bind_groups {
         let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
@@ -640,7 +640,7 @@ fn create_downsampling_bind_group_layouts(
                     mips_storage, // 3
                     mips_storage, // 4
                     mips_storage, // 5
-                    texture_storage_2d(texture_format, StorageTextureAccess::ReadWrite), // 6
+                    texture_storage_2d(target_format, StorageTextureAccess::ReadWrite), // 6
                     mips_storage, // 7
                     mips_storage, // 8
                     mips_storage, // 9
@@ -811,7 +811,7 @@ fn create_downsampling_pipelines(
     downsampling_bind_group_layout_pass_1: &BindGroupLayoutDescriptor,
     downsampling_bind_group_layout_pass_2: &BindGroupLayoutDescriptor,
     downsample_shader: &Handle<Shader>,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     combine_downsampling_bind_groups: bool,
 ) -> (CachedComputePipelineId, CachedComputePipelineId) {
     let mut downsampling_shader_defs = vec![];
@@ -833,7 +833,7 @@ fn create_downsampling_pipelines(
     // 6].
     let downsampling_first_pipeline =
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some(format!("mip generation pipeline, pass 1 ({:?})", texture_format).into()),
+            label: Some(format!("mip generation pipeline, pass 1 ({:?})", target_format).into()),
             layout: vec![downsampling_bind_group_layout_pass_1.clone()],
             immediate_size: 0,
             shader: downsample_shader.clone(),
@@ -846,7 +846,7 @@ fn create_downsampling_pipelines(
     // 12].
     let downsampling_second_pipeline =
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some(format!("mip generation pipeline, pass 2 ({:?})", texture_format).into()),
+            label: Some(format!("mip generation pipeline, pass 2 ({:?})", target_format).into()),
             layout: vec![downsampling_bind_group_layout_pass_2.clone()],
             immediate_size: 0,
             shader: downsample_shader.clone(),

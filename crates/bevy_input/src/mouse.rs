@@ -1,6 +1,6 @@
 //! The mouse input functionality.
 
-use crate::{ButtonInput, ButtonState};
+use crate::{touch::TouchPhase, ButtonInput, ButtonState};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
@@ -174,6 +174,10 @@ pub struct MouseWheel {
     pub y: f32,
     /// Window that received the input.
     pub window: Entity,
+    /// Touch phase of the input.
+    ///
+    /// When using a mouse, this will always be [`TouchPhase::Moved`].
+    pub phase: TouchPhase,
 }
 
 /// Updates the [`ButtonInput<MouseButton>`] resource with the latest [`MouseButtonInput`] events.

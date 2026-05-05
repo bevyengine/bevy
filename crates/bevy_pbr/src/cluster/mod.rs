@@ -13,7 +13,7 @@ use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
         BindingResource, BufferBindingType, BufferUsages, DownlevelFlags, RawBufferVec, ShaderSize,
-        ShaderType, StorageBuffer, UniformBuffer, UninitBufferVec,
+        ShaderType, StorageBuffer, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity},
@@ -71,9 +71,12 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     // We need to support compute shaders to use GPU clustering. To deal with
     // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
     // `RenderDevice` limits in addition to the `RenderAdapter`.
+    //
     // Some android devices report the capabilities and limits wrong, so we can't rely on them.
     // See <https://github.com/bevyengine/bevy/issues/23208> for Android issues
-    let gpu_clustering_supported = !cfg!(target_os = "android")
+    //
+    // GPU clustering doesn't work properly on iOS simulator. See https://github.com/bevyengine/bevy/issues/23428
+    let gpu_clustering_supported = !(cfg!(target_os = "android") || cfg!(target_abi = "sim"))
         && adapter
             .get_downlevel_capabilities()
             .flags
@@ -237,7 +240,7 @@ enum ViewClusterBuffers {
         cluster_offsets_and_counts: UniformBuffer<GpuClusterOffsetsAndCountsUniform>,
     },
     Storage {
-        clusterable_object_index_lists: UninitBufferVec<u32>,
+        clusterable_object_index_lists: StorageBuffer<GpuClusterableObjectIndexListsStorage>,
         cluster_offsets_and_counts: StorageBuffer<GpuClusterOffsetsAndCountsStorage>,
     },
 }
@@ -596,7 +599,7 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => {
-                clusterable_object_index_lists.clear();
+                clusterable_object_index_lists.get_mut().data.clear();
                 cluster_offsets_and_counts.get_mut().data.clear();
             }
         }
@@ -657,11 +660,11 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
             }
-            ViewClusterBuffers::Storage { .. } => {
-                error!(
-                    "Shouldn't be pushing a clusterable object index from CPU when GPU clustering \
-                     is in use"
-                );
+            ViewClusterBuffers::Storage {
+                clusterable_object_index_lists,
+                ..
+            } => {
+                clusterable_object_index_lists.get_mut().data.push(index);
             }
         }
 
@@ -714,7 +717,10 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 ..
             } => {
-                clusterable_object_index_lists.add_multiple(elements);
+                clusterable_object_index_lists
+                    .get_mut()
+                    .data
+                    .extend(iter::repeat_n(0, elements));
                 self.n_indices += elements;
             }
         }
@@ -733,7 +739,7 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                clusterable_object_index_lists.write_buffer(render_device);
+                clusterable_object_index_lists.write_buffer(render_device, render_queue);
                 cluster_offsets_and_counts.write_buffer(render_device, render_queue);
             }
         }
@@ -801,9 +807,7 @@ impl ViewClusterBuffers {
 
     fn storage() -> Self {
         ViewClusterBuffers::Storage {
-            clusterable_object_index_lists: UninitBufferVec::new(
-                BufferUsages::STORAGE | BufferUsages::COPY_DST,
-            ),
+            clusterable_object_index_lists: StorageBuffer::default(),
             cluster_offsets_and_counts: StorageBuffer::default(),
         }
     }
