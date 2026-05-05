@@ -436,7 +436,7 @@ impl AssetProcessor {
         let path = path.into();
         let Some(processor) = path
             .get_full_extension()
-            .and_then(|extension| self.get_default_processor(&extension))
+            .and_then(|extension| self.get_default_processor(extension))
         else {
             return self
                 .server
@@ -984,13 +984,14 @@ impl AssetProcessor {
             .await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
+    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, mut path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
             return;
         }
         while let Some(parent) = path.parent() {
+            path = parent;
             if parent == Path::new("") {
                 break;
             }
@@ -1073,7 +1074,7 @@ impl AssetProcessor {
             Err(AssetReaderError::NotFound(_path)) => {
                 let (meta, processor) = if let Some(processor) = asset_path
                     .get_full_extension()
-                    .and_then(|ext| self.get_default_processor(&ext))
+                    .and_then(|ext| self.get_default_processor(ext))
                 {
                     // Note: It doesn't matter whether we use the Long or Short kind, since we're
                     // returning the processor here anyway, and we're only using this meta to pass

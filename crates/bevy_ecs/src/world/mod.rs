@@ -50,7 +50,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
@@ -1876,7 +1876,7 @@ impl World {
     ) -> (ComponentId, EntityWorldMut<'_>) {
         let resource_id = self.register_resource::<R>();
 
-        if let Some(&entity) = self.resource_entities.get(resource_id) {
+        if let Some(entity) = self.resource_entities.get(resource_id) {
             let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
             if !entity_ref.contains_id(resource_id) {
                 let resource = func(self);
@@ -2011,7 +2011,7 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let resource_id = self.component_id::<R>()?;
-        let entity = *self.resource_entities.get(resource_id)?;
+        let entity = self.resource_entities.get(resource_id)?;
         let value = self
             .get_entity_mut(entity)
             .expect("ResourceCache is in sync")
@@ -2056,7 +2056,7 @@ impl World {
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
         if let Some(entity) = self.resource_entities.get(component_id)
-            && let Ok(entity_ref) = self.get_entity(*entity)
+            && let Ok(entity_ref) = self.get_entity(entity)
         {
             return entity_ref.contains_id(component_id);
         }
@@ -2146,7 +2146,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
         let entity = self.resource_entities.get(component_id)?;
-        let entity_ref = self.get_entity(*entity).ok()?;
+        let entity_ref = self.get_entity(entity).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
 
@@ -2797,7 +2797,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.valid_component_id::<R>()?;
-        let entity = *self.resource_entities.get(component_id)?;
+        let entity = self.resource_entities.get(component_id)?;
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
@@ -2868,12 +2868,14 @@ impl World {
                 // ran during self.flush(), interact with the correct ticks on the resource component.
                 {
                     let location = entity_mut.location();
-                    let mut bundle_inserter = BundleInserter::new::<R>(
-                        // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
-                        unsafe { entity_mut.world_mut() },
-                        location.archetype_id,
-                        self.ticks.changed,
-                    );
+                    // SAFETY:
+                    // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
+                    let world = unsafe { entity_mut.world_mut() };
+                    // SAFETY:
+                    // - `location.archetype_id` is part of a valid `EntityLocation`.
+                    let mut bundle_inserter = unsafe {
+                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
+                    };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -2988,7 +2990,7 @@ impl World {
     ) {
         // if the resource already exists, we replace it on the same entity
         let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
-            self.get_entity_mut(*entity)
+            self.get_entity_mut(entity)
                 .expect("ResourceCache is in sync")
         } else {
             self.spawn_empty()
@@ -3317,11 +3319,7 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let pairs: Vec<(ComponentId, Entity)> = self
-            .resource_entities()
-            .iter()
-            .map(|(id, entity)| (*id, *entity))
-            .collect();
+        let pairs: Vec<(ComponentId, Entity)> = self.resource_entities().iter().collect();
         for (component_id, entity) in pairs {
             self.entity_mut(entity).remove_by_id(component_id);
         }
@@ -3388,11 +3386,11 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Convenience method for accessing the world's default error handler,
-    /// which can be overwritten with [`DefaultErrorHandler`].
+    /// Convenience method for accessing the world's fallback error handler,
+    /// which can be overwritten with [`FallbackErrorHandler`].
     #[inline]
-    pub fn default_error_handler(&self) -> ErrorHandler {
-        self.get_resource::<DefaultErrorHandler>()
+    pub fn fallback_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<FallbackErrorHandler>()
             .copied()
             .unwrap_or_default()
             .0
@@ -3523,11 +3521,11 @@ impl World {
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
         self.resource_entities
-            .indices()
             .iter()
-            .filter_map(|component_id| {
-                let component_info = self.components().get_info(*component_id)?;
-                let resource = self.get_resource_by_id(*component_id)?;
+            .filter_map(|(component_id, entity)| {
+                let component_info = self.components().get_info(component_id)?;
+                let entity_cell = self.get_entity(entity).ok()?;
+                let resource = entity_cell.get_by_id(component_id).ok()?;
                 Some((component_info, resource))
             })
     }
@@ -3605,7 +3603,6 @@ impl World {
 
         resource_entities
             .iter()
-            .map(|(component_id, entity)| (*component_id, *entity))
             .filter_map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info =
@@ -3672,7 +3669,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.remove(component_id)
+        if let Some(entity) = self.resource_entities.get(component_id)
             && let Ok(mut entity_mut) = self.get_entity_mut(entity)
             && entity_mut.contains_id(component_id)
         {
@@ -3767,14 +3764,14 @@ impl World {
         let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
-            .and_then(|mut s| s.remove(label))
+            .and_then(|mut s| s.remove_temporarily(label))
         else {
             return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
 
-        let old = self.resource_mut::<Schedules>().insert(schedule);
+        let old = self.resource_mut::<Schedules>().reinsert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
@@ -3881,7 +3878,6 @@ impl fmt::Debug for World {
             .field("entity_count", &self.entities.count_spawned())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
-            .field("resource_count", &self.resource_entities.len())
             .finish()
     }
 }

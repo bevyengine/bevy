@@ -11,6 +11,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
+    template::FromTemplate,
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -48,7 +49,7 @@ pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
@@ -126,7 +127,7 @@ impl Default for TileData {
 
 /// Component storing the data of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 

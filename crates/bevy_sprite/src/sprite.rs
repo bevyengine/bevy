@@ -2,7 +2,7 @@ use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
@@ -12,7 +12,7 @@ use crate::TextureSlicer;
 use core::hash::Hash;
 
 /// Describes a sprite to be rendered to a 2D camera
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect, FromTemplate)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -20,6 +20,7 @@ pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the sprite
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// The sprite's color tint
     pub color: Color,

@@ -5,13 +5,13 @@
 extern crate alloc;
 
 use bevy_app::{App, Plugin, PostUpdate, Update};
-use bevy_asset::AssetApp;
+use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
-        CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
-        VisibleMeshEntities,
+        CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoCpuCulling,
+        NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
+        VisibleEntities, VisibleEntityRanges, VisibleMeshEntities,
     },
     Camera3d, CameraUpdateSystems,
 };
@@ -23,11 +23,11 @@ use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
-use core::{mem, ops::DerefMut};
+use core::{any::TypeId, mem, ops::DerefMut};
 
 pub mod cluster;
+use cluster::assign::assign_objects_to_clusters;
 pub use cluster::ClusteredDecal;
-use cluster::{assign::assign_objects_to_clusters, VisibleClusterableObjects};
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 use bevy_camera::visibility::SetViewVisibility;
@@ -59,6 +59,8 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+mod rect_light;
+pub use rect_light::RectLight;
 /// Provides gizmo drawing for visualizing light positions.
 #[cfg(feature = "bevy_gizmos")]
 pub mod gizmos;
@@ -70,7 +72,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
+        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, RectLight,
+        SpotLight,
     };
 
     #[doc(hidden)]
@@ -79,8 +82,8 @@ pub mod prelude {
 }
 
 use crate::{
-    atmosphere::ScatteringMedium,
-    cluster::{add_light_probe_and_decal_aabbs, Clusters},
+    atmosphere::{extract_chromatic_phase_textures, ScatteringMedium},
+    cluster::{add_light_probe_and_decal_aabbs, ClusterVisibilityClass, Clusters},
     directional_light::validate_shadow_map_size,
     point_light::update_point_light_bounding_spheres,
     spot_light::update_spot_light_bounding_spheres,
@@ -219,8 +222,8 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     (
-                        update_point_light_bounding_spheres,
-                        update_spot_light_bounding_spheres,
+                        update_point_light_bounding_spheres.after(TransformSystems::Propagate),
+                        update_spot_light_bounding_spheres.after(TransformSystems::Propagate),
                         add_light_probe_and_decal_aabbs,
                     )
                         .in_set(SimulationLightSystems::UpdateBounds)
@@ -229,6 +232,7 @@ impl Plugin for LightPlugin {
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystems::Propagate)
                         .after(CameraUpdateSystems),
+                    extract_chromatic_phase_textures.after(AssetEventSystems),
                 ),
             );
 
@@ -238,8 +242,13 @@ impl Plugin for LightPlugin {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
-pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
+/// With<DirectionalLight>, With<RectLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
+pub type WithLight = Or<(
+    With<PointLight>,
+    With<SpotLight>,
+    With<DirectionalLight>,
+    With<RectLight>,
+)>;
 
 /// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default, Clone, PartialEq)]
@@ -250,7 +259,7 @@ pub struct NotShadowCaster;
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
 /// even when [`TransmittedShadowReceiver`] is being used.
-#[derive(Debug, Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
 /// Add this component to make a [`Mesh3d`] using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
@@ -260,7 +269,7 @@ pub struct NotShadowReceiver;
 /// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
-#[derive(Debug, Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
@@ -317,7 +326,11 @@ pub enum SimulationLightSystems {
     CheckLightVisibility,
 }
 
-/// Updates the visibility for [`DirectionalLight`]s so that shadow map rendering can work.
+/// Updates the visibility for [`DirectionalLight`]s so that shadow map
+/// rendering can work.
+///
+/// This only processes entities without [`NoCpuCulling`]. Entities with
+/// [`NoCpuCulling`] receive no view-specific processing in the main world.
 pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
@@ -343,6 +356,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
+            Without<NoCpuCulling>,
             With<Mesh3d>,
         ),
     >,
@@ -480,10 +494,13 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
-/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
-/// shadow map rendering can work.
+/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that shadow
+/// map rendering can work.
+///
+/// This only processes entities without [`NoCpuCulling`]. Entities with
+/// [`NoCpuCulling`] receive no view-specific processing in the main world.
 pub fn check_point_light_mesh_visibility(
-    visible_point_lights: Query<&VisibleClusterableObjects>,
+    visible_point_lights: Query<&VisibleEntities>,
     mut point_lights: Query<(
         &PointLight,
         &GlobalTransform,
@@ -512,6 +529,7 @@ pub fn check_point_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
+            Without<NoCpuCulling>,
             With<Mesh3d>,
         ),
     >,
@@ -524,7 +542,7 @@ pub fn check_point_light_mesh_visibility(
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
-        for light_entity in visible_lights.point_and_spot_lights.iter().copied() {
+        for &light_entity in visible_lights.get(TypeId::of::<ClusterVisibilityClass>()) {
             if !checked_lights.insert(light_entity) {
                 continue;
             }
