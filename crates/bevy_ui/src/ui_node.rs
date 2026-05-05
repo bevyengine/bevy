@@ -267,6 +267,9 @@ impl ComputedNode {
             OverflowClipBox::PaddingBox => self.border(),
         };
 
+        clip_rect =
+            clip_rect.inflate(overflow_clip_margin.margin.max(0.) / self.inverse_scale_factor);
+
         clip_rect.min += clip_inset.min_inset;
         clip_rect.max -= clip_inset.max_inset;
 
@@ -3056,6 +3059,9 @@ impl ComputedUiRenderTargetInfo {
 mod tests {
     use crate::ComputedNode;
     use crate::GridPlacement;
+    use crate::Overflow;
+    use crate::OverflowClipBox;
+    use crate::OverflowClipMargin;
     use bevy_math::{Rect, Vec2};
     use bevy_sprite::BorderRect;
 
@@ -3225,5 +3231,77 @@ mod tests {
 
         assert_eq!(content_box.min, Vec2::new(-40.0 + 4.0, -20.0 + 2.0));
         assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
+    }
+
+    #[test]
+    fn overflow_clip_margin_boxes() {
+        let size = 100.;
+        let b = 3.;
+        let p = 5.;
+        let m = 7.;
+        let computed_node = ComputedNode {
+            size: Vec2::splat(size),
+            border: BorderRect::all(b),
+            padding: BorderRect::all(p),
+            ..Default::default()
+        };
+
+        let r = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size));
+
+        assert_eq!(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: OverflowClipBox::BorderBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m)
+        );
+
+        assert_eq!(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: OverflowClipBox::PaddingBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m - b)
+        );
+
+        assert_eq!(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: OverflowClipBox::ContentBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m - b - p)
+        );
+    }
+
+    #[test]
+    fn overflow_clip_margin_is_logical() {
+        let size = 100.;
+        let m = 10.;
+        let scale_factor = 2.;
+        let computed_node = ComputedNode {
+            size: Vec2::splat(size),
+            inverse_scale_factor: 1. / scale_factor,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: OverflowClipBox::BorderBox,
+                    margin: m,
+                },
+            ),
+            Rect::from_center_size(Vec2::ZERO, Vec2::splat(size)).inflate(m * scale_factor)
+        );
     }
 }
