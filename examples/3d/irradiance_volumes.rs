@@ -15,13 +15,13 @@
 
 use bevy::{
     color::palettes::css::*,
-    core_pipeline::Skybox,
+    light::Skybox,
+    light::{IrradianceVolume, NotShadowCaster},
     math::{uvec3, vec3},
-    pbr::{
-        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
-    },
+    pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
     window::PrimaryWindow,
 };
 
@@ -89,7 +89,7 @@ enum ExampleModel {
 #[derive(Resource)]
 struct ExampleAssets {
     // The glTF scene containing the colored floor.
-    main_scene: Handle<Scene>,
+    main_scene: Handle<WorldAsset>,
 
     // The 3D texture containing the irradiance volume.
     irradiance_volume: Handle<Image>,
@@ -101,7 +101,7 @@ struct ExampleAssets {
     main_sphere_material: Handle<StandardMaterial>,
 
     // The glTF scene containing the animated fox.
-    fox: Handle<Scene>,
+    fox: Handle<WorldAsset>,
 
     // The graph containing the animation that the fox will play.
     fox_animation_graph: Handle<AnimationGraph>,
@@ -157,7 +157,7 @@ fn main() {
         .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 0.0,
             ..default()
@@ -228,7 +228,7 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
 }
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
-    commands.spawn(SceneRoot(assets.main_scene.clone()));
+    commands.spawn(WorldAssetRoot(assets.main_scene.clone()));
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
@@ -236,7 +236,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         Camera3d::default(),
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
         Skybox {
-            image: assets.skybox.clone(),
+            image: Some(assets.skybox.clone()),
             brightness: 150.0,
             ..default()
         },
@@ -258,7 +258,7 @@ fn spawn_light(commands: &mut Commands) {
     commands.spawn((
         PointLight {
             intensity: 250000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0762, 5.9039, 1.0055),
@@ -281,7 +281,7 @@ fn spawn_voxel_cube_parent(commands: &mut Commands) {
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
-        SceneRoot(assets.fox.clone()),
+        WorldAssetRoot(assets.fox.clone()),
         Visibility::Hidden,
         Transform::from_scale(Vec3::splat(FOX_SCALE)),
         MainObject,
@@ -293,8 +293,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -369,8 +369,11 @@ fn rotate_camera(
 fn change_main_object(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-    mut sphere_query: Query<&mut Visibility, (With<MainObject>, With<Mesh3d>, Without<SceneRoot>)>,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
+    mut sphere_query: Query<
+        &mut Visibility,
+        (With<MainObject>, With<Mesh3d>, Without<WorldAssetRoot>),
+    >,
+    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<WorldAssetRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;
@@ -414,7 +417,7 @@ fn toggle_irradiance_volumes(
     light_probe_query: Query<Entity, With<LightProbe>>,
     mut app_status: ResMut<AppStatus>,
     assets: Res<ExampleAssets>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;
@@ -466,11 +469,11 @@ fn handle_mouse_clicks(
     let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+    let Some(plane_intersection) =
+        ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))
+    else {
         return;
     };
-    let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
-
     // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
@@ -601,7 +604,7 @@ fn draw_gizmo(
 ) {
     if app_status.voxels_visible {
         for transform in irradiance_volume_query.iter() {
-            gizmos.cuboid(*transform, GIZMO_COLOR);
+            gizmos.cube(*transform, GIZMO_COLOR);
         }
     }
 }

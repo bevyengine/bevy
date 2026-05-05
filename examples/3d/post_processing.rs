@@ -1,17 +1,23 @@
 //! Demonstrates Bevy's built-in postprocessing features.
 //!
-//! Currently, this simply consists of chromatic aberration.
+//! Includes:
+//!
+//! - Chromatic Aberration
+//! - Vignette
+//! - Lens Distortion
 
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::post_process::ChromaticAberration, pbr::CascadeShadowConfigBuilder, prelude::*,
-    render::view::Hdr,
+    camera::Hdr,
+    light::CascadeShadowConfigBuilder,
+    post_process::effect_stack::{ChromaticAberration, LensDistortion, Vignette},
+    prelude::*,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the
 /// arrow keys are held.
-const CHROMATIC_ABERRATION_INTENSITY_ADJUSTMENT_SPEED: f32 = 0.002;
+const ADJUSTMENT_SPEED: f32 = 0.005;
 
 /// The maximum supported chromatic aberration intensity level.
 const MAX_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.4;
@@ -19,21 +25,33 @@ const MAX_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.4;
 /// The settings that the user can control.
 #[derive(Resource)]
 struct AppSettings {
+    /// The index of the currently selected UI item.
+    selected: usize,
     /// The intensity of the chromatic aberration effect.
     chromatic_aberration_intensity: f32,
+    /// The intensity of the vignette effect.
+    vignette_intensity: f32,
+    /// The radius of the vignette effect.
+    vignette_radius: f32,
+    /// The smoothness of the vignette effect.
+    vignette_smoothness: f32,
+    /// The roundness of the vignette effect.
+    vignette_roundness: f32,
+    /// The edge compensation of the vignette effect.
+    vignette_edge_compensation: f32,
+    /// The intensity of the lens distortion effect.
+    lens_distortion_intensity: f32,
+    /// Distortion strength multiplier for the horizontal direction.
+    lens_distortion_multiplier_x: f32,
+    /// Distortion strength multiplier for the vertical direction.
+    lens_distortion_multiplier_y: f32,
 }
 
 /// The entry point.
 fn main() {
     App::new()
         .init_resource::<AppSettings>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Chromatic Aberration Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, handle_keyboard_input)
         .add_systems(
@@ -46,7 +64,7 @@ fn main() {
 }
 
 /// Creates the example scene and spawns the UI.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the camera.
     spawn_camera(&mut commands, &asset_server);
 
@@ -54,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     spawn_scene(&mut commands, &asset_server);
 
     // Spawn the help text.
-    spawn_text(&mut commands, &app_settings);
+    spawn_text(&mut commands);
 }
 
 /// Spawns the camera, including the [`ChromaticAberration`] component.
@@ -79,6 +97,10 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         },
         // Include the `ChromaticAberration` component.
         ChromaticAberration::default(),
+        // Include the `Vignette` component.
+        Vignette::default(),
+        // Include the `LensDistortion` component.
+        LensDistortion::default(),
     ));
 }
 
@@ -88,13 +110,13 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 /// variety of colors.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
     )));
 
     // Spawn the flight helmet.
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -105,7 +127,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
@@ -118,14 +140,14 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     ));
 }
 
-/// Spawns the help text at the bottom of the screen.
-fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
+/// Spawns the help text.
+fn spawn_text(commands: &mut Commands) {
     commands.spawn((
-        create_help_text(app_settings),
+        Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -133,28 +155,36 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
 
 impl Default for AppSettings {
     fn default() -> Self {
+        let vignette_default = Vignette::default();
+        let lens_distortion = LensDistortion::default();
         Self {
+            selected: 0,
             chromatic_aberration_intensity: ChromaticAberration::default().intensity,
+            vignette_intensity: vignette_default.intensity,
+            vignette_radius: vignette_default.radius,
+            vignette_smoothness: vignette_default.smoothness,
+            vignette_roundness: vignette_default.roundness,
+            vignette_edge_compensation: vignette_default.edge_compensation,
+            lens_distortion_intensity: lens_distortion.intensity,
+            lens_distortion_multiplier_x: lens_distortion.multiplier.x,
+            lens_distortion_multiplier_y: lens_distortion.multiplier.y,
         }
     }
 }
 
-/// Creates help text at the bottom of the screen.
-fn create_help_text(app_settings: &AppSettings) -> Text {
-    format!(
-        "Chromatic aberration intensity: {} (Press Left or Right to change)",
-        app_settings.chromatic_aberration_intensity
-    )
-    .into()
-}
-
 /// Handles requests from the user to change the chromatic aberration intensity.
 fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::ArrowUp) && app_settings.selected > 0 {
+        app_settings.selected -= 1;
+    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 8 {
+        app_settings.selected += 1;
+    }
+
     let mut delta = 0.0;
     if input.pressed(KeyCode::ArrowLeft) {
-        delta -= CHROMATIC_ABERRATION_INTENSITY_ADJUSTMENT_SPEED;
+        delta -= ADJUSTMENT_SPEED;
     } else if input.pressed(KeyCode::ArrowRight) {
-        delta += CHROMATIC_ABERRATION_INTENSITY_ADJUSTMENT_SPEED;
+        delta += ADJUSTMENT_SPEED;
     }
 
     // If no arrow key was pressed, just bail out.
@@ -162,14 +192,46 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
         return;
     }
 
-    app_settings.chromatic_aberration_intensity = (app_settings.chromatic_aberration_intensity
-        + delta)
-        .clamp(0.0, MAX_CHROMATIC_ABERRATION_INTENSITY);
+    match app_settings.selected {
+        0 => {
+            app_settings.chromatic_aberration_intensity =
+                (app_settings.chromatic_aberration_intensity + delta)
+                    .clamp(0.0, MAX_CHROMATIC_ABERRATION_INTENSITY);
+        }
+        1 => {
+            app_settings.vignette_intensity =
+                (app_settings.vignette_intensity + delta).clamp(0.0, 1.0);
+        }
+        2 => app_settings.vignette_radius = (app_settings.vignette_radius + delta).clamp(0.0, 2.0),
+        3 => {
+            app_settings.vignette_smoothness = (app_settings.vignette_smoothness + delta).max(0.01);
+        }
+        4 => app_settings.vignette_roundness = (app_settings.vignette_roundness + delta).max(0.01),
+        5 => {
+            app_settings.vignette_edge_compensation =
+                (app_settings.vignette_edge_compensation + delta).clamp(0.0, 1.0);
+        }
+        6 => {
+            app_settings.lens_distortion_intensity =
+                (app_settings.lens_distortion_intensity + delta).clamp(-1.0, 1.0);
+        }
+        7 => {
+            app_settings.lens_distortion_multiplier_x =
+                (app_settings.lens_distortion_multiplier_x + delta).clamp(0.0, 1.0);
+        }
+        8 => {
+            app_settings.lens_distortion_multiplier_y =
+                (app_settings.lens_distortion_multiplier_y + delta).clamp(0.0, 1.0);
+        }
+        _ => {}
+    }
 }
 
 /// Updates the [`ChromaticAberration`] settings per the [`AppSettings`].
 fn update_chromatic_aberration_settings(
     mut chromatic_aberration: Query<&mut ChromaticAberration>,
+    mut vignette: Query<&mut Vignette>,
+    mut lens_distortion: Query<&mut LensDistortion>,
     app_settings: Res<AppSettings>,
 ) {
     let intensity = app_settings.chromatic_aberration_intensity;
@@ -187,12 +249,66 @@ fn update_chromatic_aberration_settings(
         chromatic_aberration.intensity = intensity;
         chromatic_aberration.max_samples = max_samples;
     }
+
+    for mut vignette in &mut vignette {
+        vignette.intensity = app_settings.vignette_intensity;
+        vignette.radius = app_settings.vignette_radius;
+        vignette.smoothness = app_settings.vignette_smoothness;
+        vignette.roundness = app_settings.vignette_roundness;
+        vignette.edge_compensation = app_settings.vignette_edge_compensation;
+    }
+
+    for mut lens_distortion in &mut lens_distortion {
+        lens_distortion.intensity = app_settings.lens_distortion_intensity;
+        lens_distortion.multiplier.x = app_settings.lens_distortion_multiplier_x;
+        lens_distortion.multiplier.y = app_settings.lens_distortion_multiplier_y;
+    }
 }
 
 /// Updates the help text at the bottom of the screen to reflect the current
 /// [`AppSettings`].
-fn update_help_text(mut text: Query<&mut Text>, app_settings: Res<AppSettings>) {
-    for mut text in text.iter_mut() {
-        *text = create_help_text(&app_settings);
+fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>) {
+    text.clear();
+    let text_list = [
+        format!(
+            "Chromatic aberration intensity: {:.2}\n",
+            app_settings.chromatic_aberration_intensity
+        ),
+        format!(
+            "Vignette intensity: {:.2}\n",
+            app_settings.vignette_intensity
+        ),
+        format!("Vignette radius: {:.2}\n", app_settings.vignette_radius),
+        format!(
+            "Vignette smoothness: {:.2}\n",
+            app_settings.vignette_smoothness
+        ),
+        format!(
+            "Vignette roundness: {:.2}\n",
+            app_settings.vignette_roundness
+        ),
+        format!(
+            "Vignette edge_compensation: {:.2}\n",
+            app_settings.vignette_edge_compensation
+        ),
+        format!(
+            "Lens Distortion intensity: {:.2}\n",
+            app_settings.lens_distortion_intensity
+        ),
+        format!(
+            "Lens Distortion multiplier x: {:.2}\n",
+            app_settings.lens_distortion_multiplier_x
+        ),
+        format!(
+            "Lens Distortion multiplier y: {:.2}\n",
+            app_settings.lens_distortion_multiplier_y
+        ),
+    ];
+    for (i, val) in text_list.iter().enumerate() {
+        if i == app_settings.selected {
+            text.push_str("> ");
+        }
+        text.push_str(val);
     }
+    text.push_str("\n(Press Up or Down to select)\n(Press Left or Right to change)");
 }

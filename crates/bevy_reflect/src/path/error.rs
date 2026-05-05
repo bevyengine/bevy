@@ -1,7 +1,7 @@
 use core::fmt;
 
 use super::Access;
-use crate::{ReflectKind, VariantType};
+use crate::{enums::VariantType, ReflectKind};
 
 /// The kind of [`AccessError`], along with some kind-specific information.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -64,7 +64,7 @@ impl<'a> AccessError<'a> {
     }
 
     /// The returns the [`Access`] that this [`AccessError`] occurred in.
-    pub const fn access(&self) -> &Access {
+    pub const fn access(&self) -> &Access<'_> {
         &self.access
     }
 

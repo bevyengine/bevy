@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 
-use super::{IntoSystem, ReadOnlySystem, RunSystemError, System, SystemParamValidationError};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -162,23 +162,11 @@ where
         self.system.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.system.validate_param_unsafe(world) }
-    }
-
-    fn initialize(
-        &mut self,
-        world: &mut crate::prelude::World,
-    ) -> crate::query::FilteredAccessSet<crate::component::ComponentId> {
+    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::query::FilteredAccessSet {
         self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: crate::change_detection::CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
 
@@ -186,11 +174,11 @@ where
         self.system.default_system_sets()
     }
 
-    fn get_last_run(&self) -> crate::component::Tick {
+    fn get_last_run(&self) -> crate::change_detection::Tick {
         self.system.get_last_run()
     }
 
-    fn set_last_run(&mut self, last_run: crate::component::Tick) {
+    fn set_last_run(&mut self, last_run: crate::change_detection::Tick) {
         self.system.set_last_run(last_run);
     }
 }

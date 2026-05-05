@@ -1,6 +1,6 @@
 //! Module with schemas used for various BRP endpoints
 use bevy_ecs::{
-    reflect::{ReflectComponent, ReflectResource},
+    reflect::{ReflectComponent, ReflectEvent, ReflectResource},
     resource::Resource,
 };
 use bevy_platform::collections::HashMap;
@@ -29,6 +29,7 @@ impl Default for SchemaTypesMetadata {
         };
         data_types.map_type_data::<ReflectComponent>("Component");
         data_types.map_type_data::<ReflectResource>("Resource");
+        data_types.map_type_data::<ReflectEvent>("Event");
         data_types.map_type_data::<ReflectDefault>("Default");
         #[cfg(feature = "bevy_asset")]
         data_types.map_type_data::<bevy_asset::ReflectAsset>("Asset");

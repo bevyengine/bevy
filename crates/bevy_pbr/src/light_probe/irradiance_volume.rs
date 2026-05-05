@@ -134,7 +134,7 @@
 //! [Why ambient cubes?]: #why-ambient-cubes
 
 use bevy_image::Image;
-pub use bevy_light::IrradianceVolume;
+use bevy_light::IrradianceVolume;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -149,8 +149,8 @@ use core::{num::NonZero, ops::Deref};
 use bevy_asset::AssetId;
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,
-    MAX_VIEW_LIGHT_PROBES,
+    add_cubemap_texture_view, binding_arrays_are_usable, RenderLightProbeFlags,
+    RenderViewLightProbes, MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::LightProbeComponent;
@@ -253,22 +253,18 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
-        if let Some(irradiance_volumes) = render_view_irradiance_volumes {
-            if let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first() {
-                if irradiance_volume.texture_index >= 0 {
-                    if let Some(image_id) = irradiance_volumes
-                        .binding_index_to_textures
-                        .get(irradiance_volume.texture_index as usize)
-                    {
-                        if let Some(image) = images.get(*image_id) {
-                            return RenderViewIrradianceVolumeBindGroupEntries::Single {
-                                texture_view: &image.texture_view,
-                                sampler: &image.sampler,
-                            };
-                        }
-                    }
-                }
-            }
+        if let Some(irradiance_volumes) = render_view_irradiance_volumes
+            && let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first()
+            && irradiance_volume.texture_index >= 0
+            && let Some(image_id) = irradiance_volumes
+                .binding_index_to_textures
+                .get(irradiance_volume.texture_index as usize)
+            && let Some(image) = images.get(*image_id)
+        {
+            return RenderViewIrradianceVolumeBindGroupEntries::Single {
+                texture_view: &image.texture_view,
+                sampler: &image.sampler,
+            };
         }
 
         RenderViewIrradianceVolumeBindGroupEntries::Single {
@@ -304,6 +300,8 @@ impl LightProbeComponent for IrradianceVolume {
     // here.
     type ViewLightProbeInfo = ();
 
+    type QueryData = ();
+
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.voxels).is_none() {
             None
@@ -316,8 +314,12 @@ impl LightProbeComponent for IrradianceVolume {
         self.intensity
     }
 
-    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
-        self.affects_lightmapped_meshes
+    fn flags(&self, _: &Self::QueryData) -> RenderLightProbeFlags {
+        if self.affects_lightmapped_meshes {
+            RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE
+        } else {
+            RenderLightProbeFlags::empty()
+        }
     }
 
     fn create_render_view_light_probes(

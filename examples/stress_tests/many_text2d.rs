@@ -3,19 +3,20 @@
 use std::ops::RangeInclusive;
 
 use bevy::{
+    camera::visibility::NoFrustumCulling,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::view::NoFrustumCulling,
-    text::FontAtlasSets,
+    text::FontAtlasSet,
     window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
 
 use argh::FromArgs;
+use chacha20::ChaCha8Rng;
 use rand::{
-    seq::{IteratorRandom, SliceRandom},
-    Rng, SeedableRng,
+    seq::{IndexedRandom, IteratorRandom},
+    RngExt, SeedableRng,
 };
-use rand_chacha::ChaCha8Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -75,12 +76,13 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
         }),
     ))
+    .insert_resource(WinitSettings::continuous())
     .init_resource::<FontHandle>()
     .add_systems(Startup, setup)
     .add_systems(Update, (move_camera, print_counts));
@@ -122,16 +124,16 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.r#gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.r#gen::<f32>());
-            let scale = Vec3::splat(rng.r#gen::<f32>() * 2.0);
-            let color = Hsla::hsl(rng.gen_range(0.0..360.0), 0.8, 0.8);
+            let translation = (position * tile_size).extend(rng.random::<f32>());
+            let rotation = Quat::from_rotation_z(rng.random::<f32>());
+            let scale = Vec3::splat(rng.random::<f32>() * 2.0);
+            let color = Hsla::hsl(rng.random_range(0.0..360.0), 0.8, 0.8);
 
             text2ds.push((
                 Text2d(random_text(&mut rng, &args)),
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
-                TextLayout::new_with_justify(if args.center {
+                TextLayout::justify(if args.center {
                     Justify::Center
                 } else {
                     Justify::Left
@@ -168,39 +170,42 @@ fn print_counts(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
-    atlases: Res<FontAtlasSets>,
-    font: Res<FontHandle>,
+    font_atlas_set: Res<FontAtlasSet>,
+    images: Res<Assets<Image>>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
         return;
     }
 
-    let num_atlases = atlases
-        .get(font.0.id())
-        .map(|set| set.iter().map(|atlas| atlas.1.len()).sum())
-        .unwrap_or(0);
+    let num_atlases = font_atlas_set
+        .iter()
+        // Removed this filter for now as the keys no longer include the AssetIds
+        //        .filter(|(key, _)| key.0 == font_id)
+        .map(|(_, atlases)| atlases.len())
+        .sum::<usize>();
 
     let visible_texts = texts.iter().filter(|visibility| visibility.get()).count();
 
     info!(
-        "Texts: {} Visible: {} Atlases: {}",
+        "Texts: {} Visible: {} Atlases: {} Bytes: {}",
         texts.iter().count(),
         visible_texts,
-        num_atlases
+        num_atlases,
+        font_atlas_set.total_bytes(images.as_ref())
     );
 }
 
 fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> TextFont {
-    let font_size = if args.many_font_sizes {
+    let font_size = FontSize::Px(if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {
         60.0
-    };
+    });
 
     TextFont {
         font_size,
-        font,
+        font: font.into(),
         ..default()
     }
 }
@@ -214,7 +219,7 @@ fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
         .choose(rng)
         .unwrap()
         .clone()
-        .choose_multiple(rng, 4)
+        .sample(rng, 4)
         .into_iter()
         .map(|cp| char::from_u32(cp).unwrap())
         .collect::<String>()

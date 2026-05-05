@@ -1,29 +1,25 @@
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    renderer::RenderDevice,
-    view::{ViewTarget, ViewUniform},
+    view::ViewUniform,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 #[derive(Resource)]
 pub struct UiPipeline {
-    pub view_layout: BindGroupLayout,
-    pub image_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
+    pub image_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_ui_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -31,7 +27,7 @@ pub fn init_ui_pipeline(
         ),
     );
 
-    let image_layout = render_device.create_bind_group_layout(
+    let image_layout = BindGroupLayoutDescriptor::new(
         "ui_image_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -51,7 +47,7 @@ pub fn init_ui_pipeline(
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     pub anti_alias: bool,
 }
 
@@ -97,11 +93,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

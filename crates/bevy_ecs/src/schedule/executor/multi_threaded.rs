@@ -16,8 +16,7 @@ use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{
-        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
-        SystemWithAccess,
+        is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
     system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -149,10 +148,6 @@ impl Default for MultiThreadedExecutor {
 }
 
 impl SystemExecutor for MultiThreadedExecutor {
-    fn kind(&self) -> ExecutorKind {
-        ExecutorKind::MultiThreaded
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         let state = self.state.get_mut().unwrap();
         // pre-allocate space
@@ -448,12 +443,21 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        let hotpatch_tick = context
-            .environment
-            .world_cell
-            .get_resource_ref::<HotPatchChanges>()
-            .map(|r| r.last_changed())
-            .unwrap_or_default();
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "This actually could result in UB if a system tries to mutate
+            `HotPatchChanges`. We allow this as the resource only exists with the `hotpatching` feature.
+            and `hotpatching` should never be enabled in release."
+        )]
+        #[cfg(feature = "hotpatching")]
+        let hotpatch_tick = unsafe {
+            context
+                .environment
+                .world_cell
+                .get_resource_ref::<HotPatchChanges>()
+        }
+        .map(|r| r.last_changed())
+        .unwrap_or_default();
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
@@ -601,6 +605,8 @@ impl ExecutorState {
                     &mut conditions.set_conditions[set_idx],
                     world,
                     error_handler,
+                    system,
+                    true,
                 )
             };
 
@@ -622,6 +628,8 @@ impl ExecutorState {
                 &mut conditions.system_conditions[system_index],
                 world,
                 error_handler,
+                system,
+                false,
             )
         };
 
@@ -630,32 +638,6 @@ impl ExecutorState {
         }
 
         should_run &= system_conditions_met;
-
-        if should_run {
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the system.
-            let valid_params = match unsafe { system.validate_param_unsafe(world) } {
-                Ok(()) => true,
-                Err(e) => {
-                    if !e.skipped {
-                        error_handler(
-                            e.into(),
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                    false
-                }
-            };
-            if !valid_params {
-                self.skipped_systems.insert(system_index);
-            }
-
-            should_run &= valid_params;
-        }
 
         should_run
     }
@@ -826,6 +808,8 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
+    for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[expect(
         clippy::unnecessary_fold,
@@ -837,17 +821,7 @@ unsafe fn evaluate_and_fold_conditions(
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
-            unsafe { condition.validate_param_unsafe(world) }
-                .map_err(From::from)
-                .and_then(|()| {
-                    // SAFETY:
-                    // - The caller ensures that `world` has permission to read any data
-                    //   required by the condition.
-                    // - `update_archetype_component_access` has been called for condition.
-                    unsafe {
-                        __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
-                    }
-                })
+            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
                 .unwrap_or_else(|err| {
                     if let RunSystemError::Failed(err) = err {
                         error_handler(
@@ -855,6 +829,8 @@ unsafe fn evaluate_and_fold_conditions(
                             ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
+                                system: for_system.name(),
+                                on_set,
                             },
                         );
                     };
@@ -885,7 +861,7 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{ExecutorKind, IntoScheduleConfigs, Schedule},
+        schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::Commands,
         world::World,
     };
@@ -897,7 +873,7 @@ mod tests {
     fn skipped_systems_notify_dependents() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(
             (
                 (|| {}).run_if(|| false),
@@ -919,7 +895,7 @@ mod tests {
     fn check_spawn_exclusive_system_task_miri() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
     }

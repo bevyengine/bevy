@@ -2,21 +2,20 @@ use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d
 use crate::DUMMY_MESH_MATERIAL;
 use crate::{
     meshlet::asset::MeshletAabb, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform,
-    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, RenderMaterialBindings,
-    RenderMaterialInstances,
+    PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
+use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
-    event::EventReader,
+    message::MessageReader,
     query::Has,
     resource::Resource,
     system::{Local, Query, Res, ResMut, SystemState},
 };
+use bevy_light::{NotShadowCaster, NotShadowReceiver};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::{
-    render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
-};
+use bevy_render::{render_resource::StorageBuffer, sync_world::MainEntity, MainWorld};
 use bevy_transform::components::GlobalTransform;
 use core::ops::DerefMut;
 
@@ -111,8 +110,8 @@ impl InstanceManager {
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let transforms = MeshTransforms {
-            world_from_local: (&transform).into(),
-            previous_world_from_local: (&previous_transform).into(),
+            world_from_local: transform.into(),
+            previous_world_from_local: previous_transform.into(),
             flags: flags.bits(),
         };
 
@@ -131,6 +130,7 @@ impl InstanceManager {
             &transforms,
             0,
             mesh_material_binding_id.slot,
+            None,
             None,
             None,
             None,
@@ -208,7 +208,7 @@ pub fn extract_meshlet_mesh_entities(
                 )>,
                 Res<AssetServer>,
                 ResMut<Assets<MeshletMesh>>,
-                EventReader<AssetEvent<MeshletMesh>>,
+                MessageReader<AssetEvent<MeshletMesh>>,
             )>,
         >,
     >,
@@ -220,7 +220,7 @@ pub fn extract_meshlet_mesh_entities(
     }
     let system_state = system_state.as_mut().unwrap();
     let (instances_query, asset_server, mut assets, mut asset_events) =
-        system_state.get_mut(&mut main_world);
+        system_state.get_mut(&mut main_world).unwrap();
 
     // Reset per-frame data
     instance_manager.reset(render_entities);
@@ -282,16 +282,15 @@ pub fn queue_material_meshlet_meshes(
     let instance_manager = instance_manager.deref_mut();
 
     for (i, (instance, _, _)) in instance_manager.instances.iter().enumerate() {
-        if let Some(material_instance) = render_material_instances.instances.get(instance) {
-            if let Some(material_id) = instance_manager
+        if let Some(material_instance) = render_material_instances.instances.get(instance)
+            && let Some(material_id) = instance_manager
                 .material_id_lookup
                 .get(&material_instance.asset_id)
-            {
-                instance_manager
-                    .material_ids_present_in_scene
-                    .insert(*material_id);
-                instance_manager.instance_material_ids.get_mut()[i] = *material_id;
-            }
+        {
+            instance_manager
+                .material_ids_present_in_scene
+                .insert(*material_id);
+            instance_manager.instance_material_ids.get_mut()[i] = *material_id;
         }
     }
 }
