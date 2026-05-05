@@ -222,7 +222,7 @@ impl ManageAccessibilityUpdates {
 ///
 /// This behavior may or may not be intended, so please utilize
 /// `AccessibilityNode`s with care.
-#[derive(Component, Clone, Deref, DerefMut)]
+#[derive(Component, Clone, Deref, DerefMut, Default)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct AccessibilityNode(
     /// A representation of this component's entity to `AccessKit`.
@@ -257,10 +257,6 @@ pub enum AccessibilitySystems {
     /// Update the accessibility tree.
     Update,
 }
-
-/// Deprecated alias for [`AccessibilitySystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
-pub type AccessibilitySystem = AccessibilitySystems;
 
 /// Plugin managing integration with accessibility APIs.
 ///

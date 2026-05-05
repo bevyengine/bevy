@@ -365,10 +365,7 @@ pub(crate) enum ArchetypeMoveType {
     NewArchetypeSameTable { new_archetype: NonNull<Archetype> },
     /// If any [`table-stored`](StorageType::Table) components are being added,
     /// both the entity's archetype and table will change.
-    NewArchetypeNewTable {
-        new_archetype: NonNull<Archetype>,
-        new_table: NonNull<Table>,
-    },
+    NewArchetypeNewTable { new_archetype: NonNull<Archetype> },
 }
 
 /// Metadata for bundles. Stores a [`BundleInfo`] for each type of [`Bundle`] in a given world.
@@ -435,8 +432,7 @@ impl Bundles {
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids= Vec::new();
-            T::component_ids(components, &mut |id| component_ids.push(id));
+            let component_ids = T::component_ids(components).collect::<Vec<_>>();
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures:

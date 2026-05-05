@@ -5,8 +5,8 @@ use crate::{
         Buffer, BufferUsages, CommandEncoder, Extent3d, TexelCopyBufferLayout, Texture,
         TextureFormat,
     },
-    renderer::{render_system, RenderDevice},
-    storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+    renderer::RenderDevice,
+    storage::{GpuShaderBuffer, ShaderBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
@@ -15,7 +15,6 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
@@ -23,14 +22,15 @@ use bevy_ecs::{
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
+use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_log::warn;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
-use tracing::warn;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
 pub struct GpuReadbackPlugin {
@@ -61,9 +61,8 @@ impl Plugin for GpuReadbackPlugin {
                     Render,
                     (
                         prepare_buffers.in_set(RenderSystems::PrepareResources),
-                        map_buffers
-                            .after(render_system)
-                            .in_set(RenderSystems::Render),
+                        // TODO: this should be in the graph somehow
+                        map_buffers.in_set(RenderSystems::Cleanup),
                     ),
                 );
         }
@@ -74,11 +73,12 @@ impl Plugin for GpuReadbackPlugin {
 ///
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
 /// when complete. If this component is not removed, the readback will be attempted every frame
-#[derive(Component, ExtractComponent, Clone, Debug)]
+#[derive(Component, ExtractComponent, Clone, Debug, FromTemplate)]
 pub enum Readback {
+    #[default]
     Texture(Handle<Image>),
     Buffer {
-        buffer: Handle<ShaderStorageBuffer>,
+        buffer: Handle<ShaderBuffer>,
         start_offset_and_size: Option<(u64, u64)>,
     },
 }
@@ -90,7 +90,7 @@ impl Readback {
     }
 
     /// Create a readback component for a full buffer using the given handle.
-    pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
+    pub fn buffer(buffer: Handle<ShaderBuffer>) -> Self {
         Self::Buffer {
             buffer,
             start_offset_and_size: None,
@@ -99,7 +99,7 @@ impl Readback {
 
     /// Create a readback component for a buffer range using the given handle, a start offset in bytes
     /// and a number of bytes to read.
-    pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start_offset: u64, size: u64) -> Self {
+    pub fn buffer_range(buffer: Handle<ShaderBuffer>, start_offset: u64, size: u64) -> Self {
         Self::Buffer {
             buffer,
             start_offset_and_size: Some((start_offset, size)),
@@ -255,19 +255,23 @@ fn prepare_buffers(
     mut readbacks: ResMut<GpuReadbacks>,
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
     gpu_images: Res<RenderAssets<GpuImage>>,
-    ssbos: Res<RenderAssets<GpuShaderStorageBuffer>>,
+    ssbos: Res<RenderAssets<GpuShaderBuffer>>,
     handles: Query<(&MainEntity, &Readback)>,
 ) {
     for (entity, readback) in handles.iter() {
         match readback {
             Readback::Texture(image) => {
                 if let Some(gpu_image) = gpu_images.get(image)
-                    && let Ok(pixel_size) = gpu_image.texture_format.pixel_size()
+                    && let Ok(pixel_size) = gpu_image.texture_descriptor.format.pixel_size()
                 {
-                    let layout = layout_data(gpu_image.size, gpu_image.texture_format);
+                    let layout = layout_data(
+                        gpu_image.texture_descriptor.size,
+                        gpu_image.texture_descriptor.format,
+                    );
                     let buffer = buffer_pool.get(
                         &render_device,
-                        get_aligned_size(gpu_image.size, pixel_size as u32) as u64,
+                        get_aligned_size(gpu_image.texture_descriptor.size, pixel_size as u32)
+                            as u64,
                     );
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
@@ -275,7 +279,7 @@ fn prepare_buffers(
                         src: ReadbackSource::Texture {
                             texture: gpu_image.texture.clone(),
                             layout,
-                            size: gpu_image.size,
+                            size: gpu_image.texture_descriptor.size,
                         },
                         buffer,
                         rx,

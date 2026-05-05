@@ -27,7 +27,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
     ));
 
@@ -35,7 +35,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
