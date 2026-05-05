@@ -69,10 +69,11 @@ impl RenderAsset for GpuImage {
         let had_data = image.data.is_some();
         let texture = if let Some(prev) = previous_asset
             && prev.texture_descriptor == image.texture_descriptor
-            && prev
-                .texture_descriptor
-                .usage
-                .contains(TextureUsages::COPY_DST)
+            && (!had_data
+                || prev
+                    .texture_descriptor
+                    .usage
+                    .contains(TextureUsages::COPY_DST))
             && let Some(block_bytes) = image.texture_descriptor.format.block_copy_size(None)
         {
             if let Some(ref data) = image.data {

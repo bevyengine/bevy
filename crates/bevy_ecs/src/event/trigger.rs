@@ -344,7 +344,7 @@ pub struct EntityComponentsTrigger<'a> {
     pub components: &'a [ComponentId],
 
     /// The [`Archetype`] of the target entity before this change, or `None` if the entity was just spawned.
-    /// For observers that run before the change, like [`Replace`](crate::lifecycle::Replace) and [`Remove`](crate::lifecycle::Remove), this will be the current archetype.
+    /// For observers that run before the change, like [`Discard`](crate::lifecycle::Discard) and [`Remove`](crate::lifecycle::Remove), this will be the current archetype.
     ///
     /// This can be useful in [`Insert`](crate::lifecycle::Insert) and [`Add`](crate::lifecycle::Add) observers,
     /// since the old archetype will not include any other components added at the same time.
@@ -385,7 +385,7 @@ pub struct EntityComponentsTrigger<'a> {
     /// The [`Archetype`] of the target entity after this change, or `None` if the entity will be despawned.
     /// For observers that run after the change, like [`Insert`](crate::lifecycle::Insert) and [`Add`](crate::lifecycle::Add), this will be the current archetype.
     ///
-    /// This can be useful in [`Replace`](crate::lifecycle::Replace) and [`Remove`](crate::lifecycle::Remove) observers,
+    /// This can be useful in [`Discard`](crate::lifecycle::Discard) and [`Remove`](crate::lifecycle::Remove) observers,
     /// since the new archetype will not include any other components removed at the same time.
     ///
     /// Note that `None` should usually be treated the same as an archetype with no components,

@@ -54,6 +54,12 @@ impl Dir {
     }
 
     pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
+        self.insert_asset_internal(path, value.into());
+    }
+
+    // Implements `insert_asset`, but with a non-generic `value` parameter. This
+    // stops the function from being duplicated many times by monomorphization.
+    fn insert_asset_internal(&self, path: &Path, value: Value) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
@@ -65,7 +71,7 @@ impl Dir {
             .insert(
                 path.file_name().unwrap().to_string_lossy().into(),
                 Data {
-                    value: value.into(),
+                    value,
                     path: path.to_owned(),
                 },
             );
@@ -88,6 +94,11 @@ impl Dir {
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
+        self.insert_meta_internal(path, value.into());
+    }
+
+    // Implements `insert_meta` - see `insert_asset_internal` for rationale.
+    fn insert_meta_internal(&self, path: &Path, value: Value) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
@@ -99,7 +110,7 @@ impl Dir {
             .insert(
                 path.file_name().unwrap().to_string_lossy().into(),
                 Data {
-                    value: value.into(),
+                    value,
                     path: path.to_owned(),
                 },
             );

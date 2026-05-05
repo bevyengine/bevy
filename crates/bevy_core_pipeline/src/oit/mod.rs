@@ -3,6 +3,7 @@
 use bevy_app::prelude::*;
 use bevy_camera::Camera3d;
 use bevy_ecs::{component::*, prelude::*};
+use bevy_log::trace;
 use bevy_math::UVec2;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -19,11 +20,10 @@ use bevy_render::{
 };
 use bevy_shader::load_shader_library;
 use resolve::OitResolvePlugin;
-use tracing::trace;
 
 use crate::{
     core_3d::main_transparent_pass_3d,
-    oit::resolve::node::oit_resolve,
+    oit::resolve::{node::oit_resolve, OitResolvePipelineId},
     schedule::{Core3d, Core3dSystems},
 };
 
@@ -37,6 +37,7 @@ pub mod resolve;
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
 #[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType, Component)]
+#[extract_component_sync_target((Self, OrderIndependentTransparencySettingsOffset, OitResolvePipelineId))]
 #[reflect(Clone, Default)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many fragments will be exactly sorted.
@@ -99,7 +100,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages
+                        .in_set(RenderSystems::PrepareViews)
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             );
