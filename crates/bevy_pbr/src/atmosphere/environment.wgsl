@@ -5,7 +5,7 @@
     utils::sample_cube_dir
 }
 
-@group(0) @binding(16) var output: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(13) var output: texture_storage_2d_array<rgba16float, write>;
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -29,9 +29,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let world_pos = get_view_position();
     let r = length(world_pos);
-    let up = normalize(world_pos);
 
-    let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz, up);
+    let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
     let inscattering = sample_sky_view_lut(r, ray_dir_as);
     let color = vec4<f32>(inscattering, 1.0);
 

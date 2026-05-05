@@ -1,6 +1,6 @@
 //! Mechanism for specifying which corners of a widget are rounded, used for segmented buttons
 //! and control groups.
-use bevy_ui::{BorderRadius, Val};
+use bevy_ui::{px, BorderRadius, Val};
 
 /// Allows specifying which corners are rounded and which are sharp. All rounded corners
 /// have the same radius. Not all combinations are supported, only the ones that make
@@ -38,7 +38,7 @@ pub enum RoundedCorners {
 impl RoundedCorners {
     /// Convert the `RoundedCorners` to a `BorderRadius` for use in a `Node`.
     pub fn to_border_radius(&self, radius: f32) -> BorderRadius {
-        let radius = Val::Px(radius);
+        let radius = px(radius);
         let zero = Val::ZERO;
         match self {
             RoundedCorners::None => BorderRadius::all(zero),

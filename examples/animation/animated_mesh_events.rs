@@ -8,8 +8,8 @@ use bevy::{
     light::CascadeShadowConfigBuilder,
     prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
@@ -113,7 +113,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -125,7 +125,7 @@ fn setup(
     ));
 
     // Fox
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
     ));
 
@@ -155,7 +155,7 @@ fn setup_scene_once_loaded(
             AnimationNodeType::Clip(handle) => clips.get_mut(handle),
             _ => unreachable!(),
         };
-        clip.unwrap()
+        clip.unwrap().into_inner()
     }
 
     for (entity, mut player) in &mut players {
@@ -164,7 +164,7 @@ fn setup_scene_once_loaded(
         let graph = graphs.get(&animations.graph_handle).unwrap();
         let running_animation = get_clip(animations.index, graph, &mut clips);
 
-        // You can determine the time an event should trigger if you know witch frame it occurs and
+        // You can determine the time an event should trigger if you know which frame it occurs and
         // the frame rate of the animation. Let's say we want to trigger an event at frame 15,
         // and the animation has a frame rate of 24 fps, then time = 15 / 24 = 0.625.
         running_animation.add_event_to_target(feet.front_left, 0.625, Step);
