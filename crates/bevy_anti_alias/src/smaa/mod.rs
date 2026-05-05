@@ -41,15 +41,13 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    lifecycle::Remove,
-    observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image, ToExtents};
+use bevy_image::{Image, ToExtents};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -85,6 +83,13 @@ pub struct SmaaPlugin;
 /// for a [`bevy_camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
+#[extract_component_sync_target((
+	Self,
+	SmaaTextures,
+    SmaaPipelines,
+    SmaaBindGroups,
+    ViewSmaaPipelines,
+))]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
@@ -172,7 +177,7 @@ struct SmaaNeighborhoodBlendingPipeline {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SmaaNeighborhoodBlendingPipelineKey {
     /// The format of the framebuffer.
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     /// The quality preset.
     preset: SmaaPreset,
 }
@@ -330,17 +335,6 @@ impl Plugin for SmaaPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        // TODO: remove this manual cleanup when ExtractComponent gets support
-        // for cleanup of derived components
-        render_app.add_observer(|event: On<Remove, Smaa>, mut commands: Commands| {
-            commands.entity(event.entity).remove::<(
-                SmaaTextures,
-                SmaaPipelines,
-                SmaaBindGroups,
-                ViewSmaaPipelines,
-            )>();
-        });
 
         render_app
             .insert_resource(smaa_luts)
@@ -572,7 +566,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 shader_defs,
                 entry_point: Some("neighborhood_blending_fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -589,9 +583,9 @@ fn prepare_smaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
-    view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
+    cameras: Query<(Entity, &ExtractedView, &Smaa), With<ExtractedCamera>>,
 ) {
-    for (entity, view, smaa) in &view_targets {
+    for (entity, view, smaa) in &cameras {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
             &smaa_pipelines.edge_detection,
@@ -612,11 +606,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: if view.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    target_format: view.target_format,
                     preset: smaa.preset,
                 },
             );

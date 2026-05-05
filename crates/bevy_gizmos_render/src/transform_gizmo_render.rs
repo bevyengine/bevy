@@ -13,7 +13,7 @@ use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     hierarchy::ChildOf,
-    query::{With, Without},
+    query::{Or, With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -24,7 +24,10 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, Meshable};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    systems::propagate_transforms_for,
+};
 
 use bevy_gizmos::transform_gizmo::{
     TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMeshMarker,
@@ -86,7 +89,18 @@ impl Plugin for TransformGizmoRenderPlugin {
         )
         .add_systems(
             PostUpdate,
-            update_gizmo_meshes
+            (
+                update_gizmo_meshes,
+                propagate_transforms_for::<
+                    Or<(
+                        With<TransformGizmoRoot>,
+                        With<GizmoOverlayCamera>,
+                        With<TransformGizmoMeshMarker>,
+                    )>,
+                >
+                    .ambiguous_with_all(),
+            )
+                .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
                 .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
@@ -337,10 +351,14 @@ fn spawn_gizmo_meshes(
 
 fn update_gizmo_meshes(
     focus: Option<bevy_ecs::system::Single<&GlobalTransform, With<TransformGizmoFocus>>>,
-    marked_cameras: Query<(&Camera, &GlobalTransform), With<TransformGizmoCamera>>,
+    marked_cameras: Query<&GlobalTransform, (With<TransformGizmoCamera>, With<Camera>)>,
     all_cameras: Query<
-        (&Camera, &GlobalTransform),
-        (Without<GizmoOverlayCamera>, Without<TransformGizmoRoot>),
+        &GlobalTransform,
+        (
+            Without<GizmoOverlayCamera>,
+            Without<TransformGizmoRoot>,
+            With<Camera>,
+        ),
     >,
     settings: Option<Res<TransformGizmoSettings>>,
     state: Option<Res<TransformGizmoState>>,
@@ -380,7 +398,7 @@ fn update_gizmo_meshes(
         *root_vis = Visibility::Hidden;
         return;
     };
-    let Some((_, cam_tf)): Option<(&Camera, &GlobalTransform)> =
+    let Some(cam_tf): Option<&GlobalTransform> =
         bevy_gizmos::resolve_gizmo_camera!(marked_cameras, all_cameras)
     else {
         *root_vis = Visibility::Hidden;

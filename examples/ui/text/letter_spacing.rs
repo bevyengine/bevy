@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("letter spacing"),
                                 AnimatedLetterSpacing,
-                                TextLayout::new_with_justify(Justify::Left),
+                                TextLayout::justify(Justify::Left),
                                 TextFont {
                                     font: font.clone().into(),
                                     font_size: FontSize::Vh(6.0),
@@ -117,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("letter spacing"),
                                 AnimatedLetterSpacing,
-                                TextLayout::new_with_justify(Justify::Center),
+                                TextLayout::justify(Justify::Center),
                                 TextFont {
                                     font: font.clone().into(),
                                     font_size: FontSize::Vh(6.0),
@@ -151,7 +151,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("letter spacing"),
                                 AnimatedLetterSpacing,
-                                TextLayout::new_with_justify(Justify::Right),
+                                TextLayout::justify(Justify::Right),
                                 TextFont {
                                     font: font.clone().into(),
                                     font_size: FontSize::Vh(6.0),

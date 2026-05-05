@@ -1,8 +1,8 @@
 diff --git a/crates/bevy_audio/src/audio_output.rs b/crates/bevy_audio/src/audio_output.rs
-index 61493df00..4de2412fa 100644
+index 1b23ccee8..4de2412fa 100644
 --- a/crates/bevy_audio/src/audio_output.rs
 +++ b/crates/bevy_audio/src/audio_output.rs
-@@ -6,28 +6,17 @@ use bevy_asset::{Asset, Assets};
+@@ -6,32 +6,17 @@ use bevy_asset::{Asset, Assets};
  use bevy_ecs::{prelude::*, system::SystemParam};
  use bevy_math::Vec3;
  use bevy_transform::prelude::GlobalTransform;
@@ -24,6 +24,10 @@ index 61493df00..4de2412fa 100644
 -        let stream = DeviceSinkBuilder::open_default_sink()
 -            .inspect_err(|_err| {
 -                warn!("No audio device found.");
+-            })
+-            .map(|mut s| {
+-                s.log_on_drop(false);
+-                s
 -            })
 -            .ok();
 -        Self { stream }

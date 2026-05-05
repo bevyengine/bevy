@@ -3,12 +3,12 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::brdf
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::lighting::{F_AB, D_GGX, V_SmithGGXCorrelated, specular_multiscatter}
-#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter}
+#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
-#import bevy_render::maths::PI
+#import bevy_render::maths::{PI, orthonormalize}
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid}
-#import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD}
+#import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler}
 
 struct EvaluateAndSampleBrdfResult {
     wi: vec3<f32>,
@@ -19,7 +19,6 @@ struct EvaluateAndSampleBrdfResult {
 fn evaluate_and_sample_brdf(
     wo: vec3<f32>,
     world_normal: vec3<f32>,
-    world_tangent: vec4<f32>,
     material: ResolvedMaterial,
     rng: ptr<function, u32>,
 ) -> EvaluateAndSampleBrdfResult {
@@ -31,7 +30,7 @@ fn evaluate_and_sample_brdf(
     let diffuse_weight = mix(df, 0.0, material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
-    let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
+    let TBN = orthonormalize(world_normal);
     let T = TBN[0];
     let B = TBN[1];
     let N = TBN[2];
@@ -114,4 +113,9 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     return f0 + (1.0 - f0) * pow(1.0 - LdotH, 5.0);
+}
+
+// Scale/bias approximation
+fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
+    return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 }

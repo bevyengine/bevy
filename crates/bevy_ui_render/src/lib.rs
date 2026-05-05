@@ -8,10 +8,9 @@
 //! Provides rendering functionality for `bevy_ui`.
 
 pub mod box_shadow;
-mod color_space;
 mod gradient;
 mod pipeline;
-mod render_pass;
+pub mod render_pass;
 mod text;
 pub mod ui_material;
 mod ui_material_pipeline;
@@ -21,15 +20,17 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, Hdr, RenderTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
-    Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
+    ComputedUiTargetCamera, Display, Node, OuterColor, Outline, ResolvedBorderRadius,
+    UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -59,13 +60,12 @@ use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
-use color_space::ColorSpacePlugin;
 use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextColor, TextLayoutInfo, Underline, UnderlineColor,
+    TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -78,7 +78,7 @@ pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::shader_flags::INVERT;
-use crate::text::extract_text_cursor;
+use crate::text::{extract_preedit_underlines, extract_text_cursor};
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -111,10 +111,10 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
+    pub const TEXT_SELECTION: f32 = 0.055;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
-    pub const TEXT_SELECTION: f32 = 0.08;
-    pub const TEXT_CURSOR: f32 = 0.085;
+    pub const TEXT_CURSOR: f32 = 0.08;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -236,7 +236,9 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_ui_camera_view.in_set(RenderUiSystems::ExtractCameraViews),
+                    extract_ui_camera_view
+                        .after(extract_cameras)
+                        .in_set(RenderUiSystems::ExtractCameraViews),
                     extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
                     extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
                     extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
@@ -245,6 +247,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
+                    extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -267,7 +270,6 @@ impl Plugin for UiRenderPlugin {
             );
 
         app.add_plugins(UiTextureSlicerPlugin);
-        app.add_plugins(ColorSpacePlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }
@@ -389,6 +391,7 @@ pub fn extract_uinode_background_colors(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -404,6 +407,7 @@ pub fn extract_uinode_background_colors(
     for (
         entity,
         uinode,
+        stack_index,
         transform,
         inherited_visibility,
         clip,
@@ -428,7 +432,7 @@ pub fn extract_uinode_background_colors(
         if !background_color.is_fully_transparent() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
@@ -455,7 +459,7 @@ pub fn extract_uinode_background_colors(
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
@@ -487,6 +491,7 @@ pub fn extract_uinode_images(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -497,7 +502,9 @@ pub fn extract_uinode_images(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
+        &uinode_query
+    {
         let content_box = uinode.content_box();
         // Skip invisible images
         if !inherited_visibility.get()
@@ -543,7 +550,7 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
-            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
+            z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
@@ -570,8 +577,9 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            Option<&Node>,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -588,6 +596,7 @@ pub fn extract_uinode_borders(
         entity,
         node,
         computed_node,
+        stack_index,
         transform,
         inherited_visibility,
         maybe_clip,
@@ -596,7 +605,7 @@ pub fn extract_uinode_borders(
     ) in &uinode_query
     {
         // Skip invisible borders and removed nodes
-        if !inherited_visibility.get() || node.display == Display::None {
+        if !inherited_visibility.get() || node.is_some_and(|node| node.display == Display::None) {
             continue;
         }
 
@@ -642,7 +651,7 @@ pub fn extract_uinode_borders(
                 completed_flags |= border_flags;
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
                     extracted_camera_entity,
@@ -674,7 +683,7 @@ pub fn extract_uinode_borders(
         {
             let outline_size = computed_node.outlined_node_size();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 image,
                 clip: maybe_clip.map(|clip| clip.clip),
@@ -746,18 +755,18 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
-                Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
+    main_pass_formats: Res<CameraMainPassTextureFormats>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -767,7 +776,21 @@ pub fn extract_ui_camera_view(
             continue;
         }
 
-        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
+        if let (Some(physical_viewport_rect), Some(_viewport_size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) && target_size.x != 0
+            && target_size.y != 0
+        {
+            let Some(target_format) = main_pass_formats.get(&render_entity).copied() else {
+                commands
+                    .get_entity(render_entity)
+                    .expect("Camera entity wasn't synced.")
+                    .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
+                continue;
+            };
+
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -793,7 +816,7 @@ pub fn extract_ui_camera_view(
                             UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                         ),
                         clip_from_world: None,
-                        hdr,
+                        target_format,
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),
@@ -835,6 +858,7 @@ pub fn extract_viewport_nodes(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -845,8 +869,16 @@ pub fn extract_viewport_nodes(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        stack_index,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        viewport_node,
+    ) in &uinode_query
     {
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -869,7 +901,7 @@ pub fn extract_viewport_nodes(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
-            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
+            z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
@@ -900,6 +932,7 @@ pub fn extract_text_sections(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -907,6 +940,8 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
+            Option<&TextScroll>,
+            Option<&TextCursorStyle>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -919,13 +954,16 @@ pub fn extract_text_sections(
     for (
         entity,
         uinode,
-        transform,
+        stack_index,
+        global_transform,
         inherited_visibility,
-        clip,
+        maybe_clip,
         camera,
         computed_block,
         text_color,
         text_layout_info,
+        text_scroll,
+        cursor_style,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -937,10 +975,27 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform =
-            Affine2::from(*transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(*global_transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
+
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                global_transform.affine().translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
 
         let mut color = text_color.0.to_linear();
+
+        let selected_text_color = cursor_style
+            .and_then(|cursor_style| cursor_style.selected_text_color)
+            .map(|selected_text_color| selected_text_color.to_linear());
 
         let mut current_section_index = 0;
 
@@ -967,6 +1022,23 @@ pub fn extract_text_sections(
                 current_section_index = *section_index;
             }
 
+            let color = if !atlas_info.is_alpha_mask {
+                LinearRgba::WHITE
+            } else if let Some(selected_text_color) = selected_text_color
+                && text_layout_info
+                    .selection_rects
+                    .iter()
+                    .any(|selection_rect| {
+                        let glyph_rect = Rect::from_center_size(*position, atlas_info.rect.size());
+                        selection_rect.contains(glyph_rect.min)
+                            && selection_rect.contains(glyph_rect.max)
+                    })
+            {
+                selected_text_color
+            } else {
+                color
+            };
+
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 translation: *position,
@@ -979,10 +1051,10 @@ pub fn extract_text_sections(
                 .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
             {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
@@ -1003,6 +1075,7 @@ pub fn extract_text_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &ComputedUiTargetCamera,
             &InheritedVisibility,
@@ -1010,6 +1083,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
+            Option<&TextScroll>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1022,13 +1096,15 @@ pub fn extract_text_shadows(
     for (
         entity,
         uinode,
-        transform,
+        stack_index,
+        global_transform,
         target,
         inherited_visibility,
-        clip,
+        maybe_clip,
         text_layout_info,
         shadow,
         computed_block,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1040,10 +1116,22 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let node_transform = Affine2::from(*transform)
+        let node_transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor(),
+                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor()
+                    - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
+
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                global_transform.affine().translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
 
         for (
             i,
@@ -1067,10 +1155,10 @@ pub fn extract_text_shadows(
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
@@ -1096,9 +1184,9 @@ pub fn extract_text_shadows(
 
             if has_strikethrough {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: node_transform
@@ -1122,9 +1210,9 @@ pub fn extract_text_shadows(
 
             if has_underline {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: node_transform * Affine2::from_translation(run.underline_position()),
@@ -1155,12 +1243,14 @@ pub fn extract_text_decorations(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &ComputedTextBlock,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
+            Option<&TextScroll>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1177,12 +1267,14 @@ pub fn extract_text_decorations(
     for (
         entity,
         uinode,
+        stack_index,
         computed_block,
         global_transform,
         inherited_visibility,
-        clip,
+        maybe_clip,
         camera,
         text_layout_info,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1194,8 +1286,21 @@ pub fn extract_text_decorations(
             continue;
         };
 
-        let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(global_transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
+
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                global_transform.affine().translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
 
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
@@ -1217,9 +1322,9 @@ pub fn extract_text_decorations(
 
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(run.bounds.center()),
@@ -1247,9 +1352,9 @@ pub fn extract_text_decorations(
                     .to_linear();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(run.strikethrough_position()),
@@ -1277,9 +1382,9 @@ pub fn extract_text_decorations(
                     .to_linear();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(run.underline_position()),
@@ -1416,7 +1521,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );

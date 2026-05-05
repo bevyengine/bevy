@@ -17,7 +17,7 @@ use bevy::{
             BrpQuery, BrpQueryFilter, BrpQueryParams, BrpWriteMessageParams, ComponentSelector,
             BRP_QUERY_METHOD, BRP_WRITE_MESSAGE_METHOD,
         },
-        http::{DEFAULT_ADDR, DEFAULT_PORT},
+        http::{DEFAULT_ADDR, DEFAULT_PORT, DEFAULT_RENDER_PORT},
         BrpRequest,
     },
     transform::components::Transform,
@@ -40,6 +40,14 @@ fn main() -> AnyhowResult<()> {
     // This request will return all entities in the app, their components, and their
     // component values.
     run_query_all_components_and_entities(&url)?;
+
+    // Run again against the render port
+    let host_part2 = format!("{DEFAULT_ADDR}:{DEFAULT_RENDER_PORT}");
+    let url2 = format!("http://{host_part2}/");
+
+    run_transform_only_query(&url2)?;
+    run_query_root_entities(&url2)?;
+    run_query_all_components_and_entities(&url2)?;
 
     // Send an `AppExit::Success` message to the app to the remote Bevy app.
     // This will make it quit.

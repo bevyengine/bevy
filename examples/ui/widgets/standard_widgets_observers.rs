@@ -6,28 +6,20 @@
 
 use bevy::{
     color::palettes::basic::*,
-    input_focus::{
-        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         checkbox_self_update, observe, Activate, Button, Checkbox, Slider, SliderRange,
-        SliderThumb, SliderValue, UiWidgetsPlugins, ValueChange,
+        SliderThumb, SliderValue, ValueChange,
     },
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            UiWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
         .add_systems(Startup, setup)
         .add_observer(button_on_interaction::<Add, Pressed>)

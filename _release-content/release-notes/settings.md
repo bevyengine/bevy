@@ -1,7 +1,7 @@
 ---
 title: "User settings"
-authors: ["@viridia"]
-pull_requests: [23034]
+authors: ["@viridia", "@mpowell90"]
+pull_requests: [23034, 23719, 23812]
 ---
 
 The new `bevy_settings` crate provides a framework for user settings and persistent preferences.
@@ -20,3 +20,5 @@ Preferences are defined using `bevy_reflect` annotations, and are automatically 
 resources when the settings framework starts up.
 
 See the `examples/app/persisting_preferences` for a simple example of how to use the framework.
+
+A special thanks to Andhrimnir (@tecbeast42) for giving Bevy ownership of the `bevy_settings` crate name.
