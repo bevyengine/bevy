@@ -1,16 +1,14 @@
 //! A shader that uses the WESL shading language.
 
 use bevy::{
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshVertexBufferLayoutRef,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderDefVal, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::{ShaderDefVal, ShaderRef},
 };
 
 /// This example uses shader source files from the assets subdirectory
@@ -79,7 +77,7 @@ fn update(
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     for (material, mut transform) in query.iter_mut() {
-        let material = materials.get_mut(material).unwrap();
+        let mut material = materials.get_mut(material).unwrap();
         material.time.x = time.elapsed_secs();
         if keys.just_pressed(KeyCode::Space) {
             material.party_mode = !material.party_mode;
@@ -95,13 +93,14 @@ fn update(
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
-    // Needed for 16 bit alignment in WebGL2
+    // Needed for 16 byte alignment on WebGL2
     #[uniform(0)]
     time: Vec4,
     party_mode: bool,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[repr(C)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct CustomMaterialKey {
     party_mode: bool,
 }
@@ -120,7 +119,7 @@ impl Material for CustomMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,

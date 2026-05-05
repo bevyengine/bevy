@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -46,9 +46,12 @@ pub mod prelude {
         commands::BuildChildrenTransformExt,
         helper::TransformHelper,
         plugins::{TransformPlugin, TransformSystems},
+        systems::StaticTransformOptimizations,
         traits::TransformPoint,
     };
 }
 
 #[cfg(feature = "bevy-support")]
-pub use prelude::{TransformPlugin, TransformPoint, TransformSystems};
+pub use prelude::{
+    StaticTransformOptimizations, TransformPlugin, TransformPoint, TransformSystems,
+};

@@ -7,9 +7,9 @@ use bevy_ecs::{
     query::QueryFilter,
     world::World,
 };
+use chacha20::ChaCha8Rng;
 use criterion::{criterion_group, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 
 criterion_group!(
     benches,
@@ -49,6 +49,7 @@ impl BenchModify for Table {
         black_box(self.0)
     }
 }
+
 impl BenchModify for Sparse {
     fn bench_modify(&mut self) -> f32 {
         self.0 += 1f32;

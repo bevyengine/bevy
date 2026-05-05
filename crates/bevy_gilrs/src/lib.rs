@@ -1,8 +1,8 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Systems and type definitions for gamepad handling in Bevy.
@@ -15,7 +15,7 @@ mod gilrs_system;
 mod rumble;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 
 #[cfg(target_arch = "wasm32")]
 use core::cell::RefCell;
@@ -39,7 +39,7 @@ thread_local! {
     /// `NonSendMut` parameter, which told Bevy that the system was `!Send`, but now with the removal of `!Send`
     /// resource/system parameter usage, there is no internal guarantee that the system will run in only one thread, so
     /// we need to rely on the platform to make such a guarantee.
-    static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
+    pub static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
 }
 
 #[derive(Resource)]
@@ -47,6 +47,7 @@ pub(crate) struct Gilrs {
     #[cfg(not(target_arch = "wasm32"))]
     cell: SyncCell<gilrs::Gilrs>,
 }
+
 impl Gilrs {
     #[inline]
     pub fn with(&mut self, f: impl FnOnce(&mut gilrs::Gilrs)) {
@@ -85,10 +86,6 @@ pub struct GilrsPlugin;
 /// Updates the running gamepad rumble effects.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct RumbleSystems;
-
-/// Deprecated alias for [`RumbleSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RumbleSystems`.")]
-pub type RumbleSystem = RumbleSystems;
 
 impl Plugin for GilrsPlugin {
     fn build(&self, app: &mut App) {

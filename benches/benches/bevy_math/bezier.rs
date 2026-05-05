@@ -32,7 +32,7 @@ fn segment_ease(c: &mut Criterion) {
 
 fn curve_position(c: &mut Criterion) {
     /// A helper function that benchmarks calling [`CubicCurve::position()`] over a generic [`VectorSpace`].
-    fn bench_curve<M: Measurement, P: VectorSpace>(
+    fn bench_curve<M: Measurement, P: VectorSpace<Scalar = f32>>(
         group: &mut BenchmarkGroup<M>,
         name: &str,
         curve: CubicCurve<P>,

@@ -3,7 +3,7 @@
 #else
 @group(0) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r32uint, write>;
 #endif
-var<push_constant> view_size: vec2<u32>;
+var<immediate> view_size: vec2<u32>;
 
 @compute
 @workgroup_size(16, 16, 1)

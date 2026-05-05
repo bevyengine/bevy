@@ -6,9 +6,9 @@
 }
 
 // Maximum of 8 bits available
-const DEFERRED_FLAGS_UNLIT_BIT: u32                 = 1u;
-const DEFERRED_FLAGS_FOG_ENABLED_BIT: u32           = 2u;
-const DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT: u32  = 4u;
+const DEFERRED_FLAGS_UNLIT_BIT: u32                 = 1u << 0u;
+const DEFERRED_FLAGS_FOG_ENABLED_BIT: u32           = 1u << 1u;
+const DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT: u32  = 1u << 2u;
 
 fn deferred_flags_from_mesh_material_flags(mesh_flags: u32, mat_flags: u32) -> u32 {
     var flags = 0u;
