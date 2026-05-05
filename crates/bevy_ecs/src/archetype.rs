@@ -25,6 +25,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::Event,
     observer::Observers,
+    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -53,11 +54,6 @@ pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 pub struct ArchetypeRow(NonMaxU32);
 
 impl ArchetypeRow {
-    /// Index indicating an invalid archetype row.
-    /// This is meant to be used as a placeholder.
-    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
-    pub const INVALID: ArchetypeRow = ArchetypeRow(NonMaxU32::MAX);
-
     /// Creates a `ArchetypeRow`.
     #[inline]
     pub const fn new(index: NonMaxU32) -> Self {
@@ -94,10 +90,6 @@ pub struct ArchetypeId(u32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    /// # Safety:
-    ///
-    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
-    pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     /// Create an `ArchetypeId` from a plain value.
     ///
@@ -142,24 +134,27 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
-    /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
-    pub(crate) added: Box<[ComponentId]>,
-    /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
-    /// Required Components.
-    pub(crate) existing: Box<[ComponentId]>,
+    /// The components inserted by this bundle, with added components before existing ones.
+    /// Added components includes any Required Components that are inserted when adding this bundle,
+    /// but existing components only includes ones explicitly contributed by this bundle.
+    inserted: Box<[ComponentId]>,
+    /// The number of components added by this bundle, including Required Components.
+    added_len: usize,
 }
 
 impl ArchetypeAfterBundleInsert {
-    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.added.iter().chain(self.existing.iter()).copied()
+    pub(crate) fn inserted(&self) -> &[ComponentId] {
+        &self.inserted
     }
 
-    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.added.iter().copied()
+    pub(crate) fn added(&self) -> &[ComponentId] {
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(..self.added_len).debug_checked_unwrap() }
     }
 
-    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.existing.iter().copied()
+    pub(crate) fn existing(&self) -> &[ComponentId] {
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(self.added_len..).debug_checked_unwrap() }
     }
 }
 
@@ -244,17 +239,21 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
-        added: impl Into<Box<[ComponentId]>>,
-        existing: impl Into<Box<[ComponentId]>>,
+        mut added: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
     ) {
+        let added_len = added.len();
+        // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
+        added.reserve_exact(existing.len());
+        added.extend(existing);
         self.insert_bundle.insert(
             bundle_id,
             ArchetypeAfterBundleInsert {
                 archetype_id,
                 bundle_status: bundle_status.into(),
                 required_components: required_components.into(),
-                added: added.into(),
-                existing: existing.into(),
+                added_len,
+                inserted: added.into(),
             },
         );
     }
@@ -364,12 +363,12 @@ bitflags::bitflags! {
     pub(crate) struct ArchetypeFlags: u32 {
         const ON_ADD_HOOK    = (1 << 0);
         const ON_INSERT_HOOK = (1 << 1);
-        const ON_REPLACE_HOOK = (1 << 2);
+        const ON_DISCARD_HOOK = (1 << 2);
         const ON_REMOVE_HOOK = (1 << 3);
         const ON_DESPAWN_HOOK = (1 << 4);
         const ON_ADD_OBSERVER = (1 << 5);
         const ON_INSERT_OBSERVER = (1 << 6);
-        const ON_REPLACE_OBSERVER = (1 << 7);
+        const ON_DISCARD_OBSERVER = (1 << 7);
         const ON_REMOVE_OBSERVER = (1 << 8);
         const ON_DESPAWN_OBSERVER = (1 << 9);
     }
@@ -681,10 +680,10 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
-    /// Returns true if any of the components in this archetype have `on_replace` hooks
+    /// Returns true if any of the components in this archetype have `on_discard` hooks
     #[inline]
-    pub fn has_replace_hook(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::ON_REPLACE_HOOK)
+    pub fn has_discard_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DISCARD_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_remove` hooks
@@ -715,12 +714,12 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`Replace`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Discard`] observer
     ///
-    /// [`Replace`]: crate::lifecycle::Replace
+    /// [`Discard`]: crate::lifecycle::Discard
     #[inline]
-    pub fn has_replace_observer(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
+    pub fn has_discard_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DISCARD_OBSERVER)
     }
 
     /// Returns true if any of the components in this archetype have at least one [`Remove`] observer
@@ -857,21 +856,32 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// # Panics
+    /// Tries to fetch mutable references to two disjoint archetypes.
     ///
-    /// Panics if `a` and `b` are equal.
+    /// Returns `(&mut Archetype, None)` if the same [`ArchetypeId`] was provided twice.
+    ///
+    /// # Safety
+    /// - Both [`ArchetypeId`]s must be valid for this [`Archetypes`].
     #[inline]
-    pub(crate) fn get_2_mut(
+    pub(crate) unsafe fn get_maybe_disjoint_mut(
         &mut self,
-        a: ArchetypeId,
-        b: ArchetypeId,
-    ) -> (&mut Archetype, &mut Archetype) {
-        if a.index() > b.index() {
-            let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
-            (&mut a_slice[0], &mut b_slice[b.index()])
+        id_a: ArchetypeId,
+        id_b: ArchetypeId,
+    ) -> (&mut Archetype, Option<&mut Archetype>) {
+        if id_a == id_b {
+            // SAFETY:
+            // - The caller ensures `id_a` is in-bounds.
+            let archetype_a = unsafe { self.archetypes.get_unchecked_mut(id_a.index()) };
+            (archetype_a, None)
         } else {
-            let (a_slice, b_slice) = self.archetypes.split_at_mut(b.index());
-            (&mut a_slice[a.index()], &mut b_slice[0])
+            // SAFETY:
+            // - `id_a` and `id_b` do not overlap in this branch.
+            // - The caller ensures `id_a` and `id_b` are in-bounds.
+            let [archetype_a, archetype_b] = unsafe {
+                self.archetypes
+                    .get_disjoint_unchecked_mut([id_a.index(), id_b.index()])
+            };
+            (archetype_a, Some(archetype_b))
         }
     }
 
@@ -937,7 +947,7 @@ impl Archetypes {
     }
 
     /// Get the component index
-    pub(crate) fn component_index(&self) -> &ComponentIndex {
+    pub fn component_index(&self) -> &ComponentIndex {
         &self.by_component
     }
 

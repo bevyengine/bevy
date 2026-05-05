@@ -600,13 +600,13 @@ pub trait TypedFunction<Marker> {
 
 /// Helper macro for implementing [`TypedFunction`] on Rust functions.
 ///
-/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
-/// - `FnMut(arg0, arg1, ..., argN) -> R`
-/// - `FnMut(&Receiver, arg0, arg1, ..., argN) -> &R`
-/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
-/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &R`
+/// This currently implements it for the following signatures (where `ArgX` may be any of `T`, `&T`, or `&mut T`):
+/// - `FnMut(Arg0, Arg1, ..., ArgN) -> R`
+/// - `FnMut(&Receiver, Arg0, Arg1, ..., ArgN) -> &R`
+/// - `FnMut(&mut Receiver, Arg0, Arg1, ..., ArgN) -> &mut R`
+/// - `FnMut(&mut Receiver, Arg0, Arg1, ..., ArgN) -> &R`
 macro_rules! impl_typed_function {
-    ($(($Arg:ident, $arg:ident)),*) => {
+    ($($Arg:ident),*) => {
         // === (...) -> ReturnType === //
         impl<$($Arg,)* ReturnType, Function> TypedFunction<fn($($Arg),*) -> [ReturnType]> for Function
         where
@@ -711,7 +711,7 @@ macro_rules! impl_typed_function {
     };
 }
 
-all_tuples!(impl_typed_function, 0, 15, Arg, arg);
+all_tuples!(impl_typed_function, 0, 15, Arg);
 
 /// Helper function for creating [`FunctionInfo`] with the proper name value.
 ///

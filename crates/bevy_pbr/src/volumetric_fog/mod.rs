@@ -31,9 +31,9 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, Assets, Handle};
-use bevy_core_pipeline::core_3d::{
-    graph::{Core3d, Node3d},
-    prepare_core_3d_depth_textures,
+use bevy_core_pipeline::{
+    core_3d::prepare_core_3d_depth_textures,
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{resource::Resource, schedule::IntoScheduleConfigs as _};
 use bevy_light::FogVolume;
@@ -43,14 +43,13 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::SpecializedRenderPipelines,
-    sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    sync_component::{SyncComponent, SyncComponentPlugin},
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use render::{VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer};
+use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::{graph::NodePbr, volumetric_fog::render::init_volumetric_fog_pipeline};
+use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSystems};
 
 pub mod render;
 
@@ -71,7 +70,7 @@ impl Plugin for VolumetricFogPlugin {
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
         let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
-        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
+        app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -82,9 +81,12 @@ impl Plugin for VolumetricFogPlugin {
                 plane_mesh,
                 cube_mesh,
             })
-            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
-            .init_resource::<VolumetricFogUniformBuffer>()
-            .add_systems(RenderStartup, init_volumetric_fog_pipeline)
+            .init_gpu_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
+            .init_gpu_resource::<VolumetricFogUniformBuffer>()
+            .add_systems(
+                RenderStartup,
+                init_volumetric_fog_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
                 Render,
@@ -96,19 +98,15 @@ impl Plugin for VolumetricFogPlugin {
                         .before(prepare_core_3d_depth_textures),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<VolumetricFogNode>>(
+            .add_systems(
                 Core3d,
-                NodePbr::VolumetricFog,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                // Volumetric fog should run after the main pass but before bloom, so
-                // we order if at the start of post processing.
-                (
-                    Node3d::EndMainPass,
-                    NodePbr::VolumetricFog,
-                    Node3d::StartMainPassPostProcessing,
-                ),
+                volumetric_fog
+                    .after(Core3dSystems::MainPass)
+                    .before(Core3dSystems::EarlyPostProcess),
             );
     }
+}
+
+impl SyncComponent<VolumetricFogPlugin> for FogVolume {
+    type Target = Self;
 }

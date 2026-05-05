@@ -78,12 +78,12 @@ fn main() {
             parameters.push(&features_string);
         }
 
-        let profile = if cli.debug {
-            "debug"
+        let (profile, out_dir) = if cli.debug {
+            ("dev", "debug")
         } else if cli.optimize_size {
-            "wasm-release"
+            ("wasm-release", "wasm-release")
         } else {
-            "release"
+            ("release", "release")
         };
 
         let cmd = cmd!(
@@ -96,7 +96,7 @@ fn main() {
 
         cmd!(
             sh,
-            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/{profile}/examples/{example}.wasm"
+            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/{out_dir}/examples/{example}.wasm"
         )
         .run()
         .expect("Error creating wasm binding");

@@ -46,16 +46,6 @@ fn deserialize(type_registry: Res<AppTypeRegistry>) {
     // If Player implemented additional functionality, like Component,
     // this reflect_value could be used with commands.insert_reflect
     info!(?reflect_value);
-
-    // `FromReflect` and `ReflectFromReflect` can yield a concrete value.
-    let type_id = reflect_value.get_represented_type_info().unwrap().type_id();
-    let reflect_from_reflect = type_registry
-        .get_type_data::<ReflectFromReflect>(type_id)
-        .unwrap();
-    let player: Box<dyn Reflect> = reflect_from_reflect
-        .from_reflect(reflect_value.as_partial_reflect())
-        .unwrap();
-    info!(?player);
 }
 
 fn serialize(type_registry: Res<AppTypeRegistry>) {
