@@ -1,5 +1,5 @@
 use alloc::{
-    collections::{BinaryHeap, VecDeque},
+    collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque},
     vec::Vec,
 };
 use core::{
@@ -330,6 +330,42 @@ impl<K: Hash + Eq, S: BuildHasher> ClearableCollection for HashSet<K, S> {
 
     fn shrink_to(&mut self, capacity: usize) {
         HashSet::shrink_to(self, capacity);
+    }
+}
+
+impl<I> ClearableCollection for LinkedList<I> {
+    fn capacity(&self) -> usize {
+        0
+    }
+
+    fn shrink_to(&mut self, _: usize) {}
+
+    fn clear(&mut self) {
+        LinkedList::clear(self);
+    }
+}
+
+impl<K, V> ClearableCollection for BTreeMap<K, V> {
+    fn capacity(&self) -> usize {
+        0
+    }
+
+    fn shrink_to(&mut self, _: usize) {}
+
+    fn clear(&mut self) {
+        BTreeMap::clear(self);
+    }
+}
+
+impl<I> ClearableCollection for BTreeSet<I> {
+    fn capacity(&self) -> usize {
+        0
+    }
+
+    fn shrink_to(&mut self, _: usize) {}
+
+    fn clear(&mut self) {
+        BTreeSet::clear(self);
     }
 }
 
