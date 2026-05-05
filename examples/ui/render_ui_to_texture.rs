@@ -67,9 +67,9 @@ fn setup(
             Camera {
                 // render before the "main pass" camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 
@@ -92,11 +92,11 @@ fn setup(
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        width: Val::Auto,
-                        height: Val::Auto,
+                        width: auto(),
+                        height: auto(),
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(20.)),
-                        border_radius: BorderRadius::all(Val::Px(10.)),
+                        padding: UiRect::all(px(20.)),
+                        border_radius: BorderRadius::all(px(10.)),
                         ..default()
                     },
                     BackgroundColor(BLUE.into()),
@@ -104,9 +104,8 @@ fn setup(
                 .observe(
                     |drag: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
                         let (mut node, computed) = nodes.get_mut(drag.entity).unwrap();
-                        node.left =
-                            Val::Px(drag.pointer_location.position.x - computed.size.x / 2.0);
-                        node.top = Val::Px(drag.pointer_location.position.y - 50.0);
+                        node.left = px(drag.pointer_location.position.x - computed.size.x / 2.0);
+                        node.top = px(drag.pointer_location.position.y - 50.0);
                     },
                 )
                 .observe(
@@ -123,7 +122,7 @@ fn setup(
                     parent.spawn((
                         Text::new("Drag Me!"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: FontSize::Px(40.0),
                             ..default()
                         },
                         TextColor::WHITE,
@@ -176,7 +175,7 @@ fn drive_diegetic_pointer(
     mut raycast: MeshRayCast,
     rays: Res<RayMap>,
     cubes: Query<&Mesh3d, With<Cube>>,
-    ui_camera: Query<&Camera, With<Camera2d>>,
+    ui_camera: Query<&RenderTarget, With<Camera2d>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
@@ -188,7 +187,6 @@ fn drive_diegetic_pointer(
     // from 0 to 1, to pixel coordinates.
     let target = ui_camera
         .single()?
-        .target
         .normalize(primary_window.single().ok())
         .unwrap();
     let target_info = target

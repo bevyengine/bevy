@@ -3,7 +3,7 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
-    color::palettes::css::{DARK_CYAN, GOLD, GRAY, PURPLE},
+    color::palettes::css::{DARK_CYAN, GOLD, GRAY, ORANGE, PURPLE},
     prelude::*,
 };
 
@@ -26,10 +26,11 @@ fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
         LightGizmoColor::MatchLightColor => "Match light color".to_owned(),
         LightGizmoColor::ByLightType => {
             format!(
-                "Point {}, Spot {}, Directional {}",
+                "Point {}, Spot {}, Directional {}, Rect {}",
                 Srgba::from(config.point_light_color).to_hex(),
                 Srgba::from(config.spot_light_color).to_hex(),
-                Srgba::from(config.directional_light_color).to_hex()
+                Srgba::from(config.directional_light_color).to_hex(),
+                Srgba::from(config.rect_light_color).to_hex()
             )
         }
     }
@@ -65,7 +66,7 @@ fn setup(
     {
         commands.spawn((
             PointLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 range: 2.0,
                 color: DARK_CYAN.into(),
                 ..default()
@@ -74,7 +75,7 @@ fn setup(
         ));
         commands.spawn((
             SpotLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 range: 3.5,
                 color: PURPLE.into(),
                 outer_angle: PI / 4.0,
@@ -87,10 +88,20 @@ fn setup(
             DirectionalLight {
                 color: GOLD.into(),
                 illuminance: DirectionalLight::default().illuminance * 0.05,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
+        ));
+        commands.spawn((
+            RectLight {
+                color: ORANGE.into(),
+                intensity: 200_000.0,
+                width: 1.5,
+                height: 0.8,
+                range: 20.0,
+            },
+            Transform::from_xyz(0.0, 3.0, -3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
     }
 

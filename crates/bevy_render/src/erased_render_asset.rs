@@ -1,21 +1,21 @@
 use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSystems, Res,
+    RenderStartup, RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
 use bevy_ecs::{
-    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::render_asset::RenderAssetBytesPerFrameLimiter;
 use core::marker::PhantomData;
 use thiserror::Error;
-use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -125,7 +125,12 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<ErasedRenderAssets<A::ErasedAsset>>()
+                .allow_ambiguous_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
+                .add_systems(
+                    RenderStartup,
+                    collect_erased_render_assets_to_reextract::<A>,
+                )
                 .add_systems(
                     ExtractSchedule,
                     extract_erased_render_asset::<A>.in_set(AssetExtractionSystems),
@@ -239,19 +244,63 @@ impl<A: ErasedRenderAsset> FromWorld for CachedExtractErasedRenderAssetSystemSta
     }
 }
 
-/// This system extracts all created or modified assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
-/// into the "render world".
-pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
+/// Resource inserted during [`RenderStartup`] containing asset IDs that need
+/// re-extraction from the main world after device recovery.
+#[derive(Resource)]
+pub(crate) struct ErasedRenderAssetsToReExtract<A: ErasedRenderAsset> {
+    ids: Vec<AssetId<A::SourceAsset>>,
+}
+
+/// Drains all asset IDs from [`ErasedRenderAssets<A>`] to mark for re-extraction.
+fn collect_erased_render_assets_to_reextract<A: ErasedRenderAsset>(
     mut commands: Commands,
-    mut main_world: ResMut<MainWorld>,
+    mut render_assets: ResMut<ErasedRenderAssets<A::ErasedAsset>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
 ) {
+    let source_type_id = core::any::TypeId::of::<A::SourceAsset>();
+    // ErasedRenderAssets is shared across all material types that produce
+    // the same ErasedAsset type. Drain only the entries matching our SourceAsset.
+    let mut ids = Vec::new();
+    render_assets.0.retain(|untyped_id, _| {
+        if untyped_id.type_id() == source_type_id {
+            ids.push(untyped_id.typed());
+            false
+        } else {
+            true
+        }
+    });
+    prepare_next_frame.assets.clear();
+    if !ids.is_empty() {
+        commands.insert_resource(ErasedRenderAssetsToReExtract::<A> { ids });
+    }
+}
+
+/// Extracts all created or modified assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
+/// into the "render world", including any assets invalidated by device recovery.
+pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
+    mut to_reextract: Option<ResMut<ErasedRenderAssetsToReExtract<A>>>,
+    mut extracted_assets: ResMut<ExtractedAssets<A>>,
+    mut main_world: ResMut<MainWorld>,
+    mut needs_extracting: Local<HashSet<AssetId<A::SourceAsset>>>,
+) {
+    extracted_assets.extracted.clear();
+    extracted_assets.removed.clear();
+    extracted_assets.modified.clear();
+    extracted_assets.added.clear();
+    needs_extracting.clear();
+
+    let reextract_ids = to_reextract
+        .as_mut()
+        .map(|r| core::mem::take(&mut r.ids))
+        .filter(|ids| !ids.is_empty());
+
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets) = cached_state.state.get_mut(world).unwrap();
 
-            let mut needs_extracting = <HashSet<_>>::default();
-            let mut removed = <HashSet<_>>::default();
-            let mut modified = <HashSet<_>>::default();
+            if let Some(reextract_ids) = reextract_ids {
+                needs_extracting.extend(reextract_ids);
+            }
 
             for event in events.read() {
                 #[expect(
@@ -264,7 +313,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     }
                     AssetEvent::Modified { id } => {
                         needs_extracting.insert(*id);
-                        modified.insert(*id);
+                        extracted_assets.modified.insert(*id);
                     }
                     AssetEvent::Removed { .. } => {
                         // We don't care that the asset was removed from Assets<T> in the main world.
@@ -272,8 +321,8 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     }
                     AssetEvent::Unused { id } => {
                         needs_extracting.remove(id);
-                        modified.remove(id);
-                        removed.insert(*id);
+                        extracted_assets.modified.remove(id);
+                        extracted_assets.removed.insert(*id);
                     }
                     AssetEvent::LoadedWithDependencies { .. } => {
                         // TODO: handle this
@@ -281,31 +330,23 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                 }
             }
 
-            let mut extracted_assets = Vec::new();
-            let mut added = <HashSet<_>>::default();
             for id in needs_extracting.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
+                                extracted_assets.extracted.push((id, asset));
+                                extracted_assets.added.insert(id);
                             }
                         } else {
-                            extracted_assets.push((id, asset.clone()));
-                            added.insert(id);
+                            extracted_assets.extracted.push((id, asset.clone()));
+                            extracted_assets.added.insert(id);
                         }
                     }
                 }
             }
 
-            commands.insert_resource(ExtractedAssets::<A> {
-                extracted: extracted_assets,
-                removed,
-                modified,
-                added,
-            });
             cached_state.state.apply(world);
         },
     );
