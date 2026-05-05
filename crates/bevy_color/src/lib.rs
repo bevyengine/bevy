@@ -177,6 +177,7 @@ where
     Self: From<Oklcha> + Into<Oklcha>,
     Self: From<Xyza> + Into<Xyza>,
     Self: From<Okhsla> + Into<Okhsla>,
+    Self: From<Okhsva> + Into<Okhsva>,
     Self: Alpha,
 {
 }

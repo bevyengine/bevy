@@ -57,7 +57,7 @@ impl Okhsla {
         }
     }
 
-    /// Construct a new [`Hsla`] color from (h, s, l) components, with the default alpha (1.0).
+    /// Construct a new [`Okhsla`] color from (h, s, l) components, with the default alpha (1.0).
     ///
     /// # Arguments
     ///
@@ -93,7 +93,7 @@ impl Okhsla {
     /// let color = Hsla::sequential_dispersed(entity_index);
     ///
     /// // Palette with 5 distinct hues
-    /// let palette = (0..5).map(Hsla::sequential_dispersed).collect::<Vec<_>>();
+    /// let palette = (0..5).map(Okhsla::sequential_dispersed).collect::<Vec<_>>();
     /// ```
     pub const fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
