@@ -1,6 +1,7 @@
 ---
 title: Resources as Components
-pull_requests: [20934]
+authors: ["@Trashtalk", "@cart"]
+pull_requests: [20934, 22910, 22911, 22919, 22930]
 ---
 
 Resources are very similar to Components: they are both data that can be stored in the ECS and queried.
@@ -23,6 +24,6 @@ fn on_add_setting(add: On<Add, GlobalSetting>, query: Query<&LevelSetting>) {
 }
 ```
 
-The main drawbacks are twofold. First it's no longer to derive both `Component` and `Resource` for a struct.
-Secondly `ReflectResource` has been gutted, use `ReflectComponent` instead.
+The main drawbacks are twofold. First it's no longer possible to derive both `Component` and `Resource` for a struct.
+Secondly `ReflectResource` has been gutted, so use `ReflectComponent` instead.
 For more information, see the migration guide.

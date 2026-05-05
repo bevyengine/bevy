@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, Update};
+use bevy_app::{Plugin, PostUpdate};
 use bevy_ecs::{
     entity::Entity,
     query::{Added, Changed, Or},
@@ -18,7 +18,7 @@ use bevy_sprite::{prelude::SpriteMesh, Anchor};
 mod sprite_material;
 pub use sprite_material::*;
 
-use crate::MeshMaterial2d;
+use crate::{check_entities_needing_specialization, MeshMaterial2d};
 
 pub struct SpriteMeshPlugin;
 
@@ -26,7 +26,12 @@ impl Plugin for SpriteMeshPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(SpriteMaterialPlugin);
 
-        app.add_systems(Update, (add_mesh, add_material).chain());
+        app.add_systems(
+            PostUpdate,
+            (add_mesh, add_material)
+                .chain()
+                .before(check_entities_needing_specialization::<SpriteMaterial>),
+        );
     }
 }
 
