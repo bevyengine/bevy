@@ -1,7 +1,8 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
+    Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{MismatchedUnitsError, TryStableInterpolate};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use derive_more::derive::From;
@@ -42,7 +43,11 @@ use derive_more::derive::From;
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
 #[derive(Debug, Clone, Copy, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -161,6 +166,45 @@ impl Color {
             blue: blue as f32 / 255.0,
             alpha: 1.0,
         })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0.
+    ///
+    /// For example, a value of `0x000000` results in black, and a value of `0xff0000` results in red.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// let black = Color::srgb_u32(0x000000);
+    /// let red = Color::srgb_u32(0xff0000);
+    /// ```
+    pub fn srgb_u32(color: u32) -> Self {
+        Self::Srgba(Srgba::rgb(
+            ((color >> 16) & 0xff) as f32 / 255.,
+            ((color >> 8) & 0xff) as f32 / 255.,
+            (color & 0xff) as f32 / 255.,
+        ))
+    }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with the alpha value extracted from the input.
+    ///
+    /// For example, a value of `0x000000ff` results in black with full opacity, and a value of `0xff000080` results in red with half opacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// let black = Color::srgba_u32(0x000000ff);
+    /// let semi_transparent_red = Color::srgba_u32(0xff000080);
+    /// ```
+    pub fn srgba_u32(color: u32) -> Self {
+        Self::Srgba(Srgba::new(
+            ((color >> 24) & 0xff) as f32 / 255.,
+            ((color >> 16) & 0xff) as f32 / 255.,
+            ((color >> 8) & 0xff) as f32 / 255.,
+            (color & 0xff) as f32 / 255.,
+        ))
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
@@ -810,6 +854,44 @@ impl Hue for Color {
     }
 }
 
+impl Saturation for Color {
+    fn with_saturation(&self, saturation: f32) -> Self {
+        let mut new = *self;
+
+        match &mut new {
+            Color::Srgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::LinearRgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Hsla(x) => x.with_saturation(saturation).into(),
+            Color::Hsva(x) => x.with_saturation(saturation).into(),
+            Color::Hwba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Laba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Lcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklaba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Xyza(x) => Hsla::from(*x).with_saturation(saturation).into(),
+        }
+    }
+
+    fn saturation(&self) -> f32 {
+        match self {
+            Color::Srgba(x) => Hsla::from(*x).saturation(),
+            Color::LinearRgba(x) => Hsla::from(*x).saturation(),
+            Color::Hsla(x) => x.saturation(),
+            Color::Hsva(x) => x.saturation(),
+            Color::Hwba(x) => Hsla::from(*x).saturation(),
+            Color::Laba(x) => Hsla::from(*x).saturation(),
+            Color::Lcha(x) => Hsla::from(*x).saturation(),
+            Color::Oklaba(x) => Hsla::from(*x).saturation(),
+            Color::Oklcha(x) => Hsla::from(*x).saturation(),
+            Color::Xyza(x) => Hsla::from(*x).saturation(),
+        }
+    }
+
+    fn set_saturation(&mut self, saturation: f32) {
+        *self = self.with_saturation(saturation);
+    }
+}
+
 impl Mix for Color {
     fn mix(&self, other: &Self, factor: f32) -> Self {
         let mut new = *self;
@@ -844,6 +926,26 @@ impl EuclideanDistance for Color {
             Color::Oklaba(x) => x.distance_squared(&(*other).into()),
             Color::Oklcha(x) => x.distance_squared(&(*other).into()),
             Color::Xyza(x) => ChosenColorSpace::from(*x).distance_squared(&(*other).into()),
+        }
+    }
+}
+
+impl TryStableInterpolate for Color {
+    type Error = MismatchedUnitsError;
+
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Color::Srgba(a), Color::Srgba(b)) => Ok(Color::Srgba(a.mix(b, t))),
+            (Color::LinearRgba(a), Color::LinearRgba(b)) => Ok(Color::LinearRgba(a.mix(b, t))),
+            (Color::Hsla(a), Color::Hsla(b)) => Ok(Color::Hsla(a.mix(b, t))),
+            (Color::Hsva(a), Color::Hsva(b)) => Ok(Color::Hsva(a.mix(b, t))),
+            (Color::Hwba(a), Color::Hwba(b)) => Ok(Color::Hwba(a.mix(b, t))),
+            (Color::Laba(a), Color::Laba(b)) => Ok(Color::Laba(a.mix(b, t))),
+            (Color::Lcha(a), Color::Lcha(b)) => Ok(Color::Lcha(a.mix(b, t))),
+            (Color::Oklaba(a), Color::Oklaba(b)) => Ok(Color::Oklaba(a.mix(b, t))),
+            (Color::Oklcha(a), Color::Oklcha(b)) => Ok(Color::Oklcha(a.mix(b, t))),
+            (Color::Xyza(a), Color::Xyza(b)) => Ok(Color::Xyza(a.mix(b, t))),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }
