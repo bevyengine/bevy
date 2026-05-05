@@ -33,7 +33,9 @@ impl Column {
     /// Create a new [`Column`] with the given `capacity`.
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            // SAFETY: The components stored in this columns will match the information in `component_info`
+            // SAFETY:
+            // * The components stored in this columns will match the information in `component_info`
+            // * `ComponentInfo` ensures that `layout().size()` is a multiple of `layout().align()`
             data: unsafe {
                 BlobArray::with_capacity(component_info.layout(), component_info.drop(), capacity)
             },

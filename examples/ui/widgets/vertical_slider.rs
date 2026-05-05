@@ -5,7 +5,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
-        observe, slider_self_update, CoreSliderDragState, Slider, SliderRange, SliderThumb,
+        observe, slider_self_update, Slider, SliderDragState, SliderRange, SliderThumb,
         SliderValue, TrackClick,
     },
 };
@@ -257,14 +257,14 @@ fn update_slider_visuals(
             &SliderValue,
             &SliderRange,
             &Hovered,
-            &CoreSliderDragState,
+            &SliderDragState,
             Has<VerticalSlider>,
         ),
         (
             Or<(
                 Changed<SliderValue>,
                 Changed<Hovered>,
-                Changed<CoreSliderDragState>,
+                Changed<SliderDragState>,
             )>,
             With<DemoSlider>,
         ),

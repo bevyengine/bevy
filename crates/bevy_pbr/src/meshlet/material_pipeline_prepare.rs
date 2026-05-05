@@ -188,8 +188,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
 
             let layout = mesh_pipeline.get_view_layout(view_key.into());
             let layout = vec![
-                layout.main_layout.clone(),
-                layout.binding_array_layout.clone(),
+                layout.main_layout,
+                layout.binding_array_layout,
                 resource_manager.material_shade_bind_group_layout.clone(),
                 material
                     .properties
