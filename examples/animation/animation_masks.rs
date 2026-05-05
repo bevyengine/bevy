@@ -1,7 +1,7 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{AnimatedBy, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
@@ -105,7 +105,7 @@ fn main() {
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()
@@ -132,7 +132,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
@@ -140,7 +140,7 @@ fn setup_scene(
 
     // Spawn the fox.
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         Transform::from_scale(Vec3::splat(0.07)),
@@ -229,7 +229,7 @@ fn setup_ui(mut commands: Commands) {
 fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
     let button_text_style = (
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
         TextColor::WHITE,
@@ -268,7 +268,7 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                     } else {
                         selected_button_text_style.clone()
                     },
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     Node {
                         flex_grow: 1.0,
                         margin: UiRect::vertical(px(3)),
@@ -288,10 +288,10 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
             align_items: AlignItems::Center,
             padding: UiRect::ZERO,
             margin: UiRect::ZERO,
+            border_radius: BorderRadius::all(px(3)),
             ..default()
         },
         BorderColor::all(Color::WHITE),
-        BorderRadius::all(px(3)),
         BackgroundColor(Color::BLACK),
         children![
             (
@@ -342,7 +342,7 @@ fn setup_animation_graph_once_loaded(
     asset_server: Res<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(Entity, &AnimationTargetId)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
@@ -389,8 +389,11 @@ fn setup_animation_graph_once_loaded(
         // don't do that, those bones will play all animations at once, which is
         // ugly.
         for (target_entity, target) in &targets {
-            if !all_animation_target_ids.contains(&target.id) {
-                commands.entity(target_entity).remove::<AnimationTarget>();
+            if !all_animation_target_ids.contains(target) {
+                commands
+                    .entity(target_entity)
+                    .remove::<AnimationTargetId>()
+                    .remove::<AnimatedBy>();
             }
         }
 
@@ -430,7 +433,7 @@ fn handle_button_toggles(
         // iterate just for clarity's sake.)
         for animation_graph_handle in animation_players.iter_mut() {
             // The animation graph needs to have loaded.
-            let Some(animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
+            let Some(mut animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
                 continue;
             };
 
