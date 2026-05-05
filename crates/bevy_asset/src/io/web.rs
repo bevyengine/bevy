@@ -243,7 +243,11 @@ mod web_asset_cache {
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
         if cache_path.exists() {
+            #[cfg(feature = "multi_threaded")]
             let mut file = async_fs::File::open(&cache_path).await?;
+            #[cfg(not(feature = "multi_threaded"))]
+            let mut file =
+                crate::io::file::sync_file_asset::FileReader(std::fs::File::open(&cache_path)?);
             let mut buffer = Vec::new();
             file.read_to_end(&mut buffer).await?;
             Ok(Some(buffer))

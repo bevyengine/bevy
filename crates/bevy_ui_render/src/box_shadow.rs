@@ -14,7 +14,6 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
@@ -28,8 +27,8 @@ use bevy_render::{
 use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
-    BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
-    ResolvedBorderRadius, UiGlobalTransform, Val,
+    BoxShadow, CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiRenderTargetInfo,
+    ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -126,7 +125,7 @@ pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetS
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BoxShadowPipelineKey {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     /// Number of samples, a higher value results in better quality shadows.
     pub samples: u32,
 }
@@ -170,11 +169,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -215,6 +210,7 @@ pub fn extract_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             &BoxShadow,
@@ -227,7 +223,7 @@ pub fn extract_shadows(
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target) in
+    for (entity, uinode, stack_index, transform, visibility, box_shadow, clip, camera, target) in
         &box_shadow_query
     {
         // Skip if no visible shadows
@@ -282,7 +278,7 @@ pub fn extract_shadows(
 
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
+                stack_index: stack_index.0,
                 transform: Affine2::from(transform) * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),
                 bounds: shadow_size + 6. * blur_radius,
@@ -333,7 +329,7 @@ pub fn queue_shadows(
             &pipeline_cache,
             &box_shadow_pipeline,
             BoxShadowPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );

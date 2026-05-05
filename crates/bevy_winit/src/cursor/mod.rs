@@ -8,10 +8,9 @@ use crate::{converters::convert_system_cursor_icon, state::WinitAppRunnerState, 
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
 use bevy_asset::Assets;
-use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemState};
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_platform::collections::HashSet;
 #[cfg(feature = "custom_cursor")]
 use bevy_window::CustomCursor;
 use bevy_window::{CursorIcon, SystemCursorIcon, Window};
@@ -113,7 +112,7 @@ fn update_cursors(
     #[cfg(feature = "custom_cursor")] cursor_cache: Res<WinitCustomCursorCache>,
     #[cfg(feature = "custom_cursor")] images: Res<Assets<Image>>,
     #[cfg(feature = "custom_cursor")] texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
 ) {
     for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {

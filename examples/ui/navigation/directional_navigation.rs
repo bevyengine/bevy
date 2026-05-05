@@ -20,7 +20,7 @@ use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
-        InputFocus, InputFocusVisible,
+        FocusCause, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2, Rot2},
     picking::{
@@ -256,7 +256,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
 
     // Set initial focus
     if let Some(button) = first_button {
-        input_focus.set(button);
+        input_focus.set(button, FocusCause::Navigated);
     }
 }
 
@@ -370,7 +370,7 @@ fn update_focus_display(
     mut display_query: Query<&mut Text, With<FocusDisplay>>,
 ) {
     if let Ok(mut text) = display_query.single_mut() {
-        if let Some(focused_entity) = input_focus.0 {
+        if let Some(focused_entity) = input_focus.get() {
             if let Ok(name) = button_query.get(focused_entity) {
                 **text = format!("Focused: {}", name);
             } else {
@@ -428,7 +428,7 @@ fn highlight_focused_element(
     mut query: Query<(Entity, &mut BorderColor)>,
 ) {
     for (entity, mut border_color) in query.iter_mut() {
-        if input_focus.0 == Some(entity) && input_focus_visible.0 {
+        if input_focus.get() == Some(entity) && input_focus_visible.0 {
             *border_color = BorderColor::all(FOCUSED_BORDER);
         } else {
             *border_color = BorderColor::DEFAULT;
@@ -444,7 +444,7 @@ fn interact_with_focused_button(
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
-        && let Some(focused_entity) = input_focus.0
+        && let Some(focused_entity) = input_focus.get()
     {
         commands.trigger(Pointer::new(
             PointerId::Mouse,
@@ -462,7 +462,9 @@ fn interact_with_focused_button(
                     depth: 0.0,
                     position: None,
                     normal: None,
+                    extra: None,
                 },
+                count: 1,
                 duration: Duration::from_secs_f32(0.1),
             },
             focused_entity,

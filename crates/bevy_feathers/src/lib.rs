@@ -26,6 +26,8 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
+extern crate alloc;
+
 use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
 };
@@ -45,9 +47,11 @@ use crate::{
 
 mod alpha_pattern;
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+pub mod display;
 pub mod focus;
 pub mod font_styles;
 pub mod palette;
@@ -56,9 +60,9 @@ pub mod theme;
 pub mod tokens;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
-pub struct FeathersPlugin;
+pub struct FeathersCorePlugin;
 
-impl Plugin for FeathersPlugin {
+impl Plugin for FeathersCorePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
@@ -68,6 +72,11 @@ impl Plugin for FeathersPlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
+
+        // Embedded icons
+        embedded_asset!(app, "assets/icons/chevron-down.png");
+        embedded_asset!(app, "assets/icons/chevron-right.png");
+        embedded_asset!(app, "assets/icons/x.png");
 
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
@@ -97,6 +106,7 @@ impl Plugin for FeathersPlugin {
             .add_observer(theme::on_changed_background)
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
+            .add_observer(theme::on_changed_text_color)
             .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
@@ -110,6 +120,6 @@ impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(TabNavigationPlugin)
-            .add(FeathersPlugin)
+            .add(FeathersCorePlugin)
     }
 }
