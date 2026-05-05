@@ -53,8 +53,7 @@ crossbeam-queue = { version = "0.3", default-features = false, features = [
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-pin-project = "1"
-async-channel = { version = "2.3.0", default-features = false }
+web-task = "1"
 
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 async-task = { version = "4.4.0", default-features = false, features = [

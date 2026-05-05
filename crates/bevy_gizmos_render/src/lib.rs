@@ -18,6 +18,8 @@ pub enum GizmoRenderSystems {
 }
 
 pub mod retained;
+#[cfg(feature = "bevy_pbr")]
+pub mod transform_gizmo_render;
 
 #[cfg(feature = "bevy_sprite_render")]
 mod pipeline_2d;
@@ -114,6 +116,7 @@ impl Plugin for GizmoRenderPlugin {
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+                app.add_plugins(transform_gizmo_render::TransformGizmoRenderPlugin);
             } else {
                 tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }

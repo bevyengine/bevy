@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use bevy_asset::{
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
-    Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+    Asset, AssetLoader, AssetPath, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
@@ -159,6 +159,7 @@ impl AssetSaver for MeshletMeshSaver {
         writer: &mut Writer,
         asset: SavedAsset<'_, '_, MeshletMesh>,
         _settings: &(),
+        _asset_path: AssetPath<'_>,
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
         writer

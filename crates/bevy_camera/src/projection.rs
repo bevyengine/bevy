@@ -436,7 +436,10 @@ impl PerspectiveProjection {
     /// `examples/3d/mirror.rs` for an example of usage.
     fn adjust_perspective_matrix_for_clip_plane(&self, matrix: &mut Mat4) {
         // If we don't have an oblique clip plane, save ourselves the trouble.
-        if self.near_clip_plane == vec4(0.0, 0.0, -1.0, -self.near) {
+        if self.near_clip_plane.x == 0.0
+            && self.near_clip_plane.y == 0.0
+            && self.near_clip_plane.z == -1.0
+        {
             return;
         }
 
@@ -785,5 +788,33 @@ impl OrthographicProjection {
             scaling_mode: ScalingMode::WindowSize,
             area: Rect::new(-1.0, -1.0, 1.0, 1.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The projection matrix must respect a custom near plane value.
+    /// A smaller near plane should produce a different matrix than the default.
+    #[test]
+    fn custom_near_plane_is_respected() {
+        let default_proj = PerspectiveProjection::default();
+        let custom_proj = PerspectiveProjection {
+            near: 0.01,
+            ..Default::default()
+        };
+
+        let default_matrix = default_proj.get_clip_from_view();
+        let custom_matrix = custom_proj.get_clip_from_view();
+
+        assert_ne!(
+            default_matrix, custom_matrix,
+            "A near plane of 0.01 should produce a different projection matrix than the default 0.1"
+        );
+
+        // The w_axis.z element of an infinite reverse perspective matrix equals
+        // the near plane distance. Verify it matches what we requested.
+        assert_eq!(custom_matrix.w_axis.z, 0.01);
     }
 }

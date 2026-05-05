@@ -36,7 +36,7 @@ pub struct Font {
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn try_from_bytes(font_data: Vec<u8>, family_name: &str) -> Font {
+    pub fn from_bytes(font_data: Vec<u8>, family_name: &str) -> Font {
         Self {
             data: Blob::from(font_data),
             family_name: family_name.into(),

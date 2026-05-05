@@ -8,7 +8,7 @@ use crate::{
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, SystemParamValidationError},
+    system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -168,14 +168,11 @@ where
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
             // SAFETY: see comment on `Func::combine` call
-            match (|| unsafe {
-                system.validate_param_unsafe(world.0)?;
-                system.run_unsafe(input, world.0)
-            })() {
-                // let the world's default error handler handle the error if `Failed(_)`
+            match unsafe { system.run_unsafe(input, world.0) } {
+                // let the world's fallback error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
-                    // SAFETY: We registered access to DefaultErrorHandler in `initialize`.
-                    (unsafe { world.0.default_error_handler() })(
+                    // SAFETY: We registered access to FallbackErrorHandler in `initialize`.
+                    (unsafe { world.0.fallback_error_handler() })(
                         err,
                         ErrorContext::System {
                             name: system.name(),
@@ -199,14 +196,14 @@ where
             input,
             &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `DefaultErrorHandler` resource.
+            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `FallbackErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
             // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
             // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
             // This means that the world accesses in the two closures will not conflict with each other.
-            // The closure's access to the DefaultErrorHandler does not
-            // conflict with any potential access to the DefaultErrorHandler by
+            // The closure's access to the FallbackErrorHandler does not
+            // conflict with any potential access to the FallbackErrorHandler by
             // the systems since the closures are not run in parallel.
             |input, world| unsafe { run_system(&mut self.a, input, world) },
             // SAFETY: See the comment above.
@@ -233,25 +230,14 @@ where
         self.b.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // Both systems are validated in `Self::run_unsafe`, so that we get the
-        // chance to run the second system even if the first one fails to
-        // validate.
-        Ok(())
-    }
-
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
 
-        // We might need to read the default error handler after the component
+        // We might need to read the fallback error handler after the component
         // systems have run to report failures.
-        let error_resource = world.register_resource::<crate::error::DefaultErrorHandler>();
+        let error_resource = world.register_resource::<crate::error::FallbackErrorHandler>();
         a_access.add_resource_read(error_resource);
         a_access
     }
@@ -415,9 +401,6 @@ where
         // SAFETY: Upheld by caller
         unsafe {
             let value = self.a.run_unsafe(input, world)?;
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
-            self.b.validate_param_unsafe(world)?;
             self.b.run_unsafe(value, world)
         }
     }
@@ -437,18 +420,6 @@ where
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
@@ -490,7 +461,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::error::DefaultErrorHandler;
+    use crate::error::FallbackErrorHandler;
     use crate::prelude::*;
     use bevy_utils::prelude::DebugName;
 
@@ -501,17 +472,17 @@ mod tests {
 
     #[test]
     fn combinator_with_error_handler_access() {
-        fn my_system(_: ResMut<DefaultErrorHandler>) {}
+        fn my_system(_: ResMut<FallbackErrorHandler>) {}
         fn a() -> bool {
             true
         }
-        fn b(_: ResMut<DefaultErrorHandler>) -> bool {
+        fn b(_: ResMut<FallbackErrorHandler>) -> bool {
             true
         }
         fn asdf(_: In<bool>) {}
 
         let mut world = World::new();
-        world.insert_resource(DefaultErrorHandler::default());
+        world.insert_resource(FallbackErrorHandler::default());
 
         let system = CombinatorSystem::<OrElseMarker, _, _>::new(
             IntoSystem::into_system(a),
