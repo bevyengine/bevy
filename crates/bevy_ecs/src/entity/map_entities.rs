@@ -32,8 +32,6 @@ use super::EntityIndexSet;
 /// entities in the context of scenes and entity cloning, which generally uses [`MapEntities`] internally
 /// to map each field (see those docs for usage).
 ///
-/// [`HashSet<Entity>`]: bevy_platform::collections::HashSet
-///
 /// ## Example
 ///
 /// ```

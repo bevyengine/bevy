@@ -16,7 +16,7 @@ extern crate alloc;
 
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{ExitSystems, RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
@@ -138,7 +138,7 @@ impl Plugin for WinitPlugin {
                 (
                     changed_windows,
                     changed_cursor_options,
-                    despawn_windows,
+                    despawn_windows.after(ExitSystems),
                     check_keyboard_focus_lost,
                 )
                     .chain(),
