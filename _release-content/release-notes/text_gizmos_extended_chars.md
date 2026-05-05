@@ -7,5 +7,7 @@ pull_requests: [ 24003 ]
 ## Goals
 
 Adds support for more characters outside of ASCII.
-Currently only renders placeholder '?' for characters outside of ASCII set.
-Uses separate array for extended glyph data.
+Currently renders accented Latin characters.
+Uses separate arrays for extended glyph data.
+Accented characters use un-accented letters
+as base and adds strokes and positions for accent marks.
