@@ -1,6 +1,6 @@
 use crate::io::{
     AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
-    ReaderRequiredFeatures,
+    ReaderNotSeekableError, SeekableReader,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
 use bevy_platform::{
@@ -48,6 +48,12 @@ impl Dir {
     }
 
     pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
+        self.insert_asset_internal(path, value.into());
+    }
+
+    // Implements `insert_asset`, but with a non-generic `value` parameter. This
+    // stops the function from being duplicated many times by monomorphization.
+    fn insert_asset_internal(&self, path: &Path, value: Value) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
@@ -59,7 +65,7 @@ impl Dir {
             .insert(
                 path.file_name().unwrap().to_string_lossy().into(),
                 Data {
-                    value: value.into(),
+                    value,
                     path: path.to_owned(),
                 },
             );
@@ -82,6 +88,11 @@ impl Dir {
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
+        self.insert_meta_internal(path, value.into());
+    }
+
+    // Implements `insert_meta` - see `insert_asset_internal` for rationale.
+    fn insert_meta_internal(&self, path: &Path, value: Value) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
@@ -93,7 +104,7 @@ impl Dir {
             .insert(
                 path.file_name().unwrap().to_string_lossy().into(),
                 Data {
-                    value: value.into(),
+                    value,
                     path: path.to_owned(),
                 },
             );
@@ -354,14 +365,14 @@ impl Reader for DataReader {
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
         crate::io::read_to_end(self.data.value(), &mut self.bytes_read, buf)
     }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
+    }
 }
 
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        _required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
             .map(|data| DataReader {

@@ -28,15 +28,6 @@ pub mod cfg {
             conditional_send
         }
 
-        #[cfg(feature = "async-io")] => {
-            /// Indicates `async-io` will be used for the implementation of `block_on`.
-            async_io
-        }
-
-        #[cfg(feature = "futures-lite")] => {
-            /// Indicates `futures-lite` will be used for the implementation of `block_on`.
-            futures_lite
-        }
     }
 }
 
@@ -76,7 +67,6 @@ mod executor;
 pub mod futures;
 mod iter;
 mod slice;
-mod task;
 mod usages;
 
 cfg::async_executor! {
@@ -86,9 +76,9 @@ cfg::async_executor! {
 }
 
 // Exports
+pub use async_task::Task;
 pub use iter::ParallelIterator;
 pub use slice::{ParallelSlice, ParallelSliceMut};
-pub use task::Task;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 pub use futures_lite;
@@ -114,36 +104,7 @@ cfg::multi_threaded! {
     }
 }
 
-cfg::switch! {
-    cfg::async_io => {
-        pub use async_io::block_on;
-    }
-    cfg::futures_lite => {
-        pub use futures_lite::future::block_on;
-    }
-    _ => {
-        /// Blocks on the supplied `future`.
-        /// This implementation will busy-wait until it is completed.
-        /// Consider enabling the `async-io` or `futures-lite` features.
-        pub fn block_on<T>(future: impl Future<Output = T>) -> T {
-            use core::task::{Poll, Context};
-
-            // Pin the future on the stack.
-            let mut future = core::pin::pin!(future);
-
-            // We don't care about the waker as we're just going to poll as fast as possible.
-            let cx = &mut Context::from_waker(core::task::Waker::noop());
-
-            // Keep polling until the future is ready.
-            loop {
-                match future.as_mut().poll(cx) {
-                    Poll::Ready(output) => return output,
-                    Poll::Pending => core::hint::spin_loop(),
-                }
-            }
-        }
-    }
-}
+pub use bevy_platform::future::block_on;
 
 /// The tasks prelude.
 ///

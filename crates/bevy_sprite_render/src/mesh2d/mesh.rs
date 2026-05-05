@@ -1,10 +1,16 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::{visibility::ViewVisibility, Camera2d};
-use bevy_render::RenderStartup;
+use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
+use bevy_render::{
+    camera::{DirtySpecializations, ExtractedCamera},
+    RenderStartup,
+};
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
-use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
+use crate::{
+    prepare_pending_mesh_material2d_queues, tonemapping_pipeline_key, Material2dBindGroupId,
+    PendingMeshMaterial2dQueues, RenderMaterial2dBindGroupIds, RenderMaterial2dIds,
+};
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -13,15 +19,12 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::BevyDefault;
-use bevy_math::{Affine3, Vec4};
+use bevy_math::{Affine3, Affine3Ext, Vec4};
 use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
@@ -38,15 +41,17 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
-        sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        TrackedRenderPass,
+        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    view::{
+        texture_format_from_code, texture_format_to_code, ExtractedView, ViewUniform,
+        ViewUniformOffset, ViewUniforms,
+    },
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
@@ -74,8 +79,12 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
-                .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .init_resource::<ViewSpecializationTicks>()
+                .allow_ambiguous_resource::<RenderMesh2dInstances>()
+                .init_resource::<RenderMaterial2dBindGroupIds>()
+                .allow_ambiguous_resource::<RenderMaterial2dBindGroupIds>()
+                .init_resource::<RenderMaterial2dIds>()
+                .allow_ambiguous_resource::<RenderMaterial2dIds>()
+                .init_gpu_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(
                     RenderStartup,
                     (
@@ -84,16 +93,14 @@ impl Plugin for Mesh2dRenderPlugin {
                         load_mesh2d_bindings,
                     ),
                 )
+                .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
+                .init_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     Render,
                     (
+                        prepare_pending_mesh_material2d_queues.in_set(RenderSystems::Specialize),
                         check_views_need_specialization.in_set(PrepareAssets),
-                        (
-                            sweep_old_entities::<Opaque2d>,
-                            sweep_old_entities::<AlphaMask2d>,
-                        )
-                            .in_set(RenderSystems::QueueSweep),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
                             .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
@@ -116,26 +123,36 @@ impl Plugin for Mesh2dRenderPlugin {
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
-
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
-    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
-    views: Query<(
+    mut dirty_specializations: ResMut<DirtySpecializations>,
+    cameras: Query<(
         &MainEntity,
         &ExtractedView,
+        &ExtractedCamera,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
-    ticks: SystemChangeTick,
 ) {
-    for (view_entity, view, msaa, tonemapping, dither) in &views {
+    for (view_entity, view, camera, msaa, tonemapping, dither) in &cameras {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
-        if !view.hdr {
+        if camera
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Srgb)
+        {
+            view_key |= Mesh2dPipelineKey::SRGB_COMPOSITING;
+        }
+        if camera
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Oklab)
+        {
+            view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
+        }
+
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -150,7 +167,9 @@ pub fn check_views_need_specialization(
             .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(*view_entity, view_key);
-            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+            dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
         }
     }
 }
@@ -248,6 +267,8 @@ pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    render_material_2d_bind_group_ids: Res<RenderMaterial2dBindGroupIds>,
+    render_material_instances: Res<RenderMaterial2dIds>,
     query: Extract<
         Query<(
             Entity,
@@ -265,15 +286,21 @@ pub fn extract_mesh2d(
         if !view_visibility.get() {
             continue;
         }
+        let main_entity = entity.into();
+        let material_bind_group_id = render_material_instances
+            .get(&main_entity)
+            .and_then(|material_id| render_material_2d_bind_group_ids.get(material_id))
+            .copied()
+            .unwrap_or_default();
         render_mesh_instances.insert(
-            entity.into(),
+            main_entity,
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
-                    world_from_local: (&transform.affine()).into(),
+                    world_from_local: transform.affine().into(),
                     flags: MeshFlags::empty().bits(),
                 },
                 mesh_asset_id: handle.0.id(),
-                material_bind_group_id: Material2dBindGroupId::default(),
+                material_bind_group_id,
                 automatic_batching: !no_automatic_batching,
                 tag: tag.map_or(0, |i| **i),
             },
@@ -332,19 +359,26 @@ impl GetBatchData for Mesh2dPipeline {
         SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
     );
-    type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
+    type BatchSetCompareData = (Material2dBindGroupId, AssetId<Mesh>);
+    type BatchCompareData = ();
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
             Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
             mesh_instance.automatic_batching.then_some((
-                mesh_instance.material_bind_group_id,
-                mesh_instance.mesh_asset_id,
+                (
+                    mesh_instance.material_bind_group_id,
+                    mesh_instance.mesh_asset_id,
+                ),
+                (),
             )),
         ))
     }
@@ -367,7 +401,10 @@ impl GetFullBatchData for Mesh2dPipeline {
     fn get_index_and_compare_data(
         _: &SystemParamItem<Self::Param>,
         _query_item: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         error!(
             "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
             but this is not yet implemented for 2d meshes"
@@ -424,11 +461,13 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const BLEND_ALPHA                       = 1 << 3;
-        const MAY_DISCARD                       = 1 << 4;
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const BLEND_ALPHA                       = 1 << 2;
+        const MAY_DISCARD                       = 1 << 3;
+        const SRGB_COMPOSITING                  = 1 << 4;
+        const OKLAB_COMPOSITING                 = 1 << 5;
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -440,17 +479,27 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_RESERVED_BITS        = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_NONE                 = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_U32                  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_U16                  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
 impl Mesh2dPipelineKey {
+    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 6;
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b1111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    pub const INDEX_FORMAT_MASK_BITS: u32 = 0b11;
+    pub const INDEX_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -458,23 +507,52 @@ impl Mesh2dPipelineKey {
         Self::from_bits_retain(msaa_bits)
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            Mesh2dPipelineKey::HDR
-        } else {
-            Mesh2dPipelineKey::NONE
-        }
+    /// Create a pipeline key from the view's color target format.
+    #[inline]
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
+            .expect("Texture format is not supported by the pipeline") as u32;
+        Self::from_bits_retain(
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+        )
+    }
+
+    /// Color target format of the main pass for this pipeline key.
+    #[inline]
+    pub fn target_format(&self) -> TextureFormat {
+        let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
+            & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
+        texture_format_from_code(code)
+            .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
     pub fn msaa_samples(&self) -> u32 {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    /// Create a [`Mesh2dPipelineKey`] from mesh primitive topology and index format.
+    ///
+    /// For non-strip topologies, [`Self::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
+    pub fn from_primitive_topology_and_strip_index(
+        primitive_topology: PrimitiveTopology,
+        strip_index_format: Option<IndexFormat>,
+    ) -> Self {
+        let index_bits = if primitive_topology.is_strip() {
+            match strip_index_format {
+                None => Self::STRIP_INDEX_FORMAT_NONE,
+                Some(indices) => match indices {
+                    IndexFormat::Uint16 => Self::STRIP_INDEX_FORMAT_U16,
+                    IndexFormat::Uint32 => Self::STRIP_INDEX_FORMAT_U32,
+                },
+            }
+        } else {
+            Self::STRIP_INDEX_FORMAT_NONE
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -487,6 +565,16 @@ impl Mesh2dPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & Self::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == Self::STRIP_INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
+            x if x == Self::STRIP_INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
+            x if x == Self::STRIP_INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
         }
     }
 }
@@ -565,6 +653,9 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
                     shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
                 }
+                Mesh2dPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL => {
+                    shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into());
+                }
                 _ => {}
             }
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -576,13 +667,16 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if key.contains(Mesh2dPipelineKey::MAY_DISCARD) {
             shader_defs.push("MAY_DISCARD".into());
         }
+        if key.contains(Mesh2dPipelineKey::SRGB_COMPOSITING) {
+            shader_defs.push("SRGB_OUTPUT".into());
+        }
+        if key.contains(Mesh2dPipelineKey::OKLAB_COMPOSITING) {
+            shader_defs.push("OKLAB_OUTPUT".into());
+        }
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.target_format();
 
         let (depth_write_enabled, label, blend);
         if key.contains(Mesh2dPipelineKey::BLEND_ALPHA) {
@@ -620,12 +714,12 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                strip_index_format: key.strip_index_format(),
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(depth_write_enabled),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
