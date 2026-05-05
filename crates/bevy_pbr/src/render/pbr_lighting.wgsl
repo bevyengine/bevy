@@ -84,7 +84,7 @@ struct LightingInput {
     // Specular reflectance at the normal incidence angle.
     F0_dielectric: vec3<f32>,
     F0_metallic: vec3<f32>,
-    
+
     // Constants for the BRDF approximation.
     //
     // See `EnvBRDFApprox` in
@@ -484,9 +484,11 @@ fn Fd_Burley(
 }
 
 // Scale/bias approximation
-// https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
-// TODO: Use a LUT (more accurate)
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
+#ifdef DFG_LUT
+    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+#else
+    // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
     let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
     let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
     let r = perceptual_roughness * c0 + c1;
@@ -494,6 +496,7 @@ fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
     // Keep F_ab positive to avoid divide-by-zero in downstream BRDF terms.
     let f_ab_epsilon = 0.00005;
     return max(vec2<f32>(-1.04, 1.04) * a004 + r.zw, vec2<f32>(f_ab_epsilon));
+#endif
 }
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {
@@ -997,7 +1000,7 @@ color *= (*light).color.rgb * texture_sample;
     // Sample atmosphere
     let transmittance = sample_transmittance_lut(r, mu_light);
     let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
-    
+
     // Apply atmospheric effects
     color *= transmittance * sun_visibility;
 #endif
@@ -1050,12 +1053,12 @@ fn ltc_integrate_quad(
         let a = L[i];
         let b = L[(i + 1) % 4];
         if (a.z >= 0.0) {
-            clipped[n_clipped] = a; 
+            clipped[n_clipped] = a;
             n_clipped++;
         }
         if ((a.z >= 0.0) != (b.z >= 0.0)) {
             let t = a.z / (a.z - b.z);
-            clipped[n_clipped] = mix(a, b, t);  
+            clipped[n_clipped] = mix(a, b, t);
             n_clipped++;
         }
     }
@@ -1077,6 +1080,7 @@ fn ltc_integrate_quad(
     return sum;
 }
 
+#ifdef AREA_LIGHT_LUTS
 fn rect_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
@@ -1113,8 +1117,8 @@ fn rect_light(
     let LUT_SCALE = 63.0 / 64.0;
     let LUT_BIAS  =  0.5 / 64.0;
     let uv = vec2<f32>(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
-    let t1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut1_sampler, uv, 0.0);
-    let t2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, uv, 0.0);
+    let t1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, uv, 0, 0.0);
+    let t2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, uv, 1, 0.0);
 
     // Reconstruct the GGX inverse-LTC matrix
     let Minv = mat3x3<f32>(
@@ -1144,8 +1148,8 @@ fn rect_light(
 
     // Sample LUTs for clearcoat layer
     let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
-    let tc1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut1_sampler, cc_uv, 0.0);
-    let tc2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, cc_uv, 0.0);
+    let tc1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, cc_uv, 0, 0.0);
+    let tc2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, cc_uv, 1, 0.0);
     let Minv_cc = mat3x3<f32>(
         vec3<f32>(tc1.x, 0.0, tc1.y),
         vec3<f32>(0.0,   1.0, 0.0),
@@ -1164,13 +1168,14 @@ fn rect_light(
     return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
 #endif
 }
+#endif
 
 
 #ifdef ATMOSPHERE
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
     return textureSampleLevel(
-        view_bindings::atmosphere_transmittance_texture, 
+        view_bindings::atmosphere_transmittance_texture,
         view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
 #endif  // ATMOSPHERE

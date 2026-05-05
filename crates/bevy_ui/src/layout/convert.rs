@@ -31,7 +31,7 @@ impl Val {
 
     fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
         match self {
-            Val::Auto => style_helpers::length(0.),
+            Val::Auto => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(context.scale_factor * value),
             Val::VMin(value) => {

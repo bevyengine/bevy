@@ -60,11 +60,13 @@ pub fn upscaling(
         }
     };
 
+    let Some(out_attachment) = target.out_texture_color_attachment(converted_clear_color) else {
+        return;
+    };
+
     let pass_descriptor = RenderPassDescriptor {
         label: Some("upscaling"),
-        color_attachments: &[Some(
-            target.out_texture_color_attachment(converted_clear_color),
-        )],
+        color_attachments: &[Some(out_attachment)],
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
