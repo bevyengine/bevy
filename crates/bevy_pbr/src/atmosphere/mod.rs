@@ -9,9 +9,12 @@
 //! to distance fog, but more complex) is handled as well, and takes into
 //! account the directional light color and direction.
 //!
-//! Adding the [`Atmosphere`] component to a 3d camera will enable the effect,
-//! which by default is set to look similar to Earth's atmosphere. See the
-//! documentation on the component itself for information regarding its fields.
+//! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
+//! [`bevy_transform::components::GlobalTransform`], and add [`AtmosphereSettings`] to each
+//! 3D camera that should render it. Detailed documentation is on the [`Atmosphere`] component.
+//!
+//! Placement and scene scale come from the entity's transform. With several atmospheres in one
+//! scene, each camera picks the atmosphere whose origin is closest in world space.
 //!
 //! Performance-wise, the effect should be fairly cheap since the LUTs (Look
 //! Up Tables) that encode most of the data are small, and take advantage of the
@@ -33,47 +36,60 @@
 //!
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
 
+mod environment;
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin};
-use bevy_asset::embedded_asset;
-use bevy_core_pipeline::core_3d::graph::Node3d;
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{embedded_asset, AssetId};
+use bevy_camera::{Camera3d, Hdr};
+use bevy_core_pipeline::{
+    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    schedule::{Core3d, Core3dSystems},
+};
 use bevy_ecs::{
     component::Component,
-    query::{Changed, QueryItem, With},
+    entity::Entity,
+    query::{Changed, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Query},
+    system::{Commands, Query},
 };
-use bevy_math::{UVec2, UVec3, Vec3};
+use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
+use bevy_math::{Mat4, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::UniformComponentPlugin,
-    load_shader_library,
+    extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    view::Hdr,
+    renderer::RenderDevice,
+    sync_component::{SyncComponent, SyncComponentPlugin},
+    sync_world::RenderEntity,
+    Extract, ExtractSchedule, RenderStartup,
 };
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
+use bevy_transform::components::GlobalTransform;
 
-use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
+use bevy_shader::load_shader_library;
+use environment::{
+    atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
+    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
+    prepare_probe_textures, AtmosphereEnvironmentMap,
+};
+use node::{atmosphere_luts, render_sky};
 use resources::{
-    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
-    RenderSkyBindGroupLayouts,
+    prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
+    AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
-use self::{
-    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
-    resources::{
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers,
-    },
+use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
+
+use self::resources::{
+    prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
+    AtmosphereLutPipelines, AtmosphereSampler,
 };
 
 #[doc(hidden)]
@@ -91,15 +107,19 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "sky_view_lut.wgsl");
         embedded_asset!(app, "aerial_view_lut.wgsl");
         embedded_asset!(app, "render_sky.wgsl");
+        embedded_asset!(app, "environment.wgsl");
 
-        app.register_type::<Atmosphere>()
-            .register_type::<AtmosphereSettings>()
-            .add_plugins((
-                ExtractComponentPlugin::<Atmosphere>::default(),
-                ExtractComponentPlugin::<AtmosphereSettings>::default(),
-                UniformComponentPlugin::<Atmosphere>::default(),
-                UniformComponentPlugin::<AtmosphereSettings>::default(),
-            ));
+        app.add_plugins((
+            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            SyncComponentPlugin::<AtmosphereSettings>::default(),
+            UniformComponentPlugin::<GpuAtmosphere>::default(),
+            UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
+        ))
+        .add_systems(Update, prepare_atmosphere_probe_components);
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(ExtractSchedule, extract_atmosphere);
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -127,191 +147,122 @@ impl Plugin for AtmospherePlugin {
             return;
         }
 
+        // Check the `RenderDevice` in addition to the `RenderAdapter`. The
+        // former takes the `WGPU_SETTINGS_PRIO` environment variable into
+        // account, and the latter doesn't.
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if render_device.limits().max_storage_textures_per_shader_stage == 0 {
+            warn!("AtmospherePlugin not loaded. GPU lacks support: `max_storage_textures_per_shader_stage` is 0");
+            return;
+        }
+
         render_app
-            .init_resource::<AtmosphereBindGroupLayouts>()
-            .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSamplers>()
-            .init_resource::<AtmosphereLutPipelines>()
-            .init_resource::<AtmosphereTransforms>()
-            .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .insert_resource(AtmosphereBindGroupLayouts::new())
+            .init_gpu_resource::<RenderSkyBindGroupLayouts>()
+            .init_gpu_resource::<AtmosphereSampler>()
+            .init_gpu_resource::<AtmosphereLutPipelines>()
+            .init_gpu_resource::<AtmosphereTransforms>()
+            .init_gpu_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .add_systems(
+                RenderStartup,
+                (
+                    init_atmosphere_probe_layout,
+                    init_atmosphere_probe_pipeline,
+                    init_atmosphere_buffer,
+                )
+                    .chain(),
+            )
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_probe_textures
+                        .in_set(RenderSystems::PrepareResources)
+                        .after(prepare_atmosphere_textures),
+                    prepare_atmosphere_uniforms
+                        .in_set(RenderSystems::Prepare)
+                        .before(RenderSystems::PrepareResources),
+                    prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
-                Core3d,
-                AtmosphereNode::RenderLuts,
-            )
-            .add_render_graph_edges(
+            .add_systems(
                 Core3d,
                 (
-                    // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
-                    Node3d::EndPrepasses,
-                    AtmosphereNode::RenderLuts,
-                    Node3d::StartMainPass,
-                ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<RenderSkyNode>>(
-                Core3d,
-                AtmosphereNode::RenderSky,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainOpaquePass,
-                    AtmosphereNode::RenderSky,
-                    Node3d::MainTransparentPass,
+                    (atmosphere_luts, atmosphere_environment)
+                        .chain()
+                        .after(Core3dSystems::Prepass)
+                        .before(Core3dSystems::MainPass),
+                    render_sky
+                        .after(main_opaque_pass_3d)
+                        .before(main_transparent_pass_3d),
                 ),
             );
     }
 }
 
-/// This component describes the atmosphere of a planet, and when added to a camera
-/// will enable atmospheric scattering for that camera. This is only compatible with
-/// HDR cameras.
-///
-/// Most atmospheric particles scatter and absorb light in two main ways:
-///
-/// Rayleigh scattering occurs among very small particles, like individual gas
-/// molecules. It's wavelength dependent, and causes colors to separate out as
-/// light travels through the atmosphere. These particles *don't* absorb light.
-///
-/// Mie scattering occurs among slightly larger particles, like dust and sea spray.
-/// These particles *do* absorb light, but Mie scattering and absorption is
-/// *wavelength independent*.
-///
-/// Ozone acts differently from the other two, and is special-cased because
-/// it's very important to the look of Earth's atmosphere. It's wavelength
-/// dependent, but only *absorbs* light. Also, while the density of particles
-/// participating in Rayleigh and Mie scattering falls off roughly exponentially
-/// from the planet's surface, ozone only exists in a band centered at a fairly
-/// high altitude.
-#[derive(Clone, Component, Reflect, ShaderType)]
-#[require(AtmosphereSettings, Hdr)]
-#[reflect(Clone, Default)]
-pub struct Atmosphere {
-    /// Radius of the planet
-    ///
-    /// units: m
-    pub bottom_radius: f32,
+/// For each camera with [`AtmosphereSettings`], picks the nearest [`Atmosphere`] by world-space
+/// distance to its origin, copies it as [`ExtractedAtmosphere`], and builds [`GpuAtmosphereSettings`].
+pub fn extract_atmosphere(
+    mut commands: Commands,
+    atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform)>>,
+    cameras: Extract<Query<(RenderEntity, &AtmosphereSettings, &GlobalTransform), With<Camera3d>>>,
+) {
+    let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform)> =
+        atmosphere_entities.iter().collect();
 
-    /// Radius at which we consider the atmosphere to 'end' for our
-    /// calculations (from center of planet)
-    ///
-    /// units: m
-    pub top_radius: f32,
+    if candidates.is_empty() {
+        for (render_entity, ..) in &cameras {
+            commands
+                .entity(render_entity)
+                .remove::<ExtractedAtmosphere>();
+            commands
+                .entity(render_entity)
+                .remove::<GpuAtmosphereSettings>();
+        }
+        return;
+    }
 
-    /// An approximation of the average albedo (or color, roughly) of the
-    /// planet's surface. This is used when calculating multiscattering.
-    ///
-    /// units: N/A
+    for (render_entity, settings, cam_global) in &cameras {
+        let cam_world = cam_global.translation();
+        let selected = candidates
+            .iter()
+            .min_by(|(ea, _, gt_a), (eb, _, gt_b)| {
+                let da = cam_world.distance(gt_a.translation());
+                let db = cam_world.distance(gt_b.translation());
+                da.total_cmp(&db).then_with(|| ea.cmp(eb))
+            })
+            .expect("checked non-empty above");
+        let atmo = selected.1;
+        let gt = selected.2;
+
+        let extracted = ExtractedAtmosphere {
+            inner_radius: atmo.inner_radius,
+            outer_radius: atmo.outer_radius,
+            ground_albedo: atmo.ground_albedo,
+            medium: atmo.medium.id(),
+            world_to_atmosphere: gt.to_matrix().inverse(),
+        };
+        commands.entity(render_entity).insert(extracted);
+        commands
+            .entity(render_entity)
+            .insert(GpuAtmosphereSettings::from(settings.clone()));
+    }
+}
+
+/// The render-world representation of an `Atmosphere`, but which
+/// hasn't been converted into shader uniforms yet.
+#[derive(Clone, Component)]
+pub struct ExtractedAtmosphere {
+    pub inner_radius: f32,
+    pub outer_radius: f32,
     pub ground_albedo: Vec3,
-
-    /// The rate of falloff of rayleigh particulate with respect to altitude:
-    /// optical density = exp(-rayleigh_density_exp_scale * altitude in meters).
-    ///
-    /// THIS VALUE MUST BE POSITIVE
-    ///
-    /// units: N/A
-    pub rayleigh_density_exp_scale: f32,
-
-    /// The scattering optical density of rayleigh particulate, or how
-    /// much light it scatters per meter
-    ///
-    /// units: m^-1
-    pub rayleigh_scattering: Vec3,
-
-    /// The rate of falloff of mie particulate with respect to altitude:
-    /// optical density = exp(-mie_density_exp_scale * altitude in meters)
-    ///
-    /// THIS VALUE MUST BE POSITIVE
-    ///
-    /// units: N/A
-    pub mie_density_exp_scale: f32,
-
-    /// The scattering optical density of mie particulate, or how much light
-    /// it scatters per meter.
-    ///
-    /// units: m^-1
-    pub mie_scattering: f32,
-
-    /// The absorbing optical density of mie particulate, or how much light
-    /// it absorbs per meter.
-    ///
-    /// units: m^-1
-    pub mie_absorption: f32,
-
-    /// The "asymmetry" of mie scattering, or how much light tends to scatter
-    /// forwards, rather than backwards or to the side.
-    ///
-    /// domain: (-1, 1)
-    /// units: N/A
-    pub mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
-
-    /// The altitude at which the ozone layer is centered.
-    ///
-    /// units: m
-    pub ozone_layer_altitude: f32,
-
-    /// The width of the ozone layer
-    ///
-    /// units: m
-    pub ozone_layer_width: f32,
-
-    /// The optical density of ozone, or how much of each wavelength of
-    /// light it absorbs per meter.
-    ///
-    /// units: m^-1
-    pub ozone_absorption: Vec3,
-}
-
-impl Atmosphere {
-    pub const EARTH: Atmosphere = Atmosphere {
-        bottom_radius: 6_360_000.0,
-        top_radius: 6_460_000.0,
-        ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: 1.0 / 8_000.0,
-        rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-        mie_density_exp_scale: 1.0 / 1_200.0,
-        mie_scattering: 3.996e-6,
-        mie_absorption: 0.444e-6,
-        mie_asymmetry: 0.8,
-        ozone_layer_altitude: 25_000.0,
-        ozone_layer_width: 30_000.0,
-        ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
-    };
-
-    pub fn with_density_multiplier(mut self, mult: f32) -> Self {
-        self.rayleigh_scattering *= mult;
-        self.mie_scattering *= mult;
-        self.mie_absorption *= mult;
-        self.ozone_absorption *= mult;
-        self
-    }
-}
-
-impl Default for Atmosphere {
-    fn default() -> Self {
-        Self::EARTH
-    }
-}
-
-impl ExtractComponent for Atmosphere {
-    type QueryData = Read<Atmosphere>;
-
-    type QueryFilter = With<Camera3d>;
-
-    type Out = Atmosphere;
-
-    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
-    }
+    pub medium: AssetId<ScatteringMedium>,
+    pub world_to_atmosphere: Mat4,
 }
 
 /// This component controls the resolution of the atmosphere LUTs, and
@@ -332,8 +283,9 @@ impl ExtractComponent for Atmosphere {
 /// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the luminance
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
-#[derive(Clone, Component, Reflect, ShaderType)]
+#[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
+#[require(Hdr)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,
@@ -375,9 +327,12 @@ pub struct AtmosphereSettings {
     /// units: m
     pub aerial_view_lut_max_distance: f32,
 
-    /// A conversion factor between scene units and meters, used to
-    /// ensure correctness at different length scales.
-    pub scene_units_to_m: f32,
+    /// The number of points to sample for each fragment when the using
+    /// ray marching to render the sky
+    pub sky_max_samples: u32,
+
+    /// The rendering method to use for the atmosphere.
+    pub rendering_method: AtmosphereMode,
 }
 
 impl Default for AtmosphereSettings {
@@ -393,27 +348,82 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
-            scene_units_to_m: 1.0,
+            sky_max_samples: 16,
+            rendering_method: AtmosphereMode::LookupTexture,
         }
     }
 }
 
-impl ExtractComponent for AtmosphereSettings {
-    type QueryData = Read<AtmosphereSettings>;
+#[derive(Clone, Component, Reflect, ShaderType)]
+#[reflect(Default)]
+pub struct GpuAtmosphereSettings {
+    pub transmittance_lut_size: UVec2,
+    pub multiscattering_lut_size: UVec2,
+    pub sky_view_lut_size: UVec2,
+    pub aerial_view_lut_size: UVec3,
+    pub transmittance_lut_samples: u32,
+    pub multiscattering_lut_dirs: u32,
+    pub multiscattering_lut_samples: u32,
+    pub sky_view_lut_samples: u32,
+    pub aerial_view_lut_samples: u32,
+    pub aerial_view_lut_max_distance: f32,
+    pub sky_max_samples: u32,
+    pub rendering_method: u32,
+}
 
-    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
-
-    type Out = AtmosphereSettings;
-
-    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
+impl Default for GpuAtmosphereSettings {
+    fn default() -> Self {
+        AtmosphereSettings::default().into()
     }
 }
 
+impl From<AtmosphereSettings> for GpuAtmosphereSettings {
+    fn from(s: AtmosphereSettings) -> Self {
+        Self {
+            transmittance_lut_size: s.transmittance_lut_size,
+            multiscattering_lut_size: s.multiscattering_lut_size,
+            sky_view_lut_size: s.sky_view_lut_size,
+            aerial_view_lut_size: s.aerial_view_lut_size,
+            transmittance_lut_samples: s.transmittance_lut_samples,
+            multiscattering_lut_dirs: s.multiscattering_lut_dirs,
+            multiscattering_lut_samples: s.multiscattering_lut_samples,
+            sky_view_lut_samples: s.sky_view_lut_samples,
+            aerial_view_lut_samples: s.aerial_view_lut_samples,
+            aerial_view_lut_max_distance: s.aerial_view_lut_max_distance,
+            sky_max_samples: s.sky_max_samples,
+            rendering_method: s.rendering_method as u32,
+        }
+    }
+}
+
+impl SyncComponent for AtmosphereSettings {
+    type Target = GpuAtmosphereSettings;
+}
+
 fn configure_camera_depth_usages(
-    mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<Atmosphere>)>,
+    mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<ExtractedAtmosphere>)>,
 ) {
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
+}
+
+/// Selects how the atmosphere is rendered. Choose based on scene scale and
+/// volumetric shadow quality, and based on performance needs.
+#[repr(u32)]
+#[derive(Clone, Default, Reflect, Copy)]
+pub enum AtmosphereMode {
+    /// High-performance solution tailored to scenes that are mostly inside of the atmosphere.
+    /// Uses a set of lookup textures to approximate scattering integration.
+    /// Slightly less accurate for very long-distance/space views (lighting precision
+    /// tapers as the camera moves far from the scene origin) and for sharp volumetric
+    /// (cloud/fog) shadows.
+    #[default]
+    LookupTexture = 0,
+    /// Slower, more accurate rendering method for any type of scene.
+    /// Integrates the scattering numerically with raymarching and produces sharp volumetric
+    /// (cloud/fog) shadows.
+    /// Best for cinematic shots, planets seen from orbit, and scenes requiring
+    /// accurate long-distance lighting.
+    Raymarched = 1,
 }

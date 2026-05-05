@@ -11,7 +11,7 @@
 //!
 //! This Bevy example is inspired by the corresponding three.js example [3].
 //!
-//! [1]: https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel
+//! [1]: https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 //!
 //! [2]: https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
 //!
@@ -20,12 +20,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{BLUE, GOLD, WHITE},
-    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    core_pipeline::tonemapping::Tonemapping::AcesFitted,
     image::ImageLoaderSettings,
+    light::Skybox,
     math::vec3,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// The size of each sphere.
@@ -99,18 +100,24 @@ fn spawn_car_paint_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                clearcoat: 1.0,
-                clearcoat_perceptual_roughness: 0.1,
-                normal_map_texture: Some(asset_server.load_with_settings(
-                    "textures/BlueNoise-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
-                metallic: 0.9,
-                perceptual_roughness: 0.5,
-                base_color: BLUE.into(),
-                ..default()
-            })),
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    clearcoat: 1.0,
+                    clearcoat_perceptual_roughness: 0.1,
+                    normal_map_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings(|settings: &mut ImageLoaderSettings| {
+                                settings.is_srgb = false;
+                            })
+                            .load("textures/BlueNoise-Normal.png"),
+                    ),
+                    metallic: 0.9,
+                    perceptual_roughness: 0.5,
+                    base_color: BLUE.into(),
+                    ..default()
+                }),
+            ),
             Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
@@ -146,7 +153,7 @@ fn spawn_coated_glass_bubble_sphere(
 /// extension.
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
         ),
         Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
@@ -165,18 +172,24 @@ fn spawn_scratched_gold_ball(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                clearcoat: 1.0,
-                clearcoat_perceptual_roughness: 0.3,
-                clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                    "textures/ScratchedGold-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
-                metallic: 0.9,
-                perceptual_roughness: 0.1,
-                base_color: GOLD.into(),
-                ..default()
-            })),
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    clearcoat: 1.0,
+                    clearcoat_perceptual_roughness: 0.3,
+                    clearcoat_normal_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings(|settings: &mut ImageLoaderSettings| {
+                                settings.is_srgb = false;
+                            })
+                            .load("textures/ScratchedGold-Normal.png"),
+                    ),
+                    metallic: 0.9,
+                    perceptual_roughness: 0.1,
+                    base_color: GOLD.into(),
+                    ..default()
+                }),
+            ),
             Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
@@ -202,7 +215,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ))
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             ..default()
         })
         .insert(EnvironmentMapLight {
@@ -219,8 +232,8 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
         light_mode.create_help_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

@@ -14,21 +14,20 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
+    camera::RenderTarget,
     core_pipeline::tonemapping::Tonemapping,
     image::TextureFormatPixelInfo,
     prelude::*,
     render::{
-        camera::RenderTarget,
-        render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
+        render_asset::RenderAssets,
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
-            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
-            TextureUsages,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
+            PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
-        renderer::{RenderContext, RenderDevice, RenderQueue},
+        renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
         Extract, Render, RenderApp, RenderSystems,
     },
+    window::ExitCondition,
     winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
@@ -41,7 +40,6 @@ use std::{
     },
     time::Duration,
 };
-
 // To communicate between the main world and the render world we need a channel.
 // Since the main world and render world run in parallel, there will always be a frame of latency
 // between the data sent from the render world and the data received in the main world
@@ -93,7 +91,7 @@ fn main() {
                     primary_window: None,
                     // Don’t automatically exit due to having no windows.
                     // Instead, the code in `update()` will explicitly produce an `AppExit` event.
-                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    exit_condition: ExitCondition::DontExit,
                     ..default()
                 })
                 // WinitPlugin will panic in environments without a display server.
@@ -187,7 +185,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -195,11 +193,7 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            // render to image
-            target: render_target,
-            ..default()
-        },
+        render_target,
         Tonemapping::None,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
@@ -215,10 +209,6 @@ impl Plugin for ImageCopyPlugin {
             .insert_resource(MainWorldReceiver(r))
             .sub_app_mut(RenderApp);
 
-        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
-        graph.add_node(ImageCopy, ImageCopyDriver);
-        graph.add_node_edge(bevy::render::graph::CameraDriverLabel, ImageCopy);
-
         render_app
             .insert_resource(RenderWorldSender(s))
             // Make ImageCopiers accessible in RenderWorld system and plugin
@@ -228,7 +218,8 @@ impl Plugin for ImageCopyPlugin {
             .add_systems(
                 Render,
                 receive_image_from_buffer.after(RenderSystems::Render),
-            );
+            )
+            .add_systems(RenderGraph, image_copy_driver);
     }
 }
 
@@ -248,25 +239,14 @@ fn setup_render_target(
     };
 
     // This is the texture that will be rendered to.
-    let mut render_target_image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0; 4],
-        TextureFormat::bevy_default(),
-        RenderAssetUsages::default(),
-    );
-    render_target_image.texture_descriptor.usage |=
-        TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
+    let mut render_target_image =
+        Image::new_target_texture(size.width, size.height, TextureFormat::Rgba8UnormSrgb, None);
+    render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let render_target_image_handle = images.add(render_target_image);
 
     // This is the texture that will be copied to.
-    let cpu_image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0; 4],
-        TextureFormat::bevy_default(),
-        RenderAssetUsages::default(),
-    );
+    let cpu_image =
+        Image::new_target_texture(size.width, size.height, TextureFormat::Rgba8UnormSrgb, None);
     let cpu_image_handle = images.add(cpu_image);
 
     commands.spawn(ImageCopier::new(
@@ -309,9 +289,7 @@ impl ImageCopier {
         size: Extent3d,
         render_device: &RenderDevice,
     ) -> ImageCopier {
-        let padded_bytes_per_row =
-            RenderDevice::align_copy_bytes_per_row((size.width) as usize) * 4;
-
+        let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(size.width as usize * 4);
         let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
             label: None,
             size: padded_bytes_per_row as u64 * size.height as u64,
@@ -338,71 +316,58 @@ fn image_copy_extract(mut commands: Commands, image_copiers: Extract<Query<&Imag
     ));
 }
 
-/// `RenderGraph` label for `ImageCopyDriver`
-#[derive(Debug, PartialEq, Eq, Clone, Hash, RenderLabel)]
-struct ImageCopy;
-
-/// `RenderGraph` node
-#[derive(Default)]
-struct ImageCopyDriver;
-
 // Copies image content from render target to buffer
-impl render_graph::Node for ImageCopyDriver {
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let image_copiers = world.get_resource::<ImageCopiers>().unwrap();
-        let gpu_images = world
-            .get_resource::<RenderAssets<bevy::render::texture::GpuImage>>()
-            .unwrap();
-
-        for image_copier in image_copiers.iter() {
-            if !image_copier.enabled() {
-                continue;
-            }
-
-            let src_image = gpu_images.get(&image_copier.src_image).unwrap();
-
-            let mut encoder = render_context
-                .render_device()
-                .create_command_encoder(&CommandEncoderDescriptor::default());
-
-            let block_dimensions = src_image.texture_format.block_dimensions();
-            let block_size = src_image.texture_format.block_copy_size(None).unwrap();
-
-            // Calculating correct size of image row because
-            // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
-            // That's why image in buffer can be little bit wider
-            // This should be taken into account at copy from buffer stage
-            let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
-            );
-
-            encoder.copy_texture_to_buffer(
-                src_image.texture.as_image_copy(),
-                TexelCopyBufferInfo {
-                    buffer: &image_copier.buffer,
-                    layout: TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(
-                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
-                                .unwrap()
-                                .into(),
-                        ),
-                        rows_per_image: None,
-                    },
-                },
-                src_image.size,
-            );
-
-            let render_queue = world.get_resource::<RenderQueue>().unwrap();
-            render_queue.submit(std::iter::once(encoder.finish()));
+fn image_copy_driver(
+    render_context: RenderContext,
+    image_copiers: Res<ImageCopiers>,
+    render_queue: Res<RenderQueue>,
+    gpu_images: Res<RenderAssets<bevy::render::texture::GpuImage>>,
+) {
+    for image_copier in image_copiers.iter() {
+        if !image_copier.enabled() {
+            continue;
         }
 
-        Ok(())
+        let src_image = gpu_images.get(&image_copier.src_image).unwrap();
+
+        let mut encoder = render_context
+            .render_device()
+            .create_command_encoder(&CommandEncoderDescriptor::default());
+
+        let block_dimensions = src_image.texture_descriptor.format.block_dimensions();
+        let block_size = src_image
+            .texture_descriptor
+            .format
+            .block_copy_size(None)
+            .unwrap();
+
+        // Calculating correct size of image row because
+        // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
+        // That's why image in buffer can be little bit wider
+        // This should be taken into account at copy from buffer stage
+        let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
+            (src_image.texture_descriptor.size.width as usize / block_dimensions.0 as usize)
+                * block_size as usize,
+        );
+
+        encoder.copy_texture_to_buffer(
+            src_image.texture.as_image_copy(),
+            TexelCopyBufferInfo {
+                buffer: &image_copier.buffer,
+                layout: TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
+                            .unwrap()
+                            .into(),
+                    ),
+                    rows_per_image: None,
+                },
+            },
+            src_image.texture_descriptor.size,
+        );
+
+        render_queue.submit(std::iter::once(encoder.finish()));
     }
 }
 
@@ -460,7 +425,9 @@ fn receive_image_from_buffer(
         // `Maintain::Wait` will cause the thread to wait on native but not on WebGpu.
 
         // This blocks until the gpu is done executing everything
-        render_device.poll(Maintain::wait()).panic_on_timeout();
+        render_device
+            .poll(PollType::wait_indefinitely())
+            .expect("Failed to poll device for map async");
 
         // This blocks until the buffer is mapped
         r.recv().expect("Failed to receive the map_async message");
@@ -485,7 +452,7 @@ fn update(
     receiver: Res<MainWorldReceiver>,
     mut images: ResMut<Assets<Image>>,
     mut scene_controller: ResMut<SceneController>,
-    mut app_exit_writer: EventWriter<AppExit>,
+    mut app_exit_writer: MessageWriter<AppExit>,
     mut file_number: Local<u32>,
 ) {
     if let SceneState::Render(n) = scene_controller.state {
@@ -501,13 +468,13 @@ fn update(
             if !image_data.is_empty() {
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
-                    let img_bytes = images.get_mut(image.id()).unwrap();
+                    let mut img_bytes = images.get_mut(image.id()).unwrap();
 
                     // We need to ensure that this works regardless of the image dimensions
                     // If the image became wider when copying from the texture to the buffer,
                     // then the data is reduced to its original size when copying from the buffer to the image.
                     let row_bytes = img_bytes.width() as usize
-                        * img_bytes.texture_descriptor.format.pixel_size();
+                        * img_bytes.texture_descriptor.format.pixel_size().unwrap();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
                     if row_bytes == aligned_row_bytes {
                         img_bytes.data.as_mut().unwrap().clone_from(&image_data);

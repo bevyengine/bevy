@@ -1,24 +1,55 @@
-use self::assign::ClusterableObjectType;
-use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
+use alloc::sync::Arc;
 use bevy_asset::UntypedAssetId;
+use bevy_camera::primitives::{
+    face_index_to_name, CascadesFrusta, CubeMapFace, CubemapFrusta, Frustum, CUBE_MAP_FACES,
+};
+use bevy_camera::visibility::{
+    CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
+    VisibleMeshEntities,
+};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy_core_pipeline::schedule::RootNonCameraView;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
+use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
-    system::lifetimeless::Read,
+    system::{SystemParam, SystemState},
 };
-use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_light::cascade::Cascade;
+use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
+use bevy_light::SunDisk;
+use bevy_light::{
+    spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
+    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, PointLight,
+    PointLightShadowMap, RectLight, ShadowFilteringMethod, SpotLight, VolumetricLight,
+};
+use bevy_material::{
+    key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
+    MaterialProperties,
+};
+use bevy_math::{
+    ops,
+    primitives::{HalfSpace, ViewFrustum},
+    Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
+use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
-use bevy_render::experimental::occlusion_culling::{
+use bevy_render::camera::{DirtySpecializations, PendingQueues};
+use bevy_render::erased_render_asset::ErasedRenderAssets;
+use bevy_render::mesh::allocator::MeshSlabs;
+use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
-use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap, RenderEntity};
+use bevy_render::view::{
+    RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities, RenderVisibleEntities,
+    VisibilityExtractionSystemParam,
+};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -26,30 +57,25 @@ use bevy_render::{
     view::{NoIndirectDrawing, RetainedViewEntity},
 };
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility},
+    view::ExtractedView,
     Extract,
-};
-use bevy_render::{
-    mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
-use core::{hash::Hash, marker::PhantomData, ops::Range};
+use core::{any::TypeId, hash::Hash, mem, ops::Range};
+use decal::clustered::RenderClusteredDecals;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 use tracing::{error, warn};
 
 #[derive(Component)]
+#[require(PointAndSpotLightViewEntities)]
 pub struct ExtractedPointLight {
     pub color: LinearRgba,
     /// luminous intensity in lumens per steradian
@@ -57,7 +83,8 @@ pub struct ExtractedPointLight {
     pub range: f32,
     pub radius: f32,
     pub transform: GlobalTransform,
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+    pub contact_shadows_enabled: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
@@ -69,11 +96,22 @@ pub struct ExtractedPointLight {
 }
 
 #[derive(Component, Debug)]
+pub struct ExtractedRectLight {
+    pub color: LinearRgba,
+    pub intensity: f32,
+    pub range: f32,
+    pub width: f32,
+    pub height: f32,
+    pub transform: GlobalTransform,
+}
+
+#[derive(Component, Debug)]
 pub struct ExtractedDirectionalLight {
     pub color: LinearRgba,
     pub illuminance: f32,
     pub transform: GlobalTransform,
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+    pub contact_shadows_enabled: bool,
     pub volumetric: bool,
     /// whether this directional light contributes diffuse light to lightmapped
     /// meshes
@@ -87,16 +125,20 @@ pub struct ExtractedDirectionalLight {
     pub soft_shadow_size: Option<f32>,
     /// True if this light is using two-phase occlusion culling.
     pub occlusion_culling: bool,
+    pub sun_disk_angular_size: f32,
+    pub sun_disk_intensity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
-        const SHADOWS_ENABLED                   = 1 << 0;
+        const SHADOW_MAPS_ENABLED               = 1 << 0;
         const SPOT_LIGHT_Y_NEGATIVE             = 1 << 1;
         const VOLUMETRIC                        = 1 << 2;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
+        const CONTACT_SHADOWS_ENABLED           = 1 << 4;
+        const SPOT_LIGHT                        = 1 << 5;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -121,18 +163,33 @@ pub struct GpuDirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    decal_index: u32,
+    sun_disk_angular_size: f32,
+    sun_disk_intensity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
-        const SHADOWS_ENABLED                   = 1 << 0;
+        const SHADOW_MAPS_ENABLED               = 1 << 0;
         const VOLUMETRIC                        = 1 << 1;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
+        const CONTACT_SHADOWS_ENABLED           = 1 << 3;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
+}
+
+#[derive(Copy, Clone, ShaderType, Default, Debug)]
+pub struct GpuRectLight {
+    color: Vec4,
+    position: Vec3,
+    width: f32,
+    right: Vec3,
+    height: f32,
+    up: Vec3,
+    range: f32,
 }
 
 #[derive(Copy, Clone, Debug, ShaderType)]
@@ -149,6 +206,8 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     ambient_light_affects_lightmapped_meshes: u32,
+    n_rect_lights: u32,
+    rect_lights: [GpuRectLight; MAX_RECT_LIGHTS],
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
@@ -170,6 +229,8 @@ pub const MAX_CASCADES_PER_LIGHT: usize = 4;
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 
+pub const MAX_RECT_LIGHTS: usize = 8;
+
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
     pub point_light_comparison_sampler: Sampler,
@@ -180,80 +241,128 @@ pub struct ShadowSamplers {
     pub directional_light_linear_sampler: Sampler,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for ShadowSamplers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let base_sampler_descriptor = SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Nearest,
+        ..default()
+    };
 
-        let base_sampler_descriptor = SamplerDescriptor {
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
-            ..default()
-        };
+    commands.insert_resource(ShadowSamplers {
+        point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            compare: Some(CompareFunction::GreaterEqual),
+            ..base_sampler_descriptor
+        }),
+        #[cfg(feature = "experimental_pbr_pcss")]
+        point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
+        directional_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            compare: Some(CompareFunction::GreaterEqual),
+            ..base_sampler_descriptor
+        }),
+        #[cfg(feature = "experimental_pbr_pcss")]
+        directional_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
+    });
+}
 
-        ShadowSamplers {
-            point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                compare: Some(CompareFunction::GreaterEqual),
-                ..base_sampler_descriptor
-            }),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
-            directional_light_comparison_sampler: render_device.create_sampler(
-                &SamplerDescriptor {
-                    compare: Some(CompareFunction::GreaterEqual),
-                    ..base_sampler_descriptor
-                },
-            ),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            directional_light_linear_sampler: render_device
-                .create_sampler(&base_sampler_descriptor),
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ShadowFilteringMethod
+pub fn extract_shadow_filtering_method(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &ShadowFilteringMethod)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, *query_item));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractResource on foreign type AmbientLight
+pub fn extract_ambient_light_resource(
+    mut commands: Commands,
+    main_resource: Extract<Option<Res<GlobalAmbientLight>>>,
+    target_resource: Option<ResMut<GlobalAmbientLight>>,
+) {
+    if let Some(main_resource) = main_resource.as_ref() {
+        if let Some(mut target_resource) = target_resource {
+            if main_resource.is_changed() {
+                *target_resource = (*main_resource).clone();
+            }
+        } else {
+            commands.insert_resource((*main_resource).clone());
         }
     }
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type AmbientLight
+pub fn extract_ambient_light(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &AmbientLight)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, query_item.clone()));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    global_visible_clusterable: Extract<Res<GlobalVisibleClusterableObjects>>,
-    previous_point_lights: Query<
-        Entity,
-        (
-            With<RenderCubemapVisibleEntities>,
-            With<ExtractedPointLight>,
-        ),
-    >,
-    previous_spot_lights: Query<
-        Entity,
-        (With<RenderVisibleMeshEntities>, With<ExtractedPointLight>),
-    >,
     point_lights: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &PointLight,
-            &CubemapVisibleEntities,
-            &GlobalTransform,
-            &ViewVisibility,
-            &CubemapFrusta,
-            Option<&VolumetricLight>,
-        )>,
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &PointLight,
+                &CubemapVisibleEntities,
+                &GlobalTransform,
+                &ViewVisibility,
+                &CubemapFrusta,
+                Option<&VolumetricLight>,
+            ),
+            Or<(
+                Changed<PointLight>,
+                Changed<CubemapVisibleEntities>,
+                Changed<GlobalTransform>,
+                Changed<ViewVisibility>,
+                Changed<CubemapFrusta>,
+                Changed<VolumetricLight>,
+            )>,
+        >,
     >,
     spot_lights: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &SpotLight,
-            &VisibleMeshEntities,
-            &GlobalTransform,
-            &ViewVisibility,
-            &Frustum,
-            Option<&VolumetricLight>,
-        )>,
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &SpotLight,
+                &VisibleMeshEntities,
+                &GlobalTransform,
+                &ViewVisibility,
+                &Frustum,
+                Option<&VolumetricLight>,
+            ),
+            Or<(
+                Changed<SpotLight>,
+                Changed<VisibleMeshEntities>,
+                Changed<GlobalTransform>,
+                Changed<ViewVisibility>,
+                Changed<Frustum>,
+                Changed<VolumetricLight>,
+            )>,
+        >,
     >,
     directional_lights: Extract<
         Query<
@@ -270,14 +379,51 @@ pub fn extract_lights(
                 Option<&RenderLayers>,
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
+                Option<&SunDisk>,
             ),
-            Without<SpotLight>,
+            (
+                Without<SpotLight>,
+                Or<(
+                    Changed<DirectionalLight>,
+                    Changed<CascadesVisibleEntities>,
+                    Changed<Cascades>,
+                    Changed<CascadeShadowConfig>,
+                    Changed<CascadesFrusta>,
+                    Changed<GlobalTransform>,
+                    Changed<ViewVisibility>,
+                    Changed<RenderLayers>,
+                    Changed<VolumetricLight>,
+                    Changed<OcclusionCulling>,
+                    Changed<SunDisk>,
+                )>,
+            ),
         >,
     >,
-    mapper: Extract<Query<RenderEntity>>,
-    mut previous_point_lights_len: Local<usize>,
-    mut previous_spot_lights_len: Local<usize>,
+    rect_lights: Extract<
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &RectLight,
+                &GlobalTransform,
+                &ViewVisibility,
+            ),
+            Or<(
+                Changed<RectLight>,
+                Changed<GlobalTransform>,
+                Changed<ViewVisibility>,
+            )>,
+        >,
+    >,
+    visibility_extraction_system_param: VisibilityExtractionSystemParam,
+    mut existing_render_shadow_map_visible_entities: Query<(
+        &mut RenderExtractedShadowMapVisibleEntities,
+        &mut RenderShadowMapVisibleEntities,
+    )>,
+    mut rect_light_missing_luts_warning_emitted: Local<bool>,
 ) {
+    let mapper = &visibility_extraction_system_param.mapper;
+
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
     if point_light_shadow_map.is_changed() {
@@ -286,21 +432,6 @@ pub fn extract_lights(
     if directional_light_shadow_map.is_changed() {
         commands.insert_resource(directional_light_shadow_map.clone());
     }
-
-    // Clear previous visible entities for all point/spot lights as they might not be in the
-    // `global_visible_clusterable` list anymore.
-    commands.try_insert_batch(
-        previous_point_lights
-            .iter()
-            .map(|render_entity| (render_entity, RenderCubemapVisibleEntities::default()))
-            .collect::<Vec<_>>(),
-    );
-    commands.try_insert_batch(
-        previous_spot_lights
-            .iter()
-            .map(|render_entity| (render_entity, RenderVisibleMeshEntities::default()))
-            .collect::<Vec<_>>(),
-    );
 
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
@@ -311,43 +442,97 @@ pub fn extract_lights(
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
-    let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
-    for entity in global_visible_clusterable.iter().copied() {
-        let Ok((
-            main_entity,
-            render_entity,
-            point_light,
-            cubemap_visible_entities,
-            transform,
-            view_visibility,
-            frusta,
-            volumetric_light,
-        )) = point_lights.get(entity)
-        else {
-            continue;
-        };
+    for (
+        main_entity,
+        render_entity,
+        point_light,
+        cubemap_visible_entities,
+        transform,
+        view_visibility,
+        frusta,
+        volumetric_light,
+    ) in point_lights.iter()
+    {
         if !view_visibility.get() {
+            if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
+                entity_commands.remove::<ExtractedPointLight>();
+            }
             continue;
         }
-        let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
-            data: cubemap_visible_entities
-                .iter()
-                .map(|v| create_render_visible_mesh_entities(&mapper, v))
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
-        };
 
+        if !point_light.shadow_maps_enabled {
+            clear_shadow_maps(&mut commands, render_entity);
+        } else {
+            // Fetch or create the visible entities for each cubemap face.
+            let (
+                mut render_extracted_shadow_map_visible_entities,
+                mut render_shadow_map_visible_entities,
+            ) = match existing_render_shadow_map_visible_entities.get_mut(render_entity) {
+                Ok((
+                    ref mut existing_extracted_shadow_map_visible_entities,
+                    ref mut existing_shadow_map_visible_entities,
+                )) => (
+                    mem::take(&mut **existing_extracted_shadow_map_visible_entities),
+                    mem::take(&mut **existing_shadow_map_visible_entities),
+                ),
+                Err(_) => (
+                    RenderExtractedShadowMapVisibleEntities::default(),
+                    RenderShadowMapVisibleEntities::default(),
+                ),
+            };
+
+            for face_index in 0..6 {
+                let retained_view_entity = RetainedViewEntity {
+                    main_entity: MainEntity::from(main_entity),
+                    auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                    subview_index: face_index,
+                };
+                render_shadow_map_visible_entities
+                    .subviews
+                    .entry(retained_view_entity)
+                    .or_default();
+
+                // Extract the visible entities to the list for this face.
+                let extracted_entities = &mut render_extracted_shadow_map_visible_entities
+                    .subviews
+                    .entry(retained_view_entity)
+                    .or_default()
+                    .classes
+                    .entry(TypeId::of::<Mesh3d>())
+                    .or_default()
+                    .entities;
+                extracted_entities.clear();
+                let visible_mesh_entities = cubemap_visible_entities.get(face_index as usize);
+                extracted_entities.extend(visible_mesh_entities.entities.iter().map(
+                    |main_entity| {
+                        let render_entity = match mapper.get(*main_entity) {
+                            Ok(render_entity) => **render_entity,
+                            Err(_) => Entity::PLACEHOLDER,
+                        };
+                        (render_entity, MainEntity::from(*main_entity))
+                    },
+                ));
+            }
+
+            let mut entity_commands = commands.entity(render_entity);
+            entity_commands.insert((
+                render_extracted_shadow_map_visible_entities,
+                render_shadow_map_visible_entities,
+            ));
+        }
+
+        let mut entity_commands = commands.entity(render_entity);
         let extracted_point_light = ExtractedPointLight {
             color: point_light.color.into(),
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+            // for a point light. See https://google.github.io/filament/Filament.md.html#mjx-eqn-pointLightLuminousPower
             // for details.
             intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
             range: point_light.range,
             radius: point_light.radius,
             transform: *transform,
-            shadows_enabled: point_light.shadows_enabled,
+            shadow_maps_enabled: point_light.shadow_maps_enabled,
+            contact_shadows_enabled: point_light.contact_shadows_enabled,
             shadow_depth_bias: point_light.shadow_depth_bias,
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
@@ -362,81 +547,125 @@ pub fn extract_lights(
             #[cfg(not(feature = "experimental_pbr_pcss"))]
             soft_shadows_enabled: false,
         };
-        point_lights_values.push((
-            render_entity,
-            (
-                extracted_point_light,
-                render_cubemap_visible_entities,
-                (*frusta).clone(),
-                MainEntity::from(main_entity),
-            ),
+        entity_commands.insert((
+            extracted_point_light,
+            (*frusta).clone(),
+            MainEntity::from(main_entity),
         ));
     }
-    *previous_point_lights_len = point_lights_values.len();
-    commands.try_insert_batch(point_lights_values);
 
-    let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
-    for entity in global_visible_clusterable.iter().copied() {
-        if let Ok((
-            main_entity,
-            render_entity,
-            spot_light,
-            visible_entities,
-            transform,
-            view_visibility,
-            frustum,
-            volumetric_light,
-        )) = spot_lights.get(entity)
-        {
-            if !view_visibility.get() {
-                continue;
+    for (
+        main_entity,
+        render_entity,
+        spot_light,
+        visible_entities,
+        transform,
+        view_visibility,
+        frustum,
+        volumetric_light,
+    ) in spot_lights.iter()
+    {
+        if !view_visibility.get() {
+            if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
+                entity_commands.remove::<ExtractedPointLight>();
             }
-            let render_visible_entities =
-                create_render_visible_mesh_entities(&mapper, visible_entities);
+            continue;
+        }
 
-            let texel_size =
-                2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
-
-            spot_lights_values.push((
-                render_entity,
-                (
-                    ExtractedPointLight {
-                        color: spot_light.color.into(),
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-                        // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
-                        range: spot_light.range,
-                        radius: spot_light.radius,
-                        transform: *transform,
-                        shadows_enabled: spot_light.shadows_enabled,
-                        shadow_depth_bias: spot_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: spot_light.shadow_normal_bias
-                            * texel_size
-                            * core::f32::consts::SQRT_2,
-                        shadow_map_near_z: spot_light.shadow_map_near_z,
-                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
-                        volumetric: volumetric_light.is_some(),
-                        affects_lightmapped_mesh_diffuse: spot_light
-                            .affects_lightmapped_mesh_diffuse,
-                        #[cfg(feature = "experimental_pbr_pcss")]
-                        soft_shadows_enabled: spot_light.soft_shadows_enabled,
-                        #[cfg(not(feature = "experimental_pbr_pcss"))]
-                        soft_shadows_enabled: false,
-                    },
-                    render_visible_entities,
-                    *frustum,
-                    MainEntity::from(main_entity),
+        if !spot_light.shadow_maps_enabled {
+            clear_shadow_maps(&mut commands, render_entity);
+        } else {
+            // Fetch or create the visible entities.
+            let (
+                mut render_extracted_shadow_map_visible_entities,
+                mut render_shadow_map_visible_entities,
+            ) = match existing_render_shadow_map_visible_entities.get_mut(render_entity) {
+                Ok((
+                    ref mut existing_extracted_shadow_map_visible_entities,
+                    ref mut existing_shadow_map_visible_entities,
+                )) => (
+                    mem::take(&mut **existing_extracted_shadow_map_visible_entities),
+                    mem::take(&mut **existing_shadow_map_visible_entities),
                 ),
+                Err(_) => (
+                    RenderExtractedShadowMapVisibleEntities::default(),
+                    RenderShadowMapVisibleEntities::default(),
+                ),
+            };
+
+            let retained_view_entity = RetainedViewEntity {
+                main_entity: MainEntity::from(main_entity),
+                auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                subview_index: 0,
+            };
+            render_shadow_map_visible_entities
+                .subviews
+                .entry(retained_view_entity)
+                .or_default();
+
+            // Extract the visible CPU culled entities to the list.
+            let entities_cpu_culling = &mut render_extracted_shadow_map_visible_entities
+                .subviews
+                .entry(retained_view_entity)
+                .or_default()
+                .classes
+                .entry(TypeId::of::<Mesh3d>())
+                .or_default()
+                .entities;
+            entities_cpu_culling.clear();
+            entities_cpu_culling.extend(visible_entities.entities.iter().map(|main_entity| {
+                let render_entity = match mapper.get(*main_entity) {
+                    Ok(render_entity) => **render_entity,
+                    Err(_) => Entity::PLACEHOLDER,
+                };
+                (render_entity, MainEntity::from(*main_entity))
+            }));
+
+            let mut entity_commands = commands.entity(render_entity);
+            entity_commands.insert((
+                render_extracted_shadow_map_visible_entities,
+                render_shadow_map_visible_entities,
             ));
         }
+
+        let texel_size =
+            2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
+
+        let mut entity_commands = commands.entity(render_entity);
+        let extracted_spot_light = ExtractedPointLight {
+            color: spot_light.color.into(),
+            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+            // for a point light. See https://google.github.io/filament/Filament.md.html#mjx-eqn-pointLightLuminousPower
+            // for details.
+            // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+            // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+            // which seems least surprising for users
+            intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
+            range: spot_light.range,
+            radius: spot_light.radius,
+            transform: *transform,
+            shadow_maps_enabled: spot_light.shadow_maps_enabled,
+            contact_shadows_enabled: spot_light.contact_shadows_enabled,
+            shadow_depth_bias: spot_light.shadow_depth_bias,
+            // The factor of SQRT_2 is for the worst-case diagonal offset
+            shadow_normal_bias: spot_light.shadow_normal_bias
+                * texel_size
+                * core::f32::consts::SQRT_2,
+            shadow_map_near_z: spot_light.shadow_map_near_z,
+            spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+            volumetric: volumetric_light.is_some(),
+            affects_lightmapped_mesh_diffuse: spot_light.affects_lightmapped_mesh_diffuse,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadows_enabled: spot_light.soft_shadows_enabled,
+            #[cfg(not(feature = "experimental_pbr_pcss"))]
+            soft_shadows_enabled: false,
+        };
+        entity_commands.insert((
+            extracted_spot_light,
+            *frustum,
+            MainEntity::from(main_entity),
+        ));
     }
-    *previous_spot_lights_len = spot_lights_values.len();
-    commands.try_insert_batch(spot_lights_values);
 
     for (
         main_entity,
@@ -451,127 +680,218 @@ pub fn extract_lights(
         maybe_layers,
         volumetric_light,
         occlusion_culling,
+        sun_disk,
     ) in &directional_lights
     {
         if !view_visibility.get() {
             commands
                 .get_entity(entity)
                 .expect("Light entity wasn't synced.")
-                .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
+                .remove::<(
+                    ExtractedDirectionalLight,
+                    RenderExtractedShadowMapVisibleEntities,
+                )>();
             continue;
         }
 
         // TODO: update in place instead of reinserting.
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
-        let mut cascade_visible_entities = EntityHashMap::default();
-        for (e, v) in cascades.cascades.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                extracted_cascades.insert(entity, v.clone());
-            } else {
-                break;
+
+        if !directional_light.shadow_maps_enabled {
+            clear_shadow_maps(&mut commands, entity);
+        } else {
+            // Fetch or create the visible entities set for each cascade.
+            let (
+                mut existing_extracted_shadow_map_visible_entities,
+                mut existing_shadow_map_visible_entities,
+            ) = match existing_render_shadow_map_visible_entities.get_mut(entity) {
+                Ok((
+                    ref mut existing_extracted_shadow_map_visible_entities,
+                    ref mut existing_shadow_map_visible_entities,
+                )) => (
+                    mem::take(&mut **existing_extracted_shadow_map_visible_entities),
+                    mem::take(&mut **existing_shadow_map_visible_entities),
+                ),
+                Err(_) => (
+                    RenderExtractedShadowMapVisibleEntities::default(),
+                    RenderShadowMapVisibleEntities::default(),
+                ),
+            };
+
+            for (e, v) in cascades.cascades.iter() {
+                if let Ok(entity) = mapper.get(*e) {
+                    extracted_cascades.insert(**entity, v.clone());
+                } else {
+                    break;
+                }
             }
-        }
-        for (e, v) in frusta.frusta.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                extracted_frusta.insert(entity, v.clone());
-            } else {
-                break;
+            for (e, v) in frusta.frusta.iter() {
+                if let Ok(entity) = mapper.get(*e) {
+                    extracted_frusta.insert(**entity, v.clone());
+                } else {
+                    break;
+                }
             }
-        }
-        for (e, v) in visible_entities.entities.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                cascade_visible_entities.insert(
-                    entity,
-                    v.iter()
-                        .map(|v| create_render_visible_mesh_entities(&mapper, v))
-                        .collect(),
-                );
-            } else {
-                break;
+            // Calculate the added and removed entities for each cascade.
+            let mut all_cascades_seen = HashSet::new();
+            for (main_auxiliary_entity, visible_mesh_entities_list) in
+                visible_entities.entities.iter()
+            {
+                for subview_index in 0..(cascade_config.bounds.len() as u32) {
+                    let retained_view_entity = RetainedViewEntity {
+                        main_entity: MainEntity::from(main_entity),
+                        auxiliary_entity: MainEntity::from(*main_auxiliary_entity),
+                        subview_index,
+                    };
+                    all_cascades_seen.insert(retained_view_entity);
+
+                    existing_shadow_map_visible_entities
+                        .subviews
+                        .entry(retained_view_entity)
+                        .or_default();
+
+                    // Extract the visible CPU culled entities to the list.
+                    let extracted_entities = &mut existing_extracted_shadow_map_visible_entities
+                        .subviews
+                        .entry(retained_view_entity)
+                        .or_default()
+                        .classes
+                        .entry(TypeId::of::<Mesh3d>())
+                        .or_default()
+                        .entities;
+                    extracted_entities.clear();
+                    let Some(visible_mesh_entities) =
+                        visible_mesh_entities_list.get(subview_index as usize)
+                    else {
+                        continue;
+                    };
+                    extracted_entities.extend(visible_mesh_entities.entities.iter().map(
+                        |main_entity| {
+                            let render_entity = match mapper.get(*main_entity) {
+                                Ok(render_entity) => **render_entity,
+                                Err(_) => Entity::PLACEHOLDER,
+                            };
+                            (render_entity, MainEntity::from(*main_entity))
+                        },
+                    ));
+                }
             }
+
+            // Clear out visible entity lists corresponding to cascades that no
+            // longer exist.
+            existing_extracted_shadow_map_visible_entities
+                .subviews
+                .retain(|cascade_entity, _| all_cascades_seen.contains(cascade_entity));
+            existing_shadow_map_visible_entities
+                .subviews
+                .retain(|cascade_entity, _| all_cascades_seen.contains(cascade_entity));
+
+            let mut entity_commands = commands.entity(entity);
+            entity_commands.insert((
+                existing_extracted_shadow_map_visible_entities,
+                existing_shadow_map_visible_entities,
+            ));
         }
 
-        commands
+        let extracted_directional_light = ExtractedDirectionalLight {
+            color: directional_light.color.into(),
+            illuminance: directional_light.illuminance,
+            transform: *transform,
+            volumetric: volumetric_light.is_some(),
+            affects_lightmapped_mesh_diffuse: directional_light.affects_lightmapped_mesh_diffuse,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadow_size: directional_light.soft_shadow_size,
+            #[cfg(not(feature = "experimental_pbr_pcss"))]
+            soft_shadow_size: None,
+            shadow_maps_enabled: directional_light.shadow_maps_enabled,
+            contact_shadows_enabled: directional_light.contact_shadows_enabled,
+            shadow_depth_bias: directional_light.shadow_depth_bias,
+            // The factor of SQRT_2 is for the worst-case diagonal offset
+            shadow_normal_bias: directional_light.shadow_normal_bias * core::f32::consts::SQRT_2,
+            cascade_shadow_config: cascade_config.clone(),
+            cascades: extracted_cascades,
+            frusta: extracted_frusta,
+            render_layers: maybe_layers.unwrap_or_default().clone(),
+            occlusion_culling,
+            sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
+            sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
+        };
+
+        let mut entity_commands = commands
             .get_entity(entity)
-            .expect("Light entity wasn't synced.")
+            .expect("Light entity wasn't synced.");
+        entity_commands.insert((extracted_directional_light, MainEntity::from(main_entity)));
+    }
+
+    for (main_entity, render_entity, rect_light, transform, view_visibility) in &rect_lights {
+        if !cfg!(feature = "area_light_luts") && !*rect_light_missing_luts_warning_emitted {
+            warn!(
+                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled."
+            );
+            *rect_light_missing_luts_warning_emitted = true;
+        }
+        if !view_visibility.get() {
+            if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
+                entity_commands.remove::<ExtractedRectLight>();
+            }
+            continue;
+        }
+
+        let affine = transform.affine();
+        let effective_width = rect_light.width * affine.matrix3.x_axis.length();
+        let effective_height = rect_light.height * affine.matrix3.y_axis.length();
+        commands
+            .get_entity(render_entity)
+            .expect("RectLight entity wasn't synced.")
             .insert((
-                ExtractedDirectionalLight {
-                    color: directional_light.color.into(),
-                    illuminance: directional_light.illuminance,
+                ExtractedRectLight {
+                    color: rect_light.color.into(),
+                    intensity: rect_light.intensity
+                        / (effective_width * effective_height * core::f32::consts::PI),
+                    width: effective_width,
+                    height: effective_height,
+                    range: rect_light.range,
                     transform: *transform,
-                    volumetric: volumetric_light.is_some(),
-                    affects_lightmapped_mesh_diffuse: directional_light
-                        .affects_lightmapped_mesh_diffuse,
-                    #[cfg(feature = "experimental_pbr_pcss")]
-                    soft_shadow_size: directional_light.soft_shadow_size,
-                    #[cfg(not(feature = "experimental_pbr_pcss"))]
-                    soft_shadow_size: None,
-                    shadows_enabled: directional_light.shadows_enabled,
-                    shadow_depth_bias: directional_light.shadow_depth_bias,
-                    // The factor of SQRT_2 is for the worst-case diagonal offset
-                    shadow_normal_bias: directional_light.shadow_normal_bias
-                        * core::f32::consts::SQRT_2,
-                    cascade_shadow_config: cascade_config.clone(),
-                    cascades: extracted_cascades,
-                    frusta: extracted_frusta,
-                    render_layers: maybe_layers.unwrap_or_default().clone(),
-                    occlusion_culling,
-                },
-                RenderCascadesVisibleEntities {
-                    entities: cascade_visible_entities,
                 },
                 MainEntity::from(main_entity),
             ));
     }
-}
 
-fn create_render_visible_mesh_entities(
-    mapper: &Extract<Query<RenderEntity>>,
-    visible_entities: &VisibleMeshEntities,
-) -> RenderVisibleMeshEntities {
-    RenderVisibleMeshEntities {
-        entities: visible_entities
-            .iter()
-            .map(|e| {
-                let render_entity = mapper.get(*e).unwrap_or(Entity::PLACEHOLDER);
-                (render_entity, MainEntity::from(*e))
-            })
-            .collect(),
+    /// Clears out any shadow maps that may be present for a light with shadow
+    /// mapping turned off.
+    fn clear_shadow_maps(commands: &mut Commands, render_entity: Entity) {
+        let Ok(mut entity_commands) = commands.get_entity(render_entity) else {
+            return;
+        };
+        entity_commands.remove::<(
+            RenderExtractedShadowMapVisibleEntities,
+            RenderShadowMapVisibleEntities,
+        )>();
     }
 }
 
 #[derive(Component, Default, Deref, DerefMut)]
 /// Component automatically attached to a light entity to track light-view entities
 /// for each view.
-pub struct LightViewEntities(EntityHashMap<Vec<Entity>>);
+pub struct DirectionalLightViewEntities(EntityHashMap<Vec<Entity>>);
 
 // TODO: using required component
 pub(crate) fn add_light_view_entities(
-    trigger: On<Add, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    add: On<Add, ExtractedDirectionalLight>,
     mut commands: Commands,
 ) {
-    if let Ok(mut v) = commands.get_entity(trigger.target()) {
-        v.insert(LightViewEntities::default());
-    }
-}
-
-/// Removes [`LightViewEntities`] when light is removed. See [`add_light_view_entities`].
-pub(crate) fn extracted_light_removed(
-    trigger: On<Remove, (ExtractedDirectionalLight, ExtractedPointLight)>,
-    mut commands: Commands,
-) {
-    if let Ok(mut v) = commands.get_entity(trigger.target()) {
-        v.try_remove::<LightViewEntities>();
+    if let Ok(mut v) = commands.get_entity(add.entity) {
+        v.insert(DirectionalLightViewEntities::default());
     }
 }
 
 pub(crate) fn remove_light_view_entities(
-    trigger: On<Remove, LightViewEntities>,
-    query: Query<&LightViewEntities>,
+    remove: On<Remove, DirectionalLightViewEntities>,
+    query: Query<&DirectionalLightViewEntities>,
     mut commands: Commands,
 ) {
-    if let Ok(entities) = query.get(trigger.target()) {
+    if let Ok(entities) = query.get(remove.entity) {
         for v in entities.0.values() {
             for e in v.iter().copied() {
                 if let Ok(mut v) = commands.get_entity(e) {
@@ -582,62 +902,27 @@ pub(crate) fn remove_light_view_entities(
     }
 }
 
-pub(crate) struct CubeMapFace {
-    pub(crate) target: Vec3,
-    pub(crate) up: Vec3,
-}
-
-// Cubemap faces are [+X, -X, +Y, -Y, +Z, -Z], per https://www.w3.org/TR/webgpu/#texture-view-creation
-// Note: Cubemap coordinates are left-handed y-up, unlike the rest of Bevy.
-// See https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection
-//
-// For each cubemap face, we take care to specify the appropriate target/up axis such that the rendered
-// texture using Bevy's right-handed y-up coordinate space matches the expected cubemap face in
-// left-handed y-up cubemap coordinates.
-pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
-    // +X
-    CubeMapFace {
-        target: Vec3::X,
-        up: Vec3::Y,
-    },
-    // -X
-    CubeMapFace {
-        target: Vec3::NEG_X,
-        up: Vec3::Y,
-    },
-    // +Y
-    CubeMapFace {
-        target: Vec3::Y,
-        up: Vec3::Z,
-    },
-    // -Y
-    CubeMapFace {
-        target: Vec3::NEG_Y,
-        up: Vec3::NEG_Z,
-    },
-    // +Z (with left-handed conventions, pointing forwards)
-    CubeMapFace {
-        target: Vec3::NEG_Z,
-        up: Vec3::Y,
-    },
-    // -Z (with left-handed conventions, pointing backwards)
-    CubeMapFace {
-        target: Vec3::Z,
-        up: Vec3::Y,
-    },
-];
-
-fn face_index_to_name(face_index: usize) -> &'static str {
-    match face_index {
-        0 => "+x",
-        1 => "-x",
-        2 => "+y",
-        3 => "-y",
-        4 => "+z",
-        5 => "-z",
-        _ => "invalid",
+pub(crate) fn remove_point_and_spot_light_view_entities(
+    remove: On<Remove, PointAndSpotLightViewEntities>,
+    query: Query<&PointAndSpotLightViewEntities>,
+    mut commands: Commands,
+) {
+    if let Ok(entities) = query.get(remove.entity) {
+        for e in entities.0.iter().copied() {
+            if let Ok(mut v) = commands.get_entity(e) {
+                v.despawn();
+            }
+        }
     }
 }
+
+/// A component that stores the shadow maps associated with a point or spot
+/// light.
+///
+/// This component is placed on the light, because these types of shadow maps
+/// aren't associated with views.
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct PointAndSpotLightViewEntities(Vec<Entity>);
 
 #[derive(Component)]
 pub struct ShadowView {
@@ -692,60 +977,12 @@ pub enum LightEntity {
         light_entity: Entity,
     },
 }
-pub fn calculate_cluster_factors(
-    near: f32,
-    far: f32,
-    z_slices: f32,
-    is_orthographic: bool,
-) -> Vec2 {
-    if is_orthographic {
-        Vec2::new(-near, z_slices / (-far - -near))
-    } else {
-        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
-        Vec2::new(
-            z_slices_of_ln_zfar_over_znear,
-            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
-        )
-    }
-}
-
-// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
-// we will also construct it in the fragment shader and need our implementations to match,
-// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
-// could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
-    // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.back().extend(0.0);
-
-    let sign = 1f32.copysign(fwd_dir.z);
-    let a = -1.0 / (fwd_dir.z + sign);
-    let b = fwd_dir.x * fwd_dir.y * a;
-    let up_dir = Vec4::new(
-        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
-        sign * b,
-        -sign * fwd_dir.x,
-        0.0,
-    );
-    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
-
-    Mat4::from_cols(
-        right_dir,
-        up_dir,
-        fwd_dir,
-        transform.translation().extend(1.0),
-    )
-}
-
-pub(crate) fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
-    // spot light projection FOV is 2x the angle from spot light center to outer edge
-    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
-}
 
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     (render_device, render_queue): (Res<RenderDevice>, Res<RenderQueue>),
-    mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
+    mut global_clusterable_object_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
         (
@@ -759,25 +996,53 @@ pub fn prepare_lights(
         ),
         With<Camera3d>,
     >,
-    ambient_light: Res<AmbientLight>,
+    ambient_light: Res<GlobalAmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     (
         mut max_directional_lights_warning_emitted,
+        mut max_rect_lights_warning_emitted,
         mut max_cascades_per_light_warning_emitted,
         mut live_shadow_mapping_lights,
-    ): (Local<bool>, Local<bool>, Local<HashSet<RetainedViewEntity>>),
-    point_lights: Query<(
-        Entity,
-        &MainEntity,
-        &ExtractedPointLight,
-        AnyOf<(&CubemapFrusta, &Frustum)>,
-    )>,
-    directional_lights: Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
-    mut light_view_entities: Query<&mut LightViewEntities>,
+    ): (
+        Local<bool>,
+        Local<bool>,
+        Local<bool>,
+        Local<HashSet<RetainedViewEntity>>,
+    ),
+    (
+        mut point_lights,
+        changed_point_lights,
+        directional_lights,
+        rect_lights,
+        mut directional_light_view_entities,
+    ): (
+        Query<(
+            Entity,
+            &MainEntity,
+            &ExtractedPointLight,
+            &mut PointAndSpotLightViewEntities,
+            AnyOf<(&CubemapFrusta, &Frustum)>,
+        )>,
+        Query<
+            (),
+            Or<(
+                Changed<ExtractedPointLight>,
+                Changed<CubemapFrusta>,
+                Changed<Frustum>,
+            )>,
+        >,
+        Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
+        Query<(Entity, &MainEntity, &ExtractedRectLight)>,
+        Query<&mut DirectionalLightViewEntities>,
+    ),
     sorted_cameras: Res<SortedCameras>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    (gpu_preprocessing_support, decals): (
+        Res<GpuPreprocessingSupport>,
+        Option<Res<RenderClusteredDecals>>,
+    ),
+    existing_shadow_views: Query<&ShadowView>,
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -795,10 +1060,20 @@ pub fn prepare_lights(
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    global_light_meta.entity_to_index.clear();
+    global_clusterable_object_meta.entity_to_index.clear();
 
-    let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
-    let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
+    let mut point_light_entities: Vec<_> = point_lights
+        .iter()
+        .map(|(entity, _, _, _, _)| entity)
+        .collect::<Vec<_>>();
+    let mut directional_light_entities: Vec<_> = directional_lights
+        .iter()
+        .map(|(entity, _, _)| entity)
+        .collect::<Vec<_>>();
+    let rect_light_entities: Vec<_> = rect_lights
+        .iter()
+        .map(|(entity, _, _)| entity)
+        .collect::<Vec<_>>();
 
     #[cfg(any(
         not(feature = "webgl"),
@@ -817,14 +1092,24 @@ pub fn prepare_lights(
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_cubes = 1;
 
-    if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
+    if !*max_directional_lights_warning_emitted
+        && directional_light_entities.len() > MAX_DIRECTIONAL_LIGHTS
     {
         warn!(
             "The amount of directional lights of {} is exceeding the supported limit of {}.",
-            directional_lights.len(),
+            directional_light_entities.len(),
             MAX_DIRECTIONAL_LIGHTS
         );
         *max_directional_lights_warning_emitted = true;
+    }
+
+    if !*max_rect_lights_warning_emitted && rect_light_entities.len() > MAX_RECT_LIGHTS {
+        warn!(
+            "The amount of rectangle area lights of {} is exceeding the supported limit of {}.",
+            rect_light_entities.len(),
+            MAX_RECT_LIGHTS
+        );
+        *max_rect_lights_warning_emitted = true;
     }
 
     if !*max_cascades_per_light_warning_emitted
@@ -846,13 +1131,13 @@ pub fn prepare_lights(
 
     let point_light_volumetric_enabled_count = point_lights
         .iter()
-        .filter(|(_, _, light, _)| light.volumetric && light.spot_light_angles.is_none())
+        .filter(|(_, _, light, _, _)| light.volumetric && light.spot_light_angles.is_none())
         .count()
         .min(max_texture_cubes);
 
     let point_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|light| light.2.shadows_enabled && light.2.spot_light_angles.is_none())
+        .filter(|light| light.2.shadow_maps_enabled && light.2.spot_light_angles.is_none())
         .count()
         .min(max_texture_cubes);
 
@@ -866,25 +1151,27 @@ pub fn prepare_lights(
     let directional_shadow_enabled_count = directional_lights
         .iter()
         .take(MAX_DIRECTIONAL_LIGHTS)
-        .filter(|(_, _, light)| light.shadows_enabled)
+        .filter(|(_, _, light)| light.shadow_maps_enabled)
         .count()
         .min(max_texture_array_layers / MAX_CASCADES_PER_LIGHT);
 
     let spot_light_count = point_lights
         .iter()
-        .filter(|(_, _, light, _)| light.spot_light_angles.is_some())
+        .filter(|(_, _, light, _, _)| light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
     let spot_light_volumetric_enabled_count = point_lights
         .iter()
-        .filter(|(_, _, light, _)| light.volumetric && light.spot_light_angles.is_some())
+        .filter(|(_, _, light, _, _)| light.volumetric && light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
     let spot_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|(_, _, light, _)| light.shadows_enabled && light.spot_light_angles.is_some())
+        .filter(|(_, _, light, _, _)| {
+            light.shadow_maps_enabled && light.spot_light_angles.is_some()
+        })
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
@@ -893,9 +1180,9 @@ pub fn prepare_lights(
     // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
-    point_lights.sort_by_cached_key(|(entity, _, light, _)| {
+    point_light_entities.sort_by_cached_key(|entity| {
         (
-            ClusterableObjectType::from_point_or_spot_light(light).ordering(),
+            point_or_spot_light_to_clusterable(point_lights.get(*entity).unwrap().2).ordering(),
             *entity,
         )
     });
@@ -908,29 +1195,35 @@ pub fn prepare_lights(
     //   shadows
     // - then by entity as a stable key to ensure that a consistent set of
     //   lights are chosen if the light count limit is exceeded.
-    // - because entities are unique, we can use `sort_unstable_by_key`
-    //   and still end up with a stable order.
-    directional_lights.sort_unstable_by_key(|(entity, _, light)| {
-        (light.volumetric, light.shadows_enabled, *entity)
+    directional_light_entities.sort_by_cached_key(|entity| {
+        let light = directional_lights.get(*entity).unwrap().2;
+        (light.volumetric, light.shadow_maps_enabled, *entity)
     });
 
-    if global_light_meta.entity_to_index.capacity() < point_lights.len() {
-        global_light_meta
+    if global_clusterable_object_meta.entity_to_index.capacity() < point_light_entities.len() {
+        global_clusterable_object_meta
             .entity_to_index
-            .reserve(point_lights.len());
+            .reserve(point_light_entities.len());
     }
 
-    let mut gpu_point_lights = Vec::new();
-    for (index, &(entity, _, light, _)) in point_lights.iter().enumerate() {
+    global_clusterable_object_meta.gpu_clustered_lights.clear();
+
+    for (index, entity) in point_light_entities.iter().enumerate() {
+        let light = point_lights.get(*entity).unwrap().2;
+
         let mut flags = PointLightFlags::NONE;
 
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled
+        if light.shadow_maps_enabled
             && (index < point_light_shadow_maps_count
                 || (light.spot_light_angles.is_some()
                     && index - point_light_count < spot_light_shadow_maps_count))
         {
-            flags |= PointLightFlags::SHADOWS_ENABLED;
+            flags |= PointLightFlags::SHADOW_MAPS_ENABLED;
+        }
+
+        if light.contact_shadows_enabled {
+            flags |= PointLightFlags::CONTACT_SHADOWS_ENABLED;
         }
 
         let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
@@ -938,7 +1231,7 @@ pub fn prepare_lights(
             1.0,
             light.shadow_map_near_z,
         );
-        if light.shadows_enabled
+        if light.shadow_maps_enabled
             && light.volumetric
             && (index < point_light_volumetric_enabled_count
                 || (light.spot_light_angles.is_some()
@@ -953,6 +1246,8 @@ pub fn prepare_lights(
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
+                flags |= PointLightFlags::SPOT_LIGHT;
+
                 let light_direction = light.transform.forward();
                 if light_direction.y.is_sign_negative() {
                     flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
@@ -983,29 +1278,41 @@ pub fn prepare_lights(
             }
         };
 
-        gpu_point_lights.push(GpuClusterableObject {
-            light_custom_data,
-            // premultiply color by intensity
-            // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
-                * light.intensity)
-                .xyz()
-                .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits(),
-            shadow_depth_bias: light.shadow_depth_bias,
-            shadow_normal_bias: light.shadow_normal_bias,
-            shadow_map_near_z: light.shadow_map_near_z,
-            spot_light_tan_angle,
-            pad_a: 0.0,
-            pad_b: 0.0,
-            soft_shadow_size: if light.soft_shadows_enabled {
-                light.radius
-            } else {
-                0.0
-            },
-        });
-        global_light_meta.entity_to_index.insert(entity, index);
+        global_clusterable_object_meta
+            .gpu_clustered_lights
+            .add(GpuClusteredLight {
+                light_custom_data,
+                // premultiply color by intensity
+                // we don't use the alpha at all, so no reason to multiply only [0..3]
+                color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
+                    * light.intensity)
+                    .xyz()
+                    .extend(1.0 / (light.range * light.range)),
+                position_radius: light.transform.translation().extend(light.radius),
+                flags: flags.bits(),
+                shadow_depth_bias: light.shadow_depth_bias,
+                shadow_normal_bias: light.shadow_normal_bias,
+                shadow_map_near_z: light.shadow_map_near_z,
+                spot_light_tan_angle,
+                decal_index: decals
+                    .as_ref()
+                    .and_then(|decals| decals.get(*entity))
+                    .and_then(|index| index.try_into().ok())
+                    .unwrap_or(u32::MAX),
+                range: light.range,
+                soft_shadow_size: if light.soft_shadows_enabled {
+                    light.radius
+                } else {
+                    0.0
+                },
+            });
+        global_clusterable_object_meta
+            .entity_to_index
+            .insert(*entity, index);
+        debug_assert_eq!(
+            global_clusterable_object_meta.entity_to_index.len(),
+            global_clusterable_object_meta.gpu_clustered_lights.len()
+        );
     }
 
     // iterate the views once to find the maximum number of cascade shadowmaps we will need
@@ -1026,8 +1333,9 @@ pub fn prepare_lights(
         let mut num_directional_cascades_for_this_view = 0usize;
         let render_layers = maybe_layers.unwrap_or_default();
 
-        for (_light_entity, _, light) in directional_lights.iter() {
-            if light.shadows_enabled && light.render_layers.intersects(render_layers) {
+        for light_entity in directional_light_entities.iter() {
+            let light = directional_lights.get(*light_entity).unwrap().2;
+            if light.shadow_maps_enabled && light.render_layers.intersects(render_layers) {
                 num_directional_cascades_for_this_view += light
                     .cascade_shadow_config
                     .bounds
@@ -1041,11 +1349,8 @@ pub fn prepare_lights(
             .min(max_texture_array_layers);
     }
 
-    global_light_meta
-        .gpu_clusterable_objects
-        .set(gpu_point_lights);
-    global_light_meta
-        .gpu_clusterable_objects
+    global_clusterable_object_meta
+        .gpu_clustered_lights
         .write_buffer(&render_device, &render_queue);
 
     live_shadow_mapping_lights.clear();
@@ -1147,6 +1452,306 @@ pub fn prepare_lights(
 
     let mut live_views = EntityHashSet::with_capacity(views_count);
 
+    // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
+    for light_entity in point_light_entities
+        .iter()
+        // Lights are sorted, shadow enabled lights are first
+        .take(point_light_count.min(max_texture_cubes))
+    {
+        let (
+            _,
+            light_main_entity,
+            light,
+            mut point_and_spot_light_view_entities,
+            (point_light_frusta, _),
+        ) = point_lights.get_mut(*light_entity).unwrap();
+
+        if !light.shadow_maps_enabled {
+            despawn_entities(
+                &mut commands,
+                mem::take(&mut point_and_spot_light_view_entities.0),
+            );
+            continue;
+        }
+
+        if point_and_spot_light_view_entities.0.is_empty() {
+            let light_index = *global_clusterable_object_meta
+                .entity_to_index
+                .get(light_entity)
+                .unwrap();
+            // ignore scale because we don't want to effectively scale light radius and range
+            // by applying those as a view transform to shadow map rendering of objects
+            // and ignore rotation because we want the shadow map projections to align with the axes
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
+
+            // for each face of a cube we spawn a light entity
+            let light_view_entities: Vec<_> = (0..6).map(|_| commands.spawn_empty().id()).collect();
+
+            let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
+                core::f32::consts::FRAC_PI_2,
+                1.0,
+                light.shadow_map_near_z,
+            );
+
+            for (face_index, ((view_rotation, frustum), view_light_entity)) in cube_face_rotations
+                .iter()
+                .zip(&point_light_frusta.unwrap().frusta)
+                .zip(light_view_entities.iter().copied())
+                .enumerate()
+            {
+                let base_array_layer = (light_index * 6 + face_index) as u32;
+
+                let depth_attachment = point_light_depth_attachments
+                    .entry(base_array_layer)
+                    .or_insert_with(|| {
+                        let depth_texture_view =
+                            point_light_depth_texture
+                                .texture
+                                .create_view(&TextureViewDescriptor {
+                                    label: Some("point_light_shadow_map_texture_view"),
+                                    format: None,
+                                    dimension: Some(TextureViewDimension::D2),
+                                    usage: None,
+                                    aspect: TextureAspect::All,
+                                    base_mip_level: 0,
+                                    mip_level_count: None,
+                                    base_array_layer,
+                                    array_layer_count: Some(1u32),
+                                });
+
+                        DepthAttachment::new(depth_texture_view, Some(0.0))
+                    })
+                    .clone();
+
+                // Point light shadow maps are shared across all cameras,
+                // so the retained view entity must not include the camera.
+                let retained_view_entity =
+                    RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
+
+                commands.entity(view_light_entity).insert((
+                    ShadowView {
+                        depth_attachment,
+                        pass_name: format!(
+                            "shadow_point_light_{}_{}",
+                            light_index,
+                            face_index_to_name(face_index)
+                        ),
+                    },
+                    ExtractedView {
+                        retained_view_entity,
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            point_light_shadow_map.size as u32,
+                            point_light_shadow_map.size as u32,
+                        ),
+                        world_from_view: view_translation * *view_rotation,
+                        clip_from_world: None,
+                        clip_from_view: cube_face_projection,
+                        target_format: CORE_3D_DEPTH_FORMAT,
+                        color_grading: Default::default(),
+                        invert_culling: false,
+                    },
+                    *frustum,
+                    LightEntity::Point {
+                        light_entity: *light_entity,
+                        face_index,
+                    },
+                    RootNonCameraView(Core3d.intern()),
+                ));
+
+                if !matches!(
+                    gpu_preprocessing_support.max_supported_mode,
+                    GpuPreprocessingMode::Culling
+                ) {
+                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
+                }
+            }
+
+            point_and_spot_light_view_entities.0 = light_view_entities;
+        } else if changed_point_lights.get(*light_entity).is_ok() {
+            // If the point light was changed, update the `ExtractedView` only.
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
+            let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
+                core::f32::consts::FRAC_PI_2,
+                1.0,
+                light.shadow_map_near_z,
+            );
+            for (face_index, (view_rotation, frustum)) in cube_face_rotations
+                .iter()
+                .zip(&point_light_frusta.unwrap().frusta)
+                .enumerate()
+            {
+                let view_light_entity = point_and_spot_light_view_entities.0[face_index];
+                let retained_view_entity =
+                    RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
+                commands.entity(view_light_entity).insert((
+                    ExtractedView {
+                        retained_view_entity,
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            point_light_shadow_map.size as u32,
+                            point_light_shadow_map.size as u32,
+                        ),
+                        world_from_view: view_translation * *view_rotation,
+                        clip_from_world: None,
+                        clip_from_view: cube_face_projection,
+                        target_format: CORE_3D_DEPTH_FORMAT,
+                        color_grading: Default::default(),
+                        invert_culling: false,
+                    },
+                    *frustum,
+                ));
+            }
+        }
+
+        // Initialize the shadow render phases. We have to do this even if we've
+        // already created the views in order to clear out old data.
+        for face_index in 0..6 {
+            let retained_view_entity =
+                RetainedViewEntity::new(*light_main_entity, None, face_index);
+            shadow_render_phases.prepare_for_new_frame(
+                retained_view_entity,
+                gpu_preprocessing_support.max_supported_mode,
+            );
+            live_shadow_mapping_lights.insert(retained_view_entity);
+        }
+    }
+
+    // spot lights
+    for (light_index, light_entity) in point_light_entities
+        .iter()
+        .skip(point_light_count)
+        .take(spot_light_count)
+        .enumerate()
+    {
+        let (
+            _,
+            light_main_entity,
+            light,
+            mut point_and_spot_light_view_entities,
+            (_, spot_light_frustum),
+        ) = point_lights.get_mut(*light_entity).unwrap();
+
+        if !light.shadow_maps_enabled {
+            despawn_entities(
+                &mut commands,
+                mem::take(&mut point_and_spot_light_view_entities.0),
+            );
+            continue;
+        }
+
+        // Spot light shadow maps are shared across all cameras,
+        // so the retained view entity must not include the camera.
+        let retained_view_entity = RetainedViewEntity::new(*light_main_entity, None, 0);
+
+        if point_and_spot_light_view_entities.0.is_empty() {
+            let spot_world_from_view = spot_light_world_from_view(&light.transform);
+            let spot_world_from_view = spot_world_from_view.into();
+
+            let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
+
+            let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
+
+            let depth_attachment = directional_light_depth_attachments
+                .entry(base_array_layer)
+                .or_insert_with(|| {
+                    let depth_texture_view = directional_light_depth_texture.texture.create_view(
+                        &TextureViewDescriptor {
+                            label: Some("spot_light_shadow_map_texture_view"),
+                            format: None,
+                            dimension: Some(TextureViewDimension::D2),
+                            usage: None,
+                            aspect: TextureAspect::All,
+                            base_mip_level: 0,
+                            mip_level_count: None,
+                            base_array_layer,
+                            array_layer_count: Some(1u32),
+                        },
+                    );
+
+                    DepthAttachment::new(depth_texture_view, Some(0.0))
+                })
+                .clone();
+
+            let view_light_entity = commands.spawn_empty().id();
+
+            commands.entity(view_light_entity).insert((
+                ShadowView {
+                    depth_attachment,
+                    pass_name: format!("shadow_spot_light_{light_index}"),
+                },
+                ExtractedView {
+                    retained_view_entity,
+                    viewport: UVec4::new(
+                        0,
+                        0,
+                        directional_light_shadow_map.size as u32,
+                        directional_light_shadow_map.size as u32,
+                    ),
+                    world_from_view: spot_world_from_view,
+                    clip_from_view: spot_projection,
+                    clip_from_world: None,
+                    target_format: CORE_3D_DEPTH_FORMAT,
+                    color_grading: Default::default(),
+                    invert_culling: false,
+                },
+                *spot_light_frustum.unwrap(),
+                LightEntity::Spot {
+                    light_entity: *light_entity,
+                },
+                RootNonCameraView(Core3d.intern()),
+            ));
+
+            if !matches!(
+                gpu_preprocessing_support.max_supported_mode,
+                GpuPreprocessingMode::Culling
+            ) {
+                commands.entity(view_light_entity).insert(NoIndirectDrawing);
+            }
+
+            point_and_spot_light_view_entities.0 = vec![view_light_entity];
+        } else if changed_point_lights.get(*light_entity).is_ok() {
+            // If the spot light was changed, update the `ExtractedView` only.
+            let spot_world_from_view = spot_light_world_from_view(&light.transform);
+            let spot_world_from_view = spot_world_from_view.into();
+
+            let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
+
+            // There should be only one `view_light_entity` for spotlights.
+            let view_light_entity = point_and_spot_light_view_entities.0[0];
+            commands.entity(view_light_entity).insert((
+                ExtractedView {
+                    retained_view_entity,
+                    viewport: UVec4::new(
+                        0,
+                        0,
+                        directional_light_shadow_map.size as u32,
+                        directional_light_shadow_map.size as u32,
+                    ),
+                    world_from_view: spot_world_from_view,
+                    clip_from_view: spot_projection,
+                    clip_from_world: None,
+                    target_format: CORE_3D_DEPTH_FORMAT,
+                    color_grading: Default::default(),
+                    invert_culling: false,
+                },
+                *spot_light_frustum.unwrap(),
+            ));
+        }
+
+        shadow_render_phases.prepare_for_new_frame(
+            retained_view_entity,
+            gpu_preprocessing_support.max_supported_mode,
+        );
+        live_shadow_mapping_lights.insert(retained_view_entity);
+    }
+
     // set up light data for each view
     for (
         entity,
@@ -1182,24 +1787,38 @@ pub fn prepare_lights(
         );
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
+        let ambient_light = AmbientLight {
+            color: ambient_light.color,
+            brightness: ambient_light.brightness,
+            affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes,
+        };
         let ambient_light = maybe_ambient_override.unwrap_or(&ambient_light);
 
         let mut gpu_directional_lights = [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS];
         let mut num_directional_cascades_enabled_for_this_view = 0usize;
         let mut num_directional_lights_for_this_view = 0usize;
-        for (index, (_light_entity, _, light)) in directional_lights
+        for (index, light_entity) in directional_light_entities
             .iter()
-            .filter(|(_light_entity, _, light)| light.render_layers.intersects(view_layers))
+            .filter(|light_entity| {
+                directional_lights
+                    .get(**light_entity)
+                    .unwrap()
+                    .2
+                    .render_layers
+                    .intersects(view_layers)
+            })
             .enumerate()
             .take(MAX_DIRECTIONAL_LIGHTS)
         {
+            let light = directional_lights.get(*light_entity).unwrap().2;
+
             num_directional_lights_for_this_view += 1;
 
             let mut flags = DirectionalLightFlags::NONE;
 
             // Lights are sorted, volumetric and shadow enabled lights are first
             if light.volumetric
-                && light.shadows_enabled
+                && light.shadow_maps_enabled
                 && (index < directional_volumetric_enabled_count)
             {
                 flags |= DirectionalLightFlags::VOLUMETRIC;
@@ -1207,7 +1826,7 @@ pub fn prepare_lights(
 
             // Shadow enabled lights are second
             let mut num_cascades = 0;
-            if light.shadows_enabled {
+            if light.shadow_maps_enabled {
                 let cascades = light
                     .cascade_shadow_config
                     .bounds
@@ -1217,9 +1836,13 @@ pub fn prepare_lights(
                 if num_directional_cascades_enabled_for_this_view + cascades
                     <= max_texture_array_layers
                 {
-                    flags |= DirectionalLightFlags::SHADOWS_ENABLED;
+                    flags |= DirectionalLightFlags::SHADOW_MAPS_ENABLED;
                     num_cascades += cascades;
                 }
+            }
+
+            if light.contact_shadows_enabled {
+                flags |= DirectionalLightFlags::CONTACT_SHADOWS_ENABLED;
             }
 
             if light.affects_lightmapped_mesh_diffuse {
@@ -1241,6 +1864,13 @@ pub fn prepare_lights(
                 num_cascades: num_cascades as u32,
                 cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
                 depth_texture_base_index: num_directional_cascades_enabled_for_this_view as u32,
+                sun_disk_angular_size: light.sun_disk_angular_size,
+                sun_disk_intensity: light.sun_disk_intensity,
+                decal_index: decals
+                    .as_ref()
+                    .and_then(|decals| decals.get(*light_entity))
+                    .and_then(|index| index.try_into().ok())
+                    .unwrap_or(u32::MAX),
             };
             num_directional_cascades_enabled_for_this_view += num_cascades;
         }
@@ -1264,234 +1894,23 @@ pub fn prepare_lights(
                 - point_light_count as i32,
             ambient_light_affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes
                 as u32,
+            n_rect_lights: 0,
+            rect_lights: [GpuRectLight::default(); MAX_RECT_LIGHTS],
         };
-
-        // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for &(light_entity, light_main_entity, light, (point_light_frusta, _)) in point_lights
-            .iter()
-            // Lights are sorted, shadow enabled lights are first
-            .take(point_light_count.min(max_texture_cubes))
-        {
-            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
-                continue;
-            };
-
-            if !light.shadows_enabled {
-                if let Some(entities) = light_view_entities.remove(&entity) {
-                    despawn_entities(&mut commands, entities);
-                }
-                continue;
-            }
-
-            let light_index = *global_light_meta
-                .entity_to_index
-                .get(&light_entity)
-                .unwrap();
-            // ignore scale because we don't want to effectively scale light radius and range
-            // by applying those as a view transform to shadow map rendering of objects
-            // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation());
-
-            // for each face of a cube and each view we spawn a light entity
-            let light_view_entities = light_view_entities
-                .entry(entity)
-                .or_insert_with(|| (0..6).map(|_| commands.spawn_empty().id()).collect());
-
-            let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-                core::f32::consts::FRAC_PI_2,
-                1.0,
-                light.shadow_map_near_z,
-            );
-
-            for (face_index, ((view_rotation, frustum), view_light_entity)) in cube_face_rotations
-                .iter()
-                .zip(&point_light_frusta.unwrap().frusta)
-                .zip(light_view_entities.iter().copied())
-                .enumerate()
-            {
-                let mut first = false;
-                let base_array_layer = (light_index * 6 + face_index) as u32;
-
-                let depth_attachment = point_light_depth_attachments
-                    .entry(base_array_layer)
-                    .or_insert_with(|| {
-                        first = true;
-
-                        let depth_texture_view =
-                            point_light_depth_texture
-                                .texture
-                                .create_view(&TextureViewDescriptor {
-                                    label: Some("point_light_shadow_map_texture_view"),
-                                    format: None,
-                                    dimension: Some(TextureViewDimension::D2),
-                                    usage: None,
-                                    aspect: TextureAspect::All,
-                                    base_mip_level: 0,
-                                    mip_level_count: None,
-                                    base_array_layer,
-                                    array_layer_count: Some(1u32),
-                                });
-
-                        DepthAttachment::new(depth_texture_view, Some(0.0))
-                    })
-                    .clone();
-
-                let retained_view_entity = RetainedViewEntity::new(
-                    *light_main_entity,
-                    Some(camera_main_entity.into()),
-                    face_index as u32,
-                );
-
-                commands.entity(view_light_entity).insert((
-                    ShadowView {
-                        depth_attachment,
-                        pass_name: format!(
-                            "shadow pass point light {} {}",
-                            light_index,
-                            face_index_to_name(face_index)
-                        ),
-                    },
-                    ExtractedView {
-                        retained_view_entity,
-                        viewport: UVec4::new(
-                            0,
-                            0,
-                            point_light_shadow_map.size as u32,
-                            point_light_shadow_map.size as u32,
-                        ),
-                        world_from_view: view_translation * *view_rotation,
-                        clip_from_world: None,
-                        clip_from_view: cube_face_projection,
-                        hdr: false,
-                        color_grading: Default::default(),
-                    },
-                    *frustum,
-                    LightEntity::Point {
-                        light_entity,
-                        face_index,
-                    },
-                ));
-
-                if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
-                }
-
-                view_lights.push(view_light_entity);
-
-                if first {
-                    // Subsequent views with the same light entity will reuse the same shadow map
-                    shadow_render_phases
-                        .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-                    live_shadow_mapping_lights.insert(retained_view_entity);
-                }
-            }
-        }
-
-        // spot lights
-        for (light_index, &(light_entity, light_main_entity, light, (_, spot_light_frustum))) in
-            point_lights
-                .iter()
-                .skip(point_light_count)
-                .take(spot_light_count)
-                .enumerate()
-        {
-            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
-                continue;
-            };
-
-            if !light.shadows_enabled {
-                if let Some(entities) = light_view_entities.remove(&entity) {
-                    despawn_entities(&mut commands, entities);
-                }
-                continue;
-            }
-
-            let spot_world_from_view = spot_light_world_from_view(&light.transform);
-            let spot_world_from_view = spot_world_from_view.into();
-
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
-
-            let mut first = false;
-            let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
-
-            let depth_attachment = directional_light_depth_attachments
-                .entry(base_array_layer)
-                .or_insert_with(|| {
-                    first = true;
-
-                    let depth_texture_view = directional_light_depth_texture.texture.create_view(
-                        &TextureViewDescriptor {
-                            label: Some("spot_light_shadow_map_texture_view"),
-                            format: None,
-                            dimension: Some(TextureViewDimension::D2),
-                            usage: None,
-                            aspect: TextureAspect::All,
-                            base_mip_level: 0,
-                            mip_level_count: None,
-                            base_array_layer,
-                            array_layer_count: Some(1u32),
-                        },
-                    );
-
-                    DepthAttachment::new(depth_texture_view, Some(0.0))
-                })
-                .clone();
-
-            let light_view_entities = light_view_entities
-                .entry(entity)
-                .or_insert_with(|| vec![commands.spawn_empty().id()]);
-
-            let view_light_entity = light_view_entities[0];
-
-            let retained_view_entity =
-                RetainedViewEntity::new(*light_main_entity, Some(camera_main_entity.into()), 0);
-
-            commands.entity(view_light_entity).insert((
-                ShadowView {
-                    depth_attachment,
-                    pass_name: format!("shadow pass spot light {light_index}"),
-                },
-                ExtractedView {
-                    retained_view_entity,
-                    viewport: UVec4::new(
-                        0,
-                        0,
-                        directional_light_shadow_map.size as u32,
-                        directional_light_shadow_map.size as u32,
-                    ),
-                    world_from_view: spot_world_from_view,
-                    clip_from_view: spot_projection,
-                    clip_from_world: None,
-                    hdr: false,
-                    color_grading: Default::default(),
-                },
-                *spot_light_frustum.unwrap(),
-                LightEntity::Spot { light_entity },
-            ));
-
-            if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                commands.entity(view_light_entity).insert(NoIndirectDrawing);
-            }
-
-            view_lights.push(view_light_entity);
-
-            if first {
-                // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases
-                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-                live_shadow_mapping_lights.insert(retained_view_entity);
-            }
-        }
 
         // directional lights
         // clear entities for lights that don't intersect the layer
-        for &(light_entity, _, _) in directional_lights
-            .iter()
-            .filter(|(_, _, light)| !light.render_layers.intersects(view_layers))
-        {
-            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
+        for light_entity in directional_light_entities.iter().filter(|light_entity| {
+            !directional_lights
+                .get(**light_entity)
+                .unwrap()
+                .2
+                .render_layers
+                .intersects(view_layers)
+        }) {
+            let Ok(mut light_view_entities) =
+                directional_light_view_entities.get_mut(*light_entity)
+            else {
                 continue;
             };
             if let Some(entities) = light_view_entities.remove(&entity) {
@@ -1500,20 +1919,31 @@ pub fn prepare_lights(
         }
 
         let mut directional_depth_texture_array_index = 0u32;
-        for (light_index, &(light_entity, light_main_entity, light)) in directional_lights
+        for (light_index, light_entity) in directional_light_entities
             .iter()
-            .filter(|(_, _, light)| light.render_layers.intersects(view_layers))
+            .filter(|light_entity| {
+                directional_lights
+                    .get(**light_entity)
+                    .unwrap()
+                    .2
+                    .render_layers
+                    .intersects(view_layers)
+            })
             .enumerate()
             .take(MAX_DIRECTIONAL_LIGHTS)
         {
-            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
+            let (_, light_main_entity, light) = directional_lights.get(*light_entity).unwrap();
+
+            let Ok(mut light_view_entities) =
+                directional_light_view_entities.get_mut(*light_entity)
+            else {
                 continue;
             };
 
             let gpu_light = &mut gpu_lights.directional_lights[light_index];
 
             // Only deal with cascades when shadows are enabled.
-            if (gpu_light.flags & DirectionalLightFlags::SHADOWS_ENABLED.bits()) == 0u32 {
+            if (gpu_light.flags & DirectionalLightFlags::SHADOW_MAPS_ENABLED.bits()) == 0u32 {
                 if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }
@@ -1543,7 +1973,7 @@ pub fn prepare_lights(
                     .collect()
             });
             if light_view_entities.len() != iter.len() {
-                let entities = core::mem::take(light_view_entities);
+                let entities = mem::take(light_view_entities);
                 despawn_entities(&mut commands, entities);
                 light_view_entities.extend((0..iter.len()).map(|_| commands.spawn_empty().id()));
             }
@@ -1582,8 +2012,11 @@ pub fn prepare_lights(
 
                 let mut frustum = *frustum;
                 // Push the near clip plane out to infinity for directional lights
-                frustum.half_spaces[4] =
-                    HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
+                frustum.half_spaces[ViewFrustum::NEAR_PLANE_IDX] = HalfSpace::new(
+                    frustum.half_spaces[ViewFrustum::NEAR_PLANE_IDX]
+                        .normal()
+                        .extend(f32::INFINITY),
+                );
 
                 let retained_view_entity = RetainedViewEntity::new(
                     *light_main_entity,
@@ -1595,7 +2028,7 @@ pub fn prepare_lights(
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
-                            "shadow pass directional light {light_index} cascade {cascade_index}"
+                            "shadow_directional_light_{light_index}_cascade_{cascade_index}"
                         ),
                     },
                     ExtractedView {
@@ -1609,12 +2042,13 @@ pub fn prepare_lights(
                         world_from_view: GlobalTransform::from(cascade.world_from_cascade),
                         clip_from_view: cascade.clip_from_cascade,
                         clip_from_world: Some(cascade.clip_from_world),
-                        hdr: false,
+                        target_format: CORE_3D_DEPTH_FORMAT,
                         color_grading: Default::default(),
+                        invert_culling: false,
                     },
                     frustum,
                     LightEntity::Directional {
-                        light_entity,
+                        light_entity: *light_entity,
                         cascade_index,
                     },
                 ));
@@ -1646,6 +2080,39 @@ pub fn prepare_lights(
             }
         }
 
+        // Make a link from the camera to all shadow cascades with occlusion
+        // culling enabled.
+        if !view_occlusion_culling_lights.is_empty() {
+            commands
+                .entity(entity)
+                .insert(OcclusionCullingSubviewEntities(
+                    view_occlusion_culling_lights,
+                ));
+        }
+
+        // Set up rect lights.
+        //
+        // FIXME: These are currently per-view because we have no mechanism for
+        // "non-clustered but non-view-specific" lights. We could introduce such
+        // a thing, but we want rect lights to be clustered anyways, so any
+        // effort spent on introducing that mechanism would be better spent on
+        // making rect lights clusterable.
+        gpu_lights.n_rect_lights = 0;
+        for (index, (_, _, rect_light)) in rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS) {
+            let right = rect_light.transform.right().into();
+            let up = rect_light.transform.up().into();
+            gpu_lights.rect_lights[index] = GpuRectLight {
+                color: Vec4::from_slice(&rect_light.color.to_f32_array()) * rect_light.intensity,
+                position: rect_light.transform.translation(),
+                right,
+                up,
+                width: rect_light.width,
+                height: rect_light.height,
+                range: rect_light.range,
+            };
+            gpu_lights.n_rect_lights += 1;
+        }
+
         commands.entity(entity).insert((
             ViewShadowBindings {
                 point_light_depth_texture: point_light_depth_texture.texture.clone(),
@@ -1660,20 +2127,18 @@ pub fn prepare_lights(
                 offset: view_gpu_lights_writer.write(&gpu_lights),
             },
         ));
+    }
 
-        // Make a link from the camera to all shadow cascades with occlusion
-        // culling enabled.
-        if !view_occlusion_culling_lights.is_empty() {
-            commands
-                .entity(entity)
-                .insert(OcclusionCullingSubviewEntities(
-                    view_occlusion_culling_lights,
-                ));
-        }
+    // Mark the existing shadow maps as unused this frame so that the first
+    // drawcall to them will clear them.
+    for existing_shadow_view in &existing_shadow_views {
+        existing_shadow_view
+            .depth_attachment
+            .prepare_for_new_frame();
     }
 
     // Despawn light-view entities for views that no longer exist
-    for mut entities in &mut light_view_entities {
+    for mut entities in &mut directional_light_view_entities {
         for (_, light_view_entities) in
             entities.extract_if(|entity, _| !live_views.contains(entity))
         {
@@ -1695,147 +2160,119 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
     });
 }
 
-// These will be extracted in the material extraction, which will also clear the needs_specialization
-// collection.
-pub fn check_light_entities_needing_specialization<M: Material>(
-    needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
-    mut removed_components: RemovedComponents<NotShadowCaster>,
-) {
-    for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
-    }
-
-    for removed in removed_components.read() {
-        entities_needing_specialization.entities.push(removed);
-    }
-}
-
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct LightKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct LightSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
-
-#[derive(Resource, Deref, DerefMut)]
-pub struct SpecializedShadowMaterialPipelineCache<M> {
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct SpecializedShadowMaterialPipelineCache {
     // view light entity -> view pipeline cache
     #[deref]
-    map: HashMap<RetainedViewEntity, SpecializedShadowMaterialViewPipelineCache<M>>,
-    marker: PhantomData<M>,
+    map: HashMap<RetainedViewEntity, SpecializedShadowMaterialViewPipelineCache>,
 }
 
-#[derive(Deref, DerefMut)]
-pub struct SpecializedShadowMaterialViewPipelineCache<M> {
+#[derive(Deref, DerefMut, Default)]
+pub struct SpecializedShadowMaterialViewPipelineCache {
     #[deref]
-    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
-    marker: PhantomData<M>,
-}
-
-impl<M> Default for SpecializedShadowMaterialPipelineCache<M> {
-    fn default() -> Self {
-        Self {
-            map: HashMap::default(),
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<M> Default for SpecializedShadowMaterialViewPipelineCache<M> {
-    fn default() -> Self {
-        Self {
-            map: MainEntityHashMap::default(),
-            marker: PhantomData,
-        }
-    }
+    map: MainEntityHashMap<(CachedRenderPipelineId, DrawFunctionId)>,
 }
 
 pub fn check_views_lights_need_specialization(
-    view_lights: Query<&ViewLightEntities, With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut light_key_cache: ResMut<LightKeyCache>,
-    mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
-    ticks: SystemChangeTick,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) {
-    for view_lights in &view_lights {
-        for view_light_entity in view_lights.lights.iter().copied() {
-            let Ok((light_entity, extracted_view_light)) =
-                view_light_entities.get(view_light_entity)
-            else {
-                continue;
-            };
-            if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
-                continue;
-            }
+    for (light_entity, extracted_view_light) in &view_light_entities {
+        if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
+            continue;
+        }
 
-            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
-            let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
-            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
-            if let Some(current_key) =
-                light_key_cache.get_mut(&extracted_view_light.retained_view_entity)
-            {
-                if *current_key != light_key {
-                    light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
-                    light_specialization_ticks
-                        .insert(extracted_view_light.retained_view_entity, ticks.this_run());
-                }
-            } else {
+        let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
+        let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
+        light_key.set(
+            MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC | MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO,
+            is_directional_light,
+        );
+        light_key.set(
+            MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+            !is_directional_light,
+        );
+        if let Some(current_key) =
+            light_key_cache.get_mut(&extracted_view_light.retained_view_entity)
+        {
+            if *current_key != light_key {
                 light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
-                light_specialization_ticks
-                    .insert(extracted_view_light.retained_view_entity, ticks.this_run());
+                dirty_specializations
+                    .views
+                    .insert(extracted_view_light.retained_view_entity);
             }
+        } else {
+            light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
+            dirty_specializations
+                .views
+                .insert(extracted_view_light.retained_view_entity);
         }
     }
 }
 
-pub fn specialize_shadows<M: Material>(
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    (
-        render_meshes,
-        render_mesh_instances,
-        render_materials,
-        render_material_instances,
-        material_bind_group_allocator,
-    ): (
-        Res<RenderAssets<RenderMesh>>,
-        Res<RenderMeshInstances>,
-        Res<RenderAssets<PreparedMaterial<M>>>,
-        Res<RenderMaterialInstances>,
-        Res<MaterialBindGroupAllocator<M>>,
-    ),
-    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_lightmaps: Res<RenderLightmaps>,
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
-    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
-    point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<
-        &RenderCascadesVisibleEntities,
-        With<ExtractedDirectionalLight>,
-    >,
-    spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
-    light_key_cache: Res<LightKeyCache>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
-    light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
-    ticks: SystemChangeTick,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    // Record the retained IDs of all shadow views so that we can expire old
-    // pipeline IDs.
-    let mut all_shadow_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
+pub(crate) struct ShadowSpecializationWorkItem {
+    visible_entity: MainEntity,
+    retained_view_entity: RetainedViewEntity,
+    mesh_key: MeshPipelineKey,
+    layout: MeshVertexBufferLayoutRef,
+    properties: Arc<MaterialProperties>,
+    material_type_id: TypeId,
+}
 
-    for (entity, view_lights) in &view_lights {
-        for view_light_entity in view_lights.lights.iter().copied() {
-            let Ok((light_entity, extracted_view_light)) =
-                view_light_entities.get(view_light_entity)
-            else {
-                continue;
-            };
+/// Holds all entities with mesh materials for which the shadow pass couldn't be
+/// specialized and/or queued because their materials hadn't loaded yet.
+///
+/// See the [`PendingQueues`] documentation for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingShadowQueues(pub PendingQueues);
 
+#[derive(SystemParam)]
+pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
+    render_meshes: Res<'w, RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<'w, RenderMeshInstances>,
+    render_materials: Res<'w, ErasedRenderAssets<PreparedMaterial>>,
+    render_material_instances: Res<'w, RenderMaterialInstances>,
+    shadow_render_phases: Res<'w, ViewBinnedRenderPhases<Shadow>>,
+    render_lightmaps: Res<'w, RenderLightmaps>,
+    view_light_entities: Query<'w, 's, (&'static LightEntity, &'static ExtractedView)>,
+    shadow_map_visible_entities_query: Query<'w, 's, &'static RenderShadowMapVisibleEntities>,
+    light_key_cache: Res<'w, LightKeyCache>,
+    specialized_shadow_material_pipeline_cache: ResMut<'w, SpecializedShadowMaterialPipelineCache>,
+    pending_shadow_queues: ResMut<'w, PendingShadowQueues>,
+    dirty_specializations: Res<'w, DirtySpecializations>,
+}
+
+pub(crate) fn specialize_shadows(
+    world: &mut World,
+    state: &mut SystemState<SpecializeShadowsSystemParam>,
+    mut work_items: Local<Vec<ShadowSpecializationWorkItem>>,
+    mut all_shadow_views: Local<HashSet<RetainedViewEntity, FixedHasher>>,
+) {
+    work_items.clear();
+    all_shadow_views.clear();
+
+    {
+        let SpecializeShadowsSystemParam {
+            render_meshes,
+            render_mesh_instances,
+            render_materials,
+            render_material_instances,
+            shadow_render_phases,
+            render_lightmaps,
+            view_light_entities,
+            shadow_map_visible_entities_query,
+            light_key_cache,
+            mut specialized_shadow_material_pipeline_cache,
+            mut pending_shadow_queues,
+            dirty_specializations,
+        } = state.get_mut(world).unwrap();
+
+        for (light_entity, extracted_view_light) in &view_light_entities {
             all_shadow_views.insert(extracted_view_light.retained_view_entity);
 
             if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
@@ -1846,80 +2283,96 @@ pub fn specialize_shadows<M: Material>(
                 continue;
             };
 
-            let visible_entities = match light_entity {
-                LightEntity::Directional {
-                    light_entity,
-                    cascade_index,
-                } => directional_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get directional light visible entities")
-                    .entities
-                    .get(&entity)
-                    .expect("Failed to get directional light visible entities for view")
-                    .get(*cascade_index)
-                    .expect("Failed to get directional light visible entities for cascade"),
-                LightEntity::Point {
-                    light_entity,
-                    face_index,
-                } => point_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get point light visible entities")
-                    .get(*face_index),
-                LightEntity::Spot { light_entity } => spot_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get spot light visible entities"),
-            };
+            let visible_entities = get_shadow_map_visible_entities(
+                &shadow_map_visible_entities_query,
+                light_entity,
+                extracted_view_light,
+            );
+
+            let mut maybe_specialized_shadow_material_pipeline_cache =
+                specialized_shadow_material_pipeline_cache
+                    .get_mut(&extracted_view_light.retained_view_entity);
+
+            // Remove cached pipeline IDs corresponding to entities that
+            // either have been removed or need to be respecialized.
+            if let Some(ref mut specialized_shadow_material_pipeline_cache) =
+                maybe_specialized_shadow_material_pipeline_cache
+            {
+                if dirty_specializations
+                    .must_wipe_specializations_for_view(extracted_view_light.retained_view_entity)
+                {
+                    specialized_shadow_material_pipeline_cache.clear();
+                } else {
+                    for &renderable_entity in dirty_specializations.iter_to_despecialize() {
+                        specialized_shadow_material_pipeline_cache.remove(&renderable_entity);
+                    }
+                }
+            }
+
+            // Initialize the pending queues.
+            let view_pending_shadow_queues = pending_shadow_queues
+                .prepare_for_new_frame(extracted_view_light.retained_view_entity);
 
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            let view_tick = light_specialization_ticks
-                .get(&extracted_view_light.retained_view_entity)
-                .unwrap();
-            let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
-                .entry(extracted_view_light.retained_view_entity)
-                .or_default();
+            let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
+                continue;
+            };
 
-            for (_, visible_entity) in visible_entities.iter().copied() {
-                let Some(material_instances) =
-                    render_material_instances.instances.get(&visible_entity)
-                else {
+            // Now process all shadow meshes that need to be re-specialized.
+            for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
+                extracted_view_light.retained_view_entity,
+                visible_entities,
+                &view_pending_shadow_queues.prev_frame,
+            ) {
+                if maybe_specialized_shadow_material_pipeline_cache
+                    .as_ref()
+                    .is_some_and(|specialized_shadow_material_pipeline_cache| {
+                        specialized_shadow_material_pipeline_cache.contains_key(visible_entity)
+                    })
+                {
                     continue;
-                };
-                let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
+                }
+
+                // Check for material instance, mesh, and material. If any of
+                // these fail, it's probably because the relevant asset hasn't
+                // loaded yet. In that case, add the entity to the list of
+                // pending mesh materials and bail.
+                let Some(material_instance) =
+                    render_material_instances.instances.get(visible_entity)
+                else {
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                    render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
-                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
-                let last_specialized_tick = view_specialized_material_pipeline_cache
-                    .get(&visible_entity)
-                    .map(|(tick, _)| *tick);
-                let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                    view_tick.is_newer_than(tick, ticks.this_run())
-                        || entity_tick.is_newer_than(tick, ticks.this_run())
-                });
-                if !needs_specialization {
+                let Some(material) = render_materials.get(material_instance.asset_id) else {
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
+                    continue;
+                };
+
+                if !material.properties.shadows_enabled {
+                    // If the material is not a shadow caster, we don't need to specialize it.
                     continue;
                 }
-                let Some(material) = render_materials.get(material_asset_id) else {
-                    continue;
-                };
                 if !mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
                     continue;
                 }
-                let Some(material_bind_group) =
-                    material_bind_group_allocator.get(material.binding.group)
-                else {
-                    continue;
-                };
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                     continue;
                 };
 
@@ -1933,7 +2386,7 @@ pub fn specialize_shadows<M: Material>(
                 // present.
                 if render_lightmaps
                     .render_lightmaps
-                    .contains_key(&visible_entity)
+                    .contains_key(visible_entity)
                 {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                 }
@@ -1946,162 +2399,205 @@ pub fn specialize_shadows<M: Material>(
                     | AlphaMode::AlphaToCoverage => MeshPipelineKey::MAY_DISCARD,
                     _ => MeshPipelineKey::NONE,
                 };
-                let pipeline_id = pipelines.specialize(
-                    &pipeline_cache,
-                    &prepass_pipeline,
-                    MaterialPipelineKey {
-                        mesh_key,
-                        bind_group_data: material_bind_group
-                            .get_extra_data(material.binding.slot)
-                            .clone(),
-                    },
-                    &mesh.layout,
-                );
 
-                let pipeline_id = match pipeline_id {
-                    Ok(id) => id,
-                    Err(err) => {
-                        error!("{}", err);
-                        continue;
-                    }
-                };
-
-                view_specialized_material_pipeline_cache
-                    .insert(visible_entity, (ticks.this_run(), pipeline_id));
+                work_items.push(ShadowSpecializationWorkItem {
+                    visible_entity: *visible_entity,
+                    retained_view_entity: extracted_view_light.retained_view_entity,
+                    mesh_key,
+                    layout: mesh.layout.clone(),
+                    properties: material.properties.clone(),
+                    material_type_id: material_instance.asset_id.type_id(),
+                });
             }
+        }
+
+        pending_shadow_queues.expire_stale_views(&all_shadow_views);
+    }
+
+    let depth_clip_control_supported = world
+        .resource::<PrepassPipeline>()
+        .depth_clip_control_supported;
+
+    for item in work_items.drain(..) {
+        let Some(prepass_specialize) = item.properties.prepass_specialize else {
+            continue;
+        };
+
+        let key = ErasedMaterialPipelineKey {
+            type_id: item.material_type_id,
+            mesh_key: ErasedMeshPipelineKey::new(item.mesh_key),
+            material_key: item.properties.material_key.clone(),
+        };
+
+        let emulate_unclipped_depth = item
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && !depth_clip_control_supported;
+        let is_depth_only_opaque = !item
+            .mesh_key
+            .intersects(MeshPipelineKey::MAY_DISCARD | MeshPipelineKey::PREPASS_READS_MATERIAL)
+            && !emulate_unclipped_depth;
+        let draw_function = if is_depth_only_opaque {
+            item.properties
+                .get_draw_function(ShadowsDepthOnlyDrawFunction)
+        } else {
+            item.properties.get_draw_function(ShadowsDrawFunction)
+        };
+
+        let Some(draw_function) = draw_function else {
+            continue;
+        };
+
+        match prepass_specialize(world, key, &item.layout, &item.properties) {
+            Ok(pipeline_id) => {
+                world
+                    .resource_mut::<SpecializedShadowMaterialPipelineCache>()
+                    .entry(item.retained_view_entity)
+                    .or_default()
+                    .insert(item.visible_entity, (pipeline_id, draw_function));
+            }
+            Err(err) => error!("{}", err),
         }
     }
 
     // Delete specialized pipelines belonging to views that have expired.
-    specialized_material_pipeline_cache.retain(|view, _| all_shadow_views.contains(view));
+    world
+        .resource_mut::<SpecializedShadowMaterialPipelineCache>()
+        .retain(|view, _| all_shadow_views.contains(view));
 }
 
 /// For each shadow cascade, iterates over all the meshes "visible" from it and
 /// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
 /// appropriate.
-pub fn queue_shadows<M: Material>(
-    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+pub fn queue_shadows(
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
-    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
-    point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<
-        &RenderCascadesVisibleEntities,
-        With<ExtractedDirectionalLight>,
-    >,
-    spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
-    specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache<M>>,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
-    for (entity, view_lights) in &view_lights {
-        for view_light_entity in view_lights.lights.iter().copied() {
-            let Ok((light_entity, extracted_view_light)) =
-                view_light_entities.get(view_light_entity)
+    view_light_entities: Query<(&LightEntity, &ExtractedView, Option<&RenderLayers>)>,
+    shadow_map_visible_entities_query: Query<&RenderShadowMapVisibleEntities>,
+    specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
+    mut pending_shadow_queues: ResMut<PendingShadowQueues>,
+    dirty_specializations: Res<DirtySpecializations>,
+) {
+    for (light_entity, extracted_view_light, maybe_view_render_layers) in &view_light_entities {
+        let Some(shadow_phase) =
+            shadow_render_phases.get_mut(&extracted_view_light.retained_view_entity)
+        else {
+            continue;
+        };
+
+        let Some(view_specialized_material_pipeline_cache) =
+            specialized_material_pipeline_cache.get(&extracted_view_light.retained_view_entity)
+        else {
+            continue;
+        };
+
+        // Fetch the pending mesh material queues for this view.
+        let view_pending_shadow_queues = pending_shadow_queues
+            .get_mut(&extracted_view_light.retained_view_entity)
+            .expect("View pending shadow queues should have been created in `specialize_shadows`");
+
+        let visible_entities = get_shadow_map_visible_entities(
+            &shadow_map_visible_entities_query,
+            light_entity,
+            extracted_view_light,
+        );
+
+        let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
+            continue;
+        };
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_dequeue(extracted_view_light.retained_view_entity, visible_entities)
+        {
+            shadow_phase.remove(main_entity);
+        }
+
+        // Now iterate through all newly-visible entities and those needing respecialization.
+        for (render_entity, main_entity) in dirty_specializations.iter_to_queue(
+            extracted_view_light.retained_view_entity,
+            visible_entities,
+            &view_pending_shadow_queues.prev_frame,
+        ) {
+            let Some(&(pipeline_id, draw_function)) =
+                view_specialized_material_pipeline_cache.get(main_entity)
             else {
                 continue;
             };
-            let Some(shadow_phase) =
-                shadow_render_phases.get_mut(&extracted_view_light.retained_view_entity)
+
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't
+                // loaded yet. Add the entity to the list of pending shadows
+                // and bail.
+                view_pending_shadow_queues
+                    .current_frame
+                    .insert((*render_entity, *main_entity));
                 continue;
             };
-
-            let Some(view_specialized_material_pipeline_cache) =
-                specialized_material_pipeline_cache.get(&extracted_view_light.retained_view_entity)
-            else {
+            if !mesh_instance
+                .flags()
+                .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
+            {
                 continue;
-            };
-
-            let visible_entities = match light_entity {
-                LightEntity::Directional {
-                    light_entity,
-                    cascade_index,
-                } => directional_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get directional light visible entities")
-                    .entities
-                    .get(&entity)
-                    .expect("Failed to get directional light visible entities for view")
-                    .get(*cascade_index)
-                    .expect("Failed to get directional light visible entities for cascade"),
-                LightEntity::Point {
-                    light_entity,
-                    face_index,
-                } => point_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get point light visible entities")
-                    .get(*face_index),
-                LightEntity::Spot { light_entity } => spot_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get spot light visible entities"),
-            };
-
-            for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((current_change_tick, pipeline_id)) =
-                    view_specialized_material_pipeline_cache.get(&main_entity)
-                else {
-                    continue;
-                };
-
-                // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
-                    continue;
-                }
-
-                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
-                else {
-                    continue;
-                };
-                if !mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
-                {
-                    continue;
-                }
-
-                let Some(material_instance) = render_material_instances.instances.get(&main_entity)
-                else {
-                    continue;
-                };
-                let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
-                    continue;
-                };
-                let Some(material) = render_materials.get(material_asset_id) else {
-                    continue;
-                };
-
-                let (vertex_slab, index_slab) =
-                    mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-
-                let batch_set_key = ShadowBatchSetKey {
-                    pipeline: *pipeline_id,
-                    draw_function: draw_shadow_mesh,
-                    material_bind_group_index: Some(material.binding.group.0),
-                    vertex_slab: vertex_slab.unwrap_or_default(),
-                    index_slab,
-                };
-
-                shadow_phase.add(
-                    batch_set_key,
-                    ShadowBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
-                    },
-                    (entity, main_entity),
-                    mesh_instance.current_uniform_index,
-                    BinnedRenderPhaseType::mesh(
-                        mesh_instance.should_batch(),
-                        &gpu_preprocessing_support,
-                    ),
-                    *current_change_tick,
-                );
             }
+
+            let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
+            let view_render_layers = maybe_view_render_layers.unwrap_or_default();
+            if !view_render_layers.intersects(mesh_layers) {
+                continue;
+            }
+
+            let Some(material_instance) = render_material_instances.instances.get(main_entity)
+            else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_instance.asset_id) else {
+                // We couldn't fetch the material, probably because the
+                // material hasn't been loaded yet. Add the entity to the
+                // list of pending shadows and bail.
+                view_pending_shadow_queues
+                    .current_frame
+                    .insert((*render_entity, *main_entity));
+                continue;
+            };
+
+            let depth_only_draw_function = material
+                .properties
+                .get_draw_function(ShadowsDepthOnlyDrawFunction);
+            let material_bind_group_index = if Some(draw_function) == depth_only_draw_function {
+                None
+            } else {
+                Some(material.binding.group.0)
+            };
+
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
+
+            let batch_set_key = ShadowBatchSetKey {
+                pipeline: pipeline_id,
+                draw_function,
+                material_bind_group_index,
+                slabs: mesh_slabs,
+            };
+
+            shadow_phase.add(
+                batch_set_key,
+                ShadowBinKey {
+                    asset_id: mesh_instance.mesh_asset_id().into(),
+                },
+                (*render_entity, *main_entity),
+                mesh_instance.current_uniform_index,
+                BinnedRenderPhaseType::mesh(
+                    mesh_instance.should_batch(),
+                    &gpu_preprocessing_support,
+                ),
+            );
         }
     }
 }
@@ -2137,21 +2633,18 @@ pub struct ShadowBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 }
 
 impl PhaseItemBatchSetKey for ShadowBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -2227,160 +2720,164 @@ impl CachedRenderPipelinePhaseItem for Shadow {
     }
 }
 
-/// The rendering node that renders meshes that were "visible" (so to speak)
-/// from a light last frame.
+pub const EARLY_SHADOW_PASS: bool = false;
+pub const LATE_SHADOW_PASS: bool = true;
+
+/// Renders the shadow maps that aren't associated with a specific view.
 ///
-/// If occlusion culling for a light is disabled, then this node simply renders
-/// all meshes in range of the light.
-#[derive(Deref, DerefMut)]
-pub struct EarlyShadowPassNode(ShadowPassNode);
+/// At present, these consist of the point and spot light shadow maps.
+pub fn shared_shadow_pass<const IS_LATE: bool>(
+    world: &World,
+    view_light_query: ViewQuery<(Entity, &ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
+    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
+    mut ctx: RenderContext,
+) {
+    let (view_light_entity, view_light, extracted_light_view, occlusion_culling) =
+        view_light_query.into_inner();
+    view_shadow_pass::<IS_LATE>(
+        view_light_entity,
+        view_light,
+        extracted_light_view,
+        occlusion_culling,
+        world,
+        &shadow_render_phases,
+        &mut ctx,
+    );
+}
 
-/// The rendering node that renders meshes that became newly "visible" (so to
-/// speak) from a light this frame.
+/// Renders the shadow maps that are associated with a specific view.
 ///
-/// If occlusion culling for a light is disabled, then this node does nothing.
-#[derive(Deref, DerefMut)]
-pub struct LateShadowPassNode(ShadowPassNode);
+/// At present, these consist of the directional light shadows.
+pub fn per_view_shadow_pass<const IS_LATE: bool>(
+    world: &World,
+    view: ViewQuery<&ViewLightEntities>,
+    view_light_query: Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
+    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
+    mut ctx: RenderContext,
+) {
+    let view_lights = view.into_inner();
 
-/// Encapsulates rendering logic shared between the early and late shadow pass
-/// nodes.
-pub struct ShadowPassNode {
-    /// The query that finds cameras in which shadows are visible.
-    main_view_query: QueryState<Read<ViewLightEntities>>,
-    /// The query that finds shadow cascades.
-    view_light_query: QueryState<(Read<ShadowView>, Read<ExtractedView>, Has<OcclusionCulling>)>,
-}
-
-impl FromWorld for EarlyShadowPassNode {
-    fn from_world(world: &mut World) -> Self {
-        Self(ShadowPassNode::from_world(world))
-    }
-}
-
-impl FromWorld for LateShadowPassNode {
-    fn from_world(world: &mut World) -> Self {
-        Self(ShadowPassNode::from_world(world))
-    }
-}
-
-impl FromWorld for ShadowPassNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            view_light_query: QueryState::new(world),
+    for view_light_entity in view_lights.lights.iter().copied() {
+        if let Ok((view_light, extracted_light_view, occlusion_culling)) =
+            view_light_query.get(view_light_entity)
+        {
+            view_shadow_pass::<IS_LATE>(
+                view_light_entity,
+                view_light,
+                extracted_light_view,
+                occlusion_culling,
+                world,
+                &shadow_render_phases,
+                &mut ctx,
+            );
         }
     }
 }
 
-impl Node for EarlyShadowPassNode {
-    fn update(&mut self, world: &mut World) {
-        self.0.update(world);
+/// A common helper function to render a shadow map.
+fn view_shadow_pass<const IS_LATE: bool>(
+    view_light_entity: Entity,
+    view_light: &ShadowView,
+    extracted_light_view: &ExtractedView,
+    occlusion_culling: bool,
+    world: &World,
+    shadow_render_phases: &ViewBinnedRenderPhases<Shadow>,
+    ctx: &mut RenderContext,
+) {
+    if IS_LATE && !occlusion_culling {
+        return;
     }
 
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        self.0.run(graph, render_context, world, false)
+    let Some(shadow_phase) = shadow_render_phases.get(&extracted_light_view.retained_view_entity)
+    else {
+        return;
+    };
+
+    #[cfg(feature = "trace")]
+    let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
+
+    let depth_stencil_attachment = Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
+
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some(&view_light.pass_name),
+        color_attachments: &[],
+        depth_stencil_attachment,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
+
+    if let Err(err) = shadow_phase.render(&mut render_pass, world, view_light_entity) {
+        error!("Error encountered while rendering the shadow phase {err:?}");
     }
 }
 
-impl Node for LateShadowPassNode {
-    fn update(&mut self, world: &mut World) {
-        self.0.update(world);
-    }
-
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        self.0.run(graph, render_context, world, true)
+/// Creates the [`ClusterableObjectType`] data for a point or spot light.
+fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> ClusterableObjectType {
+    match point_light.spot_light_angles {
+        Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
+            outer_angle,
+            shadow_maps_enabled: point_light.shadow_maps_enabled,
+            volumetric: point_light.volumetric,
+        },
+        None => ClusterableObjectType::PointLight {
+            shadow_maps_enabled: point_light.shadow_maps_enabled,
+            volumetric: point_light.volumetric,
+        },
     }
 }
 
-impl ShadowPassNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.view_light_query.update_archetypes(world);
-    }
-
-    /// Runs the node logic.
-    ///
-    /// `is_late` is true if this is the late shadow pass or false if this is
-    /// the early shadow pass.
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-        is_late: bool,
-    ) -> Result<(), NodeRunError> {
-        let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
-        else {
-            return Ok(());
-        };
-
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, graph.view_entity()) {
-            for view_light_entity in view_lights.lights.iter().copied() {
-                let Ok((view_light, extracted_light_view, occlusion_culling)) =
-                    self.view_light_query.get_manual(world, view_light_entity)
-                else {
-                    continue;
-                };
-
-                // There's no need for a late shadow pass if the light isn't
-                // using occlusion culling.
-                if is_late && !occlusion_culling {
-                    continue;
-                }
-
-                let Some(shadow_phase) =
-                    shadow_render_phases.get(&extracted_light_view.retained_view_entity)
-                else {
-                    continue;
-                };
-
-                let depth_stencil_attachment =
-                    Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
-
-                let diagnostics = render_context.diagnostic_recorder();
-                render_context.add_command_buffer_generation_task(move |render_device| {
-                    #[cfg(feature = "trace")]
-                    let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
-                    let mut command_encoder =
-                        render_device.create_command_encoder(&CommandEncoderDescriptor {
-                            label: Some("shadow_pass_command_encoder"),
-                        });
-
-                    let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                        label: Some(&view_light.pass_name),
-                        color_attachments: &[],
-                        depth_stencil_attachment,
-                        timestamp_writes: None,
-                        occlusion_query_set: None,
-                    });
-
-                    let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-                    let pass_span =
-                        diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
-
-                    if let Err(err) =
-                        shadow_phase.render(&mut render_pass, world, view_light_entity)
-                    {
-                        error!("Error encountered while rendering the shadow phase {err:?}");
-                    }
-
-                    pass_span.end(&mut render_pass);
-                    drop(render_pass);
-                    command_encoder.finish()
-                });
-            }
+/// Returns the [`RenderShadowMapVisibleEntities`] table corresponding to the
+/// given [`LightEntity`].
+fn get_shadow_map_visible_entities<'w, 's: 'w>(
+    shadow_map_visible_entities_query: &'w Query<'w, 's, &'_ RenderShadowMapVisibleEntities>,
+    light_entity: &'_ LightEntity,
+    extracted_view_light: &'_ ExtractedView,
+) -> &'w RenderVisibleEntities {
+    match light_entity {
+        LightEntity::Directional { light_entity, .. } => {
+            let retained_view_entity = extracted_view_light.retained_view_entity;
+            shadow_map_visible_entities_query
+                .get(*light_entity)
+                .expect("Failed to get directional light visible entities")
+                .subviews
+                .get(&retained_view_entity)
+                .expect("Failed to get directional light visible entities for cascade")
         }
-
-        Ok(())
+        LightEntity::Point {
+            light_entity,
+            face_index,
+        } => {
+            // We replace the auxiliary entity with `PLACEHOLDER`
+            // because all cubemap views for a single point light
+            // currently share the same set of visible entities.
+            let retained_view_entity = RetainedViewEntity {
+                main_entity: extracted_view_light.retained_view_entity.main_entity,
+                auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                subview_index: *face_index as u32,
+            };
+            shadow_map_visible_entities_query
+                .get(*light_entity)
+                .expect("Failed to get point light visible entities")
+                .subviews
+                .get(&retained_view_entity)
+                .expect("Failed to get point light visible entity for face")
+        }
+        LightEntity::Spot { light_entity } => {
+            // We replace the auxiliary entity with `PLACEHOLDER`
+            // because all shadow maps for a single spot light
+            // currently share the same set of visible entities.
+            let retained_view_entity = RetainedViewEntity {
+                main_entity: extracted_view_light.retained_view_entity.main_entity,
+                auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                subview_index: 0,
+            };
+            shadow_map_visible_entities_query
+                .get(*light_entity)
+                .expect("Failed to get spot light visible entities")
+                .subviews
+                .get(&retained_view_entity)
+                .expect("Failed to get spot light visible entity for view")
+        }
     }
 }

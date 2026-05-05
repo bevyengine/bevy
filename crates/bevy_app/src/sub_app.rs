@@ -1,18 +1,22 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    event::EventRegistry,
+    message::MessageRegistry,
+    observer::IntoObserver,
     prelude::*,
-    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
+    },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use tracing::{info_span, warn};
 
-type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
+type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
 /// A secondary application with its own [`World`]. These can run independently of each other.
 ///
@@ -160,7 +164,7 @@ impl SubApp {
     /// The first argument is the `World` to extract data from, the second argument is the app `World`.
     pub fn set_extract<F>(&mut self, extract: F) -> &mut Self
     where
-        F: Fn(&mut World, &mut World) + Send + 'static,
+        F: FnMut(&mut World, &mut World) + Send + 'static,
     {
         self.extract = Some(Box::new(extract));
         self
@@ -177,13 +181,13 @@ impl SubApp {
     /// ```
     /// # use bevy_app::SubApp;
     /// # let mut app = SubApp::new();
-    /// let default_fn = app.take_extract();
+    /// let mut default_fn = app.take_extract();
     /// app.set_extract(move |main, render| {
     ///     // Do pre-extract custom logic
     ///     // [...]
     ///
     ///     // Call Bevy's default, which executes the Extract phase
-    ///     if let Some(f) = default_fn.as_ref() {
+    ///     if let Some(f) = default_fn.as_mut() {
     ///         f(main, render);
     ///     }
     ///
@@ -219,6 +223,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::remove_systems_in_set`]
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world, policy)
+        })
+    }
+
     /// See [`App::register_system`].
     pub fn register_system<I, O, M>(
         &mut self,
@@ -246,7 +262,16 @@ impl SubApp {
     /// See [`App::add_schedule`].
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
+        let _old_schedule = schedules.insert(schedule);
+
+        #[cfg(feature = "trace")]
+        if let Some(schedule) = _old_schedule {
+            warn!(
+                "Schedule {:?} was re-inserted, all previous configuration has been removed",
+                schedule.label()
+            );
+        }
+
         self
     }
 
@@ -335,13 +360,19 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_event`].
-    pub fn add_event<T>(&mut self) -> &mut Self
+    /// See [`App::add_observer`].
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
+        self.world_mut().add_observer(observer);
+        self
+    }
+
+    /// See [`App::add_message`].
+    pub fn add_message<T>(&mut self) -> &mut Self
     where
-        T: BufferedEvent,
+        T: Message,
     {
-        if !self.world.contains_resource::<Events<T>>() {
-            EventRegistry::register_event::<T>(self.world_mut());
+        if !self.world.contains_resource::<Messages<T>>() {
+            MessageRegistry::register_message::<T>(self.world_mut());
         }
 
         self
@@ -401,25 +432,35 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let plugins = core::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
-                plugin.finish(app);
-            }
-        });
-        self.plugin_registry = plugins;
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
+        for i in 0..self.plugin_registry.len() {
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
+            self.run_as_app(|app| {
+                hokeypokey.finish(app);
+            });
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+        }
         self.plugins_state = PluginsState::Finished;
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let plugins = core::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
-                plugin.cleanup(app);
-            }
-        });
-        self.plugin_registry = plugins;
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
+        for i in 0..self.plugin_registry.len() {
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
+            self.run_as_app(|app| {
+                hokeypokey.cleanup(app);
+            });
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+        }
         self.plugins_state = PluginsState::Cleaned;
     }
 
@@ -441,6 +482,33 @@ impl SubApp {
     ) -> &mut Self {
         let registry = self.world.resource_mut::<AppTypeRegistry>();
         registry.write().register_type_data::<T, D>();
+        self
+    }
+
+    /// See [`App::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry
+            .write()
+            .register_type_conversion::<T, U, _>(function);
+        self
+    }
+
+    /// See [`App::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath + From<T>,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_into_type_conversion::<T, U>();
         self
     }
 

@@ -29,9 +29,12 @@ impl Normalization {
 
 /// An error that occurs when accessing buffer data
 #[derive(Error, Debug)]
-pub(crate) enum AccessFailed {
+pub enum AccessFailed {
+    /// Accessing the data failed because of an issue like a mismatch in stride,
+    /// or a buffer view slice failing.
     #[error("Malformed vertex attribute data")]
     MalformedData,
+    /// The format supplied is unsupported for this operation.
     #[error("Unsupported vertex attribute format")]
     UnsupportedFormat,
 }
@@ -141,12 +144,21 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
             VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
             VertexAttributeIter::F32x3(it) => Ok(if convert_coordinates {
+                // The following f32x3 values need to be converted to the correct coordinate system
+                // - Positions
+                // - Normals
+                //
+                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
                 Values::Float32x3(it.map(ConvertCoordinates::convert_coordinates).collect())
             } else {
                 Values::Float32x3(it.collect())
             }),
             VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
             VertexAttributeIter::F32x4(it) => Ok(if convert_coordinates {
+                // The following f32x4 values need to be converted to the correct coordinate system
+                // - Tangents
+                //
+                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
                 Values::Float32x4(it.map(ConvertCoordinates::convert_coordinates).collect())
             } else {
                 Values::Float32x4(it.collect())
@@ -247,17 +259,25 @@ enum ConversionMode {
     TexCoord,
 }
 
+/// Errors that can occur during the `convert_attribute` function.
 #[derive(Error, Debug)]
-pub(crate) enum ConvertAttributeError {
+pub enum ConvertAttributeError {
+    /// The loaded format ws different than the attribute's intended format.
+    /// Such as if a `Float32x3` was loaded as a `Float32x2`.
     #[error("Vertex attribute {0} has format {1:?} but expected {3:?} for target attribute {2}")]
     WrongFormat(String, VertexFormat, String, VertexFormat),
+    /// Fetching values from the glTF Accessor failed
     #[error("{0} in accessor {1}")]
     AccessFailed(AccessFailed, usize),
+    /// A vertex attribute name was not one of the gltf crate's well-known attributes,
+    /// nor was it registered by a user as a custom attribute. Therefore it is unknown.
     #[error("Unknown vertex attribute {0}")]
     UnknownName(String),
 }
 
-pub(crate) fn convert_attribute(
+/// map glTF vertex attributes into their `MeshVertexAttribute` forms, optionally
+/// converting values if necessary.
+pub fn convert_attribute(
     semantic: gltf::Semantic,
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,

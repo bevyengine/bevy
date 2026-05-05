@@ -5,11 +5,10 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res, ResMut},
 };
+use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
 };
@@ -30,11 +29,7 @@ pub fn prepare_pathtracer_accumulation_texture(
 
         let descriptor = TextureDescriptor {
             label: Some("pathtracer_accumulation_texture"),
-            size: Extent3d {
-                width: viewport.x,
-                height: viewport.y,
-                depth_or_array_layers: 1,
-            },
+            size: viewport.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

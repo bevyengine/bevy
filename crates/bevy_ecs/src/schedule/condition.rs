@@ -3,8 +3,8 @@ use bevy_utils::prelude::DebugName;
 use core::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
-    SystemInput,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, RunSystemError,
+    System, SystemIn, SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -12,18 +12,8 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// `SystemCondition` is sealed and implemented for functions and closures with
-/// [read-only](crate::system::ReadOnlySystemParam) parameters that convert into
-/// [`System<Out = bool>`](System), [`System<Out = Result<(), BevyError>>`](System) or
-/// [`System<Out = Result<bool, BevyError>>`](System).
-///
-/// `SystemCondition` offers a private method
-/// (called by [`run_if`](crate::schedule::IntoScheduleConfigs::run_if) and the provided methods)
-/// that converts the implementing system into a condition (system) returning a bool.
-/// Depending on the output type of the implementing system:
-/// - `bool`: the implementing system is used as the condition;
-/// - `Result<(), BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(())`;
-/// - `Result<bool, BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(true)`.
+/// Implemented for functions and closures that convert into [`System<Out=bool>`](System)
+/// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 ///
 /// # Marker type parameter
 ///
@@ -42,7 +32,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 ///
 /// # Examples
-/// A condition that returns `true` every other time it's called.
+/// A condition that returns true every other time it's called.
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl SystemCondition<()> {
@@ -65,12 +55,12 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # assert!(!world.resource::<DidRun>().0);
 /// ```
 ///
-/// A condition that takes a `bool` as an input and returns it unchanged.
+/// A condition that takes a bool as an input and returns it unchanged.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn identity() -> impl SystemCondition<(), In<bool>> {
-///     IntoSystem::into_system(|In(x)| x)
+///     IntoSystem::into_system(|In(x): In<bool>| x)
 /// }
 ///
 /// # fn always_true() -> bool { true }
@@ -82,36 +72,27 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-/// ```
-///
-/// A condition returning a `Result<(), BevyError>`
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # #[derive(Component)] struct Player;
-/// fn player_exists(q_player: Query<(), With<Player>>) -> Result {
-///     Ok(q_player.single()?)
-/// }
-///
-/// # let mut app = Schedule::default();
-/// # #[derive(Resource)] struct DidRun(bool);
-/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// app.add_systems(my_system.run_if(player_exists));
-/// # let mut world = World::new();
-/// # world.insert_resource(DidRun(false));
-/// # app.run(&mut world);
-/// # assert!(!world.resource::<DidRun>().0);
-/// # world.spawn(Player);
-/// # app.run(&mut world);
-/// # assert!(world.resource::<DidRun>().0);
-pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
-    sealed::SystemCondition<Marker, In, Out>
+pub trait SystemCondition<Marker, In: SystemInput = ()>:
+    IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
     /// Returns a new run condition that only returns `true`
-    /// if both this one and the passed `and` return `true`.
+    /// if both this one and the passed `then_run` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `and` will only be invoked if `self` returns `true`.
+    /// `then_run` will only be invoked if `self` returns `true`.
+    ///
+    /// Short-circuiting may not be desired in all cases; when utilizing change detection,
+    /// the `then_run` condition will react to changes since the last time that _`self` returned `true`_,
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    ///
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
+    ///
+    /// See also [`and_eager`], which always evaluates both conditions.
+    ///
+    /// [`and_eager`]: SystemCondition::and_eager
     ///
     /// # Examples
     ///
@@ -121,100 +102,277 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// #[derive(Resource, PartialEq)]
     /// struct R(u32);
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut schedule = Schedule::default();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_systems(
+    /// schedule.add_systems(
     ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
     /// );
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// ```
     ///
-    /// Use `.and()` to avoid checking the condition.
+    /// Use `.and_then()` to avoid checking the condition.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut app = Schedule::default();
+    /// # let mut schedule = Schedule::default();
     /// # let mut world = World::new();
-    /// # fn my_system() {}
-    /// app.add_systems(
+    /// # fn my_system() { unreachable!() }
+    /// schedule.add_systems(
     ///     // `resource_equals` will only get run if the resource `R` exists.
-    ///     my_system.run_if(resource_exists::<R>.and(resource_equals(R(0)))),
+    ///     my_system.run_if(resource_exists::<R>.and_then(resource_equals(R(0)))),
     /// );
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// ```
     ///
-    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    /// Note that in this specific case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and<M, C: SystemCondition<M, In>>(self, and: C) -> And<Self::System, C::System> {
+    fn and_then<M, C: SystemCondition<M, In>>(
+        self,
+        then_run: C,
+    ) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and);
+        let b = IntoSystem::into_system(then_run);
+        let name = format!("{} && {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, DebugName::owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `then_run` return `true`.
+    ///
+    /// The returned run condition is eagerly evaluated, meaning
+    /// it will always execute both run conditions in order.
+    ///
+    /// When applied directly to a system using [`run_if`], the use of this combinator
+    /// is behaviorally identical to simply calling `run_if` multiple times. However,
+    /// `.and_eager` may be more efficient, as it does not erase the types of the inner conditions
+    /// when evaluating them, which may allow for compiler optimizations that are not possible
+    /// with separate calls to `run_if`.
+    ///
+    /// See also [`and_then`], which short-circuits if `self` returns `false`.
+    ///
+    /// [`run_if`]: crate::schedule::IntoScheduleConfigs::run_if
+    /// [`and_then`]: SystemCondition::and_then
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::sync::atomic::AtomicBool;
+    /// # use std::sync::atomic::Ordering;
+    /// # #[derive(Resource, PartialEq)]
+    /// # struct R(u32);
+    /// # let mut schedule = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn my_system() { unreachable!() }
+    /// # static CONDITION_A_RAN: AtomicBool = AtomicBool::new(false);
+    /// # static CONDITION_B_RAN: AtomicBool = AtomicBool::new(false);
+    /// # fn returns_false() -> bool {
+    /// #   CONDITION_A_RAN.store(true, Ordering::Relaxed);
+    /// #   false
+    /// # }
+    /// # fn returns_true() -> bool {
+    /// #   CONDITION_B_RAN.store(true, Ordering::Relaxed);
+    /// #   true
+    /// # }
+    /// schedule.add_systems(
+    ///     // both conditions will execute, even though the first one returned false
+    ///     my_system.run_if(returns_false.and_eager(returns_true)),
+    /// );
+    /// # schedule.run(&mut world);
+    /// # assert!(CONDITION_A_RAN.load(Ordering::Relaxed));
+    /// # assert!(CONDITION_B_RAN.load(Ordering::Relaxed));
+    /// ```
+    fn and_eager<M, C: SystemCondition<M, In>>(
+        self,
+        other: C,
+    ) -> AndEager<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(other);
+        let name = format!("{} & {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, DebugName::owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `then_run` return `true`.
+    #[deprecated(
+        since = "0.19.0",
+        note = "use `.and_then(...)` instead, or `.and_eager(...)` to evaluate the conditions eagerly"
+    )]
+    fn and<M, C: SystemCondition<M, In>>(self, then_run: C) -> AndThen<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(then_run);
         let name = format!("{} && {}", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `false`
-    /// if both this one and the passed `nand` return `true`.
+    /// if both this one and the passed `then_run` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `nand` will only be invoked if `self` returns `true`.
+    /// `then_run` will only be invoked if `self` returns `true`.
+    ///
+    /// Short-circuiting may not be desired in all cases; when utilizing change detection,
+    /// the `then_run` condition will react to changes since the last time that _`self` returned `true`_,
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    ///
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
+    ///
+    /// See also [`nand_eager`], which always evaluates both conditions.
+    ///
+    /// [`nand_eager`]: SystemCondition::nand_eager
     ///
     /// # Examples
     ///
-    /// ```compile_fail
-    /// use bevy::prelude::*;
-    ///
-    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
-    /// pub enum PlayerState {
-    ///     Alive,
-    ///     Dead,
-    /// }
-    ///
-    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
-    /// pub enum EnemyState {
-    ///     Alive,
-    ///     Dead,
-    /// }
-    ///
-    /// # let mut app = Schedule::default();
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource, Debug, Clone, PartialEq, Eq, Hash)]
+    /// # pub enum PlayerState {
+    /// #     Alive,
+    /// #     Dead,
+    /// # }
+    /// # #[derive(Resource, Debug, Clone, PartialEq, Eq, Hash)]
+    /// # pub enum EnemyState {
+    /// #     Alive,
+    /// #     Dead,
+    /// # }
+    /// #
+    /// # use std::sync::atomic::AtomicUsize;
+    /// # use std::sync::atomic::Ordering;
+    /// # static IN_STATE_RUN_COUNT: AtomicUsize = AtomicUsize::new(0);
+    /// # fn in_state<R: Resource + PartialEq>(state: R) -> impl Fn(Res<R>) -> bool {
+    /// #   move |current_state| {
+    /// #       IN_STATE_RUN_COUNT.fetch_add(1, Ordering::Relaxed);
+    /// #       state == *current_state
+    /// #   }
+    /// # }
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct RanGameOver(bool);
+    /// # fn game_over_credits(mut commands: Commands) { commands.insert_resource(RanGameOver(true)); }
+    /// # let mut schedule = Schedule::default();
     /// # let mut world = World::new();
-    /// # fn game_over_credits() {}
-    /// app.add_systems(
+    /// # world.insert_resource(PlayerState::Dead);
+    /// schedule.add_systems(
     ///     // The game_over_credits system will only execute if either the `in_state(PlayerState::Alive)`
     ///     // run condition or `in_state(EnemyState::Alive)` run condition evaluates to `false`.
     ///     game_over_credits.run_if(
-    ///         in_state(PlayerState::Alive).nand(in_state(EnemyState::Alive))
+    ///         in_state(PlayerState::Alive).nand_then(in_state(EnemyState::Alive)),
     ///     ),
     /// );
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
+    /// # assert_eq!(IN_STATE_RUN_COUNT.load(Ordering::Relaxed), 1);
+    /// # assert!(world.resource::<RanGameOver>().0);
+    /// # IN_STATE_RUN_COUNT.store(0, Ordering::Relaxed);
+    /// # world.insert_resource(RanGameOver(false));
+    /// # world.insert_resource(PlayerState::Alive);
+    /// # world.insert_resource(EnemyState::Dead);
+    /// # schedule.run(&mut world);
+    /// # assert_eq!(IN_STATE_RUN_COUNT.load(Ordering::Relaxed), 2);
+    /// # assert!(world.resource::<RanGameOver>().0);
+    /// # IN_STATE_RUN_COUNT.store(0, Ordering::Relaxed);
+    /// # world.insert_resource(RanGameOver(false));
+    /// # world.insert_resource(EnemyState::Alive);
+    /// # schedule.run(&mut world);
+    /// # assert_eq!(IN_STATE_RUN_COUNT.load(Ordering::Relaxed), 2);
+    /// # assert!(!world.resource::<RanGameOver>().0);
     /// ```
     ///
-    /// Equivalent logic can be achieved by using `not` in concert with `and`:
+    /// Equivalent logic can be achieved by using `not` in concert with `and_then`:
     ///
-    /// ```compile_fail
-    /// app.add_systems(
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Debug, Clone, PartialEq, Eq, Hash)]
+    /// # pub enum PlayerState {
+    /// #     Alive,
+    /// #     Dead,
+    /// # }
+    /// # #[derive(Resource, Debug, Clone, PartialEq, Eq, Hash)]
+    /// # pub enum EnemyState {
+    /// #     Alive,
+    /// #     Dead,
+    /// # }
+    /// # fn in_state<R: Resource + PartialEq>(state: R) -> impl Fn(Res<R>) -> bool {
+    /// #   move |current_state| state == *current_state
+    /// # }
+    /// # fn game_over_credits() { unreachable!() }
+    /// # let mut schedule = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.insert_resource(PlayerState::Alive);
+    /// # world.insert_resource(EnemyState::Alive);
+    /// schedule.add_systems(
     ///     game_over_credits.run_if(
-    ///         not(in_state(PlayerState::Alive).and(in_state(EnemyState::Alive)))
+    ///         not(in_state(PlayerState::Alive).and_then(in_state(EnemyState::Alive))),
     ///     ),
     /// );
+    /// # schedule.run(&mut world);
     /// ```
-    fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
+    fn nand_then<M, C: SystemCondition<M, In>>(
+        self,
+        then_run: C,
+    ) -> NandThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(nand);
+        let b = IntoSystem::into_system(then_run);
         let name = format!("!({} && {})", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
+    /// Returns a new run condition that only returns `false`
+    /// if both this one and the passed `then_run` return `true`.
+    ///
+    /// The returned run condition is eagerly evaluated, meaning
+    /// it will always execute both run conditions in order.
+    ///
+    /// See also [`nand_then`], which short-circuits if `self` returns `false`.
+    ///
+    /// [`nand_then`]: SystemCondition::nand_then
+    fn nand_eager<M, C: SystemCondition<M, In>>(
+        self,
+        other: C,
+    ) -> NandEager<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(other);
+        let name = format!("!({} & {})", a.name(), b.name());
+        CombinatorSystem::new(a, b, DebugName::owned(name))
+    }
+
+    /// Returns a new run condition that only returns `false`
+    /// if both this one and the passed `then_run` return `true`.
+    #[deprecated(
+        since = "0.19.0",
+        note = "use `.nand_then(...) instead, or `.nand_eager(...)` to evaluate the conditions eagerly"
+    )]
+    fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> NandThen<Self::System, C::System> {
+        self.nand_then(nand)
+    }
+
     /// Returns a new run condition that only returns `true`
-    /// if both this one and the passed `nor` return `false`.
+    /// if both this one and the passed `else_run` return `false`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `nor` will only be invoked if `self` returns `false`.
+    /// `else_run` will only be invoked if `self` returns `true`.
+    ///
+    /// Short-circuiting may not be desired in all cases; when utilizing change detection,
+    /// the `else_run` condition will react to changes since the last time that _`self` returned `true`_,
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    ///
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
+    ///
+    /// See also [`nor_eager`], which always evaluates both conditions.
+    ///
+    /// [`nor_eager`]: SystemCondition::nor_eager
     ///
     /// # Examples
     ///
@@ -240,7 +398,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     ///     // The slow_plant_growth system will only execute if both the `in_state(WeatherState::Sunny)`
     ///     // run condition and `in_state(SoilState::Fertilized)` run condition evaluate to `false`.
     ///     slow_plant_growth.run_if(
-    ///         in_state(WeatherState::Sunny).nor(in_state(SoilState::Fertilized))
+    ///         in_state(WeatherState::Sunny).nor_else(in_state(SoilState::Fertilized)),
     ///     ),
     /// );
     /// # app.run(&mut world);
@@ -251,15 +409,47 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// ```compile_fail
     /// app.add_systems(
     ///     slow_plant_growth.run_if(
-    ///         not(in_state(WeatherState::Sunny).or(in_state(SoilState::Fertilized)))
+    ///         not(in_state(WeatherState::Sunny).or_else(in_state(SoilState::Fertilized))),
     ///     ),
     /// );
     /// ```
-    fn nor<M, C: SystemCondition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
+    fn nor_else<M, C: SystemCondition<M, In>>(
+        self,
+        else_run: C,
+    ) -> NorElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(nor);
+        let b = IntoSystem::into_system(else_run);
         let name = format!("!({} || {})", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `else_run` return `false`.
+    ///
+    /// The returned run condition is eagerly evaluated, meaning
+    /// it will always execute both run conditions in order.
+    ///
+    /// See also [`nor_else`], which short-circuits if `self` returns `true`.
+    ///
+    /// [`nor_else`]: SystemCondition::nor_else
+    fn nor_eager<M, C: SystemCondition<M, In>>(
+        self,
+        other: C,
+    ) -> NorEager<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(other);
+        let name = format!("!({} | {})", a.name(), b.name());
+        CombinatorSystem::new(a, b, DebugName::owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `else_run` return `false`.
+    #[deprecated(
+        since = "0.19.0",
+        note = "use `.nor_else(...)` instead, or `.nor_eager(...)` to evaluate the conditions eagerly"
+    )]
+    fn nor<M, C: SystemCondition<M, In>>(self, else_run: C) -> NorElse<Self::System, C::System> {
+        self.nor_else(else_run)
     }
 
     /// Returns a new run condition that returns `true`
@@ -267,6 +457,19 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     ///
     /// The returned run condition is short-circuiting, meaning
     /// `or` will only be invoked if `self` returns `false`.
+    ///
+    /// Short-circuiting may not be desired in all cases; when utilizing change detection,
+    /// the `else_run` condition will react to changes since the last time that _`self` returned `false`_,
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    ///
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
+    ///
+    /// See also [`or_eager`], which always evaluates both conditions.
+    ///
+    /// [`or_eager`]: SystemCondition::or_eager
     ///
     /// # Examples
     ///
@@ -302,15 +505,44 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or<M, C: SystemCondition<M, In>>(self, or: C) -> Or<Self::System, C::System> {
+    fn or_else<M, C: SystemCondition<M, In>>(self, else_run: C) -> OrElse<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(or);
+        let b = IntoSystem::into_system(else_run);
         let name = format!("{} || {}", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or` return `true`.
+    ///
+    /// The returned run condition is eagerly evaluated, meaning
+    /// it will always execute both run conditions in order.
+    ///
+    /// See also [`or_else`], which short-circuits if `self` returns `true`.
+    ///
+    /// [`or_else`]: SystemCondition::or_else
+    fn or_eager<M, C: SystemCondition<M, In>>(self, other: C) -> OrEager<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(other);
+        let name = format!("{} | {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, DebugName::owned(name))
+    }
+
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or` return `true`.
+    #[deprecated(
+        since = "0.19.0",
+        note = "use `.or_else(...)` instead, or `.or_eager(...)` to eagerly evaluate both conditions"
+    )]
+    fn or<M, C: SystemCondition<M, In>>(self, else_run: C) -> OrElse<Self::System, C::System> {
+        self.or_else(else_run)
+    }
+
     /// Returns a new run condition that only returns `true`
     /// if `self` and `xnor` **both** return `false` or **both** return `true`.
+    ///
+    /// The returned run condition is eagerly evaluated, meaning
+    /// it will always execute both run conditions in order.
     ///
     /// # Examples
     ///
@@ -354,15 +586,18 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     ///     ),
     /// );
     /// ```
-    fn xnor<M, C: SystemCondition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
+    fn xnor<M, C: SystemCondition<M, In>>(self, other: C) -> Xnor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(xnor);
+        let b = IntoSystem::into_system(other);
         let name = format!("!({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
     /// if either `self` or `xor` return `true`, but not both.
+    ///
+    /// The returned run condition is eagerly evaluated, meaning
+    /// it will always execute both run conditions in order.
     ///
     /// # Examples
     ///
@@ -396,70 +631,17 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// );
     /// # app.run(&mut world);
     /// ```
-    fn xor<M, C: SystemCondition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
+    fn xor<M, C: SystemCondition<M, In>>(self, other: C) -> Xor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(xor);
+        let b = IntoSystem::into_system(other);
         let name = format!("({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 }
 
-impl<Marker, In: SystemInput, Out, F> SystemCondition<Marker, In, Out> for F where
-    F: sealed::SystemCondition<Marker, In, Out>
+impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
+    F: IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
-}
-
-mod sealed {
-    use crate::{
-        error::BevyError,
-        system::{IntoSystem, ReadOnlySystem, SystemInput},
-    };
-
-    pub trait SystemCondition<Marker, In: SystemInput, Out>:
-        IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
-    {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool>;
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, bool> for F
-    where
-        F: IntoSystem<In, bool, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self)
-        }
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
-    where
-        F: IntoSystem<In, Result<(), BevyError>, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self.map(|result| result.is_ok()))
-        }
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
-    where
-        F: IntoSystem<In, Result<bool, BevyError>, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self.map(|result| matches!(result, Ok(true))))
-        }
-    }
 }
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
@@ -467,8 +649,8 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        event::{BufferedEvent, EventReader},
         lifecycle::RemovedComponents,
+        message::{Message, MessageReader},
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,
@@ -516,6 +698,9 @@ pub mod common_conditions {
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource exists.
+    ///
+    /// To skip a system with a [`Res`] or [`ResMut`](crate::prelude::ResMut) parameter if the resource does not exist,
+    /// you may instead wrap the parameter in [`If`](crate::prelude::If), like `If<Res<T>>` or `If<ResMut<T>>`.
     ///
     /// # Example
     ///
@@ -911,7 +1096,9 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if there are any new events of the given type since it was last called.
+    /// if there are any new messages of the given type since it was last called.
+    ///
+    /// To skip a system based on messages that it reads, use [`PopulatedMessageReader`](crate::prelude::PopulatedMessageReader) instead.
     ///
     /// # Example
     ///
@@ -922,40 +1109,46 @@ pub mod common_conditions {
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_systems(bevy_ecs::event::event_update_system.before(my_system));
+    /// # world.init_resource::<Messages<MyMessage>>();
+    /// # app.add_systems(bevy_ecs::message::message_update_system.before(my_system));
     ///
     /// app.add_systems(
-    ///     my_system.run_if(on_event::<MyEvent>),
+    ///     my_system.run_if(on_message::<MyMessage>),
     /// );
     ///
-    /// #[derive(Event, BufferedEvent)]
-    /// struct MyEvent;
+    /// #[derive(Message)]
+    /// struct MyMessage;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // No new `MyEvent` events have been push so `my_system` won't run
+    /// // No new `MyMessage` messages have been pushed so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
-    /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
+    /// world.resource_mut::<Messages<MyMessage>>().write(MyMessage);
     ///
-    /// // A `MyEvent` event has been pushed so `my_system` will run
+    /// // A `MyMessage` message has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: BufferedEvent>(mut reader: EventReader<T>) -> bool {
-        // The events need to be consumed, so that there are no false positives on subsequent
+    pub fn on_message<M: Message>(mut reader: MessageReader<M>) -> bool {
+        // The messages need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
-        // due to Bevy having a specialized implementation for events.
+        // due to Bevy having a specialized implementation for messages.
         reader.read().count() > 0
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entities with the given component type.
+    ///
+    /// This is equivalent to [`any_match_filter::<With<T>>()`]
+    ///
+    /// To skip a system with a [`Query`] parameter if the query is empty,
+    /// you may instead use [`Populated`](crate::prelude::Populated), if the query may match multiple entities,
+    /// or [`Single`](crate::prelude::Single), if it will only match one.
     ///
     /// # Example
     ///
@@ -1004,6 +1197,12 @@ pub mod common_conditions {
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entities that match the given [`QueryFilter`].
+    ///
+    /// For a simple `With<T>` filter, this is equivalent to [`any_with_component::<T>()`].
+    ///
+    /// To skip a system with a [`Query`] parameter if the query is empty,
+    /// you may instead use [`Populated`](crate::prelude::Populated), if the query may match multiple entities,
+    /// or [`Single`](crate::prelude::Single), if it will only match one.
     pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
         !query.is_empty()
     }
@@ -1176,34 +1375,46 @@ impl<S: System<Out: Not>> Adapt<S> for NotMarker {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        run_system(input).map(Not::not)
     }
 }
 
-/// Combines the outputs of two systems using the `&&` operator.
-pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
+/// Combines the outputs of two systems using the `&&` operator (short-circuiting).
+pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
-pub type Nand<A, B> = CombinatorSystem<NandMarker, A, B>;
+/// Combines the outputs of two systems using the `&` operator (eagerly evaluated).
+pub type AndEager<A, B> = CombinatorSystem<AndEagerMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
-pub type Nor<A, B> = CombinatorSystem<NorMarker, A, B>;
+/// Combines and inverts the outputs of two systems using the `&&` and `!` operators (short-circuiting).
+pub type NandThen<A, B> = CombinatorSystem<NandThenMarker, A, B>;
 
-/// Combines the outputs of two systems using the `||` operator.
-pub type Or<A, B> = CombinatorSystem<OrMarker, A, B>;
+/// Combines and inverts the outputs of two systems using the `&` and `!` operators (eagerly evaluated).
+pub type NandEager<A, B> = CombinatorSystem<NandEagerMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `^` and `!` operators.
+/// Combines and inverts the outputs of two systems using the `||` and `!` operators (short-circuiting).
+pub type NorElse<A, B> = CombinatorSystem<NorElseMarker, A, B>;
+
+/// Combines and inverts the outputs of two systems using the `|` and `!` operators (eagerly evaluated).
+pub type NorEager<A, B> = CombinatorSystem<NorEagerMarker, A, B>;
+
+/// Combines the outputs of two systems using the `||` operator (short-circuiting).
+pub type OrElse<A, B> = CombinatorSystem<OrElseMarker, A, B>;
+
+/// Combines the outputs of two systems using the `|` operator (short-circuiting).
+pub type OrEager<A, B> = CombinatorSystem<OrEagerMarker, A, B>;
+
+/// Combines and inverts the outputs of two systems using the `^` and `!` operators (eagerly evaluated).
 pub type Xnor<A, B> = CombinatorSystem<XnorMarker, A, B>;
 
-/// Combines the outputs of two systems using the `^` operator.
+/// Combines the outputs of two systems using the `^` operator (eagerly evaluated).
 pub type Xor<A, B> = CombinatorSystem<XorMarker, A, B>;
 
 #[doc(hidden)]
-pub struct AndMarker;
+pub struct AndThenMarker;
 
-impl<In, A, B> Combine<A, B> for AndMarker
+impl<In, A, B> Combine<A, B> for AndThenMarker
 where
     for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
@@ -1212,19 +1423,20 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
-    ) -> Self::Out {
-        a(input) && b(input)
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data).unwrap_or(false) && b(input, data).unwrap_or(false))
     }
 }
 
 #[doc(hidden)]
-pub struct NandMarker;
+pub struct AndEagerMarker;
 
-impl<In, A, B> Combine<A, B> for NandMarker
+impl<In, A, B> Combine<A, B> for AndEagerMarker
 where
     for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
@@ -1233,19 +1445,20 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) && b(input))
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data).unwrap_or(false) & b(input, data).unwrap_or(false))
     }
 }
 
 #[doc(hidden)]
-pub struct NorMarker;
+pub struct NandThenMarker;
 
-impl<In, A, B> Combine<A, B> for NorMarker
+impl<In, A, B> Combine<A, B> for NandThenMarker
 where
     for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
@@ -1254,19 +1467,20 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) || b(input))
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data).unwrap_or(false) && b(input, data).unwrap_or(false)))
     }
 }
 
 #[doc(hidden)]
-pub struct OrMarker;
+pub struct NandEagerMarker;
 
-impl<In, A, B> Combine<A, B> for OrMarker
+impl<In, A, B> Combine<A, B> for NandEagerMarker
 where
     for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
@@ -1275,12 +1489,101 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) || b(input)
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data).unwrap_or(false) & b(input, data).unwrap_or(false)))
+    }
+}
+
+#[doc(hidden)]
+pub struct NorElseMarker;
+
+impl<In, A, B> Combine<A, B> for NorElseMarker
+where
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine<T>(
+        input: <Self::In as SystemInput>::Inner<'_>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data).unwrap_or(false) || b(input, data).unwrap_or(false)))
+    }
+}
+
+#[doc(hidden)]
+pub struct NorEagerMarker;
+
+impl<In, A, B> Combine<A, B> for NorEagerMarker
+where
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine<T>(
+        input: <Self::In as SystemInput>::Inner<'_>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data).unwrap_or(false) | b(input, data).unwrap_or(false)))
+    }
+}
+
+#[doc(hidden)]
+pub struct OrElseMarker;
+
+impl<In, A, B> Combine<A, B> for OrElseMarker
+where
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine<T>(
+        input: <Self::In as SystemInput>::Inner<'_>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data).unwrap_or(false) || b(input, data).unwrap_or(false))
+    }
+}
+
+#[doc(hidden)]
+pub struct OrEagerMarker;
+
+impl<In, A, B> Combine<A, B> for OrEagerMarker
+where
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine<T>(
+        input: <Self::In as SystemInput>::Inner<'_>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data).unwrap_or(false) | b(input, data).unwrap_or(false))
     }
 }
 
@@ -1296,12 +1599,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) ^ b(input))
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data).unwrap_or(false) ^ b(input, data).unwrap_or(false)))
     }
 }
 
@@ -1317,28 +1621,30 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) ^ b(input)
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data).unwrap_or(false) ^ b(input, data).unwrap_or(false))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::event::{BufferedEvent, Event};
-    use crate::query::With;
+    use crate::error::{BevyError, ErrorContext, FallbackErrorHandler};
     use crate::{
-        change_detection::ResMut,
+        change_detection::{Res, ResMut},
         component::Component,
+        message::Message,
+        query::With,
         schedule::{IntoScheduleConfigs, Schedule},
-        system::Local,
+        system::{IntoSystem, Local, System},
         world::World,
     };
-    use bevy_ecs_macros::Resource;
+    use bevy_ecs_macros::{Resource, SystemSet};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1384,6 +1690,252 @@ mod tests {
     }
 
     #[test]
+    fn combinators_with_maybe_failing_condition() {
+        #![allow(
+            clippy::nonminimal_bool,
+            clippy::overly_complex_bool_expr,
+            reason = "Trailing `|| false` and `&& true` are used in this test to visually remain consistent with the combinators"
+        )]
+
+        use crate::system::RunSystemOnce;
+        use alloc::sync::Arc;
+        use std::sync::Mutex;
+
+        // Things that should be tested:
+        // - the final result of the combinator is correct
+        // - the systems that are expected to run do run
+        // - the systems that are expected to not run do not run
+
+        #[derive(Component)]
+        struct Vacant;
+
+        // SystemConditions don't have mutable access to the world, so we use a
+        // `Res<AtomicCounter>` to count invocations.
+        #[derive(Resource, Default)]
+        struct Counter(Arc<Mutex<usize>>);
+
+        // The following constants are used to represent a system having run.
+        // both are prime so that when multiplied they give a unique value for any TRUE^n*FALSE^m
+        const FALSE: usize = 2;
+        const TRUE: usize = 3;
+
+        // this is a system, but has the same side effect as `test_true`
+        fn is_true_inc(counter: Res<Counter>) -> bool {
+            test_true(&counter)
+        }
+
+        // this is a system, but has the same side effect as `test_false`
+        fn is_false_inc(counter: Res<Counter>) -> bool {
+            test_false(&counter)
+        }
+
+        // This condition will always yield `false`, because `Vacant` is never present.
+        fn vacant(_: crate::system::Single<&Vacant>) -> bool {
+            true
+        }
+
+        fn test_true(counter: &Counter) -> bool {
+            *counter.0.lock().unwrap() *= TRUE;
+            true
+        }
+
+        fn test_false(counter: &Counter) -> bool {
+            *counter.0.lock().unwrap() *= FALSE;
+            false
+        }
+
+        // Helper function that runs a logic call and returns the result, as
+        // well as the composite number of the calls.
+        fn logic_call_result(f: impl FnOnce(&Counter) -> bool) -> (usize, bool) {
+            let counter = Counter(Arc::new(Mutex::new(1)));
+            let result = f(&counter);
+            (*counter.0.lock().unwrap(), result)
+        }
+
+        // `test_true` and `test_false` can't fail like the systems can, and so
+        // we use them to model the short circuiting behavior of rust's logical
+        // operators. The goal is to end up with a composite number that
+        // describes rust's behavior and compare that to the result of the
+        // combinators.
+
+        // we expect `true() || false()` to yield `true`, and short circuit
+        // after `true()`
+        assert_eq!(
+            logic_call_result(|c| test_true(c) || test_false(c)),
+            (TRUE.pow(1) * FALSE.pow(0), true)
+        );
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+
+        // ensure there are no `Vacant` entities
+        assert!(world.query::<&Vacant>().iter(&world).next().is_none());
+        assert!(matches!(
+            world.run_system_once((|| true).or_else(vacant)),
+            Ok(true)
+        ));
+
+        // This system should fail
+        assert!(RunSystemOnce::run_system_once(&mut world, vacant).is_err());
+
+        #[track_caller]
+        fn assert_system<Marker>(
+            world: &mut World,
+            system: impl IntoSystem<(), bool, Marker>,
+            equivalent_to: impl FnOnce(&Counter) -> bool,
+        ) {
+            use crate::system::System;
+
+            *world.resource::<Counter>().0.lock().unwrap() = 1;
+
+            let system = IntoSystem::into_system(system);
+            let name = system.name();
+
+            let out = RunSystemOnce::run_system_once(&mut *world, system).unwrap_or(false);
+
+            let (expected_counter, expected) = logic_call_result(equivalent_to);
+            let caller = core::panic::Location::caller();
+            let counter = *world.resource::<Counter>().0.lock().unwrap();
+
+            assert_eq!(
+                out,
+                expected,
+                "At {}:{} System `{name}` yielded unexpected value `{out}`, expected `{expected}`",
+                caller.file(),
+                caller.line(),
+            );
+
+            assert_eq!(
+                counter, expected_counter,
+                "At {}:{} System `{name}` did not increment counter as expected: expected `{expected_counter}`, got `{counter}`",
+                caller.file(),
+                caller.line(),
+            );
+        }
+
+        assert_system(&mut world, is_true_inc.or_else(vacant), |c| {
+            test_true(c) || false
+        });
+        assert_system(&mut world, is_true_inc.nor_else(vacant), |c| {
+            !(test_true(c) || false)
+        });
+        assert_system(&mut world, is_true_inc.xor(vacant), |c| {
+            test_true(c) ^ false
+        });
+        assert_system(&mut world, is_true_inc.xnor(vacant), |c| {
+            !(test_true(c) ^ false)
+        });
+        assert_system(&mut world, is_true_inc.and_then(vacant), |c| {
+            test_true(c) && false
+        });
+        assert_system(&mut world, is_true_inc.nand_then(vacant), |c| {
+            !(test_true(c) && false)
+        });
+
+        // even if `vacant` fails as the first condition, where applicable (or,
+        // xor), `is_true_inc` should still be called. `and` and `nand` short
+        // circuit on an initial `false`.
+        assert_system(&mut world, vacant.or_else(is_true_inc), |c| {
+            false || test_true(c)
+        });
+        assert_system(&mut world, vacant.nor_else(is_true_inc), |c| {
+            !(false || test_true(c))
+        });
+        assert_system(&mut world, vacant.xor(is_true_inc), |c| {
+            false ^ test_true(c)
+        });
+        assert_system(&mut world, vacant.xnor(is_true_inc), |c| {
+            !(false ^ test_true(c))
+        });
+        assert_system(&mut world, vacant.and_then(is_true_inc), |c| {
+            false && test_true(c)
+        });
+        assert_system(&mut world, vacant.nand_then(is_true_inc), |c| {
+            !(false && test_true(c))
+        });
+
+        // the same logic ought to be the case with a condition that runs, but yields `false`:
+        assert_system(&mut world, is_true_inc.or_else(is_false_inc), |c| {
+            test_true(c) || test_false(c)
+        });
+        assert_system(&mut world, is_true_inc.nor_else(is_false_inc), |c| {
+            !(test_true(c) || test_false(c))
+        });
+        assert_system(&mut world, is_true_inc.xor(is_false_inc), |c| {
+            test_true(c) ^ test_false(c)
+        });
+        assert_system(&mut world, is_true_inc.xnor(is_false_inc), |c| {
+            !(test_true(c) ^ test_false(c))
+        });
+        assert_system(&mut world, is_true_inc.and_then(is_false_inc), |c| {
+            test_true(c) && test_false(c)
+        });
+        assert_system(&mut world, is_true_inc.nand_then(is_false_inc), |c| {
+            !(test_true(c) && test_false(c))
+        });
+
+        // and where one condition yields `false` and the other fails:
+        assert_system(&mut world, is_false_inc.or_else(vacant), |c| {
+            test_false(c) || false
+        });
+        assert_system(&mut world, is_false_inc.nor_else(vacant), |c| {
+            !(test_false(c) || false)
+        });
+        assert_system(&mut world, is_false_inc.xor(vacant), |c| {
+            test_false(c) ^ false
+        });
+        assert_system(&mut world, is_false_inc.xnor(vacant), |c| {
+            !(test_false(c) ^ false)
+        });
+        assert_system(&mut world, is_false_inc.and_then(vacant), |c| {
+            test_false(c) && false
+        });
+        assert_system(&mut world, is_false_inc.nand_then(vacant), |c| {
+            !(test_false(c) && false)
+        });
+
+        // and where both conditions yield `true`:
+        assert_system(&mut world, is_true_inc.or_else(is_true_inc), |c| {
+            test_true(c) || test_true(c)
+        });
+        assert_system(&mut world, is_true_inc.nor_else(is_true_inc), |c| {
+            !(test_true(c) || test_true(c))
+        });
+        assert_system(&mut world, is_true_inc.xor(is_true_inc), |c| {
+            test_true(c) ^ test_true(c)
+        });
+        assert_system(&mut world, is_true_inc.xnor(is_true_inc), |c| {
+            !(test_true(c) ^ test_true(c))
+        });
+        assert_system(&mut world, is_true_inc.and_then(is_true_inc), |c| {
+            test_true(c) && test_true(c)
+        });
+        assert_system(&mut world, is_true_inc.nand_then(is_true_inc), |c| {
+            !(test_true(c) && test_true(c))
+        });
+
+        // and where both conditions yield `false`:
+        assert_system(&mut world, is_false_inc.or_else(is_false_inc), |c| {
+            test_false(c) || test_false(c)
+        });
+        assert_system(&mut world, is_false_inc.nor_else(is_false_inc), |c| {
+            !(test_false(c) || test_false(c))
+        });
+        assert_system(&mut world, is_false_inc.xor(is_false_inc), |c| {
+            test_false(c) ^ test_false(c)
+        });
+        assert_system(&mut world, is_false_inc.xnor(is_false_inc), |c| {
+            !(test_false(c) ^ test_false(c))
+        });
+        assert_system(&mut world, is_false_inc.and_then(is_false_inc), |c| {
+            test_false(c) && test_false(c)
+        });
+        assert_system(&mut world, is_false_inc.nand_then(is_false_inc), |c| {
+            !(test_false(c) && test_false(c))
+        });
+    }
+
+    #[test]
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
@@ -1391,14 +1943,14 @@ mod tests {
 
         schedule.add_systems(
             (
-                increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
-                double_counter.run_if(every_other_time.nor(|| false)),   // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
-                increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
+                increment_counter.run_if(every_other_time.and_eager(|| true)), // Run every odd cycle.
+                increment_counter.run_if(every_other_time.nand_eager(|| false)), // Always run.
+                double_counter.run_if(every_other_time.nor_eager(|| false)), // Run every even cycle.
+                increment_counter.run_if(every_other_time.or_eager(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.xnor(|| true)),    // Run every odd cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)), // Run every even cycle.
                 increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),    // Run every even cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),   // Run every even cycle.
             )
                 .chain(),
         );
@@ -1449,8 +2001,8 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    #[derive(Event, BufferedEvent)]
-    struct TestEvent;
+    #[derive(Message)]
+    struct TestMessage;
 
     #[derive(Resource)]
     struct TestResource(());
@@ -1469,10 +2021,47 @@ mod tests {
                 .distributive_run_if(resource_exists_and_changed::<TestResource>)
                 .distributive_run_if(resource_changed_or_removed::<TestResource>)
                 .distributive_run_if(resource_removed::<TestResource>)
-                .distributive_run_if(on_event::<TestEvent>)
+                .distributive_run_if(on_message::<TestMessage>)
                 .distributive_run_if(any_with_component::<TestComponent>)
                 .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
+    }
+
+    #[test]
+    fn run_if_error_contains_system() {
+        let mut world = World::new();
+        world.insert_resource(FallbackErrorHandler(my_error_handler));
+
+        #[derive(Resource)]
+        struct MyResource;
+
+        fn condition(_res: Res<MyResource>) -> bool {
+            true
+        }
+
+        fn my_error_handler(_: BevyError, ctx: ErrorContext) {
+            let a = IntoSystem::into_system(system_a);
+            let b = IntoSystem::into_system(system_b);
+            assert!(
+                matches!(ctx, ErrorContext::RunCondition { system, on_set, .. } if (on_set && system == b.name()) || (!on_set && system == a.name()))
+            );
+        }
+
+        fn system_a() {}
+        fn system_b() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system_a.run_if(condition));
+        schedule.run(&mut world);
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct Set;
+
+        let mut schedule = Schedule::default();
+        schedule
+            .add_systems((system_b,).in_set(Set))
+            .configure_sets(Set.run_if(condition));
+        schedule.run(&mut world);
     }
 }

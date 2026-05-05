@@ -3,15 +3,16 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    change_detection::{CheckChangeTicks, Tick},
+    error::ErrorContext,
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, SystemParamValidationError},
+    system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -19,7 +20,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{CombinatorSystem, Combine};
+/// use bevy_ecs::system::{CombinatorSystem, Combine, RunSystemError};
 ///
 /// // A system combinator that performs an exclusive-or (XOR)
 /// // operation on the output of two systems.
@@ -36,12 +37,13 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///     type In = ();
 ///     type Out = bool;
 ///
-///     fn combine(
+///     fn combine<T>(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> A::Out,
-///         b: impl FnOnce(B::In) -> B::Out,
-///     ) -> Self::Out {
-///         a(()) ^ b(())
+///         data: &mut T,
+///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
+///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
+///     ) -> Result<Self::Out, RunSystemError> {
+///         Ok(a((), data).unwrap_or(false) ^ b((), data).unwrap_or(false))
 ///     }
 /// }
 ///
@@ -99,11 +101,12 @@ pub trait Combine<A: System, B: System> {
     /// the two composite systems are invoked and their outputs are combined.
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out;
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, B>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError>;
 }
 
 /// A [`System`] defined by combining two other systems.
@@ -152,17 +155,59 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
+        struct PrivateUnsafeWorldCell<'w>(UnsafeWorldCell<'w>);
+
+        // Since control over handling system run errors is passed on to the
+        // implementation of `Func::combine`, which may run the two closures
+        // however it wants, errors must be intercepted here if they should be
+        // handled by the world's error handler.
+        unsafe fn run_system<S: System>(
+            system: &mut S,
+            input: SystemIn<S>,
+            world: &mut PrivateUnsafeWorldCell,
+        ) -> Result<S::Out, RunSystemError> {
+            // SAFETY: see comment on `Func::combine` call
+            match unsafe { system.run_unsafe(input, world.0) } {
+                // let the world's fallback error handler handle the error if `Failed(_)`
+                Err(RunSystemError::Failed(err)) => {
+                    // SAFETY: We registered access to FallbackErrorHandler in `initialize`.
+                    (unsafe { world.0.fallback_error_handler() })(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
+
+                    // Since the error handler takes the error by value, create a new error:
+                    // The original error has already been handled, including
+                    // the reason for the failure here isn't important.
+                    Err(format!("System `{}` failed", system.name()).into())
+                }
+                // `Skipped(_)` and `Ok(_)` are passed through:
+                // system skipping is not an error, and isn't passed to the
+                // world's error handler by the executors.
+                result @ (Ok(_) | Err(RunSystemError::Skipped(_))) => result,
+            }
+        }
+
         Func::combine(
             input,
+            &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `FallbackErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
-            // Since these closures are `!Send + !Sync + !'static`, they can never be called
-            // in parallel, so their world accesses will not conflict with each other.
-            |input| unsafe { self.a.run_unsafe(input, world) },
+            // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
+            // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
+            // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
+            // This means that the world accesses in the two closures will not conflict with each other.
+            // The closure's access to the FallbackErrorHandler does not
+            // conflict with any potential access to the FallbackErrorHandler by
+            // the systems since the closures are not run in parallel.
+            |input, world| unsafe { run_system(&mut self.a, input, world) },
             // SAFETY: See the comment above.
-            |input| unsafe { self.b.run_unsafe(input, world) },
+            |input, world| unsafe { run_system(&mut self.b, input, world) },
         )
     }
 
@@ -185,19 +230,15 @@ where
         self.b.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
-    }
-
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
+
+        // We might need to read the fallback error handler after the component
+        // systems have run to report failures.
+        let error_resource = world.register_resource::<crate::error::FallbackErrorHandler>();
+        a_access.add_resource_read(error_resource);
         a_access
     }
 
@@ -222,7 +263,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
+// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
 unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
@@ -243,6 +284,7 @@ where
 }
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+#[derive(Clone)]
 pub struct IntoPipeSystem<A, B> {
     a: A,
     b: B,
@@ -301,7 +343,7 @@ where
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(parse_message_system.pipe(filter_system));
 ///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
+///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
@@ -355,9 +397,12 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
-        let value = self.a.run_unsafe(input, world);
-        self.b.run_unsafe(value, world)
+    ) -> Result<Self::Out, RunSystemError> {
+        // SAFETY: Upheld by caller
+        unsafe {
+            let value = self.a.run_unsafe(input, world)?;
+            self.b.run_unsafe(value, world)
+        }
     }
 
     #[cfg(feature = "hotpatching")]
@@ -377,30 +422,7 @@ where
         self.b.queue_deferred(world);
     }
 
-    /// This method uses "early out" logic: if the first system fails validation,
-    /// the second system is not validated.
-    ///
-    /// Because the system validation is performed upfront, this can lead to situations
-    /// where later systems pass validation, but fail at runtime due to changes made earlier
-    /// in the piped systems.
-    // TODO: ensure that systems are only validated just before they are run.
-    // Fixing this will require fundamentally rethinking how piped systems work:
-    // they're currently treated as a single system from the perspective of the scheduler.
-    // See https://github.com/bevyengine/bevy/issues/18796
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }?;
-
-        // SAFETY: Delegate to the `System` implementation for `b`.
-        unsafe { self.b.validate_param_unsafe(world) }?;
-
-        Ok(())
-    }
-
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
@@ -428,7 +450,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
+// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
 unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
 where
     A: ReadOnlySystem,
@@ -439,11 +461,50 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::error::FallbackErrorHandler;
+    use crate::prelude::*;
+    use bevy_utils::prelude::DebugName;
+
+    use crate::{
+        schedule::OrElseMarker,
+        system::{assert_system_does_not_conflict, CombinatorSystem},
+    };
+
+    #[test]
+    fn combinator_with_error_handler_access() {
+        fn my_system(_: ResMut<FallbackErrorHandler>) {}
+        fn a() -> bool {
+            true
+        }
+        fn b(_: ResMut<FallbackErrorHandler>) -> bool {
+            true
+        }
+        fn asdf(_: In<bool>) {}
+
+        let mut world = World::new();
+        world.insert_resource(FallbackErrorHandler::default());
+
+        let system = CombinatorSystem::<OrElseMarker, _, _>::new(
+            IntoSystem::into_system(a),
+            IntoSystem::into_system(b),
+            DebugName::borrowed("a OR b"),
+        );
+
+        // `system` should not conflict with itself by mutably accessing the error handler resource.
+        assert_system_does_not_conflict(system.clone());
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((my_system, system.pipe(asdf)));
+        schedule.initialize(&mut world).unwrap();
+
+        // `my_system` should conflict with the combinator system because the combinator reads the error handler resource.
+        assert!(!schedule.graph().conflicting_systems().is_empty());
+
+        schedule.run(&mut world);
+    }
 
     #[test]
     fn exclusive_system_piping_is_possible() {
-        use crate::prelude::*;
-
         fn my_exclusive_system(_world: &mut World) -> u32 {
             1
         }

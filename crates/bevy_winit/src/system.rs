@@ -4,16 +4,15 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::EventWriter,
     lifecycle::RemovedComponents,
-    prelude::{Changed, Component},
-    query::QueryFilter,
+    message::MessageWriter,
+    prelude::{Changed, Commands, Component},
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
-    WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
+    ClosingWindow, CursorOptions, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper, VideoMode,
+    Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
     WindowResized, WindowWrapper,
 };
 use tracing::{error, info, warn};
@@ -22,14 +21,6 @@ use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::ActiveEventLoop,
 };
-
-use bevy_app::AppExit;
-use bevy_ecs::{prelude::EventReader, query::With, system::Res};
-use bevy_math::{IVec2, UVec2};
-#[cfg(target_os = "ios")]
-use winit::platform::ios::WindowExtIOS;
-#[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
@@ -42,13 +33,20 @@ use crate::{
     winit_monitors::WinitMonitors,
     CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
 };
+use bevy_app::AppExit;
+use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
+use bevy_math::{IVec2, UVec2};
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
 ///
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
-pub fn create_windows<F: QueryFilter + 'static>(
+pub fn create_windows(
     event_loop: &ActiveEventLoop,
     (
         mut commands,
@@ -57,7 +55,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         mut handlers,
         accessibility_requested,
         monitors,
-    ): SystemParamItem<CreateWindowParams<F>>,
+    ): SystemParamItem<CreateWindowParams>,
 ) {
     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
@@ -133,15 +131,15 @@ pub fn create_windows<F: QueryFilter + 'static>(
 /// Check whether keyboard focus was lost. This is different from window
 /// focus in that swapping between Bevy windows keeps window focus.
 pub(crate) fn check_keyboard_focus_lost(
-    mut focus_events: EventReader<WindowFocused>,
-    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
-    mut keyboard_input: EventWriter<KeyboardInput>,
-    mut window_events: EventWriter<WindowEvent>,
+    mut window_focused_reader: MessageReader<WindowFocused>,
+    mut keyboard_focus_lost_writer: MessageWriter<KeyboardFocusLost>,
+    mut keyboard_input_writer: MessageWriter<KeyboardInput>,
+    mut window_event_writer: MessageWriter<WindowEvent>,
     mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
     let mut focus_lost = vec![];
     let mut focus_gained = false;
-    for e in focus_events.read() {
+    for e in window_focused_reader.read() {
         if e.focused {
             focus_gained = true;
         } else {
@@ -151,8 +149,8 @@ pub(crate) fn check_keyboard_focus_lost(
 
     if !focus_gained {
         if !focus_lost.is_empty() {
-            window_events.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
-            keyboard_focus.write(KeyboardFocusLost);
+            window_event_writer.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
+            keyboard_focus_lost_writer.write(KeyboardFocusLost);
         }
 
         for window in focus_lost {
@@ -168,8 +166,8 @@ pub(crate) fn check_keyboard_focus_lost(
                     window,
                     text: None,
                 };
-                window_events.write(WindowEvent::KeyboardInput(event.clone()));
-                keyboard_input.write(event);
+                window_event_writer.write(WindowEvent::KeyboardInput(event.clone()));
+                keyboard_input_writer.write(event);
             }
         }
     }
@@ -242,16 +240,16 @@ pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
     window_entities: Query<Entity, With<Window>>,
-    mut closing_events: EventWriter<WindowClosing>,
-    mut closed_events: EventWriter<WindowClosed>,
+    mut closing_event_writer: MessageWriter<WindowClosing>,
+    mut closed_event_writer: MessageWriter<WindowClosed>,
     mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
-    mut exit_events: EventReader<AppExit>,
+    mut exit_event_reader: MessageReader<AppExit>,
     _non_send_marker: NonSendMarker,
 ) {
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
     for window in closing.iter() {
-        closing_events.write(WindowClosing { window });
+        closing_event_writer.write(WindowClosing { window });
     }
     for window in closed.read() {
         info!("Closing window {}", window);
@@ -268,17 +266,23 @@ pub(crate) fn despawn_windows(
                     windows_to_drop.push(window);
                 }
             });
-            closed_events.write(WindowClosed { window });
+            closed_event_writer.write(WindowClosed { window });
         }
     }
 
-    // On macOS, when exiting, we need to tell the rendering thread the windows are about to
-    // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
-    if !exit_events.is_empty() {
-        exit_events.clear();
-        for window in window_entities.iter() {
-            closing_events.write(WindowClosing { window });
-        }
+    // On macOS, many things need to be dropped on the main thread, or the app will hang:
+    // - notify the rendering thread the windows are about to close
+    // - take the `WindowWrapper`s out of `WINIT_WINDOWS` and into the local `windows_to_drop`
+    if !exit_event_reader.is_empty() {
+        exit_event_reader.clear();
+        WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
+            for window in window_entities.iter() {
+                closing_event_writer.write(WindowClosing { window });
+                if let Some(wrapper) = winit_windows.remove_window(window) {
+                    windows_to_drop.push(wrapper);
+                }
+            }
+        });
     }
 }
 
@@ -299,13 +303,18 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 /// - [`Window::canvas`] cannot be changed after the window is created.
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
-    mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
+    mut commands: Commands,
+    mut changed_windows: Query<
+        (Entity, &mut Window, &mut CachedWindow, Option<&OnMonitor>),
+        Changed<Window>,
+    >,
     monitors: Res<WinitMonitors>,
-    mut window_resized: EventWriter<WindowResized>,
+    mut window_resized: MessageWriter<WindowResized>,
+    mut window_event: MessageWriter<WindowEvent>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
-        for (entity, mut window, mut cache) in &mut changed_windows {
+        for (entity, mut window, mut cache, monitor_relationship) in &mut changed_windows {
             let Some(winit_window) = winit_windows.get_window(entity) else {
                 continue;
             };
@@ -332,7 +341,7 @@ pub(crate) fn changed_windows(
                             &monitor_selection,
                         )
                         .unwrap_or_else(|| {
-                            panic!("Could not find monitor for {:?}", monitor_selection)
+                            panic!("Could not find monitor for {monitor_selection:?}")
                         });
 
                         if let Some(video_mode) = get_selected_videomode(monitor, &video_mode_selection)
@@ -349,12 +358,31 @@ pub(crate) fn changed_windows(
                     WindowMode::Windowed => Some(None),
                 };
 
-                if let Some(new_mode) = new_mode {
-                    if winit_window.fullscreen() != new_mode {
+                if let Some(new_mode) = new_mode
+                    && winit_window.fullscreen() != new_mode {
                         winit_window.set_fullscreen(new_mode);
                     }
-                }
             }
+
+            // Set position before size so the window is on the correct monitor
+            // (and thus using the correct scale factor) when size is applied.
+            if window.position != cache.position
+                && let Some(position) = crate::winit_window_position(
+                    &window.position,
+                    &window.resolution,
+                    &monitors,
+                    winit_window.primary_monitor(),
+                    winit_window.current_monitor(),
+                ) {
+                    let should_set = match winit_window.outer_position() {
+                        Ok(current_position) => current_position != position,
+                        _ => true,
+                    };
+
+                    if should_set {
+                        winit_window.set_outer_position(position);
+                    }
+                }
 
             if window.resolution != cache.resolution {
                 let mut physical_size = PhysicalSize::new(
@@ -394,22 +422,22 @@ pub(crate) fn changed_windows(
                     }
                 }
 
-                if physical_size != cached_physical_size {
-                    if let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
-                        react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
+                if physical_size != cached_physical_size
+                    && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
+                        let event = react_to_resize(entity, &mut window, new_physical_size);
+                        window_resized.write(event.clone());
+                        window_event.write(WindowEvent::WindowResized(event));
                     }
-                }
             }
 
-            if window.physical_cursor_position() != cache.physical_cursor_position() {
-                if let Some(physical_position) = window.physical_cursor_position() {
+            if window.physical_cursor_position() != cache.physical_cursor_position()
+                && let Some(physical_position) = window.physical_cursor_position() {
                     let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
                         error!("could not set cursor position: {}", err);
                     }
                 }
-            }
 
             if window.decorations != cache.decorations
                 && window.decorations != winit_window.is_decorated()
@@ -439,27 +467,30 @@ pub(crate) fn changed_windows(
                 };
 
                 winit_window.set_min_inner_size(Some(min_inner_size));
-                if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                    winit_window.set_max_inner_size(Some(max_inner_size));
-                }
+                winit_window.set_max_inner_size(
+                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                        Some(max_inner_size)
+                    } else {
+                        None
+                    },
+                );
             }
 
-            if window.position != cache.position {
-                if let Some(position) = crate::winit_window_position(
-                    &window.position,
-                    &window.resolution,
-                    &monitors,
-                    winit_window.primary_monitor(),
-                    winit_window.current_monitor(),
-                ) {
-                    let should_set = match winit_window.outer_position() {
-                        Ok(current_position) => current_position != position,
-                        _ => true,
-                    };
-
-                    if should_set {
-                        winit_window.set_outer_position(position);
+            if let Some(monitor_link) = monitor_relationship {
+                if let Some(winit_monitor) = winit_window.current_monitor() {
+                    if let Some(linked_monitor) = monitors.find_entity(monitor_link.0) &&
+                        winit_monitor != linked_monitor &&
+                        let Some((_, winit_monitor_entity)) = monitors.monitors.iter().find(|(h, _)| h == &winit_monitor) {
+                        commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
                     }
+                } else {
+                    commands.entity(entity).remove::<OnMonitor>();
+                }
+            } else {
+                if let Some(winit_monitor) = winit_window.current_monitor()
+                    && let Some((_, winit_monitor_entity)) = monitors.monitors.iter()
+                    .find(|(h, _)| h == &winit_monitor) {
+                    commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
                 }
             }
 
@@ -471,19 +502,17 @@ pub(crate) fn changed_windows(
                 winit_window.set_minimized(minimized);
             }
 
-            if window.internal.take_move_request() {
-                if let Err(e) = winit_window.drag_window() {
+            if window.internal.take_move_request()
+                && let Err(e) = winit_window.drag_window() {
                     warn!("Winit returned an error while attempting to drag the window: {e}");
                 }
-            }
 
-            if let Some(resize_direction) = window.internal.take_resize_request() {
-                if let Err(e) =
+            if let Some(resize_direction) = window.internal.take_resize_request()
+                && let Err(e) =
                     winit_window.drag_resize_window(convert_resize_direction(resize_direction))
                 {
                     warn!("Winit returned an error while attempting to drag resize the window: {e}");
                 }
-            }
 
             if window.focused != cache.focused && window.focused {
                 winit_window.focus_window();

@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -17,8 +17,6 @@
 //! `DefaultPlugins` during app initialization.
 
 extern crate alloc;
-
-use core::error::Error;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
@@ -47,20 +45,14 @@ pub mod prelude {
 
 pub use bevy_utils::once;
 pub use tracing::{
-    self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
+    self, debug, debug_span, error, error_span, event, info, info_span, trace, trace_span, warn,
     warn_span, Level,
 };
 pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
-use tracing_subscriber::{
-    filter::{FromEnvError, ParseError},
-    layer::Layered,
-    prelude::*,
-    registry::Registry,
-    EnvFilter, Layer,
-};
+use tracing_subscriber::{layer::Layered, prelude::*, registry::Registry, EnvFilter, Layer};
 #[cfg(feature = "tracing-chrome")]
 use {
     bevy_ecs::resource::Resource,
@@ -240,7 +232,7 @@ pub struct LogPlugin {
     /// Access to [`App`] is also provided to allow for communication between the
     /// [`Subscriber`](tracing::Subscriber) and the [`App`].
     ///
-    /// Please see the `examples/log_layers.rs` for a complete example.
+    /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
 
     /// Override the default [`tracing_subscriber::fmt::Layer`] with a custom one.
@@ -253,7 +245,7 @@ pub struct LogPlugin {
     /// For example, you can use [`tracing_subscriber::fmt::Layer::without_time`] to remove the
     /// timestamp from the log output.
     ///
-    /// Please see the `examples/log_layers.rs` for a complete example.
+    /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 }
 
@@ -275,7 +267,19 @@ type PreFmtSubscriber =
 pub type BoxedFmtLayer = Box<dyn Layer<PreFmtSubscriber> + Send + Sync + 'static>;
 
 /// The default [`LogPlugin`] [`EnvFilter`].
-pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+pub const DEFAULT_FILTER: &str = concat!(
+    "wgpu=error,",
+    "naga=warn,",
+    "symphonia_bundle_mp3::demuxer=warn,",
+    "symphonia_format_caf::demuxer=warn,",
+    "symphonia_format_isompf4::demuxer=warn,",
+    "symphonia_format_mkv::demuxer=warn,",
+    "symphonia_format_ogg::demuxer=warn,",
+    "symphonia_format_riff::demuxer=warn,",
+    "symphonia_format_wav::demuxer=warn,",
+    "calloop::loop_logic=error,",
+    "calloop::sources=debug,",
+);
 
 impl Default for LogPlugin {
     fn default() -> Self {
@@ -306,32 +310,14 @@ impl Plugin for LogPlugin {
         // add optional layer provided by user
         let subscriber = subscriber.with((self.custom_layer)(app));
 
-        let default_filter = { format!("{},{}", self.level, self.filter) };
-        let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|from_env_error| {
-                _ = from_env_error
-                    .source()
-                    .and_then(|source| source.downcast_ref::<ParseError>())
-                    .map(|parse_err| {
-                        // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
-                    });
-
-                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
-            })
-            .unwrap();
-        let subscriber = subscriber.with(filter_layer);
+        let subscriber = subscriber.with(self.build_filter_layer());
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))]
         {
-            #[cfg(feature = "tracing-chrome")]
+            #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]
             let chrome_layer = {
                 let mut layer = tracing_chrome::ChromeLayerBuilder::new();
                 if let Ok(path) = std::env::var("TRACE_CHROME") {
@@ -375,10 +361,12 @@ impl Plugin for LogPlugin {
 
             let subscriber = subscriber.with(fmt_layer);
 
-            #[cfg(feature = "tracing-chrome")]
+            #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
+            #[cfg(target_os = "android")]
+            let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
             finished_subscriber = subscriber;
         }
 
@@ -387,11 +375,6 @@ impl Plugin for LogPlugin {
             finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
-        }
-
-        #[cfg(target_os = "android")]
-        {
-            finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
         }
 
         #[cfg(target_os = "ios")]
@@ -403,6 +386,9 @@ impl Plugin for LogPlugin {
         let subscriber_already_set =
             tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
+        #[cfg(feature = "tracing-tracy")]
+        warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
+
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(
                 "Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."
@@ -410,6 +396,38 @@ impl Plugin for LogPlugin {
             (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
             (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),
+        }
+    }
+}
+
+impl LogPlugin {
+    fn build_filter_layer(&self) -> EnvFilter {
+        // Start with the default filters, then add the env filters afterwards, so that the env filters
+        // can be used to selectively override the default filters
+        let default_filters =
+            EnvFilter::builder().parse_lossy(format!("{},{}", self.level, self.filter));
+        // We must manually parse and add the directives individually because `EnvFilter` has no helper methods for adding
+        // multiple directives at once.
+        let env_filters = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_default();
+        let result = env_filters
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .try_fold(default_filters.clone(), |filters, directive| {
+                directive.parse().map(|d| filters.add_directive(d))
+            });
+        // Fall back to just the default filters if the env filters are malformed
+        match result {
+            Ok(combined_filters) => combined_filters,
+            Err(e) => {
+                #[expect(
+                    clippy::print_stderr,
+                    reason = "We cannot use the `error!` macro here because the logger is not ready yet."
+                )]
+                {
+                    eprintln!("LogPlugin failed to parse filter from env: {e}");
+                }
+                default_filters
+            }
         }
     }
 }

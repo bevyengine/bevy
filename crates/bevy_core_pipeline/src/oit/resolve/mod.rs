@@ -1,7 +1,7 @@
-use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    oit::OrderIndependentTransparencySettings,
-};
+use core::num::NonZero;
+
+use super::OitBuffers;
+use crate::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass, FullscreenShader};
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_derive::Deref;
@@ -9,28 +9,30 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
-use bevy_image::BevyDefault as _;
+use bevy_log::warn;
 use bevy_render::{
+    camera::ExtractedCamera,
     render_resource::{
-        binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
-        BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        ShaderDefVal, ShaderStages, TextureFormat,
+        binding_types::{
+            storage_buffer_read_only_sized, storage_buffer_sized, texture_depth_2d, uniform_buffer,
+        },
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        BlendComponent, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DownlevelFlags, FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
+        TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
-use tracing::warn;
-
-use super::OitBuffers;
+use bevy_shader::ShaderDefVal;
+use bevy_utils::default;
 
 /// Contains the render node used to run the resolve pass.
 pub mod node;
 
 /// Minimum required value of `wgpu::Limits::max_storage_buffers_per_shader_stage`.
-pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 2;
+pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 3;
 
 /// Plugin needed to resolve the Order Independent Transparency (OIT) buffer to the screen.
 pub struct OitResolvePlugin;
@@ -60,7 +62,7 @@ impl Plugin for OitResolvePlugin {
                     prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
-            .init_resource::<OitResolvePipeline>();
+            .insert_resource(OitResolvePipeline::new());
     }
 }
 
@@ -100,30 +102,30 @@ pub struct OitResolveBindGroup(pub BindGroup);
 #[derive(Resource)]
 pub struct OitResolvePipeline {
     /// View bind group layout.
-    pub view_bind_group_layout: BindGroupLayout,
+    pub view_bind_group_layout: BindGroupLayoutDescriptor,
     /// Depth bind group layout.
-    pub oit_depth_bind_group_layout: BindGroupLayout,
+    pub oit_depth_bind_group_layout: BindGroupLayoutDescriptor,
 }
 
-impl FromWorld for OitResolvePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let view_bind_group_layout = render_device.create_bind_group_layout(
+impl OitResolvePipeline {
+    fn new() -> Self {
+        let view_bind_group_layout = BindGroupLayoutDescriptor::new(
             "oit_resolve_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
                     uniform_buffer::<ViewUniform>(true),
-                    // layers
+                    // nodes
+                    storage_buffer_read_only_sized(false, None),
+                    // heads
                     storage_buffer_sized(false, None),
-                    // layer ids
-                    storage_buffer_sized(false, None),
+                    // atomic_counter
+                    storage_buffer_sized(false, NonZero::<u64>::new(size_of::<u32>() as u64)),
                 ),
             ),
         );
 
-        let oit_depth_bind_group_layout = render_device.create_bind_group_layout(
+        let oit_depth_bind_group_layout = BindGroupLayoutDescriptor::new(
             "oit_depth_bind_group_layout",
             &BindGroupLayoutEntries::single(ShaderStages::FRAGMENT, texture_depth_2d()),
         );
@@ -140,43 +142,55 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 /// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
-    hdr: bool,
-    layer_count: i32,
+    target_format: TextureFormat,
+    sorted_fragment_max_count: u32,
+    depth_prepass: bool,
 }
 
 pub fn queue_oit_resolve_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     resolve_pipeline: Res<OitResolvePipeline>,
-    views: Query<
+    cameras: Query<
         (
             Entity,
             &ExtractedView,
             &OrderIndependentTransparencySettings,
+            Has<DepthPrepass>,
         ),
-        With<OrderIndependentTransparencySettings>,
+        (
+            With<OrderIndependentTransparencySettings>,
+            With<ExtractedCamera>,
+        ),
     >,
+    fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, view, oit_settings) in &views {
+    for (e, view, oit_settings, depth_prepass) in &cameras {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
-            hdr: view.hdr,
-            layer_count: oit_settings.layer_count,
+            target_format: view.target_format,
+            sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
+            depth_prepass,
         };
 
-        if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {
-            if *cached_key == key {
-                commands.entity(e).insert(OitResolvePipelineId(*id));
-                continue;
-            }
+        if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
+            && *cached_key == key
+        {
+            commands.entity(e).insert(OitResolvePipelineId(*id));
+            continue;
         }
 
-        let desc = specialize_oit_resolve_pipeline(key, &resolve_pipeline, &asset_server);
+        let desc = specialize_oit_resolve_pipeline(
+            key,
+            &resolve_pipeline,
+            &fullscreen_shader,
+            &asset_server,
+        );
 
         let pipeline_id = pipeline_cache.queue_render_pipeline(desc);
         commands.entity(e).insert(OitResolvePipelineId(pipeline_id));
@@ -194,42 +208,38 @@ pub fn queue_oit_resolve_pipeline(
 fn specialize_oit_resolve_pipeline(
     key: OitResolvePipelineKey,
     resolve_pipeline: &OitResolvePipeline,
+    fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
-    let format = if key.hdr {
-        ViewTarget::TEXTURE_FORMAT_HDR
+    let mut layout = vec![resolve_pipeline.view_bind_group_layout.clone()];
+    let mut shader_defs = vec![ShaderDefVal::UInt(
+        "SORTED_FRAGMENT_MAX_COUNT".into(),
+        key.sorted_fragment_max_count,
+    )];
+    if key.depth_prepass {
+        shader_defs.push(ShaderDefVal::Bool("DEPTH_PREPASS".into(), true));
     } else {
-        TextureFormat::bevy_default()
-    };
+        layout.push(resolve_pipeline.oit_depth_bind_group_layout.clone());
+    }
 
     RenderPipelineDescriptor {
         label: Some("oit_resolve_pipeline".into()),
-        layout: vec![
-            resolve_pipeline.view_bind_group_layout.clone(),
-            resolve_pipeline.oit_depth_bind_group_layout.clone(),
-        ],
+        layout,
         fragment: Some(FragmentState {
-            entry_point: "fragment".into(),
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
-            shader_defs: vec![ShaderDefVal::UInt(
-                "LAYER_COUNT".into(),
-                key.layer_count as u32,
-            )],
+            shader_defs,
             targets: vec![Some(ColorTargetState {
-                format,
+                format: key.target_format,
                 blend: Some(BlendState {
                     color: BlendComponent::OVER,
                     alpha: BlendComponent::OVER,
                 }),
                 write_mask: ColorWrites::ALL,
             })],
+            ..default()
         }),
-        vertex: fullscreen_shader_vertex_state(),
-        primitive: PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: MultisampleState::default(),
-        push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
+        vertex: fullscreen_shader.to_vertex_state(),
+        ..default()
     }
 }
 
@@ -238,17 +248,29 @@ pub fn prepare_oit_resolve_bind_group(
     resolve_pipeline: Res<OitResolvePipeline>,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
+    pipeline_cache: Res<PipelineCache>,
     buffers: Res<OitBuffers>,
 ) {
-    if let (Some(binding), Some(layers_binding), Some(layer_ids_binding)) = (
+    if let (
+        Some(view_binding),
+        Some(nodes_binding),
+        Some(heads_binding),
+        Some(atomic_counter_binding),
+    ) = (
         view_uniforms.uniforms.binding(),
-        buffers.layers.binding(),
-        buffers.layer_ids.binding(),
+        buffers.nodes.binding(),
+        buffers.heads.binding(),
+        buffers.atomic_counter.binding(),
     ) {
         let bind_group = render_device.create_bind_group(
             "oit_resolve_bind_group",
-            &resolve_pipeline.view_bind_group_layout,
-            &BindGroupEntries::sequential((binding.clone(), layers_binding, layer_ids_binding)),
+            &pipeline_cache.get_bind_group_layout(&resolve_pipeline.view_bind_group_layout),
+            &BindGroupEntries::sequential((
+                view_binding,
+                nodes_binding,
+                heads_binding,
+                atomic_counter_binding,
+            )),
         );
         commands.insert_resource(OitResolveBindGroup(bind_group));
     }

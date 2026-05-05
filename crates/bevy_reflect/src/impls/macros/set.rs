@@ -28,6 +28,10 @@ macro_rules! impl_reflect_for_hashset {
                         .collect()
                 }
 
+                fn retain(&mut self, f: &mut dyn FnMut(&dyn $crate::reflect::PartialReflect) -> bool) {
+                    self.retain(move |value| f(value));
+                }
+
                 fn insert_boxed(&mut self, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) -> bool {
                     let value = V::take_from_reflect(value).unwrap_or_else(|value| {
                         panic!(
@@ -110,11 +114,11 @@ macro_rules! impl_reflect_for_hashset {
                     $crate::kind::ReflectKind::Set
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_>  {
                     $crate::kind::ReflectRef::Set(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_>  {
                     $crate::kind::ReflectMut::Set(self)
                 }
 
@@ -125,12 +129,7 @@ macro_rules! impl_reflect_for_hashset {
                 fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
                     let mut set = Self::with_capacity_and_hasher(self.len(), S::default());
                     for value in self.iter() {
-                        let value = value.reflect_clone()?.take().map_err(|_| {
-                            $crate::error::ReflectCloneError::FailedDowncast {
-                                expected: alloc::borrow::Cow::Borrowed(<V as $crate::type_path::TypePath>::type_path()),
-                                received: alloc::borrow::Cow::Owned(alloc::string::ToString::to_string(value.reflect_type_path())),
-                            }
-                        })?;
+                        let value = value.reflect_clone_and_take()?;
                         set.insert(value);
                     }
 

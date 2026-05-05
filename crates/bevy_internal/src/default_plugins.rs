@@ -12,6 +12,10 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputFocusPlugin,
+        #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_window")]
@@ -21,37 +25,58 @@ plugin_group! {
         #[cfg(feature = "std")]
         #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
+        // NOTE: Load this before AssetPlugin to properly register http asset sources.
+        #[cfg(feature = "bevy_asset")]
+        #[custom(cfg(any(feature = "http", feature = "https")))]
+        bevy_asset::io::web:::WebAssetPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
+        #[cfg(feature = "bevy_world_serialization")]
+        bevy_world_serialization:::WorldSerializationPlugin,
         #[cfg(feature = "bevy_scene")]
         bevy_scene:::ScenePlugin,
+        // NOTE: WinitPlugin needs to be after AssetPlugin because of custom cursors.
         #[cfg(feature = "bevy_winit")]
         bevy_winit:::WinitPlugin,
+        #[custom(cfg(all(feature = "dlss", not(feature = "force_disable_dlss"))))]
+        bevy_anti_alias::dlss:::DlssInitPlugin,
         #[cfg(feature = "bevy_render")]
         bevy_render:::RenderPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
         // compressed texture formats.
-        #[cfg(feature = "bevy_render")]
-        bevy_render::texture:::ImagePlugin,
+        #[cfg(feature = "bevy_image")]
+        bevy_image:::ImagePlugin,
+        #[cfg(feature = "bevy_mesh")]
+        bevy_mesh:::MeshPlugin,
+        #[cfg(feature = "bevy_camera")]
+        bevy_camera:::CameraPlugin,
+        #[cfg(feature = "bevy_light")]
+        bevy_light:::LightPlugin,
         #[cfg(feature = "bevy_render")]
         #[custom(cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded")))]
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
         #[cfg(feature = "bevy_core_pipeline")]
         bevy_core_pipeline:::CorePipelinePlugin,
-        #[cfg(feature = "bevy_anti_aliasing")]
-        bevy_anti_aliasing:::AntiAliasingPlugin,
+        #[cfg(feature = "bevy_post_process")]
+        bevy_post_process:::PostProcessPlugin,
+        #[cfg(feature = "bevy_anti_alias")]
+        bevy_anti_alias:::AntiAliasPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
+        #[cfg(feature = "bevy_sprite_render")]
+        bevy_sprite_render:::SpriteRenderPlugin,
+        #[cfg(feature = "bevy_clipboard")]
+        bevy_clipboard:::ClipboardPlugin,
         #[cfg(feature = "bevy_text")]
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]
         bevy_ui:::UiPlugin,
-        #[cfg(feature = "bevy_pbr")]
-        bevy_pbr:::PbrPlugin,
-        // NOTE: Load this after renderer initialization so that it knows about the supported
-        // compressed texture formats.
+        #[cfg(feature = "bevy_ui_render")]
+        bevy_ui_render:::UiRenderPlugin,
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
+        #[cfg(feature = "bevy_pbr")]
+        bevy_pbr:::PbrPlugin,
         #[cfg(feature = "bevy_audio")]
         bevy_audio:::AudioPlugin,
         #[cfg(feature = "bevy_gilrs")]
@@ -60,14 +85,19 @@ plugin_group! {
         bevy_animation:::AnimationPlugin,
         #[cfg(feature = "bevy_gizmos")]
         bevy_gizmos:::GizmoPlugin,
+        #[cfg(feature = "bevy_gizmos_render")]
+        bevy_gizmos_render:::GizmoRenderPlugin,
         #[cfg(feature = "bevy_state")]
         bevy_state::app:::StatesPlugin,
-        #[cfg(feature = "bevy_dev_tools")]
-        bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[custom(cfg(all(feature = "bevy_dev_tools", feature = "bevy_pbr")))]
+        bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
+        #[plugin_group]
+        #[cfg(feature = "bevy_ui_widgets")]
+        bevy_ui_widgets:::UiWidgetsPlugins,
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
@@ -96,6 +126,19 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
         reason = "The `app` parameter is used only if a combination of crates that contain ambiguities with each other are enabled."
     )]
     fn build(&self, app: &mut bevy_app::App) {
+        #[cfg(all(feature = "bevy_ui_widgets", feature = "bevy_sprite"))]
+        if app.is_plugin_added::<bevy_ui_widgets::EditableTextInputPlugin>()
+            && app.is_plugin_added::<bevy_sprite::SpritePlugin>()
+        {
+            // update_ime_position reads Window to reposition the IME cursor, while
+            // update_text2d_layout writes Window bounds for text wrapping.
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_ui_widgets::ImeSystems::UpdatePosition,
+                bevy_sprite::update_text2d_layout,
+            );
+        }
+
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
         if app.is_plugin_added::<bevy_animation::AnimationPlugin>()

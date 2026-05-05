@@ -78,22 +78,25 @@ fn main() {
             parameters.push(&features_string);
         }
 
-        let profile = if cli.debug {
-            "debug"
+        let (profile, out_dir) = if cli.debug {
+            ("dev", "debug")
+        } else if cli.optimize_size {
+            ("wasm-release", "wasm-release")
         } else {
-            parameters.push("--release");
-            "release"
+            ("release", "release")
         };
 
         let cmd = cmd!(
             sh,
-            "cargo build {parameters...} --target wasm32-unknown-unknown --example {example}"
+            "cargo build {parameters...} --profile {profile} --target wasm32-unknown-unknown --example {example}"
         );
-        cmd.run().expect("Error building example");
+        cmd.env("RUSTFLAGS", "--cfg getrandom_backend=\"wasm_js\"")
+            .run()
+            .expect("Error building example");
 
         cmd!(
             sh,
-            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/{profile}/examples/{example}.wasm"
+            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/{out_dir}/examples/{example}.wasm"
         )
         .run()
         .expect("Error creating wasm binding");

@@ -106,8 +106,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Root node filling the whole screen
     commands.spawn((
         Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -117,8 +117,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
-                column_gap: Val::Px(25.0),
-                row_gap: Val::Px(25.0),
+                column_gap: px(25),
+                row_gap: px(25),
                 ..default()
             },
             BackgroundColor(Color::BLACK),
@@ -127,9 +127,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        row_gap: Val::Px(10.0),
-                        column_gap: Val::Px(10.0),
-                        padding: UiRect::all(Val::Px(10.0)),
+                        row_gap: px(10),
+                        column_gap: px(10),
+                        padding: UiRect::all(px(10)),
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
@@ -138,8 +138,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         (
                             Button,
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -151,8 +151,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         (
                             Button,
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -169,8 +169,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
-                        width: Val::Px(300.0),
-                        height: Val::Px(300.0),
+                        width: px(300),
+                        height: px(300),
                         ..default()
                     },
                     BackgroundColor(DARK_GRAY.into()),
@@ -179,8 +179,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         (
                             Button,
                             Node {
-                                width: Val::Px(80.0),
-                                height: Val::Px(80.0),
+                                width: px(80),
+                                height: px(80),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -199,8 +199,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 (
                                     Button,
                                     Node {
-                                        width: Val::Px(80.0),
-                                        height: Val::Px(80.0),
+                                        width: px(80),
+                                        height: px(80),
                                         align_items: AlignItems::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
@@ -213,8 +213,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ),
                                 (
                                     Node {
-                                        width: Val::Px(100.),
-                                        height: Val::Px(100.),
+                                        width: px(100),
+                                        height: px(100),
                                         ..Default::default()
                                     },
                                     ImageNode {
@@ -226,8 +226,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 (
                                     Button,
                                     Node {
-                                        width: Val::Px(80.0),
-                                        height: Val::Px(80.0),
+                                        width: px(80),
+                                        height: px(80),
                                         align_items: AlignItems::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
@@ -243,8 +243,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         (
                             Button,
                             Node {
-                                width: Val::Px(80.0),
-                                height: Val::Px(80.0),
+                                width: px(80),
+                                height: px(80),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -260,9 +260,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        row_gap: Val::Px(10.0),
-                        column_gap: Val::Px(10.0),
-                        padding: UiRect::all(Val::Px(10.0)),
+                        row_gap: px(10),
+                        column_gap: px(10),
+                        padding: UiRect::all(px(10)),
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
@@ -271,8 +271,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         (
                             Button,
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -284,8 +284,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         (
                             Button,
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
