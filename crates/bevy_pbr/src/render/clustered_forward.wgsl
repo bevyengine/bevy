@@ -27,34 +27,50 @@ struct ClusterableObjectIndexRanges {
     // The offset of the index of the first irradiance volumes, which also
     // terminates the list of reflection probes.
     first_irradiance_volume_index_offset: u32,
+    first_decal_offset: u32,
     // One past the offset of the index of the final clusterable object for this
     // cluster.
     last_clusterable_object_index_offset: u32,
 }
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs
-fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
+fn view_z_to_z_slice(
+    cluster_factors: vec2<f32>,
+    z_slices: u32,
+    view_z: f32,
+    is_orthographic: bool
+) -> u32 {
     var z_slice: u32 = 0u;
     if is_orthographic {
         // NOTE: view_z is correct in the orthographic case
-        z_slice = u32(floor((view_z - bindings::lights.cluster_factors.z) * bindings::lights.cluster_factors.w));
+        z_slice = u32(floor((view_z - cluster_factors.x) * cluster_factors.y));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        z_slice = u32(log(-view_z) * bindings::lights.cluster_factors.z - bindings::lights.cluster_factors.w + 1.0);
+        z_slice = u32(log(-view_z) * cluster_factors.x - cluster_factors.y + 1.0);
     }
     // NOTE: We use min as we may limit the far z plane used for clustering to be closer than
     // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
-    return min(z_slice, bindings::lights.cluster_dimensions.z - 1u);
+    return min(z_slice, z_slices - 1u);
 }
 
-fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
+fn view_fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
     let xy = vec2<u32>(floor((frag_coord - bindings::view.viewport.xy) * bindings::lights.cluster_factors.xy));
-    let z_slice = view_z_to_z_slice(view_z, is_orthographic);
+    let z_slice = view_z_to_z_slice(
+        bindings::lights.cluster_factors.zw,
+        bindings::lights.cluster_dimensions.z,
+        view_z,
+        is_orthographic
+    );
+    return fragment_cluster_index(vec3(xy, z_slice), bindings::lights.cluster_dimensions);
+}
+
+// Given a cluster XYZ position, returns its index in the cluster list.
+fn fragment_cluster_index(p: vec3<u32>, cluster_dimensions: vec4<u32>) -> u32 {
     // NOTE: Restricting cluster index to avoid undefined behavior when accessing uniform buffer
     // arrays based on the cluster index.
     return min(
-        (xy.y * bindings::lights.cluster_dimensions.x + xy.x) * bindings::lights.cluster_dimensions.z + z_slice,
-        bindings::lights.cluster_dimensions.w - 1u
+        (p.y * cluster_dimensions.x + p.x) * cluster_dimensions.z + p.z,
+        cluster_dimensions.w - 1u
     );
 }
 
@@ -81,12 +97,14 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
     let spot_light_offset = point_light_offset + offset_and_counts_a.y;
     let reflection_probe_offset = spot_light_offset + offset_and_counts_a.z;
     let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_a.w;
-    let last_clusterable_offset = irradiance_volume_offset + offset_and_counts_b.x;
+    let decal_offset = irradiance_volume_offset + offset_and_counts_b.x;
+    let last_clusterable_offset = decal_offset + offset_and_counts_b.y;
     return ClusterableObjectIndexRanges(
         point_light_offset,
         spot_light_offset,
         reflection_probe_offset,
         irradiance_volume_offset,
+        decal_offset,
         last_clusterable_offset
     );
 
@@ -110,7 +128,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
     let offset_b = offset_a + offset_and_counts.y;
     let offset_c = offset_b + offset_and_counts.z;
 
-    return ClusterableObjectIndexRanges(offset_a, offset_b, offset_c, offset_c, offset_c);
+    return ClusterableObjectIndexRanges(offset_a, offset_b, offset_c, offset_c, offset_c, offset_c);
 
 #endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 }
@@ -118,7 +136,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
 // Returns the index of the clusterable object at the given offset.
 //
 // Note that, in the case of a light probe, the index refers to an element in
-// one of the two `light_probes` sublists, not the `clusterable_objects` list.
+// one of the two `light_probes` sublists, not the `clustered_lights` list.
 fn get_clusterable_object_id(index: u32) -> u32 {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     return bindings::clusterable_object_index_lists.data[index];
@@ -145,7 +163,12 @@ fn cluster_debug_visualization(
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
     // NOTE: This debug mode visualizes the z-slices
     let cluster_overlay_alpha = 0.1;
-    var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
+    var z_slice: u32 = view_z_to_z_slice(
+        bindings::lights.cluster_factors.zw,
+        bindings::lights.cluster_dimensions.z,
+        view_z,
+        is_orthographic
+    );
     // A hack to make the colors alternate a bit more
     if (z_slice & 1u) == 1u {
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;

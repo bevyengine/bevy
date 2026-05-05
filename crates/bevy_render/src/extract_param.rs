@@ -1,8 +1,12 @@
 use crate::MainWorld;
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
     prelude::*,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    query::FilteredAccessSet,
+    system::{
+        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
+        SystemState,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::ops::{Deref, DerefMut};
@@ -68,35 +72,26 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: Res::<MainWorld>::init_state(world, system_meta),
+            main_world_state: Res::<MainWorld>::init_state(world),
         }
     }
 
-    #[inline]
-    unsafe fn validate_param(
+    fn init_access(
         state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
-        // SAFETY: Read-only access to world data registered in `init_state`.
-        let result = unsafe { world.get_resource_by_id(state.main_world_state) };
-        let Some(main_world) = result else {
-            system_meta.try_warn_param::<&World>();
-            return false;
-        };
-        // SAFETY: Type is guaranteed by `SystemState`.
-        let main_world: &World = unsafe { main_world.deref() };
-        // SAFETY: We provide the main world on which this system state was initialized on.
-        unsafe {
-            SystemState::<P>::validate_param(
-                &state.state,
-                main_world.as_unsafe_world_cell_readonly(),
-            )
-        }
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        Res::<MainWorld>::init_access(
+            &state.main_world_state,
+            system_meta,
+            component_access_set,
+            world,
+        );
     }
 
     #[inline]
@@ -105,7 +100,7 @@ where
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
@@ -115,10 +110,10 @@ where
                 system_meta,
                 world,
                 change_tick,
-            )
+            )?
         };
-        let item = state.state.get(main_world.into_inner());
-        Extract { item }
+        let item = state.state.get(main_world.into_inner())?;
+        Ok(Extract { item })
     }
 }
 

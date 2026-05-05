@@ -1,13 +1,8 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -110,6 +105,7 @@ mod color_range;
 mod hsla;
 mod hsva;
 mod hwba;
+mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
@@ -266,9 +262,16 @@ macro_rules! impl_componentwise_vector_space {
         }
 
         impl bevy_math::VectorSpace for $ty {
+            type Scalar = f32;
             const ZERO: Self = Self {
                 $($element: 0.0,)+
             };
+        }
+
+        impl bevy_math::StableInterpolate for $ty {
+            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+                bevy_math::VectorSpace::lerp(*self, *other, t)
+            }
         }
     };
 }

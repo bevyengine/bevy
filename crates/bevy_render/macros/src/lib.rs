@@ -1,9 +1,10 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
+mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
@@ -11,10 +12,11 @@ use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
-    BevyManifest::shared()
-        .maybe_get_path("bevy_render")
-        // NOTE: If the derivation is within bevy_render, then we need to return 'crate'
-        .unwrap_or_else(|| BevyManifest::parse_str("crate"))
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_render"))
+}
+
+pub(crate) fn bevy_ecs_path() -> syn::Path {
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
 #[proc_macro_derive(ExtractResource)]
@@ -30,6 +32,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 /// See `ExtractComponentPlugin` to actually perform the extraction.
 ///
 /// If you only want to extract a component conditionally, you may use the `extract_component_filter` attribute.
+/// To specify `SyncComponent::Target`, you can use the `extract_component_sync_target` attribute.
 ///
 /// # Example
 ///
@@ -39,6 +42,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///
 /// #[derive(Component, Clone, ExtractComponent)]
 /// #[extract_component_filter(With<Camera>)]
+/// #[extract_component_sync_target((Self, OtherNeedsCleanup))]
 /// pub struct Foo {
 ///     pub should_foo: bool,
 /// }
@@ -49,7 +53,10 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///     pub should_bar: bool,
 /// }
 /// ```
-#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
+#[proc_macro_derive(
+    ExtractComponent,
+    attributes(extract_component_filter, extract_component_sync_target)
+)]
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     extract_component::derive_extract_component(input)
 }
@@ -63,7 +70,8 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         sampler,
         bind_group_data,
         storage,
-        bindless
+        bindless,
+        data
     )
 )]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
@@ -82,28 +90,22 @@ pub fn derive_render_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("render_graph").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("RenderLabel").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "RenderLabel", &trait_path, &dyn_eq_path)
+    derive_label(input, "RenderLabel", &trait_path)
 }
 
-/// Derive macro generating an impl of the trait `RenderSubGraph`.
+/// Derive macro generating an impl of the trait `Specializer`
 ///
-/// This does not work for unions.
-#[proc_macro_derive(RenderSubGraph)]
-pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_graph").into());
-    let mut dyn_eq_path = trait_path.clone();
-    trait_path
-        .segments
-        .push(format_ident!("RenderSubGraph").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "RenderSubGraph", &trait_path, &dyn_eq_path)
+/// This only works for structs whose members all implement `Specializer`
+#[proc_macro_derive(Specializer, attributes(specialize, key, base_descriptor))]
+pub fn derive_specialize(input: TokenStream) -> TokenStream {
+    specializer::impl_specializer(input)
+}
+
+/// Derive macro generating the most common impl of the trait `SpecializerKey`
+#[proc_macro_derive(SpecializerKey)]
+pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
+    specializer::impl_specializer_key(input)
 }

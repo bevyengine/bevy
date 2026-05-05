@@ -10,11 +10,14 @@ use thiserror::Error;
 
 #[derive(Asset, TypePath, Debug, Deserialize)]
 struct CustomAsset {
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "Used to show how the data inside an asset file will be loaded into the struct"
+    )]
     value: i32,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CustomAssetLoader;
 
 /// Possible errors that can be produced by [`CustomAssetLoader`]
@@ -55,7 +58,7 @@ struct Blob {
     bytes: Vec<u8>,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct BlobAssetLoader;
 
 /// Possible errors that can be produced by [`BlobAssetLoader`]

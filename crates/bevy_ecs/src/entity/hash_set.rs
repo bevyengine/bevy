@@ -1,3 +1,7 @@
+//! Contains the [`EntityHashSet`] type, a [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around Bevy's [`HashSet`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
@@ -8,16 +12,17 @@ use core::{
     },
 };
 
+use bevy_platform::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
-use super::{Entity, EntityHash, EntitySetIterator};
+use super::{Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator};
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct EntityHashSet(pub(crate) HashSet<Entity, EntityHash>);
+pub struct EntityHashSet(HashSet<Entity, EntityHash>);
 
 impl EntityHashSet {
     /// Creates an empty `EntityHashSet`.
@@ -25,7 +30,7 @@ impl EntityHashSet {
     /// Equivalent to [`HashSet::with_hasher(EntityHash)`].
     ///
     /// [`HashSet::with_hasher(EntityHash)`]: HashSet::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(HashSet::with_hasher(EntityHash))
     }
 
@@ -36,6 +41,16 @@ impl EntityHashSet {
     /// [`HashSet::with_capacity_and_hasher(n, EntityHash)`]: HashSet::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Constructs an `EntityHashSet` from an [`HashSet`].
+    pub const fn from_hash_set(set: HashSet<Entity, EntityHash>) -> Self {
+        Self(set)
     }
 
     /// Returns the inner [`HashSet`].
@@ -181,6 +196,26 @@ impl FromIterator<Entity> for EntityHashSet {
     }
 }
 
+impl FromEntitySetIterator<Entity> for EntityHashSet {
+    fn from_entity_set_iter<I: EntitySet<Item = Entity>>(set_iter: I) -> Self {
+        let iter = set_iter.into_iter();
+        let set = EntityHashSet::with_capacity(iter.size_hint().0);
+        iter.fold(set, |mut set, e| {
+            // SAFETY: Every element in self is unique.
+            unsafe {
+                set.insert_unique_unchecked(e);
+            }
+            set
+        })
+    }
+}
+
+impl From<HashSet<Entity, EntityHash>> for EntityHashSet {
+    fn from(value: HashSet<Entity, EntityHash>) -> Self {
+        Self(value)
+    }
+}
+
 /// An iterator over the items of an [`EntityHashSet`].
 ///
 /// This struct is created by the [`iter`] method on [`EntityHashSet`]. See its documentation for more.
@@ -189,8 +224,18 @@ impl FromIterator<Entity> for EntityHashSet {
 pub struct Iter<'a, S = EntityHash>(hash_set::Iter<'a, Entity>, PhantomData<S>);
 
 impl<'a> Iter<'a> {
+    /// Constructs a [`Iter<'a, S>`] from a [`hash_set::Iter<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_iter_unchecked<S>(iter: hash_set::Iter<'a, Entity>) -> Iter<'a, S> {
+        Iter(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](hash_set::Iter).
-    pub fn into_inner(self) -> hash_set::Iter<'a, Entity> {
+    pub const fn into_inner(self) -> hash_set::Iter<'a, Entity> {
         self.0
     }
 }
@@ -203,17 +248,15 @@ impl<'a> Deref for Iter<'a> {
     }
 }
 
-impl DerefMut for Iter<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -223,7 +266,8 @@ impl FusedIterator for Iter<'_> {}
 
 impl Clone for Iter<'_> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Iter`.
+        unsafe { Self::from_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -235,7 +279,8 @@ impl Debug for Iter<'_> {
 
 impl Default for Iter<'_> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Iter` is empty.
+        unsafe { Self::from_iter_unchecked(Default::default()) }
     }
 }
 
@@ -250,6 +295,18 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 pub struct IntoIter<S = EntityHash>(hash_set::IntoIter<Entity>, PhantomData<S>);
 
 impl IntoIter {
+    /// Constructs a [`IntoIter<S>`] from a [`hash_set::IntoIter`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_into_iter_unchecked<S>(
+        into_iter: hash_set::IntoIter<Entity>,
+    ) -> IntoIter<S> {
+        IntoIter(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](hash_set::IntoIter).
     pub fn into_inner(self) -> hash_set::IntoIter<Entity> {
         self.0
@@ -264,17 +321,15 @@ impl Deref for IntoIter {
     }
 }
 
-impl DerefMut for IntoIter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl Iterator for IntoIter {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -293,7 +348,8 @@ impl Debug for IntoIter {
 
 impl Default for IntoIter {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoIter` is empty.
+        unsafe { Self::from_into_iter_unchecked(Default::default()) }
     }
 }
 
@@ -308,6 +364,18 @@ unsafe impl EntitySetIterator for IntoIter {}
 pub struct Drain<'a, S = EntityHash>(hash_set::Drain<'a, Entity>, PhantomData<S>);
 
 impl<'a> Drain<'a> {
+    /// Constructs a [`Drain<'a, S>`] from a [`hash_set::Drain<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_drain_unchecked<S>(
+        drain: hash_set::Drain<'a, Entity>,
+    ) -> Drain<'a, S> {
+        Drain(drain, PhantomData)
+    }
+
     /// Returns the inner [`Drain`](hash_set::Drain).
     pub fn into_inner(self) -> hash_set::Drain<'a, Entity> {
         self.0
@@ -322,17 +390,15 @@ impl<'a> Deref for Drain<'a> {
     }
 }
 
-impl DerefMut for Drain<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a> Iterator for Drain<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -363,6 +429,18 @@ pub struct ExtractIf<'a, F: FnMut(&Entity) -> bool, S = EntityHash>(
 );
 
 impl<'a, F: FnMut(&Entity) -> bool> ExtractIf<'a, F> {
+    /// Constructs a [`ExtractIf<'a, F, S>`] from a [`hash_set::ExtractIf<'a, F>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `extract_if` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_extract_if_unchecked<S>(
+        extract_if: hash_set::ExtractIf<'a, Entity, F>,
+    ) -> ExtractIf<'a, F, S> {
+        ExtractIf(extract_if, PhantomData)
+    }
+
     /// Returns the inner [`ExtractIf`](hash_set::ExtractIf).
     pub fn into_inner(self) -> hash_set::ExtractIf<'a, Entity, F> {
         self.0
@@ -377,17 +455,15 @@ impl<'a, F: FnMut(&Entity) -> bool> Deref for ExtractIf<'a, F> {
     }
 }
 
-impl<F: FnMut(&Entity) -> bool> DerefMut for ExtractIf<'_, F> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a, F: FnMut(&Entity) -> bool> Iterator for ExtractIf<'a, F> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

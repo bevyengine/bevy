@@ -1,9 +1,4 @@
 #![forbid(unsafe_code)]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -12,10 +7,10 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -40,6 +35,7 @@ pub mod cubic_splines;
 mod direction;
 mod float_ord;
 mod isometry;
+mod mat3;
 pub mod ops;
 pub mod primitives;
 mod ray;
@@ -59,6 +55,7 @@ pub use compass::{CompassOctant, CompassQuadrant};
 pub use direction::*;
 pub use float_ord::*;
 pub use isometry::{Isometry2d, Isometry3d};
+pub use mat3::*;
 pub use ops::FloatPow;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;

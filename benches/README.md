@@ -25,12 +25,14 @@ cargo bench -p benches -- name_fragment
 cargo bench -p benches -- --list
 
 # Save a baseline to be compared against later.
-cargo bench -p benches --save-baseline before
+cargo bench -p benches -- --save-baseline before
 
 # Compare the current benchmarks against a baseline to find performance gains and regressions.
-cargo bench -p benches --baseline before
+cargo bench -p benches -- --baseline before
 ```
 
 ## Criterion
 
 Bevy's benchmarks use [Criterion](https://crates.io/crates/criterion). If you want to learn more about using Criterion for comparing performance against a baseline or generating detailed reports, you can read the [Criterion.rs documentation](https://bheisler.github.io/criterion.rs/book/criterion_rs.html).
+
+You can generate nicely formatted comparison tables of named benchmark runs (baselines) using the [critcmp](https://github.com/BurntSushi/critcmp) tool.

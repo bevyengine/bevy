@@ -1,3 +1,7 @@
+//! Contains the [`EntityHashMap`] type, a [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around Bevy's [`HashMap`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
@@ -5,16 +9,17 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
+use bevy_platform::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_map::{self, HashMap};
 
-use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
+use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntityHashMap<V>(pub(crate) HashMap<Entity, V, EntityHash>);
+pub struct EntityHashMap<V>(HashMap<Entity, V, EntityHash>);
 
 impl<V> EntityHashMap<V> {
     /// Creates an empty `EntityHashMap`.
@@ -22,7 +27,7 @@ impl<V> EntityHashMap<V> {
     /// Equivalent to [`HashMap::with_hasher(EntityHash)`].
     ///
     /// [`HashMap::with_hasher(EntityHash)`]: HashMap::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(HashMap::with_hasher(EntityHash))
     }
 
@@ -30,9 +35,14 @@ impl<V> EntityHashMap<V> {
     ///
     /// Equivalent to [`HashMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
-    /// [`HashMap:with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
+    /// [`HashMap::with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(HashMap::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Constructs an `EntityHashMap` from an [`HashMap`].
+    pub const fn from_index_map(set: HashMap<Entity, V, EntityHash>) -> Self {
+        Self(set)
     }
 
     /// Returns the inner [`HashMap`].
@@ -108,8 +118,15 @@ impl<V> FromIterator<(Entity, V)> for EntityHashMap<V> {
     }
 }
 
-impl<V, Q: TrustedEntityBorrow + ?Sized> Index<&Q> for EntityHashMap<V> {
+impl<V> From<HashMap<Entity, V, EntityHash>> for EntityHashMap<V> {
+    fn from(value: HashMap<Entity, V, EntityHash>) -> Self {
+        Self(value)
+    }
+}
+
+impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityHashMap<V> {
     type Output = V;
+
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())
     }
@@ -145,14 +162,26 @@ impl<V> IntoIterator for EntityHashMap<V> {
 /// An iterator over the keys of a [`EntityHashMap`] in arbitrary order.
 /// The iterator element type is `&'a Entity`.
 ///
-/// /// This struct is created by the [`keys`] method on [`EntityHashMap`]. See its documentation for more.
+/// This struct is created by the [`keys`] method on [`EntityHashMap`]. See its documentation for more.
 ///
 /// [`keys`]: EntityHashMap::keys
 pub struct Keys<'a, V, S = EntityHash>(hash_map::Keys<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Keys<'a, V> {
+    /// Constructs a [`Keys<'a, V, S>`] from a [`hash_map::Keys<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `keys` must either be empty, or have been obtained from a
+    /// [`hash_map::HashMap`] using the `S` hasher.
+    pub const unsafe fn from_keys_unchecked<S>(
+        keys: hash_map::Keys<'a, Entity, V>,
+    ) -> Keys<'a, V, S> {
+        Keys(keys, PhantomData)
+    }
+
     /// Returns the inner [`Keys`](hash_map::Keys).
-    pub fn into_inner(self) -> hash_map::Keys<'a, Entity, V> {
+    pub const fn into_inner(self) -> hash_map::Keys<'a, Entity, V> {
         self.0
     }
 }
@@ -165,17 +194,15 @@ impl<'a, V> Deref for Keys<'a, V> {
     }
 }
 
-impl<V> DerefMut for Keys<'_, V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a, V> Iterator for Keys<'a, V> {
     type Item = &'a Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -185,7 +212,8 @@ impl<V> FusedIterator for Keys<'_, V> {}
 
 impl<V> Clone for Keys<'_, V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Keys`.
+        unsafe { Self::from_keys_unchecked(self.0.clone()) }
     }
 }
 
@@ -197,7 +225,8 @@ impl<V: Debug> Debug for Keys<'_, V> {
 
 impl<V> Default for Keys<'_, V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Keys` is empty.
+        unsafe { Self::from_keys_unchecked(Default::default()) }
     }
 }
 
@@ -215,6 +244,18 @@ unsafe impl<V> EntitySetIterator for Keys<'_, V> {}
 pub struct IntoKeys<V, S = EntityHash>(hash_map::IntoKeys<Entity, V>, PhantomData<S>);
 
 impl<V> IntoKeys<V> {
+    /// Constructs a [`IntoKeys<V, S>`] from a [`hash_map::IntoKeys<V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_keys` must either be empty, or have been obtained from a
+    /// [`hash_map::HashMap`] using the `S` hasher.
+    pub const unsafe fn from_into_keys_unchecked<S>(
+        into_keys: hash_map::IntoKeys<Entity, V>,
+    ) -> IntoKeys<V, S> {
+        IntoKeys(into_keys, PhantomData)
+    }
+
     /// Returns the inner [`IntoKeys`](hash_map::IntoKeys).
     pub fn into_inner(self) -> hash_map::IntoKeys<Entity, V> {
         self.0
@@ -229,17 +270,15 @@ impl<V> Deref for IntoKeys<V> {
     }
 }
 
-impl<V> DerefMut for IntoKeys<V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<V> Iterator for IntoKeys<V> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -258,7 +297,8 @@ impl<V: Debug> Debug for IntoKeys<V> {
 
 impl<V> Default for IntoKeys<V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoKeys` is empty.
+        unsafe { Self::from_into_keys_unchecked(Default::default()) }
     }
 }
 

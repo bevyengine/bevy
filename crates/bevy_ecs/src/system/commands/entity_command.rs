@@ -1,27 +1,34 @@
-//! This module contains the definition of the [`EntityCommand`] trait, as well as
-//! blanket implementations of the trait for closures.
+//! Contains the definition of the [`EntityCommand`] trait,
+//! as well as the blanket implementation of the trait for closures.
 //!
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
+#[cfg(not(feature = "trace"))]
 use log::info;
-
-#[cfg(feature = "track_location")]
-use core::panic::Location;
+#[cfg(feature = "trace")]
+use tracing::info;
 
 use crate::{
     bundle::{Bundle, InsertMode},
-    component::{Component, ComponentId, ComponentInfo},
-    entity::{Entity, EntityCloneBuilder},
-    event::Event,
-    result::Result,
-    system::{Command, CommandError, IntoObserverSystem},
-    world::{EntityWorldMut, FromWorld, World},
+    change_detection::MaybeLocation,
+    component::{Component, ComponentId},
+    entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
+    error::EntityCommandOutput,
+    name::Name,
+    observer::IntoEntityObserver,
+    relationship::RelationshipHookMode,
+    system::Command,
+    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{move_as_ptr, OwningPtr};
 
-/// A [`Command`] which gets executed for a given [`Entity`].
+/// A command which gets executed for a given [`Entity`].
+///
+/// Should be used with [`EntityCommands::queue`](crate::system::EntityCommands::queue).
+///
+/// The `Out` generic parameter is the returned "output" of the command.
 ///
 /// # Examples
 ///
@@ -41,14 +48,16 @@ use bevy_ptr::OwningPtr;
 /// struct Counter(i64);
 ///
 /// /// A `Command` which names an entity based on a global counter.
-/// fn count_name(entity: Entity, world: &mut World) {
+/// fn count_name(mut entity: EntityWorldMut) {
 ///     // Get the current value of the counter, and increment it for next time.
-///     let mut counter = world.resource_mut::<Counter>();
-///     let i = counter.0;
-///     counter.0 += 1;
-///
+///     let i = {
+///         let mut counter = entity.resource_mut::<Counter>();
+///         let i = counter.0;
+///         counter.0 += 1;
+///         i
+///     };
 ///     // Name the entity after the value of the counter.
-///     world.entity_mut(entity).insert(Name::new(format!("Entity #{i}")));
+///     entity.insert(Name::new(format!("Entity #{i}")));
 /// }
 ///
 /// // App creation boilerplate omitted...
@@ -74,192 +83,172 @@ use bevy_ptr::OwningPtr;
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-///
-/// # Note on Generic
-///
-/// The `Marker` generic is necessary to allow multiple blanket implementations
-/// of `EntityCommand` for closures, like so:
-/// ```ignore (This would conflict with the real implementations)
-/// impl EntityCommand for FnOnce(Entity, &mut World)
-/// impl EntityCommand<World> for FnOnce(EntityWorldMut)
-/// impl EntityCommand<Result> for FnOnce(Entity, &mut World) -> Result
-/// impl EntityCommand<(World, Result)> for FnOnce(EntityWorldMut) -> Result
-/// ```
-/// Without the generic, Rust would consider the implementations to be conflicting.
-///
-/// The type used for `Marker` has no connection to anything else in the implementation.
-pub trait EntityCommand<Marker = ()>: Send + 'static {
-    /// Executes this command for the given [`Entity`] and
-    /// returns a [`Result`] for error handling.
-    fn apply(self, entity: Entity, world: &mut World) -> Result;
+pub trait EntityCommand: Send + 'static {
+    /// The return type of [`apply`](EntityCommand::apply).
+    type Out: EntityCommandOutput;
 
-    /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    ///
-    /// This method is called when adding an [`EntityCommand`] to a command queue via [`Commands`](crate::system::Commands).
-    /// You can override the provided implementation if you can return a `Command` with a smaller memory
-    /// footprint than `(Entity, Self)`.
-    /// In most cases the provided implementation is sufficient.
-    #[must_use = "commands do nothing unless applied to a `World`"]
-    fn with_entity(self, entity: Entity) -> impl Command<(Result, CommandError)>
+    /// Executes this command for the given [`Entity`].
+    fn apply(self, entity: EntityWorldMut) -> Self::Out;
+
+    /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
+    /// internally runs the [`EntityCommand`] on that entity.
+    #[inline]
+    fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
     {
-        move |world: &mut World| -> Result<(), CommandError> {
-            if world.entities().contains(entity) {
-                match self.apply(entity, world) {
-                    Ok(_) => Ok(()),
-                    Err(error) => Err(CommandError::CommandFailed(error)),
-                }
-            } else {
-                Err(CommandError::NoSuchEntity(
-                    entity,
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity),
-                ))
-            }
+        move |world: &mut World| {
+            let entity = world.get_entity_mut(entity)?;
+            self.apply(entity).into_result()
         }
     }
 }
 
-impl<F> EntityCommand for F
+/// An error that occurs when running an [`EntityCommand`] on a specific entity.
+#[derive(thiserror::Error, Debug)]
+pub enum EntityCommandError<E> {
+    /// The entity this [`EntityCommand`] tried to run on could not be fetched.
+    #[error(transparent)]
+    EntityFetchError(#[from] EntityMutableFetchError),
+    /// An error that occurred while running the [`EntityCommand`].
+    #[error("{0}")]
+    CommandFailed(E),
+}
+
+impl<Out, F> EntityCommand for F
 where
-    F: FnOnce(Entity, &mut World) + Send + 'static,
+    F: FnOnce(EntityWorldMut) -> Out + Send + 'static,
+    Out: EntityCommandOutput,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result {
-        self(id, world);
-        Ok(())
+    type Out = Out;
+
+    fn apply(self, entity: EntityWorldMut) -> Self::Out {
+        self(entity)
     }
 }
 
-impl<F> EntityCommand<Result> for F
-where
-    F: FnOnce(Entity, &mut World) -> Result + Send + 'static,
-{
-    fn apply(self, id: Entity, world: &mut World) -> Result {
-        self(id, world)
-    }
-}
-
-impl<F> EntityCommand<World> for F
-where
-    F: FnOnce(EntityWorldMut) + Send + 'static,
-{
-    fn apply(self, id: Entity, world: &mut World) -> Result {
-        self(world.entity_mut(id));
-        Ok(())
-    }
-}
-
-impl<F> EntityCommand<(World, Result)> for F
-where
-    F: FnOnce(EntityWorldMut) -> Result + Send + 'static,
-{
-    fn apply(self, id: Entity, world: &mut World) -> Result {
-        self(world.entity_mut(id))
-    }
-}
-
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity,
-/// replacing any that were already present.
+/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
-pub fn insert(bundle: impl Bundle) -> impl EntityCommand<World> {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
-    }
-}
-
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity,
-/// except for any that were already present.
-#[track_caller]
-pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand<World> {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        move_as_ptr!(bundle);
+        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
 
 /// An [`EntityCommand`] that adds a dynamic component to an entity.
+///
+/// # Safety
+///
+/// - [`ComponentId`] must be from the same world as the target entity.
+/// - `T` must have the same layout as the one passed during `component_id` creation.
 #[track_caller]
-pub fn insert_by_id<T: Send + 'static>(
+pub unsafe fn insert_by_id<T: Send + 'static>(
     component_id: ComponentId,
     value: T,
-) -> impl EntityCommand<World> {
+    mode: InsertMode,
+) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         // SAFETY:
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id(component_id, ptr);
+            entity.insert_by_id_with_caller(
+                component_id,
+                ptr,
+                mode,
+                caller,
+                RelationshipHookMode::Run,
+            );
         });
     }
 }
 
 /// An [`EntityCommand`] that adds a component to an entity using
 /// the component's [`FromWorld`] implementation.
+///
+/// `T::from_world` will only be invoked if the component will actually be inserted.
+/// In other words, `T::from_world` will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
 #[track_caller]
 pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |entity: Entity, world: &mut World| {
-        let value = T::from_world(world);
-        let mut entity = world.entity_mut(entity);
-        entity.insert_with_caller(
-            value,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        if !(mode == InsertMode::Keep && entity.contains::<T>()) {
+            let value = entity.world_scope(|world| T::from_world(world));
+            move_as_ptr!(value);
+            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that adds a component to an entity using
+/// some function that returns the component.
+///
+/// The function will only be invoked if the component will actually be inserted.
+/// In other words, the function will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
+#[track_caller]
+pub fn insert_with<T: Component, F>(component_fn: F, mode: InsertMode) -> impl EntityCommand
+where
+    F: FnOnce() -> T + Send + 'static,
+{
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        if !(mode == InsertMode::Keep && entity.contains::<T>()) {
+            let bundle = component_fn();
+            move_as_ptr!(bundle);
+            entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
+        }
     }
 }
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity.
-pub fn remove<T: Bundle>() -> impl EntityCommand<World> {
+#[track_caller]
+pub fn remove<T: Bundle>() -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove::<T>();
+        entity.remove_with_caller::<T>(caller);
     }
 }
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity,
 /// as well as the required components for each component removed.
-pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand<World> {
+#[track_caller]
+pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_with_requires::<T>();
+        entity.remove_with_requires_with_caller::<T>(caller);
     }
 }
 
 /// An [`EntityCommand`] that removes a dynamic component from an entity.
-pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand<World> {
+#[track_caller]
+pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_by_id(component_id);
+        entity.remove_by_id_with_caller(component_id, caller);
     }
 }
 
 /// An [`EntityCommand`] that removes all components from an entity.
-pub fn clear() -> impl EntityCommand<World> {
+#[track_caller]
+pub fn clear() -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.clear();
+        entity.clear_with_caller(caller);
     }
 }
 
 /// An [`EntityCommand`] that removes all components from an entity,
 /// except for those in the given [`Bundle`].
-pub fn retain<T: Bundle>() -> impl EntityCommand<World> {
+#[track_caller]
+pub fn retain<T: Bundle>() -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.retain::<T>();
+        entity.retain_with_caller::<T>(caller);
     }
 }
 
@@ -267,51 +256,91 @@ pub fn retain<T: Bundle>() -> impl EntityCommand<World> {
 ///
 /// # Note
 ///
-/// This won't clean up external references to the entity (such as parent-child relationships
-/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
-pub fn despawn() -> impl EntityCommand<World> {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+/// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget)
+/// that is configured to despawn descendants.
+///
+/// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+#[track_caller]
+pub fn despawn() -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |entity: EntityWorldMut| {
-        entity.despawn_with_caller(
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.despawn_with_caller(caller);
     }
 }
 
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
-/// listening for events of type `E` targeting an entity
-pub fn observe<E: Event, B: Bundle, M>(
-    observer: impl IntoObserverSystem<E, B, M>,
-) -> impl EntityCommand<World> {
+/// watching for an [`EntityEvent`](crate::event::EntityEvent) of type `E` whose
+/// [`event_target`](crate::event::EntityEvent::event_target) targets this entity.
+///
+/// Accepts any type that implements [`IntoEntityObserver`], including:
+/// - Observer systems (closures or functions implementing [`IntoObserverSystem`](crate::system::IntoObserverSystem))
+/// - Observer systems with run conditions (via `.run_if()`)
+#[track_caller]
+pub fn observe<M>(observer: impl IntoEntityObserver<M>) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.observe(observer);
+        entity.observe_with_caller(observer, caller);
     }
 }
 
 /// An [`EntityCommand`] that clones parts of an entity onto another entity,
-/// configured through [`EntityCloneBuilder`].
-pub fn clone_with(
+/// configured through [`EntityClonerBuilder`].
+///
+/// This builder tries to clone every component from the source entity except
+/// for components that were explicitly denied, for example by using the
+/// [`deny`](EntityClonerBuilder<OptOut>::deny) method.
+///
+/// Required components are not considered by denied components and must be
+/// explicitly denied as well if desired.
+pub fn clone_with_opt_out(
     target: Entity,
-    config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
-) -> impl EntityCommand<World> {
+    config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
+) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
-        entity.clone_with(target, config);
+        entity.clone_with_opt_out(target, config);
+    }
+}
+
+/// An [`EntityCommand`] that clones parts of an entity onto another entity,
+/// configured through [`EntityClonerBuilder`].
+///
+/// This builder tries to clone every component that was explicitly allowed
+/// from the source entity, for example by using the
+/// [`allow`](EntityClonerBuilder<OptIn>::allow) method.
+///
+/// Required components are also cloned when the target entity does not contain them.
+pub fn clone_with_opt_in(
+    target: Entity,
+    config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
+) -> impl EntityCommand {
+    move |mut entity: EntityWorldMut| {
+        entity.clone_with_opt_in(target, config);
     }
 }
 
 /// An [`EntityCommand`] that clones the specified components of an entity
 /// and inserts them into another entity.
-pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand<World> {
+pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.clone_components::<B>(target);
     }
 }
 
-/// An [`EntityCommand`] that clones the specified components of an entity
-/// and inserts them into another entity, then removes them from the original entity.
-pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand<World> {
+/// An [`EntityCommand`] moves the specified components of this entity into another entity.
+///
+/// Components with [`Ignore`] clone behavior will not be moved, while components that
+/// have a [`Custom`] clone behavior will be cloned using it and then removed from the source entity.
+/// All other components will be moved without any other special handling.
+///
+/// Note that this will trigger `on_remove` hooks/observers on this entity and `on_insert`/`on_add` hooks/observers on the target entity.
+///
+/// # Panics
+///
+/// The command will panic when applied if the target entity does not exist.
+///
+/// [`Ignore`]: crate::component::ComponentCloneBehavior::Ignore
+/// [`Custom`]: crate::component::ComponentCloneBehavior::Custom
+pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.move_components::<B>(target);
     }
@@ -319,11 +348,54 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand<World> {
 
 /// An [`EntityCommand`] that logs the components of an entity.
 pub fn log_components() -> impl EntityCommand {
-    move |entity: Entity, world: &mut World| {
-        let debug_infos: Vec<_> = world
-            .inspect_entity(entity)
-            .map(ComponentInfo::name)
+    move |entity: EntityWorldMut| {
+        let name = entity.get::<Name>().map(ToString::to_string);
+        let id = entity.id();
+        let mut components: Vec<_> = entity
+            .world()
+            .inspect_entity(id)
+            .expect("Entity existence is verified before an EntityCommand is executed")
+            .map(|info| info.name().to_string())
             .collect();
-        info!("Entity {entity}: {debug_infos:?}");
+        components.sort();
+
+        #[cfg(not(feature = "debug"))]
+        {
+            let component_count = components.len();
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?component_count, "log_components. Enable the `debug` feature to log component names.");
+                } else {
+                    info!(id=?id, ?component_count, "log_components. Enable the `debug` feature to log component names.");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {component_count} components. Enable the `debug` feature to log component names.");
+            }
+        }
+
+        #[cfg(feature = "debug")]
+        {
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?components, "log_components");
+                } else {
+                    info!(id=?id, ?components, "log_components");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {components:?}");
+            }
+        }
     }
 }
