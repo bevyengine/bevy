@@ -1,5 +1,5 @@
 use bevy_gltf::{
-    extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+    extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
     gltf, GltfAssetLabel, GltfMaterial,
 };
 
@@ -18,7 +18,7 @@ pub(crate) fn add_gltf(app: &mut App) {
             .0
             .write()
             .await
-            .push(Box::new(GltfExtensionHandlerPbr))
+            .push(Box::new(GltfExtensionHandlerPbr));
     });
 
     #[cfg(not(target_family = "wasm"))]
@@ -29,7 +29,8 @@ pub(crate) fn add_gltf(app: &mut App) {
         .push(Box::new(GltfExtensionHandlerPbr));
 }
 
-fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
+/// Converts a [`GltfMaterial`] to a [`StandardMaterial`]
+pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
     StandardMaterial {
         base_color: material.base_color,
         base_color_channel: material.base_color_channel.clone(),
@@ -97,10 +98,15 @@ fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMate
 struct GltfExtensionHandlerPbr;
 
 impl GltfExtensionHandler for GltfExtensionHandlerPbr {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, _gltf: &gltf::Gltf) {
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        _gltf: &gltf::Gltf,
+        _settings: &bevy_gltf::GltfLoaderSettings,
+    ) {
         // create the `StandardMaterial` for the glTF `DefaultMaterial` so
         // it can be accessed when meshes don't have materials.
         let std_label = format!("{}/std", GltfAssetLabel::DefaultMaterial);

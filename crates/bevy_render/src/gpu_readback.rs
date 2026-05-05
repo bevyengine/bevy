@@ -15,7 +15,6 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
@@ -23,6 +22,7 @@ use bevy_ecs::{
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
+use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_log::warn;
 use bevy_platform::collections::HashMap;
@@ -73,8 +73,9 @@ impl Plugin for GpuReadbackPlugin {
 ///
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
 /// when complete. If this component is not removed, the readback will be attempted every frame
-#[derive(Component, ExtractComponent, Clone, Debug)]
+#[derive(Component, ExtractComponent, Clone, Debug, FromTemplate)]
 pub enum Readback {
+    #[default]
     Texture(Handle<Image>),
     Buffer {
         buffer: Handle<ShaderBuffer>,

@@ -13,6 +13,7 @@ use bevy_ecs::system::{
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
+#[cfg(feature = "trace")]
 use bevy_log::info_span;
 use core::marker::PhantomData;
 use wgpu::CommandBuffer;
@@ -103,8 +104,10 @@ impl RenderContextState {
 }
 
 impl SystemBuffer for RenderContextState {
-    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
-        let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        #[cfg(feature = "trace")]
+        let _span =
+            info_span!("RenderContextState::apply", system = %_system_meta.name()).entered();
 
         let inner = &mut *self.0;
 
@@ -249,7 +252,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        component_access_set.add_unfiltered_resource_read(state.resource_id);
+        component_access_set.add_resource_read(state.resource_id);
 
         <Query<'_, '_, D, F> as SystemParam>::init_access(
             &state.query_state,
@@ -260,11 +263,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
         let current_view = unsafe { world.get_resource::<CurrentView>() };
 
@@ -278,47 +282,15 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
         // SAFETY: Query state access is properly registered in init_access.
         // The caller ensures the world matches the one used in init_state.
-        let result = unsafe { state.query_state.get_unchecked(world, entity) };
+        let item = unsafe { state.query_state.get_unchecked(world, entity) }.map_err(|_| {
+            SystemParamValidationError::skipped::<Self>("Current view entity does not match query")
+        })?;
 
-        if result.is_err() {
-            return Err(SystemParamValidationError::skipped::<Self>(
-                "Current view entity does not match query",
-            ));
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        // SAFETY: We have registered resource read access and validate_param succeeded
-        let current_view = unsafe {
-            world
-                .get_resource::<CurrentView>()
-                .expect("CurrentView must exist")
-        };
-
-        let entity = current_view.entity();
-
-        // SAFETY: Query state access is properly registered in init_access.
-        // validate_param verified the entity matches.
-        let item = unsafe {
-            state
-                .query_state
-                .get_unchecked(world, entity)
-                .expect("view entity must match query")
-        };
-
-        ViewQuery {
+        Ok(ViewQuery {
             entity,
             item,
             _filter: PhantomData,
-        }
+        })
     }
 }
 

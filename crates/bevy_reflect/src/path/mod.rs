@@ -295,7 +295,8 @@ pub trait GetPath: PartialReflect {
 impl<T: Reflect + ?Sized> GetPath for T {}
 
 /// An [`Access`] combined with an `offset` for more helpful error reporting.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Reflect)]
+#[reflect(Clone, Debug, PartialEq, PartialOrd, Hash)]
 pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
@@ -363,7 +364,8 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From, Reflect)]
+#[reflect(Clone, Debug, PartialEq, PartialOrd, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
     pub Vec<OffsetAccess>,

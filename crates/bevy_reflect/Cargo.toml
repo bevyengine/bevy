@@ -129,7 +129,7 @@ uuid = { version = "1.21.0", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "28", features = [
+wgpu-types = { version = "29.0.3", features = [
   "serde",
 ], optional = true, default-features = false }
 
@@ -153,5 +153,9 @@ required-features = ["reflect_documentation"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

@@ -34,7 +34,7 @@ struct DiagnosticsRecorderInternal {
     submitted_frames: Vec<FrameData>,
     finished_frames: Vec<FrameData>,
     #[cfg(feature = "tracing-tracy")]
-    tracy_gpu_context: tracy_client::GpuContext,
+    tracy_gpu_context: Option<tracy_client::GpuContext>,
 }
 
 /// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
@@ -229,14 +229,14 @@ struct FrameData {
     is_mapped: Arc<AtomicBool>,
     callback: Option<Box<dyn FnOnce(RenderDiagnostics) + Send + Sync + 'static>>,
     #[cfg(feature = "tracing-tracy")]
-    tracy_gpu_context: tracy_client::GpuContext,
+    tracy_gpu_context: Option<tracy_client::GpuContext>,
 }
 
 impl FrameData {
     fn new(
         device: &RenderDevice,
         features: Features,
-        #[cfg(feature = "tracing-tracy")] tracy_gpu_context: tracy_client::GpuContext,
+        #[cfg(feature = "tracing-tracy")] tracy_gpu_context: Option<tracy_client::GpuContext>,
     ) -> FrameData {
         let wgpu_device = device.wgpu_device();
         let mut buffer_size = 0;
@@ -581,15 +581,19 @@ impl FrameData {
         let data = read_buffer.slice(..).get_mapped_range();
 
         let timestamps = data[..(self.num_timestamps * 8) as usize]
-            .chunks(8)
-            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
+            .as_chunks()
+            .0
+            .iter()
+            .map(|&v| u64::from_le_bytes(v))
             .collect::<Vec<u64>>();
 
         let start = self.pipeline_statistics_buffer_offset as usize;
         let len = (self.num_pipeline_statistics as usize) * 40;
         let pipeline_statistics = data[start..start + len]
-            .chunks(8)
-            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
+            .as_chunks()
+            .0
+            .iter()
+            .map(|&v| u64::from_le_bytes(v))
             .collect::<Vec<u64>>();
 
         let mut diagnostics = Vec::new();
@@ -614,12 +618,14 @@ impl FrameData {
                     // Calling span_alloc() and end_zone() here instead of in open_span() and close_span() means that tracy does not know where each GPU command was recorded on the CPU timeline.
                     // Unfortunately we must do it this way, because tracy does not play nicely with multithreaded command recording. The start/end pairs would get all mixed up.
                     // The GPU spans themselves are still accurate though, and it's probably safe to assume that each GPU span in frame N belongs to the corresponding CPU render node span from frame N-1.
-                    let name = &self.path_components[span.path_range.clone()].join("/");
-                    let mut tracy_gpu_span =
-                        self.tracy_gpu_context.span_alloc(name, "", "", 0).unwrap();
-                    tracy_gpu_span.end_zone();
-                    tracy_gpu_span.upload_timestamp_start(begin as i64);
-                    tracy_gpu_span.upload_timestamp_end(end as i64);
+                    if let Some(tracy_gpu_context) = &self.tracy_gpu_context {
+                        let name = &self.path_components[span.path_range.clone()].join("/");
+                        let mut tracy_gpu_span =
+                            tracy_gpu_context.span_alloc(name, "", "", 0).unwrap();
+                        tracy_gpu_span.end_zone();
+                        tracy_gpu_span.upload_timestamp_start(begin as i64);
+                        tracy_gpu_span.upload_timestamp_end(end as i64);
+                    }
                 }
 
                 diagnostics.push(RenderDiagnostic {
