@@ -3,20 +3,19 @@
 use bevy::{
     color::palettes::css::NAVY,
     feathers::{
-        controls::{virtual_keyboard, VirtualKeyPressed},
+        controls::{VirtualKeyPressed, VirtualKeyboard},
         dark_theme::create_dark_theme,
         theme::UiTheme,
         FeathersPlugins,
     },
     prelude::*,
-    scene2::prelude::{Scene, *},
 };
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
@@ -24,13 +23,12 @@ fn on_virtual_key_pressed(virtual_key_pressed: On<VirtualKeyPressed<&'static str
     println!("key pressed: {}", virtual_key_pressed.key);
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, keyboard()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, keyboard()]
 }
 
 fn keyboard() -> impl Scene {
-    let layout = [
+    let keys = [
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", ","],
         vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
         vec!["A", "S", "D", "F", "G", "H", "J", "K", "L", "'"],
@@ -61,7 +59,7 @@ fn keyboard() -> impl Scene {
             Children [
                 Text("virtual keyboard"),
                 (
-                    virtual_keyboard(layout.into_iter())
+                    :VirtualKeyboard::<&str> { @keys: keys }
                     on(on_virtual_key_pressed)
                 )
             ]

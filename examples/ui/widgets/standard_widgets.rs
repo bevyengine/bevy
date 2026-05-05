@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocus,
+        FocusCause, InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
@@ -18,20 +18,15 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, observe,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        Activate, Button, Checkbox, CoreSliderDragState, MenuAction, MenuButton, MenuEvent,
-        MenuItem, MenuPopup, RadioButton, RadioGroup, Slider, SliderRange, SliderThumb,
-        SliderValue, TrackClick, UiWidgetsPlugins, ValueChange,
+        Activate, Button, Checkbox, MenuAction, MenuButton, MenuEvent, MenuItem, MenuPopup,
+        RadioButton, RadioGroup, Slider, SliderDragState, SliderRange, SliderThumb, SliderValue,
+        TrackClick, ValueChange,
     },
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            UiWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .insert_resource(DemoWidgetStates {
             slider_value: 50.0,
             slider_click: TrackClick::Snap,
@@ -242,6 +237,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
                 ..default()
             },
             DemoMenuButton,
+            Button,
             MenuButton,
             Hovered::default(),
             TabIndex(0),
@@ -457,7 +453,7 @@ fn update_slider_style(
             &SliderValue,
             &SliderRange,
             &Hovered,
-            &CoreSliderDragState,
+            &SliderDragState,
             Has<InteractionDisabled>,
         ),
         (
@@ -465,7 +461,7 @@ fn update_slider_style(
                 Changed<SliderValue>,
                 Changed<SliderRange>,
                 Changed<Hovered>,
-                Changed<CoreSliderDragState>,
+                Changed<SliderDragState>,
                 Added<InteractionDisabled>,
             )>,
             With<DemoSlider>,
@@ -488,12 +484,7 @@ fn update_slider_style(
 
 fn update_slider_style2(
     sliders: Query<
-        (
-            Entity,
-            &Hovered,
-            &CoreSliderDragState,
-            Has<InteractionDisabled>,
-        ),
+        (Entity, &Hovered, &SliderDragState, Has<InteractionDisabled>),
         With<DemoSlider>,
     >,
     children: Query<&Children>,
@@ -805,7 +796,7 @@ fn on_menu_event(
     let popup = children.iter().find_map(|c| q_popup.get(c).ok());
     info!("Menu action: {:?}", menu_event.action);
     match menu_event.action {
-        MenuAction::Open => {
+        MenuAction::Open(_) => {
             if popup.is_none() {
                 spawn_menu(anchor, assets, commands);
             }
@@ -814,13 +805,13 @@ fn on_menu_event(
             Some(popup) => commands.entity(popup).despawn(),
             None => spawn_menu(anchor, assets, commands),
         },
-        MenuAction::Close | MenuAction::CloseAll => {
+        MenuAction::CloseAll => {
             if let Some(popup) = popup {
                 commands.entity(popup).despawn();
             }
         }
         MenuAction::FocusRoot => {
-            focus.0 = Some(anchor);
+            focus.set(anchor, FocusCause::Navigated);
         }
     }
 }

@@ -1,0 +1,1150 @@
+use crate::{DynamicWorld, DynamicWorldRoot, WorldAsset};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
+    event::EntityEvent,
+    hierarchy::ChildOf,
+    message::{MessageCursor, Messages},
+    reflect::AppTypeRegistry,
+    resource::Resource,
+    world::{Mut, World},
+};
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::Reflect;
+use bevy_utils::prelude::DebugName;
+use thiserror::Error;
+use uuid::Uuid;
+
+use crate::WorldAssetRoot;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    change_detection::ResMut,
+    prelude::{Changed, Component, Without},
+    system::{Commands, Query},
+};
+
+/// Triggered on a world instance's parent entity when [`WorldInstance`](`crate::WorldInstance`) becomes ready to use.
+///
+/// See also [`On`], [`WorldInstanceSpawner::instance_is_ready`].
+///
+/// [`On`]: bevy_ecs::observer::On
+#[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
+#[reflect(Debug, PartialEq, Clone)]
+pub struct WorldInstanceReady {
+    /// The entity whose world instance is ready.
+    pub entity: Entity,
+    /// Instance which has been spawned.
+    pub instance_id: InstanceId,
+}
+
+/// Information about a world instance.
+#[derive(Debug)]
+struct InstanceInfo {
+    /// Mapping of entities from the source world to the instance world.
+    entity_map: EntityHashMap<Entity>,
+    /// The parent to attach this instance to.
+    parent: Option<Entity>,
+}
+
+/// Unique id identifying a world instance.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Reflect)]
+#[reflect(Debug, PartialEq, Hash, Clone)]
+pub struct InstanceId(Uuid);
+
+impl InstanceId {
+    fn new() -> Self {
+        InstanceId(Uuid::new_v4())
+    }
+}
+
+/// Handles spawning and despawning world instances, either synchronously or batched through the [`world_instance_spawner_system`].
+///
+/// Synchronous methods: (`WorldAsset` operations will take effect immediately)
+/// - [`spawn_sync`](Self::spawn_sync)
+/// - [`spawn_dynamic_sync`](Self::spawn_dynamic_sync)
+/// - [`despawn_sync`](Self::despawn_sync)
+/// - [`despawn_dynamic_sync`](Self::despawn_dynamic_sync)
+/// - [`despawn_instance_sync`](Self::despawn_instance_sync)
+/// - [`update_spawned_instances`](Self::update_spawned_instances)
+/// - [`update_spawned_dynamic_worlds`](Self::update_spawned_dynamic_worlds)
+/// - [`spawn_queued_instances`](Self::spawn_queued_instances)
+/// - [`despawn_queued_world_asset_instances`](Self::despawn_queued_world_asset_instances)
+/// - [`despawn_queued_dynamic_world_instances`](Self::despawn_queued_dynamic_world_instances)
+///
+/// Deferred methods: (`WorldAsset` operations will be processed when the [`world_instance_spawner_system`] is run)
+/// - [`spawn_dynamic`](Self::spawn_dynamic)
+/// - [`spawn_dynamic_as_child`](Self::spawn_dynamic_as_child)
+/// - [`spawn`](Self::spawn)
+/// - [`spawn_as_child`](Self::spawn_as_child)
+/// - [`despawn`](Self::despawn)
+/// - [`despawn_dynamic`](Self::despawn_dynamic)
+/// - [`despawn_instance`](Self::despawn_instance)
+#[derive(Default, Resource)]
+pub struct WorldInstanceSpawner {
+    pub(crate) spawned_worlds: HashMap<AssetId<WorldAsset>, HashSet<InstanceId>>,
+    pub(crate) spawned_dynamic_worlds: HashMap<AssetId<DynamicWorld>, HashSet<InstanceId>>,
+    spawned_instances: HashMap<InstanceId, InstanceInfo>,
+    world_asset_event_reader: MessageCursor<AssetEvent<WorldAsset>>,
+    // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on world assets
+    // To handle hot reloading, they are unloaded/reloaded on asset modifications.
+    // When loading several subassets of an asset as is common with gltf, they each trigger a complete asset load,
+    // and each will trigger either a created or modified event for the parent asset. This causes the asset to be
+    // unloaded, losing its initial setup, and reloaded without it.
+    // Debouncing asset events let us ignore events that happen less than WORLD_ASSET_AGE_THRESHOLD frames
+    // apart and not reload the  in setthose cases as it's unlikely to be an actual asset change.
+    debounced_world_asset_events: HashMap<AssetId<WorldAsset>, u32>,
+    dynamic_world_asset_event_reader: MessageCursor<AssetEvent<DynamicWorld>>,
+    // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on dynamic worlds
+    // See debounced_world_asset_events
+    debounced_dynamic_world_asset_events: HashMap<AssetId<DynamicWorld>, u32>,
+    world_assets_to_spawn: Vec<(Handle<WorldAsset>, InstanceId, Option<Entity>)>,
+    dynamic_worlds_to_spawn: Vec<(Handle<DynamicWorld>, InstanceId, Option<Entity>)>,
+    world_assets_to_despawn: Vec<AssetId<WorldAsset>>,
+    dynamic_worlds_to_despawn: Vec<AssetId<DynamicWorld>>,
+    instances_to_despawn: Vec<InstanceId>,
+    instances_ready: Vec<(InstanceId, Option<Entity>)>,
+}
+
+/// Errors that can occur when spawning a world asset.
+#[derive(Error, Debug)]
+pub enum WorldInstanceSpawnError {
+    /// `WorldAsset` contains an unregistered component type.
+    #[error("world contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
+    UnregisteredComponent {
+        /// Type of the unregistered component.
+        type_path: String,
+    },
+    /// `WorldAsset` contains an unregistered resource type.
+    #[error("world contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
+    UnregisteredResource {
+        /// Type of the unregistered resource.
+        type_path: String,
+    },
+    /// `WorldAsset` contains an unregistered type.
+    #[error(
+        "world contains the unregistered type `{std_type_name}`. \
+        consider reflecting it with `#[derive(Reflect)]` \
+        and registering the type using `app.register_type::<T>()`"
+    )]
+    UnregisteredType {
+        /// The [type name](std::any::type_name) for the unregistered type.
+        std_type_name: DebugName,
+    },
+    /// `WorldAsset` contains an unregistered type which has a `TypePath`.
+    #[error(
+        "world contains the reflected type `{type_path}` but it was not found in the type registry. \
+        consider registering the type using `app.register_type::<T>()``"
+    )]
+    UnregisteredButReflectedType {
+        /// The unregistered type.
+        type_path: String,
+    },
+    /// `WorldAsset` contains a proxy without a represented type.
+    #[error("world contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
+    NoRepresentedType {
+        /// The dynamic instance type.
+        type_path: String,
+    },
+    /// Dynamic world with the given id does not exist.
+    #[error("Dynamic world does not exist")]
+    NonExistentDynamicWorld {
+        /// Id of the non-existent dynamic world.
+        id: AssetId<DynamicWorld>,
+    },
+    /// `WorldAsset` with the given id does not exist.
+    #[error("World asset does not exist")]
+    NonExistentWorldAsset {
+        /// Id of the non-existent world asset.
+        id: AssetId<WorldAsset>,
+    },
+}
+
+impl WorldInstanceSpawner {
+    /// Schedule the spawn of a new instance of the provided dynamic world.
+    pub fn spawn_dynamic(&mut self, id: impl Into<Handle<DynamicWorld>>) -> InstanceId {
+        let instance_id = InstanceId::new();
+        self.dynamic_worlds_to_spawn
+            .push((id.into(), instance_id, None));
+        instance_id
+    }
+
+    /// Schedule the spawn of a new instance of the provided dynamic world as a child of `parent`.
+    pub fn spawn_dynamic_as_child(
+        &mut self,
+        id: impl Into<Handle<DynamicWorld>>,
+        parent: Entity,
+    ) -> InstanceId {
+        let instance_id = InstanceId::new();
+        self.dynamic_worlds_to_spawn
+            .push((id.into(), instance_id, Some(parent)));
+        instance_id
+    }
+
+    /// Schedule the spawn of a new instance of the provided world asset.
+    pub fn spawn(&mut self, id: impl Into<Handle<WorldAsset>>) -> InstanceId {
+        let instance_id = InstanceId::new();
+        self.world_assets_to_spawn
+            .push((id.into(), instance_id, None));
+        instance_id
+    }
+
+    /// Schedule the spawn of a new instance of the provided world asset as a child of `parent`.
+    pub fn spawn_as_child(
+        &mut self,
+        id: impl Into<Handle<WorldAsset>>,
+        parent: Entity,
+    ) -> InstanceId {
+        let instance_id = InstanceId::new();
+        self.world_assets_to_spawn
+            .push((id.into(), instance_id, Some(parent)));
+        instance_id
+    }
+
+    /// Schedule the despawn of all instances of the provided world asset.
+    pub fn despawn(&mut self, id: impl Into<AssetId<WorldAsset>>) {
+        self.world_assets_to_despawn.push(id.into());
+    }
+
+    /// Schedule the despawn of all instances of the provided dynamic world.
+    pub fn despawn_dynamic(&mut self, id: impl Into<AssetId<DynamicWorld>>) {
+        self.dynamic_worlds_to_despawn.push(id.into());
+    }
+
+    /// Schedule the despawn of a world asset instance, removing all its entities from the world.
+    ///
+    /// Note: this will despawn _all_ entities associated with this instance, including those
+    /// that have been removed from the hierarchy. To despawn _only_ entities still in the hierarchy,
+    /// despawn the relevant root entity directly.
+    pub fn despawn_instance(&mut self, instance_id: InstanceId) {
+        self.instances_to_despawn.push(instance_id);
+    }
+
+    /// This will remove all records of this instance, without despawning any entities.
+    pub fn unregister_instance(&mut self, instance_id: InstanceId) {
+        self.spawned_instances.remove(&instance_id);
+    }
+
+    /// Immediately despawns all instances of a world asset.
+    pub fn despawn_sync(
+        &mut self,
+        world: &mut World,
+        id: impl Into<AssetId<WorldAsset>>,
+    ) -> Result<(), WorldInstanceSpawnError> {
+        if let Some(instance_ids) = self.spawned_worlds.remove(&id.into()) {
+            for instance_id in instance_ids {
+                self.despawn_instance_sync(world, &instance_id);
+            }
+        }
+        Ok(())
+    }
+
+    /// Immediately despawns all instances of a dynamic world.
+    pub fn despawn_dynamic_sync(
+        &mut self,
+        world: &mut World,
+        id: impl Into<AssetId<DynamicWorld>>,
+    ) -> Result<(), WorldInstanceSpawnError> {
+        if let Some(instance_ids) = self.spawned_dynamic_worlds.remove(&id.into()) {
+            for instance_id in instance_ids {
+                self.despawn_instance_sync(world, &instance_id);
+            }
+        }
+        Ok(())
+    }
+
+    /// Immediately despawns a world asset instance, removing all its entities from the world.
+    pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
+        if let Some(mut instance) = self.spawned_instances.remove(instance_id) {
+            Self::despawn_instance_internal(world, &mut instance);
+        }
+    }
+
+    fn despawn_instance_internal(world: &mut World, instance: &mut InstanceInfo) {
+        for &entity in instance.entity_map.values() {
+            if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                entity_mut.despawn();
+            };
+        }
+        // Just make sure if we reuse `InstanceInfo` for something, we don't reuse the despawned entities.
+        instance.entity_map.clear();
+    }
+
+    /// Immediately spawns a new instance of the provided dynamic world.
+    pub fn spawn_dynamic_sync(
+        &mut self,
+        world: &mut World,
+        id: impl Into<AssetId<DynamicWorld>>,
+    ) -> Result<InstanceId, WorldInstanceSpawnError> {
+        let mut entity_map = EntityHashMap::default();
+        let id = id.into();
+        Self::spawn_dynamic_internal(world, id, &mut entity_map)?;
+        let instance_id = InstanceId::new();
+        self.spawned_instances.insert(
+            instance_id,
+            InstanceInfo {
+                entity_map,
+                parent: None,
+            },
+        );
+        let spawned = self.spawned_dynamic_worlds.entry(id).or_default();
+        spawned.insert(instance_id);
+        // We trigger `WorldInstanceReady` events after processing all dynamic worlds
+        // WorldInstanceSpawner may not be available in the observer.
+        self.instances_ready.push((instance_id, None));
+        Ok(instance_id)
+    }
+
+    fn spawn_dynamic_internal(
+        world: &mut World,
+        id: AssetId<DynamicWorld>,
+        entity_map: &mut EntityHashMap<Entity>,
+    ) -> Result<(), WorldInstanceSpawnError> {
+        world.resource_scope(|world, dynamic_worlds: Mut<Assets<DynamicWorld>>| {
+            let dynamic_world = dynamic_worlds
+                .get(id)
+                .ok_or(WorldInstanceSpawnError::NonExistentDynamicWorld { id })?;
+
+            dynamic_world.write_to_world(world, entity_map)
+        })
+    }
+
+    /// Immediately spawns a new instance of the provided world asset.
+    pub fn spawn_sync(
+        &mut self,
+        world: &mut World,
+        id: impl Into<AssetId<WorldAsset>>,
+    ) -> Result<InstanceId, WorldInstanceSpawnError> {
+        let mut entity_map = EntityHashMap::default();
+        let id = id.into();
+        Self::spawn_sync_internal(world, id, &mut entity_map)?;
+        let instance_id = InstanceId::new();
+        self.spawned_instances.insert(
+            instance_id,
+            InstanceInfo {
+                entity_map,
+                parent: None,
+            },
+        );
+        let spawned = self.spawned_worlds.entry(id).or_default();
+        spawned.insert(instance_id);
+        // We trigger `WorldInstanceReady` events after processing all world assets
+        // WorldInstanceSpawner may not be available in the observer.
+        self.instances_ready.push((instance_id, None));
+        Ok(instance_id)
+    }
+
+    fn spawn_sync_internal(
+        world: &mut World,
+        id: AssetId<WorldAsset>,
+        entity_map: &mut EntityHashMap<Entity>,
+    ) -> Result<(), WorldInstanceSpawnError> {
+        world.resource_scope(|world, world_assets: Mut<Assets<WorldAsset>>| {
+            let world_asset = world_assets
+                .get(id)
+                .ok_or(WorldInstanceSpawnError::NonExistentWorldAsset { id })?;
+
+            world_asset.write_to_world_with(
+                world,
+                entity_map,
+                &world.resource::<AppTypeRegistry>().clone(),
+            )
+        })
+    }
+
+    /// Iterate through all instances of the provided worlds and update those immediately.
+    ///
+    /// Useful for updating already spawned world asset instances after their corresponding world asset has been
+    /// modified.
+    pub fn update_spawned_instances(
+        &mut self,
+        world: &mut World,
+        world_asset_ids: &[AssetId<WorldAsset>],
+    ) -> Result<(), WorldInstanceSpawnError> {
+        for id in world_asset_ids {
+            if let Some(spawned_instances) = self.spawned_worlds.get(id) {
+                for instance_id in spawned_instances {
+                    if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
+                        // Despawn the world asset before respawning it. This is a very heavy operation,
+                        // but otherwise, entities may be left behind, or be left in an otherwise
+                        // invalid state (e.g., invalid relationships).
+                        Self::despawn_instance_internal(world, instance_info);
+                        Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
+                        Self::set_instance_parent_sync(world, instance_info);
+                        // We trigger `WorldInstanceReady` events after processing all world assets
+                        // WorldInstanceSpawner may not be available in the observer.
+                        self.instances_ready
+                            .push((*instance_id, instance_info.parent));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Iterate through all instances of the provided dynamic worlds and update those immediately.
+    ///
+    /// Useful for updating already spawned world asset instances after their corresponding dynamic world
+    /// has been modified.
+    pub fn update_spawned_dynamic_worlds(
+        &mut self,
+        world: &mut World,
+        dynamic_world_ids: &[AssetId<DynamicWorld>],
+    ) -> Result<(), WorldInstanceSpawnError> {
+        for id in dynamic_world_ids {
+            if let Some(spawned_instances) = self.spawned_dynamic_worlds.get(id) {
+                for instance_id in spawned_instances {
+                    if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
+                        // Despawn the world asset before respawning it. This is a very heavy operation,
+                        // but otherwise, entities may be left behind, or be left in an otherwise
+                        // invalid state (e.g., invalid relationships).
+                        Self::despawn_instance_internal(world, instance_info);
+                        Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
+                        Self::set_instance_parent_sync(world, instance_info);
+                        // We trigger `WorldInstanceReady` events after processing all dynamic worlds
+                        // WorldInstanceSpawner may not be available in the observer.
+                        self.instances_ready
+                            .push((*instance_id, instance_info.parent));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Immediately despawns all instances scheduled for despawn by despawning their instances.
+    pub fn despawn_queued_world_asset_instances(
+        &mut self,
+        world: &mut World,
+    ) -> Result<(), WorldInstanceSpawnError> {
+        let world_assets_to_despawn = core::mem::take(&mut self.world_assets_to_despawn);
+        for handle in world_assets_to_despawn {
+            self.despawn_sync(world, handle)?;
+        }
+        let dynamic_worlds_to_despawn = core::mem::take(&mut self.dynamic_worlds_to_despawn);
+        for handle in dynamic_worlds_to_despawn {
+            self.despawn_dynamic_sync(world, handle)?;
+        }
+        Ok(())
+    }
+
+    /// Immediately despawns all world asset instances scheduled for despawn.
+    pub fn despawn_queued_dynamic_world_instances(&mut self, world: &mut World) {
+        let instances_to_despawn = core::mem::take(&mut self.instances_to_despawn);
+
+        for instance_id in instances_to_despawn {
+            self.despawn_instance_sync(world, &instance_id);
+        }
+    }
+
+    /// Immediately spawns all instances scheduled for spawn.
+    pub fn spawn_queued_instances(
+        &mut self,
+        world: &mut World,
+    ) -> Result<(), WorldInstanceSpawnError> {
+        let dynamic_worlds_to_spawn = core::mem::take(&mut self.dynamic_worlds_to_spawn);
+
+        for (handle, instance_id, parent) in dynamic_worlds_to_spawn {
+            let mut entity_map = EntityHashMap::default();
+
+            match Self::spawn_dynamic_internal(world, handle.id(), &mut entity_map) {
+                Ok(_) => {
+                    let instance_info = InstanceInfo { entity_map, parent };
+                    Self::set_instance_parent_sync(world, &instance_info);
+
+                    self.spawned_instances.insert(instance_id, instance_info);
+                    let spawned = self.spawned_dynamic_worlds.entry(handle.id()).or_default();
+                    spawned.insert(instance_id);
+                    // We trigger `WorldInstanceReady` events after processing all dynamic worlds
+                    // WorldInstanceSpawner may not be available in the observer.
+                    self.instances_ready.push((instance_id, parent));
+                }
+                Err(WorldInstanceSpawnError::NonExistentDynamicWorld { .. }) => {
+                    self.dynamic_worlds_to_spawn
+                        .push((handle, instance_id, parent));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        let world_assets_to_spawn = core::mem::take(&mut self.world_assets_to_spawn);
+
+        for (world_asset_handle, instance_id, parent) in world_assets_to_spawn {
+            let mut entity_map = EntityHashMap::default();
+
+            match Self::spawn_sync_internal(world, world_asset_handle.id(), &mut entity_map) {
+                Ok(_) => {
+                    let instance_info = InstanceInfo { entity_map, parent };
+                    Self::set_instance_parent_sync(world, &instance_info);
+
+                    self.spawned_instances.insert(instance_id, instance_info);
+                    let spawned = self
+                        .spawned_worlds
+                        .entry(world_asset_handle.id())
+                        .or_default();
+                    spawned.insert(instance_id);
+
+                    // We trigger `WorldInstanceReady` events after processing all world assets
+                    // WorldInstanceSpawner may not be available in the observer.
+                    self.instances_ready.push((instance_id, parent));
+                }
+                Err(WorldInstanceSpawnError::NonExistentWorldAsset { .. }) => {
+                    self.world_assets_to_spawn
+                        .push((world_asset_handle, instance_id, parent));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(())
+    }
+
+    fn set_instance_parent_sync(world: &mut World, instance: &InstanceInfo) {
+        let Some(parent) = instance.parent else {
+            return;
+        };
+        for &entity in instance.entity_map.values() {
+            // Add the `ChildOf` component to the world asset root, and update the `Children` component of
+            // the world asset parent
+            if !world
+                .get_entity(entity)
+                .ok()
+                // This will filter only the world asset root entity, as all other from the
+                // world asset have a parent
+                // Entities that wouldn't exist anymore are also skipped
+                // this case shouldn't happen anyway
+                .is_none_or(|entity| entity.contains::<ChildOf>())
+            {
+                world.entity_mut(parent).add_child(entity);
+            }
+        }
+    }
+
+    fn trigger_instance_ready_events(&mut self, world: &mut World) {
+        for (instance_id, parent) in self.instances_ready.drain(..) {
+            if let Some(parent) = parent {
+                // Defer via commands otherwise WorldInstanceSpawner is not available in the observer.
+                world.commands().trigger(WorldInstanceReady {
+                    instance_id,
+                    entity: parent,
+                });
+            } else {
+                // Defer via commands otherwise WorldInstanceSpawner is not available in the observer.
+                // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
+                // its way out, so lets avoid breaking people by making a second event.
+                world.commands().trigger(WorldInstanceReady {
+                    instance_id,
+                    entity: Entity::PLACEHOLDER,
+                });
+            }
+        }
+    }
+
+    /// Check that a world asset instance spawned previously is ready to use
+    pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
+        self.spawned_instances.contains_key(&instance_id)
+    }
+
+    /// Get an iterator over the entities in an instance, once it's spawned.
+    ///
+    /// Before the world asset is spawned, the iterator will be empty. Use [`Self::instance_is_ready`]
+    /// to check if the instance is ready.
+    pub fn iter_instance_entities(
+        &'_ self,
+        instance_id: InstanceId,
+    ) -> impl Iterator<Item = Entity> + '_ {
+        self.spawned_instances
+            .get(&instance_id)
+            .map(|instance| instance.entity_map.values())
+            .into_iter()
+            .flatten()
+            .copied()
+    }
+}
+
+/// System that handles scheduled world asset instance spawning and despawning through a [`WorldInstanceSpawner`].
+pub fn world_instance_spawner_system(world: &mut World) {
+    world.resource_scope(|world, mut instance_spawner: Mut<WorldInstanceSpawner>| {
+        // remove any loading instances where parent is deleted
+        let is_parent_alive = |parent: &Option<Entity>| {
+            parent
+                .map(|parent| world.get_entity(parent).is_ok())
+                .unwrap_or(true) // If we don't have a parent, then consider the parent alive.
+        };
+        instance_spawner
+            .dynamic_worlds_to_spawn
+            .retain(|(_, _, parent)| is_parent_alive(parent));
+        instance_spawner
+            .world_assets_to_spawn
+            .retain(|(_, _, parent)| is_parent_alive(parent));
+
+        let world_asset_events = world.resource::<Messages<AssetEvent<WorldAsset>>>();
+        let dynamic_world_asset_events = world.resource::<Messages<AssetEvent<DynamicWorld>>>();
+        let instance_spawner = &mut *instance_spawner;
+
+        let mut updated_spawned_instances = Vec::new();
+        for event in instance_spawner
+            .world_asset_event_reader
+            .read(world_asset_events)
+        {
+            match event {
+                AssetEvent::Added { id } => {
+                    instance_spawner.debounced_world_asset_events.insert(*id, 0);
+                }
+                AssetEvent::Modified { id }
+                    if instance_spawner
+                        .debounced_world_asset_events
+                        .insert(*id, 0)
+                        .is_none()
+                        && instance_spawner.spawned_worlds.contains_key(id) =>
+                {
+                    updated_spawned_instances.push(*id);
+                }
+                _ => {}
+            }
+        }
+        let mut updated_spawned_dynamic_worlds = Vec::new();
+        for event in instance_spawner
+            .dynamic_world_asset_event_reader
+            .read(dynamic_world_asset_events)
+        {
+            match event {
+                AssetEvent::Added { id } => {
+                    instance_spawner
+                        .debounced_dynamic_world_asset_events
+                        .insert(*id, 0);
+                }
+                AssetEvent::Modified { id }
+                    if instance_spawner
+                        .debounced_dynamic_world_asset_events
+                        .insert(*id, 0)
+                        .is_none()
+                        && instance_spawner.spawned_dynamic_worlds.contains_key(id) =>
+                {
+                    updated_spawned_dynamic_worlds.push(*id);
+                }
+                _ => {}
+            }
+        }
+
+        instance_spawner
+            .despawn_queued_world_asset_instances(world)
+            .unwrap();
+        instance_spawner.despawn_queued_dynamic_world_instances(world);
+        instance_spawner
+            .spawn_queued_instances(world)
+            .unwrap_or_else(|err| panic!("{}", err));
+        instance_spawner
+            .update_spawned_instances(world, &updated_spawned_instances)
+            .unwrap();
+        instance_spawner
+            .update_spawned_dynamic_worlds(world, &updated_spawned_dynamic_worlds)
+            .unwrap();
+        instance_spawner.trigger_instance_ready_events(world);
+
+        const WORLD_ASSET_AGE_THRESHOLD: u32 = 2;
+        for asset_id in instance_spawner.debounced_world_asset_events.clone().keys() {
+            let age = instance_spawner
+                .debounced_world_asset_events
+                .get(asset_id)
+                .unwrap();
+            if *age > WORLD_ASSET_AGE_THRESHOLD {
+                instance_spawner
+                    .debounced_world_asset_events
+                    .remove(asset_id);
+            } else {
+                instance_spawner
+                    .debounced_world_asset_events
+                    .insert(*asset_id, *age + 1);
+            }
+        }
+        for asset_id in instance_spawner
+            .debounced_dynamic_world_asset_events
+            .clone()
+            .keys()
+        {
+            let age = instance_spawner
+                .debounced_dynamic_world_asset_events
+                .get(asset_id)
+                .unwrap();
+            if *age > WORLD_ASSET_AGE_THRESHOLD {
+                instance_spawner
+                    .debounced_dynamic_world_asset_events
+                    .remove(asset_id);
+            } else {
+                instance_spawner
+                    .debounced_dynamic_world_asset_events
+                    .insert(*asset_id, *age + 1);
+            }
+        }
+    });
+}
+
+/// [`InstanceId`] of a spawned world asset. It can be used with the [`WorldInstanceSpawner`] to
+/// interact with the spawned world asset.
+#[derive(Component, Deref, DerefMut)]
+pub struct WorldInstance(pub(crate) InstanceId);
+
+/// System that will spawn instances from the [`WorldAssetRoot`] and [`DynamicWorldRoot`] components.
+pub fn world_instance_spawner(
+    mut commands: Commands,
+    mut world_assets_to_spawn: Query<
+        (Entity, &WorldAssetRoot, Option<&mut WorldInstance>),
+        (Changed<WorldAssetRoot>, Without<DynamicWorldRoot>),
+    >,
+    mut dynamic_worlds_to_spawn: Query<
+        (Entity, &DynamicWorldRoot, Option<&mut WorldInstance>),
+        (Changed<DynamicWorldRoot>, Without<WorldAssetRoot>),
+    >,
+    mut world_asset_spawner: ResMut<WorldInstanceSpawner>,
+) {
+    for (entity, world_asset_root, instance) in &mut world_assets_to_spawn {
+        let new_instance = world_asset_spawner.spawn_as_child(world_asset_root.0.clone(), entity);
+        if let Some(mut old_instance) = instance {
+            world_asset_spawner.despawn_instance(**old_instance);
+            *old_instance = WorldInstance(new_instance);
+        } else {
+            commands.entity(entity).insert(WorldInstance(new_instance));
+        }
+    }
+    for (entity, dynamic_world_root, instance) in &mut dynamic_worlds_to_spawn {
+        let new_instance =
+            world_asset_spawner.spawn_dynamic_as_child(dynamic_world_root.0.clone(), entity);
+        if let Some(mut old_instance) = instance {
+            world_asset_spawner.despawn_instance(**old_instance);
+            *old_instance = WorldInstance(new_instance);
+        } else {
+            commands.entity(entity).insert(WorldInstance(new_instance));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_asset::{AssetPlugin, AssetServer, Handle};
+    use bevy_ecs::{
+        component::Component,
+        hierarchy::Children,
+        observer::On,
+        prelude::{ReflectComponent, ReflectResource},
+        query::With,
+        system::{Commands, Query, Res, ResMut, RunSystemOnce},
+    };
+    use bevy_reflect::Reflect;
+
+    use crate::{DynamicWorldBuilder, DynamicWorldRoot, WorldSerializationPlugin};
+
+    use super::*;
+    use crate::{DynamicWorld, WorldInstanceSpawner};
+    use bevy_app::ScheduleRunnerPlugin;
+    use bevy_asset::Assets;
+    use bevy_ecs::{
+        entity::Entity,
+        prelude::{AppTypeRegistry, World},
+    };
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct ComponentA {
+        pub x: f32,
+        pub y: f32,
+    }
+
+    #[test]
+    fn spawn_and_delete() {
+        let mut app = App::new();
+
+        app.add_plugins(ScheduleRunnerPlugin::default())
+            .add_plugins(AssetPlugin::default())
+            .add_plugins(WorldSerializationPlugin);
+        app.register_type::<ComponentA>();
+        app.update();
+
+        let mut world = World::new();
+
+        // create a new DynamicWorld manually
+        world.spawn(ComponentA { x: 3.0, y: 4.0 });
+        let dynamic_world = DynamicWorld::from_world_with(
+            &world,
+            &app.world().resource::<AppTypeRegistry>().read(),
+        );
+        let dynamic_world_handle = app
+            .world_mut()
+            .resource_mut::<Assets<DynamicWorld>>()
+            .add(dynamic_world);
+
+        // spawn the world as a child of `entity` using `DynamicWorldRoot`
+        let entity = app
+            .world_mut()
+            .spawn(DynamicWorldRoot(dynamic_world_handle.clone()))
+            .id();
+
+        // run the app's schedule once, so that the dynamic world gets spawned
+        app.update();
+
+        // make sure that the world was added as a child of the root entity
+        let (instance_entity, instance_component_a) = app
+            .world_mut()
+            .query::<(Entity, &ComponentA)>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(instance_component_a.x, 3.0);
+        assert_eq!(instance_component_a.y, 4.0);
+        assert_eq!(
+            app.world().entity(entity).get::<Children>().unwrap().len(),
+            1
+        );
+
+        // let's try to delete the dynamic world
+        let mut world_asset_spawner = app.world_mut().resource_mut::<WorldInstanceSpawner>();
+        world_asset_spawner.despawn_dynamic(&dynamic_world_handle);
+
+        // run the spawner system to despawn the instance
+        app.update();
+
+        // the instance entity does not exist anymore
+        assert!(app.world().get_entity(instance_entity).is_err());
+
+        // the root entity does not have any children anymore
+        assert!(app.world().entity(entity).get::<Children>().is_none());
+    }
+
+    #[derive(Reflect, Component, Debug, PartialEq, Eq, Clone, Copy, Default)]
+    #[reflect(Component)]
+    struct A(usize);
+
+    #[test]
+    fn clone_dynamic_entities() {
+        let mut world = World::default();
+
+        // setup
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<A>();
+        world.insert_resource(atr);
+        world.insert_resource(Assets::<DynamicWorld>::default());
+
+        // start test
+        world.spawn(A(42));
+
+        assert_eq!(world.query::<&A>().iter(&world).len(), 1);
+
+        // clone only existing entity
+        let mut world_asset_spawner = WorldInstanceSpawner::default();
+        let entity = world
+            .query_filtered::<Entity, With<A>>()
+            .single(&world)
+            .unwrap();
+        let dynamic_world = {
+            let type_registry = world.resource::<AppTypeRegistry>().read();
+            DynamicWorldBuilder::from_world(&world, &type_registry)
+                .extract_entity(entity)
+                .build()
+        };
+
+        let dynamic_world_id = world
+            .resource_mut::<Assets<DynamicWorld>>()
+            .add(dynamic_world);
+        let instance_id = world_asset_spawner
+            .spawn_dynamic_sync(&mut world, &dynamic_world_id)
+            .unwrap();
+
+        // verify we spawned exactly one new entity with our expected component
+        assert_eq!(world.query::<&A>().iter(&world).len(), 2);
+
+        // verify that we can get this newly-spawned entity by the instance ID
+        let new_entity = world_asset_spawner
+            .iter_instance_entities(instance_id)
+            .next()
+            .unwrap();
+
+        // verify this is not the original entity
+        assert_ne!(entity, new_entity);
+
+        // verify this new entity contains the same data as the original entity
+        let [old_a, new_a] = world
+            .query::<&A>()
+            .get_many(&world, [entity, new_entity])
+            .unwrap();
+        assert_eq!(old_a, new_a);
+    }
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct ComponentF;
+
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Resource)]
+    struct TriggerCount(u32);
+
+    fn setup() -> App {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), WorldSerializationPlugin));
+        app.init_resource::<TriggerCount>();
+
+        app.register_type::<ComponentF>();
+        app.world_mut().spawn(ComponentF);
+        app.world_mut().spawn(ComponentF);
+
+        app
+    }
+
+    fn build_world_asset(app: &mut App) -> Handle<WorldAsset> {
+        app.world_mut()
+            .run_system_once(
+                |world: &World,
+                 type_registry: Res<'_, AppTypeRegistry>,
+                 asset_server: Res<'_, AssetServer>| {
+                    asset_server.add(
+                        WorldAsset::from_dynamic_world(
+                            &DynamicWorld::from_world(world),
+                            &type_registry.read(),
+                        )
+                        .unwrap(),
+                    )
+                },
+            )
+            .expect("Failed to run world asset builder system.")
+    }
+
+    fn build_dynamic_world(app: &mut App) -> Handle<DynamicWorld> {
+        app.world_mut()
+            .run_system_once(|world: &World, asset_server: Res<AssetServer>| {
+                asset_server.add(DynamicWorld::from_world(world))
+            })
+            .expect("Failed to run dynamic world builder system.")
+    }
+
+    fn observe_trigger(app: &mut App, instance_id: InstanceId, instance_entity: Option<Entity>) {
+        // Add observer
+        app.world_mut().add_observer(
+            move |event: On<WorldInstanceReady>,
+                  instance_spawner: Res<WorldInstanceSpawner>,
+                  mut trigger_count: ResMut<TriggerCount>| {
+                assert_eq!(
+                    event.event().instance_id,
+                    instance_id,
+                    "`WorldInstanceReady` contains the wrong `InstanceId`"
+                );
+                assert_eq!(
+                    event.event_target(),
+                    instance_entity.unwrap_or(Entity::PLACEHOLDER),
+                    "`WorldInstanceReady` triggered on the wrong parent entity"
+                );
+                assert!(
+                    instance_spawner.instance_is_ready(event.event().instance_id),
+                    "`InstanceId` is not ready"
+                );
+                trigger_count.0 += 1;
+            },
+        );
+
+        // Check observer is triggered once.
+        app.update();
+        app.world_mut()
+            .run_system_once(|trigger_count: Res<TriggerCount>| {
+                assert_eq!(
+                    trigger_count.0, 1,
+                    "wrong number of `WorldInstanceReady` triggers"
+                );
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn observe_world_asset() {
+        let mut app = setup();
+
+        // Build world asset.
+        let handle = build_world_asset(&mut app);
+
+        // Spawn instance.
+        let instance_id = app
+            .world_mut()
+            .run_system_once(
+                move |mut world_instance_spawner: ResMut<'_, WorldInstanceSpawner>| {
+                    world_instance_spawner.spawn(handle.clone())
+                },
+            )
+            .unwrap();
+
+        // Check trigger.
+        observe_trigger(&mut app, instance_id, None);
+    }
+
+    #[test]
+    fn observe_dynamic_world() {
+        let mut app = setup();
+
+        // Build dynamic world asset.
+        let dynamic_world = build_dynamic_world(&mut app);
+
+        // Spawn instance.
+        let instance_id = app
+            .world_mut()
+            .run_system_once(
+                move |mut instance_spawner: ResMut<'_, WorldInstanceSpawner>| {
+                    instance_spawner.spawn_dynamic(dynamic_world.clone())
+                },
+            )
+            .unwrap();
+
+        // Check trigger.
+        observe_trigger(&mut app, instance_id, None);
+    }
+
+    #[test]
+    fn observe_world_as_child() {
+        let mut app = setup();
+
+        // Build world asset.
+        let handle = build_world_asset(&mut app);
+
+        // Spawn asset as child.
+        let (instance_id, instance_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut world_instance_spawner: ResMut<'_, WorldInstanceSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = world_instance_spawner.spawn_as_child(handle.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
+
+        // Check trigger.
+        observe_trigger(&mut app, instance_id, Some(instance_entity));
+    }
+
+    #[test]
+    fn observe_dynamic_world_as_child() {
+        let mut app = setup();
+
+        // Build world asset.
+        let handle = build_dynamic_world(&mut app);
+
+        // Spawn asset as child.
+        let (instance_id, instance_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut world_instance_spawner: ResMut<'_, WorldInstanceSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = world_instance_spawner.spawn_dynamic_as_child(handle.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
+
+        // Check trigger.
+        observe_trigger(&mut app, instance_id, Some(instance_entity));
+    }
+
+    #[test]
+    fn despawn_instance() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), WorldSerializationPlugin));
+        app.register_type::<ComponentF>();
+
+        let asset_server = app.world().resource::<AssetServer>();
+
+        // Build dynamic world.
+        let handle = asset_server.add(DynamicWorld::default());
+        let count = 10;
+
+        // Checks the number of instances stored in `WorldInstanceSpawner`.
+        let check = |world: &mut World, expected_count: usize| {
+            let world_instance_spawner = world.resource::<WorldInstanceSpawner>();
+            assert_eq!(
+                world_instance_spawner.spawned_dynamic_worlds[&handle.id()].len(),
+                expected_count
+            );
+            assert_eq!(
+                world_instance_spawner.spawned_instances.len(),
+                expected_count
+            );
+        };
+
+        // Spawn dynamic world.
+        for _ in 0..count {
+            app.world_mut()
+                .spawn((ComponentF, DynamicWorldRoot(handle.clone())));
+        }
+
+        app.update();
+        check(app.world_mut(), count);
+
+        // Despawn dynamic world.
+        app.world_mut()
+            .run_system_once(
+                |mut commands: Commands, query: Query<Entity, With<ComponentF>>| {
+                    for entity in query.iter() {
+                        commands.entity(entity).despawn();
+                    }
+                },
+            )
+            .unwrap();
+
+        app.update();
+        check(app.world_mut(), 0);
+    }
+
+    #[test]
+    fn world_asset_child_order_preserved_when_archetype_order_mismatched() {
+        let mut app = App::new();
+
+        app.add_plugins(ScheduleRunnerPlugin::default())
+            .add_plugins(AssetPlugin::default())
+            .add_plugins(WorldSerializationPlugin)
+            .register_type::<ComponentA>()
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
+            .register_type::<ComponentF>();
+        app.update();
+
+        let mut asset_world = World::new();
+        let root = asset_world.spawn_empty().id();
+        let temporary_root = asset_world.spawn_empty().id();
+        // Spawn entities with different parent first before parenting them to the actual root, allowing us
+        // to decouple child order from archetype-creation-order
+        let child1 = asset_world
+            .spawn((ChildOf(temporary_root), ComponentA { x: 1.0, y: 1.0 }))
+            .id();
+        let child2 = asset_world
+            .spawn((ChildOf(temporary_root), ComponentA { x: 2.0, y: 2.0 }))
+            .id();
+        // the "first" child is intentionally spawned with a different component to force it into a "newer" archetype,
+        // meaning it will be iterated later in the spawn code.
+        let child0 = asset_world
+            .spawn((ChildOf(temporary_root), ComponentF))
+            .id();
+
+        asset_world
+            .entity_mut(root)
+            .add_children(&[child0, child1, child2]);
+
+        let world_asset = WorldAsset::new(asset_world);
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<WorldAsset>>()
+            .add(world_asset);
+
+        let spawned = app.world_mut().spawn(WorldAssetRoot(handle.clone())).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[1];
+        let children = world.entity(spawned_root).get::<Children>().unwrap();
+        assert_eq!(children.len(), 3);
+        assert!(world.entity(children[0]).get::<ComponentF>().is_some());
+        assert_eq!(
+            world.entity(children[1]).get::<ComponentA>().unwrap().x,
+            1.0
+        );
+        assert_eq!(
+            world.entity(children[2]).get::<ComponentA>().unwrap().x,
+            2.0
+        );
+    }
+}

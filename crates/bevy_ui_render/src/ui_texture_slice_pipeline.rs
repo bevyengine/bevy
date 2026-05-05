@@ -28,6 +28,7 @@ use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget;
+use bevy_ui::ComputedStackIndex;
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
@@ -137,7 +138,7 @@ pub fn init_ui_texture_slice_pipeline(mut commands: Commands, asset_server: Res<
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiTextureSlicePipelineKey {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for UiTextureSlicePipeline {
@@ -176,11 +177,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -223,6 +220,7 @@ pub fn extract_ui_texture_slices(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -234,7 +232,9 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
+        &slicers_query
+    {
         let content_box = uinode.content_box();
 
         // Skip invisible images
@@ -285,7 +285,7 @@ pub fn extract_ui_texture_slices(
 
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: uinode.stack_index,
+            stack_index: stack_index.0,
             transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
             color: image.color.into(),
             rect: Rect {
@@ -339,7 +339,9 @@ pub fn queue_ui_slices(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey { hdr: view.hdr },
+            UiTextureSlicePipelineKey {
+                target_format: view.target_format,
+            },
         );
 
         transparent_phase.add_transient(TransparentUi {

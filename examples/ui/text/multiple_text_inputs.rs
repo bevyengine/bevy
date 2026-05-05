@@ -4,27 +4,20 @@
 //! that is kept synchronized with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
 //! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Ctrl` + `Enter`.
 
-use bevy::color::palettes::css::YELLOW;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-    InputDispatchPlugin, InputFocus,
+    InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
-use bevy::ui_widgets::EditableTextInputPlugin;
+use bevy::text::{EditableText, TextCursorStyle};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins((
-            // `EditableTextInputPlugin` is also part of `UiWidgetsPlugins`, but we only need `EditableText` for this example
-            EditableTextInputPlugin,
-            // Input focus is required to direct keyboard input to the correct `EditableText`
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        // `EditableTextInputPlugin` is part of `DefaultPlugins`
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -104,13 +97,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: px(4.).all(),
                         ..default()
                     },
-                    EditableText::default(),
+                    EditableText::new(format!("Initial text {row}")),
                     TextCursorStyle::default(),
                     font.clone(),
                     BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
                     TextInputRow(row),
                     TabIndex(row as i32),
-                    BorderColor::all(YELLOW),
+                    BorderColor::all(SLATE_300),
                 ));
                 if row == 0 {
                     input.insert(AutoFocus);
@@ -198,8 +191,6 @@ fn submit_text(
     keyboard_input: Res<ButtonInput<Key>>,
     mut text_input: Query<(&mut EditableText, &TextInputRow)>,
     mut text_output: Query<(&mut Text, &TextInputRow), With<SubmitOutput>>,
-    mut font_context: ResMut<FontCx>,
-    mut layout_context: ResMut<LayoutCx>,
 ) {
     if keyboard_input.just_pressed(Key::Enter)
         && keyboard_input.pressed(Key::Control)
@@ -217,7 +208,7 @@ fn submit_text(
                 break;
             }
         }
-        editable_text.clear(&mut font_context.0, &mut layout_context.0);
+        editable_text.clear();
     }
 }
 
@@ -238,7 +229,7 @@ fn update_row_border_colors(
 
     for (row, mut border_color, is_input) in &mut row_borders {
         let mut color = if is_input {
-            YELLOW.into()
+            SLATE_300.into()
         } else {
             Color::WHITE
         };
