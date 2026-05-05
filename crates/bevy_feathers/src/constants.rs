@@ -26,6 +26,7 @@ pub mod icons {
 
 /// Size constants
 pub mod size {
+    use bevy_text::FontSize;
     use bevy_ui::Val;
 
     /// Common row size for buttons, sliders, spinners, etc.
@@ -45,4 +46,16 @@ pub mod size {
 
     /// Height of a toggle switch
     pub const TOGGLE_HEIGHT: Val = Val::Px(18.0);
+
+    /// Regular font size, used for most widget captions
+    pub const MEDIUM_FONT: FontSize = FontSize::Px(14.0);
+
+    /// Slightly smaller font size, used for text inputs
+    pub const COMPACT_FONT: FontSize = FontSize::Px(13.0);
+
+    /// Small font size
+    pub const SMALL_FONT: FontSize = FontSize::Px(12.0);
+
+    /// Extra-small font size
+    pub const EXTRA_SMALL_FONT: FontSize = FontSize::Px(11.0);
 }

@@ -47,18 +47,17 @@ use crate::{
 
 mod alpha_pattern;
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+pub mod display;
 pub mod focus;
 pub mod font_styles;
-mod icon;
 pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
-
-pub use icon::icon;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersCorePlugin;
@@ -107,6 +106,7 @@ impl Plugin for FeathersCorePlugin {
             .add_observer(theme::on_changed_background)
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
+            .add_observer(theme::on_changed_text_color)
             .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
