@@ -42,8 +42,14 @@ use std::collections::HashSet;
 
 use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
-use bevy_input::mouse::MouseScrollUnit;
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+    query::QueryData,
+    system::SystemParam,
+    traversal::Traversal,
+};
+use bevy_input::{mouse::MouseScrollUnit, touch::TouchPhase};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_platform::time::Instant;
@@ -56,6 +62,10 @@ use crate::{
     hover::{get_hovered_entities, is_directly_hovered, HoverMap, PreviousHoverMap},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap},
 };
+
+/// Maximum time between clicks for them to count as consecutive clicks.
+// TODO: add optional feature-flagged support for fetching this from the OS preferences
+pub const MULTI_CLICK_DURATION: Duration = Duration::from_millis(500);
 
 /// Stores the common data needed for all pointer events.
 ///
@@ -306,6 +316,8 @@ pub struct Click {
     pub hit: HitData,
     /// Duration between the pointer pressed and lifted for this click
     pub duration: Duration,
+    /// Number of consecutive clicks, starting at `1`.
+    pub count: u8,
 }
 
 /// Fires while a pointer is moving over the [target entity](EntityEvent::event_target).
@@ -452,6 +464,10 @@ pub struct Scroll {
     pub y: f32,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Touch phase of the input.
+    ///
+    /// When using a mouse, this will always be [`TouchPhase::Moved`].
+    pub phase: TouchPhase,
 }
 
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
@@ -459,11 +475,13 @@ pub struct Scroll {
 #[derive(Debug, Clone, Default)]
 pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
-    pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
+    pub pressing: EntityHashMap<(Location, Instant, HitData)>,
+    /// Stores the latest click time and count for each clicked entity.
+    pub clicking: EntityHashMap<(Instant, u8)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
-    pub dragging: HashMap<Entity, DragEntry>,
+    pub dragging: EntityHashMap<DragEntry>,
     /// Stores the hit data for each entity currently being dragged over by the pointer.
-    pub dragging_over: HashMap<Entity, HitData>,
+    pub dragging_over: EntityHashMap<HitData>,
 }
 
 impl PointerButtonState {
@@ -477,7 +495,7 @@ impl PointerButtonState {
 
 /// A cache map containing the ancestry of hovered entities
 #[derive(Debug, Clone, Default, Deref, DerefMut)]
-pub struct HoveredEntityAncestors(HashMap<Entity, HashSet<Entity>>);
+pub struct HoveredEntityAncestors(EntityHashMap<EntityHashSet>);
 
 impl HoveredEntityAncestors {
     /// Clears self and rebuilds a map of every hovered entity to its ancestors.
@@ -504,7 +522,7 @@ impl HoveredEntityAncestors {
             {
                 self.insert(hovered_entity, previous_entry.clone());
             } else {
-                let mut ancestors = HashSet::new();
+                let mut ancestors = EntityHashSet::new();
                 for member in ancestors_query.iter_ancestors(hovered_entity) {
                     ancestors.insert(member);
                 }
@@ -514,16 +532,16 @@ impl HoveredEntityAncestors {
     }
 
     /// Returns a new combined `HashSet` of ancestors for the provided `hover_entities`
-    pub fn get_ancestors_union(&self, hover_entities: &HashSet<Entity>) -> HashSet<Entity> {
+    pub fn get_ancestors_union(&self, hover_entities: &EntityHashSet) -> EntityHashSet {
         hover_entities
             .iter()
             .flat_map(|entity| self.get(entity))
             .flat_map(|set| set.iter().copied())
-            .collect::<HashSet<Entity>>()
+            .collect::<EntityHashSet>()
     }
 
     /// Returns the ancestors for the provided `hover_entity`, if it has been created
-    pub fn get_ancestors(&self, hover_entity: &Entity) -> Option<&HashSet<Entity>> {
+    pub fn get_ancestors(&self, hover_entity: &Entity) -> Option<&EntityHashSet> {
         self.get(hover_entity)
     }
 }
@@ -555,12 +573,12 @@ impl PointerState {
     }
 
     /// Retrieves the ancestors for a given hovered entity
-    pub fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&HashSet<Entity>> {
+    pub fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&EntityHashSet> {
         self.hovered_entity_ancestors.get_ancestors(hovered_entity)
     }
 
     /// Retrieves the union of ancestors for the given hovered entities
-    pub fn get_ancestors_union(&self, hovered_entities: &HashSet<Entity>) -> HashSet<Entity> {
+    pub fn get_ancestors_union(&self, hovered_entities: &EntityHashSet) -> EntityHashSet {
         self.hovered_entity_ancestors
             .get_ancestors_union(hovered_entities)
     }
@@ -711,7 +729,7 @@ pub fn pointer_events(
                     || {
                         ancestors_query
                             .iter_ancestors(hovered_entity)
-                            .collect::<HashSet<Entity>>()
+                            .collect::<EntityHashSet>()
                     },
                     Clone::clone,
                 );
@@ -726,7 +744,7 @@ pub fn pointer_events(
                 let union = new_hovered_entities
                     .union(&new_hovered_ancestors)
                     .copied()
-                    .collect::<HashSet<Entity>>();
+                    .collect::<EntityHashSet>();
                 // Keep entities and ancestors that are not going to continue to be hovered over
                 entities_to_send_leave.retain(|entity| !union.contains(entity));
                 // Send `Leave` events for those entities.
@@ -832,7 +850,7 @@ pub fn pointer_events(
                     || {
                         ancestors_query
                             .iter_ancestors(hovered_entity)
-                            .collect::<HashSet<Entity>>()
+                            .collect::<EntityHashSet>()
                     },
                     Clone::clone,
                 );
@@ -848,7 +866,7 @@ pub fn pointer_events(
                 let union = prev_hovered_entities
                     .union(&prev_hovered_ancestors)
                     .copied()
-                    .collect::<HashSet<Entity>>();
+                    .collect::<EntityHashSet>();
                 // Keep entities and ancestors that were not hovered over previously
                 entities_to_send_enter.retain(|entity| !union.contains(entity));
                 // Send `Enter` events for those entities.
@@ -928,6 +946,9 @@ pub fn pointer_events(
             }
             PointerAction::Release(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
+                state
+                    .clicking
+                    .retain(|_, (last_click, _)| now - *last_click <= MULTI_CLICK_DURATION);
 
                 // Emit Click and Release events on all the previously hovered entities.
                 for (hovered_entity, hit) in previous_hover_map
@@ -937,6 +958,11 @@ pub fn pointer_events(
                 {
                     // If this pointer previously pressed the hovered entity, emit a Click event
                     if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity) {
+                        let count = state
+                            .clicking
+                            .get(&hovered_entity)
+                            .map_or(1, |(_, count)| count.saturating_add(1));
+                        state.clicking.insert(hovered_entity, (now, count));
                         let click_event = Pointer::new(
                             pointer_id,
                             location.clone(),
@@ -944,6 +970,7 @@ pub fn pointer_events(
                                 button,
                                 hit: hit.clone(),
                                 duration: now - *press_instant,
+                                count,
                             },
                             hovered_entity,
                         );
@@ -1135,7 +1162,7 @@ pub fn pointer_events(
                     message_writers.move_events.write(move_event);
                 }
             }
-            PointerAction::Scroll { x, y, unit } => {
+            PointerAction::Scroll { x, y, unit, phase } => {
                 for (hovered_entity, hit) in hover_map
                     .get(&pointer_id)
                     .iter()
@@ -1150,6 +1177,7 @@ pub fn pointer_events(
                             x,
                             y,
                             hit: hit.clone(),
+                            phase,
                         },
                         hovered_entity,
                     );
@@ -1228,7 +1256,7 @@ mod tests {
 
     fn update_hover_map_with_hovered_entities(app: &mut App, camera: Entity, entities: &[Entity]) {
         let mut hover_map = HoverMap::default();
-        let mut entity_map = HashMap::default();
+        let mut entity_map = EntityHashMap::with_capacity(entities.len());
         for entity in entities {
             entity_map.insert(
                 *entity,
@@ -1237,6 +1265,7 @@ mod tests {
                     camera,
                     position: None,
                     normal: None,
+                    extra: None,
                 },
             );
         }

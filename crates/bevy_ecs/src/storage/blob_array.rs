@@ -3,6 +3,8 @@ use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
 use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 
+use crate::query::DebugCheckedUnwrap;
+
 /// A flat, type-erased data storage type.
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
@@ -12,6 +14,10 @@ use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 /// This type is reliant on its owning type to store the capacity and length information.
 #[derive(Debug)]
 pub(super) struct BlobArray {
+    /// The layout of the data.
+    /// This always has `size()` as a multiple of `align()`,
+    /// meaning we can use `repeat_packed` for layout and can
+    /// index the array by multiplying `size()` by the index.
     item_layout: Layout,
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
@@ -31,8 +37,10 @@ impl BlobArray {
     /// processes typically associated with the stored element.
     ///
     /// # Safety
-    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
-    /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    /// - `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
+    ///   If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    /// - `item_layout.size()` must be a multiple of `item_layout.align()`.
+    ///   Note that this is true for all rust types, but not all `Layout` values.
     ///
     /// [`needs_drop`]: std::mem::needs_drop
     pub unsafe fn with_capacity(
@@ -42,6 +50,12 @@ impl BlobArray {
     ) -> Self {
         if capacity == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
+            // Indexing operations require that the size be a multiple of the alignment
+            debug_assert_eq!(
+                item_layout.pad_to_align(),
+                item_layout,
+                "Layout size must be a multiple of its alignment"
+            );
 
             // Create a dangling pointer with the given alignment.
             let data = NonNull::without_provenance(align);
@@ -204,8 +218,8 @@ impl BlobArray {
         if cap != 0 {
             self.clear(len);
             if !self.is_zst() {
-                let layout =
-                    array_layout(&self.item_layout, cap).expect("array layout should be valid");
+                let layout = self.item_layout.repeat_packed(cap);
+                let layout = layout.expect("array layout should be valid");
                 alloc::alloc::dealloc(self.data.as_ptr().cast(), layout);
             }
             #[cfg(debug_assertions)]
@@ -246,8 +260,8 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, 0);
         if !self.is_zst() {
-            let new_layout = array_layout(&self.item_layout, capacity.get())
-                .expect("array layout should be valid");
+            let new_layout = self.item_layout.repeat_packed(capacity.get());
+            let new_layout = new_layout.expect("array layout should be valid");
             // SAFETY: layout has non-zero size because capacity > 0, and the blob isn't ZST (`self.is_zst` == false)
             let new_data = unsafe { alloc::alloc::alloc(new_layout) };
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
@@ -277,20 +291,21 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, current_capacity.get());
         if !self.is_zst() {
-            let new_layout = array_layout(&self.item_layout, new_capacity.get())
-                .expect("array layout should be valid");
+            let new_layout = self.item_layout.repeat_packed(new_capacity.get());
+            let new_layout = new_layout.expect("array layout should be valid");
+            let layout = self.item_layout.repeat_packed(current_capacity.get());
             // SAFETY:
             // - ptr was be allocated via this allocator
-            // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`
+            // - the layout used to previously allocate this array is equivalent to `self.item_layout.repeat_packed(current_capacity.get())`
             // - `item_layout.size() > 0` (`self.is_zst`==false) and `new_capacity > 0`, so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen
-            // here and the overflow is handled in `array_layout`
+            // here and the overflow is handled in `Layout::repeat_packed`
             let new_data = unsafe {
                 alloc::alloc::realloc(
                     self.get_ptr_mut().as_ptr(),
                     // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-                    array_layout_unchecked(&self.item_layout, current_capacity.get()),
+                    layout.debug_checked_unwrap(),
                     new_layout.size(),
                 )
             };
@@ -491,94 +506,6 @@ impl BlobArray {
             drop(value);
         }
     }
-}
-
-/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-pub(super) fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
-    let (array_layout, offset) = repeat_layout(layout, n)?;
-    debug_assert_eq!(layout.size(), offset);
-    Some(array_layout)
-}
-
-// TODO: replace with `Layout::repeat` if/when it stabilizes
-/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
-    // This cannot overflow. Quoting from the invariant of Layout:
-    // > `size`, when rounded up to the nearest multiple of `align`,
-    // > must not overflow (i.e., the rounded value must be less than
-    // > `usize::MAX`)
-    let padded_size = layout.size() + padding_needed_for(layout, layout.align());
-    let alloc_size = padded_size.checked_mul(n)?;
-
-    // SAFETY: self.align is already known to be valid and alloc_size has been
-    // padded already.
-    unsafe {
-        Some((
-            Layout::from_size_align_unchecked(alloc_size, layout.align()),
-            padded_size,
-        ))
-    }
-}
-
-/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-/// # Safety
-/// The caller must ensure that:
-/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
-pub(super) unsafe fn array_layout_unchecked(layout: &Layout, n: usize) -> Layout {
-    let (array_layout, offset) = repeat_layout_unchecked(layout, n);
-    debug_assert_eq!(layout.size(), offset);
-    array_layout
-}
-
-// TODO: replace with `Layout::repeat` if/when it stabilizes
-/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-/// # Safety
-/// The caller must ensure that:
-/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
-unsafe fn repeat_layout_unchecked(layout: &Layout, n: usize) -> (Layout, usize) {
-    // This cannot overflow. Quoting from the invariant of Layout:
-    // > `size`, when rounded up to the nearest multiple of `align`,
-    // > must not overflow (i.e., the rounded value must be less than
-    // > `usize::MAX`)
-    let padded_size = layout.size() + padding_needed_for(layout, layout.align());
-    // This may overflow in release builds, that's why this function is unsafe.
-    let alloc_size = padded_size * n;
-
-    // SAFETY: self.align is already known to be valid and alloc_size has been
-    // padded already.
-    unsafe {
-        (
-            Layout::from_size_align_unchecked(alloc_size, layout.align()),
-            padded_size,
-        )
-    }
-}
-
-/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
-    let len = layout.size();
-
-    // Rounded up value is:
-    //   len_rounded_up = (len + align - 1) & !(align - 1);
-    // and then we return the padding difference: `len_rounded_up - len`.
-    //
-    // We use modular arithmetic throughout:
-    //
-    // 1. align is guaranteed to be > 0, so align - 1 is always
-    //    valid.
-    //
-    // 2. `len + align - 1` can overflow by at most `align - 1`,
-    //    so the &-mask with `!(align - 1)` will ensure that in the
-    //    case of overflow, `len_rounded_up` will itself be 0.
-    //    Thus the returned padding, when added to `len`, yields 0,
-    //    which trivially satisfies the alignment `align`.
-    //
-    // (Of course, attempts to allocate blocks of memory whose
-    // size and padding overflow in the above manner should cause
-    // the allocator to yield an error anyway.)
-
-    let len_rounded_up = len.wrapping_add(align).wrapping_sub(1) & !align.wrapping_sub(1);
-    len_rounded_up.wrapping_sub(len)
 }
 
 #[cfg(test)]

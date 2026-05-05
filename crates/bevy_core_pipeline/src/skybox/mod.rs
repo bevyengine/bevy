@@ -8,8 +8,8 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault;
 use bevy_light::Skybox;
+use bevy_log::warn_once;
 use bevy_math::Mat4;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -21,7 +21,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -130,7 +130,7 @@ fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
     samples: u32,
     depth_format: TextureFormat,
 }
@@ -170,11 +170,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -194,14 +190,14 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    cameras: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, view, msaa) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },
@@ -227,17 +223,19 @@ fn prepare_skybox_bind_groups(
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
-        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
-            images.get(&skybox.image),
+        if let (Some(image_handle), Some(view_uniforms), Some(skybox_uniforms)) = (
+            &skybox.image,
             view_uniforms.uniforms.binding(),
             skybox_uniforms.binding(),
-        ) {
+        ) && let Some(image) = images.get(image_handle)
+            && sanity_check_skybox_image_and_warn(entity, skybox, image)
+        {
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
                 &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
-                    &skybox.texture_view,
-                    &skybox.sampler,
+                    &image.texture_view,
+                    &image.sampler,
                     view_uniforms,
                     skybox_uniforms,
                 )),
@@ -246,6 +244,30 @@ fn prepare_skybox_bind_groups(
             commands
                 .entity(entity)
                 .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
+        } else {
+            commands.entity(entity).remove::<SkyboxBindGroup>();
         }
     }
+}
+
+fn sanity_check_skybox_image_and_warn(entity: Entity, skybox: &Skybox, image: &GpuImage) -> bool {
+    let texture_view_dimension: Option<TextureViewDimension> = image
+        .texture_view_descriptor
+        .as_ref()
+        .and_then(|desc| desc.dimension);
+    let dimension_ok = texture_view_dimension == Some(TextureViewDimension::Cube);
+    if !dimension_ok {
+        // The texture view is not a cubemap and will fail validation if rendered.
+        // In this case, we ignore the skybox so as not to break rendering.
+        //
+        // There are other possible misconfigurations which will fail and which we do not
+        // catch here, but this is a common mistake (passing an unaltered 2D image to `Skybox`).
+        warn_once!(
+            "skybox {entity}'s image {image:?} has texture view dimension \
+                        {texture_view_dimension:?}, but it must be TextureViewDimension::Cube \
+                        to render a skybox",
+            image = skybox.image
+        );
+    }
+    dimension_ok
 }
