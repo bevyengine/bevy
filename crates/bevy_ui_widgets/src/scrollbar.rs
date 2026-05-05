@@ -145,10 +145,12 @@ fn scrollbar_on_pointer_down(
         // If they click on the scrollbar track, page up or down.
         ev.propagate(false);
 
-        // Convert to widget-local coordinates.
-        let local_pos = transform.try_inverse().unwrap().transform_point2(
+        let Some(normalized_pos) = node.normalize_point(
+            *transform,
             ev.event().pointer_location.position * node_target.scale_factor() / ui_scale.0,
-        ) + node.size() * 0.5;
+        ) else {
+            return;
+        };
 
         // Bail if we don't find the target entity.
         let Ok((mut scroll_pos, scroll_content)) = q_scroll_pos.get_mut(scrollbar.target) else {
@@ -170,16 +172,12 @@ fn scrollbar_on_pointer_down(
 
         match scrollbar.orientation {
             ControlOrientation::Horizontal => {
-                if node.size().x > 0. {
-                    let click_pos = local_pos.x * content_size.x / node.size().x;
-                    adjust_scroll_pos(&mut scroll_pos.x, click_pos, visible_size.x, max_range.x);
-                }
+                let click_pos = (normalized_pos.x + 0.5) * content_size.x;
+                adjust_scroll_pos(&mut scroll_pos.x, click_pos, visible_size.x, max_range.x);
             }
             ControlOrientation::Vertical => {
-                if node.size().y > 0. {
-                    let click_pos = local_pos.y * content_size.y / node.size().y;
-                    adjust_scroll_pos(&mut scroll_pos.y, click_pos, visible_size.y, max_range.y);
-                }
+                let click_pos = (normalized_pos.y + 0.5) * content_size.y;
+                adjust_scroll_pos(&mut scroll_pos.y, click_pos, visible_size.y, max_range.y);
             }
         }
     }

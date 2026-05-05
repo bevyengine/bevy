@@ -4,6 +4,8 @@ use core::ops::{Deref, DerefMut};
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
+#[cfg(feature = "ghost_nodes")]
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
@@ -60,6 +62,8 @@ pub struct UiSurface {
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
+    #[cfg(feature = "ghost_nodes")]
+    pub(super) dirty_ghost_children_scratch: EntityHashSet,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -71,10 +75,16 @@ fn _assert_send_sync_ui_surface_impl_safe() {
 
 impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("UiSurface")
+        let mut debug = f.debug_struct("UiSurface");
+        debug
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("taffy_children_scratch", &self.taffy_children_scratch)
-            .finish()
+            .field("taffy_children_scratch", &self.taffy_children_scratch);
+        #[cfg(feature = "ghost_nodes")]
+        debug.field(
+            "dirty_ghost_children_scratch",
+            &self.dirty_ghost_children_scratch,
+        );
+        debug.finish()
     }
 }
 
@@ -86,6 +96,8 @@ impl Default for UiSurface {
             entity_to_taffy: Default::default(),
             taffy,
             taffy_children_scratch: Vec::new(),
+            #[cfg(feature = "ghost_nodes")]
+            dirty_ghost_children_scratch: EntityHashSet::new(),
         }
     }
 }
