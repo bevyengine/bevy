@@ -1,38 +1,34 @@
 use crate::{
-    graph::NodePbr, MeshPipeline, MeshViewBindGroup, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset,
-    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
-};
-use crate::{
-    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
+    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
+    MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
+    ScreenSpaceReflectionsUniform, ScreenSpaceTransmission, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
+    core_3d::main_opaque_pass_3d,
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
+    oit::OrderIndependentTransparencySettingsOffset,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    schedule::{Core3d, Core3dSystems},
     tonemapping::{DebandDither, Tonemapping},
 };
-use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::BevyDefault as _;
+use bevy_ecs::prelude::*;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
-use bevy_render::RenderStartup;
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
+    camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
-    renderer::RenderContext,
-    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    renderer::{RenderContext, ViewQuery},
+    view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
@@ -108,124 +104,85 @@ impl Plugin for DeferredPbrLightingPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
-            .add_systems(RenderStartup, init_deferred_lighting_layout)
+            .init_gpu_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
+            .add_systems(
+                RenderStartup,
+                init_deferred_lighting_layout.after(MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),
+                prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),
             )
-            .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
+            .add_systems(
                 Core3d,
-                NodePbr::DeferredLightingPass,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::StartMainPass,
-                    NodePbr::DeferredLightingPass,
-                    Node3d::MainOpaquePass,
-                ),
+                deferred_lighting
+                    .before(main_opaque_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
             );
     }
 }
 
-#[derive(Default)]
-pub struct DeferredOpaquePass3dPbrLightingNode;
+pub fn deferred_lighting(
+    view: ViewQuery<(
+        &MeshViewBindGroup,
+        &ViewTarget,
+        &DeferredLightingIdDepthTexture,
+        &DeferredLightingPipeline,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    deferred_lighting_layout: Res<DeferredLightingLayout>,
+    deferred_lighting_pass_id: Res<ComponentUniforms<PbrDeferredLightingDepthId>>,
+    mut ctx: RenderContext,
+) {
+    let (
+        mesh_view_bind_group,
+        target,
+        deferred_lighting_id_depth_texture,
+        deferred_lighting_pipeline,
+    ) = view.into_inner();
 
-impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
-    type ViewQuery = (
-        &'static ViewUniformOffset,
-        &'static ViewLightsUniformOffset,
-        &'static ViewFogUniformOffset,
-        &'static ViewLightProbesUniformOffset,
-        &'static ViewScreenSpaceReflectionsUniformOffset,
-        &'static ViewEnvironmentMapUniformOffset,
-        &'static MeshViewBindGroup,
-        &'static ViewTarget,
-        &'static DeferredLightingIdDepthTexture,
-        &'static DeferredLightingPipeline,
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id)
+    else {
+        return;
+    };
+
+    let Some(deferred_lighting_pass_id_binding) = deferred_lighting_pass_id.uniforms().binding()
+    else {
+        return;
+    };
+
+    let bind_group_2 = ctx.render_device().create_bind_group(
+        "deferred_lighting_layout_group_2",
+        &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
+        &BindGroupEntries::single(deferred_lighting_pass_id_binding),
     );
 
-    fn run(
-        &self,
-        _graph_context: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (
-            view_uniform_offset,
-            view_lights_offset,
-            view_fog_offset,
-            view_light_probes_offset,
-            view_ssr_offset,
-            view_environment_map_offset,
-            mesh_view_bind_group,
-            target,
-            deferred_lighting_id_depth_texture,
-            deferred_lighting_pipeline,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let deferred_lighting_layout = world.resource::<DeferredLightingLayout>();
-
-        let Some(pipeline) =
-            pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id)
-        else {
-            return Ok(());
-        };
-
-        let deferred_lighting_pass_id =
-            world.resource::<ComponentUniforms<PbrDeferredLightingDepthId>>();
-        let Some(deferred_lighting_pass_id_binding) =
-            deferred_lighting_pass_id.uniforms().binding()
-        else {
-            return Ok(());
-        };
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        let bind_group_2 = render_context.render_device().create_bind_group(
-            "deferred_lighting_layout_group_2",
-            &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
-            &BindGroupEntries::single(deferred_lighting_pass_id_binding),
-        );
-
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("deferred_lighting"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &deferred_lighting_id_depth_texture.texture.default_view,
-                depth_ops: Some(Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Discard,
-                }),
-                stencil_ops: None,
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("deferred_lighting"),
+        color_attachments: &[Some(target.get_color_attachment())],
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+            view: &deferred_lighting_id_depth_texture.texture.default_view,
+            depth_ops: Some(Operations {
+                load: LoadOp::Load,
+                store: StoreOp::Discard,
             }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
+            stencil_ops: None,
+        }),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
 
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(
-            0,
-            &mesh_view_bind_group.main,
-            &[
-                view_uniform_offset.offset,
-                view_lights_offset.offset,
-                view_fog_offset.offset,
-                **view_light_probes_offset,
-                **view_ssr_offset,
-                **view_environment_map_offset,
-            ],
-        );
-        render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
-        render_pass.set_bind_group(2, &bind_group_2, &[]);
-        render_pass.draw(0..3, 0..1);
+    render_pass.set_render_pipeline(pipeline);
 
-        pass_span.end(&mut render_pass);
-
-        Ok(())
-    }
+    render_pass.set_bind_group(
+        0,
+        &mesh_view_bind_group.main,
+        &mesh_view_bind_group.main_offsets,
+    );
+    render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
+    render_pass.set_bind_group(2, &bind_group_2, &[]);
+    render_pass.draw(0..3, 0..1);
 }
 
 #[derive(Resource)]
@@ -281,6 +238,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL {
+                shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -331,6 +290,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::ATMOSPHERE) {
             shader_defs.push("ATMOSPHERE".into());
         }
+        shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
@@ -356,8 +316,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                layout.main_layout.clone(),
-                layout.binding_array_layout.clone(),
+                layout.main_layout,
+                layout.binding_array_layout,
                 self.bind_group_layout_2.clone(),
             ],
             vertex: VertexState {
@@ -369,11 +329,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -381,8 +337,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             depth_stencil: Some(DepthStencilState {
                 format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Equal,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Equal),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -438,8 +394,9 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<(
+    cameras: Query<(
         Entity,
+        &ExtractedCamera,
         &ExtractedView,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -457,12 +414,15 @@ pub fn prepare_deferred_lighting_pipelines(
         ),
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
+        Option<&ScreenSpaceTransmission>,
+        Has<OrderIndependentTransparencySettingsOffset>,
         Has<SkipDeferredLighting>,
         Has<ExtractedAtmosphere>,
     )>,
 ) {
     for (
         entity,
+        camera,
         view,
         tonemapping,
         dither,
@@ -471,9 +431,11 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        transmission,
+        has_oit,
         skip_deferred_lighting,
         has_atmosphere,
-    ) in &views
+    ) in &cameras
     {
         // If there is no deferred prepass or we want to skip the deferred lighting pass,
         // remove the old pipeline if there was one. This handles the case in which a
@@ -483,7 +445,7 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -501,6 +463,14 @@ pub fn prepare_deferred_lighting_pipelines(
             view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
+        if let Some(transmission) = transmission {
+            view_key |= transmission.quality.pipeline_key();
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
         if view.invert_culling {
             view_key |= MeshPipelineKey::INVERT_CULLING;
         }
@@ -508,7 +478,7 @@ pub fn prepare_deferred_lighting_pipelines(
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {
@@ -524,6 +494,7 @@ pub fn prepare_deferred_lighting_pipelines(
                     }
                     Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                    Tonemapping::PbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
                 };
             }
             if let Some(DebandDither::Enabled) = dither {
@@ -573,7 +544,7 @@ pub fn prepare_deferred_lighting_pipelines(
     }
 }
 
-/// Component to skip running the deferred lighting pass in [`DeferredOpaquePass3dPbrLightingNode`] for a specific view.
+/// Component to skip running the deferred lighting pass in [`deferred_lighting`] for a specific view.
 ///
 /// This works like [`crate::PbrPlugin::add_default_deferred_lighting_plugin`], but is per-view instead of global.
 ///

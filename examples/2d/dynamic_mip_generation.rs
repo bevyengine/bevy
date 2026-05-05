@@ -14,13 +14,22 @@ use std::array;
 
 use bevy::{
     asset::RenderAssetUsages,
-    core_pipeline::mip_generation::{MipGenerationJobs, MipGenerationNode, MipGenerationPhaseId},
+    core_pipeline::{
+        mip_generation::{
+            generate_mips_for_phase, MipGenerationJobs, MipGenerationPhaseId,
+            MipGenerationPipelines,
+        },
+        schedule::Core2d,
+    },
     prelude::*,
     reflect::TypePath,
     render::{
-        graph::CameraDriverLabel,
-        render_graph::{RenderGraph, RenderLabel},
-        render_resource::{AsBindGroup, Extent3d, TextureDimension, TextureFormat, TextureUsages},
+        render_asset::RenderAssets,
+        render_resource::{
+            AsBindGroup, Extent3d, PipelineCache, TextureDimension, TextureFormat, TextureUsages,
+        },
+        renderer::RenderContext,
+        texture::GpuImage,
         Extract, RenderApp,
     },
     shader::ShaderRef,
@@ -28,7 +37,8 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::{PrimaryWindow, WindowResized},
 };
-use rand::{rngs::ThreadRng, Rng};
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 use crate::widgets::{
     RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender, BUTTON_BORDER,
@@ -57,7 +67,7 @@ const MIP_SLICES_MARGIN_RIGHT: f32 = 12.0;
 const MIP_SLICES_WIDTH: f32 = 1.0 / 6.0;
 
 /// The size of the mipmap level label font.
-const FONT_SIZE: f32 = 16.0;
+const FONT_SIZE: FontSize = FontSize::Px(16.0);
 
 /// All settings that the user can change via the UI.
 #[derive(Resource)]
@@ -68,6 +78,8 @@ struct AppStatus {
     image_width: ImageSize,
     /// The height of the image.
     image_height: ImageSize,
+    /// Seeded random generator.
+    rng: ChaCha8Rng,
 }
 
 impl Default for AppStatus {
@@ -76,6 +88,7 @@ impl Default for AppStatus {
             enable_mip_generation: EnableMipGeneration::On,
             image_width: ImageSize::Size640,
             image_height: ImageSize::Size480,
+            rng: ChaCha8Rng::seed_from_u64(19878367467713),
         }
     }
 }
@@ -177,12 +190,7 @@ struct MipmapSizeIterator {
     size: Option<UVec2>,
 }
 
-/// A [`RenderLabel`] for the mipmap generation render node.
-///
-/// This is needed in order to order the mipmap generation node relative to the
-/// node that renders the image for which mipmaps have been generated.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, RenderLabel)]
-struct MipGenerationLabel;
+const MIP_GENERATION_PHASE_ID: MipGenerationPhaseId = MipGenerationPhaseId(0);
 
 /// A marker component for every mesh that displays the image.
 ///
@@ -239,21 +247,7 @@ fn main() {
 
     let render_app = app.get_sub_app_mut(RenderApp).expect("Need a render app");
 
-    // Add a `MipGenerationNode` corresponding to our phase to the render graph.
-    let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-    render_graph.add_node(
-        MipGenerationLabel,
-        MipGenerationNode(MipGenerationPhaseId(0)),
-    );
-
-    // Add an edge so that our mip generation node will run prior to rendering
-    // any cameras.
-    // If your mip generation node needs to run before some cameras and after
-    // others, you can use more complex constraints. Or, for more exotic
-    // scenarios, you can also create a custom render node that wraps a
-    // `MipGenerationNode` and examines properties of the camera to invoke the
-    // node at the appropriate time.
-    render_graph.add_node_edge(MipGenerationLabel, CameraDriverLabel);
+    render_app.add_systems(Core2d, generate_mips_for_example);
 
     // Add the system that adds the image into the `MipGenerationJobs` list.
     // Note that this must run as part of the extract schedule, because it needs
@@ -261,6 +255,26 @@ fn main() {
     render_app.add_systems(ExtractSchedule, extract_mipmap_source_image);
 
     app.run();
+}
+
+fn generate_mips_for_example(
+    mip_generation_jobs: Res<MipGenerationJobs>,
+    pipeline_cache: Res<PipelineCache>,
+    mip_generation_pipelines: Option<Res<MipGenerationPipelines>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    mut ctx: RenderContext,
+) {
+    let Some(mip_generation_pipelines) = mip_generation_pipelines else {
+        return;
+    };
+    generate_mips_for_phase(
+        MIP_GENERATION_PHASE_ID,
+        &mip_generation_jobs,
+        &pipeline_cache,
+        &mip_generation_pipelines,
+        &gpu_images,
+        &mut ctx,
+    );
 }
 
 /// Global assets used for this example.
@@ -281,7 +295,7 @@ impl FromWorld for AppAssets {
         let asset_server = world.resource::<AssetServer>();
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         let text_font = TextFont {
-            font: font.clone(),
+            font: font.into(),
             font_size: FONT_SIZE,
             ..default()
         };
@@ -446,7 +460,7 @@ fn extract_mipmap_source_image(
     mut mip_generation_jobs: ResMut<MipGenerationJobs>,
 ) {
     if app_status.enable_mip_generation == EnableMipGeneration::On {
-        mip_generation_jobs.add(MipGenerationPhaseId(0), mipmap_source_image.id());
+        mip_generation_jobs.add(MIP_GENERATION_PHASE_ID, mipmap_source_image.id());
     }
 }
 
@@ -537,7 +551,7 @@ fn regenerate_image_when_requested(
     image_views_query: Query<Entity, With<ImageView>>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
     app_assets: Res<AppAssets>,
-    app_status: Res<AppStatus>,
+    mut app_status: ResMut<AppStatus>,
     mut images: ResMut<Assets<Image>>,
     mut single_mip_level_materials: ResMut<Assets<SingleMipLevelMaterial>>,
     mut color_materials: ResMut<Assets<ColorMaterial>>,
@@ -656,7 +670,7 @@ fn spawn_mip_level_views(
                 mip_level, mip_size.x, mip_size.y
             )),
             app_assets.text_font.clone(),
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
             Text2dShadow::default(),
             Transform::from_xyz(x_origin - max_slice_size.x * 0.5 - 64.0, y_center, 0.0),
             ImageView,
@@ -750,7 +764,7 @@ impl AppStatus {
 
     /// Regenerates the main image based on the image size selected by the user.
     fn regenerate_mipmap_source_image(
-        &self,
+        &mut self,
         commands: &mut Commands,
         images: &mut Assets<Image>,
     ) -> Handle<Image> {
@@ -779,11 +793,10 @@ impl AppStatus {
     /// Draws the concentric ellipses that make up the image.
     ///
     /// Returns the RGBA8 image data.
-    fn generate_image_data(&self) -> Vec<u8> {
+    fn generate_image_data(&mut self) -> Vec<u8> {
         // Select random colors for the inner and outer ellipses.
-        let mut rng = ThreadRng::default();
-        let outer_color: [u8; 3] = array::from_fn(|_| rng.random());
-        let inner_color: [u8; 3] = array::from_fn(|_| rng.random());
+        let outer_color: [u8; 3] = array::from_fn(|_| self.rng.random());
+        let inner_color: [u8; 3] = array::from_fn(|_| self.rng.random());
 
         let image_byte_size = 4usize
             * MipmapSizeIterator::new(self)

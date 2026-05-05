@@ -46,21 +46,26 @@ pub(super) fn ray_intersection_over_mesh(
         return None; // ray_mesh_intersection assumes vertices are laid out in a triangle list
     }
     // Vertex positions are required
-    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
+    let positions = mesh
+        .try_attribute(Mesh::ATTRIBUTE_POSITION)
+        .ok()?
+        .as_float3()?;
 
     // Normals are optional
     let normals = mesh
-        .attribute(Mesh::ATTRIBUTE_NORMAL)
+        .try_attribute(Mesh::ATTRIBUTE_NORMAL)
+        .ok()
         .and_then(|normal_values| normal_values.as_float3());
 
     let uvs = mesh
-        .attribute(Mesh::ATTRIBUTE_UV_0)
+        .try_attribute(Mesh::ATTRIBUTE_UV_0)
+        .ok()
         .and_then(|uvs| match uvs {
             VertexAttributeValues::Float32x2(uvs) => Some(uvs.as_slice()),
             _ => None,
         });
 
-    match mesh.indices() {
+    match mesh.try_indices().ok() {
         Some(Indices::U16(indices)) => {
             ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
@@ -99,16 +104,14 @@ where
         }
 
         indices
-            .chunks_exact(3)
+            .as_chunks()
+            .0
+            .iter()
             .enumerate()
             .fold(
                 (f32::MAX, None),
-                |(closest_distance, closest_hit), (tri_idx, triangle)| {
-                    let [Ok(a), Ok(b), Ok(c)] = [
-                        triangle[0].try_into(),
-                        triangle[1].try_into(),
-                        triangle[2].try_into(),
-                    ] else {
+                |(closest_distance, closest_hit), (tri_idx, &[a, b, c])| {
+                    let [Ok(a), Ok(b), Ok(c)] = [a.try_into(), b.try_into(), c.try_into()] else {
                         return (closest_distance, closest_hit);
                     };
 
@@ -131,17 +134,14 @@ where
             .1
     } else {
         positions
-            .chunks_exact(3)
+            .as_chunks()
+            .0
+            .iter()
+            .map(|&[a, b, c]| [Vec3::from(a), Vec3::from(b), Vec3::from(c)])
             .enumerate()
             .fold(
                 (f32::MAX, None),
-                |(closest_distance, closest_hit), (tri_idx, triangle)| {
-                    let tri_vertices = [
-                        Vec3::from(triangle[0]),
-                        Vec3::from(triangle[1]),
-                        Vec3::from(triangle[2]),
-                    ];
-
+                |(closest_distance, closest_hit), (tri_idx, tri_vertices)| {
                     match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
                         Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
                             (hit.distance, Some((tri_idx, hit)))
