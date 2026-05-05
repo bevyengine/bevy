@@ -55,9 +55,11 @@ pub enum BsnSceneListItem {
 pub enum BsnInheritedScene {
     Asset(LitStr),
     Fn {
-        function: Path,
+        path: Path,
         args: Option<Punctuated<Expr, Token![,]>>,
     },
+    Type(BsnType),
+    Expression(TokenStream),
 }
 
 #[derive(Debug)]
@@ -78,6 +80,7 @@ pub struct BsnTuple(pub Vec<BsnValue>);
 
 #[derive(Debug)]
 pub struct BsnNamedField {
+    pub is_prop: bool,
     pub name: Ident,
     /// This is an Option to enable autocomplete when the field name is being typed
     /// To improve autocomplete further we'll need to forgo a lot of the syn parsing
