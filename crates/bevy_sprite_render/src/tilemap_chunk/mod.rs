@@ -127,7 +127,7 @@ impl Default for TileData {
 
 /// Component storing the data of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 
