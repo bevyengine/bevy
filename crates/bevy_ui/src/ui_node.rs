@@ -3233,6 +3233,10 @@ mod tests {
         assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
     }
 
+    fn abs_diff_eq_rect(s: Rect, t: Rect) -> bool {
+        s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5)
+    }
+
     #[test]
     fn overflow_clip_margin_boxes() {
         let size = 100.;
@@ -3248,7 +3252,7 @@ mod tests {
 
         let r = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size));
 
-        let (s, t) = (
+        assert!(abs_diff_eq_rect(
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
@@ -3257,10 +3261,9 @@ mod tests {
                 },
             ),
             r.inflate(m),
-        );
-        assert!(s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5));
+        ));
 
-        let (s, t) = (
+        assert!(abs_diff_eq_rect(
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
@@ -3269,10 +3272,9 @@ mod tests {
                 },
             ),
             r.inflate(m - b),
-        );
-        assert!(s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5));
+        ));
 
-        let (s, t) = (
+        assert!(abs_diff_eq_rect(
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
@@ -3281,8 +3283,7 @@ mod tests {
                 },
             ),
             r.inflate(m - b - p),
-        );
-        assert!(s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5));
+        ));
     }
 
     #[test]
@@ -3305,7 +3306,6 @@ mod tests {
         );
         let s = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size)).inflate(m * scale_factor);
 
-        assert!(r.min.abs_diff_eq(s.max, 1e-5));
-        assert!(r.max.abs_diff_eq(s.max, 1e-5));
+        assert!(abs_diff_eq_rect(r, s));
     }
 }
