@@ -1,9 +1,11 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{primitives::Triangle3d, Vec3};
-use wgpu::PrimitiveTopology;
+use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Triangle3d`] shape.
+#[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub struct Triangle3dMeshBuilder {
     triangle: Triangle3d,
 }

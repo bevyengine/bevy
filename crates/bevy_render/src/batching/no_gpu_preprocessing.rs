@@ -1,14 +1,19 @@
 //! Batching functionality when GPU preprocessing isn't in use.
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{Res, ResMut, Resource, StaticSystemParam};
+use bevy_ecs::entity::Entity;
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{Res, ResMut, StaticSystemParam};
+use bevy_ecs::world::{FromWorld, World};
+use bevy_log::error;
 use smallvec::{smallvec, SmallVec};
-use wgpu::BindingResource;
+use wgpu::{BindingResource, Limits};
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
+        CachedRenderPipelinePhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
@@ -25,20 +30,30 @@ pub struct BatchedInstanceBuffer<BD>(pub GpuArrayBuffer<BD>)
 where
     BD: GpuArrayBufferable + Sync + Send + 'static;
 
+impl<BD> FromWorld for BatchedInstanceBuffer<BD>
+where
+    BD: GpuArrayBufferable + Sync + Send + 'static,
+{
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        BatchedInstanceBuffer(GpuArrayBuffer::new(&render_device.limits()))
+    }
+}
+
 impl<BD> BatchedInstanceBuffer<BD>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
 {
     /// Creates a new buffer.
-    pub fn new(render_device: &RenderDevice) -> Self {
-        BatchedInstanceBuffer(GpuArrayBuffer::new(render_device))
+    pub fn new(limits: &Limits) -> Self {
+        BatchedInstanceBuffer(GpuArrayBuffer::new(limits))
     }
 
     /// Returns the binding of the buffer that contains the per-instance data.
     ///
     /// If we're in the GPU instance buffer building mode, this buffer needs to
     /// be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.binding()
     }
 }
@@ -104,11 +119,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     for phase in phases.values_mut() {
         // Prepare batchables.
 
-        for key in &phase.batchable_mesh_keys {
+        for bin in phase.batchable_meshes.values_mut() {
             let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
-            for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
+            for main_entity in bin.entities().keys() {
                 let Some(buffer_data) =
-                    GFBD::get_binned_batch_data(&system_param_item, (entity, main_entity))
+                    GFBD::get_binned_batch_data(&system_param_item, *main_entity)
                 else {
                     continue;
                 };
@@ -125,7 +140,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             == PhaseItemExtraIndex::maybe_dynamic_offset(instance.dynamic_offset)
                 }) {
                     batch_set.push(BinnedRenderPhaseBatch {
-                        representative_entity: (entity, main_entity),
+                        representative_entity: (Entity::PLACEHOLDER, *main_entity),
                         instance_range: instance.index..instance.index,
                         extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(
                             instance.dynamic_offset,
@@ -138,14 +153,24 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 }
             }
 
-            phase.batch_sets.push(batch_set);
+            match phase.batch_sets {
+                BinnedRenderPhaseBatchSets::DynamicUniforms(ref mut batch_sets) => {
+                    batch_sets.push(batch_set);
+                }
+                BinnedRenderPhaseBatchSets::Direct(_)
+                | BinnedRenderPhaseBatchSets::MultidrawIndirect { .. } => {
+                    error!(
+                        "Dynamic uniform batch sets should be used when GPU preprocessing is off"
+                    );
+                }
+            }
         }
 
         // Prepare unbatchables.
-        for key in &phase.unbatchable_mesh_keys {
-            let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
-            for &entity in &unbatchables.entities {
-                let Some(buffer_data) = GFBD::get_binned_batch_data(&system_param_item, entity)
+        for unbatchables in phase.unbatchable_meshes.values_mut() {
+            for main_entity in unbatchables.entities.keys() {
+                let Some(buffer_data) =
+                    GFBD::get_binned_batch_data(&system_param_item, *main_entity)
                 else {
                     continue;
                 };

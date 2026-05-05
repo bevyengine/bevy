@@ -1,4 +1,5 @@
 use crate::{
+    ops,
     primitives::{InfinitePlane3d, Plane2d},
     Dir2, Dir3, Vec2, Vec3,
 };
@@ -11,7 +12,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -24,23 +29,25 @@ pub struct Ray2d {
 }
 
 impl Ray2d {
-    /// Create a new `Ray2d` from a given origin and direction
+    /// Creates a new `Ray2d` from a given origin and direction
     #[inline]
     pub const fn new(origin: Vec2, direction: Dir2) -> Self {
         Self { origin, direction }
     }
 
-    /// Get a point at a given distance along the ray
+    /// Returns the point at a given distance along the ray.
     #[inline]
     pub fn get_point(&self, distance: f32) -> Vec2 {
         self.origin + *self.direction * distance
     }
 
-    /// Get the distance to a plane if the ray intersects it
+    /// Returns the distance to a plane if the ray intersects it.
+    ///
+    /// Use [`Ray2d::plane_intersection_point`] to get the intersection point directly.
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
-        if denominator.abs() > f32::EPSILON {
+        if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
@@ -48,12 +55,25 @@ impl Ray2d {
         }
         None
     }
+
+    /// Returns the intersection point with a plane, if it exists.
+    ///
+    /// Calls [`Ray2d::get_point`] on the result of [`Ray2d::intersect_plane`].
+    #[inline]
+    pub fn plane_intersection_point(&self, plane_origin: Vec2, plane: Plane2d) -> Option<Vec2> {
+        self.intersect_plane(plane_origin, plane)
+            .map(|distance| self.get_point(distance))
+    }
 }
 
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -66,29 +86,44 @@ pub struct Ray3d {
 }
 
 impl Ray3d {
-    /// Create a new `Ray3d` from a given origin and direction
+    /// Creates a new `Ray3d` from a given origin and direction
     #[inline]
     pub const fn new(origin: Vec3, direction: Dir3) -> Self {
         Self { origin, direction }
     }
 
-    /// Get a point at a given distance along the ray
+    /// Returns the point at a given distance along the ray
     #[inline]
     pub fn get_point(&self, distance: f32) -> Vec3 {
         self.origin + *self.direction * distance
     }
 
-    /// Get the distance to a plane if the ray intersects it
+    /// Returns the distance to a plane if the ray intersects it
+    ///
+    /// Use [`Ray3d::plane_intersection_point`] to get the intersection point directly.
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
-        if denominator.abs() > f32::EPSILON {
+        if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
             }
         }
         None
+    }
+
+    /// Returns the intersection point of the ray with a plane, if it exists.
+    ///
+    /// Calls [`Ray3d::get_point`] on the result of [`Ray3d::intersect_plane`].
+    #[inline]
+    pub fn plane_intersection_point(
+        &self,
+        plane_origin: Vec3,
+        plane: InfinitePlane3d,
+    ) -> Option<Vec3> {
+        self.intersect_plane(plane_origin, plane)
+            .map(|distance| self.get_point(distance))
     }
 }
 

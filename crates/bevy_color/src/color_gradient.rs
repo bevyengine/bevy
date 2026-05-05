@@ -1,4 +1,5 @@
 use crate::Mix;
+use alloc::vec::Vec;
 use bevy_math::curve::{
     cores::{EvenCore, EvenCoreError},
     Curve, Interval,
@@ -75,6 +76,7 @@ where
 mod tests {
     use super::*;
     use crate::{palettes::basic, Srgba};
+    use bevy_math::curve::{Curve, CurveExt};
 
     #[test]
     fn test_color_curve() {

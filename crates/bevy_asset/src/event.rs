@@ -1,13 +1,14 @@
 use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
-use bevy_ecs::event::Event;
+use bevy_ecs::message::Message;
 use bevy_reflect::Reflect;
 use core::fmt::Debug;
 
-/// An event emitted when a specific [`Asset`] fails to load.
+/// A [`Message`] emitted when a specific [`Asset`] fails to load.
 ///
 /// For an untyped equivalent, see [`UntypedAssetLoadFailedEvent`].
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct AssetLoadFailedEvent<A: Asset> {
+    /// The stable identifier of the asset that failed to load.
     pub id: AssetId<A>,
     /// The asset path that was attempted.
     pub path: AssetPath<'static>,
@@ -23,8 +24,9 @@ impl<A: Asset> AssetLoadFailedEvent<A> {
 }
 
 /// An untyped version of [`AssetLoadFailedEvent`].
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct UntypedAssetLoadFailedEvent {
+    /// The stable identifier of the asset that failed to load.
     pub id: UntypedAssetId,
     /// The asset path that was attempted.
     pub path: AssetPath<'static>,
@@ -42,8 +44,9 @@ impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
     }
 }
 
-/// Events that occur for a specific loaded [`Asset`], such as "value changed" events and "dependency" events.
-#[derive(Event, Reflect)]
+/// [`Message`]s that occur for a specific loaded [`Asset`], such as "value changed" events and "dependency" events.
+#[expect(missing_docs, reason = "Documenting the id fields is unhelpful.")]
+#[derive(Message, Reflect)]
 pub enum AssetEvent<A: Asset> {
     /// Emitted whenever an [`Asset`] is added.
     Added { id: AssetId<A> },
@@ -51,7 +54,7 @@ pub enum AssetEvent<A: Asset> {
     Modified { id: AssetId<A> },
     /// Emitted whenever an [`Asset`] is removed.
     Removed { id: AssetId<A> },
-    /// Emitted when the last [`super::Handle::Strong`] of an [`Asset`] is dropped.
+    /// Emitted when the last [`Handle::Strong`](`super::Handle::Strong`) of an [`Asset`] is dropped.
     Unused { id: AssetId<A> },
     /// Emitted whenever an [`Asset`] has been fully loaded (including its dependencies and all "recursive dependencies").
     LoadedWithDependencies { id: AssetId<A> },

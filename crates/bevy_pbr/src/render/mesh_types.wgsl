@@ -17,9 +17,13 @@ struct Mesh {
     lightmap_uv_rect: vec2<u32>,
     // The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
-    pad_a: u32,
-    pad_b: u32,
-    pad_c: u32,
+    current_skin_index: u32,
+    // Low 16 bits: index of the material inside the bind group data.
+    // High 16 bits: index of the lightmap in the binding array.
+    material_and_lightmap_bind_group_slot: u32,
+    // User supplied index to identify the mesh instance
+    tag: u32,
+    morph_descriptor_index: u32,
 };
 
 #ifdef SKINNED
@@ -29,16 +33,50 @@ struct SkinnedMesh {
 #endif
 
 #ifdef MORPH_TARGETS
+
 struct MorphWeights {
-    weights: array<vec4<f32>, 16u>, // 16 = 64 / 4 (64 = MAX_MORPH_WEIGHTS)
+    weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
 };
-#endif
+
+// Describes a single mesh instance that uses morph targets.
+struct MorphDescriptor {
+    // The index of the first morph target weight in the `morph_weights` array.
+    current_weights_offset: u32,
+    // The index of the first morph target weight in the `prev_morph_weights`
+    // array.
+    prev_weights_offset: u32,
+    // The index of the first morph target for this mesh in the
+    // `MorphAttributes` array.
+    targets_offset: u32,
+    // The number of vertices in the mesh.
+    vertex_count: u32,
+    // The number of morph targets this mesh has.
+    weight_count: u32,
+};
+
+// Morph displacement for a single vertex.
+struct MorphAttributes {
+    // The position delta.
+    position: vec3<f32>,
+    // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
+    pad_a: f32,
+    // The normal delta.
+    normal: vec3<f32>,
+    // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
+    pad_b: f32,
+    // The tangent delta.
+    tangent: vec3<f32>,
+    // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
+    pad_c: f32,
+};
+
+#endif  // MORPH_TARGETS
 
 // [2^0, 2^16)
-const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32 = 65535u;
-// 2^29
-const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 536870912u;
-// 2^30
-const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1073741824u;
-// 2^31 - if the flag is set, the sign is positive, else it is negative
-const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32 = 2147483648u;
+const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
+const MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT: u32 = 1u << 27u;
+const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32          = 1u << 28u;
+const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32             = 1u << 29u;
+const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1u << 30u;
+// if the flag is set, the sign is positive, else it is negative
+const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32  = 1u << 31u;

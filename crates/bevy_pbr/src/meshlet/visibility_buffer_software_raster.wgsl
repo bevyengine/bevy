@@ -5,6 +5,7 @@
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_raster_clusters,
+        meshlet_previous_raster_counts,
         meshlet_software_raster_cluster_count,
         meshlet_visibility_buffer,
         view,
@@ -22,7 +23,7 @@
 
 // TODO: Fixed-point math and top-left rule
 
-var<workgroup> viewport_vertices: array<vec3f, 255>;
+var<workgroup> viewport_vertices: array<vec3f, 256>;
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup
@@ -40,12 +41,11 @@ fn rasterize_cluster(
     if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
 #endif
 
-    let cluster_id = meshlet_raster_clusters[workgroup_id_1d];
-    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    var meshlet = meshlets[meshlet_id];
+    let cluster_id = workgroup_id_1d + meshlet_previous_raster_counts[0];
+    let instanced_offset = meshlet_raster_clusters[cluster_id];
+    var meshlet = meshlets[instanced_offset.offset];
 
-    let instance_id = meshlet_cluster_instance_ids[cluster_id];
-    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let instance_uniform = meshlet_instance_uniforms[instanced_offset.instance_id];
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
     // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet
@@ -57,10 +57,7 @@ fn rasterize_cluster(
             // Project vertex to viewport space
             let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
             let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
-            var ndc_position = clip_position.xyz / clip_position.w;
-#ifdef DEPTH_CLAMP_ORTHO
-            ndc_position.z = 1.0 / clip_position.z;
-#endif
+            let ndc_position = clip_position.xyz / clip_position.w;
             let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
 
             // Write vertex to workgroup shared memory
@@ -170,19 +167,13 @@ fn rasterize_cluster(
 }
 
 fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
-    let frag_coord_1d = u32(y * view.viewport.z + x);
-
+    let depth = bitcast<u32>(z);
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    let depth = bitcast<u32>(z);
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
-#else ifdef DEPTH_CLAMP_ORTHO
-    let depth = bitcast<u32>(1.0 / z);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #else
-    let depth = bitcast<u32>(z);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+    let visibility = depth;
 #endif
+    textureAtomicMax(meshlet_visibility_buffer, vec2(u32(x), u32(y)), visibility);
 }
 
 fn edge_function(a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {

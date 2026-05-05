@@ -3,24 +3,25 @@ use bevy_ecs::{
     entity::Entity,
     system::{ResMut, SystemParam, SystemParamItem},
 };
-use bytemuck::Pod;
+use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
-use self::gpu_preprocessing::IndirectParametersBuffer;
-use crate::sync_world::MainEntity;
+use bevy_material::{descriptor::CachedRenderPipelineId, labels::DrawFunctionId};
+
 use crate::{
     render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
         SortedRenderPhase, ViewBinnedRenderPhases,
     },
-    render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
+    render_resource::{AtomicPod, GpuArrayBufferable},
+    sync_world::MainEntity,
 };
 
 pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
 
 /// Add this component to mesh entities to disable automatic batching
-#[derive(Component)]
+#[derive(Component, Default, Clone, Copy)]
 pub struct NoAutomaticBatching;
 
 /// Data necessary to be equal for two draw commands to be mergeable
@@ -37,7 +38,7 @@ pub struct NoAutomaticBatching;
 ///   due to having to split data across separate uniform bindings within the
 ///   same buffer due to the maximum uniform buffer binding size.
 #[derive(PartialEq)]
-struct BatchMeta<T: PartialEq> {
+struct BatchSetMeta<T: PartialEq> {
     /// The pipeline id encompasses all pipeline configuration including vertex
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
@@ -49,12 +50,19 @@ struct BatchMeta<T: PartialEq> {
     user_data: T,
 }
 
-impl<T: PartialEq> BatchMeta<T> {
+impl<T: PartialEq> BatchSetMeta<T> {
     fn new(item: &impl CachedRenderPipelinePhaseItem, user_data: T) -> Self {
-        BatchMeta {
+        BatchSetMeta {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
-            dynamic_offset: item.extra_index().as_dynamic_offset(),
+            dynamic_offset: match item.extra_index() {
+                PhaseItemExtraIndex::DynamicOffset(dynamic_offset) => {
+                    NonMaxU32::new(dynamic_offset)
+                }
+                PhaseItemExtraIndex::None | PhaseItemExtraIndex::IndirectParametersIndex { .. } => {
+                    None
+                }
+            },
             user_data,
         }
     }
@@ -70,10 +78,19 @@ pub trait GetBatchData {
     /// The system parameters [`GetBatchData::get_batch_data`] needs in
     /// order to compute the batch data.
     type Param: SystemParam + 'static;
-    /// Data used for comparison between phase items. If the pipeline id, draw
-    /// function id, per-instance data buffer dynamic offset and this data
-    /// matches, the draws can be batched.
-    type CompareData: PartialEq;
+    /// Data used for comparison between phase items to decide whether items can
+    /// be batched.
+    ///
+    /// If this data, and the [`Self::BatchSetCompareData`], are identical to
+    /// those of the previous phase item, the items can be batched together.
+    type BatchCompareData: PartialEq;
+    /// Data used for comparison between phase items to decide whether items can
+    /// be grouped in the same batch set (i.e. multi-drawn).
+    ///
+    /// If this data is identical to that of the previous phase items, and the
+    /// current platform supports multi-draw, the items can be multi-drawn
+    /// together.
+    type BatchSetCompareData: PartialEq;
     /// The per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`] containing these data for all
     /// instances.
@@ -89,7 +106,10 @@ pub trait GetBatchData {
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )>;
 }
 
 /// A trait to support getting data used for batching draw commands via phase
@@ -99,7 +119,7 @@ pub trait GetBatchData {
 pub trait GetFullBatchData: GetBatchData {
     /// The per-instance data that was inserted into the
     /// [`crate::render_resource::BufferVec`] during extraction.
-    type BufferInputData: Pod + Sync + Send;
+    type BufferInputData: AtomicPod;
 
     /// Get the per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`].
@@ -109,7 +129,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<Self::BufferData>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -121,33 +141,57 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_index_and_compare_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
+        query_item: MainEntity,
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
-    /// GPU preprocessing phase will use, for the binning path.
+    /// GPU preprocessing phase will use.
     ///
     /// We already inserted the [`GetFullBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
-    /// look up any render data. If CPU instance buffer building is in use, this
-    /// function will never be called.
+    /// look up any render data.
+    ///
+    /// This function is currently only called for unbatchable entities when GPU
+    /// instance buffer building is in use. For batchable entities, the uniform
+    /// index is written during queuing (e.g. in `queue_material_meshes`). In
+    /// the case of CPU instance buffer building, the CPU writes the uniforms,
+    /// so there's no index to return.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
-    /// batch onto the given [`IndirectParametersBuffer`], and returns its
+    /// Writes the [`gpu_preprocessing::IndirectParametersGpuMetadata`]
+    /// necessary to draw this batch into the given metadata buffer at the given
     /// index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
-    fn get_batch_indirect_parameters_index(
-        param: &SystemParamItem<Self::Param>,
-        indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: (Entity, MainEntity),
-        instance_index: u32,
-    ) -> Option<NonMaxU32>;
+    ///
+    /// * `indexed` is true if the mesh is indexed or false if it's non-indexed.
+    ///
+    /// * `base_output_index` is the index of the first mesh instance in this
+    ///   batch in the `MeshUniform` output buffer.
+    ///
+    /// * `batch_set_index` is the index of the batch set in the
+    ///   [`gpu_preprocessing::IndirectBatchSet`] buffer, if this batch belongs to
+    ///   a batch set.
+    ///
+    /// * `indirect_parameters_buffers` is the buffer in which to write the
+    ///   metadata.
+    ///
+    /// * `indirect_parameters_offset` is the index in that buffer at which to
+    ///   write the metadata.
+    fn write_batch_indirect_parameters_metadata(
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
+        indirect_parameters_offset: u32,
+    );
 }
 
 /// Sorts a render phase that uses bins.
@@ -156,8 +200,10 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
-        phase.batchable_mesh_keys.sort_unstable();
-        phase.unbatchable_mesh_keys.sort_unstable();
+        phase.multidrawable_meshes.sort_unstable_keys();
+        phase.batchable_meshes.sort_unstable_keys();
+        phase.unbatchable_meshes.sort_unstable_keys();
+        phase.non_mesh_items.sort_unstable_keys();
     }
 }
 
@@ -171,14 +217,16 @@ where
 /// [`no_gpu_preprocessing::batch_and_prepare_sorted_render_phase`].
 fn batch_and_prepare_sorted_render_phase<I, GBD>(
     phase: &mut SortedRenderPhase<I>,
-    mut process_item: impl FnMut(&mut I) -> Option<GBD::CompareData>,
+    mut process_item: impl FnMut(&mut I) -> Option<(GBD::BatchSetCompareData, GBD::BatchCompareData)>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     GBD: GetBatchData,
 {
-    let items = phase.items.iter_mut().map(|item| {
+    let items = phase.items.values_mut().map(|item| {
         let batch_data = match process_item(item) {
-            Some(compare_data) if I::AUTOMATIC_BATCHING => Some(BatchMeta::new(item, compare_data)),
+            Some(compare_data) if I::AUTOMATIC_BATCHING => {
+                Some(BatchSetMeta::new(item, compare_data))
+            }
             _ => None,
         };
         (item.batch_range_mut(), batch_data)

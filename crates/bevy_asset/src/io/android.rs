@@ -1,7 +1,7 @@
 use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
-use bevy_utils::tracing::error;
+use alloc::{borrow::ToOwned, boxed::Box, ffi::CString, vec::Vec};
 use futures_lite::stream;
-use std::{ffi::CString, path::Path};
+use std::path::Path;
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
 ///
@@ -17,7 +17,7 @@ pub struct AndroidAssetReader;
 
 impl AssetReader for AndroidAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let asset_manager = bevy_window::ANDROID_APP
+        let asset_manager = bevy_android::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();
@@ -31,7 +31,7 @@ impl AssetReader for AndroidAssetReader {
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
-        let asset_manager = bevy_window::ANDROID_APP
+        let asset_manager = bevy_android::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();
@@ -47,7 +47,7 @@ impl AssetReader for AndroidAssetReader {
         &'a self,
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
-        let asset_manager = bevy_window::ANDROID_APP
+        let asset_manager = bevy_android::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();
@@ -72,11 +72,8 @@ impl AssetReader for AndroidAssetReader {
         Ok(read_dir)
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
-        let asset_manager = bevy_window::ANDROID_APP
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        let asset_manager = bevy_android::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();

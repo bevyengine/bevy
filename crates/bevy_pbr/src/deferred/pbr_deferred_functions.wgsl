@@ -23,24 +23,31 @@
 
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
-     // Only monochrome occlusion supported. May not be worth including at all.
-     // Some models have baked occlusion, GLTF only supports monochrome.
-     // Real time occlusion is applied in the deferred lighting pass.
-     // Deriving luminance via Rec. 709. coefficients
-     // https://en.wikipedia.org/wiki/Rec._709
-    let diffuse_occlusion = dot(in.diffuse_occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
+    // Only monochrome occlusion supported. May not be worth including at all.
+    // Some models have baked occlusion, GLTF only supports monochrome.
+    // Real time occlusion is applied in the deferred lighting pass.
+    // Deriving luminance via Rec. 709. coefficients
+    // https://en.wikipedia.org/wiki/Rec._709
+    let rec_709_coeffs = vec3<f32>(0.2126, 0.7152, 0.0722);
+    let diffuse_occlusion = dot(in.diffuse_occlusion, rec_709_coeffs);
+    // Only monochrome specular supported.
+    let reflectance = dot(in.material.reflectance, rec_709_coeffs);
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
-        in.material.reflectance,
+        reflectance,
         in.material.metallic,
         diffuse_occlusion,
         in.frag_coord.z));
 #else
+    let clearcoat = u32(round(saturate(in.material.clearcoat) * 15.0));
+    let clearcoat_perceptual_roughness =
+        u32(round(clamp(in.material.clearcoat_perceptual_roughness, 0.0, 0.5) * 30.0));
+    let clearcoat_props = f32(clearcoat | (clearcoat_perceptual_roughness << 4u)) / 255.0;
     var props = deferred_types::pack_unorm4x8_(vec4(
-        in.material.reflectance, // could be fewer bits
+        reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
         diffuse_occlusion, // is this worth including?
-        0.0)); // spare
+        clearcoat_props));
 #endif // WEBGL2
     let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
     let octahedral_normal = octahedral_encode(normalize(in.N));
@@ -100,10 +107,13 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
-    pbr.material.reflectance = saturate(props.r - 0.03333333333);
+    pbr.material.reflectance = vec3(saturate(props.r - 0.03333333333));
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
-    pbr.material.reflectance = props.r;
+    let clearcoat_props = u32(round(props.a * 255.0));
+    pbr.material.reflectance = vec3(props.r);
+    pbr.material.clearcoat = f32(clearcoat_props & 0x0fu) / 15.0;
+    pbr.material.clearcoat_perceptual_roughness = f32(clearcoat_props >> 4u) / 30.0;
 #endif // WEBGL2
     pbr.material.metallic = props.g;
     pbr.diffuse_occlusion = vec3(props.b);
@@ -119,6 +129,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr.world_position = world_position;
     pbr.N = N;
     pbr.V = V;
+    pbr.clearcoat_N = N;
     pbr.is_orthographic = is_orthographic;
 
     return pbr;

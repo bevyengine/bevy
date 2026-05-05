@@ -1,10 +1,11 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::ConicalFrustum, Vec3};
-use wgpu::PrimitiveTopology;
+use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`ConicalFrustum`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub struct ConicalFrustumMeshBuilder {
     /// The [`ConicalFrustum`] shape.
     pub frustum: ConicalFrustum,

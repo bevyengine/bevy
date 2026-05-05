@@ -1,19 +1,17 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
-use bevy_asset::{Assets, Handle};
+use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
-use bevy_window::{PrimaryWindow, Window};
-use taffy::{MaybeMath, MaybeResolve};
+use bevy_sprite::TextureSlicer;
+use taffy::MaybeMath;
 
 /// A UI Node that renders an image.
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-#[require(Node, ImageNodeSize, ContentSize)]
+#[derive(Component, Clone, Debug, Reflect, FromTemplate)]
+#[reflect(Component, Default, Debug, Clone)]
+#[require(Node, ImageNodeSize)]
 pub struct ImageNode {
     /// The tint color used to draw the image.
     ///
@@ -25,6 +23,7 @@ pub struct ImageNode {
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the image.
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
     pub flip_x: bool,
@@ -138,8 +137,17 @@ impl From<Handle<Image>> for ImageNode {
     }
 }
 
+impl AsAssetId for ImageNode {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, Reflect)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Clone, Default, PartialEq)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
@@ -163,7 +171,7 @@ pub enum NodeImageMode {
 impl NodeImageMode {
     /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
     #[inline]
-    pub fn uses_slices(&self) -> bool {
+    pub const fn uses_slices(&self) -> bool {
         matches!(
             self,
             NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
@@ -175,7 +183,7 @@ impl NodeImageMode {
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ImageNodeSize {
     /// The size of the image's texture
     ///
@@ -185,7 +193,8 @@ pub struct ImageNodeSize {
 
 impl ImageNodeSize {
     /// The size of the image's texture
-    pub fn size(&self) -> UVec2 {
+    #[inline]
+    pub const fn size(&self) -> UVec2 {
         self.size
     }
 }
@@ -198,54 +207,34 @@ pub struct ImageMeasure {
 }
 
 impl Measure for ImageMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
-        let MeasureArgs {
-            width,
-            height,
-            available_width,
-            available_height,
-            ..
-        } = measure_args;
-
-        // Convert available width/height into an option
-        let parent_width = available_width.into_option();
-        let parent_height = available_height.into_option();
-
-        // Resolve styles
-        let s_aspect_ratio = style.aspect_ratio;
-        let s_width = style.size.width.maybe_resolve(parent_width);
-        let s_min_width = style.min_size.width.maybe_resolve(parent_width);
-        let s_max_width = style.max_size.width.maybe_resolve(parent_width);
-        let s_height = style.size.height.maybe_resolve(parent_height);
-        let s_min_height = style.min_size.height.maybe_resolve(parent_height);
-        let s_max_height = style.max_size.height.maybe_resolve(parent_height);
-
-        // Determine width and height from styles and known_sizes (if a size is available
-        // from any of these sources)
-        let width = width.or(s_width
-            .or(s_min_width)
-            .maybe_clamp(s_min_width, s_max_width));
-        let height = height.or(s_height
-            .or(s_min_height)
-            .maybe_clamp(s_min_height, s_max_height));
+    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+        let width = measure_args.resolve_width();
+        let height = measure_args.resolve_height();
 
         // Use aspect_ratio from style, fall back to inherent aspect ratio
-        let aspect_ratio = s_aspect_ratio.unwrap_or_else(|| self.size.x / self.size.y);
+        let aspect_ratio = measure_args
+            .style
+            .aspect_ratio
+            .unwrap_or_else(|| self.size.x / self.size.y);
 
         // Apply aspect ratio
         // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
-        let taffy_size = taffy::Size { width, height }.maybe_apply_aspect_ratio(Some(aspect_ratio));
+        let taffy_size = taffy::Size {
+            width: width.effective,
+            height: height.effective,
+        }
+        .maybe_apply_aspect_ratio(Some(aspect_ratio));
 
         // Use computed sizes or fall back to image's inherent size
         Vec2 {
             x: taffy_size
                 .width
                 .unwrap_or(self.size.x)
-                .maybe_clamp(s_min_width, s_max_width),
+                .maybe_clamp(width.min, width.max),
             y: taffy_size
                 .height
                 .unwrap_or(self.size.y)
-                .maybe_clamp(s_min_height, s_max_height),
+                .maybe_clamp(height.min, height.max),
         }
     }
 }
@@ -254,27 +243,25 @@ type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_combined_scale_factor: Local<f32>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
+    mut query: Query<
+        (
+            &mut ContentSize,
+            Ref<ImageNode>,
+            &mut ImageNodeSize,
+            Ref<ComputedUiRenderTargetInfo>,
+        ),
+        UpdateImageFilter,
+    >,
 ) {
-    let combined_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.)
-        * ui_scale.0;
-
-    for (mut content_size, image, mut image_size) in &mut query {
+    for (mut content_size, image, mut image_size, computed_target) in &mut query {
         if !matches!(image.image_mode, NodeImageMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             if image.is_changed() {
-                // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
-                content_size.measure = None;
+                // Remove any existing measure.
+                content_size.clear();
             }
             continue;
         }
@@ -289,18 +276,13 @@ pub fn update_image_content_size_system(
                 })
         {
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size
-                || combined_scale_factor != *previous_combined_scale_factor
-                || content_size.is_added()
-            {
+            if size != image_size.size || computed_target.is_changed() || content_size.is_added() {
                 image_size.size = size;
                 content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size.as_vec2() * combined_scale_factor,
+                    size: size.as_vec2() * computed_target.scale_factor(),
                 }));
             }
         }
     }
-
-    *previous_combined_scale_factor = combined_scale_factor;
 }

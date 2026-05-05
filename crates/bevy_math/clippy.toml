@@ -26,4 +26,14 @@ disallowed-methods = [
   { path = "f32::asinh", reason = "use ops::asinh instead for libm determinism" },
   { path = "f32::acosh", reason = "use ops::acosh instead for libm determinism" },
   { path = "f32::atanh", reason = "use ops::atanh instead for libm determinism" },
+  # These methods have defined precision, but are only available from the standard library,
+  # not in core. Using these substitutes allows for no_std compatibility.
+  { path = "f32::rem_euclid", reason = "use ops::rem_euclid instead for no_std compatibility" },
+  { path = "f32::abs", reason = "use ops::abs instead for no_std compatibility" },
+  { path = "f32::sqrt", reason = "use ops::sqrt instead for no_std compatibility" },
+  { path = "f32::copysign", reason = "use ops::copysign instead for no_std compatibility" },
+  { path = "f32::round", reason = "use ops::round instead for no_std compatibility" },
+  { path = "f32::floor", reason = "use ops::floor instead for no_std compatibility" },
+  { path = "f32::ceil", reason = "use ops::ceil instead for no_std compatibility" },
+  { path = "f32::fract", reason = "use ops::fract instead for no_std compatibility" },
 ]

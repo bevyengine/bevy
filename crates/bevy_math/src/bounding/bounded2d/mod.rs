@@ -2,15 +2,20 @@ mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
+    ops,
     prelude::{Mat2, Rot2, Vec2},
     FloatPow, Isometry2d,
 };
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 
 /// Computes the geometric center of the given set of points.
-#[inline(always)]
+#[inline]
 fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
     assert!(
         !points.is_empty(),
@@ -31,8 +36,17 @@ pub trait Bounded2d {
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -42,7 +56,7 @@ pub struct Aabb2d {
 
 impl Aabb2d {
     /// Constructs an AABB from its center and half-size.
-    #[inline(always)]
+    #[inline]
     pub fn new(center: Vec2, half_size: Vec2) -> Self {
         debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0);
         Self {
@@ -57,7 +71,7 @@ impl Aabb2d {
     /// # Panics
     ///
     /// Panics if the given set of points is empty.
-    #[inline(always)]
+    #[inline]
     pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> Aabb2d {
         let isometry = isometry.into();
 
@@ -79,7 +93,7 @@ impl Aabb2d {
     }
 
     /// Computes the smallest [`BoundingCircle`] containing this [`Aabb2d`].
-    #[inline(always)]
+    #[inline]
     pub fn bounding_circle(&self) -> BoundingCircle {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingCircle::new(self.center(), radius)
@@ -89,7 +103,7 @@ impl Aabb2d {
     ///
     /// If the point is outside the AABB, the returned point will be on the perimeter of the AABB.
     /// Otherwise, it will be inside the AABB and returned as is.
-    #[inline(always)]
+    #[inline]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the AABB
         point.clamp(self.min, self.max)
@@ -101,23 +115,23 @@ impl BoundingVolume for Aabb2d {
     type Rotation = Rot2;
     type HalfSize = Vec2;
 
-    #[inline(always)]
+    #[inline]
     fn center(&self) -> Self::Translation {
         (self.min + self.max) / 2.
     }
 
-    #[inline(always)]
+    #[inline]
     fn half_size(&self) -> Self::HalfSize {
         (self.max - self.min) / 2.
     }
 
-    #[inline(always)]
+    #[inline]
     fn visible_area(&self) -> f32 {
-        let b = self.max - self.min;
+        let b = (self.max - self.min).max(Vec2::ZERO);
         b.x * b.y
     }
 
-    #[inline(always)]
+    #[inline]
     fn contains(&self, other: &Self) -> bool {
         other.min.x >= self.min.x
             && other.min.y >= self.min.y
@@ -125,7 +139,7 @@ impl BoundingVolume for Aabb2d {
             && other.max.y <= self.max.y
     }
 
-    #[inline(always)]
+    #[inline]
     fn merge(&self, other: &Self) -> Self {
         Self {
             min: self.min.min(other.min),
@@ -133,7 +147,7 @@ impl BoundingVolume for Aabb2d {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
         let amount = amount.into();
         let b = Self {
@@ -144,7 +158,7 @@ impl BoundingVolume for Aabb2d {
         b
     }
 
-    #[inline(always)]
+    #[inline]
     fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
         let amount = amount.into();
         let b = Self {
@@ -155,7 +169,7 @@ impl BoundingVolume for Aabb2d {
         b
     }
 
-    #[inline(always)]
+    #[inline]
     fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
         let scale = scale.into();
         let b = Self {
@@ -173,7 +187,7 @@ impl BoundingVolume for Aabb2d {
     /// Note that the result may not be as tightly fitting as the original, and repeated rotations
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
-    #[inline(always)]
+    #[inline]
     fn transformed_by(
         mut self,
         translation: impl Into<Self::Translation>,
@@ -190,7 +204,7 @@ impl BoundingVolume for Aabb2d {
     /// Note that the result may not be as tightly fitting as the original, and repeated rotations
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
-    #[inline(always)]
+    #[inline]
     fn transform_by(
         &mut self,
         translation: impl Into<Self::Translation>,
@@ -200,7 +214,7 @@ impl BoundingVolume for Aabb2d {
         self.translate_by(translation);
     }
 
-    #[inline(always)]
+    #[inline]
     fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
         let translation = translation.into();
         self.min += translation;
@@ -214,7 +228,7 @@ impl BoundingVolume for Aabb2d {
     /// Note that the result may not be as tightly fitting as the original, and repeated rotations
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
-    #[inline(always)]
+    #[inline]
     fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
         self.rotate_by(rotation);
         self
@@ -227,20 +241,16 @@ impl BoundingVolume for Aabb2d {
     /// Note that the result may not be as tightly fitting as the original, and repeated rotations
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
-    #[inline(always)]
+    #[inline]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rotation: Rot2 = rotation.into();
-        let abs_rot_mat = Mat2::from_cols(
-            Vec2::new(rotation.cos, rotation.sin),
-            Vec2::new(rotation.sin, rotation.cos),
-        );
-        let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(rotation * self.center(), half_size);
+        let rot_mat = Mat2::from(rotation.into());
+        let half_size = rot_mat.abs() * self.half_size();
+        *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
 
 impl IntersectsVolume<Self> for Aabb2d {
-    #[inline(always)]
+    #[inline]
     fn intersects(&self, other: &Self) -> bool {
         let x_overlaps = self.min.x <= other.max.x && self.max.x >= other.min.x;
         let y_overlaps = self.min.y <= other.max.y && self.max.y >= other.min.y;
@@ -249,7 +259,7 @@ impl IntersectsVolume<Self> for Aabb2d {
 }
 
 impl IntersectsVolume<BoundingCircle> for Aabb2d {
-    #[inline(always)]
+    #[inline]
     fn intersects(&self, circle: &BoundingCircle) -> bool {
         let closest_point = self.closest_point(circle.center);
         let distance_squared = circle.center.distance_squared(closest_point);
@@ -260,6 +270,8 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 
 #[cfg(test)]
 mod aabb2d_tests {
+    use approx::assert_relative_eq;
+
     use super::Aabb2d;
     use crate::{
         bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
@@ -296,12 +308,12 @@ mod aabb2d_tests {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        assert!((aabb.visible_area() - 4.).abs() < f32::EPSILON);
+        assert!(ops::abs(aabb.visible_area() - 4.) < f32::EPSILON);
         let aabb = Aabb2d {
             min: Vec2::new(0., 0.),
             max: Vec2::new(1., 0.5),
         };
-        assert!((aabb.visible_area() - 0.5).abs() < f32::EPSILON);
+        assert!(ops::abs(aabb.visible_area() - 0.5) < f32::EPSILON);
     }
 
     #[test]
@@ -381,6 +393,17 @@ mod aabb2d_tests {
     }
 
     #[test]
+    fn rotate() {
+        let a = Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(2.0, 2.0),
+        };
+        let rotated = a.rotated_by(core::f32::consts::PI);
+        assert_relative_eq!(rotated.min, a.min);
+        assert_relative_eq!(rotated.max, a.max);
+    }
+
+    #[test]
     fn transform() {
         let a = Aabb2d {
             min: Vec2::new(-2.0, -2.0),
@@ -449,8 +472,17 @@ mod aabb2d_tests {
 use crate::primitives::Circle;
 
 /// A bounding circle
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
@@ -460,7 +492,7 @@ pub struct BoundingCircle {
 
 impl BoundingCircle {
     /// Constructs a bounding circle from its center and radius.
-    #[inline(always)]
+    #[inline]
     pub fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
         Self {
@@ -473,7 +505,7 @@ impl BoundingCircle {
     /// transformed by the rotation and translation of the given isometry.
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
-    #[inline(always)]
+    #[inline]
     pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> BoundingCircle {
         let isometry = isometry.into();
 
@@ -488,17 +520,17 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(isometry * center, radius_squared.sqrt())
+        BoundingCircle::new(isometry * center, ops::sqrt(radius_squared))
     }
 
     /// Get the radius of the bounding circle
-    #[inline(always)]
+    #[inline]
     pub fn radius(&self) -> f32 {
         self.circle.radius
     }
 
     /// Computes the smallest [`Aabb2d`] containing this [`BoundingCircle`].
-    #[inline(always)]
+    #[inline]
     pub fn aabb_2d(&self) -> Aabb2d {
         Aabb2d {
             min: self.center - Vec2::splat(self.radius()),
@@ -510,7 +542,7 @@ impl BoundingCircle {
     ///
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
     /// Otherwise, it will be inside the circle and returned as is.
-    #[inline(always)]
+    #[inline]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         self.circle.closest_point(point - self.center) + self.center
     }
@@ -521,28 +553,28 @@ impl BoundingVolume for BoundingCircle {
     type Rotation = Rot2;
     type HalfSize = f32;
 
-    #[inline(always)]
+    #[inline]
     fn center(&self) -> Self::Translation {
         self.center
     }
 
-    #[inline(always)]
+    #[inline]
     fn half_size(&self) -> Self::HalfSize {
         self.radius()
     }
 
-    #[inline(always)]
+    #[inline]
     fn visible_area(&self) -> f32 {
         core::f32::consts::PI * self.radius() * self.radius()
     }
 
-    #[inline(always)]
+    #[inline]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
+        self.center.distance_squared(other.center) <= ops::copysign(diff.squared(), diff)
     }
 
-    #[inline(always)]
+    #[inline]
     fn merge(&self, other: &Self) -> Self {
         let diff = other.center - self.center;
         let length = diff.length();
@@ -559,14 +591,14 @@ impl BoundingVolume for BoundingCircle {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
         let amount = amount.into();
         debug_assert!(amount >= 0.);
         Self::new(self.center, self.radius() + amount)
     }
 
-    #[inline(always)]
+    #[inline]
     fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
         let amount = amount.into();
         debug_assert!(amount >= 0.);
@@ -574,19 +606,19 @@ impl BoundingVolume for BoundingCircle {
         Self::new(self.center, self.radius() - amount)
     }
 
-    #[inline(always)]
+    #[inline]
     fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
         let scale = scale.into();
         debug_assert!(scale >= 0.);
         Self::new(self.center, self.radius() * scale)
     }
 
-    #[inline(always)]
+    #[inline]
     fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
         self.center += translation.into();
     }
 
-    #[inline(always)]
+    #[inline]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
         let rotation: Rot2 = rotation.into();
         self.center = rotation * self.center;
@@ -594,7 +626,7 @@ impl BoundingVolume for BoundingCircle {
 }
 
 impl IntersectsVolume<Self> for BoundingCircle {
-    #[inline(always)]
+    #[inline]
     fn intersects(&self, other: &Self) -> bool {
         let center_distance_squared = self.center.distance_squared(other.center);
         let radius_sum_squared = (self.radius() + other.radius()).squared();
@@ -603,7 +635,7 @@ impl IntersectsVolume<Self> for BoundingCircle {
 }
 
 impl IntersectsVolume<Aabb2d> for BoundingCircle {
-    #[inline(always)]
+    #[inline]
     fn intersects(&self, aabb: &Aabb2d) -> bool {
         aabb.intersects(self)
     }
@@ -614,14 +646,14 @@ mod bounding_circle_tests {
     use super::BoundingCircle;
     use crate::{
         bounding::{BoundingVolume, IntersectsVolume},
-        Vec2,
+        ops, Vec2,
     };
 
     #[test]
     fn area() {
         let circle = BoundingCircle::new(Vec2::ONE, 5.);
         // Since this number is messy we check it with a higher threshold
-        assert!((circle.visible_area() - 78.5398).abs() < 0.001);
+        assert!(ops::abs(circle.visible_area() - 78.5398) < 0.001);
     }
 
     #[test]
@@ -647,7 +679,7 @@ mod bounding_circle_tests {
         let b = BoundingCircle::new(Vec2::new(1., -4.), 1.);
         let merged = a.merge(&b);
         assert!((merged.center - Vec2::new(1., 0.5)).length() < f32::EPSILON);
-        assert!((merged.radius() - 5.5).abs() < f32::EPSILON);
+        assert!(ops::abs(merged.radius() - 5.5) < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -679,7 +711,7 @@ mod bounding_circle_tests {
     fn grow() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let padded = a.grow(1.25);
-        assert!((padded.radius() - 6.25).abs() < f32::EPSILON);
+        assert!(ops::abs(padded.radius() - 6.25) < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -688,7 +720,7 @@ mod bounding_circle_tests {
     fn shrink() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let shrunk = a.shrink(0.5);
-        assert!((shrunk.radius() - 4.5).abs() < f32::EPSILON);
+        assert!(ops::abs(shrunk.radius() - 4.5) < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -697,7 +729,7 @@ mod bounding_circle_tests {
     fn scale_around_center() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let scaled = a.scale_around_center(2.);
-        assert!((scaled.radius() - 10.).abs() < f32::EPSILON);
+        assert!(ops::abs(scaled.radius() - 10.) < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }

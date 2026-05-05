@@ -1,10 +1,11 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Cone, Vec3};
-use wgpu::PrimitiveTopology;
+use bevy_reflect::prelude::*;
 
 /// Anchoring options for [`ConeMeshBuilder`]
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub enum ConeAnchor {
     #[default]
     /// Midpoint between the tip of the cone and the center of its base.
@@ -16,7 +17,8 @@ pub enum ConeAnchor {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`Cone`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub struct ConeMeshBuilder {
     /// The [`Cone`] shape.
     pub cone: Cone,

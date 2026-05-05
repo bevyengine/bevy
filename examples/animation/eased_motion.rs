@@ -3,7 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{animated_field, AnimatedBy, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
     prelude::*,
@@ -47,15 +47,14 @@ fn setup(
         ))
         .id();
 
-    commands.entity(cube_entity).insert(AnimationTarget {
-        id: animation_target_id,
-        player: cube_entity,
-    });
+    commands
+        .entity(cube_entity)
+        .insert((animation_target_id, AnimatedBy(cube_entity)));
 
     // Some light to see something
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             ..default()
@@ -127,9 +126,14 @@ impl AnimationInfo {
         .reparametrize_linear(interval(0.0, 4.0).unwrap())
         .expect("this curve has bounded domain, so this should never fail");
 
-        animation_clip
-            .add_curve_to_target(animation_target_id, TranslationCurve(translation_curve));
-        animation_clip.add_curve_to_target(animation_target_id, RotationCurve(rotation_curve));
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
+        );
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(animated_field!(Transform::rotation), rotation_curve),
+        );
 
         // Save our animation clip as an asset.
         let animation_clip_handle = animation_clips.add(animation_clip);

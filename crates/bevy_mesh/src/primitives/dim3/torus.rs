@@ -1,11 +1,12 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Torus, Vec3};
+use bevy_reflect::prelude::*;
 use core::ops::RangeInclusive;
-use wgpu::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with a [`Torus`] shape.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub struct TorusMeshBuilder {
     /// The [`Torus`] shape.
     pub torus: Torus,

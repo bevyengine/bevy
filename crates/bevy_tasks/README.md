@@ -34,6 +34,10 @@ The determining factor for what kind of work should go in each pool is latency r
   await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
   for consumption. (likely via channels)
 
-[bevy]: https://bevyengine.org
+## `no_std` Support
+
+To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features.
+
+[bevy]: https://bevy.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor

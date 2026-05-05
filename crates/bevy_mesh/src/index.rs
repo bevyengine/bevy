@@ -1,8 +1,12 @@
 use bevy_reflect::Reflect;
 use core::iter;
 use core::iter::FusedIterator;
-use derive_more::derive::{Display, Error};
-use wgpu::IndexFormat;
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use wgpu_types::IndexFormat;
+
+use crate::MeshAccessError;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
 /// of [`Mesh::triangles`](super::Mesh::triangles), which produces iterators of four different types depending on the
@@ -31,45 +35,54 @@ where
             FourIterators::Fourth(iter) => iter.next(),
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            FourIterators::First(iter) => iter.size_hint(),
+            FourIterators::Second(iter) => iter.size_hint(),
+            FourIterators::Third(iter) => iter.size_hint(),
+            FourIterators::Fourth(iter) => iter.size_hint(),
+        }
+    }
 }
 
 /// An error that occurred while trying to invert the winding of a [`Mesh`](super::Mesh).
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum MeshWindingInvertError {
     /// This error occurs when you try to invert the winding for a mesh with [`PrimitiveTopology::PointList`](super::PrimitiveTopology::PointList).
-    #[display("Mesh winding invertation does not work for primitive topology `PointList`")]
+    #[error("Mesh winding inversion does not work for primitive topology `PointList`")]
     WrongTopology,
 
     /// This error occurs when you try to invert the winding for a mesh with
     /// * [`PrimitiveTopology::TriangleList`](super::PrimitiveTopology::TriangleList), but the indices are not in chunks of 3.
     /// * [`PrimitiveTopology::LineList`](super::PrimitiveTopology::LineList), but the indices are not in chunks of 2.
-    #[display("Indices weren't in chunks according to topology")]
+    #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`](super::Mesh).
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum MeshTrianglesError {
-    #[display("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
+    #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
     WrongTopology,
 
-    #[display("Source mesh lacks position data")]
-    MissingPositions,
-
-    #[display("Source mesh position data is not Float32x3")]
+    #[error("Source mesh position data is not Float32x3")]
     PositionsFormat,
 
-    #[display("Source mesh lacks face index data")]
-    MissingIndices,
-
-    #[display("Face index data references vertices that do not exist")]
+    #[error("Face index data references vertices that do not exist")]
     BadIndices,
+    #[error("mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An array of indices into the [`VertexAttributeValues`](super::VertexAttributeValues) for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Clone)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
@@ -110,6 +123,8 @@ impl Indices {
 /// Extend the indices with indices from an iterator.
 /// Semantically equivalent to calling [`push`](Indices::push) for each element in the iterator,
 /// but more efficient.
+///
+/// [`Indices::U16`] will be converted to [`Indices::U32`] if there is primitive restart value [`u16::MAX`] or any value greater than [`u16::MAX`].
 impl Extend<u32> for Indices {
     fn extend<T: IntoIterator<Item = u32>>(&mut self, iter: T) {
         let mut iter = iter.into_iter();
@@ -118,18 +133,17 @@ impl Extend<u32> for Indices {
             Indices::U16(indices) => {
                 indices.reserve(iter.size_hint().0);
                 while let Some(index) = iter.next() {
-                    match u16::try_from(index) {
-                        Ok(index) => indices.push(index),
-                        Err(_) => {
-                            let new_vec = indices
-                                .iter()
-                                .map(|&index| u32::from(index))
-                                .chain(iter::once(index))
-                                .chain(iter)
-                                .collect::<Vec<u32>>();
-                            *self = Indices::U32(new_vec);
-                            break;
-                        }
+                    if index < u16::MAX as u32 {
+                        indices.push(index as u16);
+                    } else {
+                        let new_vec = indices
+                            .iter()
+                            .map(|&index| u32::from(index))
+                            .chain(iter::once(index))
+                            .chain(iter)
+                            .collect::<Vec<u32>>();
+                        *self = Indices::U32(new_vec);
+                        break;
                     }
                 }
             }
@@ -162,6 +176,7 @@ impl Iterator for IndicesIter<'_> {
 }
 
 impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+
 impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {
@@ -176,7 +191,7 @@ impl From<&Indices> for IndexFormat {
 #[cfg(test)]
 mod tests {
     use crate::Indices;
-    use wgpu::IndexFormat;
+    use wgpu_types::IndexFormat;
 
     #[test]
     fn test_indices_push() {

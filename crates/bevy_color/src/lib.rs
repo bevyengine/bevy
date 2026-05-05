@@ -1,9 +1,10 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
+#![no_std]
 
 //! Representations of colors in various color spaces.
 //!
@@ -89,14 +90,22 @@
 //! println!("Hsla: {:?}", hsla);
 //! ```
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 mod color;
 pub mod color_difference;
+#[cfg(feature = "alloc")]
 mod color_gradient;
 mod color_ops;
 mod color_range;
 mod hsla;
 mod hsva;
 mod hwba;
+mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
@@ -121,6 +130,7 @@ pub mod prelude {
 }
 
 pub use color::*;
+#[cfg(feature = "alloc")]
 pub use color_gradient::*;
 pub use color_ops::*;
 pub use color_range::*;
@@ -136,7 +146,14 @@ pub use srgba::*;
 pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
-#[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
+#[expect(
+    clippy::allow_attributes,
+    reason = "If the below attribute on `dead_code` is removed, then rustc complains that `StandardColor` is dead code. However, if we `expect` the `dead_code` lint, then rustc complains of an unfulfilled expectation."
+)]
+#[allow(
+    dead_code,
+    reason = "This is an internal marker trait used to ensure that our color types impl the required traits"
+)]
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,
@@ -245,9 +262,16 @@ macro_rules! impl_componentwise_vector_space {
         }
 
         impl bevy_math::VectorSpace for $ty {
+            type Scalar = f32;
             const ZERO: Self = Self {
                 $($element: 0.0,)+
             };
+        }
+
+        impl bevy_math::StableInterpolate for $ty {
+            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+                bevy_math::VectorSpace::lerp(*self, *other, t)
+            }
         }
     };
 }

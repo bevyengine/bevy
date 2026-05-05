@@ -269,42 +269,50 @@
 //!
 //! [domain]: Curve::domain
 //! [sampled]: Curve::sample
-//! [changing parametrizations]: Curve::reparametrize
-//! [mapping output]: Curve::map
-//! [rasterization]: Curve::resample
+//! [changing parametrizations]: CurveExt::reparametrize
+//! [mapping output]: CurveExt::map
+//! [rasterization]: CurveResampleExt::resample
 //! [functions]: FunctionCurve
 //! [sample interpolation]: SampleCurve
 //! [splines]: crate::cubic_splines
 //! [easings]: easing
 //! [spline curves]: crate::cubic_splines
 //! [easing curves]: easing
-//! [`chain`]: Curve::chain
-//! [`zip`]: Curve::zip
-//! [`resample`]: Curve::resample
+//! [`chain`]: CurveExt::chain
+//! [`zip`]: CurveExt::zip
+//! [`resample`]: CurveResampleExt::resample
 //!
 //! [^footnote]: In fact, universal as well, in some sense: if `curve` is any curve, then `FunctionCurve::new
 //! (curve.domain(), |t| curve.sample_unchecked(t))` is an equivalent function curve.
 
 pub mod adaptors;
 pub mod cores;
+pub mod derivatives;
 pub mod easing;
 pub mod interval;
 pub mod iterable;
+
+#[cfg(feature = "alloc")]
 pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
 pub use easing::*;
 pub use interval::{interval, Interval};
-pub use sample_curves::*;
 
-use cores::{EvenCore, UnevenCore};
+#[cfg(feature = "alloc")]
+pub use {
+    cores::{EvenCore, UnevenCore},
+    sample_curves::*,
+};
 
-use crate::{StableInterpolate, VectorSpace};
+use crate::VectorSpace;
 use core::{marker::PhantomData, ops::Deref};
-use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
-use itertools::Itertools;
+use thiserror::Error;
+
+#[cfg(feature = "alloc")]
+use {crate::StableInterpolate, itertools::Itertools};
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -342,17 +350,41 @@ pub trait Curve<T> {
         let t = self.domain().clamp(t);
         self.sample_unchecked(t)
     }
+}
 
+impl<T, C, D> Curve<T> for D
+where
+    C: Curve<T> + ?Sized,
+    D: Deref<Target = C>,
+{
+    fn domain(&self) -> Interval {
+        <C as Curve<T>>::domain(self)
+    }
+
+    fn sample_unchecked(&self, t: f32) -> T {
+        <C as Curve<T>>::sample_unchecked(self, t)
+    }
+}
+
+/// Extension trait implemented by [curves], allowing access to a number of adaptors and
+/// convenience methods.
+///
+/// This trait is automatically implemented for all curves that are `Sized`. In particular,
+/// it is implemented for types like `Box<dyn Curve<T>>`. `CurveExt` is not dyn-compatible
+/// itself.
+///
+/// For more information, see the [module-level documentation].
+///
+/// [curves]: Curve
+/// [module-level documentation]: self
+pub trait CurveExt<T>: Curve<T> + Sized {
     /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
     /// returning `None` if the point is outside of the curve's domain.
     ///
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>>
-    where
-        Self: Sized,
-    {
+    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>> {
         iter.into_iter().map(|t| self.sample(t))
     }
 
@@ -367,10 +399,10 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter_unchecked(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T>
-    where
-        Self: Sized,
-    {
+    fn sample_iter_unchecked(
+        &self,
+        iter: impl IntoIterator<Item = f32>,
+    ) -> impl Iterator<Item = T> {
         iter.into_iter().map(|t| self.sample_unchecked(t))
     }
 
@@ -380,10 +412,7 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T>
-    where
-        Self: Sized,
-    {
+    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T> {
         iter.into_iter().map(|t| self.sample_clamped(t))
     }
 
@@ -393,7 +422,6 @@ pub trait Curve<T> {
     #[must_use]
     fn map<S, F>(self, f: F) -> MapCurve<T, S, Self, F>
     where
-        Self: Sized,
         F: Fn(T) -> S,
     {
         MapCurve {
@@ -418,7 +446,7 @@ pub trait Curve<T> {
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
-    /// [`Curve::reparametrize_linear`], which requires only the desired domain for the new curve.
+    /// [`CurveExt::reparametrize_linear`], which requires only the desired domain for the new curve.
     ///
     /// # Examples
     /// ```
@@ -436,7 +464,6 @@ pub trait Curve<T> {
     #[must_use]
     fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
     where
-        Self: Sized,
         F: Fn(f32) -> f32,
     {
         ReparamCurve {
@@ -449,15 +476,15 @@ pub trait Curve<T> {
 
     /// Linearly reparametrize this [`Curve`], producing a new curve whose domain is the given
     /// `domain` instead of the current one. This operation is only valid for curves with bounded
-    /// domains; if either this curve's domain or the given `domain` is unbounded, an error is
-    /// returned.
+    /// domains.
+    ///
+    /// # Errors
+    ///
+    /// If either this curve's domain or the given `domain` is unbounded, an error is returned.
     fn reparametrize_linear(
         self,
         domain: Interval,
-    ) -> Result<LinearReparamCurve<T, Self>, LinearReparamError>
-    where
-        Self: Sized,
-    {
+    ) -> Result<LinearReparamCurve<T, Self>, LinearReparamError> {
         if !self.domain().is_bounded() {
             return Err(LinearReparamError::SourceCurveUnbounded);
         }
@@ -481,7 +508,6 @@ pub trait Curve<T> {
     #[must_use]
     fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
-        Self: Sized,
         C: Curve<f32>,
     {
         CurveReparamCurve {
@@ -498,10 +524,7 @@ pub trait Curve<T> {
     /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this method
     /// is a `Curve<(f32, T)>`.
     #[must_use]
-    fn graph(self) -> GraphCurve<T, Self>
-    where
-        Self: Sized,
-    {
+    fn graph(self) -> GraphCurve<T, Self> {
         GraphCurve {
             base: self,
             _phantom: PhantomData,
@@ -512,11 +535,13 @@ pub trait Curve<T> {
     ///
     /// The sample at time `t` in the new curve is `(x, y)`, where `x` is the sample of `self` at
     /// time `t` and `y` is the sample of `other` at time `t`. The domain of the new curve is the
-    /// intersection of the domains of its constituents. If the domain intersection would be empty,
-    /// an error is returned.
+    /// intersection of the domains of its constituents.
+    ///
+    /// # Errors
+    ///
+    /// If the domain intersection would be empty, an error is returned instead.
     fn zip<S, C>(self, other: C) -> Result<ZipCurve<T, S, Self, C>, InvalidIntervalError>
     where
-        Self: Sized,
         C: Curve<S> + Sized,
     {
         let domain = self.domain().intersect(other.domain())?;
@@ -538,7 +563,6 @@ pub trait Curve<T> {
     /// `other`'s domain doesn't have a finite start.
     fn chain<C>(self, other: C) -> Result<ChainCurve<T, Self, C>, ChainError>
     where
-        Self: Sized,
         C: Curve<T>,
     {
         if !self.domain().has_finite_end() {
@@ -559,13 +583,10 @@ pub trait Curve<T> {
     /// and transitioning over to `self.domain().start()`. The domain of the new curve is still the
     /// same.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`ReverseError`] is returned if this curve's domain isn't bounded.
-    fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
-    where
-        Self: Sized,
-    {
+    fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError> {
         self.domain()
             .is_bounded()
             .then(|| ReverseCurve {
@@ -586,13 +607,10 @@ pub trait Curve<T> {
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.end()` in the original curve
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
-    fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
-    where
-        Self: Sized,
-    {
+    fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError> {
         self.domain()
             .is_bounded()
             .then(|| {
@@ -622,13 +640,10 @@ pub trait Curve<T> {
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.end()` in the original curve
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
-    fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
-    where
-        Self: Sized,
-    {
+    fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError> {
         self.domain()
             .is_bounded()
             .then(|| ForeverCurve {
@@ -642,13 +657,10 @@ pub trait Curve<T> {
     /// another curve with outputs of the same type. The domain of the new curve will be twice as
     /// long. The transition point is guaranteed to not make any jumps.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`PingPongError`] is returned if this curve's domain isn't right-finite.
-    fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
-    where
-        Self: Sized,
-    {
+    fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError> {
         self.domain()
             .has_finite_end()
             .then(|| PingPongCurve {
@@ -669,13 +681,12 @@ pub trait Curve<T> {
     /// realized by translating the other curve so that its start sample point coincides with the
     /// current curves' end sample point.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
     /// `other`'s domain doesn't have a finite start.
     fn chain_continue<C>(self, other: C) -> Result<ContinuationCurve<T, Self, C>, ChainError>
     where
-        Self: Sized,
         T: VectorSpace,
         C: Curve<T>,
     {
@@ -697,72 +708,13 @@ pub trait Curve<T> {
         })
     }
 
-    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
-    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
-    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
-    /// domain, then a [`ResamplingError`] is returned.
+    /// Extract an iterator over evenly-spaced samples from this curve.
     ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    /// # Errors
     ///
-    /// # Example
-    /// ```
-    /// # use bevy_math::*;
-    /// # use bevy_math::curve::*;
-    /// let quarter_rotation = FunctionCurve::new(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
-    /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
-    /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
-    /// ```
-    fn resample<I>(
-        &self,
-        segments: usize,
-        interpolation: I,
-    ) -> Result<SampleCurve<T, I>, ResamplingError>
-    where
-        Self: Sized,
-        I: Fn(&T, &T, f32) -> T,
-    {
-        let samples = self.samples(segments + 1)?.collect_vec();
-        Ok(SampleCurve {
-            core: EvenCore {
-                domain: self.domain(),
-                samples,
-            },
-            interpolation,
-        })
-    }
-
-    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent samples.
-    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
-    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
-    /// domain, then a [`ResamplingError`] is returned.
-    ///
-    /// [automatic interpolation]: crate::common_traits::StableInterpolate
-    fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
-    where
-        Self: Sized,
-        T: StableInterpolate,
-    {
-        let samples = self.samples(segments + 1)?.collect_vec();
-        Ok(SampleAutoCurve {
-            core: EvenCore {
-                domain: self.domain(),
-                samples,
-            },
-        })
-    }
-
-    /// Extract an iterator over evenly-spaced samples from this curve. If `samples` is less than 2
-    /// or if this curve has unbounded domain, then an error is returned instead.
-    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError>
-    where
-        Self: Sized,
-    {
+    /// If `samples` is less than 2 or if this curve has unbounded domain, a [`ResamplingError`]
+    /// is returned.
+    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError> {
         if samples < 2 {
             return Err(ResamplingError::NotEnoughSamples(samples));
         }
@@ -779,13 +731,122 @@ pub trait Curve<T> {
             .map(|t| self.sample_unchecked(t)))
     }
 
+    /// Borrow this curve rather than taking ownership of it. This is essentially an alias for a
+    /// prefix `&`; the point is that intermediate operations can be performed while retaining
+    /// access to the original curve.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_math::curve::*;
+    /// let my_curve = FunctionCurve::new(Interval::UNIT, |t| t * t + 1.0);
+    ///
+    /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
+    /// // ownership of its input.
+    /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
+    ///
+    /// // Do something else with `my_curve` since we retained ownership:
+    /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
+    /// ```
+    fn by_ref(&self) -> &Self {
+        self
+    }
+
+    /// Flip this curve so that its tuple output is arranged the other way.
+    #[must_use]
+    fn flip<U, V>(self) -> impl Curve<(V, U)>
+    where
+        Self: CurveExt<(U, V)>,
+    {
+        self.map(|(u, v)| (v, u))
+    }
+}
+
+impl<C, T> CurveExt<T> for C where C: Curve<T> {}
+
+/// Extension trait implemented by [curves], allowing access to generic resampling methods as
+/// well as those based on [stable interpolation].
+///
+/// This trait is automatically implemented for all curves.
+///
+/// For more information, see the [module-level documentation].
+///
+/// [curves]: Curve
+/// [stable interpolation]: crate::StableInterpolate
+/// [module-level documentation]: self
+#[cfg(feature = "alloc")]
+pub trait CurveResampleExt<T>: Curve<T> {
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
+    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
+    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
+    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
+    /// the midpoint is taken as well, and so on.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    ///
+    /// # Errors
+    ///
+    /// If `segments` is zero or if this curve has unbounded domain, then a [`ResamplingError`] is
+    /// returned.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_math::*;
+    /// # use bevy_math::curve::*;
+    /// let quarter_rotation = FunctionCurve::new(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
+    /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
+    /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
+    /// ```
+    fn resample<I>(
+        &self,
+        segments: usize,
+        interpolation: I,
+    ) -> Result<SampleCurve<T, I>, ResamplingError>
+    where
+        I: Fn(&T, &T, f32) -> T,
+    {
+        let samples = self.samples(segments + 1)?.collect_vec();
+        Ok(SampleCurve {
+            core: EvenCore {
+                domain: self.domain(),
+                samples,
+            },
+            interpolation,
+        })
+    }
+
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
+    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent samples.
+    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
+    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
+    /// the midpoint is taken as well, and so on.
+    ///
+    /// # Errors
+    ///
+    /// If `segments` is zero or if this curve has unbounded domain, a [`ResamplingError`] is returned.
+    ///
+    /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
+    where
+        T: StableInterpolate,
+    {
+        let samples = self.samples(segments + 1)?.collect_vec();
+        Ok(SampleAutoCurve {
+            core: EvenCore {
+                domain: self.domain(),
+                samples,
+            },
+        })
+    }
+
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over samples
     /// taken at a given set of times. The given `interpolation` is used to interpolate adjacent
     /// samples, and the `sample_times` are expected to contain at least two valid times within the
     /// curve's domain interval.
     ///
     /// Redundant sample times, non-finite sample times, and sample times outside of the domain
-    /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
+    /// are filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
     /// returned.
     ///
     /// The domain of the produced curve stretches between the first and last sample times of the
@@ -794,13 +855,17 @@ pub trait Curve<T> {
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    ///
+    /// # Errors
+    ///
+    /// If `sample_times` doesn't contain at least two distinct times after filtering, a
+    /// [`ResamplingError`] is returned.
     fn resample_uneven<I>(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
         interpolation: I,
     ) -> Result<UnevenSampleCurve<T, I>, ResamplingError>
     where
-        Self: Sized,
         I: Fn(&T, &T, f32) -> T,
     {
         let domain = self.domain();
@@ -831,13 +896,17 @@ pub trait Curve<T> {
     /// The domain of the produced [`UnevenSampleAutoCurve`] stretches between the first and last
     /// sample times of the iterator.
     ///
+    /// # Errors
+    ///
+    /// If `sample_times` doesn't contain at least two distinct times after filtering, a
+    /// [`ResamplingError`] is returned.
+    ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
     ) -> Result<UnevenSampleAutoCurve<T>, ResamplingError>
     where
-        Self: Sized,
         T: StableInterpolate,
     {
         let domain = self.domain();
@@ -855,124 +924,80 @@ pub trait Curve<T> {
             core: UnevenCore { times, samples },
         })
     }
-
-    /// Borrow this curve rather than taking ownership of it. This is essentially an alias for a
-    /// prefix `&`; the point is that intermediate operations can be performed while retaining
-    /// access to the original curve.
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_math::curve::*;
-    /// let my_curve = FunctionCurve::new(Interval::UNIT, |t| t * t + 1.0);
-    ///
-    /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
-    /// // ownership of its input.
-    /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
-    ///
-    /// // Do something else with `my_curve` since we retained ownership:
-    /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
-    /// ```
-    fn by_ref(&self) -> &Self
-    where
-        Self: Sized,
-    {
-        self
-    }
-
-    /// Flip this curve so that its tuple output is arranged the other way.
-    #[must_use]
-    fn flip<U, V>(self) -> impl Curve<(V, U)>
-    where
-        Self: Sized + Curve<(U, V)>,
-    {
-        self.map(|(u, v)| (v, u))
-    }
 }
 
-impl<T, C, D> Curve<T> for D
-where
-    C: Curve<T> + ?Sized,
-    D: Deref<Target = C>,
-{
-    fn domain(&self) -> Interval {
-        <C as Curve<T>>::domain(self)
-    }
-
-    fn sample_unchecked(&self, t: f32) -> T {
-        <C as Curve<T>>::sample_unchecked(self, t)
-    }
-}
+#[cfg(feature = "alloc")]
+impl<C, T> CurveResampleExt<T> for C where C: Curve<T> + ?Sized {}
 
 /// An error indicating that a linear reparameterization couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not build a linear function to reparametrize this curve")]
+#[derive(Debug, Error)]
+#[error("Could not build a linear function to reparametrize this curve")]
 pub enum LinearReparamError {
     /// The source curve that was to be reparametrized had unbounded domain.
-    #[display("This curve has unbounded domain")]
+    #[error("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
     /// The target interval for reparameterization was unbounded.
-    #[display("The target interval for reparameterization is unbounded")]
+    #[error("The target interval for reparameterization is unbounded")]
     TargetIntervalUnbounded,
 }
 
 /// An error indicating that a reversion of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not reverse this curve")]
+#[derive(Debug, Error)]
+#[error("Could not reverse this curve")]
 pub enum ReverseError {
     /// The source curve that was to be reversed had unbounded domain end.
-    #[display("This curve has an unbounded domain end")]
+    #[error("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that a repetition of a curve couldn't be performed because of malformed
 /// inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not repeat this curve")]
+#[derive(Debug, Error)]
+#[error("Could not repeat this curve")]
 pub enum RepeatError {
     /// The source curve that was to be repeated had unbounded domain.
-    #[display("This curve has an unbounded domain")]
+    #[error("This curve has an unbounded domain")]
     SourceDomainUnbounded,
 }
 
 /// An error indicating that a ping ponging of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not ping pong this curve")]
+#[derive(Debug, Error)]
+#[error("Could not ping pong this curve")]
 pub enum PingPongError {
     /// The source curve that was to be ping ponged had unbounded domain end.
-    #[display("This curve has an unbounded domain end")]
+    #[error("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not compose these curves together")]
+#[derive(Debug, Error)]
+#[error("Could not compose these curves together")]
 pub enum ChainError {
     /// The right endpoint of the first curve was infinite.
-    #[display("The first curve's domain has an infinite end")]
+    #[error("The first curve's domain has an infinite end")]
     FirstEndInfinite,
 
     /// The left endpoint of the second curve was infinite.
-    #[display("The second curve's domain has an infinite start")]
+    #[error("The second curve's domain has an infinite start")]
     SecondStartInfinite,
 }
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not resample from this curve because of bad inputs")]
+#[derive(Debug, Error)]
+#[error("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
-    #[display("Not enough unique samples to construct resampled curve")]
-    #[error(ignore)]
+    #[error("Not enough unique samples to construct resampled curve")]
     NotEnoughSamples(usize),
 
     /// This resampling operation failed because of an unbounded interval.
-    #[display("Could not resample because this curve has unbounded domain")]
+    #[error("Could not resample because this curve has unbounded domain")]
     UnboundedDomain,
 }
 
@@ -980,6 +1005,7 @@ pub enum ResamplingError {
 mod tests {
     use super::*;
     use crate::{ops, Quat};
+    use alloc::vec::Vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
     use core::f32::consts::TAU;
     use glam::*;
@@ -1035,17 +1061,15 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = EasingCurve::new(start, end, EaseFunction::Steps(4));
+        let curve = EasingCurve::new(start, end, EaseFunction::Steps(4, JumpAt::End));
         [
             (0.0, start),
-            (0.124, start),
-            (0.125, Vec2::new(0.25, 0.5)),
-            (0.374, Vec2::new(0.25, 0.5)),
-            (0.375, Vec2::new(0.5, 1.0)),
-            (0.624, Vec2::new(0.5, 1.0)),
-            (0.625, Vec2::new(0.75, 1.5)),
-            (0.874, Vec2::new(0.75, 1.5)),
-            (0.875, end),
+            (0.249, start),
+            (0.250, Vec2::new(0.25, 0.5)),
+            (0.499, Vec2::new(0.25, 0.5)),
+            (0.500, Vec2::new(0.5, 1.0)),
+            (0.749, Vec2::new(0.5, 1.0)),
+            (0.750, Vec2::new(0.75, 1.5)),
             (1.0, end),
         ]
         .into_iter()
@@ -1072,6 +1096,10 @@ mod tests {
         });
     }
 
+    #[expect(
+        clippy::neg_multiply,
+        reason = "Clippy doesn't like this, but it's correct"
+    )]
     #[test]
     fn mapping() {
         let curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);

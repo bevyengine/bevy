@@ -1,4 +1,5 @@
 use crate::{PartialReflect, TypeRegistration, TypeRegistry};
+use alloc::boxed::Box;
 
 /// Allows overriding the default deserialization behavior of
 /// [`ReflectDeserializer`] and [`TypedReflectDeserializer`] for specific

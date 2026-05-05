@@ -48,7 +48,7 @@ mod tests {
     fn should_create_dynamic_function_mut_from_closure() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_function();
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_downcast_ref::<i32>(), Some(&123));
     }
@@ -57,7 +57,7 @@ mod tests {
     fn should_create_dynamic_function_mut_from_closure_with_mutable_capture() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b).into_function_mut();
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         func.call_once(args).unwrap();
         assert_eq!(total, 100);
     }
@@ -69,7 +69,7 @@ mod tests {
         }
 
         let mut func = add.into_function_mut();
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
     }
@@ -78,6 +78,6 @@ mod tests {
     fn should_default_closure_name_to_none() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b).into_function_mut();
-        assert_eq!(func.info().name(), None);
+        assert!(func.name().is_none());
     }
 }

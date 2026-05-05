@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
+use chacha20::ChaCha8Rng;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Copy, Clone)]
 struct TableData(f32);
@@ -38,6 +38,6 @@ impl<'w> Benchmark<'w> {
     pub fn run(&mut self) {
         self.1
             .iter_mut(&mut self.0)
-            .for_each(|(mut v1, v2)| v1.0 += v2.0)
+            .for_each(|(mut v1, v2)| v1.0 += v2.0);
     }
 }

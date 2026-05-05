@@ -1,6 +1,7 @@
 use crate::{
     serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
-    TupleStruct, TypeInfo, TypeRegistry,
+    tuple_struct::TupleStruct,
+    TypeInfo, TypeRegistry,
 };
 use serde::{ser::SerializeTupleStruct, Serialize};
 
@@ -57,10 +58,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
         )?;
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
-            if serialization_data
-                .map(|data| data.is_field_skipped(index))
-                .unwrap_or(false)
-            {
+            if serialization_data.is_some_and(|data| data.is_field_skipped(index)) {
                 continue;
             }
             state.serialize_field(&TypedReflectSerializer::new_internal(

@@ -1,7 +1,9 @@
 use crate::{
+    array::{ArrayInfo, DynamicArray},
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
-    ArrayInfo, DynamicArray, TypeRegistry,
+    TypeRegistry,
 };
+use alloc::{string::ToString, vec::Vec};
 use core::{fmt, fmt::Formatter};
 use serde::de::{Error, SeqAccess, Visitor};
 
@@ -9,7 +11,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Array`] values.
 ///
-/// [`Array`]: crate::Array
+/// [`Array`]: crate::array::Array
 pub(super) struct ArrayVisitor<'a, P> {
     pub array_info: &'static ArrayInfo,
     pub registry: &'a TypeRegistry,
