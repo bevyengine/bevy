@@ -218,9 +218,10 @@ impl Sphere {
     pub fn intersects_obb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center);
         let v = aabb_center_world - self.center;
-        let d = v.length();
-        let relative_radius = aabb.relative_radius(&(v / d), &world_from_local.matrix3);
-        d < self.radius + relative_radius
+        let d_sq = v.length_squared();
+        let d = d_sq.sqrt();
+        let relative_radius_unscaled = aabb.relative_radius(&v, &world_from_local.matrix3);
+        d_sq <= self.radius * d + relative_radius_unscaled
     }
 }
 
@@ -606,6 +607,80 @@ mod tests {
             radius: 4.4094,
         };
         assert!(frustum.intersects_sphere(&sphere, true));
+    }
+
+    #[test]
+    fn sphere_intersects_obb_identical_center() {
+        let sphere_at_origin = Sphere {
+            center: Vec3A::ZERO,
+            radius: 1.0,
+        };
+        let aabb_at_origin = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::splat(0.5),
+        };
+        assert!(
+            sphere_at_origin.intersects_obb(&aabb_at_origin, &Affine3A::IDENTITY),
+            "Should intersect when centers are exactly identical"
+        );
+    }
+
+    #[test]
+    fn sphere_intersects_obb_at_edge() {
+        // Zero-radius sphere (a point) exactly on the edge of an OBB
+        let point_sphere = Sphere {
+            center: Vec3A::new(1.0, 0.0, 0.0),
+            radius: 0.0,
+        };
+        let aabb = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::X, // Width of 1, height/depth 0
+        };
+        assert!(
+            point_sphere.intersects_obb(&aabb, &Affine3A::IDENTITY),
+            "Zero radius sphere (point) on the boundary should count as an intersection"
+        );
+    }
+
+    #[test]
+    fn sphere_intersects_obb_zero_extents_inside() {
+        // OBB with zero extents (a point) inside a sphere
+        let sphere = Sphere {
+            center: Vec3A::ZERO,
+            radius: 10.0,
+        };
+        let point_aabb = Aabb {
+            center: Vec3A::new(1.0, 1.0, 1.0),
+            half_extents: Vec3A::ZERO,
+        };
+        assert!(
+            sphere.intersects_obb(&point_aabb, &Affine3A::IDENTITY),
+            "Sphere should intersect an AABB with zero extents if the point is inside"
+        );
+    }
+
+    #[test]
+    fn sphere_intersects_obb_rotated_zeros() {
+        // Rotated zero-extent OBB
+        let sphere = Sphere {
+            center: Vec3A::new(5.0, 0.0, 0.0),
+            radius: 1.0,
+        };
+        let point_aabb = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::ZERO,
+        };
+
+        // Rotate and translate the "point" OBB so it sits inside the sphere
+        let transform = Affine3A::from_rotation_translation(
+            Quat::from_rotation_y(PI),
+            Vec3::new(5.0, 0.0, 0.0),
+        );
+
+        assert!(
+            sphere.intersects_obb(&point_aabb, &transform),
+            "Should intersect rotated point OBB"
+        );
     }
 
     #[test]

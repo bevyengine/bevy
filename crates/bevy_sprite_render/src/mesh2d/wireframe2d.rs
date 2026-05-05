@@ -30,7 +30,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs, SlabId},
+        allocator::{MeshAllocator, MeshSlabId, MeshSlabs},
         RenderMesh,
     },
     prelude::*,
@@ -49,7 +49,7 @@ use bevy_render::{
     view::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
@@ -112,11 +112,11 @@ impl Plugin for Wireframe2dPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedWireframePipelineCache>()
+            .init_gpu_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe2dPhaseItem>>()
             .add_render_command::<Wireframe2dPhaseItem, DrawWireframe2d>()
             .init_resource::<RenderWireframeInstances>()
-            .init_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
+            .init_gpu_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
             .init_resource::<PendingWireframe2dQueues>()
             .add_systems(
                 Core2d,
@@ -254,12 +254,12 @@ pub struct Wireframe2dBatchSetKey {
     ///
     /// For non-mesh items, you can fill this with 0 if your items can be
     /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
+    pub vertex_slab: MeshSlabId,
 
     /// The ID of the slab of GPU memory that contains index data, if present.
     ///
     /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    pub index_slab: Option<MeshSlabId>,
 }
 
 impl PhaseItemBatchSetKey for Wireframe2dBatchSetKey {
@@ -346,7 +346,9 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        if descriptor.primitive.topology.is_triangles() {
+            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        }
         Ok(descriptor)
     }
 }
@@ -439,7 +441,9 @@ pub struct RenderWireframeMaterial {
     pub color: [f32; 4],
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh2dWireframe(pub Handle<Wireframe2dMaterial>);
 
@@ -807,7 +811,10 @@ pub fn specialize_wireframes(
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             let pipeline_id =
                 pipelines.specialize(&pipeline_cache, &pipeline, mesh_key, &mesh.layout);

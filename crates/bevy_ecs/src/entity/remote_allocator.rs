@@ -1026,7 +1026,7 @@ impl Drop for AllocEntitiesIterator<'_> {
 }
 
 /// This is a stripped down entity allocator that operates on fewer assumptions than [`EntityAllocator`](super::EntityAllocator).
-/// As a result, using this will be slower than than the main allocator but this offers additional freedoms.
+/// As a result, using this will be slower than the main allocator but this offers additional freedoms.
 /// In particular, this type is fully owned, allowing you to allocate entities for a world without locking or holding reference to the world.
 /// This is especially useful in async contexts.
 #[derive(Clone)]

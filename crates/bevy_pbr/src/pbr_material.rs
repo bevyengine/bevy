@@ -129,7 +129,7 @@ pub struct StandardMaterial {
     /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
     /// calculations used.
     // Technically for 32-bit floats, 0.045 could be used.
-    // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
+    // See <https://google.github.io/filament/Filament.md.html#materialsystem/parameterization>
     pub perceptual_roughness: f32,
 
     /// How "metallic" the material appears, within `[0.0, 1.0]`.
@@ -396,12 +396,12 @@ pub struct StandardMaterial {
     /// # use bevy_image::{Image, ImageLoaderSettings};
     /// #
     /// fn load_normal_map(asset_server: Res<AssetServer>) {
-    ///     let normal_handle: Handle<Image> = asset_server.load_with_settings(
-    ///         "textures/parallax_example/cube_normal.png",
-    ///         // The normal map texture is in linear color space. Lighting won't look correct
-    ///         // if `is_srgb` is `true`, which is the default.
-    ///         |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-    ///     );
+    ///     let normal_handle: Handle<Image> = asset_server.load_builder().with_settings(
+    ///             // The normal map texture is in linear color space. Lighting won't look correct
+    ///             // if `is_srgb` is `true`, which is the default.
+    ///             |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    ///         )
+    ///         .load("textures/parallax_example/cube_normal.png");
     /// }
     /// ```
     #[texture(9)]
