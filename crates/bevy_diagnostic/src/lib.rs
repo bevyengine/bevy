@@ -8,7 +8,7 @@
 
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevy.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
-//! their ability to monitor and optimize their game's.
+//! their ability to monitor and optimize their games.
 
 #[cfg(feature = "std")]
 extern crate std;

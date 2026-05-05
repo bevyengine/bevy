@@ -17,7 +17,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::prelude::*;
 //!
@@ -26,7 +26,7 @@
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
+//!         WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
 //!         Transform::from_xyz(2.0, 0.0, -5.0),
 //!     ));
@@ -42,7 +42,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::Gltf;
 //!
@@ -72,11 +72,11 @@
 //!     *loaded = true;
 //!
 //!     // Spawns the first scene in the file
-//!     commands.spawn(SceneRoot(gltf.scenes[0].clone()));
+//!     commands.spawn(WorldAssetRoot(gltf.scenes[0].clone()));
 //!
 //!     // Spawns the scene named "Lenses_low"
 //!     commands.spawn((
-//!         SceneRoot(gltf.named_scenes["Lenses_low"].clone()),
+//!         WorldAssetRoot(gltf.named_scenes["Lenses_low"].clone()),
 //!         Transform::from_xyz(1.0, 2.0, 3.0),
 //!     ));
 //! }
@@ -132,7 +132,8 @@ pub mod convert_coordinates;
 mod label;
 mod loader;
 mod material;
-mod vertex_attributes;
+/// A set of utilities for accessing and converting vertex attribute data
+pub mod vertex_attributes;
 
 extern crate alloc;
 

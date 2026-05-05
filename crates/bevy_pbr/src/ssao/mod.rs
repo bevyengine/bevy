@@ -32,7 +32,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
@@ -70,8 +70,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         }
 
         render_app
-            .init_resource::<SsaoPipelines>()
-            .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
+            .init_gpu_resource::<SsaoPipelines>()
+            .init_gpu_resource::<SpecializedComputePipelines<SsaoPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
             .add_systems(
                 Render,
@@ -111,6 +111,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
 #[reflect(Component, Debug, Default, PartialEq, Clone)]
 #[require(DepthPrepass, NormalPrepass)]
+#[extract_component_sync_target((Self, ScreenSpaceAmbientOcclusionResources, SsaoPipelineId, SsaoBindGroups))]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
     /// Quality of the SSAO effect.
@@ -598,8 +599,9 @@ fn prepare_ssao_textures(
     }
 }
 
+/// A render world component that holds the cached pipeline id for Ssao.
 #[derive(Component)]
-struct SsaoPipelineId(CachedComputePipelineId);
+pub struct SsaoPipelineId(pub CachedComputePipelineId);
 
 fn prepare_ssao_pipelines(
     mut commands: Commands,
@@ -622,12 +624,16 @@ fn prepare_ssao_pipelines(
     }
 }
 
+/// A render world component that stores the bind groups necessary to perform
+/// Screen Space Ambient Occlusion.
+///
+/// This is stored on each view.
 #[derive(Component)]
-struct SsaoBindGroups {
-    common_bind_group: BindGroup,
-    preprocess_depth_bind_group: BindGroup,
-    ssao_bind_group: BindGroup,
-    spatial_denoise_bind_group: BindGroup,
+pub struct SsaoBindGroups {
+    pub common_bind_group: BindGroup,
+    pub preprocess_depth_bind_group: BindGroup,
+    pub ssao_bind_group: BindGroup,
+    pub spatial_denoise_bind_group: BindGroup,
 }
 
 fn prepare_ssao_bind_groups(

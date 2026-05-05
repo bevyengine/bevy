@@ -2,7 +2,7 @@
 mod multi_threaded;
 mod single_threaded;
 
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
@@ -11,7 +11,7 @@ pub use self::single_threaded::SingleThreadedExecutor;
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 
-use fixedbitset::FixedBitSet;
+pub use fixedbitset::FixedBitSet;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
@@ -27,9 +27,10 @@ use crate::{
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
-pub(super) trait SystemExecutor: Send + Sync {
-    fn kind(&self) -> ExecutorKind;
+pub trait SystemExecutor: Send + Sync {
+    /// Called once after the schedule is built or rebuilt.
     fn init(&mut self, schedule: &SystemSchedule);
+    /// Runs the systems in the schedule.
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
@@ -37,33 +38,31 @@ pub(super) trait SystemExecutor: Send + Sync {
         skip_systems: Option<&FixedBitSet>,
         error_handler: fn(BevyError, ErrorContext),
     );
+    /// Sets whether deferred system buffers should be applied after all systems have run.
     fn set_apply_final_deferred(&mut self, value: bool);
 }
 
-/// Specifies how a [`Schedule`](super::Schedule) will be run.
+/// Returns the default executor for the current platform.
 ///
-/// The default depends on the target platform:
-///  - [`SingleThreaded`](ExecutorKind::SingleThreaded) on Wasm.
-///  - [`MultiThreaded`](ExecutorKind::MultiThreaded) everywhere else.
-#[derive(PartialEq, Eq, Default, Debug, Copy, Clone)]
-pub enum ExecutorKind {
-    /// Runs the schedule using a single thread.
-    ///
-    /// Useful if you're dealing with a single-threaded environment, saving your threads for
-    /// other things, or just trying minimize overhead.
-    #[cfg_attr(
-        any(
-            target_arch = "wasm32",
-            not(feature = "std"),
-            not(feature = "multi_threaded")
-        ),
-        default
-    )]
-    SingleThreaded,
-    /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
-    #[cfg(feature = "std")]
-    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
-    MultiThreaded,
+/// On Wasm or when the `multi_threaded` feature is disabled, this returns a
+/// [`SingleThreadedExecutor`]. Otherwise it returns a [`MultiThreadedExecutor`].
+pub fn default_executor() -> Box<dyn SystemExecutor> {
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "std",
+        feature = "multi_threaded"
+    ))]
+    {
+        Box::new(MultiThreadedExecutor::new())
+    }
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "std"),
+        not(feature = "multi_threaded")
+    ))]
+    {
+        Box::new(SingleThreadedExecutor::new())
+    }
 }
 
 /// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
@@ -122,6 +121,15 @@ impl SystemSchedule {
             systems_in_sets_with_conditions: Vec::new(),
         }
     }
+
+    /// Accessor to allow running systems from a custom executor
+    ///
+    /// # Safety
+    /// - The only allowed mutations are from calling methods on the [`System`] trait. Replacing
+    ///   systems in the returned [`Vec`] should be considered undefined behavior.
+    pub unsafe fn systems_mut(&mut self) -> &mut Vec<SystemWithAccess> {
+        &mut self.systems
+    }
 }
 
 /// A special [`System`] that instructs the executor to call
@@ -153,7 +161,7 @@ pub struct ApplyDeferred;
 
 /// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
 pub(super) fn is_apply_deferred(system: &dyn System<In = (), Out = ()>) -> bool {
-    system.type_id() == TypeId::of::<ApplyDeferred>()
+    system.system_type() == TypeId::of::<ApplyDeferred>()
 }
 
 impl System for ApplyDeferred {
@@ -309,16 +317,13 @@ mod __rust_begin_short_backtrace {
 mod tests {
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
-        schedule::ExecutorKind,
+        schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{Populated, Res, ResMut, Single},
         world::World,
     };
 
     #[derive(Component)]
     struct TestComponent;
-
-    const EXECUTORS: [ExecutorKind; 2] =
-        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct TestState {
@@ -341,30 +346,39 @@ mod tests {
     }
 
     #[test]
+    fn single_and_populated_skipped_and_run_singlethreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(SingleThreadedExecutor::new());
+        single_and_populated_skipped_and_run("SingleThreaded", schedule);
+    }
+
+    #[test]
+    fn single_and_populated_skipped_and_run_multithreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        single_and_populated_skipped_and_run("MultiThreaded", schedule);
+    }
+
     #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
-    fn single_and_populated_skipped_and_run() {
-        for executor in EXECUTORS {
-            std::println!("Testing executor: {executor:?}");
+    fn single_and_populated_skipped_and_run(name: &str, mut schedule: Schedule) {
+        std::println!("Testing executor: {name}");
 
-            let mut world = World::new();
-            world.init_resource::<TestState>();
+        let mut world = World::new();
+        world.init_resource::<TestState>();
 
-            let mut schedule = Schedule::default();
-            schedule.set_executor_kind(executor);
-            schedule.add_systems((set_single_state, set_populated_state));
-            schedule.run(&mut world);
+        schedule.add_systems((set_single_state, set_populated_state));
+        schedule.run(&mut world);
 
-            let state = world.get_resource::<TestState>().unwrap();
-            assert!(!state.single_ran);
-            assert!(!state.populated_ran);
+        let state = world.get_resource::<TestState>().unwrap();
+        assert!(!state.single_ran);
+        assert!(!state.populated_ran);
 
-            world.spawn(TestComponent);
+        world.spawn(TestComponent);
 
-            schedule.run(&mut world);
-            let state = world.get_resource::<TestState>().unwrap();
-            assert!(state.single_ran);
-            assert!(state.populated_ran);
-        }
+        schedule.run(&mut world);
+        let state = world.get_resource::<TestState>().unwrap();
+        assert!(state.single_ran);
+        assert!(state.populated_ran);
     }
 
     fn look_for_missing_resource(_res: Res<TestState>) {}
@@ -375,7 +389,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
-        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule.set_executor(SingleThreadedExecutor::new());
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
     }
@@ -386,7 +400,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
-        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
     }
@@ -557,7 +571,7 @@ mod tests {
 mod validation_tests {
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
-        schedule::ExecutorKind,
+        schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
             DynParamBuilder, DynSystemParam, ExclusiveSystemParam, Local, ParamBuilder, ParamSet,
             Query, Res, ResMut, RunSystemError, RunSystemOnce, Single, SystemMeta,
@@ -568,9 +582,6 @@ mod validation_tests {
 
     #[derive(Component)]
     struct TestComponent;
-
-    const EXECUTORS: [ExecutorKind; 2] =
-        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct Counter(u8);
@@ -810,29 +821,38 @@ mod validation_tests {
     }
 
     #[test]
-    fn validation_skips_system_in_schedule() {
+    fn validation_skips_system_in_schedule_singlethreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(SingleThreadedExecutor::new());
+        validation_skips_system_in_schedule("SingleThreaded", schedule);
+    }
+
+    #[test]
+    fn validation_skips_system_in_schedule_multithreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        validation_skips_system_in_schedule("MultiThreaded", schedule);
+    }
+
+    fn validation_skips_system_in_schedule(name: &str, mut schedule: Schedule) {
         // Ensure the executor properly handles validation failures by skipping
         // and not running the system body.
         fn skippable_system(_single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
             counter.0 += 1;
         }
 
-        for executor in EXECUTORS {
-            let mut world = World::new();
-            world.init_resource::<Counter>();
+        let mut world = World::new();
+        world.init_resource::<Counter>();
 
-            let mut schedule = Schedule::default();
-            schedule.set_executor_kind(executor);
-            schedule.add_systems(skippable_system);
+        schedule.add_systems(skippable_system);
 
-            // No TestComponent entity exists, so the system should be skipped.
-            schedule.run(&mut world);
-            assert_eq!(
-                world.resource::<Counter>().0,
-                0,
-                "System should have been skipped with {executor:?}"
-            );
-        }
+        // No TestComponent entity exists, so the system should be skipped.
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<Counter>().0,
+            0,
+            "System should have been skipped with {name}"
+        );
     }
 
     #[test]

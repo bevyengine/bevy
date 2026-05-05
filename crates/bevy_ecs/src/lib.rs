@@ -6,7 +6,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -51,6 +52,7 @@ pub mod schedule;
 pub mod spawn;
 pub mod storage;
 pub mod system;
+pub mod template;
 pub mod traversal;
 pub mod world;
 
@@ -72,7 +74,7 @@ pub mod prelude {
         children,
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
-        error::{BevyError, Result},
+        error::{BevyError, Result, ResultSeverityExt, Severity},
         event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
@@ -96,6 +98,7 @@ pub mod prelude {
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
+        template::{template, FromTemplate, Template},
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, World,
@@ -109,13 +112,16 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectMessage,
+        ReflectResource,
     };
 
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]
     pub use crate::reflect::AppFunctionRegistry;
 }
+
+pub use bevy_ecs_macros::VariantDefaults;
 
 /// Exports used by macros.
 ///
@@ -154,7 +160,7 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::Component,
-        entity::{Entity, EntityMapper, EntityNotSpawnedError},
+        entity::{Entity, EntityHashSet, EntityMapper, EntityNotSpawnedError},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
@@ -1032,16 +1038,16 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: QueryFilter>(world: &mut World) -> HashSet<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> EntityHashSet {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
-                .collect::<HashSet<Entity>>()
+                .collect::<EntityHashSet>()
         }
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e1, e3].into_iter().collect::<HashSet<_>>()
+            [e1, e3].into_iter().collect::<EntityHashSet>()
         );
 
         // ensure changing an entity's archetypes also moves its changed state
@@ -1049,7 +1055,7 @@ mod tests {
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e3, e1].into_iter().collect::<HashSet<_>>(),
+            [e3, e1].into_iter().collect::<EntityHashSet>(),
             "changed entities list should not change"
         );
 
@@ -1058,7 +1064,7 @@ mod tests {
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e3, e1].into_iter().collect::<HashSet<_>>(),
+            [e3, e1].into_iter().collect::<EntityHashSet>(),
             "changed entities list should not change"
         );
 
@@ -1066,7 +1072,7 @@ mod tests {
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e3, e1].into_iter().collect::<HashSet<_>>(),
+            [e3, e1].into_iter().collect::<EntityHashSet>(),
             "changed entities list should not change"
         );
 
@@ -1074,7 +1080,7 @@ mod tests {
         assert!(world.despawn(e1));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e3].into_iter().collect::<HashSet<_>>(),
+            [e3].into_iter().collect::<EntityHashSet>(),
             "e1 should no longer be returned"
         );
 
@@ -1087,17 +1093,17 @@ mod tests {
         world.entity_mut(e4).insert(A(0));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
         assert_eq!(
             get_filtered::<Added<A>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
 
         world.entity_mut(e4).insert(A(1));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
 
         world.clear_trackers();
@@ -1109,15 +1115,15 @@ mod tests {
         assert!(get_filtered::<Added<A>>(&mut world).is_empty());
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
         assert_eq!(
             get_filtered::<Added<B>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
         assert_eq!(
             get_filtered::<Changed<B>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
     }
 
@@ -1141,28 +1147,28 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: QueryFilter>(world: &mut World) -> HashSet<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> EntityHashSet {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
-                .collect::<HashSet<Entity>>()
+                .collect::<EntityHashSet>()
         }
 
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e1, e3].into_iter().collect::<HashSet<_>>()
+            [e1, e3].into_iter().collect::<EntityHashSet>()
         );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), [e3, e1].into_iter().collect::<HashSet<_>>(), "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), [e3, e1].into_iter().collect::<EntityHashSet>(), "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new SparseStored entity should not change existing changed state
         world.entity_mut(e1).insert(SparseStored(0));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e3, e1].into_iter().collect::<HashSet<_>>(),
+            [e3, e1].into_iter().collect::<EntityHashSet>(),
             "changed entities list should not change"
         );
 
@@ -1170,7 +1176,7 @@ mod tests {
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e3, e1].into_iter().collect::<HashSet<_>>(),
+            [e3, e1].into_iter().collect::<EntityHashSet>(),
             "changed entities list should not change"
         );
 
@@ -1178,7 +1184,7 @@ mod tests {
         assert!(world.despawn(e1));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e3].into_iter().collect::<HashSet<_>>(),
+            [e3].into_iter().collect::<EntityHashSet>(),
             "e1 should no longer be returned"
         );
 
@@ -1191,17 +1197,17 @@ mod tests {
         world.entity_mut(e4).insert(SparseStored(0));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
         assert_eq!(
             get_filtered::<Added<SparseStored>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
 
         world.entity_mut(e4).insert(A(1));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
 
         world.clear_trackers();
@@ -1213,7 +1219,7 @@ mod tests {
         assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            [e4].into_iter().collect::<HashSet<_>>()
+            [e4].into_iter().collect::<EntityHashSet>()
         );
     }
 
@@ -2058,6 +2064,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~460s on CI")]
     fn queue_register_component_toctou() {
         for _ in 0..1000 {
             let w = World::new();

@@ -77,8 +77,8 @@ fn init_window_pos(app: &mut App) {
 fn setup(mut commands: Commands) {
     commands.spawn((Camera::default(), Camera2d));
     commands.spawn(Node {
-        width: Val::Percent(100.0),
-        height: Val::Percent(100.0),
+        width: percent(100),
+        height: percent(100),
         display: Display::Flex,
         flex_direction: FlexDirection::Column,
         align_items: AlignItems::Center,
@@ -138,6 +138,8 @@ fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands:
 struct ExitAfterSave;
 
 impl Command for ExitAfterSave {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         world.write_message(AppExit::Success);
     }

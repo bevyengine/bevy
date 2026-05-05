@@ -16,8 +16,7 @@ use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{
-        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
-        SystemWithAccess,
+        is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
     system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -149,10 +148,6 @@ impl Default for MultiThreadedExecutor {
 }
 
 impl SystemExecutor for MultiThreadedExecutor {
-    fn kind(&self) -> ExecutorKind {
-        ExecutorKind::MultiThreaded
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         let state = self.state.get_mut().unwrap();
         // pre-allocate space
@@ -866,7 +861,7 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{ExecutorKind, IntoScheduleConfigs, Schedule},
+        schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::Commands,
         world::World,
     };
@@ -878,7 +873,7 @@ mod tests {
     fn skipped_systems_notify_dependents() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(
             (
                 (|| {}).run_if(|| false),
@@ -900,7 +895,7 @@ mod tests {
     fn check_spawn_exclusive_system_task_miri() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
     }
