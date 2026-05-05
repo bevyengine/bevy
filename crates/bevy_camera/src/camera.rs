@@ -32,7 +32,8 @@ use wgpu_types::{BlendState, TextureUsages};
 /// Please see the example code (which assumes a single camera and window)
 /// 
 /// ```no_run
-/// # use bevy_camera::{Projection, Viewport};
+/// # use bevy_camera::{Camera, Projection, Viewport};
+/// # use bevy::preluede::*;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_math::Vec2;
 /// # use bevy_window::Window;
