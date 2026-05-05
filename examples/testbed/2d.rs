@@ -260,7 +260,7 @@ mod text {
         ] {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
-                TextLayout::new_with_justify(justify),
+                TextLayout::justify(justify),
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExit(super::Scene::Text),

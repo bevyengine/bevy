@@ -6,7 +6,9 @@ mod checkbox;
 mod color_plane;
 mod color_slider;
 mod color_swatch;
+mod disclosure_toggle;
 mod menu;
+mod number_input;
 mod radio;
 mod slider;
 mod text_input;
@@ -18,7 +20,9 @@ pub use checkbox::*;
 pub use color_plane::*;
 pub use color_slider::*;
 pub use color_swatch::*;
+pub use disclosure_toggle::*;
 pub use menu::*;
+pub use number_input::*;
 pub use radio::*;
 pub use slider::*;
 pub use text_input::*;
@@ -40,6 +44,7 @@ impl Plugin for ControlsPlugin {
             ColorPlanePlugin,
             ColorSliderPlugin,
             ColorSwatchPlugin,
+            DisclosureTogglePlugin,
             MenuPlugin,
             RadioPlugin,
             SliderPlugin,
