@@ -42,7 +42,7 @@ impl Content {
             .ancestors()
             .nth(3)
             .ok_or(diagnostic!("failed to determine path to repo root"))?
-            .join("release-content");
+            .join("_release-content");
 
         let release_notes_dir = content_dir.join("release-notes");
         let release_notes = load_content(release_notes_dir, "release note")?;
@@ -245,7 +245,7 @@ impl App {
 
                     write!(
                         file,
-                        "## {title}\n{{% heading_metadata(authors=[{authors}] prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "## {title}\n\n{{{{ heading_metadata(authors=[{authors}] prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -271,7 +271,7 @@ impl App {
 
                     write!(
                         file,
-                        "### {title}\n{{% heading_metadata(prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "### {title}\n\n{{{{ heading_metadata(prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }

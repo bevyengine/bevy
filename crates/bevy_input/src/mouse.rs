@@ -1,6 +1,8 @@
 //! The mouse input functionality.
 
-use crate::{ButtonInput, ButtonState};
+use crate::{touch::TouchPhase, ButtonInput, ButtonState};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -30,7 +32,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -95,7 +97,7 @@ pub enum MouseButton {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -137,6 +139,18 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
+impl MouseScrollUnit {
+    /// An approximate conversion factor to account for the difference between
+    /// [`MouseScrollUnit::Line`] and [`MouseScrollUnit::Pixel`].
+    ///
+    /// Each line corresponds to many pixels; this must be corrected for in order to ensure that
+    /// mouse wheel controls are scaled properly regardless of the provided input events for the end user.
+    ///
+    /// This value is correct for Microsoft Edge, but its validity has not been broadly tested.
+    /// Please file an issue if you find that this differs on certain platforms or hardware!
+    pub const SCROLL_UNIT_CONVERSION_FACTOR: f32 = 100.;
+}
+
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
@@ -144,7 +158,7 @@ pub enum MouseScrollUnit {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -160,6 +174,10 @@ pub struct MouseWheel {
     pub y: f32,
     /// Window that received the input.
     pub window: Entity,
+    /// Touch phase of the input.
+    ///
+    /// When using a mouse, this will always be [`TouchPhase::Moved`].
+    pub phase: TouchPhase,
 }
 
 /// Updates the [`ButtonInput<MouseButton>`] resource with the latest [`MouseButtonInput`] events.

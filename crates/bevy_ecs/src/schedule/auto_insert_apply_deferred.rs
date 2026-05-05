@@ -1,15 +1,16 @@
-use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::BTreeSet, vec::Vec};
 
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, hash::FixedHasher};
+use indexmap::IndexSet;
 
 use crate::{
-    schedule::{SystemKey, SystemSetKey},
+    schedule::{FlattenedDependencies, SystemKey, SystemSetKey},
     system::{IntoSystem, System},
     world::World,
 };
 
 use super::{
-    is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
+    is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ScheduleBuildError,
     ScheduleBuildPass, ScheduleGraph,
 };
 
@@ -72,10 +73,13 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         &mut self,
         _world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph<SystemKey>,
+        mut dependency_flattened: FlattenedDependencies<'_>,
     ) -> Result<(), ScheduleBuildError> {
-        let mut sync_point_graph = dependency_flattened.clone();
-        let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
+        let (topo, flat_dependency) = dependency_flattened
+            .toposort_and_graph()
+            .map_err(ScheduleBuildError::FlatDependencySort)?;
+        let topo = topo.to_owned();
+        let flat_dependency = flat_dependency.to_owned();
 
         fn set_has_conditions(graph: &ScheduleGraph, set: SystemSetKey) -> bool {
             graph.system_sets.has_conditions(set)
@@ -122,7 +126,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let mut distance_to_explicit_sync_node: HashMap<u32, SystemKey> = HashMap::default();
 
         // Determine the distance for every node and collect the explicit sync points.
-        for &key in &topo {
+        for &key in topo.iter() {
             let (node_distance, mut node_needs_sync) = distances_and_pending_sync
                 .get(&key)
                 .copied()
@@ -144,7 +148,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 node_needs_sync = graph.systems[key].has_deferred();
             }
 
-            for target in dependency_flattened.neighbors_directed(key, Direction::Outgoing) {
+            for target in flat_dependency.neighbors_directed(key, Direction::Outgoing) {
                 let (target_distance, target_pending_sync) =
                     distances_and_pending_sync.entry(target).or_default();
 
@@ -177,13 +181,13 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // Find any edges which have a different number of sync points between them and make sure
         // there is a sync point between them.
-        for &key in &topo {
+        for &key in topo.iter() {
             let (node_distance, _) = distances_and_pending_sync
                 .get(&key)
                 .copied()
                 .unwrap_or_default();
 
-            for target in dependency_flattened.neighbors_directed(key, Direction::Outgoing) {
+            for target in flat_dependency.neighbors_directed(key, Direction::Outgoing) {
                 let (target_distance, _) = distances_and_pending_sync
                     .get(&target)
                     .copied()
@@ -205,22 +209,20 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .copied()
                     .unwrap_or_else(|| self.get_sync_point(graph, target_distance));
 
-                sync_point_graph.add_edge(key, sync_point);
-                sync_point_graph.add_edge(sync_point, target);
+                dependency_flattened.add_edge(key, sync_point);
+                dependency_flattened.add_edge(sync_point, target);
 
                 // The edge without the sync point is now redundant.
-                sync_point_graph.remove_edge(key, target);
+                dependency_flattened.remove_edge(key, target);
             }
         }
-
-        *dependency_flattened = sync_point_graph;
         Ok(())
     }
 
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &[SystemKey],
+        systems: &IndexSet<SystemKey, FixedHasher>,
         dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)> {
         if systems.is_empty() {

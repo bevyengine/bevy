@@ -104,6 +104,7 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
     let z = normal.z + cos_theta;
     return vec3(x, y, z);
 }
+
 // https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
 fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let cos_theta = rand_f(rng);
@@ -202,4 +203,10 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
 
     // Convert from [-1,1] to [0,1]
     return CubeUV(uv * 0.5 + 0.5, face);
+}
+
+// The Porter-Duff OVER operator on RGBA, correctly computing alpha of the
+// result.
+fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
+    return vec4<f32>(mix(bg.rgb * bg.a, fg.rgb, fg.a), bg.a + fg.a * (1.0 - bg.a));
 }
