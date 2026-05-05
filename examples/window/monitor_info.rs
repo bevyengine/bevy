@@ -3,7 +3,7 @@
 use bevy::{
     camera::RenderTarget,
     prelude::*,
-    window::{ExitCondition, Monitor, WindowMode, WindowRef},
+    window::{ExitCondition, Monitor, OnMonitor, WindowMode, WindowRef},
 };
 
 fn main() {
@@ -17,14 +17,11 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-struct MonitorRef(Entity);
-
 fn update(
     mut commands: Commands,
     monitors_added: Query<(Entity, &Monitor), Added<Monitor>>,
     mut monitors_removed: RemovedComponents<Monitor>,
-    monitor_refs: Query<(Entity, &MonitorRef)>,
+    windows: Query<(Entity, &OnMonitor)>,
 ) {
     for (entity, monitor) in monitors_added.iter() {
         // Spawn a new window on each monitor
@@ -41,28 +38,19 @@ fn update(
         let scale = format!("{:.2}", monitor.scale_factor);
 
         let window = commands
-            .spawn((
-                Window {
-                    title: name.clone(),
-                    mode: WindowMode::Fullscreen(
-                        MonitorSelection::Entity(entity),
-                        VideoModeSelection::Current,
-                    ),
-                    position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
-                    ..default()
-                },
-                MonitorRef(entity),
-            ))
+            .spawn((Window {
+                title: name.clone(),
+                mode: WindowMode::Fullscreen(
+                    MonitorSelection::Entity(entity),
+                    VideoModeSelection::Current,
+                ),
+                position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
+                ..default()
+            },))
             .id();
 
         let camera = commands
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window)),
-                    ..default()
-                },
-            ))
+            .spawn((Camera2d, RenderTarget::Window(WindowRef::Entity(window))))
             .id();
 
         let info_text = format!(
@@ -77,15 +65,14 @@ fn update(
                 ..default()
             },
             UiTargetCamera(camera),
-            MonitorRef(entity),
         ));
     }
 
     // Remove windows for removed monitors
     for monitor_entity in monitors_removed.read() {
-        for (ref_entity, monitor_ref) in monitor_refs.iter() {
-            if monitor_ref.0 == monitor_entity {
-                commands.entity(ref_entity).despawn();
+        for (window_entity, on_monitor) in windows.iter() {
+            if on_monitor.0 == monitor_entity {
+                commands.entity(window_entity).despawn();
             }
         }
     }

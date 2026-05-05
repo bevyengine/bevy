@@ -3,8 +3,8 @@ use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     resource::Resource,
     schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
-        SystemSet,
+        InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
+        SingleThreadedExecutor, SystemSet,
     },
     system::Local,
     world::{Mut, World},
@@ -33,6 +33,7 @@ use bevy_ecs::{
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
+/// * [`SpawnScene`]
 /// * [`PostUpdate`]
 /// * [`Last`]
 ///
@@ -173,7 +174,7 @@ pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
@@ -198,9 +199,14 @@ pub struct Last;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct AnimationSystems;
 
-/// Deprecated alias for [`AnimationSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AnimationSystems`.")]
-pub type Animation = AnimationSystems;
+/// Set enum for the systems relating to scene spawning.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum SceneSpawnerSystems {
+    /// Bevy's original scene system.
+    WorldInstanceSpawn,
+    /// Bevy's next-generation scene system
+    SceneSpawn,
+}
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
@@ -306,11 +312,11 @@ impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
-        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        main_schedule.set_executor(SingleThreadedExecutor::new());
         let mut fixed_main_schedule = Schedule::new(FixedMain);
-        fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        fixed_main_schedule.set_executor(SingleThreadedExecutor::new());
         let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
-        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        fixed_main_loop_schedule.set_executor(SingleThreadedExecutor::new());
 
         app.add_schedule(main_schedule)
             .add_schedule(fixed_main_schedule)
@@ -484,7 +490,3 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     AfterFixedMainLoop,
 }
-
-/// Deprecated alias for [`RunFixedMainLoopSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RunFixedMainLoopSystems`.")]
-pub type RunFixedMainLoopSystem = RunFixedMainLoopSystems;

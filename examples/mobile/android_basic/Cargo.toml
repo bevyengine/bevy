@@ -12,38 +12,7 @@ name = "bevy_mobile_example"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-bevy = { path = "../../", default-features = false, features = [
-  "android-native-activity",
-  "android_shared_stdcxx",
-  "animation",
-  "bevy_animation",
-  "bevy_asset",
-  "bevy_audio",
-  "bevy_color",
-  "bevy_core_pipeline",
-  "bevy_gilrs",
-  "bevy_gizmos",
-  "bevy_gltf",
-  "bevy_pbr",
-  "bevy_render",
-  "bevy_scene",
-  "bevy_sprite",
-  "bevy_state",
-  "bevy_text",
-  "bevy_ui",
-  "bevy_winit",
-  "default_font",
-  "hdr",
-  "ktx2",
-  "multi_threaded",
-  "png",
-  "sysinfo_plugin",
-  "tonemapping_luts",
-  "vorbis",
-  "webgl2",
-  "x11",
-  "zstd",
-] }
+bevy = { path = "../../", features = ["android-native-activity"] }
 
 [package.metadata.android]
 package = "org.bevyengine.example"

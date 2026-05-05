@@ -35,9 +35,9 @@ fn setup(mut commands: Commands) {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Px(TILE_SIZE),
-                                height: Val::Px(TILE_SIZE),
-                                border: UiRect::all(Val::Px(4.)),
+                                width: px(TILE_SIZE),
+                                height: px(TILE_SIZE),
+                                border: px(4.).all(),
                                 grid_row: GridPlacement::start(row + 1),
                                 grid_column: GridPlacement::start(column + 1),
                                 align_items: AlignItems::Center,
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands) {
                             BorderColor::all(tile_border_color),
                             BackgroundColor(tile_color),
                             Outline {
-                                width: Val::Px(2.),
+                                width: px(2.),
                                 offset: Val::ZERO,
                                 color: Color::NONE,
                             },

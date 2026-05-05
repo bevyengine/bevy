@@ -29,7 +29,7 @@ struct Spin {
 
 /// The camera, used to move camera on click.
 #[derive(Component)]
-struct CameraController;
+struct FreeCameraController;
 
 const DEPTH_CHANGE_RATE: f32 = 0.1;
 const DEPTH_UPDATE_STEP: f32 = 0.03;
@@ -185,7 +185,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Single<&mut Transform, With<CameraController>>,
+    mut camera: Single<&mut Transform, With<FreeCameraController>>,
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
@@ -206,18 +206,20 @@ fn setup(
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load_with_settings(
-        "textures/parallax_example/cube_normal.png",
-        // The normal map texture is in linear color space. Lighting won't look correct
-        // if `is_srgb` is `true`, which is the default.
-        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-    );
+    let normal_handle = asset_server
+        .load_builder()
+        .with_settings(
+            // The normal map texture is in linear color space. Lighting won't look correct
+            // if `is_srgb` is `true`, which is the default.
+            |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+        )
+        .load("textures/parallax_example/cube_normal.png");
 
     // Camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController,
+        FreeCameraController,
     ));
 
     // represent the light source as a sphere
@@ -226,7 +228,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(2.0, 1.0, -1.1),

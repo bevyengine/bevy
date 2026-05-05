@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -12,6 +12,7 @@ extern crate alloc;
 
 mod mesh2d;
 mod render;
+mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
@@ -22,12 +23,13 @@ mod tilemap_chunk;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{ColorMaterial, MeshMaterial2d};
+    pub use crate::{ColorMaterial, MeshMaterial2d, SpriteMaterial};
 }
 
 use bevy_shader::load_shader_library;
 pub use mesh2d::*;
 pub use render::*;
+pub use sprite_mesh::*;
 pub(crate) use texture_slice::*;
 pub use tilemap_chunk::*;
 
@@ -40,7 +42,7 @@ use bevy_mesh::Mesh2d;
 use bevy_render::{
     batching::sort_binned_render_phase, render_phase::AddRenderCommand,
     render_resource::SpecializedRenderPipelines, sync_world::SyncToRenderWorld, ExtractSchedule,
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::Sprite;
 
@@ -58,10 +60,6 @@ pub enum SpriteSystems {
     ComputeSlices,
 }
 
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
-
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/sprite_view_bindings.wgsl");
@@ -75,6 +73,7 @@ impl Plugin for SpriteRenderPlugin {
         app.add_plugins((
             Mesh2dRenderPlugin,
             ColorMaterialPlugin,
+            SpriteMeshPlugin,
             TilemapChunkPlugin,
             TilemapChunkMaterialPlugin,
         ))
@@ -92,7 +91,7 @@ impl Plugin for SpriteRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
+                .init_gpu_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<ExtractedSlices>()

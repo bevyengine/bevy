@@ -14,8 +14,7 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    renderer::RenderDevice,
-    view::ViewTarget,
+    view::ExtractedView,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -28,7 +27,7 @@ pub struct UpsamplingPipelineIds {
 
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -38,16 +37,15 @@ pub struct BloomUpsamplingPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
-    final_pipeline: bool,
+    target_format: TextureFormat,
 }
 
 pub fn init_bloom_upscaling_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let bind_group_layout = render_device.create_bind_group_layout(
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "bloom_upsampling_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -73,12 +71,6 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let texture_format = if key.final_pipeline {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            BLOOM_TEXTURE_FORMAT
-        };
-
         let color_blend = match key.composite_mode {
             BloomCompositeMode::EnergyConserving => {
                 // At the time of developing this we decided to blend our
@@ -119,7 +111,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 shader: self.fragment_shader.clone(),
                 entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: texture_format,
+                    format: key.target_format,
                     blend: Some(BlendState {
                         color: color_blend,
                         alpha: BlendComponent {
@@ -142,15 +134,15 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &Bloom)>,
+    views: Query<(&ExtractedView, Entity, &Bloom)>,
 ) {
-    for (entity, bloom) in &views {
+    for (view, entity, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                final_pipeline: false,
+                target_format: BLOOM_TEXTURE_FORMAT,
             },
         );
 
@@ -159,7 +151,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                final_pipeline: true,
+                target_format: view.target_format,
             },
         );
 

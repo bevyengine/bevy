@@ -6,9 +6,9 @@
 //! Inside the `custom_layer` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
 //! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the [`Receiver`](mpsc::Receiver) will
 //! go into a non-send resource called `LogEvents` (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
-//! From there we will use [`transfer_log_messages`] to transfer log messages from [`CapturedLogMessages`] to an ECS message called [`LogMessage`].
+//! From there we will use `transfer_log_messages` to transfer log messages from `CapturedLogMessages` to an ECS message called `LogMessage`.
 //!
-//! Finally, after all that we can access the [`LogMessage`] message from our systems and use it.
+//! Finally, after all that we can access the `LogMessage` message from our systems and use it.
 //! In this example we build a simple log viewer.
 
 use std::sync::mpsc;
@@ -104,7 +104,7 @@ fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
     let layer = CaptureLayer { sender };
     let resource = CapturedLogMessages(receiver);
 
-    app.insert_non_send_resource(resource);
+    app.insert_non_send(resource);
     app.add_message::<LogMessage>();
     app.add_systems(Update, transfer_log_messages);
 
