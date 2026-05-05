@@ -12,7 +12,7 @@ use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
 use std::fmt;
 
-const FONT_SIZE: f32 = 13.0;
+const FONT_SIZE: FontSize = FontSize::Px(13.0);
 
 const WEIGHT_PER_SECOND: f32 = 0.8;
 const ALL_MODIFIERS: &[KeyCode] = &[KeyCode::ShiftLeft, KeyCode::ControlLeft, KeyCode::AltLeft];
@@ -80,6 +80,7 @@ enum WeightChange {
     Increase,
     Decrease,
 }
+
 impl WeightChange {
     fn reverse(&mut self) {
         *self = match *self {
@@ -112,6 +113,7 @@ struct Target {
     weight: f32,
     change_dir: WeightChange,
 }
+
 impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (self.name.as_ref(), self.entity_name.as_ref()) {
@@ -123,6 +125,7 @@ impl fmt::Display for Target {
         write!(f, ": {}", self.weight)
     }
 }
+
 impl Target {
     fn text_span(&self, key: &str, style: TextFont) -> (TextSpan, TextFont) {
         (TextSpan::new(format!("[{key}] {self}\n")), style)
@@ -160,6 +163,7 @@ struct MorphKey {
     modifiers: &'static [KeyCode],
     key: KeyCode,
 }
+
 impl MorphKey {
     const fn new(name: &'static str, modifiers: &'static [KeyCode], key: KeyCode) -> Self {
         MorphKey {
@@ -277,8 +281,8 @@ fn detect_morphs(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         Children::spawn(spans),

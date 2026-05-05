@@ -97,7 +97,7 @@ impl Drop for RenderAppChannels {
 ///   This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
 ///   main schedule can start sooner.
-/// - Then the `rendering schedule` is run. See [`RenderSet`](crate::RenderSet) for the standard steps in this process.
+/// - Then the `rendering schedule` is run. See [`RenderSystems`](crate::RenderSystems) for the standard steps in this process.
 /// - In parallel to the rendering thread the [`RenderExtractApp`] schedule runs. By
 ///   default, this schedule is empty. But it is useful if you need something to run before I/O processing.
 /// - Next all the `winit events` are processed.
@@ -148,7 +148,7 @@ impl Plugin for PipelinedRenderingPlugin {
 
         std::thread::spawn(move || {
             #[cfg(feature = "trace")]
-            let _span = tracing::info_span!("render thread").entered();
+            let _span = bevy_log::info_span!("render thread").entered();
 
             let compute_task_pool = ComputeTaskPool::get();
             loop {
@@ -164,7 +164,8 @@ impl Plugin for PipelinedRenderingPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _sub_app_span = tracing::info_span!("sub app", name = ?RenderApp).entered();
+                    let _sub_app_span =
+                        bevy_log::info_span!("sub app", name = ?RenderApp).entered();
                     render_app.update();
                 }
 
@@ -173,7 +174,7 @@ impl Plugin for PipelinedRenderingPlugin {
                 }
             }
 
-            tracing::debug!("exiting pipelined rendering thread");
+            bevy_log::debug!("exiting pipelined rendering thread");
         });
     }
 }
@@ -197,7 +198,7 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
                 render_channels.send_blocking(render_app);
             } else {
                 // Renderer thread panicked
-                world.send_event(AppExit::error());
+                world.write_message(AppExit::error());
             }
         });
     });
