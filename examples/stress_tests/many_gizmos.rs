@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 const SYSTEM_COUNT: u32 = 10;
@@ -26,10 +26,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,

@@ -23,7 +23,7 @@ error[E0502]: cannot borrow `query` as mutable because it is also borrowed as im
 error[E0502]: cannot borrow `query` as immutable because it is also borrowed as mutable
   --> tests/ui/query_to_readonly.rs:41:30
    |
-38 |         let mut mut_foo = query.single_mut();
+38 |         let mut mut_foo = query.single_mut().unwrap();
    |                           ----- mutable borrow occurs here
 ...
 41 |         let readonly_query = query.as_readonly();
@@ -38,11 +38,11 @@ error[E0502]: cannot borrow `query` as mutable because it is also borrowed as im
 54 |         let readonly_query = query.as_readonly();
    |                              ----- immutable borrow occurs here
 ...
-58 |         let mut mut_foo = query.single_mut();
+58 |         let mut mut_foo = query.single_mut().unwrap();
    |                           ^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 ...
 61 |         println!("{ref_foo:?}");
-   |                   ----------- immutable borrow later used here
+   |                    ------- immutable borrow later used here
 
 error: aborting due to 4 previous errors
 

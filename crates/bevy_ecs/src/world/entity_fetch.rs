@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{Entity, EntityDoesNotExistError, EntityHashMap, EntityHashSet},
+    entity::{Entity, EntityHashMap, EntityHashSet, EntityNotSpawnedError},
     error::Result,
     world::{
         error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
@@ -45,7 +45,7 @@ impl<'w> EntityFetcher<'w> {
     /// # Errors
     ///
     /// If any of the given `entities` do not exist in the world, the first
-    /// [`Entity`] found to be missing will return an [`EntityDoesNotExistError`].
+    /// [`Entity`] found to be missing will return an [`EntityNotSpawnedError`].
     ///
     /// # Examples
     ///
@@ -56,7 +56,7 @@ impl<'w> EntityFetcher<'w> {
     pub fn get<F: WorldEntityFetch>(
         &self,
         entities: F,
-    ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<F::Ref<'_>, EntityNotSpawnedError> {
         // SAFETY: `&self` gives read access to all entities, and prevents mutable access.
         unsafe { entities.fetch_ref(self.cell) }
     }
@@ -75,7 +75,7 @@ impl<'w> EntityFetcher<'w> {
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
@@ -142,11 +142,11 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
+    /// - Returns [`EntityNotSpawnedError`] if the entity does not exist.
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError>;
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError>;
 
     /// Returns mutable reference(s) to the entities with the given [`Entity`]
     /// IDs, as determined by `self`.
@@ -159,7 +159,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if the entity does not exist.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
     unsafe fn fetch_mut(
@@ -182,7 +182,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if the entity does not exist.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
     unsafe fn fetch_deferred_mut(
@@ -204,7 +204,7 @@ unsafe impl WorldEntityFetch for Entity {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let ecell = cell.get_entity(self)?;
         // SAFETY: caller ensures that the world cell has read-only access to the entity.
         Ok(unsafe { EntityRef::new(ecell) })
@@ -215,10 +215,7 @@ unsafe impl WorldEntityFetch for Entity {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        let location = cell
-            .entities()
-            .get(self)
-            .ok_or(EntityDoesNotExistError::new(self, cell.entities()))?;
+        let location = cell.entities().get_spawned(self)?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
         // SAFETY: location was fetched from the same world's `Entities`.
@@ -249,8 +246,9 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
-        <&Self>::fetch_ref(&self, cell)
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_ref(&self, cell) }
     }
 
     #[inline]
@@ -258,7 +256,8 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        <&Self>::fetch_mut(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_mut(&self, cell) }
     }
 
     #[inline]
@@ -266,7 +265,8 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
-        <&Self>::fetch_deferred_mut(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_deferred_mut(&self, cell) }
     }
 }
 
@@ -283,7 +283,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let mut refs = [MaybeUninit::uninit(); N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
             let ecell = cell.get_entity(id)?;
@@ -348,7 +348,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;
@@ -407,7 +407,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;

@@ -4,20 +4,25 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
+#[cfg(not(feature = "trace"))]
 use log::info;
+#[cfg(feature = "trace")]
+use tracing::info;
 
 use crate::{
     bundle::{Bundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
-    event::EntityEvent,
+    error::EntityCommandOutput,
+    name::Name,
+    observer::IntoEntityObserver,
     relationship::RelationshipHookMode,
-    system::IntoObserverSystem,
-    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
+    system::Command,
+    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{move_as_ptr, OwningPtr};
 
 /// A command which gets executed for a given [`Entity`].
 ///
@@ -78,9 +83,25 @@ use bevy_ptr::OwningPtr;
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-pub trait EntityCommand<Out = ()>: Send + 'static {
+pub trait EntityCommand: Send + 'static {
+    /// The return type of [`apply`](EntityCommand::apply).
+    type Out: EntityCommandOutput;
+
     /// Executes this command for the given [`Entity`].
-    fn apply(self, entity: EntityWorldMut) -> Out;
+    fn apply(self, entity: EntityWorldMut) -> Self::Out;
+
+    /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
+    /// internally runs the [`EntityCommand`] on that entity.
+    #[inline]
+    fn with_entity(self, entity: Entity) -> impl Command
+    where
+        Self: Sized,
+    {
+        move |world: &mut World| {
+            let entity = world.get_entity_mut(entity)?;
+            self.apply(entity).into_result()
+        }
+    }
 }
 
 /// An error that occurs when running an [`EntityCommand`] on a specific entity.
@@ -94,11 +115,14 @@ pub enum EntityCommandError<E> {
     CommandFailed(E),
 }
 
-impl<Out, F> EntityCommand<Out> for F
+impl<Out, F> EntityCommand for F
 where
     F: FnOnce(EntityWorldMut) -> Out + Send + 'static,
+    Out: EntityCommandOutput,
 {
-    fn apply(self, entity: EntityWorldMut) -> Out {
+    type Out = Out;
+
+    fn apply(self, entity: EntityWorldMut) -> Self::Out {
         self(entity)
     }
 }
@@ -108,6 +132,7 @@ where
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
+        move_as_ptr!(bundle);
         entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
@@ -153,6 +178,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
             let value = entity.world_scope(|world| T::from_world(world));
+            move_as_ptr!(value);
             entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
         }
     }
@@ -172,8 +198,9 @@ where
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
-            let value = component_fn();
-            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+            let bundle = component_fn();
+            move_as_ptr!(bundle);
+            entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
         }
     }
 }
@@ -242,28 +269,17 @@ pub fn despawn() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
-/// listening for events of type `E` targeting an entity
+/// watching for an [`EntityEvent`](crate::event::EntityEvent) of type `E` whose
+/// [`event_target`](crate::event::EntityEvent::event_target) targets this entity.
+///
+/// Accepts any type that implements [`IntoEntityObserver`], including:
+/// - Observer systems (closures or functions implementing [`IntoObserverSystem`](crate::system::IntoObserverSystem))
+/// - Observer systems with run conditions (via `.run_if()`)
 #[track_caller]
-pub fn observe<E: EntityEvent, B: Bundle, M>(
-    observer: impl IntoObserverSystem<E, B, M>,
-) -> impl EntityCommand {
+pub fn observe<M>(observer: impl IntoEntityObserver<M>) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
-    }
-}
-
-/// An [`EntityCommand`] that sends an [`EntityEvent`] targeting an entity.
-///
-/// This will run any [`Observer`](crate::observer::Observer) of the given [`EntityEvent`] watching the entity.
-#[track_caller]
-pub fn trigger(event: impl EntityEvent) -> impl EntityCommand {
-    let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        let id = entity.id();
-        entity.world_scope(|world| {
-            world.trigger_targets_with_caller(event, id, caller);
-        });
     }
 }
 
@@ -333,12 +349,53 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 /// An [`EntityCommand`] that logs the components of an entity.
 pub fn log_components() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
-        let debug_infos: Vec<_> = entity
+        let name = entity.get::<Name>().map(ToString::to_string);
+        let id = entity.id();
+        let mut components: Vec<_> = entity
             .world()
-            .inspect_entity(entity.id())
+            .inspect_entity(id)
             .expect("Entity existence is verified before an EntityCommand is executed")
-            .map(ComponentInfo::name)
+            .map(|info| info.name().to_string())
             .collect();
-        info!("Entity {}: {debug_infos:?}", entity.id());
+        components.sort();
+
+        #[cfg(not(feature = "debug"))]
+        {
+            let component_count = components.len();
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?component_count, "log_components. Enable the `debug` feature to log component names.");
+                } else {
+                    info!(id=?id, ?component_count, "log_components. Enable the `debug` feature to log component names.");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {component_count} components. Enable the `debug` feature to log component names.");
+            }
+        }
+
+        #[cfg(feature = "debug")]
+        {
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?components, "log_components");
+                } else {
+                    info!(id=?id, ?components, "log_components");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {components:?}");
+            }
+        }
     }
 }

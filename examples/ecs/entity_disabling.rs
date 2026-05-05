@@ -36,19 +36,18 @@ fn main() {
 struct DisableOnClick;
 
 fn disable_entities_on_click(
-    event: On<Pointer<Click>>,
+    click: On<Pointer<Click>>,
     valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
 ) {
-    let clicked_entity = event.entity();
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
     // because that would cause the app to close!
-    if valid_query.contains(clicked_entity) {
+    if valid_query.contains(click.entity) {
         // Just add the `Disabled` component to the entity to disable it.
         // Note that the `Disabled` component is *only* added to the entity,
         // its children are not affected.
-        commands.entity(clicked_entity).insert(Disabled);
+        commands.entity(click.entity).insert(Disabled);
     }
 }
 

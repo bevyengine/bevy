@@ -43,11 +43,11 @@ pub(crate) struct AlphaPattern;
 /// Observer to fill in the material handle (since we don't have access to the materials asset
 /// in the template)
 fn on_add_alpha_pattern(
-    ev: On<Add, AlphaPattern>,
+    add: On<Add, AlphaPattern>,
     mut q_material_node: Query<&mut MaterialNode<AlphaPatternMaterial>>,
     r_material: Res<AlphaPatternResource>,
 ) {
-    if let Ok(mut material) = q_material_node.get_mut(ev.entity()) {
+    if let Ok(mut material) = q_material_node.get_mut(add.entity) {
         material.0 = r_material.0.clone();
     }
 }

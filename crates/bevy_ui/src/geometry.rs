@@ -1,5 +1,6 @@
-use bevy_math::Vec2;
+use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_text::FontSize;
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
@@ -165,6 +166,190 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// Returns a [`UiRect`] with its `left` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).left();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn left(self) -> UiRect {
+        UiRect::left(self)
+    }
+
+    /// Returns a [`UiRect`] with its `right` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).right();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn right(self) -> UiRect {
+        UiRect::right(self)
+    }
+
+    /// Returns a [`UiRect`] with its `top` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).top();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn top(self) -> UiRect {
+        UiRect::top(self)
+    }
+
+    /// Returns a [`UiRect`] with its `bottom` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).bottom();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn bottom(self) -> UiRect {
+        UiRect::bottom(self)
+    }
+
+    /// Returns a [`UiRect`] with all its fields equal to this value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).all();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn all(self) -> UiRect {
+        UiRect::all(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `left` and `right` equal to this value,
+    /// and its `top` and `bottom` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).horizontal();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn horizontal(self) -> UiRect {
+        UiRect::horizontal(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `top` and `bottom` equal to this value,
+    /// and its `left` and `right` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).vertical();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn vertical(self) -> UiRect {
+        UiRect::vertical(self)
+    }
+
+    /// Try to add two `Val`s.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
+    /// assert_eq!(
+    ///     Val::Px(1.).try_add(Val::Percent(2.)),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub const fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
+        match (self, val) {
+            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
+            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
+            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
+            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
+            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
+            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
+
+    /// Try to subtract one `Val` from another.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
+    /// assert_eq!(
+    ///     Val::Px(1.).try_sub(Val::Percent(2.)),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub const fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
+        match (self, val) {
+            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
+            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
+            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
+            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
+            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
+            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
 }
 
 impl Default for Val {
@@ -253,6 +438,8 @@ impl Neg for Val {
 pub enum ValArithmeticError {
     #[error("the given variant of Val is not evaluable (non-numeric)")]
     NonEvaluable,
+    #[error("the given variants of Val have incompatible units")]
+    IncompatibleUnits,
 }
 
 impl Val {
@@ -278,6 +465,44 @@ impl Val {
                 Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
             }
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+}
+
+impl From<Val> for FontSize {
+    fn from(value: Val) -> Self {
+        match value {
+            Val::Auto => FontSize::Rem(1.),
+            Val::Px(px) => FontSize::Px(px),
+            Val::Percent(percent) => FontSize::Rem(percent / 100.),
+            Val::Vw(vw) => FontSize::Vw(vw),
+            Val::Vh(vh) => FontSize::Vh(vh),
+            Val::VMin(vmin) => FontSize::VMin(vmin),
+            Val::VMax(vmax) => FontSize::VMax(vmax),
+        }
+    }
+}
+
+impl TryStableInterpolate for Val {
+    type Error = MismatchedUnitsError;
+
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// # use bevy_math::TryStableInterpolate;
+    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
+    /// ```
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
+            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
+            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
+            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
+            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
+            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
+            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }
@@ -959,6 +1184,11 @@ mod tests {
         let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
+
+        let result = Val::Px(10.).resolve(3., size, viewport_size).unwrap();
+        assert_eq!(result, 30.);
+        let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
+        assert_eq!(result, 2.5);
     }
 
     #[test]
@@ -1013,10 +1243,60 @@ mod tests {
     }
 
     #[test]
-    fn val_arithmetic_error_messages() {
+    fn val_try_add_compatible_variants() {
+        assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
         assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluable),
-            "the given variant of Val is not evaluable (non-numeric)"
+            Val::Percent(1.).try_add(Val::Percent(2.)),
+            Ok(Val::Percent(3.))
+        );
+        assert_eq!(Val::Vw(1.).try_add(Val::Vw(2.)), Ok(Val::Vw(3.)));
+        assert_eq!(Val::Vh(1.).try_add(Val::Vh(2.)), Ok(Val::Vh(3.)));
+        assert_eq!(Val::VMin(1.).try_add(Val::VMin(2.)), Ok(Val::VMin(3.)));
+        assert_eq!(Val::VMax(1.).try_add(Val::VMax(2.)), Ok(Val::VMax(3.)));
+    }
+
+    #[test]
+    fn val_try_add_incompatible_variants() {
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Px(1.).try_add(Val::Percent(2.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_add(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+    }
+
+    #[test]
+    fn val_try_sub_compatible_variants() {
+        assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
+        assert_eq!(
+            Val::Percent(3.).try_sub(Val::Percent(2.)),
+            Ok(Val::Percent(1.))
+        );
+        assert_eq!(Val::Vw(3.).try_sub(Val::Vw(2.)), Ok(Val::Vw(1.)));
+        assert_eq!(Val::Vh(3.).try_sub(Val::Vh(2.)), Ok(Val::Vh(1.)));
+        assert_eq!(Val::VMin(3.).try_sub(Val::VMin(2.)), Ok(Val::VMin(1.)));
+        assert_eq!(Val::VMax(3.).try_sub(Val::VMax(2.)), Ok(Val::VMax(1.)));
+    }
+
+    #[test]
+    fn val_try_sub_incompatible_variants() {
+        assert_eq!(
+            Val::Auto.try_sub(Val::Auto),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Px(1.).try_sub(Val::Percent(2.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_sub(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
         );
     }
 
@@ -1115,5 +1395,16 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 }

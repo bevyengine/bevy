@@ -7,10 +7,10 @@ use bevy::{
     prelude::*,
     text::TextColor,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
-const FONT_SIZE: f32 = 7.0;
+const FONT_SIZE: FontSize = FontSize::Px(7.0);
 
 #[derive(FromArgs, Resource)]
 /// `many_buttons` general UI benchmark that stress tests layouting, text, interaction and rendering
@@ -84,10 +84,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     if !args.no_camera {
