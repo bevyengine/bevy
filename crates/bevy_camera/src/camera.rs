@@ -6,7 +6,9 @@ use super::{
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
+};
 use bevy_image::Image;
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
@@ -837,9 +839,7 @@ impl RenderTarget {
             None
         }
     }
-}
 
-impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
@@ -884,7 +884,20 @@ pub enum NormalizedRenderTarget {
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
 /// See `ManualTextureViews` in `bevy_camera` for more details.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromTemplate,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 

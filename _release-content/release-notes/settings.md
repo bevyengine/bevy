@@ -1,7 +1,7 @@
 ---
 title: "User settings"
-authors: ["@viridia"]
-pull_requests: [23034]
+authors: ["@viridia", "@mpowell90"]
+pull_requests: [23034, 23719, 23812]
 ---
 
 The new `bevy_settings` crate provides a framework for user settings and persistent preferences.
