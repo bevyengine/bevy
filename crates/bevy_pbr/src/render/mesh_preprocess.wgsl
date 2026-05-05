@@ -29,7 +29,9 @@
     position_world_to_prev_ndc, position_world_to_prev_view, prev_view_z_to_depth_ndc
 }
 #import bevy_render::maths
-#import bevy_render::view::View
+#import bevy_render::view::{
+    View, VIEW_FLAGS_HAS_USABLE_PRIMARY_WORLD_POSITION
+}
 
 // Information about each mesh instance needed to cull it on GPU.
 //
@@ -211,7 +213,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let visibility_buffer_array_len = arrayLength(&visibility_ranges);
     let visibility_buffer_index =
         current_input[input_index].flags & MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS;
-    if (visibility_buffer_index < visibility_buffer_array_len) {
+    if (visibility_buffer_index < visibility_buffer_array_len
+        && (view.flags & VIEW_FLAGS_HAS_USABLE_PRIMARY_WORLD_POSITION) != 0u)
+    {
         let lod_range = visibility_ranges[visibility_buffer_index];
 
         // If we're using the AABB as the mesh center, determine its world space position.

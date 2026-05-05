@@ -286,6 +286,11 @@ pub struct RetainedViewEntity {
     ///
     /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
     pub auxiliary_entity: MainEntity,
+
+    /// The render entity corresponding to the `auxiliary_entity`.
+    ///
+    /// This is used to get the auxiliary entity's world position
+    /// for visibility range culling calculations.
     pub render_auxiliary_entity: Entity,
 
     /// The index of the view corresponding to the entity.
@@ -298,10 +303,10 @@ pub struct RetainedViewEntity {
 
 impl RetainedViewEntity {
     /// Creates a new [`RetainedViewEntity`] from the given main world entity,
-    /// auxiliary main world entity, and subview index.
+    /// auxiliary main world entity, auxiliary render world entity, and subview index.
     ///
     /// See [`RetainedViewEntity::subview_index`] for an explanation of what
-    /// `auxiliary_entity` and `subview_index` are.
+    /// `auxiliary_entity`, `render_auxiliary_entity` and `subview_index` are.
     pub fn new(
         main_entity: MainEntity,
         auxiliary_entity: Option<MainEntity>,
@@ -662,9 +667,23 @@ pub struct ViewUniform {
     /// This is useful for directional shadow views, where visibility range culling should
     /// be executed in relation to its non-shadow camera's world position.
     ///
-    /// If this ViewUniform already represents a camera view, this field will be set to world_position.
-    /// If this ViewUniform has no associated camera view, this field will be set to a Vec3 of NaN's.
+    /// If this ViewUniform already represents a camera view or has no associated camera view,
+    /// this field will be set to world_position.
     pub primary_world_position: Vec3,
+    /// Flags associated with this View.
+    pub flags: u32,
+}
+
+// NOTE: These must match the bit flags in bevy_pbr/src/view/view.wgsl!
+bitflags::bitflags! {
+    /// Various flags and tightly-packed values on a View.
+    #[repr(transparent)]
+    pub struct ViewFlags: u32 {
+        /// Whether the primary_world_position can be used for visibility range cullling.
+        ///
+        /// If false, this view should not be used for visibility range culling.
+        const USABLE_PRIMARY_WORLD_POSITION = 1 << 0;
+    }
 }
 
 #[derive(Resource)]
@@ -1061,11 +1080,16 @@ pub fn prepare_view_uniforms(
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
+        let mut view_flags = ViewFlags::empty();
         let primary_world_position = if let Ok(primary_extracted_view) =
             primary_view.get(extracted_view.retained_view_entity.render_auxiliary_entity)
         {
+            view_flags |= ViewFlags::USABLE_PRIMARY_WORLD_POSITION;
             primary_extracted_view.world_from_view.translation()
         } else {
+            if extracted_camera.is_some() {
+                view_flags |= ViewFlags::USABLE_PRIMARY_WORLD_POSITION;
+            }
             extracted_view.world_from_view.translation()
         };
 
@@ -1089,6 +1113,7 @@ pub fn prepare_view_uniforms(
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
                 primary_world_position,
+                flags: view_flags.bits(),
             }),
         };
 

@@ -65,7 +65,10 @@ struct View {
     mip_bias: f32,
     frame_count: u32,
     primary_world_position: vec3<f32>,
+    flags: u32,
 };
+
+const VIEW_FLAGS_HAS_USABLE_PRIMARY_WORLD_POSITION: u32                    = 1u << 0u;
 
 /// World space:
 /// +y is up
