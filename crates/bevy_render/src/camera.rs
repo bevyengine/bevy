@@ -640,7 +640,12 @@ pub fn extract_cameras(
                     compositing_space: compositing_space.copied(),
                 },
                 ExtractedView {
-                    retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
+                    retained_view_entity: RetainedViewEntity::new(
+                        main_entity.into(),
+                        None,
+                        None,
+                        0,
+                    ),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,

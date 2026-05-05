@@ -662,7 +662,7 @@ fn extract_wireframe_2d_camera(
         if !camera.is_active {
             continue;
         }
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, None, 0);
         wireframe_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
         live_entities.insert(retained_view_entity);
     }

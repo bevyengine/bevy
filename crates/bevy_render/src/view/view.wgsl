@@ -64,6 +64,7 @@ struct View {
     color_grading: ColorGrading,
     mip_bias: f32,
     frame_count: u32,
+    primary_world_position: vec3<f32>,
 };
 
 /// World space:

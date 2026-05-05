@@ -133,7 +133,7 @@ pub fn extract_transmissive_camera_phases(
         }
 
         // This is the main camera, so use the first subview index (0).
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, None, 0);
 
         transmissive_3d_phases.prepare_for_new_frame(retained_view_entity);
         live_entities.insert(retained_view_entity);

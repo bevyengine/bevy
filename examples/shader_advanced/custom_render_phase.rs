@@ -508,7 +508,7 @@ fn extract_camera_phases(
             continue;
         }
         // This is the main camera, so we use the first subview index (0)
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, None, 0);
 
         stencil_phases.prepare_for_new_frame(retained_view_entity);
         live_entities.insert(retained_view_entity);

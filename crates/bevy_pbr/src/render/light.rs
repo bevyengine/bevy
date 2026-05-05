@@ -399,6 +399,7 @@ pub fn extract_lights(
             ),
         >,
     >,
+    aux_render_entity: Extract<Query<RenderEntity>>,
     rect_lights: Extract<
         Query<
             (
@@ -485,6 +486,7 @@ pub fn extract_lights(
                 let retained_view_entity = RetainedViewEntity {
                     main_entity: MainEntity::from(main_entity),
                     auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                    render_auxiliary_entity: Entity::PLACEHOLDER,
                     subview_index: face_index,
                 };
                 render_shadow_map_visible_entities
@@ -596,6 +598,7 @@ pub fn extract_lights(
             let retained_view_entity = RetainedViewEntity {
                 main_entity: MainEntity::from(main_entity),
                 auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                render_auxiliary_entity: Entity::PLACEHOLDER,
                 subview_index: 0,
             };
             render_shadow_map_visible_entities
@@ -738,43 +741,47 @@ pub fn extract_lights(
             for (main_auxiliary_entity, visible_mesh_entities_list) in
                 visible_entities.entities.iter()
             {
-                for subview_index in 0..(cascade_config.bounds.len() as u32) {
-                    let retained_view_entity = RetainedViewEntity {
-                        main_entity: MainEntity::from(main_entity),
-                        auxiliary_entity: MainEntity::from(*main_auxiliary_entity),
-                        subview_index,
-                    };
-                    all_cascades_seen.insert(retained_view_entity);
+                if let Ok(render_auxiliary_entity) = aux_render_entity.get(*main_auxiliary_entity) {
+                    for subview_index in 0..(cascade_config.bounds.len() as u32) {
+                        let retained_view_entity = RetainedViewEntity {
+                            main_entity: MainEntity::from(main_entity),
+                            auxiliary_entity: MainEntity::from(*main_auxiliary_entity),
+                            render_auxiliary_entity,
+                            subview_index,
+                        };
+                        all_cascades_seen.insert(retained_view_entity);
 
-                    existing_shadow_map_visible_entities
-                        .subviews
-                        .entry(retained_view_entity)
-                        .or_default();
+                        existing_shadow_map_visible_entities
+                            .subviews
+                            .entry(retained_view_entity)
+                            .or_default();
 
-                    // Extract the visible CPU culled entities to the list.
-                    let extracted_entities = &mut existing_extracted_shadow_map_visible_entities
-                        .subviews
-                        .entry(retained_view_entity)
-                        .or_default()
-                        .classes
-                        .entry(TypeId::of::<Mesh3d>())
-                        .or_default()
-                        .entities;
-                    extracted_entities.clear();
-                    let Some(visible_mesh_entities) =
-                        visible_mesh_entities_list.get(subview_index as usize)
-                    else {
-                        continue;
-                    };
-                    extracted_entities.extend(visible_mesh_entities.entities.iter().map(
-                        |main_entity| {
-                            let render_entity = match mapper.get(*main_entity) {
-                                Ok(render_entity) => **render_entity,
-                                Err(_) => Entity::PLACEHOLDER,
-                            };
-                            (render_entity, MainEntity::from(*main_entity))
-                        },
-                    ));
+                        // Extract the visible CPU culled entities to the list.
+                        let extracted_entities =
+                            &mut existing_extracted_shadow_map_visible_entities
+                                .subviews
+                                .entry(retained_view_entity)
+                                .or_default()
+                                .classes
+                                .entry(TypeId::of::<Mesh3d>())
+                                .or_default()
+                                .entities;
+                        extracted_entities.clear();
+                        let Some(visible_mesh_entities) =
+                            visible_mesh_entities_list.get(subview_index as usize)
+                        else {
+                            continue;
+                        };
+                        extracted_entities.extend(visible_mesh_entities.entities.iter().map(
+                            |main_entity| {
+                                let render_entity = match mapper.get(*main_entity) {
+                                    Ok(render_entity) => **render_entity,
+                                    Err(_) => Entity::PLACEHOLDER,
+                                };
+                                (render_entity, MainEntity::from(*main_entity))
+                            },
+                        ));
+                    }
                 }
             }
 
@@ -1526,7 +1533,7 @@ pub fn prepare_lights(
                 // Point light shadow maps are shared across all cameras,
                 // so the retained view entity must not include the camera.
                 let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
+                    RetainedViewEntity::new(*light_main_entity, None, None, face_index as u32);
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
@@ -1584,7 +1591,7 @@ pub fn prepare_lights(
             {
                 let view_light_entity = point_and_spot_light_view_entities.0[face_index];
                 let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
+                    RetainedViewEntity::new(*light_main_entity, None, None, face_index as u32);
                 commands.entity(view_light_entity).insert((
                     ExtractedView {
                         retained_view_entity,
@@ -1610,7 +1617,7 @@ pub fn prepare_lights(
         // already created the views in order to clear out old data.
         for face_index in 0..6 {
             let retained_view_entity =
-                RetainedViewEntity::new(*light_main_entity, None, face_index);
+                RetainedViewEntity::new(*light_main_entity, None, None, face_index);
             shadow_render_phases.prepare_for_new_frame(
                 retained_view_entity,
                 gpu_preprocessing_support.max_supported_mode,
@@ -1644,7 +1651,7 @@ pub fn prepare_lights(
 
         // Spot light shadow maps are shared across all cameras,
         // so the retained view entity must not include the camera.
-        let retained_view_entity = RetainedViewEntity::new(*light_main_entity, None, 0);
+        let retained_view_entity = RetainedViewEntity::new(*light_main_entity, None, None, 0);
 
         if point_and_spot_light_view_entities.0.is_empty() {
             let spot_world_from_view = spot_light_world_from_view(&light.transform);
@@ -2021,6 +2028,7 @@ pub fn prepare_lights(
                 let retained_view_entity = RetainedViewEntity::new(
                     *light_main_entity,
                     Some(camera_main_entity.into()),
+                    Some(entity),
                     cascade_index as u32,
                 );
 
@@ -2854,6 +2862,7 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
             let retained_view_entity = RetainedViewEntity {
                 main_entity: extracted_view_light.retained_view_entity.main_entity,
                 auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                render_auxiliary_entity: Entity::PLACEHOLDER,
                 subview_index: *face_index as u32,
             };
             shadow_map_visible_entities_query
@@ -2870,6 +2879,7 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
             let retained_view_entity = RetainedViewEntity {
                 main_entity: extracted_view_light.retained_view_entity.main_entity,
                 auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                render_auxiliary_entity: Entity::PLACEHOLDER,
                 subview_index: 0,
             };
             shadow_map_visible_entities_query

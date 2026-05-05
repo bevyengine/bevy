@@ -1268,7 +1268,7 @@ fn extract_wireframe_3d_camera(
             GpuPreprocessingMode::PreprocessingOnly
         });
 
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, None, 0);
         wireframe_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         live_entities.insert(retained_view_entity);
     }

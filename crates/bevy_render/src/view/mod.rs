@@ -286,6 +286,7 @@ pub struct RetainedViewEntity {
     ///
     /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
     pub auxiliary_entity: MainEntity,
+    pub render_auxiliary_entity: Entity,
 
     /// The index of the view corresponding to the entity.
     ///
@@ -304,11 +305,13 @@ impl RetainedViewEntity {
     pub fn new(
         main_entity: MainEntity,
         auxiliary_entity: Option<MainEntity>,
+        render_auxiliary_entity: Option<Entity>,
         subview_index: u32,
     ) -> Self {
         Self {
             main_entity,
             auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
+            render_auxiliary_entity: render_auxiliary_entity.unwrap_or(Entity::PLACEHOLDER),
             subview_index,
         }
     }
@@ -654,6 +657,14 @@ pub struct ViewUniform {
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
+    /// The world position of a camera view used for visibility range culling.
+    ///
+    /// This is useful for directional shadow views, where visibility range culling should
+    /// be executed in relation to its non-shadow camera's world position.
+    ///
+    /// If this ViewUniform already represents a camera view, this field will be set to world_position.
+    /// If this ViewUniform has no associated camera view, this field will be set to a Vec3 of NaN's.
+    pub primary_world_position: Vec3,
 }
 
 #[derive(Resource)]
@@ -997,6 +1008,7 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
         Option<&MainPassResolutionOverride>,
     )>,
+    primary_view: Query<&ExtractedView, With<ExtractedCamera>>,
     frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
@@ -1049,6 +1061,14 @@ pub fn prepare_view_uniforms(
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
+        let primary_world_position = if let Ok(primary_extracted_view) =
+            primary_view.get(extracted_view.retained_view_entity.render_auxiliary_entity)
+        {
+            primary_extracted_view.world_from_view.translation()
+        } else {
+            extracted_view.world_from_view.translation()
+        };
+
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
                 clip_from_world,
@@ -1068,6 +1088,7 @@ pub fn prepare_view_uniforms(
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
+                primary_world_position,
             }),
         };
 
