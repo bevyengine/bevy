@@ -1,7 +1,7 @@
 //! A [mesh ray casting](ray_cast) backend for [`bevy_picking`](crate).
 //!
-//! By default, all meshes are pickable. Picking can be disabled for individual entities
-//! by adding [`Pickable::IGNORE`].
+//! By default, all meshes that have [`bevy_asset::RenderAssetUsages::MAIN_WORLD`] are pickable.
+//! Picking can be disabled for individual entities by adding [`Pickable::IGNORE`].
 //!
 //! To make mesh picking entirely opt-in, set [`MeshPickingSettings::require_markers`]
 //! to `true` and add [`MeshPickingCamera`] and [`Pickable`] components to the desired camera and
@@ -22,10 +22,10 @@ use crate::{
     PickingSystems,
 };
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::RenderLayers, Camera};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 
 /// An optional component that marks cameras that should be used in the [`MeshPickingPlugin`].
 ///
@@ -45,8 +45,8 @@ pub struct MeshPickingSettings {
     /// should be used by the mesh picking backend at runtime.
     pub require_markers: bool,
 
-    /// Determines how mesh picking should consider [`Visibility`]. When set to [`RayCastVisibility::Any`],
-    /// ray casts can be performed against both visible and hidden entities.
+    /// Determines how mesh picking should consider [`Visibility`](bevy_camera::visibility::Visibility).
+    /// When set to [`RayCastVisibility::Any`], ray casts can be performed against both visible and hidden entities.
     ///
     /// Defaults to [`RayCastVisibility::VisibleInView`], only performing picking against visible entities
     /// that are in the view of a camera.
@@ -69,8 +69,6 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<MeshPickingSettings>()
-            .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickingSystems::Backend));
     }
 }
@@ -84,7 +82,7 @@ pub fn update_hits(
     marked_targets: Query<&Pickable>,
     layers: Query<&RenderLayers>,
     mut ray_cast: MeshRayCast,
-    mut output: EventWriter<PointerHits>,
+    mut pointer_hits_writer: MessageWriter<PointerHits>,
 ) {
     for (&ray_id, &ray) in ray_map.iter() {
         let Ok((camera, cam_can_pick, cam_layers)) = picking_cameras.get(ray_id.camera) else {
@@ -131,7 +129,7 @@ pub fn update_hits(
             .collect::<Vec<_>>();
         let order = camera.order as f32;
         if !picks.is_empty() {
-            output.write(PointerHits::new(ray_id.pointer, picks, order));
+            pointer_hits_writer.write(PointerHits::new(ray_id.pointer, picks, order));
         }
     }
 }

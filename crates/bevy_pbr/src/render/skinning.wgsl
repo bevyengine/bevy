@@ -6,9 +6,9 @@
 #ifdef SKINNED
 
 #ifdef SKINS_USE_UNIFORM_BUFFERS
-@group(1) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
+@group(2) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
 #else   // SKINS_USE_UNIFORM_BUFFERS
-@group(1) @binding(1) var<storage> joint_matrices: array<mat4x4<f32>>;
+@group(2) @binding(1) var<storage> joint_matrices: array<mat4x4<f32>>;
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 
 // An array of matrices specifying the joint positions from the previous frame.
@@ -18,9 +18,9 @@
 // If this is the first frame, or we're otherwise prevented from using data from
 // the previous frame, this is simply the same as `joint_matrices` above.
 #ifdef SKINS_USE_UNIFORM_BUFFERS
-@group(1) @binding(6) var<uniform> prev_joint_matrices: SkinnedMesh;
+@group(2) @binding(6) var<uniform> prev_joint_matrices: SkinnedMesh;
 #else   // SKINS_USE_UNIFORM_BUFFERS
-@group(1) @binding(6) var<storage> prev_joint_matrices: array<mat4x4<f32>>;
+@group(2) @binding(6) var<storage> prev_joint_matrices: array<mat4x4<f32>>;
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 
 fn skin_model(

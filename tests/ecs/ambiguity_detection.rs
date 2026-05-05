@@ -8,41 +8,52 @@ use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
     platform::collections::HashMap,
     prelude::*,
-    render::pipelined_rendering::RenderExtractApp,
+    render::{pipelined_rendering::PipelinedRenderingPlugin, RenderPlugin},
 };
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(
+        DefaultPlugins
+            .build()
+            .set(RenderPlugin {
+                // llvmpipe driver can cause segfaults when aborting the binary while pipelines are being
+                // compiled (which happens very quickly in this example since we only run for a single
+                // frame). Synchronous pipeline compilation helps prevent these segfaults as the
+                // rendering thread blocks on these pipeline compilations.
+                synchronous_pipeline_compilation: true,
+                ..Default::default()
+            })
+            // We also have to disable pipelined rendering to ensure the test doesn't end while the
+            // rendering frame is still executing in another thread.
+            .disable::<PipelinedRenderingPlugin>(),
+    );
 
     let main_app = app.main_mut();
     configure_ambiguity_detection(main_app);
-    let render_extract_app = app.sub_app_mut(RenderExtractApp);
-    configure_ambiguity_detection(render_extract_app);
 
-    // Ambiguities in the RenderApp are currently allowed.
-    // Eventually, we should forbid these: see https://github.com/bevyengine/bevy/issues/7386
-    // Uncomment the lines below to show the current ambiguities in the RenderApp.
-    // let sub_app = app.sub_app_mut(bevy_render::RenderApp);
-    // configure_ambiguity_detection(sub_app);
+    let sub_app = app.sub_app_mut(bevy_render::RenderApp);
+    configure_ambiguity_detection(sub_app);
 
+    // Make sure all the system stuff is added.
     app.finish();
     app.cleanup();
-    app.update();
 
-    let main_app_ambiguities = count_ambiguities(app.main());
+    let main_app_ambiguities = count_ambiguities(app.main_mut());
     assert_eq!(
         main_app_ambiguities.total(),
         0,
         "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
     );
 
-    // RenderApp is not checked here, because it is not within the App at this point.
-    let render_extract_ambiguities = count_ambiguities(app.sub_app(RenderExtractApp));
+    let render_app = app.sub_app_mut(bevy_render::RenderApp);
+    // Initialize the MainWorld so the render world systems don't fail initialization.
+    render_app.init_resource::<bevy_render::MainWorld>();
+    let render_app_ambiguities = count_ambiguities(render_app);
     assert_eq!(
-        render_extract_ambiguities.total(),
+        render_app_ambiguities.total(),
         0,
-        "RenderExtract app has unexpected ambiguities among the following schedules: \n{render_extract_ambiguities:#?}",
+        "Render app has unexpected ambiguities among the following schedules: \n{render_app_ambiguities:#?}.",
     );
 }
 
@@ -62,6 +73,14 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
         schedule.set_build_settings(ScheduleBuildSettings {
             // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of ambiguities.
             ambiguity_detection: LogLevel::Warn,
+            // With auto-inserted apply_deferred stages, these can cause two ambiguous systems to
+            // become accidentally ordered by one of the apply_deferred stages. Disabling requires
+            // us to meet a higher bar. We don't just want no ambiguities - we also don't want
+            // changes to systems or the auto-insert code from "creating" new ambiguities (by
+            // reordering the graph). However, the cost is that the graph is no longer runnable,
+            // since Bevy crates often rely on auto-insert apply_deferred to not panic (e.g.,
+            // because a resource wasn't inserted).
+            auto_insert_apply_deferred: false,
             use_shortnames: false,
             ..default()
         });
@@ -69,12 +88,23 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
 }
 
 /// Returns the number of conflicting systems per schedule.
-fn count_ambiguities(sub_app: &SubApp) -> AmbiguitiesCount {
-    let schedules = sub_app.world().resource::<Schedules>();
+fn count_ambiguities(sub_app: &mut SubApp) -> AmbiguitiesCount {
+    let schedule_labels = sub_app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(_, schedule)| schedule.label())
+        .collect::<Vec<_>>();
     let mut ambiguities = <HashMap<_, _>>::default();
-    for (_, schedule) in schedules.iter() {
-        let ambiguities_in_schedule = schedule.graph().conflicting_systems().len();
-        ambiguities.insert(schedule.label(), ambiguities_in_schedule);
+    for label in schedule_labels {
+        let ambiguities_in_schedule =
+            sub_app
+                .world_mut()
+                .schedule_scope(label, |world, schedule| {
+                    schedule.initialize(world).unwrap().unwrap();
+                    schedule.graph().conflicting_systems().len()
+                });
+        ambiguities.insert(label, ambiguities_in_schedule);
     }
     AmbiguitiesCount(ambiguities)
 }

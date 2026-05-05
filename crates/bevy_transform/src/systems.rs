@@ -1,8 +1,38 @@
-use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
-use bevy_ecs::prelude::*;
-#[cfg(feature = "std")]
+use crate::{
+    components::{GlobalTransform, Transform, TransformTreeChanged},
+    helper::TransformHelper,
+};
+
+use bevy_ecs::{prelude::*, query::QueryFilter};
+
+/// Generic system that propagates transforms,
+/// using [`TransformHelper`] for any entity matching the filter `F`.
+/// Useful for moving and rendering in the same frame.
+pub fn propagate_transforms_for<F: QueryFilter + 'static>(
+    tf_helper: TransformHelper,
+    mut query: Query<(Entity, &mut GlobalTransform), F>,
+) {
+    for (entity, mut gtf) in query.iter_mut() {
+        let result = tf_helper
+            .compute_global_transform(entity)
+            .inspect_err(|_err| {
+                #[cfg(feature = "trace")]
+                bevy_utils::once!(tracing::warn!(
+                    "Failed to compute GlobalTransform for entity {:?}: {:?}",
+                    entity,
+                    _err
+                ));
+            });
+
+        if let Ok(computed) = result {
+            *gtf = computed;
+        }
+    }
+}
+
+#[cfg(feature = "multi_threaded")]
 pub use parallel::propagate_parent_transforms;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 pub use serial::propagate_parent_transforms;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -24,9 +54,17 @@ pub fn sync_simple_transforms(
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
     // Update changed entities.
+    #[cfg(feature = "multi_threaded")]
     query
         .p0()
         .par_iter_mut()
+        .for_each(|(transform, mut global_transform)| {
+            *global_transform = GlobalTransform::from(*transform);
+        });
+    #[cfg(not(feature = "multi_threaded"))]
+    query
+        .p0()
+        .iter_mut()
         .for_each(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
@@ -40,31 +78,229 @@ pub fn sync_simple_transforms(
     }
 }
 
-/// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
-/// Transform propagation can ignore entire subtrees of the hierarchy if it encounters an entity
-/// without the dirty bit.
+/// Configure the behavior of static scene optimizations for [`Transform`] propagation.
+///
+/// For scenes with many static entities, it is much faster to track trees of unchanged
+/// [`Transform`]s and skip these during the expensive transform propagation step. If your scene is
+/// very dynamic, the cost of tracking these trees can exceed the performance benefits. By default,
+/// static scene optimization is enabled.
+#[derive(Resource, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub enum StaticTransformOptimizations {
+    /// Enable static scene optimizations.
+    #[default]
+    Enabled,
+    /// Disable static scene optimizations.
+    Disabled,
+}
+
+impl StaticTransformOptimizations {
+    /// Returns `true` if static scene optimizations are enabled.
+    #[inline]
+    pub fn is_enabled(&self) -> bool {
+        *self == StaticTransformOptimizations::Enabled
+    }
+}
+
+/// Optimization for static scenes.
+///
+/// Propagates a "dirty bit" up the hierarchy towards ancestors. Transform propagation can ignore
+/// entire subtrees of the hierarchy if it encounters an entity without the dirty bit.
+///
+/// Configure behavior with [`StaticTransformOptimizations`].
 pub fn mark_dirty_trees(
-    changed_transforms: Query<
-        Entity,
-        Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
-    >,
+    changed: Query<Entity, Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>>,
     mut orphaned: RemovedComponents<ChildOf>,
-    mut transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
+    mut transforms: Query<&mut TransformTreeChanged>,
+    parents: Query<&ChildOf>,
+    static_optimizations: Res<StaticTransformOptimizations>,
+    // Cached allocations for multi-threaded parallel implementation
+    #[cfg(feature = "multi_threaded")] mut shared_bitset: Local<
+        alloc::vec::Vec<core::sync::atomic::AtomicU64>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut local_bitset: Local<
+        bevy_utils::Parallel<alloc::vec::Vec<u64>>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut consumer_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut traversal_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
 ) {
-    for entity in changed_transforms.iter().chain(orphaned.read()) {
+    if !static_optimizations.is_enabled() {
+        return;
+    }
+
+    // Simple serial implementation that iterates changed entities and traverses the tree.
+    #[cfg(not(feature = "multi_threaded"))]
+    for entity in changed.iter().chain(orphaned.read()) {
         let mut next = entity;
-        while let Ok((child_of, mut tree)) = transforms.get_mut(next) {
+        while let Ok(mut tree) = transforms.get_mut(next) {
             if tree.is_changed() && !tree.is_added() {
                 // If the component was changed, this part of the tree has already been processed.
                 // Ignore this if the change was caused by the component being added.
                 break;
             }
             tree.set_changed();
-            if let Some(parent) = child_of.map(ChildOf::parent) {
+            if let Ok(parent) = parents.get(next).map(ChildOf::parent) {
                 next = parent;
             } else {
                 break;
             };
+        }
+    }
+
+    // Concurrent and parallel implementation with three sets of asynchronous workers:
+    //
+    // - producer: (single) finds all changed or orphaned entities and sends a message in a channel
+    // - traversal: (many) read incoming messages from producer, traverse hierarchy using atomics to
+    //      cooperatively early exit across threads, send newly changed entities to consumer.
+    // - consumer: (single) read incoming messages from traversal
+    //
+    // These workers are all running both parallelly and concurrently. They are spawned at the start
+    // of the scope and asynchronously await incoming batches of work. This allows the entire
+    // pipeline to start working as soon as there is available work to process, instead of running
+    // each stage serially with inner parallelism.
+    #[cfg(feature = "multi_threaded")]
+    {
+        use bevy_tasks::ComputeTaskPool;
+        use core::sync::atomic::Ordering;
+        #[cfg(feature = "trace")]
+        use tracing::{info_span, Instrument};
+
+        ComputeTaskPool::get().scope(|scope| {
+            traversal_channels.chunk_size = 1024;
+            consumer_channels.chunk_size = 1024;
+            let (traversal_rx, mut traversal_tx) = traversal_channels.unbounded();
+            let (consumer_rx, mut consumer_tx) = consumer_channels.unbounded();
+            let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
+            let local_bitset = &*local_bitset;
+            let parents_ref = &parents;
+
+            // Consumer: drain the channel of moved entities and call set_changed() on the marker.
+            scope.spawn({
+                let fut = async move {
+                    while let Ok(mut chunk) = consumer_rx.recv().await {
+                        for entity in chunk.drain() {
+                            if let Ok(mut tree) = transforms.get_mut(entity) {
+                                tree.set_changed();
+                            }
+                        }
+                    }
+                };
+                #[cfg(feature = "trace")]
+                let fut = fut.instrument(info_span!("consumer_mark_dirty"));
+                fut
+            });
+
+            // Traversal: each task loops until the producer channel is exhausted, walking each
+            // entity's ancestor chain and forwarding newly marked entities to the consumer task.
+            for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
+                let traversal_rx = traversal_rx.clone();
+                let mut consumer_tx = consumer_tx.clone();
+                scope.spawn({
+                    let fut = async move {
+                        while let Ok(mut chunk) = traversal_rx.recv().await {
+                            for mut entity in chunk.drain() {
+                                let mut first_iteration = true;
+                                'traverse_hierarchy: loop {
+                                    let idx = entity.index().index() as usize;
+                                    let word = idx / 64;
+                                    let bit = 1u64 << (idx % 64);
+
+                                    #[expect(
+                                        clippy::redundant_else,
+                                        reason = "Without the else, fails to compile due to async"
+                                    )]
+                                    if word < shared_bitset.len()
+                                        && shared_bitset[word].fetch_or(bit, Ordering::Relaxed)
+                                            & bit
+                                            != 0
+                                    {
+                                        // Common path: atomic OR into the shared bitset.
+                                        // If the entity was already visited, we can stop climbing.
+                                        break 'traverse_hierarchy;
+                                    } else {
+                                        // Overflow: entity index exceeds shared bitset capacity.
+                                        // Use a per-task local bitset for intra-task early exit.
+                                        let overflow = &mut *local_bitset.borrow_local_mut();
+                                        if word < overflow.len() && overflow[word] & bit != 0 {
+                                            break 'traverse_hierarchy;
+                                        }
+                                        if word >= overflow.len() {
+                                            overflow.resize(word + 1, 0u64);
+                                        }
+                                        overflow[word] |= bit;
+                                    }
+
+                                    // If we have not hit a break yet, it's the first time we've
+                                    // seen this entity, so it should be sent to the consumer.
+                                    if first_iteration {
+                                        first_iteration = false;
+                                    } else {
+                                        // The first iteration (leaf) has already been sent to the
+                                        // consumer by the producer; we don't need to send it again.
+                                        consumer_tx.send(entity).await.ok();
+                                    }
+
+                                    match parents_ref.get(entity).ok().map(ChildOf::parent) {
+                                        Some(parent) => entity = parent,
+                                        None => break 'traverse_hierarchy,
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    #[cfg(feature = "trace")]
+                    let fut = fut.instrument(info_span!("par_traversal_mark_dirty"));
+                    fut
+                });
+            }
+
+            // Producer: Feed changed entities and orphans into producer tasks. The senders are
+            // dropped at the end of this closure, closing the channel and allowing the other tasks
+            // to exit.
+            //
+            // Note that we send the entity directly to the consumer as well, we do this to start
+            // feeding it work as soon as possible. The traversal worker should skip sending these
+            // leaves to the consumer because it has already been sent here.
+            let mut producer = move || {
+                for entity in orphaned.read() {
+                    let _ = traversal_tx.send_blocking(entity);
+                    let _ = consumer_tx.send_blocking(entity);
+                }
+                // Changed<> table scans are slow, so we parallelize them to improve performance.
+                changed.par_iter().for_each_init(
+                    || (traversal_tx.clone(), consumer_tx.clone()),
+                    |(traversal_tx, consumer_tx), entity| {
+                        let _ = traversal_tx.send_blocking(entity);
+                        let _ = consumer_tx.send_blocking(entity);
+                    },
+                );
+            };
+            #[cfg(feature = "trace")]
+            info_span!("producer_mark_dirty").in_scope(&mut producer);
+            #[cfg(not(feature = "trace"))]
+            producer();
+        });
+
+        // Merge thread-local bitsets into the shared bitset, growing it to accommodate the largest
+        // entity index we have encountered so far. At steady-state, these local bitsets stay empty.
+        for local_bitset in local_bitset.iter_mut() {
+            if local_bitset.is_empty() {
+                continue;
+            }
+            if local_bitset.len() > shared_bitset.len() {
+                shared_bitset.resize_with(local_bitset.len(), Default::default);
+            }
+            local_bitset.clear();
+        }
+
+        // Reset the bitset for the next frame while preserving the `Vec` length. Using `clear()`
+        // would shrink the length to 0 and force every entity through the overflow path next frame.
+        for w in shared_bitset.iter() {
+            w.store(0, Ordering::Relaxed);
         }
     }
 }
@@ -84,7 +320,7 @@ pub fn mark_dirty_trees(
 // module, and make the multithreaded module no_std compatible.
 //
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 mod serial {
     use crate::prelude::*;
     use alloc::vec::Vec;
@@ -246,12 +482,13 @@ mod serial {
 //
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
-#[cfg(feature = "std")]
+#[cfg(feature = "multi_threaded")]
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
+    use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -269,15 +506,27 @@ mod parallel {
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
         mut roots: Query<
-            (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
-            (Without<ChildOf>, Changed<TransformTreeChanged>),
+            (
+                Entity,
+                Ref<Transform>,
+                &mut GlobalTransform,
+                &Children,
+                Ref<TransformTreeChanged>,
+            ),
+            Without<ChildOf>,
         >,
         nodes: NodeQuery,
+        static_optimizations: Res<StaticTransformOptimizations>,
     ) {
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
-            |outbox, (parent, transform, mut parent_transform, children)| {
+            |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
+                if static_optimizations.is_enabled() && !transform_tree.is_changed() {
+                    // Early exit if the subtree is static and the optimization is enabled.
+                    return;
+                }
+
                 *parent_transform = GlobalTransform::from(*transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
@@ -292,6 +541,7 @@ mod parallel {
                         &nodes,
                         outbox,
                         &queue,
+                        &static_optimizations,
                         // Need to revisit this single-max-depth by profiling more representative
                         // scenes. It's possible that it is actually beneficial to go deep into the
                         // hierarchy to build up a good task queue before starting the workers.
@@ -323,17 +573,23 @@ mod parallel {
         let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
-                .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
-            propagation_worker(&queue, &nodes);
+                .for_each(|_| {
+                    s.spawn(async { propagation_worker(&queue, &nodes, &static_optimizations) });
+                });
+            propagation_worker(&queue, &nodes, &static_optimizations);
         });
     }
 
     /// A parallel worker that will consume processed parent entities from the queue, and push
     /// children to the queue once it has propagated their [`GlobalTransform`].
     #[inline]
-    fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
-        #[cfg(feature = "std")]
-        let _span = bevy_log::info_span!("transform propagation worker").entered();
+    fn propagation_worker(
+        queue: &WorkQueue,
+        nodes: &NodeQuery,
+        static_optimizations: &StaticTransformOptimizations,
+    ) {
+        #[cfg(feature = "trace")]
+        let _span = tracing::info_span!("transform propagation worker").entered();
 
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
@@ -386,6 +642,7 @@ mod parallel {
                         nodes,
                         &mut outbox,
                         queue,
+                        static_optimizations,
                         // Only affects performance. Trees deeper than this will still be fully
                         // propagated, but the work will be broken into multiple tasks. This number
                         // was chosen to be larger than any reasonable tree depth, while not being
@@ -426,6 +683,7 @@ mod parallel {
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
+        static_optimizations: &StaticTransformOptimizations,
         max_depth: usize,
     ) {
         // Create mutable copies of the input variables, used for iterative depth-first traversal.
@@ -440,15 +698,16 @@ mod parallel {
             // visiting disjoint entities in parallel, which is safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             let children_iter = unsafe {
-                nodes.iter_many_unique_unsafe(UniqueEntityIter::from_iterator_unchecked(
-                    p_children.iter(),
-                ))
+                nodes.iter_many_unique_unsafe(UniqueEntitySlice::from_slice_unchecked(p_children))
             };
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if !tree.is_changed() && !p_global_transform.is_changed() {
+                    if static_optimizations.is_enabled()
+                        && !tree.is_changed()
+                        && !p_global_transform.is_changed()
+                    {
                         // Static scene optimization
                         return None;
                     }
@@ -580,6 +839,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
@@ -638,6 +898,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Root entity
         world.spawn(Transform::from_xyz(1.0, 0.0, 0.0));
@@ -675,6 +936,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -714,6 +976,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Add parent entities
         let mut children = Vec::new();
@@ -793,7 +1056,8 @@ mod test {
                 propagate_parent_transforms,
             )
                 .chain(),
-        );
+        )
+        .insert_resource(StaticTransformOptimizations::default());
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -881,12 +1145,12 @@ mod test {
         // cannot happen
         let mut a = unsafe { child_entity.get_mut_assume_mutable::<ChildOf>().unwrap() };
 
-        // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
-        // cannot happen
         #[expect(
             unsafe_code,
             reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
         )]
+        // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
+        // cannot happen
         let mut b = unsafe {
             grandchild_entity
                 .get_mut_assume_mutable::<ChildOf>()
@@ -913,6 +1177,7 @@ mod test {
             )
                 .chain(),
         );
+        world.insert_resource(StaticTransformOptimizations::default());
 
         // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle =
