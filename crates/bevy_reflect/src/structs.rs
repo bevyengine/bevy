@@ -122,6 +122,11 @@ impl StructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
+        Self::new_erased(fields, Type::of::<T>())
+    }
+
+    #[inline(never)]
+    fn new_erased(fields: &[NamedField], ty: Type) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
@@ -131,7 +136,7 @@ impl StructInfo {
         let field_names = fields.iter().map(NamedField::name).collect();
 
         Self {
-            ty: Type::of::<T>(),
+            ty,
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,

@@ -166,6 +166,11 @@ impl EnumInfo {
     ///
     /// * `variants`: The variants of this enum in the order they are defined
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
+        Self::new_erased(variants, Type::of::<TEnum>())
+    }
+
+    #[inline(never)]
+    fn new_erased(variants: &[VariantInfo], ty: Type) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -175,7 +180,7 @@ impl EnumInfo {
         let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
-            ty: Type::of::<TEnum>(),
+            ty,
             generics: Generics::new(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,

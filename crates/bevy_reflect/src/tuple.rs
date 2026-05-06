@@ -171,8 +171,13 @@ impl TupleInfo {
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
+        Self::new_erased(fields, Type::of::<T>())
+    }
+
+    #[inline(never)]
+    fn new_erased(fields: &[UnnamedField], ty: Type) -> Self {
         Self {
-            ty: Type::of::<T>(),
+            ty,
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "reflect_documentation")]
