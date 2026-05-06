@@ -5,8 +5,8 @@ use bevy_ptr::{ConstNonNull, MovingPtr};
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
     bundle::{
-        info::find_archetype_after_fallible_resource_write_and_queue_cleanup, Bundle, BundleId, BundleInfo,
-        DynamicBundle, InsertMode,
+        info::find_archetype_after_fallible_resource_write_and_queue_cleanup, Bundle, BundleId,
+        BundleInfo, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, Tick},
     entity::{Entity, EntityAllocator, EntityLocation},
