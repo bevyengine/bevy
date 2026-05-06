@@ -32,10 +32,6 @@ pub enum RenderErrorPolicy {
     StopRendering,
     /// Attempt renderer recovery with the given [`RenderCreation`].
     Recover(RenderCreation),
-    /// Quits the app.
-    /// This stops rendering and sends an [`AppExit::error`], which will
-    /// immediately terminate the app.
-    QuitApplication,
 }
 
 /// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].
@@ -60,9 +56,6 @@ impl RenderErrorHandler {
             RenderErrorPolicy::StopRendering => {
                 // do nothing
             }
-            RenderErrorPolicy::QuitApplication => {
-                main_world.write_message(AppExit::error());
-            }
             RenderErrorPolicy::Recover(render_creation) => {
                 assert!(insert_future_resources(&render_creation, main_world));
                 render_world.insert_resource(RenderState::Reinitializing);
@@ -79,7 +72,10 @@ impl Default for RenderErrorHandler {
         // We can choose a new default once recovery works better.
         Self(|error, _, _| {
             bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
-            RenderErrorPolicy::QuitApplication
+        Self(|error, main_world, _| {
+            bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
+            main_world.write_message(AppExit::error());
+            RenderErrorPolicy::StopRendering
         })
     }
 }
