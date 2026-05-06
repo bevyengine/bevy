@@ -1,6 +1,8 @@
 //! Functions for Okhsl/Okhsv <-> Oklab conversion.
 //! See <https://github.com/bottosson/bottosson.github.io/blob/master/misc/ok_color.h>
 
+// See comments start with `Patch` for how this differs from original `ok_color.h`
+
 #![expect(
     non_snake_case,
     reason = "The code is translated from a C implementation."
@@ -117,7 +119,7 @@ pub(crate) fn find_cusp(a: f32, b: f32) -> LC {
 
     // Convert to linear sRGB to find the first point where at least one of r,g or b >= 1:
     let rgb_at_max: LinearRgba = Oklaba::lab(1., S_cusp * a, S_cusp * b).into();
-    let L_cusp = ops::cbrt(1. / ((rgb_at_max.red.max(rgb_at_max.green)).max(rgb_at_max.blue)));
+    let L_cusp = libm_cbrtf(1. / ((rgb_at_max.red.max(rgb_at_max.green)).max(rgb_at_max.blue)));
     let C_cusp = L_cusp * S_cusp;
 
     LC {
@@ -300,7 +302,7 @@ pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
     } = value;
     let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     // Patch: Fixes NaN for pure black and white colors.
-    if C < core::f32::EPSILON {
+    if C < f32::EPSILON {
         let l = toe(lab_l);
         return Okhsla {
             hue: 0.,
@@ -407,7 +409,7 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
     } = value;
     let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     // Patch: Fixes NaN for pure black and white colors.
-    if C < core::f32::EPSILON {
+    if C < f32::EPSILON {
         // In this case, value is equal to lightness.
         let l = toe(lab_l);
         return Okhsva {
@@ -442,7 +444,7 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
     // we can then use these to invert the step that compensates for the toe and the curved top part of the triangle:
     let rgb_scale: LinearRgba = Oklaba::lab(L_vt, a_ * C_vt, b_ * C_vt).into();
     let scale_L =
-        ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
+        libm_cbrtf(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
 
     L /= scale_L;
 
@@ -503,10 +505,65 @@ pub(crate) fn okhsv_to_oklab(value: Okhsva) -> Oklaba {
 
     let rgb_scale: LinearRgba = Oklaba::lab(L_vt, a_ * C_vt, b_ * C_vt).into();
     let scale_L =
-        ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
+        libm_cbrtf(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
 
     L *= scale_L;
     C *= scale_L;
 
     Oklaba::new(L, C * a_, C * b_, alpha)
+}
+
+// Note: This is copied from `libm` to fix precision issue on Windows CI testing.
+
+const B1: u32 = 709958130; /* B1 = (127-127.0/3-0.03306235651)*2**23 */
+const B2: u32 = 642849266; /* B2 = (127-127.0/3-24/3-0.03306235651)*2**23 */
+/// Cube root (f32)
+///
+/// Computes the cube root of the argument.
+pub(crate) fn libm_cbrtf(x: f32) -> f32 {
+    let x1p24 = f32::from_bits(0x4b800000); // 0x1p24f === 2 ^ 24
+
+    let mut r: f64;
+    let mut t: f64;
+    let mut ui: u32 = x.to_bits();
+    let mut hx: u32 = ui & 0x7fffffff;
+
+    if hx >= 0x7f800000 {
+        /* cbrt(NaN,INF) is itself */
+        return x + x;
+    }
+
+    /* rough cbrt to 5 bits */
+    if hx < 0x00800000 {
+        /* zero or subnormal? */
+        if hx == 0 {
+            return x; /* cbrt(+-0) is itself */
+        }
+        ui = (x * x1p24).to_bits();
+        hx = ui & 0x7fffffff;
+        hx = hx / 3 + B2;
+    } else {
+        hx = hx / 3 + B1;
+    }
+    ui &= 0x80000000;
+    ui |= hx;
+
+    /*
+     * First step Newton iteration (solving t*t-x/t == 0) to 16 bits.  In
+     * double precision so that its terms can be arranged for efficiency
+     * without causing overflow or underflow.
+     */
+    t = f32::from_bits(ui) as f64;
+    r = t * t * t;
+    t = t * (x as f64 + x as f64 + r) / (x as f64 + r + r);
+
+    /*
+     * Second step Newton iteration to 47 bits.  In double precision for
+     * efficiency and accuracy.
+     */
+    r = t * t * t;
+    t = t * (x as f64 + x as f64 + r) / (x as f64 + r + r);
+
+    /* rounding to 24 bits is perfect in round-to-nearest mode */
+    t as f32
 }

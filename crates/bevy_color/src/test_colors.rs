@@ -70,7 +70,7 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklch: Oklcha::new(0.6279554, 0.25768322, 29.233906, 1.0),
         xyz: Xyza::new(0.4124564, 0.2126729, 0.0193339, 1.0),
         okhsl: Okhsla::new(29.233885, 1.0, 0.56808466, 1.0),
-        okhsv: Okhsva::new(29.233885, 0.999522, 1.0, 1.0),
+        okhsv: Okhsva::new(29.233885, 1.0, 1.0, 1.0),
     },
     // green
     TestColor {
@@ -86,7 +86,7 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklch: Oklcha::new(0.8664396, 0.2948271, 142.49532, 1.0),
         xyz: Xyza::new(0.3575761, 0.7151522, 0.119192, 1.0),
         okhsl: Okhsla::new(142.49535, 0.99999994, 0.844529, 1.0),
-        okhsv: Okhsva::new(142.49535, 0.9999997, 1.0, 1.0),
+        okhsv: Okhsva::new(142.49535, 0.9999999, 1.0, 1.0),
     },
     // blue
     TestColor {
@@ -102,7 +102,7 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklch: Oklcha::new(0.4520137, 0.31321436, 264.05203, 1.0),
         xyz: Xyza::new(0.1804375, 0.072175, 0.9503041, 1.0),
         okhsl: Okhsla::new(264.05203, 1.0, 0.36656535, 1.0),
-        okhsv: Okhsva::new(264.05203, 0.9999911, 0.99999994, 1.0),
+        okhsv: Okhsva::new(264.05203, 1.0, 0.99999994, 1.0),
     },
     // yellow
     TestColor {
@@ -133,8 +133,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.7016738, 0.27456632, -0.16915613, 1.0),
         oklch: Oklcha::new(0.7016738, 0.32249102, 328.36343, 1.0),
         xyz: Xyza::new(0.5928939, 0.28484792, 0.969638, 1.0),
-        okhsl: Okhsla::new(328.3634, 1.000039, 0.65329874, 1.0),
-        okhsv: Okhsva::new(328.3634, 1.0001222, 1.0, 1.0),
+        okhsl: Okhsla::new(328.3634, 1.0, 0.65329874, 1.0),
+        okhsv: Okhsva::new(328.3634, 1.0, 1.0, 1.0),
     },
     // cyan
     TestColor {
@@ -150,7 +150,7 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklch: Oklcha::new(0.90539926, 0.15454996, 194.76895, 1.0),
         xyz: Xyza::new(0.5380136, 0.78732723, 1.069496, 1.0),
         okhsl: Okhsla::new(194.76895, 1.0, 0.8898483, 1.0),
-        okhsv: Okhsva::new(194.76895, 0.9999994, 1.0, 1.0),
+        okhsv: Okhsva::new(194.76895, 0.9999998, 1.0, 1.0),
     },
     // gray
     TestColor {
@@ -165,8 +165,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.5981807, 0.00000011920929, 0.0, 1.0),
         oklch: Oklcha::new(0.5981807, 0.00000011920929, 0.0, 1.0),
         xyz: Xyza::new(0.2034397, 0.21404117, 0.23305441, 1.0),
-        okhsl: Okhsla::new(0.0, 0.0000006210822, 0.5337598, 1.0),
-        okhsv: Okhsva::new(0.0, 0.000000665956, 0.5337598, 1.0),
+        okhsl: Okhsla::new(0.0, 0.0, 0.53375983, 1.0),
+        okhsv: Okhsva::new(0.0, 0.0, 0.53375983, 1.0),
     },
     // olive
     TestColor {
@@ -197,8 +197,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.41972777, 0.1642403, -0.10118592, 1.0),
         oklch: Oklcha::new(0.41972777, 0.19290791, 328.36343, 1.0),
         xyz: Xyza::new(0.12690368, 0.060969174, 0.20754242, 1.0),
-        okhsl: Okhsla::new(328.3634, 1.0006211, 0.33011043, 1.0),
-        okhsv: Okhsva::new(328.3634, 1.0001222, 0.51061976, 1.0),
+        okhsl: Okhsla::new(328.3634, 0.99999994, 0.33011043, 1.0),
+        okhsv: Okhsva::new(328.3634, 1.0, 0.5106205, 1.0),
     },
     // teal
     TestColor {
@@ -213,8 +213,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.54159236, -0.08939436, -0.02356726, 1.0),
         oklch: Oklcha::new(0.54159236, 0.09244873, 194.769, 1.0),
         xyz: Xyza::new(0.11515705, 0.16852042, 0.22891617, 1.0),
-        okhsl: Okhsla::new(194.76895, 0.99999946, 0.46872336, 1.0),
-        okhsv: Okhsva::new(194.76895, 0.9999994, 0.52782416, 1.0),
+        okhsl: Okhsla::new(194.76895, 0.9999998, 0.46872336, 1.0),
+        okhsv: Okhsva::new(194.76895, 0.9999998, 0.52782416, 1.0),
     },
     // maroon
     TestColor {
@@ -229,8 +229,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.3756308, 0.13450874, 0.07527886, 1.0),
         oklch: Oklcha::new(0.3756308, 0.1541412, 29.233906, 1.0),
         xyz: Xyza::new(0.08828264, 0.045520753, 0.0041382504, 1.0),
-        okhsl: Okhsla::new(29.233885, 0.9996788, 0.28080443, 1.0),
-        okhsv: Okhsva::new(29.233885, 0.999522, 0.5022645, 1.0),
+        okhsl: Okhsla::new(29.233885, 1.0, 0.28080443, 1.0),
+        okhsv: Okhsva::new(29.233885, 1.0, 0.50226027, 1.0),
     },
     // lime
     TestColor {
@@ -245,8 +245,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.5182875, -0.13990697, 0.10737252, 1.0),
         oklch: Oklcha::new(0.5182875, 0.17635992, 142.49535, 1.0),
         xyz: Xyza::new(0.076536, 0.153072, 0.025511991, 1.0),
-        okhsl: Okhsla::new(142.49535, 0.99999994, 0.44203484, 1.0),
-        okhsv: Okhsva::new(142.49535, 0.9999997, 0.5250593, 1.0),
+        okhsl: Okhsla::new(142.49535, 1.0, 0.44203484, 1.0),
+        okhsv: Okhsva::new(142.49535, 0.9999999, 0.5250593, 1.0),
     },
     // navy
     TestColor {
@@ -261,8 +261,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.27038592, -0.01941514, -0.18635012, 1.0),
         oklch: Oklcha::new(0.27038592, 0.18735878, 264.05203, 1.0),
         xyz: Xyza::new(0.03862105, 0.01544842, 0.20340417, 1.0),
-        okhsl: Okhsla::new(264.05203, 0.9999977, 0.16734318, 1.0),
-        okhsv: Okhsva::new(264.05203, 0.9999911, 0.47496665, 1.0),
+        okhsl: Okhsla::new(264.05203, 1.0, 0.16734318, 1.0),
+        okhsv: Okhsva::new(264.05203, 1.0, 0.47496656, 1.0),
     },
     // orange
     TestColor {
@@ -293,8 +293,8 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.41972777, 0.1642403, -0.10118592, 1.0),
         oklch: Oklcha::new(0.41972777, 0.19290791, 328.36343, 1.0),
         xyz: Xyza::new(0.12690368, 0.060969174, 0.20754242, 1.0),
-        okhsl: Okhsla::new(328.3634, 1.0006211, 0.33011043, 1.0),
-        okhsv: Okhsva::new(328.3634, 1.0001222, 0.51061976, 1.0),
+        okhsl: Okhsla::new(328.3634, 0.99999994, 0.33011043, 1.0),
+        okhsv: Okhsva::new(328.3634, 1.0, 0.5106205, 1.0),
     },
     // aqua
     TestColor {
@@ -309,7 +309,7 @@ pub const TEST_COLORS: &[TestColor] = &[
         oklab: Oklaba::new(0.54159236, -0.08939436, -0.02356726, 1.0),
         oklch: Oklcha::new(0.54159236, 0.09244873, 194.769, 1.0),
         xyz: Xyza::new(0.11515705, 0.16852042, 0.22891617, 1.0),
-        okhsl: Okhsla::new(194.76895, 0.99999946, 0.46872336, 1.0),
-        okhsv: Okhsva::new(194.76895, 0.9999994, 0.52782416, 1.0),
+        okhsl: Okhsla::new(194.76895, 0.9999998, 0.46872336, 1.0),
+        okhsv: Okhsva::new(194.76895, 0.9999998, 0.52782416, 1.0),
     },
 ];

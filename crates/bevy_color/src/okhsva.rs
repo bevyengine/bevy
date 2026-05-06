@@ -394,7 +394,7 @@ mod tests {
             let rgb2: Srgba = (color.okhsv).into();
             let okhsv: Okhsva = (color.rgb).into();
             assert!(
-                color.rgb.distance(&rgb2) < 0.003,
+                color.rgb.distance(&rgb2) < 0.001,
                 "{}: {:?} != {:?}",
                 color.name,
                 color.rgb,
