@@ -527,8 +527,7 @@ impl BundleInfo {
             return (archetype_after_insert_id, false);
         }
         let mut new_table_components = Vec::new();
-        let mut new_sparse_set_components = Vec::new();
-        let mut new_resource_components = Vec::new();
+        let mut new_non_table_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
@@ -546,8 +545,9 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
-                    StorageType::Resource => new_resource_components.push(component_id),
+                    StorageType::SparseSet | StorageType::Resource => {
+                        new_non_table_components.push(component_id);
+                    }
                 }
             }
         }
@@ -562,20 +562,14 @@ impl BundleInfo {
                     StorageType::Table => {
                         new_table_components.push(component_id);
                     }
-                    StorageType::SparseSet => {
-                        new_sparse_set_components.push(component_id);
-                    }
-                    StorageType::Resource => {
-                        new_resource_components.push(component_id);
+                    StorageType::SparseSet | StorageType::Resource => {
+                        new_non_table_components.push(component_id);
                     }
                 }
             }
         }
 
-        if new_table_components.is_empty()
-            && new_sparse_set_components.is_empty()
-            && new_resource_components.is_empty()
-        {
+        if new_table_components.is_empty() && new_non_table_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
@@ -590,8 +584,7 @@ impl BundleInfo {
         } else {
             let table_id;
             let table_components;
-            let sparse_set_components;
-            let resource_components;
+            let non_table_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
@@ -613,21 +606,13 @@ impl BundleInfo {
                     new_table_components
                 };
 
-                sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().collect()
+                non_table_components = if new_non_table_components.is_empty() {
+                    current_archetype.non_table_components().collect()
                 } else {
-                    new_sparse_set_components.extend(current_archetype.sparse_set_components());
+                    new_non_table_components.extend(current_archetype.non_table_components());
                     // Sort to ignore order while hashing.
-                    new_sparse_set_components.sort_unstable();
-                    new_sparse_set_components
-                };
-                resource_components = if new_resource_components.is_empty() {
-                    current_archetype.resource_components().collect()
-                } else {
-                    new_resource_components.extend(current_archetype.resource_components());
-                    // Sort to ignore order while hashing.
-                    new_resource_components.sort_unstable();
-                    new_resource_components
+                    new_non_table_components.sort_unstable();
+                    new_non_table_components
                 };
             };
             // SAFETY: ids in self must be valid
@@ -637,8 +622,7 @@ impl BundleInfo {
                     observers,
                     table_id,
                     table_components,
-                    sparse_set_components,
-                    resource_components,
+                    non_table_components,
                 )
             };
 

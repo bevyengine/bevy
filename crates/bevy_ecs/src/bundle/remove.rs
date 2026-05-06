@@ -374,22 +374,21 @@ impl BundleInfo {
             (result, false)
         } else {
             let mut next_table_components;
-            let mut next_sparse_set_components;
-            let mut next_resource_components;
+            let mut next_non_table_components;
             let next_table_id;
             {
                 let current_archetype = &mut archetypes[archetype_id];
                 let mut removed_table_components = Vec::new();
-                let mut removed_sparse_set_components = Vec::new();
-                let mut removed_resource_components = Vec::new();
+                let mut removed_non_table_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
                     if current_archetype.contains(component_id) {
                         // SAFETY: bundle components were already initialized by bundles.get_info
                         let component_info = unsafe { components.get_info_unchecked(component_id) };
                         match component_info.storage_type() {
                             StorageType::Table => &mut removed_table_components,
-                            StorageType::SparseSet => &mut removed_sparse_set_components,
-                            StorageType::Resource => &mut removed_resource_components,
+                            StorageType::SparseSet | StorageType::Resource => {
+                                &mut removed_non_table_components
+                            }
                         }
                         .push(component_id);
                     } else if !intersection {
@@ -405,16 +404,14 @@ impl BundleInfo {
                 // Sort removed components so we can do an efficient "sorted remove".
                 // Archetype components are already sorted.
                 removed_table_components.sort_unstable();
-                removed_sparse_set_components.sort_unstable();
+                removed_non_table_components.sort_unstable();
                 next_table_components = current_archetype.table_components().collect();
-                next_sparse_set_components = current_archetype.sparse_set_components().collect();
-                next_resource_components = current_archetype.resource_components().collect();
+                next_non_table_components = current_archetype.non_table_components().collect();
                 sorted_remove(&mut next_table_components, &removed_table_components);
                 sorted_remove(
-                    &mut next_sparse_set_components,
-                    &removed_sparse_set_components,
+                    &mut next_non_table_components,
+                    &removed_non_table_components,
                 );
-                sorted_remove(&mut next_resource_components, &removed_resource_components);
 
                 next_table_id = if removed_table_components.is_empty() {
                     current_archetype.table_id()
@@ -433,8 +430,7 @@ impl BundleInfo {
                 observers,
                 next_table_id,
                 next_table_components,
-                next_sparse_set_components,
-                next_resource_components,
+                next_non_table_components,
             );
             (Some(new_archetype_id), is_new_created)
         };
