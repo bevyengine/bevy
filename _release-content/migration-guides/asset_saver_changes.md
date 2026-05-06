@@ -1,12 +1,13 @@
 ---
 title: SavedAsset now contains two lifetimes, and AssetSaver now takes an AssetPath.
-pull_requests: []
+pull_requests: [22622]
 ---
 
 `SavedAsset` now holds two lifetimes instead of one. This is primarily used in the context of
 `AssetSaver`. `AssetSaver` also now takes an `AssetPath`. So previously, users may have:
 
 ```rust
+// 0.18
 impl AssetSaver for MySaver {
     type Asset = MyAsset;
     type Settings = ();
@@ -24,9 +25,10 @@ impl AssetSaver for MySaver {
 }
 ```
 
-Now with the extra `SavedAsset` lifetime, and the extra `AssetPath`:
+Now with the extra `SavedAsset` lifetime, and the extra `AssetPath`, we have:
 
 ```rust
+// 0.19
 impl AssetSaver for MySaver {
     type Asset = MyAsset;
     type Settings = ();
@@ -45,4 +47,4 @@ impl AssetSaver for MySaver {
 }
 ```
 
-In practice, this should not have an impact on usages.
+In practice, this should not have an impact on usage.
