@@ -262,9 +262,9 @@ impl ComputedNode {
         let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
 
         let clip_inset = match overflow_clip_margin.visual_box {
-            OverflowClipBox::BorderBox => BorderRect::ZERO,
-            OverflowClipBox::ContentBox => self.content_inset(),
-            OverflowClipBox::PaddingBox => self.border(),
+            VisualBox::BorderBox => BorderRect::ZERO,
+            VisualBox::ContentBox => self.content_inset(),
+            VisualBox::PaddingBox => self.border(),
         };
 
         clip_rect =
@@ -1387,7 +1387,7 @@ impl Default for OverflowAxis {
 )]
 pub struct OverflowClipMargin {
     /// Visible unclipped area
-    pub visual_box: OverflowClipBox,
+    pub visual_box: VisualBox,
     /// Width of the margin on each edge of the visual box in logical pixels.
     /// The width of the margin will be zero if a negative value is set.
     pub margin: f32,
@@ -1395,14 +1395,14 @@ pub struct OverflowClipMargin {
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        visual_box: OverflowClipBox::PaddingBox,
+        visual_box: VisualBox::PaddingBox,
         margin: 0.,
     };
 
     /// Clip any content that overflows outside the content box
     pub const fn content_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::ContentBox,
+            visual_box: VisualBox::ContentBox,
             ..Self::DEFAULT
         }
     }
@@ -1410,7 +1410,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the padding box
     pub const fn padding_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::PaddingBox,
+            visual_box: VisualBox::PaddingBox,
             ..Self::DEFAULT
         }
     }
@@ -1418,7 +1418,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the border box
     pub const fn border_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::BorderBox,
+            visual_box: VisualBox::BorderBox,
             ..Self::DEFAULT
         }
     }
@@ -1431,7 +1431,7 @@ impl OverflowClipMargin {
     }
 }
 
-/// Used to determine the bounds of the visible area when a UI node is clipped.
+/// Used to determine which region of a UI node is used for visual bounds.
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
@@ -1439,13 +1439,13 @@ impl OverflowClipMargin {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum OverflowClipBox {
-    /// Clip any content that overflows outside the content box
+pub enum VisualBox {
+    /// Use the content box.
     ContentBox,
-    /// Clip any content that overflows outside the padding box
+    /// Use the padding box.
     #[default]
     PaddingBox,
-    /// Clip any content that overflows outside the border box
+    /// Use the border box.
     BorderBox,
 }
 
@@ -3060,8 +3060,8 @@ mod tests {
     use crate::ComputedNode;
     use crate::GridPlacement;
     use crate::Overflow;
-    use crate::OverflowClipBox;
     use crate::OverflowClipMargin;
+    use crate::VisualBox;
     use bevy_math::{Rect, Vec2};
     use bevy_sprite::BorderRect;
 
@@ -3256,7 +3256,7 @@ mod tests {
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
-                    visual_box: OverflowClipBox::BorderBox,
+                    visual_box: VisualBox::BorderBox,
                     margin: m,
                 },
             ),
@@ -3267,7 +3267,7 @@ mod tests {
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
-                    visual_box: OverflowClipBox::PaddingBox,
+                    visual_box: VisualBox::PaddingBox,
                     margin: m,
                 },
             ),
@@ -3278,7 +3278,7 @@ mod tests {
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
-                    visual_box: OverflowClipBox::ContentBox,
+                    visual_box: VisualBox::ContentBox,
                     margin: m,
                 },
             ),
@@ -3300,7 +3300,7 @@ mod tests {
         let r = computed_node.resolve_clip_rect(
             Overflow::clip(),
             OverflowClipMargin {
-                visual_box: OverflowClipBox::BorderBox,
+                visual_box: VisualBox::BorderBox,
                 margin: m,
             },
         );
