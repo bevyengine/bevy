@@ -28,7 +28,7 @@ use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget;
-use bevy_ui::ComputedStackIndex;
+use bevy_ui::{ComputedStackIndex, VisualBox};
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
@@ -235,13 +235,17 @@ pub fn extract_ui_texture_slices(
     for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
         &slicers_query
     {
-        let content_box = uinode.content_box();
+        let visual_box = match image.visual_box {
+            VisualBox::ContentBox => uinode.content_box(),
+            VisualBox::PaddingBox => uinode.padding_box(),
+            VisualBox::BorderBox => uinode.border_box(),
+        };
 
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-            || content_box.size().cmple(Vec2::ZERO).any()
+            || visual_box.size().cmple(Vec2::ZERO).any()
         {
             continue;
         }
@@ -286,11 +290,11 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: stack_index.0,
-            transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
+            transform: Affine2::from(*transform) * Affine2::from_translation(visual_box.center()),
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,
-                max: content_box.size(),
+                max: visual_box.size(),
             },
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),

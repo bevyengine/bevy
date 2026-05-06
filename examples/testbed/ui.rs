@@ -997,48 +997,77 @@ mod slice {
                 Node {
                     width: percent(100),
                     height: percent(100),
-                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::SpaceAround,
+                    align_content: AlignContent::Center,
                     ..default()
                 },
                 DespawnOnExit(super::Scene::Slice),
             ))
             .with_children(|parent| {
-                for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
-                    parent.spawn((
-                        Button,
-                        ImageNode {
-                            image: image.clone(),
-                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                for visual_box in [
+                    VisualBox::BorderBox,
+                    VisualBox::PaddingBox,
+                    VisualBox::ContentBox,
+                ] {
+                    parent
+                        .spawn(Node {
+                            justify_content: JustifyContent::SpaceAround,
                             ..default()
-                        },
-                        Node {
-                            width: px(w),
-                            height: px(h),
-                            ..default()
-                        },
-                    ));
-                }
+                        })
+                        .with_children(|parent| {
+                            for [w, h] in [[200.0, 200.0], [300.0, 200.0], [150., 200.0]] {
+                                parent.spawn((
+                                    Button,
+                                    ImageNode {
+                                        image: image.clone(),
+                                        image_mode: NodeImageMode::Sliced(slicer.clone()),
+                                        visual_box,
+                                        ..default()
+                                    },
+                                    Node {
+                                        width: px(w),
+                                        height: px(h),
+                                        border: px(20.).all(),
+                                        padding: px(20.).all(),
+                                        ..default()
+                                    },
+                                    Outline {
+                                        width: px(2.),
+                                        ..default()
+                                    },
+                                ));
+                            }
 
-                parent.spawn((
-                    ImageNode {
-                        image: asset_server
-                            .load("textures/fantasy_ui_borders/panel-border-010.png"),
-                        image_mode: NodeImageMode::Sliced(TextureSlicer {
-                            border: BorderRect::all(22.0),
-                            center_scale_mode: SliceScaleMode::Stretch,
-                            sides_scale_mode: SliceScaleMode::Stretch,
-                            max_corner_scale: 1.0,
-                        }),
-                        ..Default::default()
-                    },
-                    Node {
-                        width: px(100),
-                        height: px(100),
-                        ..default()
-                    },
-                    BackgroundColor(bevy::color::palettes::css::NAVY.into()),
-                ));
+                            parent.spawn((
+                                ImageNode {
+                                    image: asset_server
+                                        .load("textures/fantasy_ui_borders/panel-border-010.png"),
+                                    image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                        border: BorderRect::all(22.0),
+                                        center_scale_mode: SliceScaleMode::Stretch,
+                                        sides_scale_mode: SliceScaleMode::Stretch,
+                                        max_corner_scale: 1.0,
+                                    }),
+                                    visual_box,
+                                    ..Default::default()
+                                },
+                                Node {
+                                    width: px(200),
+                                    height: px(200),
+                                    border: px(20.).all(),
+                                    padding: px(20.).all(),
+                                    ..default()
+                                },
+                                Outline {
+                                    color: bevy::color::palettes::css::DARK_CYAN.into(),
+                                    width: px(2.),
+                                    ..default()
+                                },
+                                BackgroundColor(bevy::color::palettes::css::NAVY.into()),
+                            ));
+                        });
+                }
             });
     }
 }
