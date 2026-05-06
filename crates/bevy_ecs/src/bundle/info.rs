@@ -689,7 +689,7 @@ pub(super) unsafe fn find_archetype_after_fallible_resource_write_and_queue_clea
                 table_components,
                 non_table_components,
             );
-            // The previous archtype pointers are now invalid
+            // The previous archetype pointers are now invalid
             // SAFETY:
             // - archetype id came from a valid archetype above
             // - world reference not used anymore
