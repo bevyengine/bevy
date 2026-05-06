@@ -165,7 +165,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     }
 }
 
-pub enum EntryResult {
+enum EntryResult {
     CombinedSceneFunction(TokenStream),
     NewSceneImpl(TokenStream),
 }
