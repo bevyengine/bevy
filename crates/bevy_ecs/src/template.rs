@@ -402,12 +402,14 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
 pub trait SpecializeFromTemplate: Sized {}
 
 /// A [`Template`] reference to an [`Entity`].
+#[derive(Default)]
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
     Entity(Entity),
     /// A reference to an entity via a [`ScopedEntityIndex`]
     ScopedEntityIndex(ScopedEntityIndex),
     /// An entity has not been specified. Building a template with this variant will result in an error.
+    #[default]
     None,
 }
 
@@ -423,12 +425,6 @@ pub struct ScopedEntityIndex {
     pub scope: usize,
     /// The index that uniquely identifies the entity within the current scope.
     pub index: usize,
-}
-
-impl Default for EntityTemplate {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl From<Entity> for EntityTemplate {
