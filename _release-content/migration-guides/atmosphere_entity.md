@@ -3,7 +3,7 @@ title: "`Atmosphere` is now an entity"
 pull_requests: [23651]
 ---
 
-Previously, the `Atmosphere` component was added to the camera. In 0.19, 
+Previously, the `Atmosphere` component was added to the camera. In 0.19,
 the `Atmosphere` is spawned as an entity. The nearest atmosphere will be chosen for rendering.
 
 `AtmosphereSettings` still belongs to the camera. This is the component that enables atmosphere rendering for that view.
