@@ -34,17 +34,17 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::{AnimatableProperty, EvaluatorId},
+    prelude::{AnimatableCurveEvaluator, AnimatableProperty, AnimatedField, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::FloatOrd;
+use bevy_math::{FloatOrd, Vec3};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::TransformSystems;
+use bevy_transform::{components::Transform, TransformSystems};
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -1108,6 +1108,8 @@ pub fn animate_targets(
                     );
                     return;
                 };
+            // TODO: Temporaire
+            let root_target_id = AnimationTargetId::from_name(&Name::new("tmp"));
 
             // The graph might not have loaded yet. Safely bail.
             let Some(animation_graph) = graphs.get(animation_graph_id) else {
@@ -1234,33 +1236,69 @@ pub fn animate_targets(
                         let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
-                        for curve in curves {
-                            // Fetch the curve evaluator. Curve evaluator types
-                            // are unique to each property, but shared among all
-                            // curve types. For example, given two curve types A
-                            // and B, `RotationCurve<A>` and `RotationCurve<B>`
-                            // will both yield a `RotationCurveEvaluator` and
-                            // therefore will share the same evaluator in this
-                            // table.
-                            let curve_evaluator_id = (*curve.0).evaluator_id();
-                            let curve_evaluator = evaluation_state
-                                .evaluators
-                                .get_or_insert_with(curve_evaluator_id.clone(), || {
-                                    curve.0.create_evaluator()
-                                });
+                        if target_id == root_target_id {
+                            let translation_field = animated_field!(Transform::translation);
+                            // TODO: let rotation_field = animated_field!(Transform::rotation);
+                            for curve in curves {
+                                let curve_evaluator_id = (*curve.0).evaluator_id();
+                                let curve_evaluator = evaluation_state
+                                    .evaluators
+                                    .get_or_insert_with(curve_evaluator_id.clone(), || {
+                                        curve.0.create_evaluator()
+                                    });
+                                if curve_evaluator_id == translation_field.evaluator_id() {
+                                    let curve_evaluator = curve_evaluator
+                                        .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
+                                        .unwrap();
+                                    let v1 = curve
+                                        .0
+                                        .sample_clamped(
+                                            active_animation.last_seek_time.unwrap_or_default(),
+                                        )
+                                        .downcast::<Vec3>()
+                                        .unwrap();
+                                    let v2 = curve
+                                        .0
+                                        .sample_clamped(active_animation.seek_time)
+                                        .downcast::<Vec3>()
+                                        .unwrap();
+                                    // TODO: Handle loops
+                                    curve_evaluator.push_value(
+                                        *v2 - *v1,
+                                        weight,
+                                        animation_graph_node_index,
+                                    );
+                                }
+                            }
+                        } else {
+                            for curve in curves {
+                                // Fetch the curve evaluator. Curve evaluator types
+                                // are unique to each property, but shared among all
+                                // curve types. For example, given two curve types A
+                                // and B, `RotationCurve<A>` and `RotationCurve<B>`
+                                // will both yield a `RotationCurveEvaluator` and
+                                // therefore will share the same evaluator in this
+                                // table.
+                                let curve_evaluator_id = (*curve.0).evaluator_id();
+                                let curve_evaluator = evaluation_state
+                                    .evaluators
+                                    .get_or_insert_with(curve_evaluator_id.clone(), || {
+                                        curve.0.create_evaluator()
+                                    });
 
-                            evaluation_state
-                                .current_evaluators
-                                .insert(curve_evaluator_id);
+                                evaluation_state
+                                    .current_evaluators
+                                    .insert(curve_evaluator_id);
 
-                            if let Err(err) = AnimationCurve::apply(
-                                &*curve.0,
-                                curve_evaluator,
-                                seek_time,
-                                weight,
-                                animation_graph_node_index,
-                            ) {
-                                warn!("Animation application failed: {:?}", err);
+                                if let Err(err) = AnimationCurve::apply(
+                                    &*curve.0,
+                                    curve_evaluator,
+                                    seek_time,
+                                    weight,
+                                    animation_graph_node_index,
+                                ) {
+                                    warn!("Animation application failed: {:?}", err);
+                                }
                             }
                         }
                     }

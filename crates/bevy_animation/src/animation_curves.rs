@@ -306,6 +306,18 @@ pub struct AnimatableCurveEvaluator<A: Animatable> {
     property: Box<dyn AnimatableProperty<Property = A>>,
 }
 
+impl<A: Animatable> AnimatableCurveEvaluator<A> {
+    pub(super) fn push_value(&mut self, value: A, weight: f32, graph_node: AnimationNodeIndex) {
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
+    }
+}
+
 impl<P, C> AnimatableCurve<P, C>
 where
     P: AnimatableProperty,
