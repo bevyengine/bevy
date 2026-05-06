@@ -20,7 +20,7 @@ use crate::{
 pub enum RenderErrorPolicy {
     /// Pretends nothing happened and continues rendering.
     /// This discards the error after logging it to console.
-    /// WARNING: Using this policy can cause hazardous rapid flashing
+    /// WARNING: Using this policy could cause hazardous rapid flashing
     /// if the conditions causing the error remain unaddressed, since
     /// rendering will attempt to continue executing.
     /// When choosing to use this policy, be sure to test that the application
@@ -38,9 +38,11 @@ pub enum RenderErrorPolicy {
 ///
 /// The handler has access to both the main world and the render world in that order.
 /// By the time this is invoked, the error has already been logged. The error is provided
-/// for the decision-making reason of how to appropriately respond to it. Not all errors
-/// are equally severe: validation errors may be ignored for example, while device lost errors
-/// require recovery to continue rendering.
+/// for the decision-making reason of how to appropriately respond to it.
+/// 
+/// Note that failing to address the source of an error and continuing to render may cause rapid flashing.
+/// Be sure to thoroughly test your error handler to ensure you application remains safe
+/// to use.
 #[derive(Resource)]
 pub struct RenderErrorHandler(
     pub for<'a> fn(&'a RenderError, &'a mut World, &'a mut World) -> RenderErrorPolicy,
@@ -67,11 +69,10 @@ impl RenderErrorHandler {
 impl Default for RenderErrorHandler {
     fn default() -> Self {
         // Quit the application for any `RenderError`.
-        // Especially for OOM's and Validation RenderErrors, ignoring the error
-        // and resuming render can cause a loop that can cause hazardous strobing effects.
+        // These `RenderError`s originate from wgpu. Ignoring a wgpu OutOfMemory
+        // or wgpu Validation error without addressing the root cause can
+        // create a rendering loop that delivers hazardous strobing effects.
         // We can choose a new default once recovery works better.
-        Self(|error, _, _| {
-            bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
         Self(|error, main_world, _| {
             bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
             main_world.write_message(AppExit::error());
@@ -80,7 +81,7 @@ impl Default for RenderErrorHandler {
     }
 }
 
-/// An error encountered during rendering.
+/// An error encountered during rendering. These errors come from the WebGPU API.
 #[derive(Debug)]
 pub struct RenderError {
     pub ty: ErrorType,
