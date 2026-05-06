@@ -4,6 +4,8 @@ authors: ["@ickshonpe", "@Zeophlite", "@alice-i-cecile"]
 pull_requests: [23282, 23455, 23475, 23479]
 ---
 
+*TODO: Add a GIF of the EditableText widget with cursor and selection.*
+
 Entering text into an application is a common task, even for games.
 Player names, search bars and chat all rely on the ability to enter and submit plain text.
 

@@ -4,6 +4,8 @@ authors: ["@viridia"]
 pull_requests: [23645, 23707, 23788, 23787, 23804, 23842]
 ---
 
+*TODO: Add screenshots of the new Feathers widgets (text input, number input, dropdown, pane/group decorators).*
+
 Bevy Feathers, the opinionated UI widget collection, has added several new widgets:
 
 - text input

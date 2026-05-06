@@ -4,6 +4,8 @@ authors: [ "@icesentry" ]
 pull_requests: [ 23482 ]
 ---
 
+*TODO: Add a screenshot of the infinite grid with a real model.*
+
 When working on a 3d scene in an editor it's often very useful to have a transparent grid that indicates the ground plane and the major axis.
 
 There are various techniques to render an infinite grid and avoid artifacts.

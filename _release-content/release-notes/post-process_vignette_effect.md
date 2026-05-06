@@ -4,6 +4,8 @@ authors: ["@Breakdown-Dog"]
 pull_requests: [22564]
 --- 
 
+*TODO: Add a before/after image pair showing the vignette effect.*
+
 We’ve added vignette, which is a common post-processing effect that creates a reduction of image brightness towards the periphery compared to the image center. It’s often used to draw focus to the center of the screen or to simulate the look of a camera lens.
 
 To use it, add the `Vignette` component to your camera:

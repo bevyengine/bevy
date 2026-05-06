@@ -4,6 +4,8 @@ authors: ["@hukasu"]
 pull_requests: [22486]
 ---
 
+*TODO: Add a screenshot of the DiagnosticsOverlay in a real app.*
+
 You can now visualize values from the `DiagnosticStore` using a `DiagnosticsOverlay` window.
 
 An overlay can be built by spawning an entity with the [`DiagnosticsOverlay`] component

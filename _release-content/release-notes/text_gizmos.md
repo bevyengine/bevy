@@ -4,6 +4,8 @@ authors: ["@ickshonpe, @nuts-rice"]
 pull_requests: [22732, 23120]
 ---
 
+*TODO: Add a screenshot showing text gizmos rendered in a 3D scene.*
+
 Gizmos can now render text using a built-in stroke font, with support for coloring
 individual sections of text independently.
 

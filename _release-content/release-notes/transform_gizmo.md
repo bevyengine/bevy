@@ -4,6 +4,8 @@ authors: ["@jbuehler23"]
 pull_requests: [23435]
 ---
 
+*TODO: Add a screenshot or GIF of the transform gizmo in use in the viewport.*
+
 An opt-in interactive transform gizmo is now available for translating, rotating, and scaling entities in the viewport. This is useful for editor-like workflows, level design tools, and rapid prototyping.
 
 Add `TransformGizmoPlugin`, mark a camera with `TransformGizmoCamera`, and tag entities with `TransformGizmoFocus`:
