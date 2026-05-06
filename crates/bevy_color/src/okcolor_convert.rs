@@ -81,8 +81,8 @@ fn compute_max_saturation(a: f32, b: f32) -> f32 {
     let k_l = 0.396_337_78 * a + 0.215_803_76 * b;
     let k_m = -0.105_561_346 * a - 0.063_854_17 * b;
     let k_s = -0.089_484_18 * a - 1.291_485_5 * b;
-
-    {
+    // Patch: Do two steps
+    for _ in 0..2 {
         let l_ = 1. + S * k_l;
         let m_ = 1. + S * k_m;
         let s_ = 1. + S * k_s;
@@ -157,7 +157,8 @@ fn find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: LC) 
             let s_dt = dL + dC * k_s;
 
             // If higher accuracy is required, 2 or 3 iterations of the following block can be used:
-            {
+            // Patch: Do two steps
+            for _ in 0..2 {
                 let L = L0 * (1. - t) + t * L1;
                 let C = t * C1;
 
@@ -298,6 +299,16 @@ pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
         alpha,
     } = value;
     let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
+    // Patch: Fixes NaN for pure black and white colors.
+    if C < core::f32::EPSILON {
+        let l = toe(lab_l);
+        return Okhsla {
+            hue: 0.,
+            saturation: 0.,
+            lightness: l,
+            alpha,
+        };
+    }
     let a_ = lab_a / C;
     let b_ = lab_b / C;
 
@@ -395,6 +406,17 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
         alpha,
     } = value;
     let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
+    // Patch: Fixes NaN for pure black and white colors.
+    if C < core::f32::EPSILON {
+        // In this case, value is equal to lightness.
+        let l = toe(lab_l);
+        return Okhsva {
+            hue: 0.,
+            saturation: 0.,
+            value: l,
+            alpha,
+        };
+    }
     let a_ = lab_a / C;
     let b_ = lab_b / C;
 

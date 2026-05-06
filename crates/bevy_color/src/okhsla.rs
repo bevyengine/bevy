@@ -436,14 +436,8 @@ mod tests {
                 color.okhsl,
                 okhsl
             );
-            // If lightness is approximately equal to 0.0 or 1.0, hue and saturation are arbitrary.
-            if color.okhsl.lightness < 0.999 && color.okhsl.lightness > 0.001 {
-                // If saturation is approximately equal to 0.0, hue is arbitrary.
-                if color.okhsl.saturation > 0.001 {
-                    assert_approx_eq!(color.okhsl.hue, okhsl.hue, 0.001, msg);
-                }
-                assert_approx_eq!(color.okhsl.saturation, okhsl.saturation, 0.001, msg);
-            }
+            assert_approx_eq!(color.okhsl.hue, okhsl.hue, 0.001, msg);
+            assert_approx_eq!(color.okhsl.saturation, okhsl.saturation, 0.001, msg);
             assert_approx_eq!(color.okhsl.lightness, okhsl.lightness, 0.001, msg);
             assert_approx_eq!(color.okhsl.alpha, okhsl.alpha, 0.001, msg);
         }
