@@ -37,3 +37,6 @@ fn draw_colored_text(mut gizmos: Gizmos) {
     );
 }
 ```
+
+Unlike Bevy's existing `Text2D` solution for worldspace text (damage numbers, nameplates, labels), this is *strictly* intended for dev tools and quick debugging.
+The font is both very limited and non-configurable; its value is entirely in how easy it is to just stick some text on the screen.
