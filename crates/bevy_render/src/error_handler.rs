@@ -81,7 +81,7 @@ impl Default for RenderErrorHandler {
     }
 }
 
-/// An error encountered during rendering. These errors come from the WebGPU API.
+/// An error encountered during rendering. These errors come from wgpu.
 #[derive(Debug)]
 pub struct RenderError {
     pub ty: ErrorType,
