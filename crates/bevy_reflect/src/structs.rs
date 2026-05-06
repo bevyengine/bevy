@@ -110,7 +110,7 @@ pub struct StructInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -136,7 +136,7 @@ impl StructInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -151,7 +151,7 @@ impl StructInfo {
     /// Sets the custom attributes for this struct.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }

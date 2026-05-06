@@ -157,7 +157,7 @@ pub struct StructVariantInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -172,7 +172,7 @@ impl StructVariantInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -187,7 +187,7 @@ impl StructVariantInfo {
     /// Sets the custom attributes for this variant.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }
@@ -251,7 +251,7 @@ impl StructVariantInfo {
 pub struct TupleVariantInfo {
     name: &'static str,
     fields: Box<[UnnamedField]>,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -262,7 +262,7 @@ impl TupleVariantInfo {
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -277,7 +277,7 @@ impl TupleVariantInfo {
     /// Sets the custom attributes for this variant.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }
@@ -315,7 +315,7 @@ impl TupleVariantInfo {
 #[derive(Clone, Debug)]
 pub struct UnitVariantInfo {
     name: &'static str,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -325,7 +325,7 @@ impl UnitVariantInfo {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -340,7 +340,7 @@ impl UnitVariantInfo {
     /// Sets the custom attributes for this variant.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }

@@ -146,34 +146,34 @@ macro_rules! impl_custom_attribute_methods {
     };
     ($self:ident, $attributes:expr, $term:literal) => {
         #[doc = concat!("Returns the custom attributes for this ", $term, ".")]
-        pub fn custom_attributes(&$self) -> &$crate::attributes::CustomAttributes {
-            $attributes
+        pub fn custom_attributes(&$self) -> Option<&$crate::attributes::CustomAttributes> {
+            $attributes.as_ref().map(|c| &**c)
         }
 
         /// Gets a custom attribute by type.
         ///
         /// For dynamically accessing an attribute, see [`get_attribute_by_id`](Self::get_attribute_by_id).
         pub fn get_attribute<T: $crate::Reflect>(&$self) -> Option<&T> {
-            $self.custom_attributes().get::<T>()
+            $self.custom_attributes().and_then(|c| c.get::<T>())
         }
 
         /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
         pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
-            $self.custom_attributes().get_by_id(id)
+            $self.custom_attributes().and_then(|c| c.get_by_id(id))
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute of the specified type.")]
         #[doc = "\n\nFor dynamically checking if an attribute exists, see [`has_attribute_by_id`](Self::has_attribute_by_id)."]
         pub fn has_attribute<T: $crate::Reflect>(&$self) -> bool {
-            $self.custom_attributes().contains::<T>()
+            $self.custom_attributes().is_some_and(|c| c.contains::<T>())
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::core::any::TypeId).")]
         #[doc = "\n\nThis is the dynamic equivalent of [`has_attribute`](Self::has_attribute)"]
         pub fn has_attribute_by_id(&$self, id: ::core::any::TypeId) -> bool {
-            $self.custom_attributes().contains_by_id(id)
+            $self.custom_attributes().is_some_and(|c| c.contains_by_id(id))
         }
     };
 }
