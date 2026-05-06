@@ -171,7 +171,6 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) {
 
     // Remove the render state so we can provide both worlds to the `RenderErrorHandler`.
     let state = render_world.remove_resource::<RenderState>().unwrap();
-    println!("{state:?}");
 
     match &state {
         RenderState::Initializing => {
