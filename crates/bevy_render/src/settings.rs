@@ -138,7 +138,7 @@ impl Default for WgpuSettings {
             }
         }
         #[cfg(all(not(debug_assertions), feature = "raw_vulkan_init"))]
-        // intending to use vulkan even if backends contains DX12
+        // intending to use vulkan even if backends may contain DX12
         instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
 
         instance_flags = instance_flags.with_env();
