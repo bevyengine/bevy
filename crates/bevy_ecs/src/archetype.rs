@@ -515,7 +515,7 @@ impl Archetype {
     ///
     /// All of the IDs are unique.
     ///
-    /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
+    /// [`Table`]: crate::storage::Table
     #[inline]
     pub fn non_table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components
