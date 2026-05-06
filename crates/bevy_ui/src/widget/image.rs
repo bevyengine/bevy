@@ -1,4 +1,6 @@
-use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, VisualBox,
+};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -37,6 +39,8 @@ pub struct ImageNode {
     pub rect: Option<Rect>,
     /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
     pub image_mode: NodeImageMode,
+    /// Which region of the UI node the image should be drawn within.
+    pub visual_box: VisualBox,
 }
 
 impl Default for ImageNode {
@@ -59,6 +63,7 @@ impl Default for ImageNode {
             flip_y: false,
             rect: None,
             image_mode: NodeImageMode::Auto,
+            visual_box: VisualBox::default(),
         }
     }
 }
