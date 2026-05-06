@@ -492,10 +492,10 @@ mod tests {
         event: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(event.focused_entity) {
-            if let Key::Character(c) = &event.input.logical_key {
-                gather.0.push_str(c.as_str());
-            }
+        if let Ok(mut gather) = query.get_mut(event.focused_entity)
+            && let Key::Character(c) = &event.input.logical_key
+        {
+            gather.0.push_str(c.as_str());
         }
     }
 
