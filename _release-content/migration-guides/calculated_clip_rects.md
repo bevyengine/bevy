@@ -1,5 +1,5 @@
 ---
-title: `CalculatedClip` now stores transformed clip rectangles
+title: "`CalculatedClip` now stores transformed clip rectangles"
 pull_requests: []
 ---
 
