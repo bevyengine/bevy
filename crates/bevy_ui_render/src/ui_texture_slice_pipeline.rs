@@ -27,7 +27,7 @@ use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget;
+use bevy_ui::widget::NodeImageMode;
 use bevy_ui::{ComputedStackIndex, VisualBox};
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
@@ -251,10 +251,8 @@ pub fn extract_ui_texture_slices(
         }
 
         let image_scale_mode = match image.image_mode.clone() {
-            widget::NodeImageMode::Sliced(texture_slicer) => {
-                SpriteImageMode::Sliced(texture_slicer)
-            }
-            widget::NodeImageMode::Tiled {
+            NodeImageMode::Sliced(texture_slicer) => SpriteImageMode::Sliced(texture_slicer),
+            NodeImageMode::Tiled {
                 tile_x,
                 tile_y,
                 stretch_value,

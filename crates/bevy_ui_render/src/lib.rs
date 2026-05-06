@@ -26,7 +26,9 @@ use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    ImageNode, ImageNodeSize, NodeImageMode, TextScroll, TextShadow, ViewportNode,
+};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
     ComputedUiTargetCamera, Display, Node, OuterColor, Outline, ResolvedBorderRadius,
@@ -497,13 +499,23 @@ pub fn extract_uinode_images(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
+            &ImageNodeSize,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        stack_index,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        image,
+        image_size,
+    ) in &uinode_query
     {
         let visual_box = match image.visual_box {
             VisualBox::ContentBox => uinode.content_box(),
@@ -524,6 +536,17 @@ pub fn extract_uinode_images(
             continue;
         };
 
+        let size = if matches!(image.image_mode, NodeImageMode::Auto) {
+            let source = image_size.size().as_vec2();
+            if source.cmple(Vec2::ZERO).any() {
+                visual_box.size()
+            } else {
+                source * (visual_box.size() / source).min_element()
+            }
+        } else {
+            visual_box.size()
+        };
+
         let atlas_rect = image
             .texture_atlas
             .as_ref()
@@ -533,7 +556,7 @@ pub fn extract_uinode_images(
         let mut rect = match (atlas_rect, image.rect) {
             (None, None) => Rect {
                 min: Vec2::ZERO,
-                max: visual_box.size(),
+                max: size,
             },
             (None, Some(image_rect)) => image_rect,
             (Some(atlas_rect), None) => atlas_rect,
@@ -545,7 +568,7 @@ pub fn extract_uinode_images(
         };
 
         let atlas_scaling = if atlas_rect.is_some() || image.rect.is_some() {
-            let atlas_scaling = visual_box.size() / rect.size();
+            let atlas_scaling = size / rect.size();
             rect.min *= atlas_scaling;
             rect.max *= atlas_scaling;
             Some(atlas_scaling)
