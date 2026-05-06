@@ -1,18 +1,18 @@
 ---
 title: Asset Saving
 authors: ["@andriyDev"]
-pull_requests: []
+pull_requests: [22622]
 ---
 
-Since Bevy 0.12, we've had the `AssetSaver` trait. Unfortunately, this trait was not really usable
-for asset saving: it was only intended for use with asset processing! This was a common stumbling
-block for users, and pointed to a gap in our API.
+Bevy has had a `AssetSaver` trait since 0.12.
+However, it was only ever intended for use inside asset processing pipelines, not for saving assets at runtime.
+This left a frustrating gap: if you wanted to save a procedurally generated mesh, a baked lightmap, or any other asset your game creates at runtime, there was no supported path to do it.
 
-Now, users can save their assets using `save_using_saver`. To use this involves two steps.
+Now there is. `save_using_saver` lets you save any asset to disk using an `AssetSaver` implementation of your choice.
 
 ## 1. Building the `SavedAsset`
 
-To build the `SavedAsset`, either use `SavedAsset::from_asset`:
+For simple assets with no sub-assets, use `SavedAsset::from_asset`:
 
 ```rust
 let main_asset = InlinedBook {
@@ -21,10 +21,10 @@ let main_asset = InlinedBook {
 let saved_asset = SavedAsset::from_asset(&main_asset);
 ```
 
-Or for more complicated cases, `SavedAssetBuilder`:
+For assets that reference other assets (sub-assets), use `SavedAssetBuilder`:
 
 ```rust
-let asset_path: AssetPath<'static> = "my/file/path.whatever";
+let asset_path: AssetPath<'static> = "my/file/path.whatever".into();
 let mut builder = SavedAssetBuilder::new(asset_server.clone(), asset_path.clone());
 
 let subasset_1 = Line("howdy".into());
@@ -40,12 +40,9 @@ let main_asset = Book {
 let saved_asset = builder.build(&main_asset);
 ```
 
-Note that since these assets are borrowed, building the `SavedAsset` should happen in the same async
-task as the next step.
+You can save the assets in the same async task as the save call as you build them in because the assets are borrowed, not passed by ownership.
 
 ## 2. Calling `save_using_saver`
-
-Now, with a `SavedAsset`, we can just call `save_using_saver` and fill in any arguments:
 
 ```rust
 save_using_saver(
@@ -57,5 +54,6 @@ save_using_saver(
 ).await.unwrap();
 ```
 
-Part of this includes implementing the `AssetSaver` trait on `MyAssetSaver`. In addition, this is an
-async function, so it is likely you will want to spawn this using `IoTaskPool::get().spawn(...)`.
+`save_using_saver` is async.
+Generally, you'll want to spawn it with `IoTaskPool::get().spawn(...)`.
+You'll also need to implement `AssetSaver` for `MyAssetSaver` to define the serialization format.
