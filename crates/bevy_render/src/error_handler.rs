@@ -39,7 +39,7 @@ pub enum RenderErrorPolicy {
 /// The handler has access to both the main world and the render world in that order.
 /// By the time this is invoked, the error has already been logged. The error is provided
 /// for the decision-making reason of how to appropriately respond to it.
-/// 
+///
 /// Note that failing to address the source of an error and continuing to render may cause rapid flashing.
 /// Be sure to thoroughly test your error handler to ensure you application remains safe
 /// to use.
