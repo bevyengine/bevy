@@ -622,7 +622,7 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
                 resource_components = if new_resource_components.is_empty() {
-                    current_archetype.sparse_set_components().collect()
+                    current_archetype.resource_components().collect()
                 } else {
                     new_resource_components.extend(current_archetype.resource_components());
                     // Sort to ignore order while hashing.
