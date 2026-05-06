@@ -147,14 +147,59 @@ fn switch_scene(
 }
 
 mod image {
+    use bevy::color::palettes::css::DARK_GREY;
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Image)));
-        commands.spawn((
-            ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            DespawnOnExit(super::Scene::Image),
-        ));
+        commands
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceAround,
+                align_items: AlignItems::Stretch,
+                ..default()
+            })
+            .with_children(|parent| {
+                for [b, p] in [[0, 0], [10, 0], [0, 10], [10, 10]] {
+                    for image_path in ["branding/icon.png", "branding/bevy_logo_dark.png"] {
+                        parent
+                            .spawn(Node {
+                                justify_content: JustifyContent::SpaceAround,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                for visual_box in [
+                                    VisualBox::BorderBox,
+                                    VisualBox::PaddingBox,
+                                    VisualBox::ContentBox,
+                                ] {
+                                    parent.spawn((
+                                        ImageNode {
+                                            image: asset_server.load(image_path),
+                                            visual_box,
+                                            ..default()
+                                        },
+                                        Node {
+                                            border: px(b).all(),
+                                            padding: px(p).all(),
+                                            width: px(100.),
+                                            ..default()
+                                        },
+                                        DespawnOnExit(super::Scene::Image),
+                                        Outline {
+                                            color: DARK_GREY.into(),
+                                            width: px(2.),
+                                            ..default()
+                                        },
+                                    ));
+                                }
+                            });
+                    }
+                }
+            });
     }
 }
 
