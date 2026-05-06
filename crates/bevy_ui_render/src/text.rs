@@ -66,14 +66,14 @@ pub fn extract_text_cursor(
             );
 
         let clip = if text_scroll.is_some() {
-            let content_box = uinode.content_box();
-            let text_clip = Rect::from_center_size(
-                global_transform.affine().translation + content_box.center(),
-                content_box.size(),
-            );
-            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+            Some(
+                maybe_clip
+                    .cloned()
+                    .unwrap_or_default()
+                    .with_rect(uinode.content_box(), global_transform),
+            )
         } else {
-            maybe_clip.map(|clip| clip.clip)
+            maybe_clip.cloned()
         };
 
         let mut focused = false;
@@ -97,7 +97,7 @@ pub fn extract_text_cursor(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
-                    clip,
+                    clip: clip.clone(),
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(selection.center()),
@@ -126,7 +126,7 @@ pub fn extract_text_cursor(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
-                clip,
+                clip: clip.clone(),
                 image: AssetId::default(),
                 extracted_camera_entity,
                 transform: transform * Affine2::from_translation(cursor_rect.center()),
@@ -203,14 +203,14 @@ pub fn extract_preedit_underlines(
             );
 
         let clip = if text_scroll.is_some() {
-            let content_box = uinode.content_box();
-            let text_clip = Rect::from_center_size(
-                global_transform.affine().translation + content_box.center(),
-                content_box.size(),
-            );
-            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+            Some(
+                maybe_clip
+                    .cloned()
+                    .unwrap_or_default()
+                    .with_rect(uinode.content_box(), global_transform),
+            )
         } else {
-            maybe_clip.map(|clip| clip.clip)
+            maybe_clip.cloned()
         };
 
         let color = text_color.0.to_linear();
@@ -219,7 +219,7 @@ pub fn extract_preedit_underlines(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                clip,
+                clip: clip.clone(),
                 image: AssetId::default(),
                 extracted_camera_entity,
                 transform: transform * Affine2::from_translation(rect.center()),
