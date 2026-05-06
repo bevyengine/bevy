@@ -22,7 +22,7 @@ fn static_type_cell(
 
         quote! {
             static CELL: #bevy_reflect_path::utility::#cell_type = #bevy_reflect_path::utility::#cell_type::new();
-            CELL.get_or_insert::<Self, _>(|| {
+            CELL.get_or_insert::<Self, _>(#[inline(never)] || {
                 #generator
             })
         }
@@ -36,7 +36,7 @@ fn static_type_cell(
 
         quote! {
             static CELL: #bevy_reflect_path::utility::#cell_type = #bevy_reflect_path::utility::#cell_type::new();
-            CELL.get_or_set(|| {
+            CELL.get_or_set(#[inline(never)] || {
                 #generator
             })
         }
