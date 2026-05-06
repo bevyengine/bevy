@@ -5,7 +5,7 @@ use bevy_ptr::{ConstNonNull, MovingPtr};
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
     bundle::{
-        info::archetype_after_fallible_resource_insertion, Bundle, BundleId, BundleInfo,
+        info::find_archetype_after_fallible_resource_write_and_queue_cleanup, Bundle, BundleId, BundleInfo,
         DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, Tick},
@@ -101,7 +101,7 @@ impl<'w> BundleSpawner<'w> {
         let bundle_info = self.bundle_info.as_ref();
 
         let mut archetype = if bundle_info.contains_resources {
-            archetype_after_fallible_resource_insertion(
+            find_archetype_after_fallible_resource_write_and_queue_cleanup(
                 &self.world,
                 entity,
                 bundle_info.contributed_components(),

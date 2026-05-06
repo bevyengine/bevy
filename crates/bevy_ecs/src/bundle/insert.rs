@@ -8,8 +8,8 @@ use crate::{
         ComponentStatus,
     },
     bundle::{
-        archetype_after_fallible_resource_insertion, ArchetypeMoveType, Bundle, BundleId,
-        BundleInfo, DynamicBundle, InsertMode,
+        find_archetype_after_fallible_resource_write_and_queue_cleanup, ArchetypeMoveType, Bundle,
+        BundleId, BundleInfo, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, Tick},
     component::{Components, StorageType},
@@ -209,7 +209,7 @@ impl<'w> BundleInserter<'w> {
                 // Inserting a resource will fail if it already exists on another entity.
                 // Check whether this is the case and determine the correct resulting archetype if so.
                 let mut new_archetype = if contains_resources {
-                    archetype_after_fallible_resource_insertion(
+                    find_archetype_after_fallible_resource_write_and_queue_cleanup(
                         world,
                         entity,
                         archetype_after_insert.added(),
@@ -265,7 +265,7 @@ impl<'w> BundleInserter<'w> {
                 // Inserting a resource will fail if it already exists on another entity.
                 // Check whether this is the case and determine the correct resulting archetype if so.
                 let mut new_archetype = if contains_resources {
-                    archetype_after_fallible_resource_insertion(
+                    find_archetype_after_fallible_resource_write_and_queue_cleanup(
                         world,
                         entity,
                         archetype_after_insert.added(),

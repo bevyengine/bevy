@@ -17,10 +17,11 @@ use crate::{
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
+    resource::IsResource,
     storage::{
         ResourceStorage, ResourceStorages, SparseSetIndex, SparseSets, Storages, Table, TableRow,
     },
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
@@ -653,7 +654,7 @@ fn initialize_dynamic_bundle(
 /// - `archetype` and `new_archetype` must be valid for reading
 /// - world must have write access to archetypes after `archetype` and
 ///   `new_archetype` are not life anymore, and read access to resources
-pub(super) unsafe fn archetype_after_fallible_resource_insertion(
+pub(super) unsafe fn find_archetype_after_fallible_resource_write_and_queue_cleanup(
     world: &UnsafeWorldCell,
     entity: Entity,
     component_ids_to_check: &[ComponentId],
@@ -681,8 +682,6 @@ pub(super) unsafe fn archetype_after_fallible_resource_insertion(
                 .non_table_components()
                 .filter(|&id| id == component_id)
                 .collect();
-            // SAFETY:
-            // We do not hold any references to/into the world
             let (new_archetype_without_resource, _) = world.archetypes_mut().get_id_or_insert(
                 world.components(),
                 world.observers(),
@@ -707,6 +706,20 @@ pub(super) unsafe fn archetype_after_fallible_resource_insertion(
                 *new_archetype = NonNull::from(new_archetype_ref);
                 resulting_archetype = NonNull::from(resulting_archetype_ref);
             }
+
+            // The resource will not be inserted, but required components will still be,
+            // so `IsResource` needs to be removed.
+            world
+                .get_raw_command_queue()
+                .push(move |world: &mut World| {
+                    if let Ok(mut entity) = world.get_entity_mut(entity)
+                        && entity.get::<IsResource>().is_some_and(|is_resource| {
+                            is_resource.resource_component_id() == component_id
+                        })
+                    {
+                        entity.remove::<IsResource>();
+                    }
+                });
         }
     }
     resulting_archetype
