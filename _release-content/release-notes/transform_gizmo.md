@@ -17,4 +17,6 @@ commands.spawn((Camera3d::default(), TransformGizmoCamera));
 commands.spawn((Mesh3d(mesh), TransformGizmoFocus));
 ```
 
-Switch between modes by setting the `TransformGizmoMode` resource. The plugin does not handle keyboard input, you wire up controls however you like. Sensitivity, snapping, and screen-space scaling are configurable via `TransformGizmoConfig`.
+The plugin is deliberately not connected to user input.
+This keeps the gizmo composable for editor authors who already have opinions about input handling. Sensitivity, snapping, and screen-space scaling are all configurable via `TransformGizmoConfig`,
+while modes are controlled via the `TransformGizmoMode` resource.
