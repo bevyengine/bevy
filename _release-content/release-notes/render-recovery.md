@@ -21,4 +21,4 @@ app.insert_resource(RenderErrorHandler(
 
 NOTE: this is just an example showing the different errors and policies available, and not a recommendation for how to handle errors.
 
-The default error handler will quit the application on any RenderError.
+The default error handler does not attempt recovery, currently. It behaves similarly to how Bevy behaved before, except the application will exit instead of panicking on any `RenderError`.

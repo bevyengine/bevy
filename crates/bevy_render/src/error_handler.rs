@@ -68,11 +68,13 @@ impl RenderErrorHandler {
 
 impl Default for RenderErrorHandler {
     fn default() -> Self {
-        // Quit the application for any `RenderError`.
-        // These `RenderError`s originate from wgpu. Ignoring a wgpu OutOfMemory
-        // or wgpu Validation error without addressing the root cause can
-        // create a rendering loop that delivers hazardous strobing effects.
-        // We can choose a new default once recovery works better.
+        // Quit the application for any RenderError. This is overzealous at the moment,
+        // but requires more extensive use of the non-fatal error handling pattern in
+        // upstream wgpu. RenderErrors are issued when wgpu is used incorrectly.
+        // Ignoring a wgpu OutOfMemory or Validation error without addressing the
+        // root cause (via hiding or deleting entities or changing rendering settings) will
+        // likely hit the same error repeatedly, resulting in hazardous strobing effects.
+        // The parameters to this function are (error, main_world, render_world).
         Self(|error, main_world, _| {
             bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
             main_world.write_message(AppExit::error());
@@ -81,7 +83,8 @@ impl Default for RenderErrorHandler {
     }
 }
 
-/// An error encountered during rendering. These errors come from wgpu.
+/// An error encountered during rendering. These are errors reported by wgpu validation layers,
+/// and typically indicate problems in the way it is being used.
 #[derive(Debug)]
 pub struct RenderError {
     pub ty: ErrorType,
