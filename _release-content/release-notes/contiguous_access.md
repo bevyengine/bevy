@@ -32,8 +32,8 @@ fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
 
 The `contiguous_iter` family of methods only returns `Some` if the query is dense. That means:
 
-- all of the fetched components must use the default "table" storage strategy
-- the query filters cannot disrupt the returned query data. "Archetypal filters" like `With<T>` and `Without<T>` are fine; `Changed<T>` and `Added<T>` are not, since they require a per-entity check that makes it impossible to return raw table slices.
+- All of the fetched components must use the default "table" storage strategy.
+- The query filters cannot disrupt the returned query data. "Archetypal filters" like `With<T>` and `Without<T>` are fine; `Changed<T>` and `Added<T>` are not, since they require a per-entity check that makes it impossible to return raw table slices.
 
 Because these conditions are fixed properties of the query type, you're safe to unwrap here unless you are writing generic code,
 or working with dynamic components.
