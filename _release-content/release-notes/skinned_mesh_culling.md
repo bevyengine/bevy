@@ -5,7 +5,7 @@ pull_requests: [21837]
 ---
 
 In earlier Bevy versions, animated characters and creatures would sometimes vanish mid-animation.
-This happened because Bevy culled skinned meshes against their bind-pose bounds — the resting skeleton position — rather than the bounds of the actual animated pose.
+This happened because Bevy used the skeleton's resting position to decide which meshes were on-screen, rather than their actual animated pose.
 A character raising their arms could have those arms literally outside the bounding box Bevy used for culling.
 
 Skinned meshes now compute their bounds from actual joint positions each frame, fixing disappearing meshes like those reported in [#4971](https://github.com/bevyengine/bevy/issues/4971). If you load skinned meshes from glTFs, this is automatic — no changes needed.
