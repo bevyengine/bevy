@@ -4,7 +4,7 @@ authors: ["@Breakdown-Dog"]
 pull_requests: [22564, 23110]
 ---
 
-Two new post-processing effects are available for cameras in Bevy 0.19.
+Two new post-processing effects this cycle, both classic tools for giving your camera a more cinematic or stylized look.
 
 ## Vignette
 
