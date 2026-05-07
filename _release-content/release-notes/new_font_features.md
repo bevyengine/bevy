@@ -83,7 +83,7 @@ commands.spawn((
 ));
 ```
 
-It follows the same pattern as `LineHeight`. Negative values bring characters closer together. Note that LetterSpacing currently only supports `Px` — `Rem` support remains planned.
+It follows the same pattern as `LineHeight`, so negative values bring characters closer together. Note that LetterSpacing currently only supports `Px` — `Rem` support remains planned.
 
 While all of these features would have been possible in [`cosmic_text`],
 we've chosen to migrate to [`parley`] during this cycle.
