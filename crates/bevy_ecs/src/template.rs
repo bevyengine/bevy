@@ -11,7 +11,7 @@ use crate::{
     entity::Entity,
     error::{BevyError, Result},
     resource::Resource,
-    world::{EntityWorldMut, Mut},
+    world::{EntityWorldMut, Mut, World},
 };
 use alloc::vec::Vec;
 use variadics_please::all_tuples;
@@ -45,12 +45,26 @@ pub trait Template {
 pub struct TemplateContext<'a, 'w> {
     /// The current entity the template is being applied to
     pub entity: &'a mut EntityWorldMut<'w>,
+    /// A mapping of [`SceneEntityIndex`] to [`Entity`] used for resolving `#Name` entity references
+    pub scene_entities: &'a mut SceneEntityIds,
 }
 
 impl<'a, 'w> TemplateContext<'a, 'w> {
     /// Creates a new [`TemplateContext`].
-    pub fn new(entity: &'a mut EntityWorldMut<'w>) -> Self {
-        Self { entity }
+    pub fn new(entity: &'a mut EntityWorldMut<'w>, scene_entities: &'a mut SceneEntityIds) -> Self {
+        Self {
+            entity,
+            scene_entities,
+        }
+    }
+    /// Get the entity associated with the [`SceneEntityIndex`], spawning a new one
+    /// if this is the first call with this index.
+    pub fn get_entity(&mut self, index: SceneEntityIndex) -> Entity {
+        self.scene_entities.get_entity(
+            index,
+            // Safety: only used to create a new Entity
+            unsafe { self.entity.world_mut() },
+        )
     }
 
     /// Retrieves a reference to the given resource `R`.
@@ -65,48 +79,31 @@ impl<'a, 'w> TemplateContext<'a, 'w> {
         self.entity.resource_mut()
     }
 }
-mod sealed_world_mut {
-    use crate::world::{EntityWorldMut, World};
 
-    // private trait to hide and disallow _get_world_mut
-    #[doc(hidden)]
-    pub trait SealedWorldMut {
-        #[doc(hidden)]
-        unsafe fn _get_world_mut(&mut self) -> &mut World;
-    }
-    impl<'a> SealedWorldMut for &'a mut World {
-        unsafe fn _get_world_mut(&mut self) -> &mut World {
-            self
-        }
-    }
-    impl<'a> SealedWorldMut for &'a mut EntityWorldMut<'_> {
-        unsafe fn _get_world_mut(&mut self) -> &mut World {
-            // SAFETY: is in unsafe
-            unsafe { self.world_mut() }
-        }
-    }
+/// Struct to store a mapping from [`SceneEntityIndex`] to [`Entity`]
+/// which are used for resolving `#Name` entity references in bsn! macros
+#[derive(Default)]
+pub struct SceneEntityIds {
+    map: PreHashMap<InnerSceneEntityIndex, Entity>,
 }
-/// Trait to access [`SceneGlobalEntityIds`] from World/EntityWorldMut
-pub trait SceneEntityWorldMutExt: sealed_world_mut::SealedWorldMut {
+
+impl SceneEntityIds {
     /// Get the [`Entity`] associated with this [`SceneEntityIndex`]
     /// If the index is unknown, spawn a new empty [`Entity`] and store it
-    fn get_global_entity(
+    pub fn get_entity(
         &mut self,
         key: impl Deref<Target = Hashed<InnerSceneEntityIndex>>,
+        world: &mut World,
     ) -> Entity {
         let key: &Hashed<InnerSceneEntityIndex> = &key;
-        // SAFETY: this function takes &mut self which ensures only we have access
-        let entry = unsafe { self._get_world_mut() }
-            .resource::<SceneGlobalEntityIds>()
-            .0
+        let entry = self
+            .map
             .raw_entry()
             .from_key_hashed_nocheck(key.hash(), key);
         match entry {
             Some((_, &entity)) => entity,
             None => {
-                // SAFETY: Only used to construct a new entity,
-                // and entry is ignored after this point
-                let new_entity = unsafe { self._get_world_mut() }.spawn_empty().id();
+                let new_entity = world.spawn_empty().id();
                 self.set_global_entity(key, new_entity);
                 new_entity
             }
@@ -116,17 +113,15 @@ pub trait SceneEntityWorldMutExt: sealed_world_mut::SealedWorldMut {
     /// Set the [`Entity`] associated with a [`SceneEntityIndex`]
     ///
     /// Will panic if the [`SceneEntityIndex`] is already associated with an [`Entity`]
-    fn set_global_entity(
+    pub fn set_global_entity(
         &mut self,
         key: impl Deref<Target = Hashed<InnerSceneEntityIndex>>,
         entity: Entity,
     ) {
         use bevy_platform::collections::hash_map::RawEntryMut;
         let key: &Hashed<InnerSceneEntityIndex> = &key;
-        // SAFETY: this function takes &mut self which ensures only we have access
-        match unsafe { self._get_world_mut() }
-            .resource_mut::<SceneGlobalEntityIds>()
-            .0
+        match self
+            .map
             .raw_entry_mut()
             .from_key_hashed_nocheck(key.hash(), key)
         {
@@ -137,14 +132,15 @@ pub trait SceneEntityWorldMutExt: sealed_world_mut::SealedWorldMut {
         };
     }
 }
-impl<T> SceneEntityWorldMutExt for T where T: sealed_world_mut::SealedWorldMut {}
 
-/// A resource used to map
-#[derive(Resource, Default, Debug)]
-pub struct SceneGlobalEntityIds(PreHashMap<InnerSceneEntityIndex, Entity>);
-
+/// A unique index for each named entity in a scene.
+/// Usually used by `bevy_scene` in generated code
+///
+/// Hashed here should allow implementing compile-time hashing in the future, and
+/// encourage constant-folding until then
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SceneEntityIndex(Hashed<InnerSceneEntityIndex>);
+/// The inner struct actually storing the unique index
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct InnerSceneEntityIndex {
     file: &'static str,
@@ -153,6 +149,7 @@ pub struct InnerSceneEntityIndex {
     local: usize,
 }
 impl SceneEntityIndex {
+    /// Create a new [`SceneEntityIndex`] from the invocation location and a local (per-macro) counter for names
     pub fn new((file, line, column): (&'static str, usize, usize), local: usize) -> Self {
         Self(Hashed::new(InnerSceneEntityIndex {
             file,
@@ -432,7 +429,7 @@ impl Template for EntityTemplate {
         Ok(match self {
             Self::Entity(entity) => *entity,
             Self::GlobalEntityIndex(global_entity_index) => {
-                context.entity.get_global_entity(*global_entity_index)
+                context.get_entity(*global_entity_index)
             }
             Self::None => {
                 return Err(BevyError::error(

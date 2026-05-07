@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     error::{BevyError, Result},
     relationship::{Relationship, RelationshipTarget},
-    template::{SceneEntityIndex, SceneEntityWorldMutExt, Template, TemplateContext},
+    template::{SceneEntityIds, SceneEntityIndex, Template, TemplateContext},
     world::{EntityWorldMut, World},
 };
 use bevy_platform::collections::HashSet;
@@ -67,7 +67,8 @@ impl ResolvedSceneRoot {
         entity: &mut EntityWorldMut,
         bundle_scratch: &mut BundleScratch,
     ) -> Result<(), ApplySceneError> {
-        let mut context = TemplateContext::new(entity);
+        let mut scene_entities = SceneEntityIds::default();
+        let mut context = TemplateContext::new(entity, &mut scene_entities);
 
         let result = self.scene.apply(&mut context, bundle_scratch);
         if !bundle_scratch.is_empty() {
@@ -114,14 +115,15 @@ impl ResolvedSceneListRoot {
 
     pub(crate) fn spawn_with(
         &self,
-        mut world: &mut World,
+        world: &mut World,
         func: impl Fn(&mut EntityWorldMut),
     ) -> Result<Vec<Entity>, ApplySceneError> {
         let mut entities = Vec::new();
+        let mut scene_entities = SceneEntityIds::default();
         let mut bundle_scratch = BundleScratch::default();
         for scene in self.scenes.iter() {
             let mut entity = if let Some(entity_index) = scene.entity_indices.first().copied() {
-                let entity = world.get_global_entity(entity_index);
+                let entity = scene_entities.get_entity(entity_index, world);
                 world.entity_mut(entity)
             } else {
                 world.spawn_empty()
@@ -129,7 +131,10 @@ impl ResolvedSceneListRoot {
 
             func(&mut entity);
             entities.push(entity.id());
-            let result = scene.apply(&mut TemplateContext::new(&mut entity), &mut bundle_scratch);
+            let result = scene.apply(
+                &mut TemplateContext::new(&mut entity, &mut scene_entities),
+                &mut bundle_scratch,
+            );
             if let Err(err) = result {
                 // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
                 unsafe {
@@ -172,7 +177,7 @@ pub struct ResolvedScene {
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
     /// here.
     template_indices: TypeIdMap<usize>,
-    /// A list of all [`ScopedEntityIndex`] values associated with this entity. There can be more than one if this scene uses
+    /// A list of all [`SceneEntityIndex`] values associated with this entity. There can be more than one if this scene uses
     /// "flattened" inheritance.
     pub entity_indices: Vec<SceneEntityIndex>,
 }
@@ -223,7 +228,7 @@ impl ResolvedScene {
         let mut bundle_writer = bundle_scratch.writer();
         if let Some(entity_index) = self.entity_indices.first().copied() {
             context
-                .entity
+                .scene_entities
                 .set_global_entity(entity_index, context.entity.id());
         }
         if let Some(inherited) = &self.inherited {
@@ -241,14 +246,13 @@ impl ResolvedScene {
                 });
             };
             let resolved_inherited = resolved_inherited.clone();
-            let mut inherited_context = TemplateContext::new(context.entity);
             // SAFETY: bundle_writer is used with the same World across all template.apply calls,
             // and the next bundle_writer.write call
             unsafe {
                 resolved_inherited
                     .scene
                     .apply_templates_without_bundle_write(
-                        &mut inherited_context,
+                        context,
                         &mut bundle_writer,
                         // this will skip building / inserting templates that
                         // have local copies in the current scene
@@ -277,10 +281,9 @@ impl ResolvedScene {
 
                 bundle_writer.write(context.entity);
 
-                let mut inherited_context = TemplateContext::new(context.entity);
                 resolved_inherited
                     .scene
-                    .apply_related(&mut inherited_context, bundle_scratch)?;
+                    .apply_related(context, bundle_scratch)?;
                 self.apply_related(context, bundle_scratch)?;
             }
         } else {
@@ -350,47 +353,46 @@ impl ResolvedScene {
     ) -> Result<(), ApplySceneError> {
         for related_resolved_scenes in self.related.values() {
             let target = context.entity.id();
-            context
-                .entity
-                .world_scope(|mut world| -> Result<(), ApplySceneError> {
-                    for (index, scene) in related_resolved_scenes.scenes.iter().enumerate() {
-                        let mut entity =
-                            if let Some(entity_index) = scene.entity_indices.first().copied() {
-                                let entity = world.get_global_entity(entity_index);
-                                world.entity_mut(entity)
-                            } else {
-                                world.spawn_empty()
-                            };
+            let TemplateContext {
+                entity,
+                scene_entities,
+            } = context;
+            entity.world_scope(|world| -> Result<(), ApplySceneError> {
+                for (index, scene) in related_resolved_scenes.scenes.iter().enumerate() {
+                    let mut entity =
+                        if let Some(entity_index) = scene.entity_indices.first().copied() {
+                            let entity = scene_entities.get_entity(entity_index, world);
+                            world.entity_mut(entity)
+                        } else {
+                            world.spawn_empty()
+                        };
 
-                        scene
-                            .apply_with(
-                                &mut TemplateContext::new(&mut entity),
-                                bundle_scratch,
-                                |context, bundle_writer| {
-                                    // SAFETY: `context` is used to write all previous `bundle_writer` components
-                                    // and is also used to write this relationship component
-                                    unsafe {
-                                        (related_resolved_scenes.insert_relationship)(
-                                            bundle_writer,
-                                            // SAFETY: World is only used for component registration, which does not affect
-                                            // the entity location
-                                            &mut context
-                                                .entity
-                                                .world_mut()
-                                                .components_registrator(),
-                                            target,
-                                        );
-                                    }
-                                },
-                            )
-                            .map_err(|e| ApplySceneError::RelatedSceneError {
-                                relationship_type_name: related_resolved_scenes.relationship_name,
-                                index,
-                                error: Box::new(e),
-                            })?;
-                    }
-                    Ok(())
-                })?;
+                    scene
+                        .apply_with(
+                            &mut TemplateContext::new(&mut entity, scene_entities),
+                            bundle_scratch,
+                            |context, bundle_writer| {
+                                // SAFETY: `context` is used to write all previous `bundle_writer` components
+                                // and is also used to write this relationship component
+                                unsafe {
+                                    (related_resolved_scenes.insert_relationship)(
+                                        bundle_writer,
+                                        // SAFETY: World is only used for component registration, which does not affect
+                                        // the entity location
+                                        &mut context.entity.world_mut().components_registrator(),
+                                        target,
+                                    );
+                                }
+                            },
+                        )
+                        .map_err(|e| ApplySceneError::RelatedSceneError {
+                            relationship_type_name: related_resolved_scenes.relationship_name,
+                            index,
+                            error: Box::new(e),
+                        })?;
+                }
+                Ok(())
+            })?;
         }
 
         Ok(())
