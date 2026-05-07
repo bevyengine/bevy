@@ -41,7 +41,7 @@ use crate::{
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::{FloatOrd, Vec3, VectorSpace};
+use bevy_math::{FloatOrd, Vec3};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
@@ -1116,13 +1116,8 @@ where
         }
     }
 
-    let diff = *(curve.sample_clamped(this_time).downcast::<T>().unwrap())
+    result += *(curve.sample_clamped(this_time).downcast::<T>().unwrap())
         - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
-    if reverse {
-        result -= diff;
-    } else {
-        result += diff;
-    }
     result
 }
 
@@ -1950,14 +1945,14 @@ mod tests {
         let forever_speed = 1.0;
         // Add multiple clips
         let mut animation_player = AnimationPlayer::default();
-        let once = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        let once_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
         animation_player
-            .play(once)
+            .play(once_animation)
             .set_speed(once_speed)
             .set_repeat(RepeatAnimation::Never);
-        let forever = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        let forever_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
         animation_player
-            .play(forever)
+            .play(forever_animation)
             .set_speed(forever_speed)
             .set_repeat(RepeatAnimation::Forever);
         let graph_handle = {
@@ -1979,8 +1974,65 @@ mod tests {
                 Transform::default(),
             ))
             .id();
-
         let tick_count = clip_duration / once_speed / step_duration;
+
+        // Forward tests
+        for _ in 0..tick_count as u32 {
+            app.update();
+            compare_transform(
+                &Transform::from_translation(
+                    target_translation * step_duration * (once_speed + forever_speed) / 2.,
+                ),
+                app.world()
+                    .get_entity(animated_entity)
+                    .unwrap()
+                    .get::<Transform>()
+                    .unwrap(),
+            );
+        }
+        // During this update once_clip will advance by less than step_duration
+        app.update();
+        compare_transform(
+            &Transform::from_translation(
+                target_translation
+                    * step_duration
+                    * ((tick_count - tick_count.floor()) * once_speed + forever_speed)
+                    / 2.,
+            ),
+            app.world()
+                .get_entity(animated_entity)
+                .unwrap()
+                .get::<Transform>()
+                .unwrap(),
+        );
+        // Since the single clip is ended only the forever should be active
+        app.update();
+        compare_transform(
+            &Transform::from_translation(target_translation * step_duration * forever_speed),
+            app.world()
+                .get_entity(animated_entity)
+                .unwrap()
+                .get::<Transform>()
+                .unwrap(),
+        );
+
+        // Setup for backward
+        let once_speed = once_speed * -1.;
+        let forever_speed = forever_speed * -1.;
+        {
+            let mut player_entity = app.world_mut().get_entity_mut(animator_entity).unwrap();
+            let mut animation_player = player_entity.get_mut::<AnimationPlayer>().unwrap();
+            println!("{}", animation_player.active_animations.len());
+            animation_player
+                .play(once_animation)
+                .set_speed(once_speed)
+                .seek_to(clip_duration);
+            animation_player
+                .play(forever_animation)
+                .set_speed(forever_speed)
+                .replay();
+        }
+        // Backward tests
         for _ in 0..tick_count as u32 {
             app.update();
             compare_transform(
