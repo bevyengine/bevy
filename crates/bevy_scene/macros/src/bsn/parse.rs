@@ -1,7 +1,9 @@
+use std::error::Error;
+
 use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnTuple,
-    BsnType, BsnUnnamedField, BsnValue,
+    BsnRelatedSceneList, BsnRoot, BsnSceneArgs, BsnSceneFn, BsnSceneFnArgExpr, BsnSceneList,
+    BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -109,6 +111,9 @@ impl BsnEntry {
             if is_template {
                 input.parse::<At>()?;
             }
+            if !input.peek(Ident) {
+                Err(input.error(format!("{}", input.to_string())))?;
+            }
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
             match path_type {
@@ -153,18 +158,11 @@ impl BsnEntry {
                 }
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
-                    let args = if input.peek(Paren) {
-                        let content;
-                        parenthesized!(content in input);
-                        Some(content.parse_terminated(Expr::parse, Token![,])?)
-                    } else {
-                        None
-                    };
 
                     let bsn_constructor = BsnConstructor {
                         type_path: path,
                         function,
-                        args,
+                        args: input.parse()?,
                     };
                     if is_template {
                         BsnEntry::TemplateConstructor(bsn_constructor)
@@ -173,18 +171,24 @@ impl BsnEntry {
                     }
                 }
                 PathType::Function => {
-                    if input.peek(Paren) {
-                        let tokens = parenthesized_tokens(input)?;
-                        BsnEntry::SceneExpression(quote! {#path(#tokens)})
+                    let forked = input.fork();
+                    if input.peek(Paren)
+                        && let Ok(args) = input.parse()
+                    {
+                        BsnEntry::SceneFn(BsnSceneFn { path, args })
                     } else {
-                        BsnEntry::SceneExpression(quote! {#path})
+                        if forked.peek(Paren) {
+                            let tokens = parenthesized_tokens(&forked)?;
+                            BsnEntry::SceneExpression(quote! {#path(#tokens)})
+                        } else {
+                            BsnEntry::SceneExpression(quote! {#path})
+                        }
                     }
                 }
             }
         })
     }
 }
-
 impl Parse for BsnSceneList {
     fn parse(input: ParseStream) -> Result<Self> {
         let content;
@@ -211,7 +215,33 @@ impl Parse for BsnSceneListItem {
         })
     }
 }
-
+impl Parse for BsnSceneArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let args = if input.peek(Paren) {
+            let content;
+            parenthesized!(content in input);
+            Some(content.parse_terminated(BsnSceneFnArgExpr::parse, Token![,])?)
+        } else {
+            None
+        };
+        Ok(Self(args))
+    }
+}
+impl Parse for BsnSceneFnArgExpr {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![#]) {
+            input.parse::<Token![#]>()?;
+            if input.peek(Brace) {
+                Ok(Self::NameExpression(braced_tokens(input)?))
+            } else {
+                Ok(Self::Name(input.parse::<Ident>()?))
+            }
+        } else {
+            // Err(input.error("Could not parse scene fn argument"))
+            Ok(Self::Expr(Expr::parse(input)?))
+        }
+    }
+}
 impl BsnInheritedScene {
     fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
         let colon = input.parse::<Token![:]>()?;
@@ -235,14 +265,10 @@ impl BsnInheritedScene {
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
-                    let args = if input.peek(Paren) {
-                        let content;
-                        parenthesized!(content in input);
-                        Some(content.parse_terminated(Expr::parse, Token![,])?)
-                    } else {
-                        None
-                    };
-                    BsnInheritedScene::Fn { path, args }
+                    BsnInheritedScene::Fn(BsnSceneFn {
+                        path,
+                        args: input.parse()?,
+                    })
                 }
                 path_type => {
                     return Err(syn::Error::new(
@@ -438,7 +464,11 @@ impl Parse for BsnValue {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            BsnValue::Name(input.parse::<Ident>()?)
+            if input.peek(Brace) {
+                BsnValue::NameExpression(braced_tokens(input)?)
+            } else {
+                BsnValue::Name(input.parse::<Ident>()?)
+            }
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })

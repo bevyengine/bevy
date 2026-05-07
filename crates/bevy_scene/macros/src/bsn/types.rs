@@ -23,6 +23,7 @@ pub enum BsnEntry {
     TemplateConst { type_path: Path, const_ident: Ident },
     SceneExpression(TokenStream),
     InheritedScene(BsnInheritedScene),
+    SceneFn(BsnSceneFn),
     RelatedSceneList(BsnRelatedSceneList),
 }
 
@@ -52,12 +53,24 @@ pub enum BsnSceneListItem {
 }
 
 #[derive(Debug)]
+pub enum BsnSceneFnArgExpr {
+    Expr(Expr),
+    Name(Ident),
+    NameExpression(TokenStream),
+}
+#[derive(Debug)]
+pub struct BsnSceneArgs(pub Option<Punctuated<BsnSceneFnArgExpr, Token![,]>>);
+
+#[derive(Debug)]
+pub struct BsnSceneFn {
+    pub path: Path,
+    pub args: BsnSceneArgs,
+}
+
+#[derive(Debug)]
 pub enum BsnInheritedScene {
     Asset(LitStr),
-    Fn {
-        path: Path,
-        args: Option<Punctuated<Expr, Token![,]>>,
-    },
+    Fn(BsnSceneFn),
     Type(BsnType),
     Expression(TokenStream),
 }
@@ -66,7 +79,7 @@ pub enum BsnInheritedScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
-    pub args: Option<Punctuated<Expr, Token![,]>>,
+    pub args: BsnSceneArgs,
 }
 
 #[derive(Debug)]
@@ -101,4 +114,5 @@ pub enum BsnValue {
     Type(BsnType),
     Tuple(BsnTuple),
     Name(Ident),
+    NameExpression(TokenStream),
 }

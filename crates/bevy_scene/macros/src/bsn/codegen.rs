@@ -1,12 +1,13 @@
 use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
-    BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
+    BsnRoot, BsnSceneArgs, BsnSceneFn, BsnSceneFnArgExpr, BsnSceneListItem, BsnSceneListItems,
+    BsnType, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{parse::Parse, ExprTuple, Ident, Index, Lit, Member, Path};
+use syn::{parse::Parse, punctuated::Punctuated, ExprTuple, Ident, Index, Lit, Member, Path};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -232,17 +233,23 @@ impl BsnEntry {
                 type_path,
                 function,
                 args,
-            }) => EntryResult::CombinedSceneFunction(quote! {
-                let value = _scene.get_or_insert_template::<#type_path>(_context);
-                *value = #type_path::#function(#args);
+            }) => EntryResult::CombinedSceneFunction({
+                let args = args.to_tokens(ctx);
+                quote! {
+                    let value = _scene.get_or_insert_template::<#type_path>(_context);
+                    *value = #type_path::#function(#args);
+                }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => EntryResult::CombinedSceneFunction(quote! {
-                let value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function(#args);
+            }) => EntryResult::CombinedSceneFunction({
+                let args = args.to_tokens(ctx);
+                quote! {
+                    let value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                    *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function(#args);
+                }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
                 scene_list,
@@ -254,13 +261,12 @@ impl BsnEntry {
                         ::Relationship, _>::new(#scenes)
                 })
             }
+            BsnEntry::SceneFn(func) => EntryResult::NewSceneImpl(func.to_tokens(ctx)),
             BsnEntry::InheritedScene(s) => EntryResult::NewSceneImpl(match s {
                 BsnInheritedScene::Asset(lit) => quote! {
                     #bevy_scene::InheritSceneAsset::from(#lit)
                 },
-                BsnInheritedScene::Fn { path, args } => quote! {
-                    #bevy_scene::SceneScope(#path(#args))
-                },
+                BsnInheritedScene::Fn(func) => func.to_tokens(ctx),
                 BsnInheritedScene::Type(bsn_type) => {
                     // TODO: this can and should use a simpler codegen path than BsnType::to_patch_tokens,
                     // which imposes constraints like requiring the type to impl FromTemplate, and requiring
@@ -537,7 +543,12 @@ impl BsnType {
                 let bevy_ecs = ctx.bevy_ecs;
                 let invocation = ctx.invocation_index.clone();
                 assignments.push(quote! {
-                    #(#base_path.)*#member =  #bevy_ecs::template::EntityTemplate::GlobalEntityIndex(#bevy_ecs::template::SceneEntityIndex::new(#invocation, #index));
+                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::GlobalEntityIndex(#bevy_ecs::template::SceneEntityIndex::new(#invocation, #index));
+                });
+            }
+            Some(BsnValue::NameExpression(tokens)) => {
+                assignments.push(quote! {
+                    #(#base_path.)*#member = #tokens.into();
                 });
             }
             Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
@@ -616,6 +627,46 @@ impl BsnTokenStream for BsnSceneListItems {
     }
 }
 
+impl BsnTokenStream for BsnSceneFnArgExpr {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let bevy_ecs = ctx.bevy_ecs;
+        match self {
+            BsnSceneFnArgExpr::Expr(expr) => quote! {#expr},
+            BsnSceneFnArgExpr::NameExpression(tokens) => {
+                quote! {#bevy_ecs::template::EntityTemplate::Entity(#tokens)}
+            }
+            BsnSceneFnArgExpr::Name(ident) => {
+                let index = ctx.entity_refs.get(ident.to_string());
+                let invocation = ctx.invocation_index.clone();
+                quote! {
+                    #bevy_ecs::template::EntityTemplate::GlobalEntityIndex(
+                        #bevy_ecs::template::SceneEntityIndex::new(#invocation, #index)
+                    )
+                }
+            }
+        }
+    }
+}
+
+impl BsnTokenStream for BsnSceneArgs {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let mut args: Punctuated<_, syn::Token![,]> = Punctuated::new();
+        // rebuilding the punctuated is required because ctx needs to be passed
+        for arg in self.0.iter().flatten() {
+            args.push(arg.to_tokens(ctx));
+        }
+        quote! {#args}
+    }
+}
+impl BsnSceneFn {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let bevy_scene = ctx.bevy_scene;
+        let args = self.args.to_tokens(ctx);
+        let path = self.path.clone();
+        quote! {#bevy_scene::SceneScope(#path(#args))}
+    }
+}
+
 impl ToTokens for BsnType {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let (path, variant) = (
@@ -658,7 +709,7 @@ impl ToTokens for BsnValue {
                 quote! {(#(#inner),*)}.to_tokens(tokens);
             }
             BsnValue::Type(ty) => ty.to_tokens(tokens),
-            BsnValue::Name(_) => {
+            BsnValue::Name(_) | BsnValue::NameExpression(_) => {
                 // Name requires additional context to convert to tokens
                 unreachable!()
             }

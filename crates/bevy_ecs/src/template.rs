@@ -407,7 +407,7 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
 pub trait SpecializeFromTemplate: Sized {}
 
 /// A [`Template`] reference to an [`Entity`].
-#[derive(Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
     Entity(Entity),
@@ -417,6 +417,7 @@ pub enum EntityTemplate {
     #[default]
     None,
 }
+impl Unpin for EntityTemplate where for<'a> [()]: SpecializeFromTemplate {}
 
 impl From<Entity> for EntityTemplate {
     fn from(entity: Entity) -> Self {
