@@ -37,7 +37,6 @@ Please consider making a PR!
 
 To get started, spawn an entity with the `EditableText` component.
 
-
 ```rust
 commands.spawn((
     Node {

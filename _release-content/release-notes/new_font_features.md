@@ -4,7 +4,7 @@ authors: ["@ickshonpe", "@alice-i-cecile", "@gregcsokas"]
 pull_requests: [22156, 22396, 22614, 22879, 23380]
 ---
 
-*TODO: screenshot showing generic families, weights, and responsive sizing in action*
+TODO: screenshot showing generic families, weights, and responsive sizing in action
 
 Bevy's text system has historically been sparse: pick a font by asset handle, set a size in pixels, done.
 Want bold? Load a separate bold font asset.
