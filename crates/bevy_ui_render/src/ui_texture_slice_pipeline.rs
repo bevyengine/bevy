@@ -492,17 +492,7 @@ pub fn prepare_ui_slices(
                     let positions = QUAD_VERTEX_POSITIONS
                         .map(|pos| texture_slices.transform.transform_point2(pos * rect_size));
 
-                    let flags = if texture_slices.image != AssetId::default() {
-                        shader_flags::TEXTURED
-                    } else {
-                        shader_flags::UNTEXTURED
-                    };
-
-                    let uvs = if flags == shader_flags::UNTEXTURED {
-                        [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-                    } else {
-                        [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-                    };
+                    let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
 
                     let color = texture_slices.color.to_f32_array();
 
