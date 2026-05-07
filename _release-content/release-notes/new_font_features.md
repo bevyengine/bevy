@@ -89,5 +89,5 @@ While all of these features would have been possible in [`cosmic_text`],
 we've chosen to migrate to [`parley`] during this cycle.
 Both are solid, modern choices, but we found `parley` had meaningfully better documentation and was somewhat nicer to use.
 
-[cosmic_text]: https://github.com/pop-os/cosmic-text
-[Parley]: https://github.com/linebender/parley
+[`cosmic_text`]: https://github.com/pop-os/cosmic-text
+[`Parley`]: https://github.com/linebender/parley
