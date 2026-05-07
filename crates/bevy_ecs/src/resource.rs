@@ -219,7 +219,6 @@ mod tests {
 
     use crate::{
         change_detection::MaybeLocation,
-        component::StorageType,
         entity::Entity,
         lifecycle::HookContext,
         ptr::OwningPtr,
