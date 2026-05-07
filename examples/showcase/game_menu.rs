@@ -338,7 +338,7 @@ mod menu {
 
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
-    fn setting_button<T: Resource + Component + PartialEq + Copy>(
+    fn setting_button<T: Resource<Mutability = Mutable> + Component + PartialEq + Copy>(
         interaction_query: Query<
             (&Interaction, &Setting<T>, Entity),
             (Changed<Interaction>, With<Button>),
