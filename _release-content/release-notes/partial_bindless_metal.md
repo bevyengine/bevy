@@ -6,14 +6,14 @@ pull_requests: [23436]
 
 Cross-platform game engines must constantly navigate real differences in platform APIs.
 Bevy's goal is to let users write a single application and ship it everywhere —
-Windows, Mac, Linux, mobile — with confidence it will just work.
+Windows, Mac, Linux, mobile — with confidence that it will just work.
 That's a tough promise to live up to: rendering complex scenes on Mac and iOS was markedly slower.
 
 Bindless rendering is how modern engines handle scenes with many different materials efficiently: shaders index into shared pools of textures and buffers rather than rebinding them per draw call.
 Bindless is not just a performance optimization — it's how modern renderers are structured.
 
 Metal (Apple's GPU API) supports texture binding arrays but not buffer binding arrays.
-Bevy required both to enable bindless, excluding Metal entirely — even for materials that never use buffer arrays.
+Bevy required both to enable bindless, which previously excluded Metal entirely — even for materials that never use buffer arrays.
 If you were shipping on Mac or iOS, your game was running on a slower, fundamentally different code path.
 
 Most materials, including `StandardMaterial`, only use `#[data(...)]`, textures, and samplers — they never needed buffer array support.

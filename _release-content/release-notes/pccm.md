@@ -7,8 +7,8 @@ pull_requests: [22582]
 *TODO: Add a before/after screenshot from the `pccm` example showing reflections with and without parallax correction.*
 
 Bevy previously rendered cubemap reflections as though the environment were infinitely far away.
-For outdoor scenes this is often fine, but for indoor scenes and dense environments the result looks wrong —
-reflections don't line up with the actual geometry around the viewer.
+For outdoor scenes this was often fine, but for indoor scenes and dense environments the result looked wrong —
+reflections didn't line up with the actual geometry around the viewer.
 
 The standard fix is parallax correction: each reflection probe gets its own bounding box, and a raytrace against that box determines the correct sampling direction for the cubemap.
 Bevy now applies this automatically for light probes, using the probe's influence bounding box as the correction volume.

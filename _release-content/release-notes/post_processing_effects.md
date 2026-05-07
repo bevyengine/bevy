@@ -4,7 +4,7 @@ authors: ["@Breakdown-Dog"]
 pull_requests: [22564, 23110]
 ---
 
-Two new post-processing effects this cycle, both classic tools for giving your camera a more cinematic or stylized look.
+Two new post-processing effects were added in this cycle, both classic tools for giving your camera a more cinematic or stylized look.
 
 ## Vignette
 
@@ -13,7 +13,7 @@ Two new post-processing effects this cycle, both classic tools for giving your c
 Vignette reduces image brightness towards the periphery of the frame, drawing the viewer's eye to the center.
 It's a classic tool for simulating the look of a camera lens or adding cinematic tension — but its real power in games is as a dynamic effect.
 Think pulsing red on damage (a first-person shooter staple), a low uneven dim for horror dread, or a subtle ease-in on cutscene transitions.
-`intensity` is a float; animate it.
+The `intensity` of a vignette is a float value; you can change the vignettes effect by animating it.
 
 To use it, add the `Vignette` component to your camera:
 

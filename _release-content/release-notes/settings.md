@@ -27,14 +27,14 @@ struct AudioSettings {
 }
 ```
 
-Add `PreferencesPlugin` with a unique [reverse-domain] app name, and your settings groups are
-automatically loaded on startup and inserted as resources:
+Adding `PreferencesPlugin` with a unique [reverse-domain] app name will automatically load your settings groups
+on startup and insert them as resources:
 
 ```rust
 app.add_plugins(PreferencesPlugin::new("com.example.mygame"));
 ```
 
-From there, read them like any other resource:
+Once the settings groups are added, you can read them like any other resource:
 
 ```rust
 fn adjust_volume(audio: Res<AudioSettings>, mut music: ResMut<AudioSink>) {

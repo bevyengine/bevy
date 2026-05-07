@@ -5,9 +5,10 @@ pull_requests: [22602]
 ---
 
 Run conditions are a convenient, reusable pattern for skipping systems when certain conditions are met.
-Previously, while run conditions worked for ordinary systems, they did not for observers.
+Previously, run conditions only worked for ordinary systems.
+Observers couldn't use them.
 
-Now, they do!
+Now, they can!
 
 ```rust
 #[derive(Resource)]

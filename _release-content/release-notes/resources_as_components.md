@@ -15,15 +15,15 @@ unifying our internals.
 
 You can now:
 
-- simplify networking and dev-tools code by assuming that entities + components are the only form of data you need to worry about
-- query over both resources and components to support flexible usage patterns
-- add relationships pointing to resource entities
-- add additional components to your resource entities
-- add lifecycle observers to your resource types
-- add your own hooks to resources
-- mark resources as immutable
+- Simplify networking and dev-tools code by assuming that entities + components are the only form of data you need to worry about
+- Query over both resources and components to support flexible usage patterns
+- Add relationships pointing to resource entities
+- Add additional components to your resource entities
+- Add lifecycle observers to your resource types
+- Add your own hooks to resources
+- Mark resources as immutable
 
 We don't intend to ever support:
 
-- changing the storage type of resources
-  - resources have consistent insertion and access patterns: this is not a useful performance lever to expose
+- Changing the storage type of resources.
+  - Resources have consistent insertion and access patterns: this is not a useful performance lever to expose.
