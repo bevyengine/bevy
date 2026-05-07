@@ -89,7 +89,7 @@ fn update_clipping(
     // Calculate new clip rectangle for children nodes
     let children_clip = if maybe_inherited_clip
         .as_ref()
-        .is_some_and(|clip| clip.is_fully_clipped())
+        .is_some_and(CalculatedClip::is_fully_clipped)
         || node.overflow.is_visible()
     {
         // The current node doesn't clip, propagate the optional inherited clipping rect to any children
