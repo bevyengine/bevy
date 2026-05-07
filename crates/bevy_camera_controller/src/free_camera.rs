@@ -132,6 +132,8 @@ pub struct FreeCamera {
     pub friction: f32,
     /// Speed of camera rotation to snapped axis in radians/second
     pub rotation_speed: f32,
+    /// The vertical velocity transformation space for up down controls.
+    pub vertical_velocity_space: VerticalVelocitySpace,
 }
 
 impl Default for FreeCamera {
@@ -157,6 +159,7 @@ impl Default for FreeCamera {
             scroll_factor: 0.04879016,
             friction: 40.0,
             rotation_speed: PI / 16.0 * 60.0,
+            vertical_velocity_space: VerticalVelocitySpace::Global,
         }
     }
 }
@@ -195,6 +198,15 @@ Freecamera Controls:
             self.axis_front,
         )
     }
+}
+
+/// Config to choose camera's vertical movement behaviour.
+#[derive(Debug, Clone, Copy)]
+pub enum VerticalVelocitySpace {
+    /// up and down motion will move along the global Y axis regardless of camera orientation.
+    Global,
+    /// up and down motion will move along the camera orientation's local up and down axis.
+    Local,
 }
 
 /// Tracks the runtime state of a [`FreeCamera`] controller.
@@ -353,8 +365,12 @@ pub fn run_freecamera_controller(
     if state.velocity != Vec3::ZERO {
         let forward = *transform.forward();
         let right = *transform.right();
+        let up = match config.vertical_velocity_space {
+            VerticalVelocitySpace::Global => Vec3::Y,
+            VerticalVelocitySpace::Local => *transform.up(),
+        };
         transform.translation += state.velocity.x * dt * right
-            + state.velocity.y * dt * Vec3::Y
+            + state.velocity.y * dt * up
             + state.velocity.z * dt * forward;
     }
 
