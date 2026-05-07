@@ -1,5 +1,6 @@
 use crate::{
     change_detection::{traits::*, ComponentTickCells, MaybeLocation, Tick},
+    component::Mutable,
     ptr::PtrMut,
     resource::Resource,
 };
@@ -548,7 +549,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
+impl<'w, 'a, T: Resource<Mutability = Mutable>> IntoIterator for &'a mut ResMut<'w, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -562,11 +563,11 @@ where
 }
 
 change_detection_impl!(ResMut<'w, T>, T, Resource);
-change_detection_mut_impl!(ResMut<'w, T>, T, Resource);
-impl_methods!(ResMut<'w, T>, T, Resource);
+change_detection_mut_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_methods!(ResMut<'w, T>, T, Resource, Resource<Mutability = Mutable>);
 impl_debug!(ResMut<'w, T>, Resource);
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
     fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
