@@ -228,10 +228,10 @@ mod menu {
     use bevy::{
         app::AppExit,
         color::palettes::css::CRIMSON,
+        ecs::component::Mutable,
         ecs::spawn::{SpawnIter, SpawnWith},
         prelude::*,
     };
-    use bevy_ecs::component::Mutable;
 
     use super::{DisplayQuality, GameState, Setting, Volume, TEXT_COLOR};
 
