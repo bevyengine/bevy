@@ -11,10 +11,9 @@ Two new post-processing effects this cycle, both classic tools for giving your c
 *TODO: Add a before/after image showing the vignette effect.*
 
 Vignette reduces image brightness towards the periphery of the frame, drawing the viewer's eye to the center.
-It's a classic tool for simulating the look of a camera lens or adding cinematic tension — but it's most powerful in games as a dynamic effect.
-Animate `intensity` to pulse a red vignette when the player is hit or critically injured (a staple of first-person shooters).
-Keep it dark with an uneven rhythm for persistent unease in a horror game.
-Dial it up subtly during cutscene transitions to shift the feel from gameplay to cinema without a hard cut.
+It's a classic tool for simulating the look of a camera lens or adding cinematic tension — but its real power in games is as a dynamic effect.
+Think pulsing red on damage (a first-person shooter staple), a low uneven dim for horror dread, or a subtle ease-in on cutscene transitions.
+`intensity` is a float; animate it.
 
 To use it, add the `Vignette` component to your camera:
 
