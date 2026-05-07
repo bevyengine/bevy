@@ -49,7 +49,7 @@ use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
     camera_controller::free_camera::{
-        FreeCamera, FreeCameraPlugin, FreeCameraState, VerticalVelocitySpace,
+        FreeCamera, FreeCameraPlugin, FreeCameraState, VerticalMovementAxis,
     },
     color::palettes::tailwind,
     prelude::*,
@@ -171,9 +171,9 @@ fn update_camera_settings(
         free_camera_state.enabled = !free_camera_state.enabled;
     }
     if input.just_pressed(KeyCode::KeyT) {
-        free_camera.vertical_velocity_space = match free_camera.vertical_velocity_space {
-            VerticalVelocitySpace::Global => VerticalVelocitySpace::Local,
-            VerticalVelocitySpace::Local => VerticalVelocitySpace::Global,
+        free_camera.vertical_movement_axis = match free_camera.vertical_movement_axis {
+            VerticalMovementAxis::Global => VerticalMovementAxis::Local,
+            VerticalMovementAxis::Local => VerticalMovementAxis::Global,
         };
     }
 }
