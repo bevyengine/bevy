@@ -563,7 +563,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `Resource` trait.
-/// 
+///
 /// ## Immutability
 /// ```ignore
 /// #[derive(Resource)]
