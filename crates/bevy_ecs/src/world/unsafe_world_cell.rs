@@ -1335,7 +1335,7 @@ unsafe fn get_component_and_ticks(
     }
 }
 
-/// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
+/// Get the [`ComponentTicks`] on a particular [`Entity`]
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`

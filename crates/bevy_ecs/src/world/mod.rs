@@ -54,7 +54,7 @@ use crate::{
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, DetectChangesMut, Discard, Insert, Remove},
+    prelude::{Add, Despawn, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
