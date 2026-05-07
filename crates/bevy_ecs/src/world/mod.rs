@@ -2880,12 +2880,6 @@ impl World {
                     });
                     entity_mut.update_location();
 
-                    // Set the added tick to the original.
-                    entity_mut
-                        .get_mut::<R>()
-                        .unwrap()
-                        .set_last_added(self.ticks.added);
-
                     // SAFETY: We update the entity location afterwards.
                     unsafe { entity_mut.world_mut() }.flush();
 
