@@ -324,6 +324,7 @@ impl World {
     /// # Usage Notes
     /// In most cases, you don't need to call this method directly since component registration
     /// happens automatically during system initialization.
+    #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components_registrator().register_component::<T>()
     }
@@ -650,6 +651,7 @@ impl World {
     /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
     /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
     /// [`World::insert_resource`] instead.
+    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components_registrator().register_component::<R>()
     }
@@ -1858,7 +1860,7 @@ impl World {
         func: impl FnOnce(&mut World) -> R,
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
-        let resource_id = self.register_resource::<R>();
+        let resource_id = self.register_component::<R>();
 
         if let Some(entity) = self.resource_entities.get(resource_id) {
             let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
