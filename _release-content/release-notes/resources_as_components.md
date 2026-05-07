@@ -21,9 +21,6 @@ You can now:
 - add additional components to your resource entities
 - add lifecycle observers to your resource types
 - add your own hooks to resources
-
-However you cannot yet:
-
 - mark resources as immutable
 
 We don't intend to ever support:
