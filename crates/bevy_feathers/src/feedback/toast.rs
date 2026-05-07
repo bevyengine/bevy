@@ -16,7 +16,7 @@ use bevy_ecs::{
     template::{template, FromTemplate, ScopedEntityIndex},
     world::DeferredWorld,
 };
-use bevy_picking::Pickable;
+use bevy_picking::{Pickable, hover::Hovered};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, template_value};
@@ -219,6 +219,7 @@ impl FeathersToast {
                 align_content: AlignContent::SpaceBetween,
                 position_type: PositionType::Absolute
             }
+            Hovered
             Pickable::IGNORE
             template_value(props.variant)
             template_value(props.position)
@@ -307,10 +308,15 @@ impl FeathersToast {
 
 fn tick_toasts_progress_bars(
     mut commands: Commands,
+    hovered: Query<&Hovered>,
     mut toast_progress_bars: Query<(&mut Node, &mut ToastProgressBar)>,
     time: Res<Time<Fixed>>,
 ) {
     for (mut node, mut toast_progress_bar) in &mut toast_progress_bars {
+        let root_hovered = hovered.get(toast_progress_bar.root_entity).map(|h| h.0).unwrap_or(false);
+        if root_hovered {
+            continue;
+        }
         let timer = &mut toast_progress_bar.timer;
         timer.tick(time.delta());
         let remaining_secs = timer.remaining_secs();
