@@ -560,7 +560,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `Resource` trait.
-#[proc_macro_derive(Resource)]
+#[proc_macro_derive(Resource, attributes(component))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     TokenStream::from(resource::derive_resource(&mut ast))
