@@ -6,7 +6,7 @@ pull_requests: [22622]
 
 Bevy has had an `AssetSaver` trait since 0.12.
 However, it was only ever intended for use inside asset processing pipelines, not for saving assets at runtime.
-This left a frustrating gap: if you wanted to save a procedurally generated mesh, a baked lightmap, or any other asset your game creates at runtime, there was no supported path to do it.
+This left a frustrating gap: if you wanted to save a procedurally generated mesh, a baked lightmap, or the output of any in-editor workflow, there was no supported path to do it.
 
 Now there is. `save_using_saver` lets you save any asset to disk using an `AssetSaver` implementation of your choice.
 

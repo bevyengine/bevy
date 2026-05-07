@@ -6,7 +6,7 @@ pull_requests: [23645, 23707, 23788, 23787, 23804, 23817, 23842]
 
 *TODO: Add screenshots of the new Feathers widgets (text input, number input, dropdown, pane/group decorators).*
 
-Bevy Feathers, the opinionated UI widget collection, has added several new widgets:
+Bevy Feathers, our opinionated UI widget collection designed with the Bevy editor in mind, has added several new widgets this cycle:
 
 - text input (see the dedicated release note for far more details)
 - number input

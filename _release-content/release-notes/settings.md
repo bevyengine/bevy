@@ -4,17 +4,15 @@ authors: ["@viridia", "@mpowell90"]
 pull_requests: [22891, 23034, 23719, 23812]
 ---
 
-The new `bevy_settings` crate provides a framework for user settings and persistent preferences.
-This can include things like:
+The Bevy editor needs a settings system — for layout preferences, tool configuration, and everything else that should persist between sessions. We've built `bevy_settings` as a proper standalone crate so that both the editor and your own games can share a solid, easy-to-use foundation.
 
+You might want to persist:
+
+- Editor panel layouts and tool preferences
 - Music and sound volume controls
 - Graphics options
 - Window position and size
-- Whether or not to show the game tutorial
 - "Don't show this dialog again"
-
-In general, a user preference is any persistent property that is set by user action (either
-explicitly or implicitly), and whose lifetime isn't limited to a single saved game file.
 
 ## Defining settings
 

@@ -6,7 +6,7 @@ pull_requests: [19106, 23282, 23455, 23475, 23479, 23496, 23679, 23704, 23841, 2
 
 *TODO: Add a GIF of the EditableText widget with cursor and selection.*
 
-Entering text into an application is a common task, even for games.
+While the ability to capture text is a core requirement for game dev tooling, it's a common task even in games themselves.
 Player names, search bars and chat all rely on the ability to enter and submit plain text.
 
 In Bevy 0.19, we've added basic support for text entry, in the form of the `EditableText` widget.
