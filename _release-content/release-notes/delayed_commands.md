@@ -10,7 +10,7 @@ for everything from gameplay logic to audio cues to VFX.
 While this was previously possible through careful use of timers,
 getting the details right was surprisingly tricky and naive solutions were heavy on boilerplate.
 
-To make this easier, you can now delay arbitrary commands to be executed later.
+Now, you can simply delay arbitrary commands to be executed later.
 
 ```rust
 fn delayed_spawn(mut commands: Commands) {
@@ -23,3 +23,6 @@ fn delayed_spawn_then_insert(mut commands: Commands) {
     delayed.secs(1.5).entity(entity).insert(DummyComponent);
 }
 ```
+
+Note that this does not have a built-in, blessed cancellation mechanism yet.
+We recommend embedding the originating `Entity` into the command if you want to cancel the action if that entity dies or is despawned.
