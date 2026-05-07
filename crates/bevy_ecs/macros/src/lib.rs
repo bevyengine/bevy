@@ -563,6 +563,25 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `Resource` trait.
+/// 
+/// ## Immutability
+/// ```ignore
+/// #[derive(Resource)]
+/// #[component(immutable)]
+/// struct MyResource;
+/// ```
+///
+/// ## Hooks
+/// ```ignore
+/// #[derive(Resource)]
+/// #[component(hook_name = function)]
+/// struct MyResource;
+/// ```
+/// where `hook_name` is `on_add`, `on_insert`, `on_discard` or `on_remove`;
+/// `function` can be either a path, e.g. `some_function::<Self>`,
+/// or a function call that returns a function that can be turned into
+/// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+/// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
 #[proc_macro_derive(Resource, attributes(component))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
