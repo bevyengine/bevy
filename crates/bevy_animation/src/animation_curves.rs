@@ -425,7 +425,7 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit(&mut self, mut entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
+    fn commit(&mut self, mut entity: &mut AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
         let property = self.property.get_mut(&mut entity)?;
         *property = self
             .evaluator
@@ -720,7 +720,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///
     /// The property on the component must be overwritten with the value from
     /// the stack, not blended with it.
-    fn commit(&mut self, entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
+    fn commit(&mut self, entity: &mut AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
 }
 
 impl_downcast!(AnimationCurveEvaluator);

@@ -41,7 +41,7 @@ use crate::{
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::{FloatOrd, Vec3};
+use bevy_math::{FloatOrd, Quat, Vec3};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
@@ -724,6 +724,13 @@ impl ActiveAnimation {
     }
 }
 
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct RootMotion {
+    pub translation_delta: Vec3,
+    pub rotation_delta: Quat,
+}
+
 /// Animation controls.
 ///
 /// Automatically added to any root animations of a scene when it is
@@ -732,6 +739,7 @@ impl ActiveAnimation {
 #[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
+    root_motion_target: Option<AnimationTargetId>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -739,11 +747,14 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
+            root_motion_target: None,
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
+        self.root_motion_target
+            .clone_from(&source.root_motion_target);
     }
 }
 
@@ -984,6 +995,16 @@ impl AnimationPlayer {
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
     }
+
+    /// Returns the root motion target linked with this [`AnimationPlayer`]
+    pub fn root_motion_target(&self) -> Option<AnimationTargetId> {
+        self.root_motion_target
+    }
+
+    /// Set the root motion target. Set to `None` if you want to disable root motion
+    pub fn set_root_motion_target(&mut self, target: Option<AnimationTargetId>) {
+        self.root_motion_target = target;
+    }
 }
 
 /// A system that triggers untargeted animation events for the currently-playing animations.
@@ -1128,7 +1149,7 @@ pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
     mut targets: Query<
         (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
         Without<IsResource>,
@@ -1136,12 +1157,11 @@ pub fn animate_targets(
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
-    targets
-        .par_iter_mut()
-        .for_each(|(entity, &target_id, &AnimatedBy(player_id), entity_mut)| {
-            let (animation_player, animation_graph_id) =
-                if let Ok((player, graph_handle)) = players.get(player_id) {
-                    (player, graph_handle.id())
+    targets.par_iter_mut().for_each(
+        |(entity, &target_id, &AnimatedBy(player_id), mut entity_mut)| {
+            let (animation_player_entity, animation_player, animation_graph_id) =
+                if let Ok((player_entity, player, graph_handle)) = players.get(player_id) {
+                    (player_entity, player, graph_handle.id())
                 } else {
                     trace!(
                         "Either an animation player {} or a graph was missing for the target \
@@ -1152,8 +1172,8 @@ pub fn animate_targets(
                     );
                     return;
                 };
-            // TODO: Temporaire
-            let root_target_id = AnimationTargetId::from_name(&Name::new("Root"));
+
+            let is_root_target = Some(target_id) == animation_player.root_motion_target;
 
             // The graph might not have loaded yet. Safely bail.
             let Some(animation_graph) = graphs.get(animation_graph_id) else {
@@ -1283,7 +1303,7 @@ pub fn animate_targets(
                         // TODO: remove before push
                         println!("seek time {} | clip_duration {}", seek_time, clip.duration);
 
-                        if target_id == root_target_id {
+                        if is_root_target {
                             let translation_field = animated_field!(Transform::translation);
                             // TODO: let rotation_field = animated_field!(Transform::rotation);
                             for curve in curves {
@@ -1345,10 +1365,23 @@ pub fn animate_targets(
                 }
             }
 
-            if let Err(err) = evaluation_state.commit_all(entity_mut) {
+            if let Err(err) = evaluation_state.commit_all(&mut entity_mut) {
                 warn!("Animation application failed: {:?}", err);
             }
-        });
+
+            if is_root_target {
+                let mut root_motion_transform = entity_mut.get_mut::<Transform>().unwrap();
+                let translation_delta = core::mem::take(&mut root_motion_transform.translation);
+                let rotation_delta = core::mem::take(&mut root_motion_transform.rotation);
+                par_commands.command_scope(move |mut commands| {
+                    commands.entity(animation_player_entity).insert(RootMotion {
+                        translation_delta,
+                        rotation_delta,
+                    });
+                })
+            }
+        },
+    );
 }
 
 /// Adds animation support to an app
@@ -1485,14 +1518,10 @@ impl AnimationEvaluationState {
     /// components being animated.
     fn commit_all(
         &mut self,
-        mut entity_mut: AnimationEntityMut,
+        entity_mut: &mut AnimationEntityMut,
     ) -> Result<(), AnimationEvaluationError> {
-        self.current_evaluators.clear(|id| {
-            self.evaluators
-                .get_mut(id)
-                .unwrap()
-                .commit(entity_mut.reborrow())
-        })
+        self.current_evaluators
+            .clear(|id| self.evaluators.get_mut(id).unwrap().commit(entity_mut))
     }
 }
 
@@ -1866,26 +1895,88 @@ mod tests {
         assert_eq!(value, None);
     }
 
-    fn compare_transform(expected: &Transform, found: &Transform) {
-        let transform_diff = expected.translation - found.translation;
+    fn compare_root_motion(
+        expected_translation: Vec3,
+        expected_rotation: Quat,
+        found: &RootMotion,
+    ) {
+        let translation_diff = expected_translation - found.translation_delta;
         const DELTA_ERROR: f32 = 0.00001;
         assert!(
-            transform_diff.x.abs() <= DELTA_ERROR,
+            translation_diff.x.abs() <= DELTA_ERROR,
             "Expected: {} | Found {}",
-            expected.translation.x,
-            found.translation.x
+            expected_translation.x,
+            found.translation_delta.x
         );
         assert!(
-            transform_diff.y.abs() <= DELTA_ERROR,
+            translation_diff.y.abs() <= DELTA_ERROR,
             "Expected: {} | Found {}",
-            expected.translation.y,
-            found.translation.y
+            expected_translation.y,
+            found.translation_delta.y
         );
         assert!(
-            transform_diff.z.abs() <= DELTA_ERROR,
+            translation_diff.z.abs() <= DELTA_ERROR,
             "Expected: {} | Found {}",
-            expected.translation.z,
-            found.translation.z
+            expected_translation.z,
+            found.translation_delta.z
+        );
+    }
+
+    fn root_motion_tests(
+        app: &mut App,
+        tick_count: f32,
+        target_translation: Vec3,
+        step_duration: f32,
+        once_speed: f32,
+        forever_speed: f32,
+        animator_entity: Entity,
+        animated_entity: Entity,
+    ) {
+        for _ in 0..tick_count as u32 {
+            app.update();
+            compare_root_motion(
+                target_translation * step_duration * (once_speed + forever_speed) / 2.,
+                Quat::IDENTITY,
+                app.world()
+                    .get_entity(animator_entity)
+                    .unwrap()
+                    .get::<RootMotion>()
+                    .unwrap(),
+            );
+            // Check if the transform is erased in the root target
+            assert_eq!(
+                Transform::IDENTITY,
+                *app.world()
+                    .get_entity(animated_entity)
+                    .unwrap()
+                    .get::<Transform>()
+                    .unwrap()
+            );
+        }
+        // During this update once_clip will advance by less than step_duration
+        app.update();
+        compare_root_motion(
+            target_translation
+                * step_duration
+                * ((tick_count - tick_count.floor()) * once_speed + forever_speed)
+                / 2.,
+            Quat::IDENTITY,
+            app.world()
+                .get_entity(animator_entity)
+                .unwrap()
+                .get::<RootMotion>()
+                .unwrap(),
+        );
+        // Since the single clip is ended only the forever should be active
+        app.update();
+        compare_root_motion(
+            target_translation * step_duration * forever_speed,
+            Quat::IDENTITY,
+            app.world()
+                .get_entity(animator_entity)
+                .unwrap()
+                .get::<RootMotion>()
+                .unwrap(),
         );
     }
 
@@ -1945,6 +2036,7 @@ mod tests {
         let forever_speed = 1.0;
         // Add multiple clips
         let mut animation_player = AnimationPlayer::default();
+        animation_player.set_root_motion_target(Some(root_target));
         let once_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
         animation_player
             .play(once_animation)
@@ -1977,43 +2069,15 @@ mod tests {
         let tick_count = clip_duration / once_speed / step_duration;
 
         // Forward tests
-        for _ in 0..tick_count as u32 {
-            app.update();
-            compare_transform(
-                &Transform::from_translation(
-                    target_translation * step_duration * (once_speed + forever_speed) / 2.,
-                ),
-                app.world()
-                    .get_entity(animated_entity)
-                    .unwrap()
-                    .get::<Transform>()
-                    .unwrap(),
-            );
-        }
-        // During this update once_clip will advance by less than step_duration
-        app.update();
-        compare_transform(
-            &Transform::from_translation(
-                target_translation
-                    * step_duration
-                    * ((tick_count - tick_count.floor()) * once_speed + forever_speed)
-                    / 2.,
-            ),
-            app.world()
-                .get_entity(animated_entity)
-                .unwrap()
-                .get::<Transform>()
-                .unwrap(),
-        );
-        // Since the single clip is ended only the forever should be active
-        app.update();
-        compare_transform(
-            &Transform::from_translation(target_translation * step_duration * forever_speed),
-            app.world()
-                .get_entity(animated_entity)
-                .unwrap()
-                .get::<Transform>()
-                .unwrap(),
+        root_motion_tests(
+            &mut app,
+            tick_count,
+            target_translation,
+            step_duration,
+            once_speed,
+            forever_speed,
+            animator_entity,
+            animated_entity,
         );
 
         // Setup for backward
@@ -2022,7 +2086,6 @@ mod tests {
         {
             let mut player_entity = app.world_mut().get_entity_mut(animator_entity).unwrap();
             let mut animation_player = player_entity.get_mut::<AnimationPlayer>().unwrap();
-            println!("{}", animation_player.active_animations.len());
             animation_player
                 .play(once_animation)
                 .set_speed(once_speed)
@@ -2033,43 +2096,15 @@ mod tests {
                 .replay();
         }
         // Backward tests
-        for _ in 0..tick_count as u32 {
-            app.update();
-            compare_transform(
-                &Transform::from_translation(
-                    target_translation * step_duration * (once_speed + forever_speed) / 2.,
-                ),
-                app.world()
-                    .get_entity(animated_entity)
-                    .unwrap()
-                    .get::<Transform>()
-                    .unwrap(),
-            );
-        }
-        // During this update once_clip will advance by less than step_duration
-        app.update();
-        compare_transform(
-            &Transform::from_translation(
-                target_translation
-                    * step_duration
-                    * ((tick_count - tick_count.floor()) * once_speed + forever_speed)
-                    / 2.,
-            ),
-            app.world()
-                .get_entity(animated_entity)
-                .unwrap()
-                .get::<Transform>()
-                .unwrap(),
-        );
-        // Since the single clip is ended only the forever should be active
-        app.update();
-        compare_transform(
-            &Transform::from_translation(target_translation * step_duration * forever_speed),
-            app.world()
-                .get_entity(animated_entity)
-                .unwrap()
-                .get::<Transform>()
-                .unwrap(),
+        root_motion_tests(
+            &mut app,
+            tick_count,
+            target_translation,
+            step_duration,
+            once_speed,
+            forever_speed,
+            animator_entity,
+            animated_entity,
         );
     }
 }
