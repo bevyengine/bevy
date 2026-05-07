@@ -8,7 +8,7 @@ use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
-/// Color in Okhsl color space, with alpha
+/// Color in Okhsl color space with alpha
 /// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
@@ -65,7 +65,7 @@ impl Okhsla {
     /// * `hue` - Hue channel. [0.0, 360.0]
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
-    pub const fn okhsl(hue: f32, saturation: f32, lightness: f32) -> Self {
+    pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
         Self::new(hue, saturation, lightness, 1.0)
     }
 
@@ -105,7 +105,7 @@ impl Okhsla {
         // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
         // so that the closer the numbers are, the larger the difference of their image.
         let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
-        Self::okhsl(hue, 1., 0.5)
+        Self::hsl(hue, 1., 0.5)
     }
 }
 

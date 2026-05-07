@@ -504,6 +504,72 @@ impl Color {
         })
     }
 
+    /// Creates a new [`Color`] object storing a [`Okhsla`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    pub const fn okhsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
+        Self::Okhsla(Okhsla {
+            hue,
+            saturation,
+            lightness,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Okhsla`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    pub const fn okhsl(hue: f32, saturation: f32, lightness: f32) -> Self {
+        Self::Okhsla(Okhsla {
+            hue,
+            saturation,
+            lightness,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Okhsva`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    pub const fn okhsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
+        Self::Okhsva(Okhsva {
+            hue,
+            saturation,
+            value,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Okhsva`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    pub const fn okhsv(hue: f32, saturation: f32, value: f32) -> Self {
+        Self::Okhsva(Okhsva {
+            hue,
+            saturation,
+            value,
+            alpha: 1.0,
+        })
+    }
+
     /// A fully white [`Color::LinearRgba`] color with an alpha of 1.0.
     pub const WHITE: Self = Self::linear_rgb(1.0, 1.0, 1.0);
 
