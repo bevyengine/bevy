@@ -4,7 +4,7 @@ authors: ["@andriyDev"]
 pull_requests: [22622]
 ---
 
-Bevy has had a `AssetSaver` trait since 0.12.
+Bevy has had an `AssetSaver` trait since 0.12.
 However, it was only ever intended for use inside asset processing pipelines, not for saving assets at runtime.
 This left a frustrating gap: if you wanted to save a procedurally generated mesh, a baked lightmap, or any other asset your game creates at runtime, there was no supported path to do it.
 
