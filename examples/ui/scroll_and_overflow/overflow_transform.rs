@@ -1,6 +1,7 @@
 //! Demonstrates nested transformed UI clipping.
 
 use bevy::color::palettes::css::NAVY;
+use bevy::math::ops::sin;
 use bevy::prelude::*;
 
 fn main() {
@@ -127,6 +128,6 @@ struct InnerNode;
 
 fn scale_inner(time: Res<Time>, mut query: Query<&mut UiTransform, With<InnerNode>>) {
     for mut transform in query.iter_mut() {
-        transform.scale = Vec2::splat(1. + 0.75 * (0.4 * time.elapsed_secs()).sin());
+        transform.scale = Vec2::splat(1. + 0.75 * sin(0.4 * time.elapsed_secs()));
     }
 }
