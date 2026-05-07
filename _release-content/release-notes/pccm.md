@@ -10,7 +10,7 @@ Bevy previously rendered cubemap reflections as though the environment were infi
 For outdoor scenes this is often fine, but for indoor scenes and dense environments the result looks wrong —
 reflections don't line up with the actual geometry around the viewer.
 
-The standard fix is parallax correction: each reflection probe is augmented with a bounding box, and a raytrace against that box determines the correct sampling direction for the cubemap.
+The standard fix is parallax correction: each reflection probe gets its own bounding box, and a raytrace against that box determines the correct sampling direction for the cubemap.
 Bevy now applies this automatically for light probes, using the probe's influence bounding box as the correction volume.
 This is a reasonable default for a cubemap capturing a rectangular room interior, and matches Blender's approach, improving asset consistency.
 
