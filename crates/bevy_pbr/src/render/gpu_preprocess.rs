@@ -15,7 +15,8 @@ use bevy_core_pipeline::{
     mip_generation::experimental::depth::{early_downsample_depth, ViewDepthPyramid},
     prepass::{
         node::{early_prepass, late_prepass},
-        DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms,
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, PreviousViewData,
+        PreviousViewUniformOffset, PreviousViewUniforms,
     },
     schedule::{Core3d, Core3dSystems},
 };
@@ -383,6 +384,13 @@ pub struct ViewPhaseBinUnpackingBindGroup {
 #[derive(Component, Default)]
 pub struct SkipGpuPreprocess;
 
+type WithAnyPrepass = Or<(
+    With<DepthPrepass>,
+    With<NormalPrepass>,
+    With<MotionVectorPrepass>,
+    With<DeferredPrepass>,
+)>;
+
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "mesh_preprocess.wgsl");
@@ -436,7 +444,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
                             Without<NoIndirectDrawing>,
-                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                            Or<(WithAnyPrepass, With<ShadowView>)>,
                         )>),
                     )
                         .chain()
@@ -447,7 +455,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
                             Without<NoIndirectDrawing>,
-                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                            Or<(WithAnyPrepass, With<ShadowView>)>,
                             With<OcclusionCulling>,
                         )>),
                     )

@@ -1,4 +1,7 @@
-use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ResolvedAxis,
+    VisualBox,
+};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -6,7 +9,7 @@ use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
-use taffy::MaybeMath;
+use taffy::{MaybeMath, ResolveOrZero};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect, FromTemplate)]
@@ -37,6 +40,8 @@ pub struct ImageNode {
     pub rect: Option<Rect>,
     /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
     pub image_mode: NodeImageMode,
+    /// Which region of the UI node the image should be drawn within.
+    pub visual_box: VisualBox,
 }
 
 impl Default for ImageNode {
@@ -59,6 +64,7 @@ impl Default for ImageNode {
             flip_y: false,
             rect: None,
             image_mode: NodeImageMode::Auto,
+            visual_box: VisualBox::ContentBox,
         }
     }
 }
@@ -85,6 +91,7 @@ impl ImageNode {
             texture_atlas: None,
             rect: None,
             image_mode: NodeImageMode::Auto,
+            visual_box: VisualBox::ContentBox,
         }
     }
 
@@ -204,12 +211,79 @@ impl ImageNodeSize {
 pub struct ImageMeasure {
     /// The size of the image's texture
     pub size: Vec2,
+    /// The region of the UI node containing the image
+    pub visual_box: VisualBox,
 }
 
 impl Measure for ImageMeasure {
     fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
-        let width = measure_args.resolve_width();
-        let height = measure_args.resolve_height();
+        let mut width = measure_args.resolve_width();
+        let mut height = measure_args.resolve_height();
+
+        let calc = |_, _| 0.;
+        let padding = measure_args.style.padding.resolve_or_zero(
+            taffy::Size {
+                width: width.effective,
+                height: height.effective,
+            },
+            calc,
+        );
+        let border = measure_args.style.border.resolve_or_zero(
+            taffy::Size {
+                width: width.effective,
+                height: height.effective,
+            },
+            calc,
+        );
+        let content_inset = Vec2::new(
+            padding.left + padding.right + border.left + border.right,
+            padding.top + padding.bottom + border.top + border.bottom,
+        );
+
+        if measure_args.style.box_sizing == taffy::style::BoxSizing::BorderBox {
+            if measure_args.known_width.is_none() {
+                width.min = width.min.map(|min| (min - content_inset.x).max(0.));
+                width.preferred = width
+                    .preferred
+                    .map(|preferred| (preferred - content_inset.x).max(0.));
+                width.max = width.max.map(|max| (max - content_inset.x).max(0.));
+                width.effective = width
+                    .effective
+                    .map(|effective| (effective - content_inset.x).max(0.));
+            }
+
+            if measure_args.known_height.is_none() {
+                height.min = height.min.map(|min| (min - content_inset.y).max(0.));
+                height.preferred = height
+                    .preferred
+                    .map(|preferred| (preferred - content_inset.y).max(0.));
+                height.max = height.max.map(|max| (max - content_inset.y).max(0.));
+                height.effective = height
+                    .effective
+                    .map(|effective| (effective - content_inset.y).max(0.));
+            }
+        }
+
+        let inset = match self.visual_box {
+            VisualBox::ContentBox => Vec2::ZERO,
+            VisualBox::PaddingBox => {
+                Vec2::new(padding.left + padding.right, padding.top + padding.bottom)
+            }
+            VisualBox::BorderBox => Vec2::new(content_inset.x, content_inset.y),
+        };
+
+        let width = ResolvedAxis {
+            min: width.min.map(|min| min + inset.x),
+            preferred: width.preferred.map(|preferred| preferred + inset.x),
+            max: width.max.map(|max| max + inset.x),
+            effective: width.effective.map(|effective| effective + inset.x),
+        };
+        let height = ResolvedAxis {
+            min: height.min.map(|min| min + inset.y),
+            preferred: height.preferred.map(|preferred| preferred + inset.y),
+            max: height.max.map(|max| max + inset.y),
+            effective: height.effective.map(|effective| effective + inset.y),
+        };
 
         // Use aspect_ratio from style, fall back to inherent aspect ratio
         let aspect_ratio = measure_args
@@ -225,17 +299,17 @@ impl Measure for ImageMeasure {
         }
         .maybe_apply_aspect_ratio(Some(aspect_ratio));
 
-        // Use computed sizes or fall back to image's inherent size
-        Vec2 {
-            x: taffy_size
+        (Vec2::new(
+            taffy_size
                 .width
                 .unwrap_or(self.size.x)
                 .maybe_clamp(width.min, width.max),
-            y: taffy_size
+            taffy_size
                 .height
                 .unwrap_or(self.size.y)
                 .maybe_clamp(height.min, height.max),
-        }
+        ) - inset)
+            .max(Vec2::ZERO)
     }
 }
 
@@ -276,11 +350,16 @@ pub fn update_image_content_size_system(
                 })
         {
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || computed_target.is_changed() || content_size.is_added() {
+            if size != image_size.size
+                || computed_target.is_changed()
+                || content_size.is_added()
+                || image.is_changed()
+            {
                 image_size.size = size;
                 content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
                     size: size.as_vec2() * computed_target.scale_factor(),
+                    visual_box: image.visual_box,
                 }));
             }
         }
