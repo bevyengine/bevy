@@ -13,7 +13,7 @@ and the engine carried a significant amount of duplicated internal machinery to 
 In Bevy 0.19, resources are now stored as components on singleton entities,
 unifying our internals.
 
-As of 0.19, you can now:
+You can now:
 
 - simplify networking and dev-tools code by assuming that entities + components are the only form of data you need to worry about
 - query over both resources and components to support flexible usage patterns
