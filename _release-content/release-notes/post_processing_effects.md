@@ -17,7 +17,15 @@ To use it, add the `Vignette` component to your camera:
 ```rust
 commands.spawn((
     Camera3d::default(),
-    Vignette::default(),
+    Vignette {
+        intensity: 1.0,
+        radius: 0.75,
+        smoothness: 5.0,
+        roundness: 1.0,
+        center: Vec2::new(0.5, 0.5),
+        edge_compensation: 1.0,
+        color: Color::BLACK,
+    },
 ));
 ```
 
@@ -32,7 +40,13 @@ To use it, add the `LensDistortion` component to your camera:
 ```rust
 commands.spawn((
     Camera3d::default(),
-    LensDistortion::default(),
+    LensDistortion {
+        intensity: 0.5,
+        scale: 1.0,
+        multiplier: Vec2::ONE,
+        center: Vec2::splat(0.5),
+        edge_curvature: 0.0,
+    },
 ));
 ```
 
