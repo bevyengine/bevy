@@ -156,44 +156,6 @@ impl Saturation for Okhsva {
     }
 }
 
-impl From<Okhsva> for Hwba {
-    fn from(
-        Okhsva {
-            hue,
-            saturation,
-            value,
-            alpha,
-        }: Okhsva,
-    ) -> Self {
-        // Based on https://en.wikipedia.org/wiki/HWB_color_model#Conversion
-        let whiteness = (1. - saturation) * value;
-        let blackness = 1. - value;
-
-        Hwba::new(hue, whiteness, blackness, alpha)
-    }
-}
-
-impl From<Hwba> for Okhsva {
-    fn from(
-        Hwba {
-            hue,
-            whiteness,
-            blackness,
-            alpha,
-        }: Hwba,
-    ) -> Self {
-        // Based on https://en.wikipedia.org/wiki/HWB_color_model#Conversion
-        let value = 1. - blackness;
-        let saturation = if value != 0. {
-            1. - (whiteness / value)
-        } else {
-            0.
-        };
-
-        Okhsva::new(hue, saturation, value, alpha)
-    }
-}
-
 impl ColorToComponents for Okhsva {
     fn to_f32_array(self) -> [f32; 4] {
         [self.hue, self.saturation, self.value, self.alpha]
@@ -281,6 +243,18 @@ impl From<Srgba> for Okhsva {
 }
 
 impl From<Okhsva> for Srgba {
+    fn from(value: Okhsva) -> Self {
+        Oklaba::from(value).into()
+    }
+}
+
+impl From<Hwba> for Okhsva {
+    fn from(value: Hwba) -> Self {
+        Oklaba::from(value).into()
+    }
+}
+
+impl From<Okhsva> for Hwba {
     fn from(value: Okhsva) -> Self {
         Oklaba::from(value).into()
     }
