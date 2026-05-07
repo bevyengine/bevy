@@ -1425,12 +1425,17 @@ impl Image {
     ///
     /// # Errors
     /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
-    /// or is not evenly dividable by size_in_tiles.
-    pub fn reinterpret_grid_2d_as_array(
+    /// or is not evenly dividable by `size_in_tiles`.
+    pub fn convert_grid_2d_to_array(
         &mut self,
         rows: u32,
         columns: u32,
     ) -> Result<(), TextureReinterpretationError> {
+        // If we have only set one column, we don't need to rearange any pixel data,
+        // Its already in a format to be used by the gpu
+        if columns == 1 {
+            return self.reinterpret_stacked_2d_as_array(rows);
+        }
         // Must be a grid image, and the image height and width must be divisible by the rows and columns.
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureReinterpretationError::WrongDimension);
@@ -1453,11 +1458,6 @@ impl Image {
                     tile_count_x: columns,
                 },
             );
-        }
-        // Must have at least two tiles. Otherwise, interpreting an image as a grid
-        // creates unnesasaary overhead and can cause errors in the transformation function.
-        if rows * columns < 2 {
-            return Err(TextureReinterpretationError::InvalidTileCount);
         }
 
         let tile_width = self.width() / columns;
@@ -2192,9 +2192,6 @@ pub enum TextureReinterpretationError {
     /// The texture format is not supported.
     #[error("Cannot process texture in its current format. Is it compressed?")]
     InvalidTextureFormat,
-    /// Tilesets should contains at least two tiles.
-    #[error("Tilesets need to contain at least two tiles.")]
-    InvalidTileCount,
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
@@ -2682,6 +2679,48 @@ mod test {
             image.get_color_at_3d(0, 0, 1),
             Ok(Color::LinearRgba(GROW_FILL))
         ));
+    }
+
+    #[test]
+    fn convert_2d_grid_to_array() {
+        // 2x2 pixel image
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        image.convert_grid_2d_to_array(2, 2).unwrap();
+
+        // 2x2 pixel image with 1px tiles should convert to a 2d array of 4 layers
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 2 * 2);
+
+        // 9x2 pixel image with 3x2px tiles should convert to array of 3 layers
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 9,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        image.convert_grid_2d_to_array(1, 3).unwrap();
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 3);
     }
 
     #[test]

@@ -245,18 +245,18 @@ impl AssetLoader for ImageLoader {
         if let Some(array_layout) = settings.array_layout {
             match array_layout {
                 ImageArrayLayout::RowCount { rows } => {
-                    image.reinterpret_stacked_2d_as_array(rows)?
+                    image.reinterpret_stacked_2d_as_array(rows)?;
                 }
                 ImageArrayLayout::RowHeight { pixels } => {
-                    image.reinterpret_stacked_2d_as_array(image.height() / pixels)?
+                    image.reinterpret_stacked_2d_as_array(image.height() / pixels)?;
                 }
                 ImageArrayLayout::GridCount { columns, rows } => {
-                    image.reinterpret_grid_2d_as_array(rows, columns)?
+                    image.convert_grid_2d_to_array(rows, columns)?;
                 }
                 ImageArrayLayout::GridSize {
                     tile_width_pixels,
                     tile_height_pixels,
-                } => image.reinterpret_grid_2d_as_array(
+                } => image.convert_grid_2d_to_array(
                     image.height() / tile_height_pixels,
                     image.width() / tile_width_pixels,
                 )?,
