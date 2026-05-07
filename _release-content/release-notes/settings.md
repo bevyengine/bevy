@@ -52,15 +52,14 @@ To save after a change, queue a `SavePreferencesDeferred` command with a short d
 so rapid changes don't hammer the filesystem:
 
 ```rust
-fn on_volume_changed(
-    mut settings: ResMut<AudioSettings>,
+fn save_settings_on_volume_changed(
+    settings: Res<AudioSettings>,
     mut commands: Commands,
 ) {
-	if !settings.is_changed(){
-		return;
-	}
+    if !settings.is_changed(){
+        return;
+    }
 
-    settings.music_volume = 0.8;
     commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.5)));
 }
 ```
