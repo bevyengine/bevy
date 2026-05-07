@@ -145,6 +145,7 @@ See the implementation of `WorldQuery` for `AssetChanged` for an example of how 
 ## Immutable Resources
 
 Since resources may now be immutable, the following now carry a `Mutability = Mutable` bound:
+
 - `World::resource_mut`, `World::get_resource_mut`
 - `UnsafeWorldCell::get_resource_mut`
 - `EntityWorldMut::resource_mut`, `EntityWorldMut::get_resource_mut`
