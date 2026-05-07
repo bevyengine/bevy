@@ -1086,6 +1086,12 @@ pub fn prepare_view_uniforms(
             view_flags |= ViewFlags::USABLE_PRIMARY_WORLD_POSITION;
             primary_extracted_view.world_from_view.translation()
         } else {
+            // Point and Spot light shadows do not have a usable primary world position,
+            // because they are not associated with a camera.
+            // This means that they don't engage in visibility range culling.
+            // This is a problem if the original mesh also has the `NoCpuCulling` component,
+            // as this means that the shadow will never be culled via visibility range!
+            // TODO: How do we better handle this case?
             if extracted_camera.is_some() {
                 view_flags |= ViewFlags::USABLE_PRIMARY_WORLD_POSITION;
             }
