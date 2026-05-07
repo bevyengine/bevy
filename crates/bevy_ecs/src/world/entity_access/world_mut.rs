@@ -16,7 +16,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
-    template::{EntityScopes, ScopedEntities, Template, TemplateContext},
+    template::{Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -1600,9 +1600,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         func: impl FnOnce(&mut TemplateContext) -> crate::error::Result<T>,
     ) -> crate::error::Result<T> {
-        let mut scoped_entities = ScopedEntities::new(0);
-        let entity_scopes = EntityScopes::default();
-        let mut context = TemplateContext::new(self, &mut scoped_entities, &entity_scopes);
+        let mut context = TemplateContext::new(self);
         func(&mut context)
     }
 

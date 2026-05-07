@@ -6,7 +6,7 @@ use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{parse::Parse, Ident, Index, Lit, Member, Path};
+use syn::{parse::Parse, ExprTuple, Ident, Index, Lit, Member, Path};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -58,6 +58,7 @@ impl HoistedExpressions {
 pub(crate) struct BsnCodegenCtx<'a> {
     pub bevy_scene: &'a Path,
     pub bevy_ecs: &'a Path,
+    pub invocation_index: ExprTuple,
     pub entity_refs: &'a mut EntityRefs,
     pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
@@ -301,8 +302,9 @@ impl BsnEntry {
             }),
             BsnEntry::Name(ident) => {
                 let (name, index) = (ident.to_string(), ctx.entity_refs.get(ident.to_string()));
+                let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), index: #index }.resolve_inline(_context, _scene);
+                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), index: #bevy_ecs::template::SceneEntityIndex::new(#invocation, #index) }.resolve_inline(_context, _scene);
                 })
             }
             BsnEntry::NameExpression(expr) => EntryResult::CombinedSceneFunction(quote! {
@@ -533,12 +535,9 @@ impl BsnType {
             Some(BsnValue::Name(ident)) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
+                let invocation = ctx.invocation_index.clone();
                 assignments.push(quote! {
-                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::ScopedEntityIndex(
-                        #bevy_ecs::template::ScopedEntityIndex {
-                            scope: _context.current_entity_scope(), index: #index
-                        }
-                    );
+                    #(#base_path.)*#member =  #bevy_ecs::template::EntityTemplate::GlobalEntityIndex(#bevy_ecs::template::SceneEntityIndex::new(#invocation, #index));
                 });
             }
             Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
@@ -671,6 +670,7 @@ impl ToTokens for BsnValue {
 mod tests {
     use super::*;
     use crate::bsn::types::*;
+    use proc_macro::Span;
     use syn::parse_quote;
 
     struct TestPaths {
@@ -695,6 +695,7 @@ mod tests {
                 bevy_scene: &self.bevy_scene,
                 bevy_ecs: &self.bevy_ecs,
                 entity_refs: refs,
+                invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
                 errors: Vec::new(),
             }

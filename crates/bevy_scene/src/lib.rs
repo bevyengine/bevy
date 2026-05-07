@@ -824,7 +824,7 @@ pub use spawn_system::*;
 
 use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, template::SceneGlobalEntityIds};
 
 /// Adds support for spawning Bevy Scenes. See [`Scene`], [`SceneList`], [`ScenePatch`], and the [`bsn!`] macro for more information.
 #[derive(Default)]
@@ -834,6 +834,7 @@ impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedScenes>()
             .init_resource::<WaitingScenes>()
+            .init_resource::<SceneGlobalEntityIds>()
             .init_asset::<ScenePatch>()
             .init_asset::<SceneListPatch>()
             .add_systems(

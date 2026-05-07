@@ -1,14 +1,19 @@
 //! Functionality that relates to the [`Template`] trait.
 
+use core::{hash::Hash, ops::Deref};
+
 pub use bevy_ecs_macros::FromTemplate;
+use bevy_platform::hash::Hashed;
+use bevy_utils::PreHashMap;
+use indexmap::Equivalent;
 
 use crate::{
     entity::Entity,
     error::{BevyError, Result},
     resource::Resource,
-    world::{EntityWorldMut, Mut, World},
+    world::{EntityWorldMut, Mut},
 };
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use variadics_please::all_tuples;
 
 /// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`], etc), can produce a [`Template::Output`].
@@ -40,36 +45,12 @@ pub trait Template {
 pub struct TemplateContext<'a, 'w> {
     /// The current entity the template is being applied to
     pub entity: &'a mut EntityWorldMut<'w>,
-    /// The scoped entities mapping for the current template context
-    pub scoped_entities: &'a mut ScopedEntities,
-    /// The entity scopes for the current template context. This matches
-    /// the `scoped_entities`.
-    pub entity_scopes: &'a EntityScopes,
 }
 
 impl<'a, 'w> TemplateContext<'a, 'w> {
     /// Creates a new [`TemplateContext`].
-    pub fn new(
-        entity: &'a mut EntityWorldMut<'w>,
-        scoped_entities: &'a mut ScopedEntities,
-        entity_scopes: &'a EntityScopes,
-    ) -> Self {
-        Self {
-            entity,
-            scoped_entities,
-            entity_scopes,
-        }
-    }
-
-    /// Retrieves the scoped entity if it has already been spawned, and spawns a new entity if it has not
-    /// yet been spawned.
-    pub fn get_scoped_entity(&mut self, scoped_entity_index: ScopedEntityIndex) -> Entity {
-        self.scoped_entities.get(
-            // SAFETY: this only uses the world to spawn an empty entity
-            unsafe { self.entity.world_mut() },
-            self.entity_scopes,
-            scoped_entity_index,
-        )
+    pub fn new(entity: &'a mut EntityWorldMut<'w>) -> Self {
+        Self { entity }
     }
 
     /// Retrieves a reference to the given resource `R`.
@@ -84,97 +65,121 @@ impl<'a, 'w> TemplateContext<'a, 'w> {
         self.entity.resource_mut()
     }
 }
+mod sealed_world_mut {
+    use crate::world::{EntityWorldMut, World};
 
-/// A mapping from from an entity reference's (scope, index) to a contiguous flat index that uniquely
-/// identifies the entity within a scene.
-#[derive(Default, Debug)]
-pub struct EntityScopes {
-    scopes: Vec<Vec<Option<usize>>>,
-    next_index: usize,
-}
-
-impl EntityScopes {
-    /// The number of entities defined across all scopes.
-    #[inline]
-    pub fn entity_len(&self) -> usize {
-        self.next_index
+    // private trait to hide and disallow _get_world_mut
+    #[doc(hidden)]
+    pub trait SealedWorldMut {
+        #[doc(hidden)]
+        unsafe fn _get_world_mut(&mut self) -> &mut World;
     }
-
-    /// Allocate a new contiguous entity index for the given (scope, index) pair.
-    pub fn alloc(&mut self, scoped_entity_index: ScopedEntityIndex) {
-        *self.get_mut(scoped_entity_index) = Some(self.next_index);
-        self.next_index += 1;
-    }
-
-    /// Assign an existing contiguous entity index for the given (scope, index) pair.
-    /// This is generally used when there are multiple (scope, index) pairs that point
-    /// to the same entity (ex: scene inheritance).
-    pub fn assign(&mut self, scoped_entity_index: ScopedEntityIndex, value: usize) {
-        let option = self.get_mut(scoped_entity_index);
-        *option = Some(value);
-    }
-
-    #[expect(unsafe_code, reason = "Easily verifiable performance optimization")]
-    fn get_mut(&mut self, scoped_entity_index: ScopedEntityIndex) -> &mut Option<usize> {
-        // NOTE: this is ok because PatchContext::new_scope adds scopes as they are created.
-        // this shouldn't panic unless internals are broken.
-        let indices = &mut self.scopes[scoped_entity_index.scope];
-        if scoped_entity_index.index >= indices.len() {
-            indices.resize_with(scoped_entity_index.index + 1, || None);
+    impl<'a> SealedWorldMut for &'a mut World {
+        unsafe fn _get_world_mut(&mut self) -> &mut World {
+            self
         }
-        // SAFETY: just allocated above
-        unsafe { indices.get_unchecked_mut(scoped_entity_index.index) }
     }
-
-    /// Gets the assigned contiguous entity index for the given (scope, index) pair
-    pub fn get(&self, scoped_entity_index: ScopedEntityIndex) -> Option<usize> {
-        *self
-            .scopes
-            .get(scoped_entity_index.scope)?
-            .get(scoped_entity_index.index)?
-    }
-
-    /// Creates a new scope and returns it.
-    pub fn add_scope(&mut self) -> usize {
-        let scope_index = self.scopes.len();
-        self.scopes.push(Vec::default());
-        scope_index
+    impl<'a> SealedWorldMut for &'a mut EntityWorldMut<'_> {
+        unsafe fn _get_world_mut(&mut self) -> &mut World {
+            // SAFETY: is in unsafe
+            unsafe { self.world_mut() }
+        }
     }
 }
-
-/// A contiguous list of entities identified by their index in the list.
-#[derive(Debug)]
-pub struct ScopedEntities(Vec<Option<Entity>>);
-
-impl ScopedEntities {
-    /// Creates a new [`ScopedEntities`] with the given `size`, initialized to [`None`] (no [`Entity`] assigned).
-    pub fn new(size: usize) -> Self {
-        Self(vec![None; size])
-    }
-}
-
-impl ScopedEntities {
-    /// Gets the [`Entity`] assigned to the given (scope, index) pair, if it exists, and spawns a new entity if
-    /// it does not.
-    pub fn get(
+/// Trait to access [`SceneGlobalEntityIds`] from World/EntityWorldMut
+pub trait SceneEntityWorldMutExt: sealed_world_mut::SealedWorldMut {
+    /// Get the [`Entity`] associated with this [`SceneEntityIndex`]
+    /// If the index is unknown, spawn a new empty [`Entity`] and store it
+    fn get_global_entity(
         &mut self,
-        world: &mut World,
-        entity_scopes: &EntityScopes,
-        scoped_entity_index: ScopedEntityIndex,
+        key: impl Deref<Target = Hashed<InnerSceneEntityIndex>>,
     ) -> Entity {
-        let index = entity_scopes.get(scoped_entity_index).unwrap();
-        *self.0[index].get_or_insert_with(|| world.spawn_empty().id())
+        let key: &Hashed<InnerSceneEntityIndex> = &key;
+        // SAFETY: this function takes &mut self which ensures only we have access
+        let entry = unsafe { self._get_world_mut() }
+            .resource::<SceneGlobalEntityIds>()
+            .0
+            .raw_entry()
+            .from_key_hashed_nocheck(key.hash(), key);
+        match entry {
+            Some((_, &entity)) => entity,
+            None => {
+                // SAFETY: Only used to construct a new entity,
+                // and entry is ignored after this point
+                let new_entity = unsafe { self._get_world_mut() }.spawn_empty().id();
+                self.set_global_entity(key, new_entity);
+                new_entity
+            }
+        }
     }
 
-    /// Assigns the given `entity` to the (scope, index) pair.
-    pub fn set(
+    /// Set the [`Entity`] associated with a [`SceneEntityIndex`]
+    ///
+    /// Will panic if the [`SceneEntityIndex`] is already associated with an [`Entity`]
+    fn set_global_entity(
         &mut self,
-        entity_scopes: &EntityScopes,
-        scoped_entity_index: ScopedEntityIndex,
+        key: impl Deref<Target = Hashed<InnerSceneEntityIndex>>,
         entity: Entity,
     ) {
-        let index = entity_scopes.get(scoped_entity_index).unwrap();
-        self.0[index] = Some(entity);
+        use bevy_platform::collections::hash_map::RawEntryMut;
+        let key: &Hashed<InnerSceneEntityIndex> = &key;
+        // SAFETY: this function takes &mut self which ensures only we have access
+        match unsafe { self._get_world_mut() }
+            .resource_mut::<SceneGlobalEntityIds>()
+            .0
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(key.hash(), key)
+        {
+            RawEntryMut::Occupied(_) => {}
+            RawEntryMut::Vacant(view) => {
+                view.insert_hashed_nocheck(key.hash(), *key, entity);
+            }
+        };
+    }
+}
+impl<T> SceneEntityWorldMutExt for T where T: sealed_world_mut::SealedWorldMut {}
+
+/// A resource used to map
+#[derive(Resource, Default, Debug)]
+pub struct SceneGlobalEntityIds(PreHashMap<InnerSceneEntityIndex, Entity>);
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct SceneEntityIndex(Hashed<InnerSceneEntityIndex>);
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct InnerSceneEntityIndex {
+    file: &'static str,
+    line: usize,
+    column: usize,
+    local: usize,
+}
+impl SceneEntityIndex {
+    pub fn new((file, line, column): (&'static str, usize, usize), local: usize) -> Self {
+        Self(Hashed::new(InnerSceneEntityIndex {
+            file,
+            line,
+            column,
+            local,
+        }))
+    }
+}
+impl core::fmt::Display for SceneEntityIndex {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!(
+            "global={}:{}:{} local={}",
+            self.file, self.line, self.column, self.local
+        ))
+    }
+}
+impl Deref for SceneEntityIndex {
+    type Target = Hashed<InnerSceneEntityIndex>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Equivalent<Hashed<InnerSceneEntityIndex>> for SceneEntityIndex {
+    fn equivalent(&self, key: &Hashed<InnerSceneEntityIndex>) -> bool {
+        &self.0 == key
     }
 }
 
@@ -406,25 +411,11 @@ pub trait SpecializeFromTemplate: Sized {}
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
     Entity(Entity),
-    /// A reference to an entity via a [`ScopedEntityIndex`]
-    ScopedEntityIndex(ScopedEntityIndex),
+    /// A reference to an entity via a global unique reference
+    GlobalEntityIndex(SceneEntityIndex),
     /// An entity has not been specified. Building a template with this variant will result in an error.
     #[default]
     None,
-}
-
-/// An entity index within the current [`TemplateContext`], which is defined by a scope
-/// and an index. This references a specific (and sometimes yet-to-be-spawned) entity defined
-/// within a given scope.
-///
-/// In most cases this is initialized by the scene system and should not be initialized manually.
-/// Scopes must be defined ahead of time on the [`TemplateContext`].
-#[derive(Copy, Clone, Debug)]
-pub struct ScopedEntityIndex {
-    /// The scope of the entity index. This must be defined ahead of time.
-    pub scope: usize,
-    /// The index that uniquely identifies the entity within the current scope.
-    pub index: usize,
 }
 
 impl From<Entity> for EntityTemplate {
@@ -439,8 +430,8 @@ impl Template for EntityTemplate {
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
         Ok(match self {
             Self::Entity(entity) => *entity,
-            Self::ScopedEntityIndex(scoped_entity_index) => {
-                context.get_scoped_entity(*scoped_entity_index)
+            Self::GlobalEntityIndex(global_entity_index) => {
+                context.entity.get_global_entity(*global_entity_index)
             }
             Self::None => {
                 return Err(BevyError::error(
@@ -453,8 +444,8 @@ impl Template for EntityTemplate {
     fn clone_template(&self) -> Self {
         match self {
             Self::Entity(entity) => Self::Entity(*entity),
-            Self::ScopedEntityIndex(scoped_entity_index) => {
-                Self::ScopedEntityIndex(*scoped_entity_index)
+            Self::GlobalEntityIndex(global_entity_index) => {
+                Self::GlobalEntityIndex(*global_entity_index)
             }
             Self::None => Self::None,
         }
