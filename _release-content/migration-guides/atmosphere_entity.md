@@ -3,10 +3,10 @@ title: "`Atmosphere` is now an entity"
 pull_requests: [23651]
 ---
 
-Previously, the `Atmosphere` component was added on the camera. Instead,
-spawn an `Atmosphere` as an entity. The nearest atmosphere will be chosen for rendering.
+Previously, the `Atmosphere` component was added to the camera. In 0.19,
+the `Atmosphere` is spawned as an entity. The nearest atmosphere will be chosen for rendering.
 
-`AtmosphereSettings` still belongs on the camera. It is the component that enables atmosphere rendering for that view.
+`AtmosphereSettings` still belongs to the camera. This is the component that enables atmosphere rendering for that view.
 
 The `scene_units_to_m` field has been removed from `AtmosphereSettings`. Use `Transform` on the `Atmosphere` entity for scale. It is inversely proportional to the old `scene_units_to_m` factor. For example, to treat one unit as 1 km (as with `scene_units_to_m: 1000.0`), set scale to `0.001`.
 
@@ -45,4 +45,4 @@ commands.spawn(Atmosphere::earth(earth_medium));
 
 The `bottom_radius` and `top_radius` fields on the `Atmosphere` component have been renamed to `inner_radius` and `outer_radius` respectively to reflect their new meaning.
 
-See the updated atmosphere example and documentation for details.
+See the [updated atmosphere example](https://bevy.org/examples/3d-rendering/atmosphere/) and documentation for details.

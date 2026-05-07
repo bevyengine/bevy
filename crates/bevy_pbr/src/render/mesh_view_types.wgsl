@@ -160,7 +160,7 @@ struct LightProbe {
 };
 
 struct LightProbes {
-    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    // This must match `MAX_VIEW_LIGHT_PROBES` on the Rust side.
     reflection_probes: array<LightProbe, 8u>,
     irradiance_volumes: array<LightProbe, 8u>,
     reflection_probe_count: i32,
@@ -171,6 +171,7 @@ struct LightProbes {
     // The smallest valid mipmap level for the specular environment cubemap
     // associated with the view.
     smallest_specular_mip_level_for_view: u32,
+    view_rotation: vec4<f32>,
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
     // Whether the environment map attached to the view affects the diffuse

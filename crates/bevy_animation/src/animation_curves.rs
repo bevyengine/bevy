@@ -84,7 +84,7 @@
 //! [`animated_field`]: crate::animated_field
 
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
 };
@@ -389,6 +389,11 @@ where
             });
         Ok(())
     }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.curve.sample_clamped(t);
+        Box::new(value)
+    }
 }
 
 impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
@@ -600,11 +605,14 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
+
+    /// Samples the curve at the given time `t` and returns a Boxed value.
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any>;
 }
 
 /// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`AnimatableProperty`].
 /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum EvaluatorId<'a> {
     /// Corresponds to a specific field on a specific component type.
     /// The `TypeId` should correspond to the component type, and the `usize`
@@ -794,6 +802,9 @@ macro_rules! animated_field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::VariableCurve;
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
 
     #[test]
     fn test_animated_field_tuple_struct_simple_uses() {
@@ -806,5 +817,29 @@ mod tests {
         let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
         let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
         let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
+
+    #[test]
+    fn test_sample_animation_curve() {
+        let variable_curve = VariableCurve::new(AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 1.)),
+                (1.0, Vec3::new(1., 0., 0.)),
+            ])
+            .expect("Failed to create power level curve"),
+        ));
+        let value = variable_curve
+            .0
+            .sample_clamped(0.)
+            .downcast::<Vec3>()
+            .unwrap();
+        assert_eq!(*value, Vec3::new(0., 0., 1.));
+        let value = variable_curve
+            .0
+            .sample_clamped(1.)
+            .downcast::<Vec3>()
+            .unwrap();
+        assert_eq!(*value, Vec3::new(1., 0., 0.));
     }
 }

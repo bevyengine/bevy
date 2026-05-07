@@ -7,20 +7,20 @@ In an effort to improve performance by reducing redundant data fetches and simpl
 system parameter validation is now done as part of fetching the data for those system parameters.
 To be more precise:
 
-- `SystemParam::get_param` now returns a `Result<Self::Item<'world, 'state>, SystemParamValidationError>`, instead of simply a `Self::Item<'world, 'state>`
-  - If validation fails, an appropriate `SystemParamValidationError` should be returned
-  - If validation passes, the item should be returned wrapped in `Ok`
-- `SystemParam::validate_param` has been removed
-  - All logic that was done in this method should be moved to the `get_param` method of that type
-- `SystemState::validate_param` has been removed
-  - Validation now happens automatically when calling `get`, `get_mut`, or `get_unchecked`
+- `SystemParam::get_param` now returns a `Result<Self::Item<'world, 'state>, SystemParamValidationError>`, instead of simply a `Self::Item<'world, 'state>`.
+  - If validation fails, an appropriate `SystemParamValidationError` should be returned.
+  - If validation passes, the item should be returned wrapped in `Ok`.
+- `SystemParam::validate_param` has been removed.
+  - All logic that was done in this method should be moved to the `get_param` method of that type.
+- `SystemState::validate_param` has been removed.
+  - Validation now happens automatically when calling `get`, `get_mut`, or `get_unchecked`.
 - `SystemState::fetch`, `get_unchecked`, `get` and `get_mut` now return a `Result<..., SystemParamValidationError>`. Callers that previously destructured the result directly will need to add `.unwrap()` or handle the `Result`:
 
 ```rust
-// Before
+// 0.18
 let (res, query) = system_state.get(&world);
 
-// After
+// 0.19
 let (res, query) = system_state.get(&world).unwrap();
 ```
 
@@ -39,7 +39,7 @@ If you have a custom `SystemParam` implementation, you need to:
 3. Change `get_param` to return `Result<Self::Item<'world, 'state>, SystemParamValidationError>`.
 
 ```rust
-// Before
+// 0.18
 unsafe impl SystemParam for MyParam<'_> {
     // ...
     unsafe fn validate_param(
@@ -65,7 +65,7 @@ unsafe impl SystemParam for MyParam<'_> {
     }
 }
 
-// After
+// 0.19
 unsafe impl SystemParam for MyParam<'_> {
     // ...
     unsafe fn get_param<'w, 's>(
@@ -90,7 +90,7 @@ Similarly, `ExclusiveSystemParam::get_param` now returns a `Result<Self::Item<'s
 Existing implementations should wrap their return value in `Ok(...)` and return an appropriate `SystemParamValidationError` if validation fails.
 
 ```rust
-// Before
+// 0.18
 impl ExclusiveSystemParam for MyExclusiveParam {
     // ...
     fn get_param<'s>(
@@ -101,7 +101,7 @@ impl ExclusiveSystemParam for MyExclusiveParam {
     }
 }
 
-// After
+// 0.19
 impl ExclusiveSystemParam for MyExclusiveParam {
     // ...
     fn get_param<'s>(
