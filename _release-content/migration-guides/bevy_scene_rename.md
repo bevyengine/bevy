@@ -3,7 +3,7 @@ title: "The old `bevy_scene` is now `bevy_world_serialization"
 pull_requests: [23619, 23630]
 ---
 
-In **Bevy 0.19** we landed a subset of Bevy's Next Generation Scene system (often known as BSN), which now lives in the `bevy_scene` / `bevy::scene` crate. However the old `bevy_scene` system still needs to stick around for a bit longer, as it provides some features that Bevy's Next Generation Scene system doesn't (yet!):
+In **Bevy 0.19** we landed a subset of Bevy's Next Generation Scene system (known as BSN), which now lives in the `bevy_scene` / `bevy::scene` crate. However the old `bevy_scene` system still needs to stick around for a bit longer, as it provides some features that Bevy's Next Generation Scene system doesn't (yet!):
 
 1. It is not _yet_ possible to write a World _to_ BSN, so the old system is still necessary for "round trip World serialization".
 2. The GLTF scene loader has not yet been ported to BSN, so the old system is still necessary to spawn GLTF scenes in Bevy.
@@ -15,7 +15,7 @@ Additionally, to avoid confusion / conflicts with the new scene system, all "sce
 - `Scene` -> `WorldAsset` (as this was always just a World wrapper)
 - `SceneRoot` -> `WorldAssetRoot`
 - `DynamicScene` -> `DynamicWorld`
-  - `DynamicScene::from_scene` -> `DynamicWorld::from_world_asset`
+- `DynamicScene::from_scene` -> `DynamicWorld::from_world_asset`
 - `DynamicSceneBuilder` -> `DynamicWorldBuilder`
 - `DynamicSceneRoot` -> `DynamicWorldRoot`
 - `SceneInstanceReady` -> `WorldInstanceReady`
