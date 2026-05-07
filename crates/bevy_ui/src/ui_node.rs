@@ -273,9 +273,6 @@ impl ComputedNode {
         clip_rect.min += clip_inset.min_inset;
         clip_rect.max -= clip_inset.max_inset;
 
-        clip_rect =
-            clip_rect.inflate(overflow_clip_margin.margin.max(0.) / self.inverse_scale_factor);
-
         if overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
             clip_rect.max.x = f32::INFINITY;
