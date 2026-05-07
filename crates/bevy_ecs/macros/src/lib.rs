@@ -15,7 +15,7 @@ mod world_query;
 
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
 use bevy_ecs_macro_logic::{
-    component::{DeriveComponent, StorageTy},
+    component::{DeriveComponent, StorageAttribute, StorageTy},
     map_entities::map_entities,
 };
 use bevy_macro_utils::{
@@ -827,7 +827,7 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let derive_component = match DeriveComponent::parse(&ast) {
+    let derive_component = match DeriveComponent::parse(&ast, StorageAttribute::Allowed) {
         Ok(value) => value,
         Err(e) => return e.into_compile_error().into(),
     };

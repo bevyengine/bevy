@@ -15,6 +15,14 @@ use syn::{
 
 use crate::map_entities::{map_entities, MapEntitiesAttributeKind};
 
+/// Whether the derive macro may contain a `component(storage = "…")` attribute.
+pub enum StorageAttribute {
+    /// User can overwrite the storage type
+    Allowed,
+    /// User cannot overwrite the storage type
+    Disallowed,
+}
+
 /// Derived `Component` trait specification, which can be used to generate a component implementation.
 pub struct DeriveComponent {
     /// The storage type of the component.
@@ -47,7 +55,7 @@ pub struct DeriveComponent {
 
 impl DeriveComponent {
     /// Parse [`DeriveComponent`] from the given `ast`.
-    pub fn parse(ast: &DeriveInput) -> Result<DeriveComponent> {
+    pub fn parse(ast: &DeriveInput, storage_attr: StorageAttribute) -> Result<DeriveComponent> {
         let mut attrs = DeriveComponent {
             storage: None,
             on_add: None,
@@ -68,7 +76,9 @@ impl DeriveComponent {
         for attr in ast.attrs.iter() {
             if attr.path().is_ident(COMPONENT) {
                 attr.parse_nested_meta(|nested| {
-                    if nested.path.is_ident(STORAGE) {
+                    if let StorageAttribute::Allowed = storage_attr
+                        && nested.path.is_ident(STORAGE)
+                    {
                         attrs.storage = Some(match nested.value()?.parse::<LitStr>()?.value() {
                             s if s == TABLE => StorageTy::Table,
                             s if s == SPARSE_SET => StorageTy::SparseSet,

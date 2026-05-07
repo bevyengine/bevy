@@ -337,7 +337,7 @@ mod tests {
         static ON_ADD_CALLED: AtomicBool = AtomicBool::new(false);
 
         #[derive(Resource)]
-        #[component(immutable, on_add, storage = "Table")]
+        #[component(immutable, on_add)]
         struct TestResource;
         impl TestResource {
             fn on_add(_: DeferredWorld, _: HookContext) {
@@ -349,14 +349,6 @@ mod tests {
         world.insert_resource(TestResource);
 
         assert!(ON_ADD_CALLED.load(Relaxed));
-        assert!(
-            world
-                .components()
-                .get_descriptor(world.component_id::<TestResource>().unwrap())
-                .unwrap()
-                .storage_type()
-                == StorageType::Table
-        );
         assert!(world.get_resource::<TestResource>().is_some());
         assert!(world.get_resource_mut::<TestResource>().is_none());
     }

@@ -1,4 +1,4 @@
-use bevy_ecs_macro_logic::component::{DeriveComponent, StorageTy};
+use bevy_ecs_macro_logic::component::{DeriveComponent, StorageAttribute, StorageTy};
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -6,7 +6,7 @@ use syn::{DeriveInput, Path};
 
 pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
     let bevy_ecs: Path = crate::bevy_ecs_path();
-    let mut derive_component = match DeriveComponent::parse(ast) {
+    let mut derive_component = match DeriveComponent::parse(ast, StorageAttribute::Disallowed) {
         Ok(value) => value,
         Err(e) => return e.into_compile_error(),
     };
