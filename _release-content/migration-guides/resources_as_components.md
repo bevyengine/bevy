@@ -144,9 +144,16 @@ See the implementation of `WorldQuery` for `AssetChanged` for an example of how 
 
 ## Immutable Resources
 
-Since resources may now be immutable, all methods on `ResMut` that allow mutation as well as `ExtractResourcePlugin`
-now carry a `Mutability = Mutable` bound. If you're calling these in a generic context, you need to add this bound to
-your own type parameters:
+Since resources may now be immutable, the following now carry a `Mutability = Mutable` bound:
+- `World::resource_mut`, `World::get_resource_mut`
+- `UnsafeWorldCell::get_resource_mut`
+- `EntityWorldMut::resource_mut`, `EntityWorldMut::get_resource_mut`
+- `DeferredWorld::resource_mut`, `DeferredWorld::get_resource_mut`
+- `TemplateContext::resource_mut`
+- all methods on `ResMut` that allow mutation
+- as well as `ExtractResourcePlugin`
+
+If you're calling these in a generic context, you need to add this bound to your own type parameters:
 
 ```rust
 // 0.18
@@ -154,7 +161,8 @@ fn my_generic_system<R: Resource>(mut res: ResMut<R>) {
     let res = res.deref_mut();
     …
 }
-// 0.18
+
+// 0.19
 fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
     let res = res.deref_mut();
     …

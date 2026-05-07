@@ -349,6 +349,5 @@ mod tests {
 
         assert!(ON_ADD_CALLED.load(Relaxed));
         assert!(world.get_resource::<TestResource>().is_some());
-        assert!(world.get_resource_mut::<TestResource>().is_none());
     }
 }
