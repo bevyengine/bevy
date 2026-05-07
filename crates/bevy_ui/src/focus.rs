@@ -256,7 +256,7 @@ pub fn ui_focus_system(
                 node.node.contains_point(*node.transform, *point)
                     && node
                         .calculated_clip
-                        .map_or(true, |clip| clip.contains_point(*point))
+                        .is_none_or(|clip| clip.contains_point(*point))
             });
 
             // The mouse position relative to the node

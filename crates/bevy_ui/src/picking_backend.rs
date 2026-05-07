@@ -205,7 +205,7 @@ pub fn ui_picking(
                 if node.node.contains_point(*node.transform, *cursor_position)
                     && node
                         .calculated_clip
-                        .map_or(true, |clip| clip.contains_point(*cursor_position))
+                        .is_none_or(|clip| clip.contains_point(*cursor_position))
                     && let Some(target) = node
                         .text_node
                         .and_then(|(text_layout_info, text_block)| {
