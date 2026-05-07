@@ -49,4 +49,4 @@ bsn! {
 }
 ```
 
-In the future, the same BSN syntax used in the `bsn!` macro will eventually be portable to `.bsn` files, letting devs choose and rapidly swap between code-first and asset-driven workflows when defining UI.
+In the future, the same BSN syntax used in the `bsn!` macro will be portable to `.bsn` files, letting devs choose and rapidly swap between code-first and asset-driven workflows when defining UI.
