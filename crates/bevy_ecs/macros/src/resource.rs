@@ -10,7 +10,6 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
         Ok(value) => value,
         Err(e) => return e.into_compile_error(),
     };
-    derive_component.storage = StorageTy::SparseSet;
 
     let struct_name = &ast.ident;
     let (_, type_generics, _) = &ast.generics.split_for_impl();
@@ -25,7 +24,8 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
         required_components.register_required::<#bevy_ecs::resource::IsResource>(move || #bevy_ecs::resource::IsResource::new(resource_component_id));
     });
 
-    let component_impl = match derive_component.impl_component(ast, &bevy_ecs) {
+    let component_impl = match derive_component.impl_component(ast, &bevy_ecs, StorageTy::SparseSet)
+    {
         Ok(value) => value,
         Err(err) => return err.into_compile_error(),
     };

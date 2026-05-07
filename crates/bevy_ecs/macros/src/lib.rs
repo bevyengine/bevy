@@ -14,7 +14,10 @@ mod variant_defaults;
 mod world_query;
 
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
-use bevy_ecs_macro_logic::{component::DeriveComponent, map_entities::map_entities};
+use bevy_ecs_macro_logic::{
+    component::{DeriveComponent, StorageTy},
+    map_entities::map_entities,
+};
 use bevy_macro_utils::{
     derive_label, ensure_no_collision,
     fq_std::{FQDefault, FQIterator, FQOption, FQResult},
@@ -810,10 +813,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
     let bevy_ecs = bevy_ecs_path();
-    let impl_component = match derive_component.impl_component(&mut ast, &bevy_ecs) {
-        Ok(value) => value,
-        Err(err) => return err.into_compile_error().into(),
-    };
+    let impl_component =
+        match derive_component.impl_component(&mut ast, &bevy_ecs, StorageTy::Table) {
+            Ok(value) => value,
+            Err(err) => return err.into_compile_error().into(),
+        };
     TokenStream::from(impl_component)
 }
 
