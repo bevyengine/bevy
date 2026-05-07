@@ -32,4 +32,4 @@ struct MyAsset {
 }
 ```
 
-For assets with a generic type parameter, you'll need explicitly register each variant with `app.register_type::<A>()`, just like any other generic type.
+For assets with a generic type parameter, you'll need to explicitly register each variant with `app.register_type::<A>()`, just like any other generic type.

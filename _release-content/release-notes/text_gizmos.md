@@ -1,6 +1,6 @@
 ---
 title: "Text Gizmos"
-authors: ["@ickshonpe, @nuts-rice"]
+authors: ["@ickshonpe", "@nuts-rice"]
 pull_requests: [22732, 23120]
 ---
 
@@ -25,7 +25,7 @@ fn draw_text(mut gizmos: Gizmos) {
 }
 ```
 
-Use `text_sections` and `text_sections_2d` to color each sections of characters independently:
+Use `text_sections` and `text_sections_2d` to color each section of characters independently:
 
 ```rust
 fn draw_colored_text(mut gizmos: Gizmos) {

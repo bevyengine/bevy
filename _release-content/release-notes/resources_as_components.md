@@ -30,4 +30,4 @@ However you cannot yet:
 We don't intend to ever support:
 
 - changing the storage type of resources
-  - resource have consistent insertion and access patterns: this is not a useful performance lever to expose
+  - resources have consistent insertion and access patterns: this is not a useful performance lever to expose
