@@ -166,11 +166,13 @@ impl EnumInfo {
     ///
     /// * `variants`: The variants of this enum in the order they are defined
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
-        Self::new_erased(variants, Type::of::<TEnum>())
+        Self::from_erased(variants, Type::of::<TEnum>())
     }
 
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
     #[inline(never)]
-    fn new_erased(variants: &[VariantInfo], ty: Type) -> Self {
+    fn from_erased(variants: &[VariantInfo], ty: Type) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()

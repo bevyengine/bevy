@@ -122,11 +122,13 @@ impl StructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
-        Self::new_erased(fields, Type::of::<T>())
+        Self::from_erased(fields, Type::of::<T>())
     }
 
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
     #[inline(never)]
-    fn new_erased(fields: &[NamedField], ty: Type) -> Self {
+    fn from_erased(fields: &[NamedField], ty: Type) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()

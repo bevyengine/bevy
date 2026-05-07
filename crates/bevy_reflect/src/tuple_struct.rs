@@ -91,11 +91,13 @@ impl TupleStructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
-        Self::new_erased(fields, Type::of::<T>())
+        Self::from_erased(fields, Type::of::<T>())
     }
 
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
     #[inline(never)]
-    fn new_erased(fields: &[UnnamedField], ty: Type) -> Self {
+    fn from_erased(fields: &[UnnamedField], ty: Type) -> Self {
         Self {
             ty,
             generics: Generics::new(),
