@@ -29,4 +29,4 @@ app.insert_resource(RenderErrorHandler(
 
 Be sure to test your error recovery carefully in your games; we've seen hardware-specific cases of flickering during repeated failures (as might be caused by an out-of-memory problem), which are a serious accessibility risk for people with photosensitive epilepsy.
 While we're looking to solve that problem for good in later releases, we've currently opted for a conservative default.
-If you don't configure a `RenderErrorHandler`, behavior is similar to but not identical to before: validation errors are ignored, everything else sends an `AppExit` event to gracefully shut down.
+If you don't configure a `RenderErrorHandler`, behavior is similar to but not identical to before: Vulkan validation errors are ignored, everything else sends an `AppExit` event to gracefully shut down.
