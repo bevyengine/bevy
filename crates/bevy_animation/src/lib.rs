@@ -31,6 +31,7 @@ use core::{
 };
 use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
@@ -40,7 +41,7 @@ use crate::{
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::{FloatOrd, Vec3};
+use bevy_math::{FloatOrd, Vec3, VectorSpace};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
@@ -1077,6 +1078,54 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
     ),
 >;
 
+// TODO: Make a macro ?
+fn root_motion_delta<T>(
+    clip: &AnimationClip,
+    active_animation: &ActiveAnimation,
+    curve: &dyn AnimationCurve,
+) -> T
+where
+    T: Default + AddAssign + SubAssign + Add<Output = T> + Sub<Output = T> + 'static,
+{
+    let mut result = T::default();
+    let reverse = active_animation.is_playback_reversed();
+    let is_finished = active_animation.is_finished();
+
+    // Return early if the animation have finished on a previous tick.
+    if is_finished && !active_animation.just_completed {
+        return result;
+    }
+
+    // The animation completed this tick, while still playing.
+    let looping = active_animation.just_completed && !is_finished;
+
+    let Some(mut last_time) = active_animation.last_seek_time else {
+        return result;
+    };
+    let this_time = active_animation.seek_time;
+
+    if looping {
+        if reverse {
+            result += *(curve.sample_clamped(0.).downcast::<T>().unwrap())
+                - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
+            last_time = clip.duration;
+        } else {
+            result += *(curve.sample_clamped(clip.duration).downcast::<T>().unwrap())
+                - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
+            last_time = 0.;
+        }
+    }
+
+    let diff = *(curve.sample_clamped(this_time).downcast::<T>().unwrap())
+        - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
+    if reverse {
+        result -= diff;
+    } else {
+        result += diff;
+    }
+    result
+}
+
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
@@ -1236,7 +1285,8 @@ pub fn animate_targets(
                         let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
-                        println!("seek time {}", seek_time);
+                        // TODO: remove before push
+                        println!("seek time {} | clip_duration {}", seek_time, clip.duration);
 
                         if target_id == root_target_id {
                             let translation_field = animated_field!(Transform::translation);
@@ -1251,25 +1301,15 @@ pub fn animate_targets(
                                 evaluation_state
                                     .current_evaluators
                                     .insert(curve_evaluator_id.clone());
+                                // TODO: Handle curves that shouldn't be modified
                                 if curve_evaluator_id == translation_field.evaluator_id() {
                                     let curve_evaluator = curve_evaluator
                                         .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
                                         .unwrap();
-                                    let v1 = curve
-                                        .0
-                                        .sample_clamped(
-                                            active_animation.last_seek_time.unwrap_or_default(),
-                                        )
-                                        .downcast::<Vec3>()
-                                        .unwrap();
-                                    let v2 = curve
-                                        .0
-                                        .sample_clamped(active_animation.seek_time)
-                                        .downcast::<Vec3>()
-                                        .unwrap();
-                                    // TODO: Handle loops
+                                    let value =
+                                        root_motion_delta(clip, active_animation, curve.0.as_ref());
                                     curve_evaluator.push_value(
-                                        *v2 - *v1,
+                                        value,
                                         weight,
                                         animation_graph_node_index,
                                     );
@@ -1618,7 +1658,7 @@ mod tests {
         self as bevy_animation,
         prelude::{AnimatableCurve, AnimatableKeyframeCurve, AnimatedField},
     };
-    use bevy_app::{First, ScheduleRunnerPlugin};
+    use bevy_app::{First, Last, ScheduleRunnerPlugin};
     use bevy_asset::AssetPlugin;
     use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
@@ -1831,6 +1871,29 @@ mod tests {
         assert_eq!(value, None);
     }
 
+    fn compare_transform(expected: &Transform, found: &Transform) {
+        let transform_diff = expected.translation - found.translation;
+        const DELTA_ERROR: f32 = 0.00001;
+        assert!(
+            transform_diff.x.abs() <= DELTA_ERROR,
+            "Expected: {} | Found {}",
+            expected.translation.x,
+            found.translation.x
+        );
+        assert!(
+            transform_diff.y.abs() <= DELTA_ERROR,
+            "Expected: {} | Found {}",
+            expected.translation.y,
+            found.translation.y
+        );
+        assert!(
+            transform_diff.z.abs() <= DELTA_ERROR,
+            "Expected: {} | Found {}",
+            expected.translation.z,
+            found.translation.z
+        );
+    }
+
     #[test]
     fn test_root_motion() {
         let mut app = App::new();
@@ -1840,13 +1903,25 @@ mod tests {
             AssetPlugin::default(),
             AnimationPlugin,
         ));
-        // Force each update to 250ms
-        let step_duration = 0.25;
+        // Force each update to 300ms
+        let step_duration = 0.3;
         let clip_duration = 1.0;
         app.add_systems(
             First,
             (move |mut time: ResMut<Time<Virtual>>| {
                 time.advance_by(Duration::from_secs_f32(step_duration))
+            })
+            .after(TimeSystems),
+        );
+        // Auto remove finished animations
+        app.add_systems(
+            Last,
+            (move |q_players: Query<&mut AnimationPlayer>| {
+                for mut player in q_players {
+                    player
+                        .active_animations
+                        .retain(|_, animation| !animation.is_finished());
+                }
             })
             .after(TimeSystems),
         );
@@ -1870,11 +1945,9 @@ mod tests {
                 .unwrap();
             r_clips.add(clip)
         };
-        // animations settings
+        // Animations settings
         let once_speed = 0.5;
-        // TODO: set a speed so that one tick plays the animation more than once
-        // and don't end perfectly
-        let forever_speed = 0.5;
+        let forever_speed = 1.0;
         // Add multiple clips
         let mut animation_player = AnimationPlayer::default();
         let once = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
@@ -1907,28 +1980,44 @@ mod tests {
             ))
             .id();
 
-        for _ in 0..(clip_duration / once_speed) as u32 {
+        let tick_count = clip_duration / once_speed / step_duration;
+        for _ in 0..tick_count as u32 {
             app.update();
-            assert_eq!(
-                Transform::from_translation(
-                    target_translation * step_duration * (once_speed + forever_speed) / 2.
+            compare_transform(
+                &Transform::from_translation(
+                    target_translation * step_duration * (once_speed + forever_speed) / 2.,
                 ),
-                *app.world()
+                app.world()
                     .get_entity(animated_entity)
                     .unwrap()
                     .get::<Transform>()
-                    .unwrap()
+                    .unwrap(),
             );
         }
+        // During this update once_clip will advance by less than step_duration
         app.update();
-        // Since the single clip is ended only the forever should be active
-        assert_eq!(
-            Transform::from_translation(target_translation * step_duration * forever_speed),
-            *app.world()
+        compare_transform(
+            &Transform::from_translation(
+                target_translation
+                    * step_duration
+                    * ((tick_count - tick_count.floor()) * once_speed + forever_speed)
+                    / 2.,
+            ),
+            app.world()
                 .get_entity(animated_entity)
                 .unwrap()
                 .get::<Transform>()
+                .unwrap(),
+        );
+        // Since the single clip is ended only the forever should be active
+        app.update();
+        compare_transform(
+            &Transform::from_translation(target_translation * step_duration * forever_speed),
+            app.world()
+                .get_entity(animated_entity)
                 .unwrap()
+                .get::<Transform>()
+                .unwrap(),
         );
     }
 }
