@@ -1109,7 +1109,7 @@ pub fn animate_targets(
                     return;
                 };
             // TODO: Temporaire
-            let root_target_id = AnimationTargetId::from_name(&Name::new("tmp"));
+            let root_target_id = AnimationTargetId::from_name(&Name::new("Root"));
 
             // The graph might not have loaded yet. Safely bail.
             let Some(animation_graph) = graphs.get(animation_graph_id) else {
@@ -1236,6 +1236,8 @@ pub fn animate_targets(
                         let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
+                        println!("seek time {}", seek_time);
+
                         if target_id == root_target_id {
                             let translation_field = animated_field!(Transform::translation);
                             // TODO: let rotation_field = animated_field!(Transform::rotation);
@@ -1246,6 +1248,9 @@ pub fn animate_targets(
                                     .get_or_insert_with(curve_evaluator_id.clone(), || {
                                         curve.0.create_evaluator()
                                     });
+                                evaluation_state
+                                    .current_evaluators
+                                    .insert(curve_evaluator_id.clone());
                                 if curve_evaluator_id == translation_field.evaluator_id() {
                                     let curve_evaluator = curve_evaluator
                                         .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
@@ -1607,12 +1612,17 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::{
         self as bevy_animation,
         prelude::{AnimatableCurve, AnimatableKeyframeCurve, AnimatedField},
     };
+    use bevy_app::{First, ScheduleRunnerPlugin};
+    use bevy_asset::AssetPlugin;
     use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
+    use bevy_time::{TimePlugin, TimeSystems, Virtual};
     use bevy_transform::components::Transform;
 
     use super::*;
@@ -1819,5 +1829,106 @@ mod tests {
         assert_eq!(value, None);
         let value = clip.sample_clamped(animated_field!(Transform::translation), target_2, 1.0);
         assert_eq!(value, None);
+    }
+
+    #[test]
+    fn test_root_motion() {
+        let mut app = App::new();
+        app.add_plugins((
+            TimePlugin,
+            ScheduleRunnerPlugin::default(),
+            AssetPlugin::default(),
+            AnimationPlugin,
+        ));
+        // Force each update to 250ms
+        let step_duration = 0.25;
+        let clip_duration = 1.0;
+        app.add_systems(
+            First,
+            (move |mut time: ResMut<Time<Virtual>>| {
+                time.advance_by(Duration::from_secs_f32(step_duration))
+            })
+            .after(TimeSystems),
+        );
+        let mut clip = AnimationClip::default();
+        let target_translation = Vec3::new(1., 2., 4.);
+        let root_target = AnimationTargetId::from_name(&Name::new("Root"));
+        let animatable_curve = AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 0.)),
+                (clip_duration, target_translation),
+            ])
+            .expect("Failed to create power level curve"),
+        );
+        clip.add_curve_to_target(root_target, animatable_curve);
+        let mut graph = AnimationGraph::default();
+        let clip_handle = {
+            let mut r_clips = app
+                .world_mut()
+                .get_resource_mut::<Assets<AnimationClip>>()
+                .unwrap();
+            r_clips.add(clip)
+        };
+        // animations settings
+        let once_speed = 0.5;
+        // TODO: set a speed so that one tick plays the animation more than once
+        // and don't end perfectly
+        let forever_speed = 0.5;
+        // Add multiple clips
+        let mut animation_player = AnimationPlayer::default();
+        let once = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        animation_player
+            .play(once)
+            .set_speed(once_speed)
+            .set_repeat(RepeatAnimation::Never);
+        let forever = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        animation_player
+            .play(forever)
+            .set_speed(forever_speed)
+            .set_repeat(RepeatAnimation::Forever);
+        let graph_handle = {
+            let mut r_graphs = app
+                .world_mut()
+                .get_resource_mut::<Assets<AnimationGraph>>()
+                .unwrap();
+            AnimationGraphHandle(r_graphs.add(graph))
+        };
+        // Update to create the ThreadedAnimationGraph
+        app.update();
+        // Spawn entities
+        let animator_entity = app.world_mut().spawn((animation_player, graph_handle)).id();
+        let animated_entity = app
+            .world_mut()
+            .spawn((
+                AnimatedBy(animator_entity),
+                root_target,
+                Transform::default(),
+            ))
+            .id();
+
+        for _ in 0..(clip_duration / once_speed) as u32 {
+            app.update();
+            assert_eq!(
+                Transform::from_translation(
+                    target_translation * step_duration * (once_speed + forever_speed) / 2.
+                ),
+                *app.world()
+                    .get_entity(animated_entity)
+                    .unwrap()
+                    .get::<Transform>()
+                    .unwrap()
+            );
+        }
+        app.update();
+        // Since the single clip is ended only the forever should be active
+        assert_eq!(
+            Transform::from_translation(target_translation * step_duration * forever_speed),
+            *app.world()
+                .get_entity(animated_entity)
+                .unwrap()
+                .get::<Transform>()
+                .unwrap()
+        );
     }
 }
