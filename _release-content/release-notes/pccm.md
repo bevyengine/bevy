@@ -12,7 +12,7 @@ reflections don't line up with the actual geometry around the viewer.
 
 The standard fix is parallax correction: each reflection probe gets its own bounding box, and a raytrace against that box determines the correct sampling direction for the cubemap.
 Bevy now applies this automatically for light probes, using the probe's influence bounding box as the correction volume.
-This is a reasonable default for a cubemap capturing a rectangular room interior, and matches Blender's approach, improving asset consistency.
+This is a reasonable default for a cubemap capturing a rectangular room interior, and matches Blender's approach.
 
 Parallax correction is enabled by default. To opt out on a specific probe, add `NoParallaxCorrection`:
 
