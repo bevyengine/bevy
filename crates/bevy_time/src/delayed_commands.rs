@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use bevy_ecs::{prelude::*, system::command::spawn_batch, world::CommandQueue};
-use bevy_platform::collections::HashMap;
+use bevy_ecs::{prelude::*, world::CommandQueue};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::time::Duration;
@@ -14,21 +14,77 @@ use crate::Time;
 /// [`check_delayed_command_queues`] system.
 pub struct DelayedCommands<'w, 's> {
     /// Used to own queues and deduplicate them by their duration.
-    queues: HashMap<Duration, CommandQueue>,
+    queues: HashMap<Duration, PendingDelayedCommandQueue>,
 
     /// The wrapped `Commands` - used to provision out new `Commands`
     /// and to spawn the queues as entities when the struct is dropped.
     commands: Commands<'w, 's>,
 }
 
+struct PendingDelayedCommandQueue {
+    entity: Entity,
+    queue: CommandQueue,
+}
+
+/// A handle that can be used to cancel delayed commands.
+///
+/// This handle represents a [`DelayedCommandQueue`] entity. Despawning the
+/// entity before its timer expires prevents the delayed commands from running.
+/// Commands queued for the same delay by the same [`DelayedCommands`] share a
+/// handle and are cancelled together.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DelayedCommandHandle {
+    entity: Entity,
+}
+
+impl DelayedCommandHandle {
+    /// Returns the entity that tracks the delayed commands.
+    #[inline]
+    pub fn entity(self) -> Entity {
+        self.entity
+    }
+
+    /// Cancels the delayed commands.
+    ///
+    /// This is equivalent to despawning the entity returned by [`Self::entity`].
+    /// If the commands have already run, this does nothing.
+    #[inline]
+    pub fn cancel(self, commands: &mut Commands) {
+        commands.entity(self.entity).try_despawn();
+    }
+}
+
 impl<'w, 's> DelayedCommands<'w, 's> {
     /// Return a [`Commands`] whose commands will be delayed by `duration`.
     #[must_use = "The returned Commands must be used to submit commands with this delay."]
     pub fn duration(&mut self, duration: Duration) -> Commands<'w, '_> {
+        self.duration_with_handle(duration).0
+    }
+
+    /// Return a [`Commands`] whose commands will be delayed by `duration`, and
+    /// a handle that can be used to cancel them.
+    ///
+    /// Commands queued for the same `duration` share a queue and will return
+    /// the same handle.
+    #[must_use = "The returned Commands must be used to submit commands with this delay."]
+    pub fn duration_with_handle(
+        &mut self,
+        duration: Duration,
+    ) -> (Commands<'w, '_>, DelayedCommandHandle) {
         // Fetch a queue with the given duration or create one
-        let queue = self.queues.entry(duration).or_default();
+        let queue = match self.queues.entry(duration) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(PendingDelayedCommandQueue {
+                entity: self.commands.spawn_empty().id(),
+                queue: CommandQueue::default(),
+            }),
+        };
+
+        let handle = DelayedCommandHandle {
+            entity: queue.entity,
+        };
         // Return a new `Commands` to write commands to the queue
-        self.commands.rebound_to(queue)
+        (self.commands.rebound_to(&mut queue.queue), handle)
     }
 
     /// Return a [`Commands`] whose commands will be delayed by `secs` seconds.
@@ -38,23 +94,46 @@ impl<'w, 's> DelayedCommands<'w, 's> {
         self.duration(Duration::from_secs_f32(secs))
     }
 
+    /// Return a [`Commands`] whose commands will be delayed by `secs` seconds,
+    /// and a handle that can be used to cancel them.
+    ///
+    /// Commands queued for the same `secs` value share a queue and will return
+    /// the same handle.
+    #[inline]
+    #[must_use = "The returned Commands must be used to submit commands with this delay."]
+    pub fn secs_with_handle(&mut self, secs: f32) -> (Commands<'w, '_>, DelayedCommandHandle) {
+        self.duration_with_handle(Duration::from_secs_f32(secs))
+    }
+
     /// Drains and spawns the contained command queues as [`DelayedCommandQueue`] entities.
     fn submit(&mut self) {
         let mut queues = self
             .queues
             .drain()
-            .map(|(submit_at, queue)| DelayedCommandQueue { submit_at, queue })
+            .map(|(submit_at, pending)| {
+                (
+                    pending.entity,
+                    DelayedCommandQueue {
+                        submit_at,
+                        queue: pending.queue,
+                    },
+                )
+            })
             .collect::<Vec<_>>();
 
         self.commands.queue(move |world: &mut World| {
             // We use the default Time<()> here intentionally to support custom clocks
             let time = world.resource::<Time>();
             let elapsed = time.elapsed();
-            for queue in queues.iter_mut() {
+            for (_, queue) in queues.iter_mut() {
                 // Turn relative delays into absolute elapsed times
                 queue.submit_at += elapsed;
             }
-            spawn_batch(queues).apply(world);
+            for (entity, queue) in queues.drain(..) {
+                if let Ok(mut entity) = world.get_entity_mut(entity) {
+                    entity.insert(queue);
+                }
+            }
         });
     }
 }
@@ -94,6 +173,32 @@ pub trait DelayedCommandsExt<'w> {
     ///     delayed.secs(2.0).entity(entity).despawn();
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
+    ///
+    /// You can cancel a delayed command queue by using the handle returned from
+    /// [`DelayedCommands::secs_with_handle`] or [`DelayedCommands::duration_with_handle`].
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_time::DelayedCommandsExt;
+    /// #[derive(Resource)]
+    /// struct SpawnHandle(Entity);
+    ///
+    /// fn queue_spawn(mut commands: Commands) {
+    ///     let handle = {
+    ///         let mut delayed = commands.delayed();
+    ///         let (mut after_one_second, handle) = delayed.secs_with_handle(1.0);
+    ///         after_one_second.spawn_empty();
+    ///         handle
+    ///     };
+    ///     commands.insert_resource(SpawnHandle(handle.entity()));
+    /// }
+    ///
+    /// fn cancel_spawn(mut commands: Commands, handle: Res<SpawnHandle>) {
+    ///     commands.entity(handle.0).try_despawn();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(queue_spawn);
+    /// # bevy_ecs::system::assert_is_system(cancel_spawn);
     /// ```
     ///
     /// # Timing
@@ -164,13 +269,20 @@ mod tests {
     use core::time::Duration;
     use std::println;
 
-    use bevy_app::{App, Startup};
-    use bevy_ecs::{component::Component, system::Commands};
+    use bevy_app::{App, Startup, Update};
+    use bevy_ecs::{
+        component::Component,
+        prelude::{Res, Resource},
+        system::Commands,
+    };
 
-    use crate::{DelayedCommandsExt, TimePlugin, TimeUpdateStrategy};
+    use crate::{DelayedCommandHandle, DelayedCommandsExt, TimePlugin, TimeUpdateStrategy};
 
     #[derive(Component)]
     struct DummyComponent;
+
+    #[derive(Resource)]
+    struct DelayedSpawn(DelayedCommandHandle);
 
     #[test]
     fn delayed_queues_should_run_with_time_plugin_enabled() {
@@ -220,5 +332,42 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn delayed_queues_can_be_cancelled() {
+        fn queue_commands(mut commands: Commands) {
+            let handle = {
+                let mut delayed_cmds = commands.delayed();
+                let (mut delayed, handle) = delayed_cmds.secs_with_handle(0.1);
+                delayed.spawn(DummyComponent);
+                handle
+            };
+            commands.insert_resource(DelayedSpawn(handle));
+        }
+
+        fn cancel_commands(mut commands: Commands, delayed_spawn: Res<DelayedSpawn>) {
+            delayed_spawn.0.cancel(&mut commands);
+        }
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_systems(Startup, queue_commands)
+            .add_systems(Update, cancel_commands)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+                0.05,
+            )));
+
+        for _ in 0..10 {
+            app.update();
+        }
+
+        let dummy_count = app
+            .world_mut()
+            .query::<&DummyComponent>()
+            .iter(app.world())
+            .count();
+
+        assert_eq!(dummy_count, 0);
     }
 }

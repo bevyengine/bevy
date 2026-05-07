@@ -35,7 +35,9 @@ pub use virt::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{DelayedCommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{
+        DelayedCommandHandle, DelayedCommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual,
+    };
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};

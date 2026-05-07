@@ -18,6 +18,17 @@ fn delayed_spawn_then_insert(mut commands: Commands) {
     let entity = delayed.secs(0.5).spawn_empty().id();
     delayed.secs(1.5).entity(entity).insert(DummyComponent);
 }
+
+fn cancellable_delayed_spawn(mut commands: Commands) {
+    let handle = {
+        let mut delayed = commands.delayed();
+        let (mut after_one_second, handle) = delayed.secs_with_handle(1.0);
+        after_one_second.spawn(DummyComponent);
+        handle
+    };
+
+    handle.cancel(&mut commands);
+}
 ```
 
 Our goal for this mechanism is to provide a "good-enough" system for simple use-cases. As a result,
