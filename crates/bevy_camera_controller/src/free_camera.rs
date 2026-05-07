@@ -200,7 +200,7 @@ Freecamera Controls:
     }
 }
 
-/// Config to choose camera's vertical movement behaviour.
+/// Config to choose camera's vertical movement behavior.
 #[derive(Debug, Clone, Copy)]
 pub enum VerticalVelocitySpace {
     /// up and down motion will move along the global Y axis regardless of camera orientation.
