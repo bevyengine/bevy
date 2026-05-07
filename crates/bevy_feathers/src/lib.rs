@@ -79,6 +79,10 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/icons/chevron-down.png");
         embedded_asset!(app, "assets/icons/chevron-right.png");
         embedded_asset!(app, "assets/icons/x.png");
+        embedded_asset!(app, "assets/icons/circle-alert.png");
+        embedded_asset!(app, "assets/icons/circle-check.png");
+        embedded_asset!(app, "assets/icons/circle-info.png");
+        embedded_asset!(app, "assets/icons/triangle-alert.png");
 
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");

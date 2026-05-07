@@ -723,8 +723,8 @@ fn demo_column_2() -> impl Scene {
                                             on(|_: On<Activate>, mut commands: Commands| {
                                                 commands.spawn_scene(bsn! {
                                                     :FeathersToast {
-                                                        @message: "Error toast in top right",
-                                                        @variant: ToastVariant::Error,
+                                                        @message: "Info toast in top right",
+                                                        @variant: ToastVariant::Info,
                                                         @position: ToastPosition::TopRight,
                                                     }
                                                 });

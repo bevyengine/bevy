@@ -1,5 +1,7 @@
 use core::time::Duration;
 
+use accesskit::Role;
+use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
@@ -23,13 +25,14 @@ use bevy_time::{Fixed, Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px,
     widget::{ImageNode, Text},
-    AlignItems, BackgroundColor, FlexDirection, JustifyContent, Node, Overflow, PositionType,
-    UiRect,
+    AlignContent, AlignSelf, BackgroundColor, FlexDirection, JustifyContent, Node, Overflow,
+    PositionType, UiRect,
 };
 use bevy_ui_widgets::{Activate, Button};
 
 use crate::{
     constants::{fonts, icons, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     palette,
     rounded_corners::RoundedCorners,
@@ -210,47 +213,26 @@ impl FeathersToast {
                 width: px(300),
                 height: px(60),
                 margin: UiRect::all(px(5)),
-                padding: UiRect::all(px(10)),
                 border_radius: {RoundedCorners::All.to_border_radius(4.0)},
-                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::SpaceBetween,
-                flex_direction: FlexDirection::Row,
+                align_content: AlignContent::SpaceBetween,
                 position_type: PositionType::Absolute
             }
             Pickable::IGNORE
             template_value(props.variant)
             template_value(props.position)
-            template(move |_| {
-                let background_color = match props.variant {
-                    ToastVariant::Info => palette::INFO,
-                    ToastVariant::Success => palette::SUCCESS,
-                    ToastVariant::Warning => palette::WARNING,
-                    ToastVariant::Error => palette::ERROR,
-                };
-                Ok(BackgroundColor(background_color))
-            })
+            BackgroundColor(palette::GRAY_1) // TODO: Theming support
+            AccessibilityNode(accesskit::Node::new(Role::Alert))
             Children[(
                 Node {
-                    width: percent(90),
-                    overflow: Overflow::clip_x()
-                }
-                InheritableFont {
-                    font: fonts::REGULAR,
-                    font_size: size::COMPACT_FONT,
-                    weight: FontWeight::NORMAL,
-                }
-                Children[(
-                    Text({props.message})
-                    ThemedText
-                    TextLayout {linebreak: LineBreak::NoWrap}
-                    TextColor(palette::WHITE)
-                )]
-            ), (
-                Node {
-                    width: px(30),
-                    height: px(30),
+                    width: px(15),
+                    height: px(15),
+                    margin: UiRect{top: px(5), right: px(5)},
+                    align_self: AlignSelf::FlexEnd,
                 }
                 Button
+                EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
                 template(|ctx| {
                     let handle = ctx.resource::<AssetServer>().load(icons::X);
                     Ok(ImageNode::new(handle))
@@ -260,21 +242,60 @@ impl FeathersToast {
                         commands.entity(parent.0).despawn();
                     }
                 })
+            ), (
+                Node {
+                    flex_grow: 1.0,
+                    margin: UiRect::horizontal(px(5)),
+                    overflow: Overflow::clip_x(),
+                    flex_direction: FlexDirection::Row,
+                }
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: size::COMPACT_FONT,
+                    weight: FontWeight::NORMAL,
+                }
+                Children[(
+                    Node {
+                        width: px(15),
+                        height: px(15),
+                        margin: UiRect::horizontal(px(5)),
+                    }
+                    template(move |ctx| {
+                      let icon = match props.variant {
+                          ToastVariant::Info => icons::CIRCLE_INFO,
+                          ToastVariant::Success => icons::CIRCLE_CHECK,
+                          ToastVariant::Warning => icons::TRIANGLE_ALERT,
+                          ToastVariant::Error => icons::CIRCLE_ALERT,
+                      };
+                      let handle = ctx.resource::<AssetServer>().load(icon);
+                      Ok(ImageNode::new(handle))
+                    })
+                ), (
+                    Text({props.message})
+                    ThemedText
+                    TextLayout {linebreak: LineBreak::NoWrap}
+                    TextColor(palette::WHITE)
+                )]
             ), ({ if let Some(duration) = props.duration {
                     Box::new(bsn! {
                         Node {
                             width: percent(100),
-                            height: px(10),
-                            position_type: PositionType::Absolute,
-                            bottom: px(0),
-                            left: px(0),
+                            height: px(5),
                         }
-                        BackgroundColor(palette::WHITE)
+                        template(move |_| {
+                            let color = match props.variant {
+                                ToastVariant::Info => palette::INFO,
+                                ToastVariant::Success => palette::SUCCESS,
+                                ToastVariant::Warning => palette::WARNING,
+                                ToastVariant::Error => palette::ERROR,
+                            };
+                            Ok(BackgroundColor(color))
+                        })
                         template(move |ctx| {
                             let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
                             Ok(ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity })
                         })
-                        // ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
+                        // ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
                         }) as Box<dyn Scene>
                 } else {
                     Box::new(bsn!()) as Box<dyn Scene>
