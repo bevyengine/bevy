@@ -132,7 +132,7 @@ pub struct FreeCamera {
     pub friction: f32,
     /// Speed of camera rotation to snapped axis in radians/second
     pub rotation_speed: f32,
-    /// The vertical velocity transformation space for up down controls.
+    /// Whether the vertical inputs translate the camera in world or local space axes.
     pub vertical_movement_axis: VerticalMovementAxis,
 }
 
@@ -200,13 +200,13 @@ Freecamera Controls:
     }
 }
 
-/// Config to choose camera's vertical movement behavior.
+/// Whether the vertical inputs translate the camera in world or local space axes.
 #[derive(Debug, Default, Clone, Copy)]
 pub enum VerticalMovementAxis {
-    /// up and down motion will move along the global Y axis regardless of camera orientation.
+    /// Vertical movement are aligned to the world.
     #[default]
-    Global,
-    /// up and down motion will move along the camera orientation's local up and down axis.
+    World,
+    /// Vertical movement follow the camera's rotation.
     Local,
 }
 
@@ -367,7 +367,7 @@ pub fn run_freecamera_controller(
         let forward = *transform.forward();
         let right = *transform.right();
         let up = match config.vertical_movement_axis {
-            VerticalMovementAxis::Global => Vec3::Y,
+            VerticalMovementAxis::World => Vec3::Y,
             VerticalMovementAxis::Local => *transform.up(),
         };
         transform.translation += state.velocity.x * dt * right

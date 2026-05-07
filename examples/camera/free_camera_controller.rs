@@ -34,16 +34,16 @@
 //! This example also provides a few extra keybinds to change the camera sensitivity, friction (how fast the camera
 //! stops), scroll factor (how much scrolling changes speed) and enabling/disabling the controller.
 //!
-//! | Key Binding | Action                    |
-//! |:------------|:--------------------------|
-//! | Z           | Decrease sensitivity      |
-//! | X           | Increase sensitivity      |
-//! | C           | Decrease friction         |
-//! | V           | Increase friction         |
-//! | F           | Decrease scroll factor    |
-//! | G           | Increase scroll factor    |
-//! | B           | Enable/Disable            |
-//! | T           | Toggle Q/E Global / Local |
+//! | Key Binding | Action                        |
+//! |:------------|:------------------------------|
+//! | Z           | Decrease sensitivity          |
+//! | X           | Increase sensitivity          |
+//! | C           | Decrease friction             |
+//! | V           | Increase friction             |
+//! | F           | Decrease scroll factor        |
+//! | G           | Increase scroll factor        |
+//! | B           | Enable/Disable                |
+//! | T           | World/Local vertical movement |
 
 use std::f32::consts::{FRAC_PI_4, PI};
 
@@ -127,7 +127,7 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
             "C/V: decrease/increase friction\n",
             "F/G: decrease/increase scroll factor\n",
             "B: enable/disable controller\n",
-            "T: toggle Q/E global vs local space"
+            "T: world/local vertical movement"
         ]),],
     ));
 
@@ -172,8 +172,8 @@ fn update_camera_settings(
     }
     if input.just_pressed(KeyCode::KeyT) {
         free_camera.vertical_movement_axis = match free_camera.vertical_movement_axis {
-            VerticalMovementAxis::Global => VerticalMovementAxis::Local,
-            VerticalMovementAxis::Local => VerticalMovementAxis::Global,
+            VerticalMovementAxis::World => VerticalMovementAxis::Local,
+            VerticalMovementAxis::Local => VerticalMovementAxis::World,
         };
     }
 }
