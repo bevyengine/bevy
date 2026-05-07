@@ -8,12 +8,12 @@ pull_requests: [23645, 23707, 23788, 23787, 23804, 23817, 23842]
 
 Bevy Feathers, our opinionated UI widget collection designed with the Bevy editor in mind, has added several new widgets this cycle:
 
-- text input (see the dedicated release note for far more details)
-- number input
-- dropdown menu button and menu divider
-- disclosure toggle (chevron expand/collapse)
-- icon and label (display primitives)
-- pane, subpane, and group (decorative frames for editors)
+- Text input (see the dedicated release note for far more details)
+- Number input
+- Dropdown menu button and menu divider
+- Disclosure toggle (chevron expand/collapse)
+- Icon and label (display primitives)
+- Pane, subpane, and group (decorative frames for editors)
 
 For full usage and an interactive demo, try out the [`feathers_gallery`] example.
 
