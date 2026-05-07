@@ -12,7 +12,7 @@ Want italic? Another asset.
 Want the user's system monospace? No luck.
 Want text that scales with the viewport? Roll it yourself.
 
-It's time to modernize that.
+Not anymore.
 
 ## Better font selection
 
@@ -38,7 +38,7 @@ fn configure_fonts(mut font_cx: ResMut<FontCx>) {
 }
 ```
 
-This is particularly useful for editor tooling or games that want to respect the user's font preferences without hardcoding an asset path.
+Editor tooling and non-game applications that want to respect the user's font preferences without hardcoding an asset path will find this particularly useful.
 
 System fonts were already loadable via the backend resource in previous releases, but `FontSource::Family` is a cleaner, more powerful way to load them.
 Enable the `bevy/system_font_discovery` feature to make installed system fonts available by name; without it, `FontSource::Family("...")` will only find fonts explicitly loaded as Bevy assets.
