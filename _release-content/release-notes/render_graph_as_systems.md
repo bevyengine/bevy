@@ -8,7 +8,7 @@ Bevy's `RenderGraph` architecture has been replaced with schedules. Render passe
 the `Core3d`, `Core2d`, or custom rendering schedules and executed within the render world.
 
 The render graph was originally designed when Bevy's ECS was less mature. In order to add custom rendering
-functionality, we required user to implement a trait `Node`, derive a `RenderLabel`, and use a targeted API for ordering
+functionality, we required users to implement a trait `Node`, derive a `RenderLabel`, and use a targeted API for ordering
 this rendering work relative to other tasks:
 
 ```rust
@@ -81,4 +81,4 @@ impl Plugin for MyRenderPlugin {
 In the future, expressing rendering work as systems will allow us to explore performance optimizations that take
 advantage of the ECS. For example, future work to support read-only schedules could help parallelizing command encoding
 by enforcing that a schedule does not mutate the world. We are excited to continue to improve the experience of custom
-rendering inside Bevy! 
+rendering inside Bevy!
