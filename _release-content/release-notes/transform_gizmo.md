@@ -6,7 +6,7 @@ pull_requests: [23435]
 
 *TODO: Add a screenshot or GIF of the transform gizmo in use in the viewport.*
 
-A transform gizmo — the click-and-drag handles for translating, rotating, and scaling objects in a 3D viewport — is one of the first things anyone reaches for when building a level editor. Bevy now has one built in, for our own future use and your immediate convenience.
+A transform gizmo — the click-and-drag handles for translating, rotating, and scaling objects in a 3D viewport — is one of the first things anyone reaches for when building a level editor. Bevy now has one built in, for your use today and our own use in the future.
 
 Add `TransformGizmoPlugin`, mark a camera with `TransformGizmoCamera`, and tag entities with `TransformGizmoFocus`:
 
