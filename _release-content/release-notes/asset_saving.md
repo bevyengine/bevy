@@ -40,7 +40,8 @@ let main_asset = Book {
 let saved_asset = builder.build(&main_asset);
 ```
 
-You can save the assets in the same async task as the save call as you build them in because the assets are borrowed, not passed by ownership.
+`SavedAsset` borrows rather than owns its assets.
+That means you can build and save in the same async block — no need to transfer ownership first.
 
 ## 2. Calling `save_using_saver`
 
