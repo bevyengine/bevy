@@ -26,4 +26,4 @@ fn draw_text(mut gizmos: Gizmos) {
 }
 ```
 
-If you want to color each section of characters separately, reach for `text_sections` and `text_sections_2d` to color each section of characters independently.
+If you want to color each section of characters separately, reach for `text_sections` and `text_sections_2d`.
