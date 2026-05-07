@@ -246,15 +246,13 @@ impl ResolvedScene {
                 });
             };
             let resolved_inherited = resolved_inherited.clone();
-            let mut inherited_context =
-                TemplateContext::new(context.entity, context.scene_entities);
             // SAFETY: bundle_writer is used with the same World across all template.apply calls,
             // and the next bundle_writer.write call
             unsafe {
                 resolved_inherited
                     .scene
                     .apply_templates_without_bundle_write(
-                        &mut inherited_context,
+                        context,
                         &mut bundle_writer,
                         // this will skip building / inserting templates that
                         // have local copies in the current scene
@@ -283,11 +281,9 @@ impl ResolvedScene {
 
                 bundle_writer.write(context.entity);
 
-                let mut inherited_context =
-                    TemplateContext::new(context.entity, context.scene_entities);
                 resolved_inherited
                     .scene
-                    .apply_related(&mut inherited_context, bundle_scratch)?;
+                    .apply_related(context, bundle_scratch)?;
                 self.apply_related(context, bundle_scratch)?;
             }
         } else {
