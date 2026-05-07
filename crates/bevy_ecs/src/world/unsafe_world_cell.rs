@@ -55,6 +55,7 @@ use thiserror::Error;
 /// use bevy_ecs::world::World;
 /// use bevy_ecs::change_detection::Mut;
 /// use bevy_ecs::resource::Resource;
+/// use bevy_ecs::component::Mutable;
 /// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 ///
 /// // INVARIANT: existence of this struct means that users of it are the only ones being able to access resources in the world

@@ -231,6 +231,7 @@ mod menu {
         ecs::spawn::{SpawnIter, SpawnWith},
         prelude::*,
     };
+    use bevy_ecs::component::Mutable;
 
     use super::{DisplayQuality, GameState, Setting, Volume, TEXT_COLOR};
 
