@@ -6,6 +6,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     entity_disabling::Disabled,
+    hierarchy::Children,
     message::MessageReader,
     query::{Allow, With},
     system::{Commands, Query},
@@ -343,7 +344,9 @@ pub fn disable_entities_when_state<S: States>(
     }
     for (entity, when) in &query {
         if (when.state_transition_evaluator)(transition) {
-            commands.entity(entity).try_insert(Disabled);
+            commands
+                .entity(entity)
+                .insert_recursive::<Children>(Disabled);
         }
     }
 }
@@ -422,7 +425,9 @@ pub fn disable_entities_on_exit_state<S: States>(
     };
     for (entity, exit) in &query {
         if exit.0 == *exited {
-            commands.entity(entity).try_insert(Disabled);
+            commands
+                .entity(entity)
+                .insert_recursive::<Children>(Disabled);
         }
     }
 }
@@ -498,7 +503,9 @@ pub fn disable_entities_on_enter_state<S: States>(
     };
     for (entity, enter) in &query {
         if enter.0 == *entered {
-            commands.entity(entity).try_insert(Disabled);
+            commands
+                .entity(entity)
+                .insert_recursive::<Children>(Disabled);
         }
     }
 }
@@ -584,7 +591,9 @@ pub fn enable_entities_when_state<S: States>(
     }
     for (entity, when) in &query {
         if (when.state_transition_evaluator)(transition) {
-            commands.entity(entity).try_remove::<Disabled>();
+            commands
+                .entity(entity)
+                .remove_recursive::<Children, Disabled>();
         }
     }
 }
@@ -663,7 +672,9 @@ pub fn enable_entities_on_exit_state<S: States>(
     };
     for (entity, exit) in &query {
         if exit.0 == *exited {
-            commands.entity(entity).try_remove::<Disabled>();
+            commands
+                .entity(entity)
+                .remove_recursive::<Children, Disabled>();
         }
     }
 }
@@ -739,7 +750,9 @@ pub fn enable_entities_on_enter_state<S: States>(
     };
     for (entity, enter) in &query {
         if enter.0 == *entered {
-            commands.entity(entity).try_remove::<Disabled>();
+            commands
+                .entity(entity)
+                .remove_recursive::<Children, Disabled>();
         }
     }
 }

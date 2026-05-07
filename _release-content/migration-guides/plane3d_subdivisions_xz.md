@@ -8,8 +8,9 @@ It is now possible to assign a different number of subdivisions on the X and Z a
 The `subdivisions` field of `PlaneMeshBuilder` has been split into `subdivisions_x` and `subdivisions_z`.
 
 ```rust
-// Before:
+// 0.18:
 builder.subdivisions = 4
-// After:
+
+// 0.19:
 builder.subdivisions(4)
 ```

@@ -357,8 +357,8 @@ impl DirectionalNavigationMap {
     ///
     /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
     pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
-        for pair in entities.windows(2) {
-            self.add_symmetrical_edge(pair[0], pair[1], direction);
+        for &[a, b] in entities.array_windows() {
+            self.add_symmetrical_edge(a, b, direction);
         }
     }
 
@@ -367,10 +367,10 @@ impl DirectionalNavigationMap {
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
         self.add_edges(entities, direction);
-        if let Some((first_entity, rest)) = entities.split_first() {
-            if let Some(last_entity) = rest.last() {
-                self.add_symmetrical_edge(*last_entity, *first_entity, direction);
-            }
+        if let Some((first_entity, rest)) = entities.split_first()
+            && let Some(last_entity) = rest.last()
+        {
+            self.add_symmetrical_edge(*last_entity, *first_entity, direction);
         }
     }
 
