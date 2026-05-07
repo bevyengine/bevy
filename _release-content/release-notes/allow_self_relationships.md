@@ -5,7 +5,7 @@ pull_requests: [22269]
 ---
 
 By default, Bevy rejects relationship components that point to the entity they live on. If you insert one, Bevy will log a warning and remove it.
-This default exists for good reason: structural relationships like `ChildOf` form hierarchies that Bevy traverses recursively — a self-referential `ChildOf` would produce a trivially infinite loop.
+This default exists for good reason: structural relationships like `ChildOf` form hierarchies that Bevy traverses recursively — a self-referential `ChildOf` would produce an infinite loop.
 
 But many relationships are purely semantic. `Likes(self)`, `EmployedBy(self)`, `Healing(self)` — these don't imply any traversal, and self-reference is perfectly valid. You can now opt in with `allow_self_referential`:
 
