@@ -203,10 +203,14 @@ Freecamera Controls:
 /// Whether the vertical inputs translate the camera in world or local space axes.
 #[derive(Debug, Default, Clone, Copy)]
 pub enum VerticalMovementAxis {
-    /// Vertical movement are aligned to the world.
+    /// Vertical movement is aligned to the world.
+    /// 
+    /// This is the default behavior in Bevy, Unreal and Blender.
     #[default]
     World,
-    /// Vertical movement follow the camera's rotation.
+    /// Vertical movement follows the camera's rotation.
+    ///
+    /// This is the default behavior in Unity and Godot.
     Local,
 }
 
