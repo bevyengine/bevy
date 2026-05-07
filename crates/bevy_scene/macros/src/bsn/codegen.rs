@@ -670,7 +670,6 @@ impl ToTokens for BsnValue {
 mod tests {
     use super::*;
     use crate::bsn::types::*;
-    use proc_macro::Span;
     use syn::parse_quote;
 
     struct TestPaths {
