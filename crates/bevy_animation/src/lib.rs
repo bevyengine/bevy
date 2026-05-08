@@ -41,7 +41,7 @@ use crate::{
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::{FloatOrd, Quat, Vec3};
+use bevy_math::{FloatOrd, Quat, Vec3, VectorSpace};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
@@ -731,6 +731,15 @@ pub struct RootMotion {
     pub rotation_delta: Quat,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Reflect)]
+#[reflect(Default, Clone)]
+pub enum RootMotionMode {
+    // TODO: Add tests
+    Translation,
+    #[default]
+    TranslationAndRotation,
+}
+
 /// Animation controls.
 ///
 /// Automatically added to any root animations of a scene when it is
@@ -740,6 +749,7 @@ pub struct RootMotion {
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     root_motion_target: Option<AnimationTargetId>,
+    root_motion_mode: RootMotionMode,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -747,7 +757,8 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
-            root_motion_target: None,
+            root_motion_target: self.root_motion_target.clone(),
+            root_motion_mode: self.root_motion_mode.clone(),
         }
     }
 
@@ -755,6 +766,7 @@ impl Clone for AnimationPlayer {
         self.active_animations.clone_from(&source.active_animations);
         self.root_motion_target
             .clone_from(&source.root_motion_target);
+        self.root_motion_mode.clone_from(&source.root_motion_mode);
     }
 }
 
@@ -1005,6 +1017,16 @@ impl AnimationPlayer {
     pub fn set_root_motion_target(&mut self, target: Option<AnimationTargetId>) {
         self.root_motion_target = target;
     }
+
+    /// Returns the root motion mode
+    pub fn root_motion_mode(&self) -> RootMotionMode {
+        self.root_motion_mode
+    }
+
+    /// Set the root motion mode to control how RootMotion is computed
+    pub fn set_root_motion_mode(&mut self, mode: RootMotionMode) {
+        self.root_motion_mode = mode;
+    }
 }
 
 /// A system that triggers untargeted animation events for the currently-playing animations.
@@ -1099,16 +1121,12 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
     ),
 >;
 
-// TODO: Make a macro ?
-fn root_motion_delta<T>(
+fn root_motion_translation_delta(
     clip: &AnimationClip,
     active_animation: &ActiveAnimation,
     curve: &dyn AnimationCurve,
-) -> T
-where
-    T: Default + AddAssign + SubAssign + Add<Output = T> + Sub<Output = T> + 'static,
-{
-    let mut result = T::default();
+) -> Vec3 {
+    let mut result = Vec3::ZERO;
     let reverse = active_animation.is_playback_reversed();
     let is_finished = active_animation.is_finished();
 
@@ -1126,20 +1144,65 @@ where
     let this_time = active_animation.seek_time;
 
     if looping {
+        let last_translation = *(curve.sample_clamped(last_time).downcast::<Vec3>().unwrap());
         if reverse {
-            result += *(curve.sample_clamped(0.).downcast::<T>().unwrap())
-                - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
+            result += *(curve.sample_clamped(0.).downcast::<Vec3>().unwrap()) - last_translation;
             last_time = clip.duration;
         } else {
-            result += *(curve.sample_clamped(clip.duration).downcast::<T>().unwrap())
-                - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
+            result += *(curve
+                .sample_clamped(clip.duration)
+                .downcast::<Vec3>()
+                .unwrap())
+                - last_translation;
             last_time = 0.;
         }
     }
 
-    result += *(curve.sample_clamped(this_time).downcast::<T>().unwrap())
-        - *(curve.sample_clamped(last_time).downcast::<T>().unwrap());
-    result
+    result + *(curve.sample_clamped(this_time).downcast::<Vec3>().unwrap())
+        - *(curve.sample_clamped(last_time).downcast::<Vec3>().unwrap())
+}
+
+fn root_motion_rotation_delta(
+    clip: &AnimationClip,
+    active_animation: &ActiveAnimation,
+    curve: &dyn AnimationCurve,
+) -> Quat {
+    let mut result = Quat::IDENTITY;
+    let reverse = active_animation.is_playback_reversed();
+    let is_finished = active_animation.is_finished();
+
+    // Return early if the animation have finished on a previous tick.
+    if is_finished && !active_animation.just_completed {
+        return result;
+    }
+
+    // The animation completed this tick, while still playing.
+    let looping = active_animation.just_completed && !is_finished;
+
+    let Some(mut last_time) = active_animation.last_seek_time else {
+        return result;
+    };
+    let this_time = active_animation.seek_time;
+
+    if looping {
+        let last_rotation = *(curve.sample_clamped(last_time).downcast::<Quat>().unwrap());
+        if reverse {
+            let current_rotation = *(curve.sample_clamped(0.).downcast::<Quat>().unwrap());
+            result = current_rotation * last_rotation.inverse();
+            last_time = clip.duration;
+        } else {
+            let current_rotation = *(curve
+                .sample_clamped(clip.duration)
+                .downcast::<Quat>()
+                .unwrap());
+            result = current_rotation * last_rotation.inverse();
+            last_time = 0.;
+        }
+    }
+
+    (*(curve.sample_clamped(this_time).downcast::<Quat>().unwrap())
+        * (curve.sample_clamped(last_time).downcast::<Quat>().unwrap()).inverse())
+        * result
 }
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
@@ -1305,7 +1368,7 @@ pub fn animate_targets(
 
                         if is_root_target {
                             let translation_field = animated_field!(Transform::translation);
-                            // TODO: let rotation_field = animated_field!(Transform::rotation);
+                            let rotation_field = animated_field!(Transform::rotation);
                             for curve in curves {
                                 let curve_evaluator_id = (*curve.0).evaluator_id();
                                 let curve_evaluator = evaluation_state
@@ -1321,13 +1384,43 @@ pub fn animate_targets(
                                     let curve_evaluator = curve_evaluator
                                         .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
                                         .unwrap();
-                                    let value =
-                                        root_motion_delta(clip, active_animation, curve.0.as_ref());
+                                    let value = root_motion_translation_delta(
+                                        clip,
+                                        active_animation,
+                                        curve.0.as_ref(),
+                                    );
                                     curve_evaluator.push_value(
                                         value,
                                         weight,
                                         animation_graph_node_index,
                                     );
+                                } else if curve_evaluator_id == rotation_field.evaluator_id()
+                                    && animation_player.root_motion_mode
+                                        == RootMotionMode::TranslationAndRotation
+                                {
+                                    let curve_evaluator = curve_evaluator
+                                        .downcast_mut::<AnimatableCurveEvaluator<Quat>>()
+                                        .unwrap();
+                                    let value = root_motion_rotation_delta(
+                                        clip,
+                                        active_animation,
+                                        curve.0.as_ref(),
+                                    );
+                                    curve_evaluator.push_value(
+                                        value,
+                                        weight,
+                                        animation_graph_node_index,
+                                    );
+                                } else {
+                                    if let Err(err) = AnimationCurve::apply(
+                                        &*curve.0,
+                                        curve_evaluator,
+                                        seek_time,
+                                        weight,
+                                        animation_graph_node_index,
+                                    ) {
+                                        warn!("Animation application failed: {:?}", err);
+                                    }
                                 }
                             }
                         } else {
@@ -1895,30 +1988,39 @@ mod tests {
         assert_eq!(value, None);
     }
 
+    // TODO: Compare expected_rotation
     fn compare_root_motion(
         expected_translation: Vec3,
         expected_rotation: Quat,
         found: &RootMotion,
     ) {
         let translation_diff = expected_translation - found.translation_delta;
-        const DELTA_ERROR: f32 = 0.00001;
+        const TRANSLATION_DELTA_ERROR: f32 = 0.00001;
+        const ROTATION_DELTA_ERROR: f32 = 0.01;
         assert!(
-            translation_diff.x.abs() <= DELTA_ERROR,
+            translation_diff.x.abs() <= TRANSLATION_DELTA_ERROR,
             "Expected: {} | Found {}",
             expected_translation.x,
             found.translation_delta.x
         );
         assert!(
-            translation_diff.y.abs() <= DELTA_ERROR,
+            translation_diff.y.abs() <= TRANSLATION_DELTA_ERROR,
             "Expected: {} | Found {}",
             expected_translation.y,
             found.translation_delta.y
         );
         assert!(
-            translation_diff.z.abs() <= DELTA_ERROR,
+            translation_diff.z.abs() <= TRANSLATION_DELTA_ERROR,
             "Expected: {} | Found {}",
             expected_translation.z,
             found.translation_delta.z
+        );
+        assert!(
+            expected_rotation.angle_between(found.rotation_delta) <= ROTATION_DELTA_ERROR,
+            "Expected: {} | Found {} | Angle : {}",
+            expected_rotation,
+            found.rotation_delta,
+            expected_rotation.angle_between(found.rotation_delta)
         );
     }
 
@@ -1926,6 +2028,7 @@ mod tests {
         app: &mut App,
         tick_count: f32,
         target_translation: Vec3,
+        target_rotation: Quat,
         step_duration: f32,
         once_speed: f32,
         forever_speed: f32,
@@ -1934,9 +2037,10 @@ mod tests {
     ) {
         for _ in 0..tick_count as u32 {
             app.update();
+            let factor = step_duration * (once_speed + forever_speed) / 2.;
             compare_root_motion(
-                target_translation * step_duration * (once_speed + forever_speed) / 2.,
-                Quat::IDENTITY,
+                target_translation * factor,
+                Quat::IDENTITY.slerp(target_rotation, factor),
                 app.world()
                     .get_entity(animator_entity)
                     .unwrap()
@@ -1955,12 +2059,10 @@ mod tests {
         }
         // During this update once_clip will advance by less than step_duration
         app.update();
+        let factor = ((tick_count - tick_count.floor()) * once_speed + forever_speed) / 2.;
         compare_root_motion(
-            target_translation
-                * step_duration
-                * ((tick_count - tick_count.floor()) * once_speed + forever_speed)
-                / 2.,
-            Quat::IDENTITY,
+            target_translation * step_duration * factor,
+            Quat::IDENTITY.slerp(target_rotation, factor),
             app.world()
                 .get_entity(animator_entity)
                 .unwrap()
@@ -1969,9 +2071,10 @@ mod tests {
         );
         // Since the single clip is ended only the forever should be active
         app.update();
+        let factor = step_duration * forever_speed;
         compare_root_motion(
-            target_translation * step_duration * forever_speed,
-            Quat::IDENTITY,
+            target_translation * factor,
+            Quat::IDENTITY.slerp(target_rotation, factor),
             app.world()
                 .get_entity(animator_entity)
                 .unwrap()
@@ -2013,16 +2116,21 @@ mod tests {
         );
         let mut clip = AnimationClip::default();
         let target_translation = Vec3::new(1., 2., 4.);
+        let target_rotation =
+            Quat::from_axis_angle(Vec3::Z, 1.0) * Quat::from_axis_angle(Vec3::X, 1.0);
         let root_target = AnimationTargetId::from_name(&Name::new("Root"));
-        let animatable_curve = AnimatableCurve::new(
+        let translation_curve = AnimatableCurve::new(
             animated_field!(Transform::translation),
-            AnimatableKeyframeCurve::new([
-                (0.0, Vec3::new(0., 0., 0.)),
-                (clip_duration, target_translation),
-            ])
-            .expect("Failed to create power level curve"),
+            AnimatableKeyframeCurve::new([(0.0, Vec3::ZERO), (clip_duration, target_translation)])
+                .expect("Failed to create power level curve"),
         );
-        clip.add_curve_to_target(root_target, animatable_curve);
+        clip.add_curve_to_target(root_target, translation_curve);
+        let rotation_curve = AnimatableCurve::new(
+            animated_field!(Transform::rotation),
+            AnimatableKeyframeCurve::new([(0.0, Quat::IDENTITY), (clip_duration, target_rotation)])
+                .expect("Failed to create power level curve"),
+        );
+        clip.add_curve_to_target(root_target, rotation_curve);
         let mut graph = AnimationGraph::default();
         let clip_handle = {
             let mut r_clips = app
@@ -2073,6 +2181,7 @@ mod tests {
             &mut app,
             tick_count,
             target_translation,
+            target_rotation,
             step_duration,
             once_speed,
             forever_speed,
@@ -2100,6 +2209,7 @@ mod tests {
             &mut app,
             tick_count,
             target_translation,
+            target_rotation,
             step_duration,
             once_speed,
             forever_speed,
