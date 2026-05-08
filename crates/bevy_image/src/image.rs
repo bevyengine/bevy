@@ -2707,8 +2707,8 @@ mod test {
         // 2x2 pixel image
         let image = Image::new_fill(
             Extent3d {
-                width: 4,
-                height: 4,
+                width: 6,
+                height: 6,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
@@ -2775,7 +2775,7 @@ mod test {
 
         let image = Image::new_fill(
             Extent3d {
-                width: 1,
+                width: 2,
                 height: 1,
                 depth_or_array_layers: 1,
             },
@@ -2787,14 +2787,14 @@ mod test {
 
         assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
 
-        let new_array_image = image.create_stacked_array_from_2d_grid(1, 1).unwrap();
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 2).unwrap();
 
         assert!(
             new_array_image
                 .texture_descriptor
                 .size
                 .depth_or_array_layers
-                == 1
+                == 2
         );
         assert!(
             new_array_image.data.unwrap().len()
