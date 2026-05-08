@@ -1422,8 +1422,8 @@ impl Image {
         Ok(())
     }
 
-    /// Returns a newly contructed 2D image using the same properties as &self from a grid of tiles of the specified size,
-    /// The new image is contructed in a vertical stack of tiles to be used as a 2D array texture.
+    /// Returns a newly constructed 2D image using the same properties as &self from a grid of tiles of the specified size,
+    /// The new image is constructed in a vertical stack of tiles to be used as a 2D array texture.
     ///
     /// This is primarily for preparing grid based tilesets.
     ///
