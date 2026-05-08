@@ -8,7 +8,7 @@
 //! Provides rendering functionality for `bevy_ui`.
 
 pub mod box_shadow;
-mod clipping;
+pub mod clipping;
 mod gradient;
 mod pipeline;
 pub mod render_pass;
@@ -81,7 +81,7 @@ pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::shader_flags::INVERT;
-use crate::text::{extract_preedit_underlines, extract_text_cursor};
+use crate::text::{calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor};
 use clipping::clip_polygon;
 
 pub mod prelude {
@@ -1009,16 +1009,7 @@ pub fn extract_text_sections(
                 uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
-        let clip = if text_scroll.is_some() {
-            Some(
-                maybe_clip
-                    .cloned()
-                    .unwrap_or_default()
-                    .with_rect(uinode.content_box(), global_transform),
-            )
-        } else {
-            maybe_clip.cloned()
-        };
+        let clip = calculate_text_scroll_clip(text_scroll, maybe_clip, uinode, global_transform);
 
         let mut color = text_color.0.to_linear();
 
@@ -1151,16 +1142,7 @@ pub fn extract_text_shadows(
                     - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
-        let clip = if text_scroll.is_some() {
-            Some(
-                maybe_clip
-                    .cloned()
-                    .unwrap_or_default()
-                    .with_rect(uinode.content_box(), global_transform),
-            )
-        } else {
-            maybe_clip.cloned()
-        };
+        let clip = calculate_text_scroll_clip(text_scroll, maybe_clip, uinode, global_transform);
 
         for (
             i,
@@ -1320,16 +1302,7 @@ pub fn extract_text_decorations(
                 uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
-        let clip = if text_scroll.is_some() {
-            Some(
-                maybe_clip
-                    .cloned()
-                    .unwrap_or_default()
-                    .with_rect(uinode.content_box(), global_transform),
-            )
-        } else {
-            maybe_clip.cloned()
-        };
+        let clip = calculate_text_scroll_clip(text_scroll, maybe_clip, uinode, global_transform);
 
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block

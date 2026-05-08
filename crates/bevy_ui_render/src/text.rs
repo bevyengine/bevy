@@ -16,6 +16,24 @@ use crate::{
     stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
 };
 
+pub(crate) fn calculate_text_scroll_clip(
+    text_scroll: Option<&TextScroll>,
+    maybe_clip: Option<&CalculatedClip>,
+    uinode: &ComputedNode,
+    global_transform: &UiGlobalTransform,
+) -> Option<CalculatedClip> {
+    if text_scroll.is_some() {
+        Some(
+            maybe_clip
+                .cloned()
+                .unwrap_or_default()
+                .with_rect(uinode.content_box(), global_transform),
+        )
+    } else {
+        maybe_clip.cloned()
+    }
+}
+
 pub fn extract_text_cursor(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -65,16 +83,7 @@ pub fn extract_text_cursor(
                 uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
-        let clip = if text_scroll.is_some() {
-            Some(
-                maybe_clip
-                    .cloned()
-                    .unwrap_or_default()
-                    .with_rect(uinode.content_box(), global_transform),
-            )
-        } else {
-            maybe_clip.cloned()
-        };
+        let clip = calculate_text_scroll_clip(text_scroll, maybe_clip, uinode, global_transform);
 
         let mut focused = false;
 
@@ -202,16 +211,7 @@ pub fn extract_preedit_underlines(
                 uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
-        let clip = if text_scroll.is_some() {
-            Some(
-                maybe_clip
-                    .cloned()
-                    .unwrap_or_default()
-                    .with_rect(uinode.content_box(), global_transform),
-            )
-        } else {
-            maybe_clip.cloned()
-        };
+        let clip = calculate_text_scroll_clip(text_scroll, maybe_clip, uinode, global_transform);
 
         let color = text_color.0.to_linear();
 
