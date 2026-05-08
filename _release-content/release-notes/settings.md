@@ -69,7 +69,7 @@ See the [`examples/app/persisting_preferences`](https://github.com/bevyengine/be
 
 ## Where files are stored
 
-Settings are saved as TOML files in a folder named after your app name,
+Settings are saved as TOML files in a folder named after your app's provided name (conventionally a reverse domain name),
 inside the OS-specific preferences directory:
 
 - **Linux**: `$XDG_CONFIG_HOME/<app_name>/` (typically `~/.config/<app_name>/`), following the [XDG Base Directory specification](https://specifications.freedesktop.org/basedir-spec/latest/)
