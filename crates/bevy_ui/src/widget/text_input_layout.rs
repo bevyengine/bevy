@@ -202,6 +202,9 @@ pub fn update_editable_text_styles(
             style_set.insert(StyleProperty::FontFeatures(
                 (&text_font.font_features).into(),
             ));
+            style_set.insert(StyleProperty::FontVariations(
+                (&text_font.font_variations).into(),
+            ));
             style_set.insert(StyleProperty::Brush(TextBrush::new(
                 0,
                 text_font.font_smoothing,
