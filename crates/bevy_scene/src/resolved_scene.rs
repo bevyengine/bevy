@@ -14,7 +14,7 @@ use bevy_utils::TypeIdMap;
 use core::any::{Any, TypeId};
 use thiserror::Error;
 
-/// A final "spawnable" root [`ResolvedScene`]. This includes the [`EntityScopes`] for the whole tree.
+/// A final "spawnable" root [`ResolvedScene`].
 pub struct ResolvedSceneRoot {
     /// The root [`ResolvedScene`].
     pub scene: ResolvedScene,
@@ -81,7 +81,7 @@ impl ResolvedSceneRoot {
     }
 }
 
-/// A final "spawnable" root list of [`ResolvedScene`]s. This includes the [`EntityScopes`] for the whole graph of entities.
+/// A final "spawnable" root list of [`ResolvedScene`]s.
 pub struct ResolvedSceneListRoot {
     /// The root [`ResolvedScene`] list.
     pub scenes: Vec<ResolvedScene>,
