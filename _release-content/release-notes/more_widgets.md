@@ -17,7 +17,7 @@ Bevy Feathers, our opinionated UI widget collection designed with the Bevy edito
 
 Existing widgets have also been polished for readability and functionality.
 Style tokens are added for mouse pressed in checked and unchecked states, multiple radio groups are now easier to manage with
-`radio_self_update`, and a new `FocusCause` field has been added to the `FocusGained` event to let widgets distingush whether a user
+`radio_self_update`, and a new `FocusCause` field has been added to the `FocusGained` event to let widgets distinguish whether a user
 clicked or navigated into it.
 
 For full usage and an interactive demo, try out the [`feathers_gallery`] example.
