@@ -1194,6 +1194,9 @@ impl PreprocessPipelines {
             GpuPreprocessingMode::None => false,
             GpuPreprocessingMode::PreprocessingOnly => {
                 self.direct_preprocess.is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_preprocess
+                        .is_loaded(pipeline_cache)
             }
             GpuPreprocessingMode::Culling => {
                 self.direct_preprocess.is_loaded(pipeline_cache)
