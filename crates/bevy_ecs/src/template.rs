@@ -1,8 +1,8 @@
 //! Functionality that relates to the [`Template`] trait.
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::boxed::Box;
 use bevy_ecs_macros::Component;
-use bevy_platform::sync::Mutex;
+use bevy_platform::sync::{Arc, Mutex};
 
 pub use bevy_ecs_macros::FromTemplate;
 
