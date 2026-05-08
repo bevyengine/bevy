@@ -443,6 +443,16 @@ fn on_focus_lost_clear_ime(
     }
 }
 
+/// Observer that collapses the selection of [`EditableText`] when it loses focus.
+fn on_focus_lost_collapse_selection(
+    trigger: On<FocusLost>,
+    mut q_text_input: Query<&mut EditableText>,
+) {
+    if let Ok(mut editable_text) = q_text_input.get_mut(trigger.entity) {
+        editable_text.queue_edit(TextEdit::CollapseSelection);
+    }
+}
+
 /// Marker component for [`EditableText`] widgets that should select all text on focus.
 ///
 /// If a pointer press is what caused the focus, the select all is deferred until
@@ -539,6 +549,7 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_pointer_drag)
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost_clear_ime)
+            .add_observer(on_focus_lost_collapse_selection)
             .add_observer(on_focus_select_all)
             .add_observer(on_pointer_click)
             .add_systems(
