@@ -1397,6 +1397,9 @@ impl Image {
         layers: u32,
     ) -> Result<(), TextureReinterpretationError> {
         // Must be a stacked image, and the height must be divisible by layers.
+        if layers < 2 {
+            return Err(TextureReinterpretationError::NotEnoughLayers);
+        }
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureReinterpretationError::WrongDimension);
         }
@@ -1432,6 +1435,11 @@ impl Image {
         rows: u32,
         columns: u32,
     ) -> Result<Image, TextureReinterpretationError> {
+        // In a texture 2d array, there must be at least 2 textures or else a render validation
+        // error will be thrown.
+        if rows * columns < 2 {
+            return Err(TextureReinterpretationError::NotEnoughLayers);
+        }
         // Must be a grid image, and the image height and width must be divisible by the rows and columns.
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureReinterpretationError::WrongDimension);
@@ -2171,6 +2179,10 @@ pub enum TextureReinterpretationError {
     /// The image was expected to be 2d.
     #[error("must be a 2d image")]
     WrongDimension,
+    /// In a texture 2d array, there needs to be at least 2 layers or else a render validation error
+    /// will be throw.
+    #[error("Rows * Columns must be > 1")]
+    NotEnoughLayers,
     /// The image was expected to have a single layer.
     #[error("must not already be a layered image")]
     InvalidLayerCount,
