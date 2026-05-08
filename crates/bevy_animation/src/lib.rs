@@ -31,7 +31,6 @@ use core::{
 };
 use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
@@ -41,7 +40,7 @@ use crate::{
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::{FloatOrd, Quat, Vec3, VectorSpace};
+use bevy_math::{FloatOrd, Quat, Vec3};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
@@ -2026,27 +2025,19 @@ mod tests {
 
     fn root_motion_tests(
         app: &mut App,
-        tick_count: f32,
+        tick_count: u32,
         target_translation: Vec3,
         target_rotation: Quat,
-        step_duration: f32,
-        once_speed: f32,
-        forever_speed: f32,
         animator_entity: Entity,
         animated_entity: Entity,
     ) {
-        for _ in 0..tick_count as u32 {
+        let mut accumulated_deltas = RootMotion::default();
+        for _ in 0..tick_count {
             app.update();
-            let factor = step_duration * (once_speed + forever_speed) / 2.;
-            compare_root_motion(
-                target_translation * factor,
-                Quat::IDENTITY.slerp(target_rotation, factor),
-                app.world()
-                    .get_entity(animator_entity)
-                    .unwrap()
-                    .get::<RootMotion>()
-                    .unwrap(),
-            );
+            let root_motion = app.world().get::<RootMotion>(animator_entity).unwrap();
+            accumulated_deltas.translation_delta += root_motion.translation_delta;
+            accumulated_deltas.rotation_delta =
+                root_motion.rotation_delta * accumulated_deltas.rotation_delta;
             // Check if the transform is erased in the root target
             assert_eq!(
                 Transform::IDENTITY,
@@ -2057,30 +2048,7 @@ mod tests {
                     .unwrap()
             );
         }
-        // During this update once_clip will advance by less than step_duration
-        app.update();
-        let factor = ((tick_count - tick_count.floor()) * once_speed + forever_speed) / 2.;
-        compare_root_motion(
-            target_translation * step_duration * factor,
-            Quat::IDENTITY.slerp(target_rotation, factor),
-            app.world()
-                .get_entity(animator_entity)
-                .unwrap()
-                .get::<RootMotion>()
-                .unwrap(),
-        );
-        // Since the single clip is ended only the forever should be active
-        app.update();
-        let factor = step_duration * forever_speed;
-        compare_root_motion(
-            target_translation * factor,
-            Quat::IDENTITY.slerp(target_rotation, factor),
-            app.world()
-                .get_entity(animator_entity)
-                .unwrap()
-                .get::<RootMotion>()
-                .unwrap(),
-        );
+        compare_root_motion(target_translation, target_rotation, &accumulated_deltas);
     }
 
     #[test]
@@ -2092,13 +2060,19 @@ mod tests {
             AssetPlugin::default(),
             AnimationPlugin,
         ));
+        // Animations settings
+        let play_count = 3;
+        // Choose tick_count such that ticks are not align perfectly with animation loops
+        let tick_count = 10;
+        let slow_speed = 0.5 as f32;
+        let fast_speed = 1. as f32;
         // Force each update to 300ms
-        let step_duration = 0.3;
+        let tick_duration = play_count as f32 / tick_count as f32;
         let clip_duration = 1.0;
         app.add_systems(
             First,
             (move |mut time: ResMut<Time<Virtual>>| {
-                time.advance_by(Duration::from_secs_f32(step_duration))
+                time.advance_by(Duration::from_secs_f32(tick_duration))
             })
             .after(TimeSystems),
         );
@@ -2139,22 +2113,19 @@ mod tests {
                 .unwrap();
             r_clips.add(clip)
         };
-        // Animations settings
-        let once_speed = 0.5;
-        let forever_speed = 1.0;
         // Add multiple clips
         let mut animation_player = AnimationPlayer::default();
         animation_player.set_root_motion_target(Some(root_target));
         let once_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        /* animation_player
+        .play(once_animation)
+        .set_speed(slow_speed)
+        .set_repeat(RepeatAnimation::Count(play_count)); */
+        let multiple_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
         animation_player
-            .play(once_animation)
-            .set_speed(once_speed)
-            .set_repeat(RepeatAnimation::Never);
-        let forever_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
-        animation_player
-            .play(forever_animation)
-            .set_speed(forever_speed)
-            .set_repeat(RepeatAnimation::Forever);
+            .play(multiple_animation)
+            .set_speed(fast_speed)
+            .set_repeat(RepeatAnimation::Count(play_count));
         let graph_handle = {
             let mut r_graphs = app
                 .world_mut()
@@ -2174,45 +2145,42 @@ mod tests {
                 Transform::default(),
             ))
             .id();
-        let tick_count = clip_duration / once_speed / step_duration;
+
+        let final_translation = target_translation * play_count as f32;
+        let final_rotation = Quat::IDENTITY.slerp(target_rotation, play_count as f32);
 
         // Forward tests
         root_motion_tests(
             &mut app,
             tick_count,
-            target_translation,
-            target_rotation,
-            step_duration,
-            once_speed,
-            forever_speed,
+            final_translation,
+            final_rotation,
             animator_entity,
             animated_entity,
         );
 
         // Setup for backward
-        let once_speed = once_speed * -1.;
-        let forever_speed = forever_speed * -1.;
+        let slow_speed = slow_speed * -1.;
+        let fast_speed = fast_speed * -1.;
         {
             let mut player_entity = app.world_mut().get_entity_mut(animator_entity).unwrap();
             let mut animation_player = player_entity.get_mut::<AnimationPlayer>().unwrap();
+            /* animation_player
+            .play(once_animation)
+            .set_speed(slow_speed)
+            .seek_to(clip_duration); */
             animation_player
-                .play(once_animation)
-                .set_speed(once_speed)
-                .seek_to(clip_duration);
-            animation_player
-                .play(forever_animation)
-                .set_speed(forever_speed)
-                .replay();
+                .play(multiple_animation)
+                .set_repeat(RepeatAnimation::Count(play_count))
+                .set_speed(fast_speed)
+                .repeat();
         }
         // Backward tests
         root_motion_tests(
             &mut app,
             tick_count,
-            target_translation,
-            target_rotation,
-            step_duration,
-            once_speed,
-            forever_speed,
+            -final_translation,
+            final_rotation.inverse(),
             animator_entity,
             animated_entity,
         );
