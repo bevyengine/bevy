@@ -15,11 +15,11 @@ fn scene() -> impl SceneList {
 fn ui() -> impl Scene {
     bsn! {
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            column_gap: Val::Px(5.),
+            column_gap: px(5),
         }
         Children [
             (
@@ -39,9 +39,9 @@ fn button(label: &str) -> impl Scene {
     bsn! {
         Button
         Node {
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            border: UiRect::all(Val::Px(5.0)),
+            width: px(150),
+            height: px(65),
+            border: px(5),
             border_radius: BorderRadius::MAX,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,

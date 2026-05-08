@@ -7,9 +7,9 @@ use crate::{
     query::{
         ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
         QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
-        QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
-        SingleEntityQueryData,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryNotDenseError, QueryParIter,
+        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -1438,7 +1438,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a contiguous iterator over the query results for the given
-    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// [`World`](crate::world::World) or [`Err`] with [`QueryNotDenseError`] if the query is not dense hence not contiguously
     /// iterable.
     ///
     /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
@@ -1469,16 +1469,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     ///
     /// A mutable version: [`Self::contiguous_iter_mut`]
-    pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
+    pub fn contiguous_iter(
+        &self,
+    ) -> Result<QueryContiguousIter<'_, 's, D::ReadOnly, F>, QueryNotDenseError>
     where
         D::ReadOnly: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        self.as_readonly().contiguous_iter_inner().ok()
+        self.as_readonly().contiguous_iter_inner()
     }
 
     /// Returns a mutable contiguous iterator over the query results for the given
-    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// [`World`](crate::world::World) or [`Err`] with [`QueryNotDenseError`] if the query is not dense hence not contiguously
     /// iterable.
     ///
     /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
@@ -1510,19 +1512,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     /// ```
     /// An immutable version: [`Self::contiguous_iter`]
-    pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
+    pub fn contiguous_iter_mut(
+        &mut self,
+    ) -> Result<QueryContiguousIter<'_, 's, D, F>, QueryNotDenseError>
     where
         D: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        self.reborrow().contiguous_iter_inner().ok()
+        self.reborrow().contiguous_iter_inner()
     }
 
     /// Returns a contiguous iterator over the query results for the given
-    /// [`World`](crate::world::World) or [`Err`] with this [`Query`] if the query is not dense hence not contiguously
+    /// [`World`](crate::world::World) or [`Err`] with [`QueryNotDenseError`] if the query is not dense hence not contiguously
     /// iterable.
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
-    pub fn contiguous_iter_inner(self) -> Result<QueryContiguousIter<'w, 's, D, F>, Self>
+    pub fn contiguous_iter_inner(
+        self,
+    ) -> Result<QueryContiguousIter<'w, 's, D, F>, QueryNotDenseError>
     where
         D: ContiguousQueryData,
         F: ArchetypeFilter,
@@ -1531,7 +1537,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // - `self.world` has permission to access the required components
         // - `self.world` was used to initialize `self.state`
         unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
-            .ok_or(self)
+            .ok_or(QueryNotDenseError(DebugName::type_name::<Self>()))
     }
 
     /// Returns the read-only query item for the given [`Entity`].
