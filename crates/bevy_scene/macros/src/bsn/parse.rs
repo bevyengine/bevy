@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnNamedField,
     BsnRelatedSceneList, BsnRoot, BsnSceneArgs, BsnSceneFn, BsnSceneFnArgExpr, BsnSceneList,
@@ -12,7 +10,7 @@ use syn::{
     braced, bracketed,
     buffer::Cursor,
     parenthesized,
-    parse::{Parse, ParseBuffer, ParseStream},
+    parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Paren},
     Block, Expr, Ident, Lit, LitStr, Path, Result, Token,
@@ -111,9 +109,6 @@ impl BsnEntry {
             if is_template {
                 input.parse::<At>()?;
             }
-            if !input.peek(Ident) {
-                Err(input.error(format!("{}", input.to_string())))?;
-            }
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
             match path_type {
@@ -172,13 +167,14 @@ impl BsnEntry {
                 }
                 PathType::Function => {
                     let forked = input.fork();
-                    if input.peek(Paren)
-                        && let Ok(args) = input.parse()
+                    if forked.peek(Paren)
+                        && let Ok(args) = forked.parse()
                     {
+                        input.advance_to(&forked);
                         BsnEntry::SceneFn(BsnSceneFn { path, args })
                     } else {
-                        if forked.peek(Paren) {
-                            let tokens = parenthesized_tokens(&forked)?;
+                        if input.peek(Paren) {
+                            let tokens = parenthesized_tokens(input)?;
                             BsnEntry::SceneExpression(quote! {#path(#tokens)})
                         } else {
                             BsnEntry::SceneExpression(quote! {#path})
