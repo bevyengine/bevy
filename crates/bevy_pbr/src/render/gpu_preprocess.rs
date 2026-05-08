@@ -961,7 +961,10 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull indexed meshes if there are any.
         if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
-            compute_pass.set_immediates(0, bytemuck::bytes_of(late_indirect_parameters_indexed_offset));
+            compute_pass.set_immediates(
+                0,
+                bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
+            );
 
             compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
@@ -973,7 +976,10 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull non-indexed meshes if there are any.
         if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
-            compute_pass.set_immediates(0, bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset));
+            compute_pass.set_immediates(
+                0,
+                bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
+            );
 
             compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
