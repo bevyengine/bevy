@@ -2799,7 +2799,6 @@ impl World {
             entity: Entity,
             component_id: ComponentId,
             value: ManuallyDrop<R>,
-            new_tick: Tick,
             caller: MaybeLocation,
         }
         impl<R: Resource> Drop for ReinsertGuard<'_, R> {
@@ -2857,11 +2856,11 @@ impl World {
                     // SAFETY:
                     // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
                     let world = unsafe { entity_mut.world_mut() };
+                    let tick = world.change_tick();
                     // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
-                    let mut bundle_inserter = unsafe {
-                        BundleInserter::new::<R>(world, location.archetype_id, self.new_tick)
-                    };
+                    let mut bundle_inserter =
+                        unsafe { BundleInserter::new::<R>(world, location.archetype_id, tick) };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -2899,7 +2898,6 @@ impl World {
             entity,
             component_id,
             value: ManuallyDrop::new(value),
-            new_tick: change_tick,
             caller: changed_by,
         };
 
@@ -4637,13 +4635,11 @@ mod tests {
 
         let mut world = World::new();
         world.insert_resource(R);
-        world.increment_change_tick();
-        assert_ne!(world.change_tick(), world.resource_ref::<R>().added());
-        assert_ne!(
-            world.change_tick(),
-            world.resource_ref::<R>().last_changed()
-        );
-        world.resource_scope(|_, _: Mut<R>| ());
+        world.resource_scope(|world, r: Mut<R>| {
+            assert_eq!(world.change_tick(), r.added());
+            assert_eq!(world.change_tick(), r.last_changed());
+            world.increment_change_tick();
+        });
         assert_eq!(world.change_tick(), world.resource_ref::<R>().added());
         assert_eq!(
             world.change_tick(),
