@@ -1987,7 +1987,6 @@ mod tests {
         assert_eq!(value, None);
     }
 
-    // TODO: Compare expected_rotation
     fn compare_root_motion(
         expected_translation: Vec3,
         expected_rotation: Quat,
@@ -2064,11 +2063,12 @@ mod tests {
         let play_count = 3;
         // Choose tick_count such that ticks are not align perfectly with animation loops
         let tick_count = 10;
-        let slow_speed = 0.5 as f32;
-        let fast_speed = 1. as f32;
-        // Force each update to 300ms
-        let tick_duration = play_count as f32 / tick_count as f32;
+        let slow_speed = 1.0 as f32;
+        let fast_speed = 2.0 as f32;
         let clip_duration = 1.0;
+        let total_duration = (play_count as f32 * clip_duration) / slow_speed;
+        let tick_duration = total_duration / tick_count as f32;
+        // Force each update to a fixe duration
         app.add_systems(
             First,
             (move |mut time: ResMut<Time<Virtual>>| {
@@ -2096,13 +2096,13 @@ mod tests {
         let translation_curve = AnimatableCurve::new(
             animated_field!(Transform::translation),
             AnimatableKeyframeCurve::new([(0.0, Vec3::ZERO), (clip_duration, target_translation)])
-                .expect("Failed to create power level curve"),
+                .expect("Failed to create curve"),
         );
         clip.add_curve_to_target(root_target, translation_curve);
         let rotation_curve = AnimatableCurve::new(
             animated_field!(Transform::rotation),
             AnimatableKeyframeCurve::new([(0.0, Quat::IDENTITY), (clip_duration, target_rotation)])
-                .expect("Failed to create power level curve"),
+                .expect("Failed to create curve"),
         );
         clip.add_curve_to_target(root_target, rotation_curve);
         let mut graph = AnimationGraph::default();
@@ -2116,14 +2116,14 @@ mod tests {
         // Add multiple clips
         let mut animation_player = AnimationPlayer::default();
         animation_player.set_root_motion_target(Some(root_target));
-        let once_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
-        /* animation_player
-        .play(once_animation)
-        .set_speed(slow_speed)
-        .set_repeat(RepeatAnimation::Count(play_count)); */
-        let multiple_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        let slow_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
         animation_player
-            .play(multiple_animation)
+            .play(slow_animation)
+            .set_speed(slow_speed)
+            .set_repeat(RepeatAnimation::Count(play_count));
+        let fast_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        animation_player
+            .play(fast_animation)
             .set_speed(fast_speed)
             .set_repeat(RepeatAnimation::Count(play_count));
         let graph_handle = {
@@ -2146,8 +2146,13 @@ mod tests {
             ))
             .id();
 
-        let final_translation = target_translation * play_count as f32;
-        let final_rotation = Quat::IDENTITY.slerp(target_rotation, play_count as f32);
+        // Compute how much time each animation will be applied according to there speed and duration
+        let both_animation_duration = play_count as f32 * clip_duration / fast_speed;
+        let slow_only_animation_duration = total_duration - both_animation_duration;
+        let applied_factor = slow_only_animation_duration * slow_speed
+            + both_animation_duration * (fast_speed + slow_speed) / 2.;
+        let final_translation = target_translation * applied_factor as f32;
+        let final_rotation = Quat::IDENTITY.slerp(target_rotation, applied_factor as f32);
 
         // Forward tests
         root_motion_tests(
@@ -2165,16 +2170,19 @@ mod tests {
         {
             let mut player_entity = app.world_mut().get_entity_mut(animator_entity).unwrap();
             let mut animation_player = player_entity.get_mut::<AnimationPlayer>().unwrap();
-            /* animation_player
-            .play(once_animation)
-            .set_speed(slow_speed)
-            .seek_to(clip_duration); */
+            assert_eq!(0, animation_player.active_animations.len());
             animation_player
-                .play(multiple_animation)
+                .play(slow_animation)
+                .set_repeat(RepeatAnimation::Count(play_count))
+                .set_speed(slow_speed)
+                .seek_to(clip_duration);
+            animation_player
+                .play(fast_animation)
                 .set_repeat(RepeatAnimation::Count(play_count))
                 .set_speed(fast_speed)
-                .repeat();
+                .seek_to(clip_duration);
         }
+
         // Backward tests
         root_motion_tests(
             &mut app,
