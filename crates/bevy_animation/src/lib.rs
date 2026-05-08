@@ -630,6 +630,16 @@ impl ActiveAnimation {
         self.elapsed
     }
 
+    /// Returns the last seek time of the animation.
+    pub fn last_seek_time(&self) -> Option<f32> {
+        self.last_seek_time
+    }
+
+    /// Returns true if the animation was completed at least once this tick.
+    pub fn just_completed(&self) -> bool {
+        self.just_completed
+    }
+
     /// Returns the seek time of the animation.
     ///
     /// This is nonnegative and no more than the clip duration.

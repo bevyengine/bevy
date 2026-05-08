@@ -7,7 +7,7 @@ Going forward, BSN will be the primary means to create Feathers widgets. The old
 functions have been renamed (`button` is now `button_bundle`), and will be removed in a future
 release.
 
-Some of the BSN widgets are slightly different than before:
+Some of the BSN widgets have changed slightly:
 
 - `button` no longer automatically includes `flex_grow`. This was originally added due to the
   difficulty of overriding node styles when spawning, but in BSN that's no longer a problem.
