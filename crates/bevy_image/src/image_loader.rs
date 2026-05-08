@@ -243,26 +243,28 @@ impl AssetLoader for ImageLoader {
         }
 
         if let Some(array_layout) = settings.array_layout {
-            match array_layout {
+            let image = match array_layout {
                 ImageArrayLayout::RowCount { rows } => {
                     image.reinterpret_stacked_2d_as_array(rows)?;
+                    image
                 }
                 ImageArrayLayout::RowHeight { pixels } => {
                     image.reinterpret_stacked_2d_as_array(image.height() / pixels)?;
+                    image
                 }
                 ImageArrayLayout::GridCount { columns, rows } => {
-                    image.convert_grid_2d_to_array(rows, columns)?;
+                    image.create_stacked_array_from_2d_grid(rows, columns)?
                 }
                 ImageArrayLayout::GridSize {
                     tile_width_pixels,
                     tile_height_pixels,
-                } => image.convert_grid_2d_to_array(
+                } => image.create_stacked_array_from_2d_grid(
                     image.height() / tile_height_pixels,
                     image.width() / tile_width_pixels,
                 )?,
             };
+            return Ok(image);
         }
-
         Ok(image)
     }
 

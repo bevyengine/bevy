@@ -1418,24 +1418,20 @@ impl Image {
 
         Ok(())
     }
-    /// Takes a 2D image containing a grid of tiles of the specified size,
-    /// And transforms the image into a vertical stack of tile to be used as a 2D array texture.
+
+    /// Returns a newly contructed 2D image using the same properties as &self from a grid of tiles of the specified size,
+    /// The new image is contructed in a vertical stack of tiles to be used as a 2D array texture.
     ///
     /// This is primarily for preparing grid based tilesets.
     ///
     /// # Errors
     /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
     /// or is not evenly dividable by `size_in_tiles`.
-    pub fn convert_grid_2d_to_array(
-        &mut self,
+    pub fn create_stacked_array_from_2d_grid(
+        &self,
         rows: u32,
         columns: u32,
-    ) -> Result<(), TextureReinterpretationError> {
-        // If we have only set one column, we don't need to rearange any pixel data,
-        // Its already in a format to be used by the gpu
-        if columns == 1 {
-            return self.reinterpret_stacked_2d_as_array(rows);
-        }
+    ) -> Result<Image, TextureReinterpretationError> {
         // Must be a grid image, and the image height and width must be divisible by the rows and columns.
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureReinterpretationError::WrongDimension);
@@ -1467,44 +1463,57 @@ impl Image {
         let image_width = self.width() as usize;
         let total_tiles = tiles_x * tiles_y;
 
-        // Transform the grid of tiles into a single vertical stack of tiles.
+        let new_data = match &self.data {
+            Some(pixels) => {
+                let mut new_data: Vec<u8> = Vec::with_capacity(pixels.len());
 
-        if let Some(pixels) = self.data.take() {
-            let pixel_size = self
-                .texture_descriptor
-                .format
-                .pixel_size()
-                .map_err(|_| TextureReinterpretationError::InvalidTextureFormat)?;
+                let pixel_size = self
+                    .texture_descriptor
+                    .format
+                    .pixel_size()
+                    .map_err(|_| TextureReinterpretationError::InvalidTextureFormat)?;
 
-            let mut new_data = Vec::with_capacity(pixels.len());
+                // Iterate tiles in row-major order (left-to-right, top-to-bottom).
+                let tile_height_usize = tile_height as usize;
+                let tile_width_usize = tile_width as usize;
 
-            // Iterate tiles in row-major order (left-to-right, top-to-bottom).
-            let tile_height_usize = tile_height as usize;
-            let tile_width_usize = tile_width as usize;
-
-            for ty in 0..tiles_y {
-                for tx in 0..tiles_x {
-                    for row in 0..tile_height_usize {
-                        let src_row = ty * tile_height_usize + row;
-                        let src_col = tx * tile_width_usize;
-                        let src_start = (src_row * image_width + src_col) * pixel_size;
-                        let src_end = src_start + tile_width_usize * pixel_size;
-                        new_data.extend_from_slice(&pixels[src_start..src_end]);
+                for ty in 0..tiles_y {
+                    for tx in 0..tiles_x {
+                        for row in 0..tile_height_usize {
+                            let src_row = ty * tile_height_usize + row;
+                            let src_col = tx * tile_width_usize;
+                            let src_start = (src_row * image_width + src_col) * pixel_size;
+                            let src_end = src_start + tile_width_usize * pixel_size;
+                            new_data.extend_from_slice(&pixels[src_start..src_end]);
+                        }
                     }
                 }
+
+                Some(new_data)
             }
+            None => None,
+        };
 
-            self.data = Some(new_data);
-        }
+        // Transform the grid of tiles into a single vertical stack of tiles.
 
-        // Update the texture descriptor to reflect the new tile dimensions and layer count.
-        self.reinterpret_size(Extent3d {
-            width: tile_width,
-            height: tile_height,
-            depth_or_array_layers: total_tiles as u32,
-        })?;
+        let new_image = Image {
+            data: new_data,
+            data_order: self.data_order,
+            texture_descriptor: TextureDescriptor {
+                size: Extent3d {
+                    width: tile_width,
+                    height: tile_height,
+                    depth_or_array_layers: total_tiles as u32,
+                },
+                ..self.texture_descriptor.clone()
+            },
+            sampler: self.sampler.clone(),
+            texture_view_descriptor: self.texture_view_descriptor.clone(),
+            asset_usage: self.asset_usage,
+            copy_on_resize: self.copy_on_resize,
+        };
 
-        Ok(())
+        Ok(new_image)
     }
 
     /// Convert a texture from a format to another. Only a few formats are
@@ -2682,12 +2691,12 @@ mod test {
     }
 
     #[test]
-    fn convert_2d_grid_to_array() {
+    fn create_array_from_2d_grid() {
         // 2x2 pixel image
-        let mut image = Image::new_fill(
+        let image = Image::new_fill(
             Extent3d {
-                width: 2,
-                height: 2,
+                width: 4,
+                height: 4,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
@@ -2698,13 +2707,28 @@ mod test {
 
         assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
 
-        image.convert_grid_2d_to_array(2, 2).unwrap();
+        let new_array_image = image.create_stacked_array_from_2d_grid(2, 2).unwrap();
 
         // 2x2 pixel image with 1px tiles should convert to a 2d array of 4 layers
-        assert!(image.texture_descriptor.size.depth_or_array_layers == 2 * 2);
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 2 * 2
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
 
         // 9x2 pixel image with 3x2px tiles should convert to array of 3 layers
-        let mut image = Image::new_fill(
+        let image = Image::new_fill(
             Extent3d {
                 width: 9,
                 height: 2,
@@ -2718,9 +2742,57 @@ mod test {
 
         assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
 
-        image.convert_grid_2d_to_array(1, 3).unwrap();
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 3).unwrap();
 
-        assert!(image.texture_descriptor.size.depth_or_array_layers == 3);
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 3
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
+
+        let image = Image::new_fill(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 1).unwrap();
+
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 1
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
     }
 
     #[test]
