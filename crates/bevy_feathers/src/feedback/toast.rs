@@ -16,17 +16,16 @@ use bevy_ecs::{
     template::{template, FromTemplate, ScopedEntityIndex},
     world::DeferredWorld,
 };
-use bevy_picking::{Pickable, hover::Hovered};
+use bevy_picking::{hover::Hovered, Pickable};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, template_value};
-use bevy_text::{FontWeight, LineBreak, TextColor, TextLayout};
+use bevy_text::{FontWeight, LineBreak, TextLayout};
 use bevy_time::{Fixed, Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px,
     widget::{ImageNode, Text},
-    AlignContent, AlignSelf, BackgroundColor, FlexDirection, JustifyContent, Node, Overflow,
-    PositionType, UiRect,
+    AlignContent, AlignSelf, FlexDirection, JustifyContent, Node, Overflow, PositionType, UiRect,
 };
 use bevy_ui_widgets::{Activate, Button};
 
@@ -34,9 +33,9 @@ use crate::{
     constants::{fonts, icons, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    palette,
     rounded_corners::RoundedCorners,
-    theme::ThemedText,
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeToken, ThemedText, UiTheme},
+    tokens,
 };
 
 const TOAST_HEIGHT_PX: f32 = 60.0;
@@ -64,6 +63,28 @@ pub enum ToastVariant {
     Warning,
     /// Uses [`palette::ERROR`] for background and [`palette::WHITE`] for text color.
     Error,
+}
+
+impl ToastVariant {
+    /// Returns the icon token for the toast variant.
+    fn icon(&self) -> ThemeToken {
+        match self {
+            ToastVariant::Info => tokens::TOAST_INFO_ICON,
+            ToastVariant::Success => tokens::TOAST_SUCCESS_ICON,
+            ToastVariant::Warning => tokens::TOAST_WARNING_ICON,
+            ToastVariant::Error => tokens::TOAST_ERROR_ICON,
+        }
+    }
+
+    /// Returns the background color token for the toast variant.
+    fn background_color(&self) -> ThemeToken {
+        match self {
+            ToastVariant::Info => tokens::INFO,
+            ToastVariant::Success => tokens::SUCCESS,
+            ToastVariant::Warning => tokens::WARNING,
+            ToastVariant::Error => tokens::ERROR,
+        }
+    }
 }
 
 /// Available positions for toasts.
@@ -223,7 +244,7 @@ impl FeathersToast {
             Pickable::IGNORE
             template_value(props.variant)
             template_value(props.position)
-            BackgroundColor(palette::GRAY_1) // TODO: Theming support
+            ThemeBackgroundColor(tokens::TOAST_BG)
             AccessibilityNode(accesskit::Node::new(Role::Alert))
             Children[(
                 Node {
@@ -250,6 +271,7 @@ impl FeathersToast {
                     overflow: Overflow::clip_x(),
                     flex_direction: FlexDirection::Row,
                 }
+                InheritableThemeTextColor(tokens::TOAST_TEXT)
                 InheritableFont {
                     font: fonts::REGULAR,
                     font_size: size::COMPACT_FONT,
@@ -262,20 +284,15 @@ impl FeathersToast {
                         margin: UiRect::horizontal(px(5)),
                     }
                     template(move |ctx| {
-                      let icon = match props.variant {
-                          ToastVariant::Info => icons::CIRCLE_INFO,
-                          ToastVariant::Success => icons::CIRCLE_CHECK,
-                          ToastVariant::Warning => icons::TRIANGLE_ALERT,
-                          ToastVariant::Error => icons::CIRCLE_ALERT,
-                      };
-                      let handle = ctx.resource::<AssetServer>().load(icon);
-                      Ok(ImageNode::new(handle))
+                        let theme = ctx.resource::<UiTheme>();
+                        let icon = theme.icon(&props.variant.icon());
+                        let handle = ctx.resource::<AssetServer>().load(icon);
+                        Ok(ImageNode::new(handle))
                     })
                 ), (
                     Text({props.message})
                     ThemedText
                     TextLayout {linebreak: LineBreak::NoWrap}
-                    TextColor(palette::WHITE)
                 )]
             ), ({ if let Some(duration) = props.duration {
                     Box::new(bsn! {
@@ -283,15 +300,7 @@ impl FeathersToast {
                             width: percent(100),
                             height: px(5),
                         }
-                        template(move |_| {
-                            let color = match props.variant {
-                                ToastVariant::Info => palette::INFO,
-                                ToastVariant::Success => palette::SUCCESS,
-                                ToastVariant::Warning => palette::WARNING,
-                                ToastVariant::Error => palette::ERROR,
-                            };
-                            Ok(BackgroundColor(color))
-                        })
+                        ThemeBackgroundColor({props.variant.background_color()})
                         template(move |ctx| {
                             let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
                             Ok(ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity })
@@ -313,7 +322,10 @@ fn tick_toasts_progress_bars(
     time: Res<Time<Fixed>>,
 ) {
     for (mut node, mut toast_progress_bar) in &mut toast_progress_bars {
-        let root_hovered = hovered.get(toast_progress_bar.root_entity).map(|h| h.0).unwrap_or(false);
+        let root_hovered = hovered
+            .get(toast_progress_bar.root_entity)
+            .map(|h| h.0)
+            .unwrap_or(false);
         if root_hovered {
             continue;
         }

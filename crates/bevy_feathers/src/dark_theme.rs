@@ -1,5 +1,5 @@
 //! The standard `bevy_feathers` dark theme.
-use crate::{palette, tokens};
+use crate::{constants::icons, palette, tokens};
 use bevy_color::{Alpha, Color, Luminance};
 use bevy_platform::collections::HashMap;
 
@@ -13,6 +13,10 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::FOCUS_RING, palette::ACCENT.with_alpha(0.5)),
             (tokens::TEXT_MAIN, palette::LIGHT_GRAY_1),
             (tokens::TEXT_DIM, palette::LIGHT_GRAY_2),
+            (tokens::INFO, palette::INFO),
+            (tokens::SUCCESS, palette::SUCCESS),
+            (tokens::WARNING, palette::WARNING),
+            (tokens::ERROR, palette::ERROR),
             // Button (normal)
             (tokens::BUTTON_BG, palette::GRAY_3),
             (tokens::BUTTON_BG_HOVER, palette::GRAY_3.lighter(0.05)),
@@ -281,6 +285,15 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::GROUP_HEADER_TEXT, palette::LIGHT_GRAY_1),
             (tokens::GROUP_BODY_BG, palette::GRAY_2),
             (tokens::GROUP_BODY_BORDER, palette::GRAY_3),
+            // Toast
+            (tokens::TOAST_BG, palette::GRAY_1),
+            (tokens::TOAST_TEXT, palette::WHITE),
+        ]),
+        icons: HashMap::from([
+            (tokens::TOAST_INFO_ICON, icons::CIRCLE_INFO),
+            (tokens::TOAST_SUCCESS_ICON, icons::CIRCLE_CHECK),
+            (tokens::TOAST_WARNING_ICON, icons::TRIANGLE_ALERT),
+            (tokens::TOAST_ERROR_ICON, icons::CIRCLE_ALERT),
         ]),
     }
 }
