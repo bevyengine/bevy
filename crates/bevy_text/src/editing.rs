@@ -16,7 +16,7 @@
 //! - Clipboard operations (copy, cut, paste) — requires the `system_clipboard` feature for OS clipboard integration
 //! - Click to place cursor; click and drag to extend the selection
 //! - Multi-click: double-click to select a word, triple-click to select a line
-//! - Optional select-all on focus via the [`SelectAllOnFocus`] component
+//! - Optional select-all on focus via the `SelectAllOnFocus` component
 //! - Per-character input filtering via the [`EditableTextFilter`] component
 //! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
