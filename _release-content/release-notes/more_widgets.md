@@ -1,7 +1,7 @@
 ---
 title: "More Feathers widgets"
-authors: ["@viridia"]
-pull_requests: [23645, 23707, 23788, 23787, 23804, 23817, 23842]
+authors: ["@viridia", "@jordanhalase"]
+pull_requests: [23645, 23707, 23788, 23787, 23804, 23817, 23842, 23744, 23820, 23830, 23869, 23883, 23890, 23993]
 ---
 
 *TODO: Add screenshots of the new Feathers widgets (text input, number input, dropdown, pane/group decorators).*
@@ -14,6 +14,11 @@ Bevy Feathers, our opinionated UI widget collection designed with the Bevy edito
 - Disclosure toggle (chevron expand/collapse)
 - Icon and label (display primitives)
 - Pane, subpane, and group (decorative frames for editors)
+
+Existing widgets have also been polished for readability and functionality.
+Style tokens are added for mouse pressed in checked and unchecked states, multiple radio groups are now easier to manage with
+`radio_self_update`, and a new `FocusCause` field has been added to the `FocusGained` event to let widgets distingush whether a user
+clicked or navigated into it.
 
 For full usage and an interactive demo, try out the [`feathers_gallery`] example.
 
