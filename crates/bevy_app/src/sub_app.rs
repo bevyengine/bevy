@@ -78,6 +78,8 @@ pub struct SubApp {
     /// A function that gives mutable access to two app worlds. This is primarily
     /// intended for copying data from the main world to secondary worlds.
     extract: Option<ExtractFn>,
+    /// Functions that give mutable access to two sub_app worlds.
+    labeled_extracts: HashMap<InternedAppLabel, ExtractFn>,
 }
 
 impl Debug for SubApp {
@@ -98,6 +100,7 @@ impl Default for SubApp {
             plugins_state: PluginsState::Adding,
             update_schedule: None,
             extract: None,
+            labeled_extracts: HashMap::new(),
         }
     }
 }
@@ -147,6 +150,48 @@ impl SubApp {
     pub fn update(&mut self) {
         self.run_default_schedule();
         self.world.clear_trackers();
+    }
+
+    /// Sets the method that will be called by [`extract_with_label`](Self::extract_with_label)
+    /// for the given label.
+    ///
+    /// The first argument is the `World` to extract data from, the second argument is the app `World`.
+    pub fn set_extract_with_label<F>(&mut self, label: impl AppLabel, extract: F) -> &mut Self
+    where
+        F: FnMut(&mut World, &mut World) + Send + 'static,
+    {
+        self.labeled_extracts
+            .insert(label.intern(), Box::new(extract));
+        self
+    }
+
+    /// Take the function that will be called by [`extract_with_label`](Self::extract_with_label)
+    /// out of the app, if any was set, and replace it with `None`.
+    pub fn take_extract_with_label(&mut self, label: impl AppLabel) -> Option<ExtractFn> {
+        self.labeled_extracts.remove(&label.intern())
+    }
+
+    /// Extracts data from `sub_apps` into the app's world using the registered labeled
+    /// extract methods.
+    pub fn extract_labeled(&mut self, sub_apps: &mut SubApps) {
+        // Run the extract function on each sub-app pair.
+        for (sub_app_label, f) in &mut self.labeled_extracts {
+            let Some(app) = sub_apps.sub_apps.get_mut(sub_app_label) else {
+                continue;
+            };
+            f(&mut app.world, &mut self.world);
+        }
+    }
+
+    /// Extracts data from `world` into the app's world using the registered extract method
+    /// with the given label.
+    ///
+    /// **Note:** There is no default extract method. Calling `extract_with_label` does nothing if
+    /// [`set_extract_with_label`](Self::set_extract_with_label) has not been called.
+    pub fn extract_with_label(&mut self, label: impl AppLabel, world: &mut World) {
+        if let Some(f) = self.labeled_extracts.get_mut(&label.intern()) {
+            f(world, &mut self.world);
+        }
     }
 
     /// Extracts data from `world` into the app's world using the registered extract method.
@@ -559,11 +604,12 @@ impl SubApps {
             let _bevy_frame_update_span = info_span!("main app").entered();
             self.main.run_default_schedule();
         }
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
+
+        let labels = self.sub_apps.keys().copied().collect::<Vec<_>>();
+        for label in labels {
             #[cfg(feature = "trace")]
-            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
-            sub_app.extract(&mut self.main.world);
-            sub_app.update();
+            let _sub_app_span = info_span!("sub app", name = ?label).entered();
+            self.update_subapp_by_label(label);
         }
 
         self.main.world.clear_trackers();
@@ -581,9 +627,16 @@ impl SubApps {
 
     /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
     pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
-        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
-            sub_app.extract(&mut self.main.world);
-            sub_app.update();
-        }
+        // Temporarily remove the `sub_app` from the map.
+        let Some((label, mut sub_app)) = self.sub_apps.remove_entry(&label.intern()) else {
+            return;
+        };
+
+        sub_app.extract_labeled(self);
+        sub_app.extract(&mut self.main.world);
+        sub_app.update();
+
+        // Restore the removed `sub_app`.
+        self.sub_apps.insert(label, sub_app);
     }
 }
