@@ -2,16 +2,22 @@ use bevy_math::{Affine2, Vec2};
 use bevy_ui::CalculatedClip;
 use smallvec::SmallVec;
 
+const INLINE_CAPACITY: usize = 16;
+
 /// Clips a polygon using the [Sutherland-Hodgman](https://en.wikipedia.org/wiki/Sutherland-Hodgman_algorithm)
 /// algorithm and interpolates the attribute values.
-/// Assumes `vertices` in boundary order (either direction), forming a convex polygon.
+///
+/// # Arguments
+/// * `clip` - The clipping regions to apply. If `None`, the input polygon is returned unchanged.
+/// * `vertices` - The polygon vertices and associated attribute values. The vertices should be in boundary order (either direction), forming a convex polygon.
+/// * `interpolate` - Interpolates attribute values for new vertices at clip intersections.
 ///
 /// Returns the resulting clipped polygon as a list of vertices forming a triangle fan.
 pub fn clip_polygon<T: Copy>(
     clip: Option<&CalculatedClip>,
     vertices: &[(Vec2, T)],
     interpolate: impl Fn(T, T, f32) -> T + Copy,
-) -> SmallVec<[(Vec2, T); 16]> {
+) -> SmallVec<[(Vec2, T); INLINE_CAPACITY]> {
     // If less than 3 vertices, there's no visible region to clip.
     if vertices.len() < 3 {
         return SmallVec::new();
@@ -61,7 +67,7 @@ pub fn clip_polygon<T: Copy>(
 
 fn edge_clip<T: Copy>(
     input: &[(Vec2, T)],
-    output: &mut SmallVec<[(Vec2, T); 16]>,
+    output: &mut SmallVec<[(Vec2, T); INLINE_CAPACITY]>,
     world_to_clip: Affine2,
     edge: f32,
     distance_normal: Vec2,
