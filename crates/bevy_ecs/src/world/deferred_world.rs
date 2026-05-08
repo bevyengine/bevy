@@ -8,7 +8,7 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, Trigger},
-    lifecycle::{Discard, HookContext, Insert, DISCARD, INSERT},
+    lifecycle::{DiscardEvent, HookContext, InsertEvent, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
     prelude::{Component, QueryState},
@@ -176,7 +176,7 @@ impl<'w> DeferredWorld<'w> {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 self.trigger_raw(
                     DISCARD,
-                    &mut Discard { entity },
+                    &mut DiscardEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
                         old_archetype: Some(archetype),
@@ -221,7 +221,7 @@ impl<'w> DeferredWorld<'w> {
                 // SAFETY: the INSERT event_key corresponds to the Insert event's type
                 self.trigger_raw(
                     INSERT,
-                    &mut Insert { entity },
+                    &mut InsertEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
                         old_archetype: Some(archetype),

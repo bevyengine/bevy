@@ -31,7 +31,7 @@ pub struct InheritableFont {
 /// An observer which looks for changes to the [`InheritableFont`] component on an entity, and
 /// propagates downward the font to all participating text entities.
 pub(crate) fn on_changed_font(
-    insert: On<Insert, InheritableFont>,
+    insert: On<Insert<InheritableFont>>,
     font_style: Query<&InheritableFont>,
     mut commands: Commands,
 ) {

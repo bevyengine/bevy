@@ -148,7 +148,7 @@ impl Plugin for WinitPlugin {
         app.add_plugins(cursor::WinitCursorPlugin);
 
         app.add_observer(
-            |_window: On<Add, Window>, event_loop_proxy: Res<EventLoopProxyWrapper>| -> Result {
+            |_window: On<Add<Window>>, event_loop_proxy: Res<EventLoopProxyWrapper>| -> Result {
                 event_loop_proxy.send_event(WinitUserEvent::WindowAdded)?;
 
                 Ok(())

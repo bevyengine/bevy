@@ -9,7 +9,7 @@ use crate::{
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Discard, Remove, DISCARD, REMOVE},
+    lifecycle::{DiscardEvent, RemoveEvent, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table, TableId},
@@ -150,7 +150,7 @@ impl<'w> BundleRemover<'w> {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
                     DISCARD,
-                    &mut Discard { entity },
+                    &mut DiscardEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
                         old_archetype: Some(self.old_archetype.as_ref()),
@@ -171,7 +171,7 @@ impl<'w> BundleRemover<'w> {
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
                 deferred_world.trigger_raw(
                     REMOVE,
-                    &mut Remove { entity },
+                    &mut RemoveEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
                         old_archetype: Some(self.old_archetype.as_ref()),

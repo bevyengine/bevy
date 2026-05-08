@@ -151,7 +151,7 @@ pub(crate) fn update_theme(
 }
 
 pub(crate) fn on_changed_background(
-    insert: On<Insert, ThemeBackgroundColor>,
+    insert: On<Insert<ThemeBackgroundColor>>,
     mut q_background: Query<
         (&mut BackgroundColor, &ThemeBackgroundColor),
         Changed<ThemeBackgroundColor>,
@@ -165,7 +165,7 @@ pub(crate) fn on_changed_background(
 }
 
 pub(crate) fn on_changed_border(
-    insert: On<Insert, ThemeBorderColor>,
+    insert: On<Insert<ThemeBorderColor>>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor), Changed<ThemeBorderColor>>,
     theme: Res<UiTheme>,
 ) {
@@ -176,7 +176,7 @@ pub(crate) fn on_changed_border(
 }
 
 pub(crate) fn on_changed_text_color(
-    insert: On<Insert, ThemeTextColor>,
+    insert: On<Insert<ThemeTextColor>>,
     mut q_span: Query<(&mut TextColor, &ThemeTextColor), Changed<ThemeTextColor>>,
     theme: Res<UiTheme>,
 ) {
@@ -189,7 +189,7 @@ pub(crate) fn on_changed_text_color(
 /// An observer which looks for changes to the [`InheritableThemeTextColor`] component on an entity,
 /// and propagates downward the text color to all participating text entities.
 pub(crate) fn on_changed_font_color(
-    insert: On<Insert, InheritableThemeTextColor>,
+    insert: On<Insert<InheritableThemeTextColor>>,
     font_color: Query<&InheritableThemeTextColor>,
     theme: Res<UiTheme>,
     mut commands: Commands,

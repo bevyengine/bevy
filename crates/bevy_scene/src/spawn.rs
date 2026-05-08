@@ -674,7 +674,7 @@ pub(crate) struct RelatedSceneListSpawn {
 
 /// An [`Observer`] system that queues newly added [`ScenePatchInstance`] entities.
 pub fn on_add_scene_patch_instance(
-    add: On<Add, ScenePatchInstance>,
+    add: On<Add<ScenePatchInstance>>,
     mut queued_scenes: ResMut<QueuedScenes>,
 ) {
     queued_scenes.new_scene_entities.push(add.entity);

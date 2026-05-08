@@ -7,7 +7,7 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
+    lifecycle::{DespawnEvent, DiscardEvent, RemoveEvent, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
     query::{
         has_conflicts, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
@@ -1633,7 +1633,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: the DESPAWN event_key corresponds to the Despawn event's type
                 deferred_world.trigger_raw(
                     DESPAWN,
-                    &mut Despawn {
+                    &mut DespawnEvent {
                         entity: self.entity,
                     },
                     &mut EntityComponentsTrigger {
@@ -1654,7 +1654,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
                     DISCARD,
-                    &mut Discard {
+                    &mut DiscardEvent {
                         entity: self.entity,
                     },
                     &mut EntityComponentsTrigger {
@@ -1676,7 +1676,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
                 deferred_world.trigger_raw(
                     REMOVE,
-                    &mut Remove {
+                    &mut RemoveEvent {
                         entity: self.entity,
                     },
                     &mut EntityComponentsTrigger {

@@ -1,4 +1,4 @@
-use crate::event::SetEntityEventTarget;
+use crate::event::{EventPattern, SetEntityEventTarget};
 use crate::{
     archetype::Archetype,
     component::ComponentId,
@@ -54,6 +54,9 @@ pub unsafe trait Trigger<E: Event> {
         event: &mut E,
     );
 }
+
+/// Shorthand for accessing an [`EventPattern`]s [`Trigger`] via its [`Event`].
+pub type EventPatternTrigger<'a, E> = <<E as EventPattern>::Event as Event>::Trigger<'a>;
 
 /// A [`Trigger`] that runs _every_ "global" [`Observer`](crate::observer::Observer) (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
 /// that matches the given [`Event`].
@@ -366,7 +369,7 @@ pub struct EntityComponentsTrigger<'a> {
     /// # let mut world = World::new();
     /// #
     /// fn on_add_disable(
-    ///     on: On<Add, Disabled>,
+    ///     on: On<Add<Disabled>>,
     ///     mut cache: ResMut<EntitiesWithA>,
     ///     a_component: ComponentIdFor<A>,
     /// ) {
@@ -405,7 +408,7 @@ pub struct EntityComponentsTrigger<'a> {
     /// # let mut world = World::new();
     /// #
     /// fn on_remove_disable(
-    ///     on: On<Remove, Disabled>,
+    ///     on: On<Remove<Disabled>>,
     ///     mut cache: ResMut<EntitiesWithA>,
     ///     a_component: ComponentIdFor<A>,
     /// ) {
