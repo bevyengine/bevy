@@ -246,7 +246,7 @@ mod tests {
         assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
-        let id3 = world.register_resource::<TestResource3>();
+        let id3 = world.register_component::<TestResource3>();
         assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.

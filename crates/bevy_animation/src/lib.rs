@@ -34,7 +34,7 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::EvaluatorId,
+    prelude::{AnimatableProperty, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
@@ -351,6 +351,49 @@ impl AnimationClip {
                 commands.trigger_with(event.clone(), AnimationEventTrigger { target });
             },
         );
+    }
+
+    /// Samples an [`AnimatableProperty`] of a specific [`AnimationTargetId`].
+    ///
+    /// See [`crate::morph::WeightsCurveSample`] if you want to sample [`crate::morph::WeightsCurve`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_animation::prelude::*;
+    /// # use bevy_animation::{animated_field, AnimationTargetId};
+    /// #
+    /// # use bevy_ecs::prelude::Name;
+    /// # use bevy_math::Vec3;
+    /// # use bevy_transform::components::Transform;
+    /// let mut clip = AnimationClip::default();
+    /// let animatable_curve = AnimatableCurve::new(
+    ///     animated_field!(Transform::translation),
+    ///     AnimatableKeyframeCurve::new([
+    ///         (0.0, Vec3::new(0., 0., 1.)),
+    ///         (1.0, Vec3::new(1., 0., 0.)),
+    ///     ])
+    ///     .expect("Failed to create power level curve"),
+    /// );
+    /// let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
+    /// clip.add_curve_to_target(target_1, animatable_curve);
+    /// let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
+    /// assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
+    /// ```
+    pub fn sample_clamped<P: AnimatableProperty>(
+        &self,
+        animatable_property: P,
+        target: AnimationTargetId,
+        time: f32,
+    ) -> Option<P::Property> {
+        let curves = self.curves_for_target(target)?;
+        for curve in curves {
+            if curve.0.evaluator_id() == animatable_property.evaluator_id()
+                && let Ok(sample) = curve.0.sample_clamped(time).downcast::<P::Property>()
+            {
+                return Some(*sample);
+            }
+        }
+        None
     }
 
     /// Add an event function with no [`AnimationTargetId`] to this [`AnimationClip`].
@@ -1526,8 +1569,13 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_animation;
+    use crate::{
+        self as bevy_animation,
+        prelude::{AnimatableCurve, AnimatableKeyframeCurve, AnimatedField},
+    };
+    use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
+    use bevy_transform::components::Transform;
 
     use super::*;
 
@@ -1711,5 +1759,27 @@ mod tests {
                 &name_path
             );
         }
+    }
+
+    #[test]
+    fn test_sample_at_time() {
+        let mut clip = AnimationClip::default();
+        let animatable_curve = AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 1.)),
+                (1.0, Vec3::new(1., 0., 0.)),
+            ])
+            .expect("Failed to create power level curve"),
+        );
+        let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
+        let target_2 = AnimationTargetId::from_name(&Name::new("Target 2"));
+        clip.add_curve_to_target(target_1, animatable_curve);
+        let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
+        assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
+        let value = clip.sample_clamped(animated_field!(Transform::scale), target_1, 1.0);
+        assert_eq!(value, None);
+        let value = clip.sample_clamped(animated_field!(Transform::translation), target_2, 1.0);
+        assert_eq!(value, None);
     }
 }
