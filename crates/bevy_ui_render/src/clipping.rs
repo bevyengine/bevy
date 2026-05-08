@@ -29,45 +29,24 @@ pub(crate) fn clip_polygon<T: Copy>(
             break;
         }
 
-        if region.rect.min.x.is_finite() {
-            edge_clip(
-                &visible_region,
-                &mut scratch,
-                region.world_to_clip_local,
-                |point| point.x - region.rect.min.x,
-                interpolate,
-            );
-            core::mem::swap(&mut visible_region, &mut scratch);
-        }
-        if region.rect.max.x.is_finite() {
-            edge_clip(
-                &visible_region,
-                &mut scratch,
-                region.world_to_clip_local,
-                |point| region.rect.max.x - point.x,
-                interpolate,
-            );
-            core::mem::swap(&mut visible_region, &mut scratch);
-        }
-        if region.rect.min.y.is_finite() {
-            edge_clip(
-                &visible_region,
-                &mut scratch,
-                region.world_to_clip_local,
-                |point| point.y - region.rect.min.y,
-                interpolate,
-            );
-            core::mem::swap(&mut visible_region, &mut scratch);
-        }
-        if region.rect.max.y.is_finite() {
-            edge_clip(
-                &visible_region,
-                &mut scratch,
-                region.world_to_clip_local,
-                |point| region.rect.max.y - point.y,
-                interpolate,
-            );
-            core::mem::swap(&mut visible_region, &mut scratch);
+        let edges: [(f32, fn(Vec2, f32) -> f32); 4] = [
+            (region.rect.min.x, |point, edge| point.x - edge),
+            (region.rect.max.x, |point, edge| edge - point.x),
+            (region.rect.max.y, |point, edge| edge - point.y),
+            (region.rect.min.y, |point, edge| point.y - edge),
+        ];
+
+        for (edge, signed_distance) in edges {
+            if edge.is_finite() {
+                edge_clip(
+                    &visible_region,
+                    &mut scratch,
+                    region.world_to_clip_local,
+                    signed_distance,
+                    interpolate,
+                );
+                core::mem::swap(&mut visible_region, &mut scratch);
+            }
         }
     }
 
