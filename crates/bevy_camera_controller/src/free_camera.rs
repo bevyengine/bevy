@@ -204,7 +204,7 @@ Freecamera Controls:
 #[derive(Debug, Default, Clone, Copy)]
 pub enum VerticalMovementAxis {
     /// Vertical movement is aligned to the world.
-    /// 
+    ///
     /// This is the default behavior in Bevy, Unreal and Blender.
     #[default]
     World,
