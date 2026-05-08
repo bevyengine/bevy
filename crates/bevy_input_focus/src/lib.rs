@@ -306,7 +306,7 @@ impl Plugin for InputDispatchPlugin {
 pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     ///
-    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`].
+    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`](bevy_input::InputSystems).
     Dispatch,
     /// System which processes recorded focus changes and sends the appropriate [`FocusGained`] and [`FocusLost`] events.
     ///
