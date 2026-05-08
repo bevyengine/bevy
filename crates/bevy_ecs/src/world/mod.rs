@@ -2250,7 +2250,7 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn get_resource_or_insert_with<R: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
@@ -2297,7 +2297,9 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+    pub fn get_resource_or_init<R: Resource<Mutability = Mutable> + FromWorld>(
+        &mut self,
+    ) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(R::from_world, caller);
