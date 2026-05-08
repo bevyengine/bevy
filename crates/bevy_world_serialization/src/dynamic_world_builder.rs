@@ -377,7 +377,7 @@ impl<'w> DynamicWorldBuilder<'w> {
             .components()
             .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
-        for (component_id, entity) in self.original_world.resource_entities().iter() {
+        for (component_id, entity) in self.original_world.storages().resources.iter() {
             if Some(component_id) == original_world_dqf_id {
                 continue;
             }

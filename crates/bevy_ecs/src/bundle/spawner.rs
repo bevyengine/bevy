@@ -4,7 +4,10 @@ use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
-    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    bundle::{
+        info::find_archetype_after_fallible_resource_write_and_queue_cleanup, Bundle, BundleId,
+        BundleInfo, DynamicBundle, InsertMode,
+    },
     change_detection::{MaybeLocation, Tick},
     entity::{Entity, EntityAllocator, EntityLocation},
     event::EntityComponentsTrigger,
@@ -96,20 +99,38 @@ impl<'w> BundleSpawner<'w> {
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
+
+        let mut archetype = if bundle_info.contains_resources {
+            find_archetype_after_fallible_resource_write_and_queue_cleanup(
+                &self.world,
+                entity,
+                bundle_info.contributed_components(),
+                None,
+                &mut self.archetype,
+            )
+        } else {
+            self.archetype
+        };
+
         let location = {
             let table = self.table.as_mut();
-            let archetype = self.archetype.as_mut();
+            let archetype = archetype.as_mut();
 
             // SAFETY: Mutable references do not alias and will be dropped after this block
-            let (sparse_sets, entities) = {
+            let (sparse_sets, resource_storages, entities) = {
                 let world = self.world.world_mut();
-                (&mut world.storages.sparse_sets, &mut world.entities)
+                (
+                    &mut world.storages.sparse_sets,
+                    &mut world.storages.resources,
+                    &mut world.entities,
+                )
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
             bundle_info.write_components(
                 table,
                 sparse_sets,
+                resource_storages,
                 &SpawnBundleStatus,
                 bundle_info.required_component_constructors.iter(),
                 entity,

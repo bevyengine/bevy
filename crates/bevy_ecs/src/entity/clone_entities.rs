@@ -710,11 +710,16 @@ impl EntityCloner {
                 &moved_components,
                 MaybeLocation::caller(),
                 RelationshipHookMode::RunIfNotLinked,
-                |sparse_sets, mut table, components, bundle| {
+                |sparse_sets, resources, mut table, components, bundle| {
                     for &component_id in bundle {
                         let Some(component_ptr) = sparse_sets
                             .get(component_id)
                             .and_then(|component| component.get(source))
+                            .or_else(|| {
+                                resources
+                                    .get(component_id)
+                                    .and_then(|storage| storage.get_with_entity(source))
+                            })
                             .or_else(|| {
                                 // SAFETY: table_row is within this table because we just got it from entity's current location
                                 table.as_mut().and_then(|table| unsafe {

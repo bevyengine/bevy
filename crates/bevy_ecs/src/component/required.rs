@@ -11,7 +11,7 @@ use crate::{
     component::{Component, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
     query::DebugCheckedUnwrap as _,
-    storage::{SparseSets, Table, TableRow},
+    storage::{ResourceStorages, SparseSets, Table, TableRow},
 };
 
 /// Metadata associated with a required component. See [`Component`] for details.
@@ -25,7 +25,17 @@ pub struct RequiredComponent {
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     // Note: this function makes `unsafe` assumptions, so it cannot be public.
-    Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, MaybeLocation)>,
+    Arc<
+        dyn for<'a> Fn(
+            &'a mut Table,
+            &'a mut SparseSets,
+            &'a mut ResourceStorages,
+            Tick,
+            TableRow,
+            Entity,
+            MaybeLocation,
+        ),
+    >,
 );
 
 impl RequiredComponentConstructor {
@@ -48,9 +58,10 @@ impl RequiredComponentConstructor {
             #[cfg(not(target_has_atomic = "ptr"))]
             use alloc::boxed::Box;
 
-            type Constructor = dyn for<'a, 'b> Fn(
+            type Constructor = dyn for<'a> Fn(
                 &'a mut Table,
-                &'b mut SparseSets,
+                &'a mut SparseSets,
+                &'a mut ResourceStorages,
                 Tick,
                 TableRow,
                 Entity,
@@ -64,7 +75,13 @@ impl RequiredComponentConstructor {
             type Intermediate<T> = Arc<T>;
 
             let boxed: Intermediate<Constructor> = Intermediate::new(
-                move |table, sparse_sets, change_tick, table_row, entity, caller| {
+                move |table,
+                      sparse_sets,
+                      resource_storages,
+                      change_tick,
+                      table_row,
+                      entity,
+                      caller| {
                     OwningPtr::make(constructor(), |ptr| {
                         // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
                         // pass in a valid table_row and entity requiring a C constructor
@@ -74,6 +91,7 @@ impl RequiredComponentConstructor {
                             BundleInfo::initialize_required_component(
                                 table,
                                 sparse_sets,
+                                resource_storages,
                                 change_tick,
                                 table_row,
                                 entity,
@@ -97,19 +115,28 @@ impl RequiredComponentConstructor {
     ///
     /// `table_row` and `entity` must correspond to a valid entity that currently needs a component initialized via the constructor stored
     /// on this [`RequiredComponentConstructor`]. The stored constructor must correspond to a component on `entity` that needs initialization.
-    /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this required component initialized.
+    /// `table`, `sparse_sets` and `resource_storages` must correspond to storages on a world where `entity` needs this required component initialized.
     ///
     /// Again, don't call this anywhere but [`BundleInfo::write_components`].
     pub(crate) unsafe fn initialize(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        resource_storages: &mut ResourceStorages,
         change_tick: Tick,
         table_row: TableRow,
         entity: Entity,
         caller: MaybeLocation,
     ) {
-        (self.0)(table, sparse_sets, change_tick, table_row, entity, caller);
+        (self.0)(
+            table,
+            sparse_sets,
+            resource_storages,
+            change_tick,
+            table_row,
+            entity,
+            caller,
+        );
     }
 }
 

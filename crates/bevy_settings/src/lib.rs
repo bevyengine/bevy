@@ -22,6 +22,7 @@ use bevy_ecs::{
     change_detection::Tick,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
+    storage::ResourceStorage,
     system::{Command, Commands, Res, ResMut},
     world::World,
 };
@@ -341,7 +342,12 @@ fn resources_to_toml(
             continue;
         };
 
-        let Some(res_entity) = world.resource_entities().get(component_id) else {
+        let Some(res_entity) = world
+            .storages()
+            .resources
+            .get(component_id)
+            .and_then(ResourceStorage::entity)
+        else {
             continue;
         };
         let res_entity_ref = world.entity(res_entity);
@@ -470,7 +476,13 @@ fn apply_settings_to_world(
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
         let component_id = world.components().get_id(*tid);
-        let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
+        let res_entity = component_id.and_then(|cid| {
+            world
+                .storages()
+                .resources
+                .get(cid)
+                .and_then(ResourceStorage::entity)
+        });
 
         if let Some(res_entity) = res_entity {
             // Resource already exists, so apply toml properties to it.

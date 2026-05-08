@@ -1,10 +1,10 @@
 use crate::{
     archetype::Archetype,
     change_detection::Tick,
-    component::{Component, ComponentId, Components, StorageType},
+    component::{Component, ComponentId, Components},
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, ResourceStorage, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -161,12 +161,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) {
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype(
@@ -262,12 +257,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) {
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype(
@@ -735,6 +725,9 @@ pub struct AddedFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Resource
+        // Can be `None` when the component has never been inserted
+        Option<&'w ResourceStorage>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -780,18 +773,20 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_component_access`.
+                    // Note that we do not actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
+                    unsafe { world.storages().resources.get(id) }
+                },
             ),
             last_run,
             this_run,
         }
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -859,27 +854,36 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         table_row: TableRow,
     ) -> bool {
         // SAFETY: The invariants are upheld by the caller.
-        fetch.ticks.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get_unchecked(table_row.index()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    sparse_set
-                        .debug_checked_unwrap()
-                        .get_added_tick(entity)
-                        .debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-        )
+        fetch
+            .ticks
+            .extract(
+                |table| {
+                    // SAFETY: set_table was previously called
+                    let table = unsafe { table.debug_checked_unwrap() };
+                    // SAFETY: The caller ensures `table_row` is in range.
+                    unsafe { table.get_unchecked(table_row.index()) }
+                },
+                |sparse_set| {
+                    // SAFETY: The caller ensures `entity` is in range.
+                    unsafe {
+                        sparse_set
+                            .debug_checked_unwrap()
+                            .get_added_tick(entity)
+                            .debug_checked_unwrap()
+                    }
+                },
+                |resource| {
+                    // SAFETY: The caller ensures an entity has this component.
+                    unsafe {
+                        resource
+                            .debug_checked_unwrap()
+                            .get_added_tick()
+                            .debug_checked_unwrap()
+                    }
+                },
+            )
+            .deref()
+            .is_newer_than(fetch.last_run, fetch.this_run)
     }
 }
 
@@ -962,6 +966,8 @@ pub struct ChangedFetch<'w, T: Component> {
         Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // Can be `None` when the component has never been inserted
+        Option<&'w ResourceStorage>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -1007,18 +1013,20 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_component_access`.
+                    // Note that we do not actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
+                    unsafe { world.storages().resources.get(id) }
+                },
             ),
             last_run,
             this_run,
         }
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1087,27 +1095,36 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         table_row: TableRow,
     ) -> bool {
         // SAFETY: The invariants are upheld by the caller.
-        fetch.ticks.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get_unchecked(table_row.index()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    sparse_set
-                        .debug_checked_unwrap()
-                        .get_changed_tick(entity)
-                        .debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-        )
+        fetch
+            .ticks
+            .extract(
+                |table| {
+                    // SAFETY: set_table was previously called
+                    let table = unsafe { table.debug_checked_unwrap() };
+                    // SAFETY: The caller ensures `table_row` is in range.
+                    unsafe { table.get_unchecked(table_row.index()) }
+                },
+                |sparse_set| {
+                    // SAFETY: The caller ensures `entity` is in range.
+                    unsafe {
+                        sparse_set
+                            .debug_checked_unwrap()
+                            .get_changed_tick(entity)
+                            .debug_checked_unwrap()
+                    }
+                },
+                |resource| {
+                    // SAFETY: The caller ensures an entity has this component.
+                    unsafe {
+                        resource
+                            .debug_checked_unwrap()
+                            .get_changed_tick()
+                            .debug_checked_unwrap()
+                    }
+                },
+            )
+            .deref()
+            .is_newer_than(fetch.last_run, fetch.this_run)
     }
 }
 

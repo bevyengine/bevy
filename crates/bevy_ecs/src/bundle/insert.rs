@@ -7,7 +7,10 @@ use crate::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeCreated, ArchetypeId, Archetypes,
         ComponentStatus,
     },
-    bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    bundle::{
+        find_archetype_after_fallible_resource_write_and_queue_cleanup, ArchetypeMoveType, Bundle,
+        BundleId, BundleInfo, DynamicBundle, InsertMode,
+    },
     change_detection::{MaybeLocation, Tick},
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -16,7 +19,7 @@ use crate::{
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
-    storage::{SparseSets, Storages, Table, TableRow},
+    storage::{ResourceStorages, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -128,14 +131,16 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-        mut archetype: NonNull<Archetype>,
+        archetype: &mut NonNull<Archetype>,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
+        contains_resources: bool,
     ) -> (
         &'a Archetype,
         EntityLocation,
         &'a mut SparseSets,
+        &'a mut ResourceStorages,
         &'a mut Table,
         TableRow,
     ) {
@@ -177,43 +182,59 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
-        // SAFETY: Archetype gets borrowed when running the on_discard observers above,
-        // so this reference can only be promoted from shared to &mut down here, after they have been ran
-        let archetype = archetype.as_mut();
-
         match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
+                let archetype_ref = archetype.as_ref();
+
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (sparse_sets, table) = {
+                let (sparse_sets, resource_storages, table) = {
                     let world = world.world_mut();
                     (
                         &mut world.storages.sparse_sets,
-                        &mut world.storages.tables[archetype.table_id()],
+                        &mut world.storages.resources,
+                        &mut world.storages.tables[archetype_ref.table_id()],
                     )
                 };
 
                 (
-                    &*archetype,
+                    archetype_ref,
                     location,
                     sparse_sets,
+                    resource_storages,
                     table,
                     location.table_row,
                 )
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
+                // Inserting a resource will fail if it already exists on another entity.
+                // Check whether this is the case and determine the correct resulting archetype if so.
+                let mut new_archetype = if contains_resources {
+                    find_archetype_after_fallible_resource_write_and_queue_cleanup(
+                        world,
+                        entity,
+                        archetype_after_insert.added(),
+                        Some(archetype),
+                        new_archetype,
+                    )
+                } else {
+                    *new_archetype
+                };
+                // SAFETY: No more references to archetypes are life
                 let new_archetype = new_archetype.as_mut();
+                let archetype_ref = archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (sparse_sets, table, entities) = {
+                let (sparse_sets, resource_storages, table, entities) = {
                     let world = world.world_mut();
                     (
                         &mut world.storages.sparse_sets,
+                        &mut world.storages.resources,
                         &mut world.storages.tables[new_archetype.table_id()],
                         &mut world.entities,
                     )
                 };
 
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype_ref.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -235,25 +256,43 @@ impl<'w> BundleInserter<'w> {
                     &*new_archetype,
                     new_location,
                     sparse_sets,
+                    resource_storages,
                     table,
                     result.table_row,
                 )
             }
             ArchetypeMoveType::NewArchetypeNewTable { new_archetype } => {
+                // Inserting a resource will fail if it already exists on another entity.
+                // Check whether this is the case and determine the correct resulting archetype if so.
+                let mut new_archetype = if contains_resources {
+                    find_archetype_after_fallible_resource_write_and_queue_cleanup(
+                        world,
+                        entity,
+                        archetype_after_insert.added(),
+                        Some(archetype),
+                        new_archetype,
+                    )
+                } else {
+                    *new_archetype
+                };
+                // SAFETY: Archetype gets borrowed when running the on_discard observers above,
+                // so this reference can only be promoted from shared to &mut down here, after they have been ran
+                let archetype_ref = archetype.as_mut();
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (archetypes_ptr, tables, sparse_sets, entities) = {
+                let (archetypes_ptr, tables, sparse_sets, resource_storages, entities) = {
                     let world = world.world_mut();
                     let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
                     (
                         archetype_ptr,
                         &mut world.storages.tables,
                         &mut world.storages.sparse_sets,
+                        &mut world.storages.resources,
                         &mut world.entities,
                     )
                 };
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype_ref.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -305,8 +344,8 @@ impl<'w> BundleInserter<'w> {
                         }),
                     );
 
-                    if archetype.id() == swapped_location.archetype_id {
-                        archetype
+                    if archetype_ref.id() == swapped_location.archetype_id {
+                        archetype_ref
                             .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                     } else if new_archetype.id() == swapped_location.archetype_id {
                         new_archetype
@@ -322,6 +361,7 @@ impl<'w> BundleInserter<'w> {
                     &*new_archetype,
                     new_location,
                     sparse_sets,
+                    resource_storages,
                     move_result.new_table,
                     move_result.new_row,
                 )
@@ -353,21 +393,24 @@ impl<'w> BundleInserter<'w> {
 
         let (new_archetype, new_location) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
-            let (new_archetype, new_location, sparse_sets, table, table_row) = Self::before_insert(
-                entity,
-                location,
-                insert_mode,
-                caller,
-                relationship_hook_mode,
-                self.archetype,
-                archetype_after_insert,
-                &self.world,
-                &mut self.archetype_move_type,
-            );
+            let (new_archetype, new_location, sparse_sets, resource_storages, table, table_row) =
+                Self::before_insert(
+                    entity,
+                    location,
+                    insert_mode,
+                    caller,
+                    relationship_hook_mode,
+                    &mut self.archetype,
+                    archetype_after_insert,
+                    &self.world,
+                    &mut self.archetype_move_type,
+                    self.bundle_info.as_ref().contains_resources,
+                );
 
             self.bundle_info.as_ref().write_components(
                 table,
                 sparse_sets,
+                resource_storages,
                 archetype_after_insert,
                 archetype_after_insert.required_components.iter(),
                 entity,
@@ -518,7 +561,7 @@ impl BundleInfo {
             return (archetype_after_insert_id, false);
         }
         let mut new_table_components = Vec::new();
-        let mut new_sparse_set_components = Vec::new();
+        let mut new_non_table_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
@@ -536,7 +579,9 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
+                    StorageType::SparseSet | StorageType::Resource => {
+                        new_non_table_components.push(component_id);
+                    }
                 }
             }
         }
@@ -551,14 +596,14 @@ impl BundleInfo {
                     StorageType::Table => {
                         new_table_components.push(component_id);
                     }
-                    StorageType::SparseSet => {
-                        new_sparse_set_components.push(component_id);
+                    StorageType::SparseSet | StorageType::Resource => {
+                        new_non_table_components.push(component_id);
                     }
                 }
             }
         }
 
-        if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
+        if new_table_components.is_empty() && new_non_table_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
@@ -573,7 +618,7 @@ impl BundleInfo {
         } else {
             let table_id;
             let table_components;
-            let sparse_set_components;
+            let non_table_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
@@ -595,13 +640,13 @@ impl BundleInfo {
                     new_table_components
                 };
 
-                sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().collect()
+                non_table_components = if new_non_table_components.is_empty() {
+                    current_archetype.non_table_components().collect()
                 } else {
-                    new_sparse_set_components.extend(current_archetype.sparse_set_components());
+                    new_non_table_components.extend(current_archetype.non_table_components());
                     // Sort to ignore order while hashing.
-                    new_sparse_set_components.sort_unstable();
-                    new_sparse_set_components
+                    new_non_table_components.sort_unstable();
+                    new_non_table_components
                 };
             };
             // SAFETY: ids in self must be valid
@@ -611,7 +656,7 @@ impl BundleInfo {
                     observers,
                     table_id,
                     table_components,
-                    sparse_set_components,
+                    non_table_components,
                 )
             };
 

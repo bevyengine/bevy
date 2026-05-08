@@ -27,11 +27,13 @@
 
 mod blob_array;
 mod non_send;
+mod resource_storage;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
 pub use non_send::*;
+pub use resource_storage::*;
 pub use sparse_set::*;
 pub use table::*;
 
@@ -44,6 +46,8 @@ pub struct Storages {
     /// Backing storage for [`SparseSet`] components.
     /// Note that sparse sets are only present for components that have been spawned or have had a relevant bundle registered.
     pub sparse_sets: SparseSets,
+    /// Backing storage for [`Resource`](crate::resource::Resource) components.
+    pub resources: ResourceStorages,
     /// Backing storage for [`Table`] components.
     pub tables: Tables,
     /// Backing storage for `!Send` data.
@@ -51,14 +55,17 @@ pub struct Storages {
 }
 
 impl Storages {
-    /// ensures that the component has its necessary storage initialize.
+    /// Ensures that the component has its necessary storage initialize.
     pub fn prepare_component(&mut self, component: &ComponentInfo) {
         match component.storage_type() {
             StorageType::Table => {
-                // table needs no preparation
+                // no preparation needed
             }
             StorageType::SparseSet => {
                 self.sparse_sets.get_or_insert(component);
+            }
+            StorageType::Resource => {
+                self.resources.init(component);
             }
         }
     }

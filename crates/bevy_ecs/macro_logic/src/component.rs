@@ -562,6 +562,8 @@ pub enum StorageTy {
     Table,
     /// Sparse set storage
     SparseSet,
+    /// Resource, not choosable from component derive macro
+    Resource,
 }
 
 /// Derived required component from the `#[require]` attribute.
@@ -654,6 +656,7 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream {
     let storage_type = match ty {
         StorageTy::Table => Ident::new("Table", Span::call_site()),
         StorageTy::SparseSet => Ident::new("SparseSet", Span::call_site()),
+        StorageTy::Resource => Ident::new("Resource", Span::call_site()),
     };
 
     quote! { #bevy_ecs_path::component::StorageType::#storage_type }

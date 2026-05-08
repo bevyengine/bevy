@@ -12,7 +12,7 @@ use crate::{
         Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
         WorldQuery,
     },
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, ResourceStorage, Table, TableRow},
     system::Query,
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -1759,6 +1759,8 @@ pub struct ReadFetch<'w, T: Component> {
         Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Resource
+        Option<&'w ResourceStorage>,
     >,
 }
 
@@ -1800,16 +1802,18 @@ unsafe impl<T: Component> WorldQuery for &T {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    unsafe { world.storages().resources.get(component_id) }
+                },
             ),
         }
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1905,6 +1909,16 @@ unsafe impl<T: Component> QueryData for &T {
                 };
                 item.deref()
             },
+            |resource| {
+                // SAFETY: The caller ensures that the component is present.
+                let item = unsafe {
+                    resource
+                        .debug_checked_unwrap()
+                        .get_with_entity(entity)
+                        .debug_checked_unwrap()
+                };
+                item.deref()
+            },
         ))
     }
 
@@ -1929,6 +1943,13 @@ impl<T: Component> ContiguousQueryData for &T {
                 // - `table` is `entities.len()` long
                 // - `UnsafeCell<T>` has the same layout as `T`
                 unsafe { table.cast().as_slice_unchecked(entities.len()) }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: The caller ensures query is dense
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -1972,6 +1993,9 @@ pub struct RefFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Resource
+        // Can be `None` when the component has never been inserted
+        Option<&'w ResourceStorage>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -2015,18 +2039,20 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    unsafe { world.storages().resources.get(component_id) }
+                },
             ),
             last_run,
             this_run,
         }
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -2156,6 +2182,24 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     ),
                 }
             },
+            |resource| {
+                // SAFETY: The caller ensures that the component is present.
+                let (component, ticks) = unsafe {
+                    resource
+                        .debug_checked_unwrap()
+                        .get_with_ticks()
+                        .debug_checked_unwrap()
+                };
+
+                Ref {
+                    value: component.deref(),
+                    ticks: ComponentTicksRef::from_tick_cells(
+                        ticks,
+                        fetch.last_run,
+                        fetch.this_run,
+                    ),
+                }
+            },
         ))
     }
 
@@ -2221,6 +2265,13 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                 #[cfg(not(debug_assertions))]
                 core::hint::unreachable_unchecked();
             },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
         )
     }
 }
@@ -2239,6 +2290,9 @@ pub struct WriteFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Resource
+        // Can be `None` when the component has never been inserted
+        Option<&'w ResourceStorage>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -2282,18 +2336,20 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    unsafe { world.storages().resources.get(component_id) }
+                },
             ),
             last_run,
             this_run,
         }
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -2423,6 +2479,24 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     ),
                 }
             },
+            |resource| {
+                // SAFETY: The caller ensures that the component is present.
+                let (component, ticks) = unsafe {
+                    resource
+                        .debug_checked_unwrap()
+                        .get_with_ticks()
+                        .debug_checked_unwrap()
+                };
+
+                Mut {
+                    value: component.assert_unique().deref_mut(),
+                    ticks: ComponentTicksMut::from_tick_cells(
+                        ticks,
+                        fetch.last_run,
+                        fetch.this_run,
+                    ),
+                }
+            },
         ))
     }
 
@@ -2477,6 +2551,13 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                         )
                     },
                 }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -3289,12 +3370,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         false
     }
 
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
+    const IS_DENSE: bool = T::STORAGE_TYPE.is_dense();
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -4003,22 +4079,31 @@ impl<T: ?Sized> ArchetypeQueryData for PhantomData<T> {}
 
 /// A compile-time checked union of two different types that differs based on the
 /// [`StorageType`] of a given component.
-pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy> {
+pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy, R: Copy> {
     /// The table variant. Requires the component to be a table component.
     table: T,
     /// The sparse set variant. Requires the component to be a sparse set component.
     sparse_set: S,
+    /// The resource variant. Requires the component to be a resource storage component.
+    resource: R,
     _marker: PhantomData<C>,
 }
 
-impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
+impl<C: Component, T: Copy, S: Copy, R: Copy> StorageSwitch<C, T, S, R> {
     /// Creates a new [`StorageSwitch`] using the given closures to initialize
     /// the variant corresponding to the component's [`StorageType`].
-    pub fn new(table: impl FnOnce() -> T, sparse_set: impl FnOnce() -> S) -> Self {
+    pub fn new(
+        table: impl FnOnce() -> T,
+        sparse_set: impl FnOnce() -> S,
+        resource: impl FnOnce() -> R,
+    ) -> Self {
         match C::STORAGE_TYPE {
             StorageType::Table => Self { table: table() },
             StorageType::SparseSet => Self {
                 sparse_set: sparse_set(),
+            },
+            StorageType::Resource => Self {
+                resource: resource(),
             },
         }
     }
@@ -4047,7 +4132,12 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
 
     /// Fetches the internal value from the variant that corresponds to the
     /// component's [`StorageType`].
-    pub fn extract<R>(&self, table: impl FnOnce(T) -> R, sparse_set: impl FnOnce(S) -> R) -> R {
+    pub fn extract<V>(
+        &self,
+        table: impl FnOnce(T) -> V,
+        sparse_set: impl FnOnce(S) -> V,
+        resource: impl FnOnce(R) -> V,
+    ) -> V {
         match C::STORAGE_TYPE {
             StorageType::Table => table(
                 // SAFETY: C::STORAGE_TYPE == StorageType::Table
@@ -4057,17 +4147,21 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
                 // SAFETY: C::STORAGE_TYPE == StorageType::SparseSet
                 unsafe { self.sparse_set },
             ),
+            StorageType::Resource => resource(
+                // SAFETY: C::STORAGE_TYPE == StorageType::Resource
+                unsafe { self.resource },
+            ),
         }
     }
 }
 
-impl<C: Component, T: Copy, S: Copy> Clone for StorageSwitch<C, T, S> {
+impl<C: Component, T: Copy, S: Copy, R: Copy> Clone for StorageSwitch<C, T, S, R> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
+impl<C: Component, T: Copy, S: Copy, R: Copy> Copy for StorageSwitch<C, T, S, R> {}
 
 #[cfg(test)]
 mod tests {

@@ -10,7 +10,7 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
         Ok(value) => value,
         Err(e) => return e.into_compile_error(),
     };
-    derive_component.storage = StorageTy::SparseSet;
+    derive_component.storage = StorageTy::Resource;
 
     let struct_name = &ast.ident;
     let (_, type_generics, _) = &ast.generics.split_for_impl();
