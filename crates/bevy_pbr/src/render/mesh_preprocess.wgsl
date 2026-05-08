@@ -64,12 +64,18 @@ struct LatePreprocessWorkItemIndirectParameters {
     pad: vec4<u32>,
 }
 
+#ifdef FRUSTUM_CULLING
 // These have to be in a structure because of Naga limitations on DX12.
 struct Immediates {
+    // The world position of the `CurrentView`
+    cur_view_world_position: vec3<f32>,
+#ifdef OCCLUSION_CULLING
     // The offset into the `late_preprocess_work_item_indirect_parameters`
     // buffer.
     late_preprocess_work_item_indirect_offset: u32,
+#endif // OCCLUSION_CULLING
 }
+#endif // FRUSTUM_CULLING
 
 // The current frame's `MeshInput`.
 @group(0) @binding(3) var<storage> current_input: array<MeshInput>;
@@ -98,6 +104,8 @@ struct Immediates {
 @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
 
 @group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
+
+var<immediate> immediates: Immediates;
 #endif  // FRUSTUM_CULLING
 
 #ifdef OCCLUSION_CULLING
@@ -115,8 +123,6 @@ struct Immediates {
 @group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
 #endif  // LATE_PHASE
-
-var<immediate> immediates: Immediates;
 #endif  // OCCLUSION_CULLING
 
 #ifdef FRUSTUM_CULLING
@@ -224,7 +230,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             world_pos = world_from_local[3].xyz;
         }
 
-        let camera_distance = length(position_world_to_view(world_pos));
+        let camera_distance = length(immediates.cur_view_world_position - world_pos);
         // `x` is the minimum range; `w` is the largest range.
         if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
             return;

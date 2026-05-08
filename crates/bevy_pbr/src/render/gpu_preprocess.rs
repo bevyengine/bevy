@@ -18,7 +18,7 @@ use bevy_core_pipeline::{
         DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniformOffset, PreviousViewUniforms,
     },
-    schedule::{Core3d, Core3dSystems},
+    schedule::{Core3d, Core3dSystems, RootNonCameraView},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -45,6 +45,7 @@ use bevy_render::{
         PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
         UntypedPhaseIndirectParametersBuffers,
     },
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics as _,
     occlusion_culling::OcclusionCulling,
     render_phase::GpuRenderBinnedMeshInstance,
@@ -69,6 +70,7 @@ use bevy_render::{
 use bevy_shader::Shader;
 use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
+use bytemuck::{Pod, Zeroable};
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
@@ -291,7 +293,7 @@ pub enum PhasePreprocessBindGroups {
     },
 
     /// The bind groups used for the compute shader when indirect drawing is
-    /// being used, but occlusion culling isn't being used.
+    /// being used and occlusion culling is being used.
     ///
     /// Because indirect drawing requires splitting the meshes into indexed and
     /// non-indexed meshes, and because occlusion culling requires splitting
@@ -311,6 +313,13 @@ pub enum PhasePreprocessBindGroups {
         /// preprocessing phase.
         late_non_indexed: Option<BindGroup>,
     },
+}
+
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+struct PreprocessImmediates {
+    cur_view_world_position: [f32; 3],
+    late_preprocess_work_item_indirect_offset: u32,
 }
 
 /// The bind groups for the compute shaders that reset indirect draw counts and
@@ -600,7 +609,15 @@ pub fn unpack_bins(
 }
 
 pub fn early_gpu_preprocess(
-    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    current_view: ViewQuery<
+        (
+            Option<&ViewLightEntities>,
+            &ExtractedView,
+            Has<RootNonCameraView>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
+    camera_views: Query<&ExtractedView, (With<ExtractedCamera>, Without<SkipGpuPreprocess>)>,
     view_query: Query<
         (
             &ExtractedView,
@@ -630,7 +647,7 @@ pub fn early_gpu_preprocess(
     let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
     let view_entity = current_view.entity();
-    let shadow_cascade_views = current_view.into_inner();
+    let (shadow_cascade_views, extracted_view, has_non_root_view) = current_view.into_inner();
     let all_views =
         gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
 
@@ -640,6 +657,23 @@ pub fn early_gpu_preprocess(
             view_query.get(view_entity)
         else {
             continue;
+        };
+        // Set the camera position that will be used for visibility range culling.
+        let cur_view_world_position = if !has_non_root_view {
+            extracted_view.world_from_view.translation().to_array()
+        } else {
+            // TODO: We need to better handle this case.
+            // As written, point and spot lights shadows will just use the first user camera
+            // that is returned by the query.
+            // If there is only one user camera, this is fine, but for multiple user cameras,
+            // only one of them is randomly used for visibility range culling.
+            let camera_view: Option<&ExtractedView> = camera_views.iter().next();
+            if let Some(camera_view) = camera_view {
+                camera_view.world_from_view.translation().to_array()
+            } else {
+                // No camera views to render to.
+                continue;
+            }
         };
 
         let Some(bind_groups) = bind_groups else {
@@ -746,10 +780,15 @@ pub fn early_gpu_preprocess(
                             ..
                         } = *work_item_buffers
                         {
-                            compute_pass.set_immediates(
-                                0,
-                                bytemuck::bytes_of(&late_indirect_parameters_indexed_offset),
-                            );
+                            let immediates = PreprocessImmediates {
+                                cur_view_world_position,
+                                late_preprocess_work_item_indirect_offset:
+                                    late_indirect_parameters_indexed_offset,
+                            };
+                            compute_pass.set_immediates(0, bytemuck::bytes_of(&immediates));
+                        } else {
+                            compute_pass
+                                .set_immediates(0, bytemuck::bytes_of(&cur_view_world_position));
                         }
 
                         compute_pass.set_bind_group(0, indexed_bind_group, &dynamic_offsets);
@@ -770,10 +809,15 @@ pub fn early_gpu_preprocess(
                             ..
                         } = *work_item_buffers
                         {
-                            compute_pass.set_immediates(
-                                0,
-                                bytemuck::bytes_of(&late_indirect_parameters_non_indexed_offset),
-                            );
+                            let immediates = PreprocessImmediates {
+                                cur_view_world_position,
+                                late_preprocess_work_item_indirect_offset:
+                                    late_indirect_parameters_non_indexed_offset,
+                            };
+                            compute_pass.set_immediates(0, bytemuck::bytes_of(&immediates));
+                        } else {
+                            compute_pass
+                                .set_immediates(0, bytemuck::bytes_of(&cur_view_world_position));
                         }
 
                         compute_pass.set_bind_group(0, non_indexed_bind_group, &dynamic_offsets);
@@ -832,6 +876,7 @@ pub fn late_gpu_preprocess(
 ) {
     let (view, bind_groups, view_uniform_offset) = current_view.into_inner();
 
+    let cur_view_world_position = view.world_from_view.translation().to_array();
     // Fetch the pipeline BEFORE starting diagnostic spans to avoid panic on early return
     let maybe_pipeline_id = preprocess_pipelines
         .late_gpu_occlusion_culling_preprocess
@@ -917,10 +962,11 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull indexed meshes if there are any.
         if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
-            compute_pass.set_immediates(
-                0,
-                bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
-            );
+            let immediates = PreprocessImmediates {
+                cur_view_world_position,
+                late_preprocess_work_item_indirect_offset: *late_indirect_parameters_indexed_offset,
+            };
+            compute_pass.set_immediates(0, bytemuck::bytes_of(&immediates));
 
             compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
@@ -932,10 +978,12 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull non-indexed meshes if there are any.
         if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
-            compute_pass.set_immediates(
-                0,
-                bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
-            );
+            let immediates = PreprocessImmediates {
+                cur_view_world_position,
+                late_preprocess_work_item_indirect_offset:
+                    *late_indirect_parameters_non_indexed_offset,
+            };
+            compute_pass.set_immediates(0, bytemuck::bytes_of(&immediates));
 
             compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
@@ -1247,7 +1295,9 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             ),
             layout: vec![self.bind_group_layout.clone()],
             immediate_size: if key.contains(PreprocessPipelineKey::OCCLUSION_CULLING) {
-                4
+                16
+            } else if key.contains(PreprocessPipelineKey::FRUSTUM_CULLING) {
+                12
             } else {
                 0
             },
