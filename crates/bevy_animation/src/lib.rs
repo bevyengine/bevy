@@ -723,18 +723,23 @@ impl ActiveAnimation {
     }
 }
 
+/// Contains the root motion extracted by the [`AnimationPlayer`].
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct RootMotion {
+    /// Translation delta with the previous frame.
     pub translation_delta: Vec3,
+    /// Rotation delta with the previous frame.
     pub rotation_delta: Quat,
 }
 
+/// How [`RootMotion`] should be extracted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Reflect)]
 #[reflect(Default, Clone)]
 pub enum RootMotionMode {
-    // TODO: Add tests
+    /// Extract only translation from the root target.
     Translation,
+    /// Extract both translation and rotation from the root target.
     #[default]
     TranslationAndRotation,
 }
@@ -1007,22 +1012,29 @@ impl AnimationPlayer {
         self.active_animations.get_mut(&animation)
     }
 
-    /// Returns the root motion target linked with this [`AnimationPlayer`]
+    /// Returns the root motion target linked with this [`AnimationPlayer`].
     pub fn root_motion_target(&self) -> Option<AnimationTargetId> {
         self.root_motion_target
     }
 
-    /// Set the root motion target. Set to `None` if you want to disable root motion
+    /// Set the root motion target. Set to `None` if you want to disable root motion.
+    ///
+    /// When the root motion is active, [`Transform::translation`] and / or [`Transform::rotation`] will be
+    /// extracted from the root target according to the [`RootMotionMode`].
+    ///
+    /// For example, if [`AnimationPlayer::root_motion_mode`] is set to [`RootMotionMode::TranslationAndRotation`], the
+    /// [`Transform::translation`] and [`Transform::rotation`] in the root target will always be the default value.
+    /// The delta between each frame will be stored in [`RootMotion`] in the [`AnimationPlayer`]'s entity.
     pub fn set_root_motion_target(&mut self, target: Option<AnimationTargetId>) {
         self.root_motion_target = target;
     }
 
-    /// Returns the root motion mode
+    /// Returns the [`RootMotionMode`].
     pub fn root_motion_mode(&self) -> RootMotionMode {
         self.root_motion_mode
     }
 
-    /// Set the root motion mode to control how RootMotion is computed
+    /// Set the [`RootMotionMode`] to control how [`RootMotion`] is extracted.
     pub fn set_root_motion_mode(&mut self, mode: RootMotionMode) {
         self.root_motion_mode = mode;
     }
