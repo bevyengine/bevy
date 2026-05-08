@@ -359,7 +359,7 @@ pub trait DetectChangesMut: DetectChanges {
 }
 
 macro_rules! change_detection_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
@@ -484,8 +484,8 @@ macro_rules! change_detection_mut_impl {
 pub(crate) use change_detection_mut_impl;
 
 macro_rules! impl_methods {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)? $(, $mut_traits:path)?) => {
-        impl<$($generics),* : ?Sized $(+ $mut_traits)?> $name<$($generics),*> {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
+        impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
             #[inline]
@@ -493,9 +493,7 @@ macro_rules! impl_methods {
                 self.set_changed();
                 self.value
             }
-        }
 
-        impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Returns a `Mut<>` with a smaller lifetime.
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
@@ -581,7 +579,7 @@ macro_rules! impl_methods {
 pub(crate) use impl_methods;
 
 macro_rules! impl_debug {
-    ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> core::fmt::Debug for $name<$($generics),*>
             where T: core::fmt::Debug
         {

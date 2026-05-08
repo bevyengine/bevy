@@ -488,7 +488,7 @@ impl<'w, T: Resource> Res<'w, T> {
     }
 }
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
@@ -532,12 +532,12 @@ impl_debug!(Res<'w, T>, Resource);
 /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
-pub struct ResMut<'w, T: ?Sized + Resource> {
+pub struct ResMut<'w, T: ?Sized + Resource<Mutability = Mutable>> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
+impl<'w, 'a, T: Resource<Mutability = Mutable>> IntoIterator for &'a ResMut<'w, T>
 where
     &'a T: IntoIterator,
 {
@@ -562,10 +562,10 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'w, T>, T, Resource);
+change_detection_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
 change_detection_mut_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
-impl_methods!(ResMut<'w, T>, T, Resource, Resource<Mutability = Mutable>);
-impl_debug!(ResMut<'w, T>, Resource);
+impl_methods!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_debug!(ResMut<'w, T>, Resource<Mutability = Mutable>);
 
 impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
