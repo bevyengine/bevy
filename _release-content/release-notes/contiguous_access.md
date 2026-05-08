@@ -1,7 +1,7 @@
 ---
 title: Contiguous query access
 authors: ["@Jenya705"]
-pull_requests: [21984]
+pull_requests: [21984, 24181]
 ---
 
 [SIMD] is a critical modern tool for performance optimization, but using it in Bevy has always been harder than it needed to be.
@@ -30,7 +30,7 @@ fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
 }
 ```
 
-The `contiguous_iter` family of methods only returns `Some` if the query is dense. That means:
+The `contiguous_iter` family of methods only returns `Ok` if the query is dense. That means:
 
 - All of the fetched components must use the default "table" storage strategy.
 - The query filters cannot disrupt the returned query data. "Archetypal filters" like `With<T>` and `Without<T>` are fine; `Changed<T>` and `Added<T>` are not, since they require a per-entity check that makes it impossible to return raw table slices.
