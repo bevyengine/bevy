@@ -75,6 +75,12 @@ struct Immediates {
     late_preprocess_work_item_indirect_offset: u32,
 #endif // OCCLUSION_CULLING
 }
+#else // FRUSTUM_CULLING
+struct Immediates {
+    // The offset into the `late_preprocess_work_item_indirect_parameters`
+    // buffer.
+    late_preprocess_work_item_indirect_offset: u32,
+}
 #endif // FRUSTUM_CULLING
 
 // The current frame's `MeshInput`.

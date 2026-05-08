@@ -876,7 +876,6 @@ pub fn late_gpu_preprocess(
 ) {
     let (view, bind_groups, view_uniform_offset) = current_view.into_inner();
 
-    let cur_view_world_position = view.world_from_view.translation().to_array();
     // Fetch the pipeline BEFORE starting diagnostic spans to avoid panic on early return
     let maybe_pipeline_id = preprocess_pipelines
         .late_gpu_occlusion_culling_preprocess
@@ -962,11 +961,10 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull indexed meshes if there are any.
         if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
-            let immediates = PreprocessImmediates {
-                cur_view_world_position,
-                late_preprocess_work_item_indirect_offset: *late_indirect_parameters_indexed_offset,
-            };
-            compute_pass.set_immediates(0, bytemuck::bytes_of(&immediates));
+            compute_pass.set_immediates(
+                0,
+                bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
+            );
 
             compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
@@ -978,12 +976,10 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull non-indexed meshes if there are any.
         if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
-            let immediates = PreprocessImmediates {
-                cur_view_world_position,
-                late_preprocess_work_item_indirect_offset:
-                    *late_indirect_parameters_non_indexed_offset,
-            };
-            compute_pass.set_immediates(0, bytemuck::bytes_of(&immediates));
+            compute_pass.set_immediates(
+                0,
+                bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
+            );
 
             compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
