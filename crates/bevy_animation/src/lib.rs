@@ -1218,6 +1218,8 @@ pub fn animate_targets(
     >,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
+    let translation_field = animated_field!(Transform::translation);
+    let rotation_field = animated_field!(Transform::rotation);
     // Evaluate all animation targets in parallel.
     targets.par_iter_mut().for_each(
         |(entity, &target_id, &AnimatedBy(player_id), mut entity_mut)| {
@@ -1362,23 +1364,11 @@ pub fn animate_targets(
                         let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
-                        // TODO: remove before push
-                        println!("seek time {} | clip_duration {}", seek_time, clip.duration);
-
                         if is_root_target {
-                            let translation_field = animated_field!(Transform::translation);
-                            let rotation_field = animated_field!(Transform::rotation);
                             for curve in curves {
                                 let curve_evaluator_id = (*curve.0).evaluator_id();
-                                let curve_evaluator = evaluation_state
-                                    .evaluators
-                                    .get_or_insert_with(curve_evaluator_id.clone(), || {
-                                        curve.0.create_evaluator()
-                                    });
-                                evaluation_state
-                                    .current_evaluators
-                                    .insert(curve_evaluator_id.clone());
-                                // TODO: Handle curves that shouldn't be modified
+                                let curve_evaluator =
+                                    evaluation_state.fetch_curve_evaluator(curve.0.as_ref());
                                 if curve_evaluator_id == translation_field.evaluator_id() {
                                     let curve_evaluator = curve_evaluator
                                         .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
@@ -1424,23 +1414,8 @@ pub fn animate_targets(
                             }
                         } else {
                             for curve in curves {
-                                // Fetch the curve evaluator. Curve evaluator types
-                                // are unique to each property, but shared among all
-                                // curve types. For example, given two curve types A
-                                // and B, `RotationCurve<A>` and `RotationCurve<B>`
-                                // will both yield a `RotationCurveEvaluator` and
-                                // therefore will share the same evaluator in this
-                                // table.
-                                let curve_evaluator_id = (*curve.0).evaluator_id();
-                                let curve_evaluator = evaluation_state
-                                    .evaluators
-                                    .get_or_insert_with(curve_evaluator_id.clone(), || {
-                                        curve.0.create_evaluator()
-                                    });
-
-                                evaluation_state
-                                    .current_evaluators
-                                    .insert(curve_evaluator_id);
+                                let curve_evaluator =
+                                    evaluation_state.fetch_curve_evaluator(curve.0.as_ref());
 
                                 if let Err(err) = AnimationCurve::apply(
                                     &*curve.0,
@@ -1614,6 +1589,24 @@ impl AnimationEvaluationState {
     ) -> Result<(), AnimationEvaluationError> {
         self.current_evaluators
             .clear(|id| self.evaluators.get_mut(id).unwrap().commit(entity_mut))
+    }
+
+    /// Fetch the curve evaluator. Curve evaluator types
+    /// are unique to each property, but shared among all
+    /// curve types. For example, given two curve types A
+    /// and B, `RotationCurve<A>` and `RotationCurve<B>`
+    /// will both yield a `RotationCurveEvaluator` and
+    /// therefore will share the same evaluator in this
+    /// table.
+    fn fetch_curve_evaluator<'a>(
+        &'a mut self,
+        curve: &(dyn AnimationCurve + 'static),
+    ) -> &'a mut (dyn AnimationCurveEvaluator + 'static) {
+        let curve_evaluator = self
+            .evaluators
+            .get_or_insert_with(curve.evaluator_id(), || curve.create_evaluator());
+        self.current_evaluators.insert(curve.evaluator_id());
+        curve_evaluator
     }
 }
 
