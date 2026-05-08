@@ -592,3 +592,10 @@ jobs:
         shell: bash
         run: |
           cargo run --package export-content -- --check
+      # TODO: remove once no open PR modifies this
+      - name: Check release-content/ has no files
+        shell: bash
+        run: |
+          if [ -d release-content ]; then
+            exit 1
+          fi
