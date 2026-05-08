@@ -2,9 +2,12 @@ use bevy_math::{Affine2, Vec2};
 use bevy_ui::CalculatedClip;
 use smallvec::SmallVec;
 
-/// Assumes `vertices` in boundary order forming a convex polygon.
-/// Returns a list of vertices that form a triangle fan.
-pub(crate) fn clip_polygon<T: Copy>(
+/// Clips a polygon using the [Sutherland-Hodgman](https://en.wikipedia.org/wiki/Sutherland-Hodgman_algorithm)
+/// algorithm and interpolates the attribute values.
+/// Assumes `vertices` in boundary order (either direction), forming a convex polygon.
+///
+/// Returns the resulting clipped polygon as a list of vertices forming a triangle fan.
+pub fn clip_polygon<T: Copy>(
     clip: Option<&CalculatedClip>,
     vertices: &[(Vec2, T)],
     interpolate: impl Fn(T, T, f32) -> T + Copy,
@@ -29,20 +32,18 @@ pub(crate) fn clip_polygon<T: Copy>(
             break;
         }
 
-        let edges = [
+        for (edge, distance_normal) in [
             (-region.rect.min.x, Vec2::X),
             (region.rect.max.x, Vec2::NEG_X),
             (region.rect.max.y, Vec2::NEG_Y),
             (-region.rect.min.y, Vec2::Y),
-        ];
-
-        for (distance_offset, distance_normal) in edges {
-            if distance_offset.is_finite() {
+        ] {
+            if edge.is_finite() {
                 edge_clip(
                     &visible_region,
                     &mut scratch,
                     region.world_to_clip_local,
-                    distance_offset,
+                    edge,
                     distance_normal,
                     interpolate,
                 );
@@ -62,7 +63,7 @@ fn edge_clip<T: Copy>(
     input: &[(Vec2, T)],
     output: &mut SmallVec<[(Vec2, T); 16]>,
     world_to_clip: Affine2,
-    distance_offset: f32,
+    edge: f32,
     distance_normal: Vec2,
     interpolate: impl Fn(T, T, f32) -> T + Copy,
 ) {
@@ -74,14 +75,14 @@ fn edge_clip<T: Copy>(
     let mut previous_distance = world_to_clip
         .transform_point2(previous.0)
         .dot(distance_normal)
-        + distance_offset;
+        + edge;
     let mut is_previous_visible = 0. <= previous_distance;
 
     for &vertex in input {
         let distance = world_to_clip
             .transform_point2(vertex.0)
             .dot(distance_normal)
-            + distance_offset;
+            + edge;
         let is_visible = 0. <= distance;
         // If inside != previous_inside, the previous -> vertex edge crossed the clip rect edge and we
         // add a new vertex at the intersection.
