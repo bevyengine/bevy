@@ -660,10 +660,16 @@ pub fn early_gpu_preprocess(
         };
         // Set the camera position that will be used for visibility range culling.
         let cur_view_world_position = if !has_non_root_view {
+            // Directional light shadows are made via cascaded shadow maps.
+            // These cascades are unique to each camera view (see RetainedViewEntity).
+            // For directional light shadows, the world position of the associated camera
+            // should be used for visibility range culling, not the world position of the shadow camera.
+            // The `CurrentView`'s `ExtractedView` contains the associated camera's world position.
             extracted_view.world_from_view.translation().to_array()
         } else {
+            // PointLight and SpotLight shadow views are handled in this else block.
             // TODO: We need to better handle this case.
-            // As written, point and spot lights shadows will just use the first user camera
+            // As written, point and spot lights shadow views will just use the first user camera
             // that is returned by the query.
             // If there is only one user camera, this is fine, but for multiple user cameras,
             // only one of them is randomly used for visibility range culling.
