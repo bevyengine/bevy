@@ -29,20 +29,21 @@ pub(crate) fn clip_polygon<T: Copy>(
             break;
         }
 
-        let edges: [(f32, fn(Vec2, f32) -> f32); 4] = [
-            (region.rect.min.x, |point, edge| point.x - edge),
-            (region.rect.max.x, |point, edge| edge - point.x),
-            (region.rect.max.y, |point, edge| edge - point.y),
-            (region.rect.min.y, |point, edge| point.y - edge),
+        let edges = [
+            (-region.rect.min.x, Vec2::X),
+            (region.rect.max.x, Vec2::NEG_X),
+            (region.rect.max.y, Vec2::NEG_Y),
+            (-region.rect.min.y, Vec2::Y),
         ];
 
-        for (edge, signed_distance) in edges {
-            if edge.is_finite() {
+        for (distance_offset, distance_normal) in edges {
+            if distance_offset.is_finite() {
                 edge_clip(
                     &visible_region,
                     &mut scratch,
                     region.world_to_clip_local,
-                    signed_distance,
+                    distance_offset,
+                    distance_normal,
                     interpolate,
                 );
                 core::mem::swap(&mut visible_region, &mut scratch);
@@ -61,7 +62,8 @@ fn edge_clip<T: Copy>(
     input: &[(Vec2, T)],
     output: &mut SmallVec<[(Vec2, T); 16]>,
     world_to_clip: Affine2,
-    signed_distance: impl Fn(Vec2) -> f32,
+    distance_offset: f32,
+    distance_normal: Vec2,
     interpolate: impl Fn(T, T, f32) -> T + Copy,
 ) {
     output.clear();
@@ -69,11 +71,17 @@ fn edge_clip<T: Copy>(
     let Some(mut previous) = input.last().copied() else {
         return;
     };
-    let mut previous_distance = signed_distance(world_to_clip.transform_point2(previous.0));
+    let mut previous_distance = world_to_clip
+        .transform_point2(previous.0)
+        .dot(distance_normal)
+        + distance_offset;
     let mut is_previous_visible = 0. <= previous_distance;
 
     for &vertex in input {
-        let distance = signed_distance(world_to_clip.transform_point2(vertex.0));
+        let distance = world_to_clip
+            .transform_point2(vertex.0)
+            .dot(distance_normal)
+            + distance_offset;
         let is_visible = 0. <= distance;
         // If inside != previous_inside, the previous -> vertex edge crossed the clip rect edge and we
         // add a new vertex at the intersection.
