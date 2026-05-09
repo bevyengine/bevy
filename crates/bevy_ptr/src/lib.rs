@@ -1472,7 +1472,10 @@ macro_rules! deconstruct_moving_ptr {
         // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
-        $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
+        $(
+            #[allow(non_snake_case, reason = "pattern is derived from user input ident")]
+            let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };
+        )*
         core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
@@ -1496,7 +1499,10 @@ macro_rules! deconstruct_moving_ptr {
         // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
-        $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
+        $(
+            #[allow(non_snake_case, reason = "pattern is derived from user field ident")]
+            let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };
+        )*
         core::mem::forget(ptr);
     };
     ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
@@ -1519,7 +1525,10 @@ macro_rules! deconstruct_moving_ptr {
         // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
-        $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
+        $(
+            #[allow(non_snake_case, reason = "pattern is derived from user field ident")]
+            let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };
+        )*
         core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
@@ -1543,7 +1552,10 @@ macro_rules! deconstruct_moving_ptr {
         // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
-        $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
+        $(
+            #[allow(non_snake_case, reason = "pattern is derived from user field ident")]
+            let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };
+        )*
         core::mem::forget(ptr);
     };
 }
