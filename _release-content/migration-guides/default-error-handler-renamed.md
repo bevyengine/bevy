@@ -9,10 +9,10 @@ A deprecated type alias is provided for one release to ease migration.
 To update your code:
 
 ```rust
-// Before
+// 0.18
 world.insert_resource(DefaultErrorHandler(my_error_handler));
 
-// After
+// 0.19
 world.insert_resource(FallbackErrorHandler(my_error_handler));
 ```
 

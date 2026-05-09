@@ -100,7 +100,7 @@ pub struct RenderVisibleEntitiesClass {
 
     /// A sorted list of all entities that were invisible last frame (including
     /// ones that didn't exist at all last frame) and became visible this frame.
-    added_entities: Vec<(Entity, MainEntity)>,
+    pub added_entities: Vec<(Entity, MainEntity)>,
 
     /// A sorted list of all entities that were visible last frame and became
     /// invisible this frame, including those that were despawned this frame.
@@ -179,7 +179,7 @@ impl RenderVisibleEntities {
 impl RenderVisibleEntitiesClass {
     /// Clears out the lists of added and removed entities in preparation for a
     /// new frame.
-    fn prepare_for_new_frame(&mut self) {
+    pub fn prepare_for_new_frame(&mut self) {
         self.added_entities.clear();
         self.removed_entities.clear();
     }
@@ -191,7 +191,7 @@ impl RenderVisibleEntitiesClass {
     /// have `NoCpuCulling` components). Entities that use only GPU culling are
     /// instead fetched from the main world and added to the
     /// `RenderGpuCulledEntities` table.
-    fn update_cpu_culled_entities(
+    pub fn update_cpu_culled_entities(
         &mut self,
         visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)],
     ) {

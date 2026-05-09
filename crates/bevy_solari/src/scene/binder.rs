@@ -249,7 +249,7 @@ pub fn prepare_raytracing_scene_bindings(
     }
 
     if light_sources.get().len() > u16::MAX as usize {
-        panic!("Too many light sources in the scene, maximum is 65536.");
+        panic!("Too many light sources in the scene, maximum is 65535.");
     }
 
     materials.write_buffer(&render_device, &render_queue);

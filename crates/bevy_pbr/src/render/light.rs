@@ -420,6 +420,7 @@ pub fn extract_lights(
         &mut RenderExtractedShadowMapVisibleEntities,
         &mut RenderShadowMapVisibleEntities,
     )>,
+    mut rect_light_missing_luts_warning_emitted: Local<bool>,
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
 
@@ -824,6 +825,12 @@ pub fn extract_lights(
     }
 
     for (main_entity, render_entity, rect_light, transform, view_visibility) in &rect_lights {
+        if !cfg!(feature = "area_light_luts") && !*rect_light_missing_luts_warning_emitted {
+            warn!(
+                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled."
+            );
+            *rect_light_missing_luts_warning_emitted = true;
+        }
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
                 entity_commands.remove::<ExtractedRectLight>();
@@ -1035,7 +1042,11 @@ pub fn prepare_lights(
         Res<GpuPreprocessingSupport>,
         Option<Res<RenderClusteredDecals>>,
     ),
-    existing_shadow_views: Query<&ShadowView>,
+    (existing_shadow_views, mut light_key_cache, mut specialized_shadow_material_pipeline_cache): (
+        Query<&ShadowView>,
+        ResMut<LightKeyCache>,
+        ResMut<SpecializedShadowMaterialPipelineCache>,
+    ),
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -2140,6 +2151,9 @@ pub fn prepare_lights(
     }
 
     shadow_render_phases.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
+    light_key_cache.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
+    specialized_shadow_material_pipeline_cache
+        .retain(|entity, _| live_shadow_mapping_lights.contains(entity));
 }
 
 fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {

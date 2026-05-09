@@ -14,7 +14,10 @@ mod variant_defaults;
 mod world_query;
 
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
-use bevy_ecs_macro_logic::{component::DeriveComponent, map_entities::map_entities};
+use bevy_ecs_macro_logic::{
+    component::{DeriveComponent, StorageAttribute, StorageTy},
+    map_entities::map_entities,
+};
 use bevy_macro_utils::{
     derive_label, ensure_no_collision,
     fq_std::{FQDefault, FQIterator, FQOption, FQResult},
@@ -560,7 +563,26 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `Resource` trait.
-#[proc_macro_derive(Resource)]
+///
+/// ## Immutability
+/// ```ignore
+/// #[derive(Resource)]
+/// #[component(immutable)]
+/// struct MyResource;
+/// ```
+///
+/// ## Hooks
+/// ```ignore
+/// #[derive(Resource)]
+/// #[component(hook_name = function)]
+/// struct MyResource;
+/// ```
+/// where `hook_name` is `on_add`, `on_insert`, `on_discard` or `on_remove`;
+/// `function` can be either a path, e.g. `some_function::<Self>`,
+/// or a function call that returns a function that can be turned into
+/// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+/// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
+#[proc_macro_derive(Resource, attributes(component))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     TokenStream::from(resource::derive_resource(&mut ast))
@@ -805,15 +827,16 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let derive_component = match DeriveComponent::parse(&ast) {
+    let derive_component = match DeriveComponent::parse(&ast, StorageAttribute::Allowed) {
         Ok(value) => value,
         Err(e) => return e.into_compile_error().into(),
     };
     let bevy_ecs = bevy_ecs_path();
-    let impl_component = match derive_component.impl_component(&mut ast, &bevy_ecs) {
-        Ok(value) => value,
-        Err(err) => return err.into_compile_error().into(),
-    };
+    let impl_component =
+        match derive_component.impl_component(&mut ast, &bevy_ecs, StorageTy::Table) {
+            Ok(value) => value,
+            Err(err) => return err.into_compile_error().into(),
+        };
     TokenStream::from(impl_component)
 }
 

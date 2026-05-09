@@ -647,7 +647,7 @@
 //! impl HelloRepeater {
 //!     fn scene(props: HelloRepeaterProps) -> impl Scene {
 //!         let hellos = (0..props.repeat)
-//!             .map(|_| bsn!{ Text("hello") })
+//!             .map(|_| bsn! { Text("hello") })
 //!             .collect::<Vec<_>>();
 //!         bsn! {
 //!             Node
@@ -1871,6 +1871,33 @@ mod tests {
         let world = app.world_mut();
         let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
         assert!(entity.contains::<Widget>());
+    }
+
+    #[test]
+    fn scene_component_name_reference() {
+        #[derive(SceneComponent, FromTemplate)]
+        struct Widget(pub Entity);
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        let scene = bsn! {
+          #Name
+          Children [
+              :Widget(#Name)
+          ]
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(scene).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Widget>().unwrap();
+        assert_eq!(child_widget.0, entity);
     }
 
     #[test]
