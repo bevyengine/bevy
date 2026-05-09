@@ -105,7 +105,7 @@ pub fn despawn_unused_registered_systems(
     despawner: If<Res<RegisteredSystemDespawner>>,
     mut commands: Commands,
 ) {
-    while let Ok(entity) = despawner.queue.pop() {
+    for entity in despawner.queue.try_iter() {
         // In case the entity was already despawned manually, we ignore the error here.
         commands.entity(entity).try_despawn();
     }
