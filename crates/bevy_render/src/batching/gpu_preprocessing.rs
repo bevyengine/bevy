@@ -1337,7 +1337,7 @@ impl FromWorld for GpuPreprocessingSupport {
             crate::get_pixel10_driver_version(adapter_info).is_some()
         }
 
-        // Includes occlusion culling and frustum culling
+        // Includes occlusion culling
         let culling_feature_support = device
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE | Features::IMMEDIATES);
@@ -1361,6 +1361,7 @@ impl FromWorld for GpuPreprocessingSupport {
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(&adapter_info)
             || adapter_info.backend == wgpu::Backend::Gl
+            || !device.features().contains(Features::IMMEDIATES)
         {
             info_once!(
                 "GPU preprocessing is not supported on this device. \
