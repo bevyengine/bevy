@@ -38,17 +38,21 @@ use std::{
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    /// Use this type to access `intern()` on an [`AppLabel`].
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
-    AppLabel,
-    APP_LABEL_INTERNER
+    AppLabelInterior,
+    APP_LABEL_INTERIOR_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
 
-/// A shorthand for `Interned<dyn AppLabel>`.
-pub type InternedAppLabel = Interned<dyn AppLabel>;
+/// A shorthand for `Interned<dyn AppLabelInterior>`.
+pub type InternedAppLabel = Interned<dyn AppLabelInterior>;
+
+/// [`SubApp`]'s within an [`App`] are identified by their [`AppLabel`].
+pub trait AppLabel: AppLabelInterior + Default + Clone + Eq + Copy {}
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum AppError {
@@ -1619,7 +1623,7 @@ mod tests {
         world::{FromWorld, World},
     };
 
-    use crate::{App, AppExit, Plugin, SubApp, Update};
+    use crate::{App, AppExit, AppLabel, AppLabelInterior, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1789,8 +1793,6 @@ mod tests {
 
     #[test]
     fn test_derive_app_label() {
-        use super::AppLabel;
-
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
@@ -1928,9 +1930,7 @@ mod tests {
 
     #[test]
     fn test_extract_sees_changes() {
-        use super::AppLabel;
-
-        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct MySubApp;
 
         #[derive(Resource)]
