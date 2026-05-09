@@ -52,8 +52,8 @@ tga = ["bevy_image/tga"]
 tiff = ["bevy_image/tiff"]
 webp = ["bevy_image/webp"]
 dds = ["bevy_image/dds"]
-exr = ["bevy_image/exr"]
-hdr = ["bevy_image/hdr"]
+exr = ["bevy_image/exr", "bevy_gltf?/exr"]
+hdr = ["bevy_image/hdr", "bevy_gltf?/hdr"]
 ktx2 = ["bevy_image/ktx2"]
 
 # Enable SPIR-V passthrough
