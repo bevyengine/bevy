@@ -763,8 +763,7 @@ impl RootMotionMode {
     /// Returns true if the translation should be extracted
     pub fn should_extract_translation(&self) -> bool {
         match self {
-            Self::Translation => true,
-            Self::TranslationAndRotation => true,
+            Self::Translation | Self::TranslationAndRotation => true,
         }
     }
 
@@ -794,8 +793,8 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
-            root_motion_target: self.root_motion_target.clone(),
-            root_motion_mode: self.root_motion_mode.clone(),
+            root_motion_target: self.root_motion_target,
+            root_motion_mode: self.root_motion_mode,
         }
     }
 
@@ -1508,7 +1507,7 @@ pub fn animate_targets(
                         translation_delta,
                         rotation_delta,
                     });
-                })
+                });
             }
         },
     );
@@ -1825,7 +1824,7 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use core::time::Duration;
 
     use crate::{
         self as bevy_animation,
@@ -2120,8 +2119,8 @@ mod tests {
         let play_count = 3;
         // Choose tick_count such that ticks are not align perfectly with animation loops
         let tick_count = 10;
-        let slow_speed = 1.0 as f32;
-        let fast_speed = 2.0 as f32;
+        let slow_speed = 1.0;
+        let fast_speed = 2.0;
         let clip_duration = 1.0;
         let total_duration = (play_count as f32 * clip_duration) / slow_speed;
         let tick_duration = total_duration / tick_count as f32;
@@ -2129,7 +2128,7 @@ mod tests {
         app.add_systems(
             First,
             (move |mut time: ResMut<Time<Virtual>>| {
-                time.advance_by(Duration::from_secs_f32(tick_duration))
+                time.advance_by(Duration::from_secs_f32(tick_duration));
             })
             .after(TimeSystems),
         );
@@ -2208,8 +2207,8 @@ mod tests {
         let slow_only_animation_duration = total_duration - both_animation_duration;
         let applied_factor = slow_only_animation_duration * slow_speed
             + both_animation_duration * (fast_speed + slow_speed) / 2.;
-        let final_translation = target_translation * applied_factor as f32;
-        let final_rotation = Quat::IDENTITY.slerp(target_rotation, applied_factor as f32);
+        let final_translation = target_translation * applied_factor;
+        let final_rotation = Quat::IDENTITY.slerp(target_rotation, applied_factor);
 
         // Forward tests
         root_motion_tests(
@@ -2222,8 +2221,8 @@ mod tests {
         );
 
         // Setup for backward
-        let slow_speed = slow_speed * -1.;
-        let fast_speed = fast_speed * -1.;
+        let slow_speed = -slow_speed;
+        let fast_speed = -fast_speed;
         {
             let mut player_entity = app.world_mut().get_entity_mut(animator_entity).unwrap();
             let mut animation_player = player_entity.get_mut::<AnimationPlayer>().unwrap();

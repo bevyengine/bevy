@@ -6,9 +6,9 @@ use bevy::{
 };
 use bevy_animation::{RepeatAnimation, RootMotion, RootMotionMode};
 
-const MODEL: &'static str = "models/animated/FoxRootMotion.glb";
+const MODEL: &str = "models/animated/FoxRootMotion.glb";
 const ORIGIN_POSITION: Vec3 = Vec3::new(0., 0., -50.);
-const HELP_TEXT: &'static str = "Press 'Space' to toggle root motion ";
+const HELP_TEXT: &str = "Press 'Space' to toggle root motion ";
 
 fn main() {
     App::new()
@@ -56,18 +56,18 @@ fn toggle_root_motion(
     root_motion_target_id: Option<Res<RootMotionTargetId>>,
     player: Single<(&mut AnimationPlayer, &ApplyRootMotionTo)>,
 ) {
-    if let Some(root_motion_target_id) = root_motion_target_id {
-        if keys.just_pressed(KeyCode::Space) {
-            let (mut animation_player, apply_to) = player.into_inner();
-            if animation_player.root_motion_target().is_none() {
-                animation_player.set_root_motion_target(Some(root_motion_target_id.0));
-                help_text.0 = HELP_TEXT.to_string() + "(current: On)";
-            } else {
-                animation_player.set_root_motion_target(None);
-                help_text.0 = HELP_TEXT.to_string() + "(current: Off)";
-            }
-            q_transform.get_mut(apply_to.0).unwrap().translation = ORIGIN_POSITION;
+    if let Some(root_motion_target_id) = root_motion_target_id
+        && keys.just_pressed(KeyCode::Space)
+    {
+        let (mut animation_player, apply_to) = player.into_inner();
+        if animation_player.root_motion_target().is_none() {
+            animation_player.set_root_motion_target(Some(root_motion_target_id.0));
+            help_text.0 = HELP_TEXT.to_string() + "(current: On)";
+        } else {
+            animation_player.set_root_motion_target(None);
+            help_text.0 = HELP_TEXT.to_string() + "(current: Off)";
         }
+        q_transform.get_mut(apply_to.0).unwrap().translation = ORIGIN_POSITION;
     }
 }
 
