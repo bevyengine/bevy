@@ -72,7 +72,6 @@ impl CompressedImageSaverCtt {
             is_cubemap,
         };
 
-
         // TODO: https://github.com/cwfitzgerald/ctt/issues/66
         // Convert to two-component normal map so that ASTC does not waste bits on other channels
         // (BC5 does this implicitly)
