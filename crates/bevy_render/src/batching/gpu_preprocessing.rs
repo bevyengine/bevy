@@ -1337,7 +1337,6 @@ impl FromWorld for GpuPreprocessingSupport {
             crate::get_pixel10_driver_version(adapter_info).is_some()
         }
 
-        // Includes occlusion culling
         let culling_feature_support = device
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE | Features::IMMEDIATES);
