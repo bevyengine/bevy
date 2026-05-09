@@ -213,8 +213,7 @@ impl<I: SystemInput, O> From<SystemId<I, O>> for SystemHandle<I, O> {
     }
 }
 
-/// A strong handle for a registered system that keeps the system entity alive
-/// as long as the handle (and any clones of it) exist.
+/// A strong handle for a registered system that despawns the entity when dropped.
 pub struct StrongSystemHandle {
     entity: Entity,
     drop_queue: Arc<ConcurrentQueue<Entity>>,
@@ -1266,9 +1265,9 @@ mod tests {
 
         assert!(world.get_entity(entity).is_ok());
 
-        let mut cleanup = IntoSystem::into_system(despawn_unused_registered_systems);
-        cleanup.initialize(&mut world);
-        cleanup.run((), &mut world).unwrap();
+        world
+            .run_system_cached(despawn_unused_registered_systems)
+            .unwrap();
 
         assert!(world.get_entity(entity).is_err());
     }
