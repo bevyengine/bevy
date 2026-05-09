@@ -2095,7 +2095,6 @@ required-features = [
   "compressed_image_saver",
   "asset_processor",
   "jpeg",
-  "https",
 ]
 
 [package.metadata.example.compressed_image_saver]

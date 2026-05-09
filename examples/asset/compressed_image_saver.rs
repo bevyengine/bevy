@@ -6,8 +6,15 @@ use bevy::{
     mesh::SphereKind,
     prelude::*,
 };
+use std::{
+    fs,
+    io::{self, Read},
+    path::Path,
+};
 
 fn main() {
+    download_assets().expect("failed to download GroundSand005 textures");
+
     App::new()
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             mode: AssetMode::Processed,
@@ -25,19 +32,19 @@ fn spawn_scene(
     mut commands: Commands,
 ) {
     // See .meta files at https://github.com/bevyengine/bevy_asset_files/tree/main/GroundSand005
-    let orm = asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_ORM_2K.png");
+    let orm = asset_server.load("textures/GroundSand005/GroundSand005_ORM_2K.png");
     let sphere_material = StandardMaterial {
         base_color_texture: Some(
-            asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_COL_2K.jpg"),
+            asset_server.load("textures/GroundSand005/GroundSand005_COL_2K.jpg"),
         ),
         perceptual_roughness: 1.0,
         metallic_roughness_texture: Some(orm.clone()),
         normal_map_texture: Some(
-            asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_NRM_2K.jpg"),
+            asset_server.load("textures/GroundSand005/GroundSand005_NRM_2K.jpg"),
         ),
         occlusion_texture: Some(orm),
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
-        depth_map: Some(asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_DISP_2K.jpg")),
+        depth_map: Some(asset_server.load("textures/GroundSand005/GroundSand005_DISP_2K.jpg")),
         ..Default::default()
     };
 
@@ -99,4 +106,40 @@ fn rotate(mut query: Query<&mut Transform, With<Rotating>>, time: Res<Time>) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_secs() * 0.5);
     }
+}
+
+fn download_assets() -> io::Result<()> {
+    let asset_files = &[
+        "GroundSand005_COL_2K.jpg",
+        "GroundSand005_COL_2K.jpg.meta",
+        "GroundSand005_NRM_2K.jpg",
+        "GroundSand005_NRM_2K.jpg.meta",
+        "GroundSand005_DISP_2K.jpg",
+        "GroundSand005_DISP_2K.jpg.meta",
+        "GroundSand005_ORM_2K.png",
+        "GroundSand005_ORM_2K.png.meta",
+    ];
+
+    let dir = Path::new("assets/textures/GroundSand005");
+    fs::create_dir_all(dir)?;
+
+    for file in asset_files {
+        let dest = dir.join(file);
+        if dest.exists() {
+            continue;
+        }
+
+        let url =
+            format!("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/{file}");
+        info!("Downloading {url}");
+
+        let mut response = ureq::get(&url)
+            .call()
+            .map_err(|e| io::Error::other(e.to_string()))?;
+        let mut bytes = Vec::new();
+        response.body_mut().as_reader().read_to_end(&mut bytes)?;
+        fs::write(&dest, &bytes)?;
+    }
+
+    Ok(())
 }
