@@ -733,6 +733,21 @@ pub struct RootMotion {
     pub rotation_delta: Quat,
 }
 
+/// A system that removes [`RootMotion`] from [`AnimationPlayer`] entities
+/// with `root_motion_target` set to `None`.
+///
+/// This happens when root motion is disabled after being active for at least one frame.
+pub fn remove_disabled_root_motion(
+    mut query: Query<(Entity, &AnimationPlayer), With<RootMotion>>,
+    mut commands: Commands,
+) {
+    for (entity, player) in query.iter_mut() {
+        if player.root_motion_target.is_none() {
+            commands.entity(entity).remove::<RootMotion>();
+        }
+    }
+}
+
 /// How [`RootMotion`] should be extracted.
 #[derive(Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Default, Clone)]
@@ -1524,6 +1539,7 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets.ambiguous_with_all(),
+                    remove_disabled_root_motion,
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
