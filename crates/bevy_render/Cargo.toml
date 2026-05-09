@@ -128,6 +128,7 @@ indexmap = { version = "2" }
 bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
+slotmap = "1.1.1"
 
 [dev-dependencies]
 proptest = "1"

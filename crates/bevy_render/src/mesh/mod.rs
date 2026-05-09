@@ -26,7 +26,7 @@ use glam::Vec3;
 use wgpu::IndexFormat;
 
 #[cfg(feature = "morph")]
-use crate::mesh::morph::RenderMorphTargetAllocator;
+use crate::mesh::morph::{MorphTargetImageHandle, RenderMorphTargetAllocator};
 
 /// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
 /// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
@@ -57,7 +57,7 @@ impl Plugin for MeshRenderAssetPlugin {
 }
 
 /// The render world representation of a [`Mesh`].
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RenderMesh {
     /// The number of vertices in the mesh.
     pub vertex_count: u32,
@@ -77,6 +77,9 @@ pub struct RenderMesh {
     /// Combined with [`RenderMesh::buffer_info`], this specifies the complete
     /// layout of the buffers associated with this mesh.
     pub layout: MeshVertexBufferLayoutRef,
+
+    #[cfg(feature = "morph")]
+    pub morph_target_handle: Option<MorphTargetImageHandle>,
 }
 
 impl RenderMesh {
@@ -200,15 +203,14 @@ impl RenderAsset for RenderMesh {
 
         // Place the morph displacements in an image if necessary.
         #[cfg(feature = "morph")]
-        if let Some(morph_targets) = mesh.morph_targets() {
+        let morph_target_handle = mesh.morph_targets().and_then(|morph_targets| {
             _render_morph_targets_allocator.allocate(
                 _render_device,
                 _render_queue,
-                _mesh_id,
                 morph_targets,
                 mesh.count_vertices(),
-            );
-        }
+            )
+        });
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
@@ -219,6 +221,8 @@ impl RenderAsset for RenderMesh {
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
+            #[cfg(feature = "morph")]
+            morph_target_handle,
         })
     }
 
@@ -229,6 +233,8 @@ impl RenderAsset for RenderMesh {
     ) {
         // Free the morph target images if necessary.
         #[cfg(feature = "morph")]
-        _render_morph_targets_allocator.free(_mesh_id);
+        if let Some(handle) = self.morph_target_handle {
+            _render_morph_targets_allocator.free(handle);
+        }
     }
 }
