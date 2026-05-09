@@ -73,15 +73,15 @@ struct Immediates {
     // The offset into the `late_preprocess_work_item_indirect_parameters`
     // buffer.
     late_preprocess_work_item_indirect_offset: u32,
-#endif // OCCLUSION_CULLING
+#endif  // OCCLUSION_CULLING
 }
-#else // FRUSTUM_CULLING
+#else  // FRUSTUM_CULLING
 struct Immediates {
     // The offset into the `late_preprocess_work_item_indirect_parameters`
     // buffer.
     late_preprocess_work_item_indirect_offset: u32,
 }
-#endif // FRUSTUM_CULLING
+#endif  // FRUSTUM_CULLING
 
 // The current frame's `MeshInput`.
 @group(0) @binding(3) var<storage> current_input: array<MeshInput>;
@@ -129,6 +129,10 @@ var<immediate> immediates: Immediates;
 @group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
 #endif  // LATE_PHASE
+
+#ifndef FRUSTUM_CULLING
+var<immediate> immediates: Immediates;
+#endif  // FRUSTUM_CULLING
 #endif  // OCCLUSION_CULLING
 
 #ifdef FRUSTUM_CULLING
