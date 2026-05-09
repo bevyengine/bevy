@@ -62,8 +62,8 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
     view::{
-        ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        ExtractedView, NoIndirectDrawing, PointAndSpotLightShadowPrimaryCamera,
+        RenderVisibilityRanges, RetainedViewEntity, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
@@ -617,7 +617,13 @@ pub fn early_gpu_preprocess(
         ),
         Without<SkipGpuPreprocess>,
     >,
-    camera_views: Query<&ExtractedView, (With<ExtractedCamera>, Without<SkipGpuPreprocess>)>,
+    point_and_spot_light_shadow_primary_camera: Query<
+        &ExtractedView,
+        (
+            With<ExtractedCamera>,
+            With<PointAndSpotLightShadowPrimaryCamera>,
+        ),
+    >,
     view_query: Query<
         (
             &ExtractedView,
@@ -650,6 +656,8 @@ pub fn early_gpu_preprocess(
     let (shadow_cascade_views, extracted_view, has_non_root_view) = current_view.into_inner();
     let all_views =
         gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
+    let point_and_spot_light_shadow_camera_view =
+        point_and_spot_light_shadow_primary_camera.single();
 
     // Run the compute passes.
     for view_entity in all_views {
@@ -668,16 +676,13 @@ pub fn early_gpu_preprocess(
             extracted_view.world_from_view.translation().to_array()
         } else {
             // PointLight and SpotLight shadow views are handled in this else block.
-            // TODO: We need to better handle this case.
-            // As written, point and spot lights shadow views will just use the first user camera
-            // that is returned by the query.
-            // If there is only one user camera, this is fine, but for multiple user cameras,
-            // only one of them is randomly used for visibility range culling.
-            let camera_view: Option<&ExtractedView> = camera_views.iter().next();
-            if let Some(camera_view) = camera_view {
+            // We could handle this case better if we can specify certain point and spot light shadow
+            // views to different cameras. Right now, it is all centralized to one user specified camera.
+            if let Ok(camera_view) = point_and_spot_light_shadow_camera_view {
                 camera_view.world_from_view.translation().to_array()
             } else {
-                // No camera views to render to.
+                // There is no single designated primary camera to use for vis range culling of the shadows.
+                // Do not render them.
                 continue;
             }
         };

@@ -11,8 +11,9 @@ use crate::{
     texture::{GpuImage, ManualTextureViews},
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
-        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        PointAndSpotLightShadowPrimaryCamera, RenderExtractedVisibleEntities,
+        RenderVisibleEntities, RenderVisibleEntitiesClass, RetainedViewEntity, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -492,6 +493,7 @@ pub fn extract_cameras(
                 Option<&MipBias>,
                 Option<&RenderLayers>,
                 Option<&Projection>,
+                Has<PointAndSpotLightShadowPrimaryCamera>,
                 Has<NoIndirectDrawing>,
             ),
         )>,
@@ -517,6 +519,7 @@ pub fn extract_cameras(
         MipBias,
         RenderLayers,
         Projection,
+        PointAndSpotLightShadowPrimaryCamera,
         NoIndirectDrawing,
         ViewUniformOffset,
     );
@@ -538,6 +541,7 @@ pub fn extract_cameras(
             mip_bias,
             render_layers,
             projection,
+            has_pasl_shadow_primary_camera,
             no_indirect_drawing,
         ),
     ) in query.iter()
@@ -680,6 +684,12 @@ pub fn extract_cameras(
                 commands.insert(projection.clone());
             } else {
                 commands.remove::<Projection>();
+            }
+
+            if has_pasl_shadow_primary_camera {
+                commands.insert(PointAndSpotLightShadowPrimaryCamera);
+            } else {
+                commands.remove::<PointAndSpotLightShadowPrimaryCamera>();
             }
 
             if no_indirect_drawing

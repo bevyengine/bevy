@@ -4,6 +4,7 @@
 use super::VisibilityRange;
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     lifecycle::RemovedComponents,
     query::Changed,
@@ -56,6 +57,23 @@ impl Plugin for RenderVisibilityRangePlugin {
             );
     }
 }
+
+/// A marker component for a `Camera` to denote that this entity should be the primary camera
+/// used for GPU Visibility Range Culling on shadows produced by all `PointLight`s and
+/// `SpotLight`s. There should only be one `Camera` with this marker component
+/// at a given moment in the application. This culling will occur if `GpuPreprocessingMode`
+/// is at least `GpuPreprocessingMode::PreprocessingOnly`.
+///
+/// Unlike `DirectionalLight` shadows, `PointLight` shadows and `SpotLight` shadows are
+/// not associated with any camera. They are only rendered once, regardless of the
+/// number of cameras. In order for these shadows to participate in visibility range culling,
+/// the user camera that distances are calculated relative to must be specified. Use this component
+/// to specify that camera.
+///
+/// If this marker component is not placed on a camera, or if there are multiple cameras
+/// with this component, shadows made by `PointLight`s and `SpotLight`s may not render.
+#[derive(Component, Default)]
+pub struct PointAndSpotLightShadowPrimaryCamera;
 
 /// Stores information related to [`VisibilityRange`]s in the render world.
 #[derive(Resource)]

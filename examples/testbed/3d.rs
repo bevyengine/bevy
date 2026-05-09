@@ -122,6 +122,7 @@ mod light {
     use bevy::{
         color::palettes::css::{DEEP_PINK, LIME, RED},
         prelude::*,
+        render::view::PointAndSpotLightShadowPrimaryCamera,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::Light;
@@ -203,6 +204,7 @@ mod light {
 
         commands.spawn((
             Camera3d::default(),
+            PointAndSpotLightShadowPrimaryCamera,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExit(CURRENT_SCENE),
         ));
@@ -732,6 +734,7 @@ mod render_layers {
     use bevy::{
         camera::{visibility::RenderLayers, Viewport},
         prelude::*,
+        render::view::PointAndSpotLightShadowPrimaryCamera,
         window::PrimaryWindow,
     };
 
@@ -805,7 +808,9 @@ mod render_layers {
                 DespawnOnExit(CURRENT_SCENE),
             ));
             match index {
-                0 => {}
+                0 => {
+                    entity_cmds.insert(PointAndSpotLightShadowPrimaryCamera);
+                }
                 1 => {
                     entity_cmds.insert(RenderLayers::layer(1));
                 }
