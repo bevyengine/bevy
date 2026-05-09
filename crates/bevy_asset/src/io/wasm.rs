@@ -114,6 +114,10 @@ impl HttpWasmAssetReader {
 }
 
 impl AssetReader for HttpWasmAssetReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Borrowed(&self.root_path)
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path = self.root_path.join(path);
         self.fetch_bytes(path).await
