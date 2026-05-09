@@ -920,6 +920,11 @@ impl Default for WindowResolution {
     }
 }
 
+/// Returns `true` if a scale factor is greater than zero.
+fn is_valid_scale_factor(scale_factor: f32) -> bool {
+    scale_factor.is_normal() && scale_factor > 0.0
+}
+
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
     pub fn new(physical_width: u32, physical_height: u32) -> Self {
@@ -977,7 +982,7 @@ impl WindowResolution {
     /// `physical_pixels = logical_pixels * scale_factor`
     pub fn scale_factor(&self) -> f32 {
         self.scale_factor_override
-            .unwrap_or_else(|| self.base_scale_factor())
+            .unwrap_or(self.scale_factor)
     }
 
     /// The window scale factor as reported by the window backend.
@@ -1035,10 +1040,22 @@ impl WindowResolution {
 
     /// Set the window's scale factor, this will be used over what the backend decides.
     ///
+    /// Scale factors must be greater than zero. Invalid values (zero, negative,
+    /// NaN, infinity, subnormal) are ignored with a warning.
+    ///
     /// This can change the logical and physical sizes if the resulting physical
     /// size is not within the limits.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
+        if let Some(sf) = scale_factor_override
+            && !is_valid_scale_factor(sf)
+        {
+            warn!(
+                "Ignoring invalid scale factor override `{sf}`. \
+                 Scale factors must be greater than zero."
+            );
+            return;
+        }
         self.scale_factor_override = scale_factor_override;
     }
 }
@@ -1545,6 +1562,34 @@ mod tests {
 
         window.set_physical_cursor_position(Some(DVec2::new(400., 600.)));
         assert!(window.physical_cursor_position().is_none());
+    }
+
+    #[test]
+    fn scale_factor_override_validation() {
+        let mut res = WindowResolution::new(800, 600);
+
+        // Valid values are accepted
+        res.set_scale_factor_override(Some(2.0));
+        assert_eq!(res.scale_factor_override(), Some(2.0));
+        assert_eq!(res.scale_factor(), 2.0);
+
+        // None clears the override
+        res.set_scale_factor_override(None);
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+
+        // Invalid values are rejected by the setter
+        for invalid in [0.0, -1.0, -0.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            res.set_scale_factor_override(Some(invalid));
+            assert_eq!(res.scale_factor_override(), None, "should reject {invalid}");
+        }
+
+        // Builder method also validates
+        let res = WindowResolution::new(800, 600).with_scale_factor_override(1.5);
+        assert_eq!(res.scale_factor_override(), Some(1.5));
+
+        let res = WindowResolution::new(800, 600).with_scale_factor_override(0.0);
+        assert_eq!(res.scale_factor_override(), None);
     }
 }
 
