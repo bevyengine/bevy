@@ -72,16 +72,28 @@ impl CompressedImageSaverCtt {
             is_cubemap,
         };
 
+
+        // TODO: https://github.com/cwfitzgerald/ctt/issues/66
+        // Convert to two-component normal map so that ASTC does not waste bits on other channels
+        // (BC5 does this implicitly)
+        let swizzle = settings.is_normal_map.then_some(ctt::Swizzle([
+            ctt::SwizzleChannel::R,
+            ctt::SwizzleChannel::G,
+            ctt::SwizzleChannel::Zero,
+            ctt::SwizzleChannel::One,
+        ]));
+
         let settings = ctt::ConvertSettings {
             format: Some(output_format),
             container: ctt::Container::ktx2_zstd(0),
             quality: ctt::Quality::default(),
             output_color_space: None,
             output_alpha: Some(bevy_to_ctt_alpha_mode(settings.output_alpha_mode)),
-            swizzle: None,
+            swizzle,
             mipmap: true,
             mipmap_count: None,
             mipmap_filter: if settings.is_normal_map {
+                // TODO: https://github.com/cwfitzgerald/ctt/issues/65
                 ctt::MipmapFilter::Triangle
             } else {
                 ctt::MipmapFilter::Lanczos3
