@@ -425,7 +425,10 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit(&mut self, mut entity: &mut AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
+    fn commit(
+        &mut self,
+        mut entity: &mut AnimationEntityMut,
+    ) -> Result<(), AnimationEvaluationError> {
         let property = self.property.get_mut(&mut entity)?;
         *property = self
             .evaluator
