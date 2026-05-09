@@ -724,7 +724,7 @@ impl ActiveAnimation {
 }
 
 /// Contains the root motion extracted by the [`AnimationPlayer`].
-#[derive(Component, Default, Reflect)]
+#[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct RootMotion {
     /// Translation delta with the previous frame.
@@ -734,7 +734,7 @@ pub struct RootMotion {
 }
 
 /// How [`RootMotion`] should be extracted.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Default, Clone)]
 pub enum RootMotionMode {
     /// Extract only translation from the root target.
@@ -742,6 +742,24 @@ pub enum RootMotionMode {
     /// Extract both translation and rotation from the root target.
     #[default]
     TranslationAndRotation,
+}
+
+impl RootMotionMode {
+    /// Returns true if the translation should be extracted
+    pub fn should_extract_translation(&self) -> bool {
+        match self {
+            Self::Translation => true,
+            Self::TranslationAndRotation => true,
+        }
+    }
+
+    /// Returns true if the rotation should be extracted
+    pub fn should_extract_rotation(&self) -> bool {
+        match self {
+            Self::Translation => false,
+            Self::TranslationAndRotation => true,
+        }
+    }
 }
 
 /// Animation controls.
@@ -1377,11 +1395,18 @@ pub fn animate_targets(
                         let seek_time = active_animation.seek_time;
 
                         if is_root_target {
+                            let extract_translation = animation_player
+                                .root_motion_mode
+                                .should_extract_translation();
+                            let extract_rotation =
+                                animation_player.root_motion_mode.should_extract_rotation();
                             for curve in curves {
                                 let curve_evaluator_id = (*curve.0).evaluator_id();
                                 let curve_evaluator =
                                     evaluation_state.fetch_curve_evaluator(curve.0.as_ref());
-                                if curve_evaluator_id == translation_field.evaluator_id() {
+                                if extract_translation
+                                    && curve_evaluator_id == translation_field.evaluator_id()
+                                {
                                     let curve_evaluator = curve_evaluator
                                         .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
                                         .unwrap();
@@ -1395,9 +1420,8 @@ pub fn animate_targets(
                                         weight,
                                         animation_graph_node_index,
                                     );
-                                } else if curve_evaluator_id == rotation_field.evaluator_id()
-                                    && animation_player.root_motion_mode
-                                        == RootMotionMode::TranslationAndRotation
+                                } else if extract_rotation
+                                    && curve_evaluator_id == rotation_field.evaluator_id()
                                 {
                                     let curve_evaluator = curve_evaluator
                                         .downcast_mut::<AnimatableCurveEvaluator<Quat>>()
@@ -1450,8 +1474,20 @@ pub fn animate_targets(
 
             if is_root_target {
                 let mut root_motion_transform = entity_mut.get_mut::<Transform>().unwrap();
-                let translation_delta = core::mem::take(&mut root_motion_transform.translation);
-                let rotation_delta = core::mem::take(&mut root_motion_transform.rotation);
+                let translation_delta = if animation_player
+                    .root_motion_mode
+                    .should_extract_translation()
+                {
+                    core::mem::take(&mut root_motion_transform.translation)
+                } else {
+                    Default::default()
+                };
+                let rotation_delta = if animation_player.root_motion_mode.should_extract_rotation()
+                {
+                    core::mem::take(&mut root_motion_transform.rotation)
+                } else {
+                    Default::default()
+                };
                 par_commands.command_scope(move |mut commands| {
                     commands.entity(animation_player_entity).insert(RootMotion {
                         translation_delta,
