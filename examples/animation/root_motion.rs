@@ -1,10 +1,12 @@
 //! Demonstrates the usage of root motion.
 
 use bevy::{
-    animation::AnimationTargetId, color::palettes::css::SILVER, light::CascadeShadowConfigBuilder,
-    prelude::*, world_serialization::WorldInstanceReady,
+    animation::{AnimationTargetId, RepeatAnimation, RootMotion, RootMotionMode},
+    color::palettes::css::SILVER,
+    light::CascadeShadowConfigBuilder,
+    prelude::*,
+    world_serialization::WorldInstanceReady,
 };
-use bevy_animation::{RepeatAnimation, RootMotion, RootMotionMode};
 
 const MODEL: &str = "models/animated/FoxRootMotion.glb";
 const ORIGIN_POSITION: Vec3 = Vec3::new(0., 0., -50.);

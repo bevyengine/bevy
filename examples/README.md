@@ -230,7 +230,6 @@ Example | Description
 When root motion is disabled only the mesh is moved so the position resets each time the animation resets.
 When root motion is enabled, the mesh stays in place and the movement is transferred to the main entity.
 
-
 ### Application
 
 Example | Description

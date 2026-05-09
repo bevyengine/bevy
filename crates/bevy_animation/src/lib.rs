@@ -2124,7 +2124,7 @@ mod tests {
         let clip_duration = 1.0;
         let total_duration = (play_count as f32 * clip_duration) / slow_speed;
         let tick_duration = total_duration / tick_count as f32;
-        // Force each update to a fixe duration
+        // Force each update to a fix duration
         app.add_systems(
             First,
             (move |mut time: ResMut<Time<Virtual>>| {
