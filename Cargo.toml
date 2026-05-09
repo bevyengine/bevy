@@ -2091,7 +2091,12 @@ wasm = false
 name = "compressed_image_saver"
 path = "examples/asset/compressed_image_saver.rs"
 doc-scrape-examples = true
-required-features = ["compressed_image_saver", "asset_processor", "jpeg"]
+required-features = [
+  "compressed_image_saver",
+  "asset_processor",
+  "jpeg",
+  "https",
+]
 
 [package.metadata.example.compressed_image_saver]
 name = "Compressed Image Saver"

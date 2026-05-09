@@ -24,19 +24,20 @@ fn spawn_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
-    let orm = asset_server.load("textures/GroundSand005/GroundSand005_ORM_2K.png");
+    // See .meta files at https://github.com/bevyengine/bevy_asset_files/tree/main/GroundSand005
+    let orm = asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_ORM_2K.png");
     let sphere_material = StandardMaterial {
         base_color_texture: Some(
-            asset_server.load("textures/GroundSand005/GroundSand005_COL_2K.jpg"),
+            asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_COL_2K.jpg"),
         ),
         perceptual_roughness: 1.0,
         metallic_roughness_texture: Some(orm.clone()),
         normal_map_texture: Some(
-            asset_server.load("textures/GroundSand005/GroundSand005_NRM_2K.jpg"),
+            asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_NRM_2K.jpg"),
         ),
         occlusion_texture: Some(orm),
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
-        depth_map: Some(asset_server.load("textures/GroundSand005/GroundSand005_DISP_2K.jpg")),
+        depth_map: Some(asset_server.load("https://github.com/bevyengine/bevy_asset_files/raw/main/GroundSand005/GroundSand005_DISP_2K.jpg")),
         ..Default::default()
     };
 
