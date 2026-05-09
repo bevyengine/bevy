@@ -5,15 +5,16 @@ use crate::{
     entity::Entity,
     error::BevyError,
     system::{
-        input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
+        input::SystemInput, BoxedSystem, Commands, If, IntoSystem, Res, RunSystemError,
+        SystemParamValidationError,
     },
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
-#[cfg(feature = "std")]
 use bevy_platform::sync::Arc;
 use bevy_utils::prelude::DebugName;
+use concurrent_queue::ConcurrentQueue;
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
@@ -98,35 +99,30 @@ impl<I, O> RemovedSystem<I, O> {
 
 /// A system that despawns any registered system entities whose [`SystemHandle`]
 /// reference count has reached zero.
-#[cfg(feature = "std")]
 pub fn despawn_unused_registered_systems(
-    despawner: Option<crate::system::Res<RegisteredSystemDespawner>>,
-    mut commands: crate::system::Commands,
-) {
     // `RegisteredSystemDespawner` is initialized lazily the first time a system
     // is registered, so it's possible that it doesn't exist yet when this system runs.
-    if let Some(despawner) = despawner {
-        for entity in despawner.receiver.try_iter() {
-            // In case the entity was already despawned manually, we ignore the error here.
-            commands.entity(entity).try_despawn();
-        }
+    despawner: If<Res<RegisteredSystemDespawner>>,
+    mut commands: Commands,
+) {
+    while let Ok(entity) = despawner.queue.pop() {
+        // In case the entity was already despawned manually, we ignore the error here.
+        commands.entity(entity).try_despawn();
     }
 }
 
 /// A resource that stores the channel for despawning unused registered system
 /// entities.
-#[cfg(feature = "std")]
 #[derive(Resource)]
 pub struct RegisteredSystemDespawner {
-    receiver: crossbeam_channel::Receiver<Entity>,
-    sender: crossbeam_channel::Sender<Entity>,
+    queue: Arc<ConcurrentQueue<Entity>>,
 }
 
-#[cfg(feature = "std")]
 impl Default for RegisteredSystemDespawner {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        Self { receiver, sender }
+        Self {
+            queue: Arc::new(ConcurrentQueue::unbounded()),
+        }
     }
 }
 
@@ -147,7 +143,6 @@ impl Default for RegisteredSystemDespawner {
 /// crate when the "std" feature is enabled. If not using the default app, the
 /// "std" feature, or `bevy_app` in general, consider running this system
 /// yourself to ensure proper cleanup of registered systems.
-#[cfg(feature = "std")]
 pub enum SystemHandle<I: SystemInput = (), O = ()> {
     /// A strong handle keeps the system entity alive as long as the handle
     /// (and any clones of it) exist, as long as the system entity isn't
@@ -157,7 +152,6 @@ pub enum SystemHandle<I: SystemInput = (), O = ()> {
     Weak(SystemId<I, O>),
 }
 
-#[cfg(feature = "std")]
 impl<I: SystemInput, O> SystemHandle<I, O> {
     /// Returns the [`Entity`] of the registered system associated with this handle.
     pub fn entity(&self) -> Entity {
@@ -168,11 +162,9 @@ impl<I: SystemInput, O> SystemHandle<I, O> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<I: SystemInput, O> Eq for SystemHandle<I, O> {}
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-#[cfg(feature = "std")]
 impl<I: SystemInput, O> Clone for SystemHandle<I, O> {
     fn clone(&self) -> Self {
         match self {
@@ -182,30 +174,28 @@ impl<I: SystemInput, O> Clone for SystemHandle<I, O> {
     }
 }
 
-// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-#[cfg(feature = "std")]
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters,
+// and so that strong and weak handles can be compared for equality based on their entities.
 impl<I: SystemInput, O> PartialEq for SystemHandle<I, O> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-#[cfg(feature = "std")]
 impl<I: SystemInput, O> PartialEq<SystemId<I, O>> for SystemHandle<I, O> {
     fn eq(&self, other: &SystemId<I, O>) -> bool {
         self.entity() == other.entity
     }
 }
 
-// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-#[cfg(feature = "std")]
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters,
+// and so that the handle can be hashed based on its entity not its handle type.
 impl<I: SystemInput, O> core::hash::Hash for SystemHandle<I, O> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-#[cfg(feature = "std")]
 impl<I: SystemInput, O> core::fmt::Debug for SystemHandle<I, O> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let name = if matches!(self, SystemHandle::Strong(_)) {
@@ -217,7 +207,6 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemHandle<I, O> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<I: SystemInput, O> From<SystemId<I, O>> for SystemHandle<I, O> {
     fn from(id: SystemId<I, O>) -> Self {
         SystemHandle::Weak(id)
@@ -226,17 +215,15 @@ impl<I: SystemInput, O> From<SystemId<I, O>> for SystemHandle<I, O> {
 
 /// A strong handle for a registered system that keeps the system entity alive
 /// as long as the handle (and any clones of it) exist.
-#[cfg(feature = "std")]
 pub struct StrongSystemHandle {
     entity: Entity,
-    drop_sender: crossbeam_channel::Sender<Entity>,
+    drop_queue: Arc<ConcurrentQueue<Entity>>,
 }
 
-#[cfg(feature = "std")]
 impl Drop for StrongSystemHandle {
     fn drop(&mut self) {
         // Send the entity to be despawned by the world when the last strong handle is dropped.
-        let _ = self.drop_sender.send(self.entity);
+        let _ = self.drop_queue.push(self.entity);
     }
 }
 
@@ -372,7 +359,6 @@ impl World {
     /// It's possible to register multiple copies of the same system by calling
     /// this function multiple times. If that's not what you want, consider using
     /// [`World::register_system_cached`] instead.
-    #[cfg(feature = "std")]
     pub fn register_tracked_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,
@@ -389,7 +375,6 @@ impl World {
     ///
     /// This is useful if the [`IntoSystem`] implementor has already been turned
     /// into a [`System`](crate::system::System) trait object and put in a [`Box`].
-    #[cfg(feature = "std")]
     pub fn register_tracked_boxed_system<I, O>(
         &mut self,
         system: BoxedSystem<I, O>,
@@ -399,13 +384,11 @@ impl World {
         O: 'static,
     {
         let entity = self.spawn(RegisteredSystem::new(system)).id();
-        #[cfg(feature = "std")]
         let despawner = self.get_resource_or_init::<RegisteredSystemDespawner>();
 
         SystemHandle::Strong(Arc::new(StrongSystemHandle {
             entity,
-            #[cfg(feature = "std")]
-            drop_sender: despawner.sender.clone(),
+            drop_queue: despawner.queue.clone(),
         }))
     }
 

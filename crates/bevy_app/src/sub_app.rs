@@ -248,7 +248,6 @@ impl SubApp {
     }
 
     /// See [`App::register_tracked_system`].
-    #[cfg(feature = "std")]
     pub fn register_tracked_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,

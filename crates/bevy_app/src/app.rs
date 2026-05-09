@@ -130,7 +130,6 @@ impl Default for App {
                 .in_set(bevy_ecs::message::MessageUpdateSystems)
                 .run_if(bevy_ecs::message::message_update_condition),
         );
-        #[cfg(feature = "std")]
         app.add_systems(
             crate::Last,
             bevy_ecs::system::despawn_unused_registered_systems,
@@ -394,7 +393,6 @@ impl App {
     /// See [`World::register_tracked_system`] for more details.
     ///
     /// [`SystemHandle`]: bevy_ecs::system::SystemHandle
-    #[cfg(feature = "std")]
     pub fn register_tracked_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,
