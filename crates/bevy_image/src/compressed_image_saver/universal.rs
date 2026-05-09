@@ -15,7 +15,7 @@ impl CompressedImageSaverUniversal {
         &self,
         writer: &mut Writer,
         image: SavedAsset<'_, '_, Image>,
-        _settings: &CompressedImageSaverSettings,
+        settings: &CompressedImageSaverSettings,
         _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, CompressedImageSaverError> {
         let is_srgb = image.texture_descriptor.format.is_srgb();
@@ -32,6 +32,9 @@ impl CompressedImageSaverUniversal {
             };
             compressor_params.set_color_space(color_space);
             compressor_params.set_uastc_quality_level(UASTC_QUALITY_DEFAULT);
+            if settings.is_normal_map {
+                compressor_params.tune_for_normal_maps();
+            }
 
             let mut source_image = compressor_params.source_image_mut(0);
             let size = image.size();

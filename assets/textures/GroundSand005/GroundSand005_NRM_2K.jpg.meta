@@ -10,7 +10,9 @@
                 asset_usage: ("RENDER_WORLD"),
             ),
             transformer_settings: (),
-            saver_settings: (),
+            saver_settings: (
+                is_normal_map: true,
+            ),
         ),
     ),
 )

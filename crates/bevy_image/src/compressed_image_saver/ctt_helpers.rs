@@ -60,8 +60,24 @@ pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageS
 
 pub fn choose_ctt_compressed_format(
     input: TextureFormat,
+    is_normal_map: bool,
 ) -> Result<TargetFormat, CompressedImageSaverError> {
     let astc_block = parse_astc_env_var()?;
+
+    // Normal maps go to a two-channel format (X, Y) regardless of the input's channel count
+    if is_normal_map {
+        if let Some((astc_unorm, _)) = astc_block {
+            return Ok(TargetFormat::Compressed {
+                encoder_name: None,
+                format: astc_unorm,
+            });
+        } else {
+            return Ok(TargetFormat::Compressed {
+                encoder_name: None,
+                format: Format::BC5_UNORM_BLOCK,
+            });
+        }
+    }
 
     let format = match input {
         // 1-channel snorm (ASTC has no snorm variant, pass through uncompressed if ASTC is preferred)

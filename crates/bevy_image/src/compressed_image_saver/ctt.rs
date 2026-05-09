@@ -30,7 +30,8 @@ impl CompressedImageSaverCtt {
         }
 
         let input_format = wgpu_to_ctt_texture_format(image.texture_descriptor.format)?;
-        let output_format = choose_ctt_compressed_format(image.texture_descriptor.format)?;
+        let output_format =
+            choose_ctt_compressed_format(image.texture_descriptor.format, settings.is_normal_map)?;
 
         let is_srgb = image.texture_descriptor.format.is_srgb();
         let color_space = if is_srgb {
@@ -80,7 +81,11 @@ impl CompressedImageSaverCtt {
             swizzle: None,
             mipmap: true,
             mipmap_count: None,
-            mipmap_filter: ctt::MipmapFilter::default(),
+            mipmap_filter: if settings.is_normal_map {
+                ctt::MipmapFilter::Triangle
+            } else {
+                ctt::MipmapFilter::Lanczos3
+            },
             encoder_settings: None,
             registry: None,
         };

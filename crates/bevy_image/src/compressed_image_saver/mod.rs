@@ -29,7 +29,7 @@ use wgpu_types::TextureFormat;
 
 /// An [`AssetSaver`] for [`Image`] that compresses texture files.
 ///
-/// Compressed textures use less GPU VRAM and are faster to sample.
+/// Compressed textures use less GPU VRAM and improve performance.
 ///
 /// # Platform support
 ///
@@ -53,7 +53,7 @@ use wgpu_types::TextureFormat;
 /// - **`ktx2` and `zstd`** — Required to load KTX2 files produced by `compressed_image_saver`.
 /// - **`basis-universal`** — Required to load Basis Universal files produced by `compressed_image_saver_universal`.
 ///
-/// # Compression format selection
+/// # Compression format selection (for compressed_image_saver)
 ///
 /// The output format is chosen automatically based on the input texture's channel count and type:
 ///
@@ -72,7 +72,7 @@ use wgpu_types::TextureFormat;
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
 /// [`CompressedImageSaverError::UnsupportedFormat`].
 ///
-/// # ASTC override
+/// # ASTC override (for compressed_image_saver)
 ///
 /// Set the `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` environment variable to compress into `ASTC`
 /// instead of `BCn`. `ASTC` is natively supported on mobile GPUs (Android, iOS) and some
@@ -91,15 +91,19 @@ use wgpu_types::TextureFormat;
 /// All 14 `ASTC` block sizes are supported: `4x4`, `5x4`, `5x5`, `6x5`, `6x6`, `8x5`,
 /// `8x6`, `8x8`, `10x5`, `10x6`, `10x8`, `10x10`, `12x10`, `12x12`.
 ///
-/// # Mipmap generation (`compressed_image_saver` only)
+/// # Mipmap generation
 ///
-/// When using the `compressed_image_saver` backend, mipmaps are generated automatically
-/// during compression. This prevents aliasing when textures are viewed at a distance and
-/// increases GPU cache hits, improving rendering performance. Input images must have a
-/// `mip_level_count` of 1 (i.e., no pre-existing mip chain); the compressor will produce
-/// a full mip chain in the output.
+/// Both backends generate a full mip chain automatically when processing the image. This prevents
+/// aliasing when textures are viewed at a distance, and increases GPU cache hits, improving
+/// rendering performance.
 ///
-/// The `compressed_image_saver_universal` backend does not generate mipmaps.
+/// # Settings
+///
+/// Per-texture behavior is configured via [`CompressedImageSaverSettings`] (`is_normal_map`,
+/// `input_alpha_mode`, `output_alpha_mode`). The defaults are tuned for color textures; you
+/// **must** review these for every texture you compress — `is_normal_map` must be set to true
+/// for normal maps, and the wrong alpha mode produces colored fringes at transparent
+/// edges. See the field docs for details.
 #[derive(TypePath, Default)]
 #[expect(clippy::doc_markdown, reason = "clippy does not like unquoted BCn")]
 pub struct CompressedImageSaver {
@@ -126,6 +130,13 @@ impl AssetSaver for CompressedImageSaver {
         settings: &Self::Settings,
         asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, Self::Error> {
+        let is_srgb = asset.texture_descriptor.format.is_srgb();
+        if settings.is_normal_map && is_srgb {
+            return Err(CompressedImageSaverError::NormalMapMustBeLinear(
+                asset.texture_descriptor.format,
+            ));
+        }
+
         self.inner.save(writer, asset, settings, asset_path).await
     }
 }
@@ -134,6 +145,11 @@ impl AssetSaver for CompressedImageSaver {
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
 pub struct CompressedImageSaverSettings {
+    /// Whether the input texture is a tangent-space normal map.
+    ///
+    /// Defaults to `false`. Leave as false for color, roughness, metallic, occlusion, and other
+    /// non-normal map textures.
+    pub is_normal_map: bool,
     /// The alpha mode the source image is authored in.
     ///
     /// Set this to match how the input texture stores its alpha channel. If the input does not
@@ -158,6 +174,7 @@ pub struct CompressedImageSaverSettings {
 impl Default for CompressedImageSaverSettings {
     fn default() -> Self {
         Self {
+            is_normal_map: false,
             input_alpha_mode: ImageCompressorAlphaMode::Straight,
             output_alpha_mode: ImageCompressorAlphaMode::Premultiplied,
         }
@@ -191,4 +208,12 @@ pub enum CompressedImageSaverError {
     /// The texture format is not supported for compression.
     #[error("Unsupported texture format for compression: {0:?}")]
     UnsupportedFormat(TextureFormat),
+    /// `is_normal_map` was set, but the input [`Image`]'s `texture_descriptor.format` is an sRGB
+    /// variant (e.g. `Rgba8UnormSrgb`). Normal maps must be stored as linear vector data. Typically this means
+    /// configuring the [`ImageLoaderSettings`] with `is_srgb: false` for this image.
+    #[error(
+        "Cannot compress an sRGB texture ({0:?}) as a normal map; \
+         the input Image's texture_descriptor.format must be a non-sRGB (linear) variant"
+    )]
+    NormalMapMustBeLinear(TextureFormat),
 }
