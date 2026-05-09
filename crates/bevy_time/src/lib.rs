@@ -29,6 +29,7 @@ pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
 pub use virt::*;
+use crossbeam_channel::TryRecvError;
 
 /// The time prelude.
 ///
@@ -159,7 +160,8 @@ pub fn time_system(
             *has_received_time = true;
             Some(new_time)
         }
-        Some(Err(_)) => {
+        Some(Err(TryRecvError::Empty)) => None,
+        Some(Err(TryRecvError::Disconnected)) => {
             if *has_received_time {
                 log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
             }
