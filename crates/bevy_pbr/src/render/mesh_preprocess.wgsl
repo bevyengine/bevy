@@ -67,7 +67,10 @@ struct LatePreprocessWorkItemIndirectParameters {
 #ifdef FRUSTUM_CULLING
 // These have to be in a structure because of Naga limitations on DX12.
 struct Immediates {
-    // The world position of the `CurrentView`
+    // The world position of a camera view.
+    // This is important to distinguish when preprocessing shadow views, 
+    // which is bound to `view`. Visibility range culling must use a camera view's 
+    // position in order to function properly.
     cur_view_world_position: vec3<f32>,
 #ifdef OCCLUSION_CULLING
     // The offset into the `late_preprocess_work_item_indirect_parameters`
