@@ -116,10 +116,10 @@ pub enum GltfError {
     InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
-    ReadAssetBytesError(#[from] ReadAssetBytesError),
+    ReadAssetBytesError(#[from] Box<ReadAssetBytesError>),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    AssetLoadError(#[from] Box<AssetLoadError>),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
@@ -1502,13 +1502,6 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::result_large_err,
-        reason = "`GltfError` is only barely past the threshold for large errors."
-    )
-)]
 fn load_node(
     gltf_node: &Node,
     child_spawner: &mut ChildSpawner,
@@ -1928,7 +1921,10 @@ async fn load_buffers(
                             .path()
                             .resolve_embed_str(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
-                        load_context.read_asset_bytes(buffer_path).await?
+                        load_context
+                            .read_asset_bytes(buffer_path)
+                            .await
+                            .map_err(Box::new)?
                     }
                 };
                 buffer_data.push(buffer_bytes);
