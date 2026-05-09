@@ -358,10 +358,9 @@ fn calculate_mirror_camera_transform_and_projection(
     // Compute the distance from the camera to the mirror plane. This will be
     // used to calculate the distance to the near clip plane for the mirror
     // world.
-    let distance_from_camera_to_mirror = InfinitePlane3d::new(mirror_transform.rotation * Vec3::Y)
-        .signed_distance(
-            Isometry3d::IDENTITY,
-            mirror_transform.translation - main_camera_transform.translation,
+    let distance_from_camera_to_mirror =
+        InfinitePlane3d::new(mirror_transform.rotation * Dir3A::Y, 0.0).signed_distance_to_point(
+            (mirror_transform.translation - main_camera_transform.translation).into(),
         );
 
     // Compute the normal of the mirror plane in view space.
@@ -478,7 +477,8 @@ fn move_fox_on_mouse_down(
     let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+    let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Dir3A::Y, 0.0))
+    else {
         return;
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;

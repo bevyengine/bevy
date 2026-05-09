@@ -839,19 +839,19 @@ mod tests {
         let translation = Vec2::new(2.0, 1.0);
         let isometry = Isometry2d::from_translation(translation);
 
-        let aabb1 = Plane2d::new(Vec2::X).aabb_2d(isometry);
+        let aabb1 = Plane2d::new(Dir2::X, 0.0).aabb_2d(isometry);
         assert_eq!(aabb1.min, Vec2::new(2.0, -f32::MAX / 2.0));
         assert_eq!(aabb1.max, Vec2::new(2.0, f32::MAX / 2.0));
 
-        let aabb2 = Plane2d::new(Vec2::Y).aabb_2d(isometry);
+        let aabb2 = Plane2d::new(Dir2::Y, 0.0).aabb_2d(isometry);
         assert_eq!(aabb2.min, Vec2::new(-f32::MAX / 2.0, 1.0));
         assert_eq!(aabb2.max, Vec2::new(f32::MAX / 2.0, 1.0));
 
-        let aabb3 = Plane2d::new(Vec2::ONE).aabb_2d(isometry);
+        let aabb3 = Plane2d::new(Dir2::from_xy(1.0, 1.0).unwrap(), 0.0).aabb_2d(isometry);
         assert_eq!(aabb3.min, Vec2::new(-f32::MAX / 2.0, -f32::MAX / 2.0));
         assert_eq!(aabb3.max, Vec2::new(f32::MAX / 2.0, f32::MAX / 2.0));
 
-        let bounding_circle = Plane2d::new(Vec2::Y).bounding_circle(isometry);
+        let bounding_circle = Plane2d::new(Dir2::Y, 0.0).bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), f32::MAX / 2.0);
     }
