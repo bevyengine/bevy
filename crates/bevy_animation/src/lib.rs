@@ -2130,7 +2130,7 @@ mod tests {
             .after(TimeSystems),
         );
         let mut clip = AnimationClip::default();
-        let target_translation = Vec3::new(1., 2., 4.);
+        let target_translation = Vec3::new(100., 200., 400.);
         let target_rotation =
             Quat::from_axis_angle(Vec3::Z, 1.0) * Quat::from_axis_angle(Vec3::X, 1.0);
         let root_target = AnimationTargetId::from_name(&Name::new("Root"));
