@@ -749,7 +749,7 @@ pub fn remove_disabled_root_motion(
 }
 
 /// How [`RootMotion`] should be extracted.
-#[derive(Debug, Clone, Copy, Default, Reflect)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Reflect)]
 #[reflect(Default, Clone)]
 pub enum RootMotionMode {
     /// Extract only translation from the root target.
