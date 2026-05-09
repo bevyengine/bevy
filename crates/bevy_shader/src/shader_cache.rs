@@ -11,7 +11,7 @@ use wgpu_types::{DownlevelFlags, Features};
 /// Fully composed source code of a shader module, with all shader defs applied.
 ///
 /// This is roughly equivalent to [`wgpu::ShaderSource`](https://docs.rs/wgpu/latest/wgpu/enum.ShaderSource.html),
-/// but with less variants and more concrete types instead of [`Cow`](alloc::borrow::Cow).
+/// but with less variants and more concrete types instead of [`Cow`].
 ///
 /// This source will be parsed and validated by the renderer.
 ///
