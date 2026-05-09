@@ -223,6 +223,7 @@ impl RenderAsset for RenderMesh {
     }
 
     fn unload_asset(
+        self,
         _mesh_id: AssetId<Self::SourceAsset>,
         (_, _, _, _render_morph_targets_allocator): &mut SystemParamItem<Self::Param>,
     ) {
