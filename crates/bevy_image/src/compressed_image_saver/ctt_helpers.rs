@@ -66,17 +66,16 @@ pub fn choose_ctt_compressed_format(
 
     // Normal maps go to a two-channel format (X, Y) regardless of the input's channel count
     if is_normal_map {
-        if let Some((astc_unorm, _)) = astc_block {
-            return Ok(TargetFormat::Compressed {
+        return Ok(match astc_block {
+            Some((astc_unorm, _)) => TargetFormat::Compressed {
                 encoder_name: None,
                 format: astc_unorm,
-            });
-        } else {
-            return Ok(TargetFormat::Compressed {
+            },
+            None => TargetFormat::Compressed {
                 encoder_name: None,
                 format: Format::BC5_UNORM_BLOCK,
-            });
-        }
+            },
+        });
     }
 
     let format = match input {
