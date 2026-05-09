@@ -2916,6 +2916,9 @@ impl World {
 
         let result = f(guard.world, value_mut);
 
+        // Update source location tracking if f mutably dereferenced the resource
+        guard.caller = changed_by;
+
         Some(result)
     }
 
