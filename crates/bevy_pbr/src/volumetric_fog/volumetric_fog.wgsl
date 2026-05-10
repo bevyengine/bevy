@@ -479,15 +479,16 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
         + ((*light).shadow_depth_bias * normalize(surface_to_light));
 
     // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
+    // in light/spot_light.rs:orthonormalize
     var sign = -1.0;
     if (fwd.z >= 0.0) {
         sign = 1.0;
     }
     let a = -1.0 / (fwd.z + sign);
     let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
+    let right_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
+    let up_dir = vec3<f32>(b, sign + fwd.y * fwd.y * a, -fwd.y);
+
     let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
