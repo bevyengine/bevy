@@ -144,15 +144,18 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             #[cfg(feature = "std")]
             {
-                if std::panic::catch_unwind(f).is_err() {
-                    use crate::error::{BevyError, Severity};
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    if crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
+                        std::panic::resume_unwind(payload);
+                    }
 
-                    let err = BevyError::new_with_backtrace(
-                        Severity::Panic,
+                    let err = crate::error::BevyError::new_with_backtrace(
+                        crate::error::Severity::Panic,
                         "System panicked",
                         std::backtrace::Backtrace::disabled(),
                     );
-                    error_handler(
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
                         err,
                         ErrorContext::System {
                             name: system.name(),
@@ -198,7 +201,34 @@ impl SingleThreadedExecutor {
     fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index].system;
+            #[cfg(not(feature = "std"))]
             system.apply_deferred(world);
+
+            #[cfg(feature = "std")]
+            {
+                let res =
+                    std::panic::catch_unwind(AssertUnwindSafe(|| system.apply_deferred(world)));
+
+                if let Err(payload) = res {
+                    if crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
+                        std::panic::resume_unwind(payload);
+                    }
+
+                    let err = crate::error::BevyError::new_with_backtrace(
+                        crate::error::Severity::Panic,
+                        "System panicked",
+                        std::backtrace::Backtrace::disabled(),
+                    );
+                    __rust_begin_short_backtrace::error_handler(
+                        world.fallback_error_handler(),
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
+                }
+            }
         }
 
         self.unapplied_systems.clear();

@@ -102,6 +102,11 @@ macro_rules! inner {
 }
 
 /// Defines how Bevy reacts to errors.
+///
+/// When writing an error handler, if you want to thow a panic,
+/// consider setting [`PANIC_ORIGINATES_FROM_ERROR_HANDLER`].
+/// This lets the excecutor know that a panic doesn't need to be
+/// converted back to a [`BevyError`] and passed to the [`FallbackErrorHandler`].
 pub type ErrorHandler = fn(BevyError, ErrorContext);
 
 /// Fallback error handler to call when an error is not handled otherwise.
@@ -124,6 +129,14 @@ impl Default for FallbackErrorHandler {
 #[deprecated(since = "0.19.0", note = "Renamed to `FallbackErrorHandler`.")]
 pub type DefaultErrorHandler = FallbackErrorHandler;
 
+#[cfg(feature = "std")]
+std::thread_local! {
+    /// When deliberately throwing a panic in your [`ErrorHandler`],
+    /// set this to true to indicate to the executor that the panic
+    /// should not be turned back into a [`BevyError`].
+    pub static PANIC_ORIGINATES_FROM_ERROR_HANDLER: core::cell::Cell<bool>  = const {core::cell::Cell::new(false)};
+}
+
 /// Error handler that defers to an error's [`Severity`].
 #[track_caller]
 #[inline]
@@ -143,6 +156,7 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
 #[track_caller]
 #[inline]
 pub fn panic(error: BevyError, ctx: ErrorContext) {
+    PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
     inner!(panic, error, ctx);
 }
 
