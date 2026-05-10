@@ -481,7 +481,7 @@ impl Default for Window {
     fn default() -> Self {
         Self {
             title: DEFAULT_WINDOW_TITLE.to_owned(),
-            name: None,
+            name: Some("bevy_window".into()),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
