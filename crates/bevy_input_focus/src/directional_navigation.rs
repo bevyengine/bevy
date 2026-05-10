@@ -56,7 +56,7 @@
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
-use crate::{navigator::find_best_candidate, InputFocus};
+use crate::{navigator::find_best_candidate, FocusCause, InputFocus};
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -357,8 +357,8 @@ impl DirectionalNavigationMap {
     ///
     /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
     pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
-        for pair in entities.windows(2) {
-            self.add_symmetrical_edge(pair[0], pair[1], direction);
+        for &[a, b] in entities.array_windows() {
+            self.add_symmetrical_edge(a, b, direction);
         }
     }
 
@@ -367,10 +367,10 @@ impl DirectionalNavigationMap {
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
         self.add_edges(entities, direction);
-        if let Some((first_entity, rest)) = entities.split_first() {
-            if let Some(last_entity) = rest.last() {
-                self.add_symmetrical_edge(*last_entity, *first_entity, direction);
-            }
+        if let Some((first_entity, rest)) = entities.split_first()
+            && let Some(last_entity) = rest.last()
+        {
+            self.add_symmetrical_edge(*last_entity, *first_entity, direction);
         }
     }
 
@@ -411,7 +411,7 @@ impl<'w> DirectionalNavigation<'w> {
         &mut self,
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
-        if let Some(current_focus) = self.focus.0 {
+        if let Some(current_focus) = self.focus.get() {
             // Respect manual edges first
             match self.map.get_neighbor(current_focus, direction) {
                 NavNeighbor::Auto => Err(DirectionalNavigationError::NoNeighborInDirection {
@@ -423,7 +423,7 @@ impl<'w> DirectionalNavigation<'w> {
                     direction,
                 }),
                 NavNeighbor::Set(new_focus) => {
-                    self.focus.set(new_focus);
+                    self.focus.set(new_focus, FocusCause::Navigated);
                     Ok(new_focus)
                 }
             }
@@ -502,7 +502,7 @@ pub trait Navigable {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_input_focus::directional_navigation::*;
+/// # use bevy_input_focus::{directional_navigation::*, FocusCause};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();
@@ -755,7 +755,7 @@ mod tests {
         world.insert_resource(map);
 
         let mut focus = InputFocus::default();
-        focus.set(a);
+        focus.set(a, FocusCause::Navigated);
         world.insert_resource(focus);
 
         let config = AutoNavigationConfig::default();

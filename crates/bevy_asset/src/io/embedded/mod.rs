@@ -40,6 +40,12 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`](crate::io::AssetSource). `value` is the bytes that will be returned for the asset. This can be
     /// _either_ a `&'static [u8]` or a [`Vec<u8>`](alloc::vec::Vec).
+    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+        self.insert_asset_internal(full_path, asset_path, value.into());
+    }
+
+    // Implements `insert_asset`, but with a non-generic `value` parameter. This
+    // stops the function from being duplicated many times by monomorphization.
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -47,7 +53,7 @@ impl EmbeddedAssetRegistry {
             reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
         )
     )]
-    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+    fn insert_asset_internal(&self, full_path: PathBuf, asset_path: &Path, value: Value) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
@@ -172,8 +178,9 @@ impl GetAssetServer for AssetServer {
 /// This macro takes two arguments and an optional third one:
 /// 1. The asset source. It may be `AssetServer`, `World` or `App`.
 /// 2. The path to the asset to embed, as a string literal.
-/// 3. Optionally, a closure of the same type as in [`AssetServer::load_with_settings`].
-///    Consider explicitly typing the closure argument in case of type error.
+/// 3. Optionally, a closure of the same type as in
+///    [`LoadBuilder::with_settings`](crate::LoadBuilder::with_settings). Consider explicitly typing
+///    the closure argument in case of type error.
 ///
 /// # Usage
 ///
@@ -196,7 +203,7 @@ macro_rules! load_embedded_asset {
     }};
     ($provider: expr, $path: literal, $settings: expr) => {{
         let (path, asset_server) = $crate::load_embedded_asset!(@get: $path, $provider);
-        asset_server.load_with_settings(path, $settings)
+        asset_server.load_builder().with_settings($settings).load(path)
     }};
     ($provider: expr, $path: literal) => {{
         let (path, asset_server) = $crate::load_embedded_asset!(@get: $path, $provider);
@@ -419,7 +426,7 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use super::{EmbeddedAssetRegistry, _embedded_asset_path};
+    use super::{_embedded_asset_path, EmbeddedAssetRegistry};
     use std::path::Path;
 
     // Relative paths show up if this macro is being invoked by a local crate.

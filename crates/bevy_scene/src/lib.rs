@@ -1,3 +1,4 @@
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 //! Composable scene authoring for Bevy, defined using the Bevy Scene Notation (BSN) format.
 //!
 //! Game entities rarely exist in isolation.
@@ -127,7 +128,7 @@
 //!
 //! ```ignore
 //! bsn! {
-//!   #Parent,
+//!   #Parent
 //!   Children [
 //!     #Child1
 //!     ComponentA
@@ -148,7 +149,7 @@
 //!
 //! ```ignore
 //! bsn! {
-//!   #Parent,
+//!   #Parent
 //!   Children [
 //!      (
 //!        #Child1
@@ -214,15 +215,19 @@
 //! (from a parent scene, an earlier patch, or the type's defaults). Multiple patches to the
 //! same component merge together rather than overwriting each other.
 //!
-//! To make a component patchable, derive [`FromTemplate`]. This generates a companion
-//! [`Template`] type where every field is independently set-or-unset, which is what makes
-//! partial patches possible.
+//! To make a component available in [`bsn!`], derive either [`Default`] + [`Clone`], or [`FromTemplate`].
+//! Both support patching: unmentioned fields keep their values from earlier patches or the
+//! type's defaults, and multiple patches merge rather than overwrite.
 //!
-//! **Watch out:** types that implement `Clone + Default` (like the Quick Start example's
-//! `Score`, `Sword`, and `Shield`) get a blanket [`Template`] impl automatically, so they
-//! work inside [`bsn!`] without deriving [`FromTemplate`]. However, this blanket impl
-//! always replaces the *entire* value — there is no field-level merging. If you want
-//! per-field patching, you must derive [`FromTemplate`] explicitly.
+//! The distinction is about what values a field can hold at spawn time:
+//!
+//! - **`Clone + Default`** covers the simple case, and should be your default choice. The blanket [`Template`] impl handles patching
+//!   automatically with no extra derives needed.
+//!
+//! - **[`FromTemplate`]** is needed when a field requires spawn-time context — for example,
+//!   a `Handle<T>` field that resolves an asset path, or an [`Entity`] field that references
+//!   a named entity. If any of your fields' types implement [`FromTemplate`],
+//!   you must derive it for the parent type as well.
 //!
 //! Deriving [`FromTemplate`] and [`Default`] on the same type is not allowed —
 //! both would supply a [`FromTemplate`] impl and conflict.
@@ -308,15 +313,16 @@
 //!
 //! ### Which composition pattern should I choose?
 //!
-//! |                           | Inline composition           | Inheritance                           |
-//! |---------------------------|------------------------------|---------------------------------------|
-//! | Parent accepts parameters | Yes                          | No                                    |
-//! | Parent from an asset file | No                           | Yes                                   |
-//! | Resolution order          | Merged together in one pass  | Parent resolved first, then patched   |
+//! |                           | Function inheritance `:my_scene`    | Asset inheritance `:"my_scene.bsn"` | Inline composition `my_scene()`  |
+//! |---------------------------|-------------------------------------|-------------------------------------|----------------------------------|
+//! | Accepts parameters        | Yes                                 | No                                  | Yes                              |
+//! | Asset-based               | No                                  | Yes                                 | No                               |
+//! | Cached resolution         | Parameterless scenes only           | Yes                                 | No                               |
 //!
-//! Use **inline composition** as the default — it's simpler and supports function parameters.
-//! Reach for **inheritance** when the parent scene comes from an asset file,
-//! or when you want the parent to be treated as a fully resolved, opaque base ("prefab").
+//! Prefer scene inheritance over inline composition in general: the expensive scene resolution is cached, saving work during reuse.
+//! Inline composition should be reserved for parameterized scenes that vary based on a given input,
+//! small scenes that are shared across contexts (like styles),
+//! or one-off scenes that do not require reuse.
 //!
 //! ## Loading Assets into Scenes
 //!
@@ -473,6 +479,288 @@
 //! commands.spawn_scene(unit_with_armor(my_unit));
 //! ```
 //!
+//! ## BSN syntax reference
+//!
+//! For a quick rundown on how to read and write BSN syntax,
+//! see the docs for [`bsn!`].
+//!
+//! ## Scene Components
+//!
+//! A [`SceneComponent`] is a specialized type of [`Component`] that has an associated [`Scene`]:
+//!
+//! ```
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(Component, Default, Clone)]
+//! # struct Sword;
+//! # #[derive(Component, Default, Clone)]
+//! # struct Shield;
+//! #[derive(SceneComponent, Default, Clone)]
+//! struct Player {
+//!     score: usize
+//! }
+//!
+//! impl Player {
+//!     fn scene() -> impl Scene {
+//!         bsn! {
+//!             #Player
+//!             Children [
+//!                 Sword,
+//!                 Shield,
+//!             ]
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! This enables inheriting the [`SceneComponent`] as a scene, using the following syntax:
+//!
+//! ```no_run
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(SceneComponent, Default, Clone)]
+//! # struct Player {
+//! #    score: usize
+//! # }
+//! # impl Player {
+//! #   fn scene() -> impl Scene {}
+//! # }
+//! # let mut world = World::new();
+//! world.spawn_scene(bsn! {
+//!  :Player { score: 0 }
+//! });
+//! ```
+//!
+//! This will spawn the `Player` component _and_ the entire scene with it. This means that you write
+//! systems that query for the `Player` component, they can assume the rest of the scene will be there
+//! too!
+//!
+//! [`SceneComponent`]s can only be spawned using scene APIs like [`World::spawn_scene`]. Spawning
+//! them using [`World::spawn`] will log an error.
+//!
+//! ### Inheritance Syntax vs Patch Syntax
+//!
+//! Notice that this uses inheritance syntax in BSN (`:`), rather than normal "component patch" syntax
+//! (ex: `bsn! { Player { score: 0 } }`. Semantically these are different things:
+//! - Scene inheritance syntax: constructs the full scene and inherits from it
+//! - Component patch syntax: _Just_ patches the component directly and creates it if it doesn't exist.
+//!   This will not do any scene inheritance. You can still patch scene components this way as long
+//!   as the scene component is inherited somewhere "earlier" in the inheritance hierarchy.
+//!
+//! ### Custom Scene Functions
+//!
+//! When deriving [`SceneComponent`], it defaults to using `Self::scene` as the "scene function".
+//! Scene functions can also be manually specified:
+//!
+//! ```
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! #[derive(SceneComponent, Default, Clone)]
+//! #[scene(player)]
+//! struct Player;
+//!
+//! fn player() -> impl Scene {
+//!    bsn! { /* scene here */}
+//! }
+//! ```
+//!
+//! ### `SceneComponent` Asset Paths
+//!
+//! Alternatively, a scene asset path can be specified:
+//!
+//! ```
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! #[derive(SceneComponent, Default, Clone)]
+//! #[scene("player.bsn")]
+//! struct Player {
+//!     score: usize
+//! }
+//! ```
+//!
+//! (Note that we haven't yet landed the `.bsn` asset format or ported the glTF asset loader to BSN)
+//!
+//! ### Scene Components are Template-able
+//!
+//! Just like other [`Component`]s, [`SceneComponent`]s are "template-able"
+//!
+//! ```no_run
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::{prelude::*, template::TemplateContext};
+//! # let mut world = World::new();
+//! # struct Handle<T>(std::marker::PhantomData<T>);
+//! # struct HandleTemplate<T>(String, std::marker::PhantomData<T>);
+//! # impl<'a, T> From<&'a str> for HandleTemplate<T> {
+//! #   fn from(value: &'a str) -> Self { todo!() }
+//! # }
+//! # impl<T> Default for HandleTemplate<T> {
+//! #   fn default() -> Self { todo!() }
+//! # }
+//! # struct Image;
+//! # impl<T> Template for HandleTemplate<T> {
+//! #   type Output = Handle<T>;
+//! #   fn build_template(&self, context: &mut TemplateContext) -> Result<Handle<T>> { todo!() }
+//! #   fn clone_template(&self) -> Self { todo!() }
+//! # }
+//! # impl<T> FromTemplate for Handle<T> {
+//! #   type Template = HandleTemplate<T>;
+//! # }
+//! #[derive(SceneComponent, FromTemplate)]
+//! struct Player {
+//!     image: Handle<Image>,
+//! }
+//!
+//! impl Player {
+//!     fn scene() -> impl Scene {
+//!         bsn! { /* scene here */}
+//!     }
+//! }
+//!
+//! world.spawn_scene(bsn! {
+//!    :Player { image: "player.png" }
+//! });
+//! ```
+//!
+//! ### `SceneComponent` Props
+//!
+//! Sometimes it is desirable to "parameterize" a scene: pass in values to the scene which determine
+//! what the scene outputs are. The answer to this in BSN is "scene props":
+//!
+//! ```no_run
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(Component, Default, Clone)]
+//! # struct Node;
+//! # #[derive(Component, Default, Clone)]
+//! # struct Text(String);
+//! # let mut world = World::new();
+//! /// A UI widget that repeats "hello" text a given number of times.
+//! #[derive(SceneComponent, Default, Clone)]
+//! #[scene(HelloRepeaterProps)]
+//! struct HelloRepeater;
+//!
+//! #[derive(Default)]
+//! struct HelloRepeaterProps {
+//!     repeat: usize,
+//! }
+//!
+//! impl HelloRepeater {
+//!     fn scene(props: HelloRepeaterProps) -> impl Scene {
+//!         let hellos = (0..props.repeat)
+//!             .map(|_| bsn! { Text("hello") })
+//!             .collect::<Vec<_>>();
+//!         bsn! {
+//!             Node
+//!             Children [
+//!                 {hellos}
+//!             ]
+//!         }
+//!     }
+//! }
+//!
+//! world.spawn_scene(bsn! {
+//!    :HelloRepeater {
+//!        @repeat: 5
+//!    }
+//! });
+//! ```
+//!
+//! Notice the `@field` syntax, which specifies that a prop is being set instead of a field.
+//! Props are evaluated "immediately" at the point of inheritance where the scene is constructed.
+//! This means that they are not "patchable".
+//!
+//! You can set _both_ props and normal fields at the same time:
+//! ```no_run
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # let mut world = World::new();
+//! # impl Widget {
+//! #   fn scene(props: WidgetProps) -> impl Scene {}
+//! # }
+//! #[derive(SceneComponent, Default, Clone)]
+//! #[scene(WidgetProps)]
+//! struct Widget {
+//!     value: usize
+//! }
+//!
+//! #[derive(Default)]
+//! struct WidgetProps {
+//!     border: bool,
+//! }
+//!
+//! world.spawn_scene(bsn! {
+//!    :Widget {
+//!        @border: true,
+//!        value: 10,
+//!    }
+//! });
+//! ```
+//!
+//! ### The Scene Component is Always Added
+//!
+//! Specifying the scene component manually in the scene function is not necessary. It will be added
+//! automatically:
+//!
+//! ```
+//! # use bevy_scene::prelude::*;
+//! #[derive(SceneComponent, Default, Clone)]
+//! struct Player;
+//!
+//! impl Player {
+//!     fn scene() -> impl Scene {
+//!         bsn! {
+//!             // No need to specify a Player component here.
+//!             // It is implied!
+//!         }
+//!     }
+//! }
+//! ```
+//! However you _can_ patch the scene component in the scene if you would like. This comes in handy
+//! if you would like props to contribute to the scene component's value:
+//!
+//! ```
+//! # use bevy_scene::prelude::*;
+//! # #[derive(Default)]
+//! # struct PlayerProps { size_in_millimeters: f32 };
+//! # #[derive(SceneComponent, Default, Clone)]
+//! # #[scene(PlayerProps)]
+//! # struct Player { size_in_meters: f32 }
+//! impl Player {
+//!     fn scene(props: PlayerProps) -> impl Scene {
+//!         bsn! {
+//!             Player {
+//!                 size_in_meters: {props.size_in_millimeters / 1000. }
+//!             }
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! ### Scene Components vs Required Components
+//!
+//! At first glace, Scene Components and [Required Components](bevy_ecs::component::Component) solve
+//! similar problems. They both provide a mechanism to initialize components with other components.
+//!
+//! They are functionally quite different however. It is worth understanding the differences and
+//! tradeoffs:
+//!
+//! - **Required Components**: Context-less (ex: Default constructors), non-hierarchical, can always
+//!   be applied immediately, not dependency aware, automatically enforced at runtime as components
+//!   are added, not patchable, pretty low overhead, not a lot of features / functionality
+//! - **Scene Components**: Require context (ex: World access and "Entity Spawn Context", such as
+//!   entity references), hierarchical (spawn children), cannot always be applied immediately
+//!   (can have dependencies that aren't loaded yet), dependency aware, only enforced at spawn
+//!   time, patchable, more dynamic / higher overhead, many features.
+//!
+//! Some good rules of thumb:
+//!
+//! - Are you building something "hierarchical" / with related entities? Use [`SceneComponent`].
+//! - Do you want or need the full capabilities of the scene system? Use [`SceneComponent`].
+//! - Are you spawning something that has dependencies / needs World access? use [`SceneComponent`].
+//! - Are you defining "flat" components that aren't really scenes on their own? Use required components.
+//! - Do you need the "required" components to be automatically added in non-scene contexts?  Use required components.
+//! - Is spawn performance a very high priority? Use required components.
+//!
 //! ## .bsn Asset Format
 //!
 //! In future releases, Bevy intends to offer a `.bsn` asset format.
@@ -507,8 +795,8 @@
 pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
-        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneList,
-        ScenePatchInstance, WorldSceneExt,
+        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
+        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
 
@@ -519,16 +807,20 @@ extern crate alloc;
 
 mod resolved_scene;
 mod scene;
+mod scene_component;
 mod scene_list;
 mod scene_patch;
 mod spawn;
+mod spawn_system;
 
 pub use bevy_scene_macros::*;
 pub use resolved_scene::*;
 pub use scene::*;
+pub use scene_component::*;
 pub use scene_list::*;
 pub use scene_patch::*;
 pub use spawn::*;
+pub use spawn_system::*;
 
 use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
@@ -541,6 +833,7 @@ pub struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedScenes>()
+            .init_resource::<WaitingScenes>()
             .init_asset::<ScenePatch>()
             .init_asset::<SceneListPatch>()
             .add_systems(
@@ -556,12 +849,21 @@ impl Plugin for ScenePlugin {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::*;
     use crate::{self as bevy_scene, ScenePlugin};
+    use crate::{prelude::*, ScenePatch};
+    use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
-    use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle};
+    use bevy_asset::io::memory::{Dir, MemoryAssetReader};
+    use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
+    use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::relationship::Relationship;
+    use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
+    use bevy_scene_macros::SceneComponent;
+    use std::path::Path;
+    use std::sync::Mutex;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -618,6 +920,131 @@ mod tests {
         let y = world.entity(children[1]);
         let name = y.get::<Name>().unwrap();
         assert_eq!(name.as_str(), "Y");
+    }
+
+    #[test]
+    fn loaded_asset_inheritance_patching() {
+        #[derive(Component, FromTemplate)]
+        struct Position {
+            x: f32,
+            y: f32,
+            z: f32,
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                :"a.bsn"
+                Position { x: 1. }
+                Children [ #Y ]
+            }
+        }
+
+        fn a() -> impl Scene {
+            bsn! {
+                Position { y: 2. }
+                Children [ #X ]
+            }
+        }
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene("a.bsn")]
+        struct AWidget {
+            value: usize,
+        }
+
+        let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+        );
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+        ));
+
+        app.finish();
+        app.cleanup();
+        // Create a fake loader to act as a ScenePatch loaded from a file.
+        app.register_asset_loader(FakeSceneLoader);
+
+        #[derive(TypePath)]
+        struct FakeSceneLoader;
+
+        impl AssetLoader for FakeSceneLoader {
+            type Asset = ScenePatch;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _reader: &mut dyn bevy_asset::io::Reader,
+                _settings: &Self::Settings,
+                load_context: &mut bevy_asset::LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(ScenePatch::load_with(load_context, a()))
+            }
+        }
+
+        // Insert an asset that the fake loader can fake read.
+        dir.insert_asset_text(Path::new("a.bsn"), "");
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load("a.bsn");
+        assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+        let patch = app
+            .world()
+            .resource::<Assets<ScenePatch>>()
+            .get(&handle)
+            .unwrap();
+        assert!(patch.resolved.is_some());
+
+        let world = app.world_mut();
+        let id = world.spawn_scene(b()).unwrap().id();
+        let root = world.entity(id);
+
+        let position = root.get::<Position>().unwrap();
+        assert_eq!(position.x, 1.);
+        assert_eq!(position.y, 2.);
+        assert_eq!(position.z, 0.);
+
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 2);
+
+        let x = world.entity(children[0]);
+        let name = x.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "X");
+
+        let y = world.entity(children[1]);
+        let name = y.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "Y");
+
+        // "a.bsn" as AWidget's "component scene"
+        let id = world
+            .spawn_scene(bsn! {:AWidget { value: 2 }})
+            .unwrap()
+            .id();
+        let root = world.entity(id);
+
+        let a_widget = root.get::<AWidget>().unwrap();
+        assert_eq!(a_widget.value, 2);
+        let position = root.get::<Position>().unwrap();
+        assert_eq!(position.x, 0.);
+        assert_eq!(position.y, 2.);
+        assert_eq!(position.z, 0.);
+
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+
+        let x = world.entity(children[0]);
+        let name = x.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "X");
     }
 
     #[test]
@@ -1019,6 +1446,56 @@ mod tests {
     }
 
     #[test]
+    fn field_patching_with_default() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Clone, Default, PartialEq, Eq, Debug)]
+        struct Foo {
+            x: u32,
+            y: u32,
+            z: u32,
+            nested: Bar,
+        }
+
+        #[derive(Component, Clone, Default, PartialEq, Eq, Debug)]
+        struct Bar(usize, usize, usize);
+
+        fn a() -> impl Scene {
+            bsn! {
+                Foo {
+                    x: 1,
+                    nested: Bar(1, 1),
+                }
+            }
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                a()
+                Foo {
+                    y: 2,
+                    nested: Bar(2),
+                }
+            }
+        }
+
+        let id = world.spawn_scene(b()).unwrap().id();
+        let root = world.entity(id);
+
+        let foo = root.get::<Foo>().unwrap();
+        assert_eq!(
+            *foo,
+            Foo {
+                x: 1,
+                y: 2,
+                z: 0,
+                nested: Bar(2, 1, 0)
+            }
+        );
+    }
+
+    #[test]
     fn handle_template() {
         let mut app = test_app();
         app.init_asset::<Image>();
@@ -1043,6 +1520,34 @@ mod tests {
 
         let sprite = root.get::<Sprite>().unwrap();
         assert_eq!(sprite.0, handle);
+    }
+
+    #[test]
+    fn child_of_template() {
+        let mut app = test_app();
+
+        let world = app.world_mut();
+
+        fn scene(root: Entity) -> impl SceneList {
+            bsn_list! {
+                ( #Child1 ChildOf(root) ),
+                ( #Child2 ChildOf(#Child1) ),
+            }
+        }
+
+        let root = world.spawn_empty().id();
+
+        let ids = world.spawn_scene_list(scene(root)).unwrap();
+        assert_eq!(ids.len(), 2);
+
+        let [a, b] = world.entity(&*ids)[..] else {
+            unreachable!()
+        };
+        assert_eq!(a.get::<Name>().unwrap().as_str(), "Child1");
+        assert_eq!(a.get::<ChildOf>().unwrap().get(), root);
+
+        assert_eq!(b.get::<Name>().unwrap().as_str(), "Child2");
+        assert_eq!(b.get::<ChildOf>().unwrap().get(), a.id());
     }
 
     #[test]
@@ -1196,5 +1701,284 @@ mod tests {
             }
         }
         world.spawn_scene(yappy()).unwrap();
+    }
+
+    #[test]
+    fn bsn_entry_can_surpass_tuple_limit() {
+        let _ = bsn! {
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+        };
+    }
+
+    #[derive(Component, Default)]
+    struct Fail;
+    impl FromTemplate for Fail {
+        type Template = Fail;
+    }
+    impl Template for Fail {
+        type Output = Fail;
+
+        fn build_template(
+            &self,
+            _context: &mut bevy_ecs::template::TemplateContext,
+        ) -> Result<Self::Output> {
+            Err(BevyError::error("fail!"))
+        }
+
+        fn clone_template(&self) -> Self {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn queue_spawn_scene_during_spawn() {
+        #[derive(Component, Default, Clone)]
+        #[component(on_insert)]
+        struct SpawnOnInsert;
+
+        impl SpawnOnInsert {
+            fn on_insert(mut world: DeferredWorld, _context: HookContext) {
+                world.commands().queue_spawn_scene(scene2());
+            }
+        }
+
+        fn scene1() -> impl Scene {
+            bsn!(SpawnOnInsert)
+        }
+
+        fn scene2() -> impl Scene {
+            bsn!(#Name)
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.queue_spawn_scene(scene1());
+
+        app.update();
+    }
+
+    #[test]
+    fn component_scene() {
+        #[derive(SceneComponent, Default, Clone)]
+        struct Widget;
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {Name("widget")}
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
+        assert!(entity.contains::<Widget>());
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(Widget::scene)]
+        struct OtherWidget;
+        let entity = world.spawn_scene(bsn! {:OtherWidget}).unwrap();
+        assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
+        assert!(entity.contains::<OtherWidget>());
+        assert!(
+            !entity.contains::<Widget>(),
+            "This reuses the Widget::scene function, but that scene does not explicitly add Widget"
+        );
+    }
+
+    #[test]
+    fn component_scene_props() {
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(WidgetProps)]
+        struct Widget {
+            value: usize,
+        }
+
+        #[derive(Default)]
+        struct WidgetProps {
+            children: usize,
+        }
+
+        impl Widget {
+            fn scene(props: WidgetProps) -> impl Scene {
+                let children = (0..props.children)
+                    .map(|i| {
+                        bsn! {
+                            Name({format!("Child{i}")})
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                bsn! {
+                    Children [
+                        {children}
+                    ]
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {:Widget {
+                @children: 2,
+                value: 10,
+            }})
+            .unwrap();
+        assert_eq!(entity.get::<Widget>().unwrap().value, 10);
+        assert_eq!(entity.get::<Children>().unwrap().len(), 2);
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(Widget::scene(WidgetProps))]
+        struct OtherWidget {
+            value: usize,
+        }
+
+        let entity = world
+            .spawn_scene(bsn! {:OtherWidget {
+                @children: 2,
+                value: 10,
+            }})
+            .unwrap();
+        assert_eq!(entity.get::<OtherWidget>().unwrap().value, 10);
+        assert_eq!(entity.get::<Children>().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn scene_without_explicit_component_still_spawns_component() {
+        #[derive(SceneComponent, Default, Clone)]
+        struct Widget;
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        assert!(entity.contains::<Widget>());
+    }
+
+    #[test]
+    fn scene_component_name_reference() {
+        #[derive(SceneComponent, FromTemplate)]
+        struct Widget(pub Entity);
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        let scene = bsn! {
+          #Name
+          Children [
+              :Widget(#Name)
+          ]
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(scene).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Widget>().unwrap();
+        assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn drop_is_called_for_uninserted_components() {
+        #[derive(Component, FromTemplate)]
+        struct DropTracker(Option<Arc<Mutex<usize>>>);
+
+        impl Drop for DropTracker {
+            fn drop(&mut self) {
+                if let Some(count) = &mut self.0 {
+                    *count.lock().unwrap() += 1;
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let count_arc = Arc::new(Mutex::new(0));
+        let count = Some(count_arc.clone());
+        let scene = bsn! {
+            DropTracker({count.clone()})
+            Fail
+        };
+        let result = world.spawn_scene(scene);
+        assert!(result.is_err());
+        assert_eq!(1, *count_arc.lock().unwrap());
+    }
+
+    #[test]
+    fn despawn_on_failed_spawn() {
+        let mut app = test_app();
+        let world = app.world_mut();
+        let current_entities = world.entities().len();
+        let result = world.spawn_scene(bsn! {
+           Fail
+        });
+        assert!(result.is_err());
+        assert_eq!(current_entities, world.entities().len());
+    }
+
+    fn run_app_until(app: &mut App, mut predicate: impl FnMut() -> bool) {
+        const LARGE_ITERATION_COUNT: usize = 10000;
+        for _ in 0..LARGE_ITERATION_COUNT {
+            app.update();
+            if predicate() {
+                return;
+            }
+        }
+
+        panic!("Ran out of loops to return `Some` from `predicate`");
+    }
+
+    #[test]
+    fn inheritance_with_generics() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
+            value: T,
+            number: u32,
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                :a::<0, i32>
+                Children [ #Y ]
+            }
+        }
+
+        fn a<
+            const A: u32,
+            T: 'static
+                + Send
+                + Sync
+                + FromTemplate<Template: Send + Sync + Default + Template<Output = T>>,
+        >() -> impl Scene {
+            bsn! {
+                Foo<T>{
+                    number: A
+                }
+            }
+        }
+
+        b();
     }
 }

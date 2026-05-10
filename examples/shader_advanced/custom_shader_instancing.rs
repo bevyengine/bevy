@@ -8,7 +8,10 @@
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::pbr::{MeshPipelineSet, SetMeshViewBindingArrayBindGroup, ViewKeyCache};
+use bevy::pbr::{
+    self, MeshInputUniform, MeshPipelineSystems, MeshUniform, SetMeshViewBindingArrayBindGroup,
+    ViewKeyCache,
+};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -22,6 +25,7 @@ use bevy::{
     },
     prelude::*,
     render::{
+        batching::gpu_preprocessing::BatchedInstanceBuffers,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
@@ -108,7 +112,10 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline.after(MeshPipelineSet))
+            .add_systems(
+                RenderStartup,
+                init_custom_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
                 (
@@ -134,6 +141,9 @@ fn queue_custom(
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    maybe_batched_instance_buffers: Option<
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<&ExtractedView>,
@@ -169,7 +179,18 @@ fn queue_custom(
                 .unwrap();
             transparent_phase.add(Transparent3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
-                    mesh_center: mesh_instance.center,
+                    mesh_center: pbr::get_mesh_instance_world_from_local(
+                        *main_entity,
+                        mesh_instance.current_uniform_index,
+                        &render_mesh_instances,
+                        maybe_batched_instance_buffers.as_deref(),
+                    )
+                    .transform_point3(
+                        meshes
+                            .get(mesh_instance.mesh_asset_id())
+                            .unwrap()
+                            .aabb_center,
+                    ),
                     depth_bias: 0.0,
                 },
                 entity: (entity, *main_entity),

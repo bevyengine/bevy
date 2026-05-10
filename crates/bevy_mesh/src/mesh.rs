@@ -1231,15 +1231,12 @@ impl Mesh {
         ) -> Result<(), MeshWindingInvertError> {
             match topology {
                 PrimitiveTopology::TriangleList => {
-                    // Early return if the index count doesn't match
-                    if !indices.len().is_multiple_of(3) {
+                    let (chunks, []) = indices.as_chunks_mut() else {
+                        // Early return if the index count doesn't match
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
-                    }
-                    for chunk in indices.chunks_mut(3) {
-                        // This currently can only be optimized away with unsafe, rework this when `feature(slice_as_chunks)` gets stable.
-                        let [_, b, c] = chunk else {
-                            return Err(MeshWindingInvertError::AbruptIndicesEnd);
-                        };
+                    };
+
+                    for [_, b, c] in chunks {
                         core::mem::swap(b, c);
                     }
                     Ok(())
@@ -1353,9 +1350,10 @@ impl Mesh {
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
         let normals: Vec<_> = positions
-            .chunks_exact(3)
-            .map(|p| triangle_normal(p[0], p[1], p[2]))
-            .flat_map(|normal| [normal; 3])
+            .as_chunks()
+            .0
+            .iter()
+            .flat_map(|&[a, b, c]| [triangle_normal(a, b, c); 3])
             .collect();
 
         self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -1608,11 +1606,14 @@ impl Mesh {
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
-        self.try_indices()?
-            .iter()
-            .collect::<Vec<usize>>()
-            .chunks_exact(3)
-            .for_each(|face| per_triangle([face[0], face[1], face[2]], positions, &mut normals));
+        match self.try_indices()? {
+            Indices::U16(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+            Indices::U32(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+        }
 
         for normal in &mut normals {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
@@ -2204,6 +2205,18 @@ impl Mesh {
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
+        fn indices_to_triangle<T: TryInto<usize> + Copy>(
+            vertices: &[[f32; 3]],
+            indices: &[T; 3],
+        ) -> Option<Triangle3d> {
+            let vert0 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
+            let vert1 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
+            let vert2 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
+            Some(Triangle3d {
+                vertices: [vert0, vert1, vert2],
+            })
+        }
+
         let position_data = self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
 
         let Some(vertices) = position_data.as_float3() else {
@@ -2218,73 +2231,53 @@ impl Mesh {
                 // This implicitly truncates the indices to a multiple of 3.
                 let iterator = match indices {
                     Indices::U16(vec) => FourIterators::First(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                     Indices::U32(vec) => FourIterators::Second(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                 };
 
-                return Ok(iterator);
+                Ok(iterator)
             }
-
             PrimitiveTopology::TriangleStrip => {
                 // When indices reference out-of-bounds vertex data, the triangle is omitted.
                 // If there aren't enough indices to make a triangle, then an empty vector will be
                 // returned.
                 let iterator = match indices {
                     Indices::U16(vec) => {
-                        FourIterators::Third(vec.as_slice().windows(3).enumerate().flat_map(
-                            move |(i, indices)| {
+                        FourIterators::Third(vec.array_windows().enumerate().flat_map(
+                            |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
-                                    indices_to_triangle(
-                                        vertices,
-                                        &[indices[1], indices[0], indices[2]],
-                                    )
+                                    indices_to_triangle(vertices, &[idx1, idx0, idx2])
                                 }
                             },
                         ))
                     }
                     Indices::U32(vec) => {
-                        FourIterators::Fourth(vec.as_slice().windows(3).enumerate().flat_map(
-                            move |(i, indices)| {
+                        FourIterators::Fourth(vec.array_windows().enumerate().flat_map(
+                            |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
-                                    indices_to_triangle(
-                                        vertices,
-                                        &[indices[1], indices[0], indices[2]],
-                                    )
+                                    indices_to_triangle(vertices, &[idx1, idx0, idx2])
                                 }
                             },
                         ))
                     }
                 };
 
-                return Ok(iterator);
+                Ok(iterator)
             }
-
-            _ => {
-                return Err(MeshTrianglesError::WrongTopology);
-            }
-        };
-
-        fn indices_to_triangle<T: TryInto<usize> + Copy>(
-            vertices: &[[f32; 3]],
-            indices: &[T],
-        ) -> Option<Triangle3d> {
-            let vert0: Vec3 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
-            let vert1: Vec3 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
-            let vert2: Vec3 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
-            Some(Triangle3d {
-                vertices: [vert0, vert1, vert2],
-            })
+            _ => Err(MeshTrianglesError::WrongTopology),
         }
     }
 

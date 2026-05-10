@@ -1,6 +1,6 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    ContentSize, FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -25,12 +25,8 @@ use tracing::warn;
 /// handle size without any delays.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(ComputedStackIndex)]
 pub struct ComputedNode {
-    /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-    pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
@@ -106,14 +102,6 @@ impl ComputedNode {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.size.x <= 0. || self.size.y <= 0.
-    }
-
-    /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated in [`UiSystems::Stack`](super::UiSystems::Stack).
-    pub const fn stack_index(&self) -> u32 {
-        self.stack_index
     }
 
     /// The calculated node size as width and height in physical pixels before rounding.
@@ -274,10 +262,13 @@ impl ComputedNode {
         let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
 
         let clip_inset = match overflow_clip_margin.visual_box {
-            OverflowClipBox::BorderBox => BorderRect::ZERO,
-            OverflowClipBox::ContentBox => self.content_inset(),
-            OverflowClipBox::PaddingBox => self.border(),
+            VisualBox::BorderBox => BorderRect::ZERO,
+            VisualBox::ContentBox => self.content_inset(),
+            VisualBox::PaddingBox => self.border(),
         };
+
+        clip_rect =
+            clip_rect.inflate(overflow_clip_margin.margin.max(0.) / self.inverse_scale_factor);
 
         clip_rect.min += clip_inset.min_inset;
         clip_rect.max -= clip_inset.max_inset;
@@ -393,7 +384,6 @@ impl ComputedNode {
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
-        stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
         scrollbar_size: Vec2::ZERO,
@@ -481,6 +471,7 @@ impl From<BVec2> for IgnoreScroll {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ComputedStackIndex,
     ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
@@ -1396,7 +1387,7 @@ impl Default for OverflowAxis {
 )]
 pub struct OverflowClipMargin {
     /// Visible unclipped area
-    pub visual_box: OverflowClipBox,
+    pub visual_box: VisualBox,
     /// Width of the margin on each edge of the visual box in logical pixels.
     /// The width of the margin will be zero if a negative value is set.
     pub margin: f32,
@@ -1404,14 +1395,14 @@ pub struct OverflowClipMargin {
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        visual_box: OverflowClipBox::PaddingBox,
+        visual_box: VisualBox::PaddingBox,
         margin: 0.,
     };
 
     /// Clip any content that overflows outside the content box
     pub const fn content_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::ContentBox,
+            visual_box: VisualBox::ContentBox,
             ..Self::DEFAULT
         }
     }
@@ -1419,7 +1410,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the padding box
     pub const fn padding_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::PaddingBox,
+            visual_box: VisualBox::PaddingBox,
             ..Self::DEFAULT
         }
     }
@@ -1427,7 +1418,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the border box
     pub const fn border_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::BorderBox,
+            visual_box: VisualBox::BorderBox,
             ..Self::DEFAULT
         }
     }
@@ -1440,7 +1431,7 @@ impl OverflowClipMargin {
     }
 }
 
-/// Used to determine the bounds of the visible area when a UI node is clipped.
+/// Used to determine which region of a UI node is used for visual bounds.
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
@@ -1448,13 +1439,13 @@ impl OverflowClipMargin {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum OverflowClipBox {
-    /// Clip any content that overflows outside the content box
+pub enum VisualBox {
+    /// Use the content box.
     ContentBox,
-    /// Clip any content that overflows outside the padding box
+    /// Use the padding box.
     #[default]
     PaddingBox,
-    /// Clip any content that overflows outside the border box
+    /// Use the border box.
     BorderBox,
 }
 
@@ -2321,7 +2312,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2402,6 +2393,16 @@ impl Outline {
     }
 }
 
+impl Default for Outline {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            width: Val::Px(1.),
+            offset: Val::Px(0.),
+        }
+    }
+}
+
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -2412,7 +2413,7 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 pub struct OverrideClip;
 
 #[expect(
@@ -2788,6 +2789,12 @@ impl BorderRadius {
     }
 }
 
+impl From<Val> for BorderRadius {
+    fn from(value: Val) -> Self {
+        Self::all(value)
+    }
+}
+
 /// Represents the resolved border radius values for a UI node.
 ///
 /// The values are in physical pixels.
@@ -3062,6 +3069,9 @@ impl ComputedUiRenderTargetInfo {
 mod tests {
     use crate::ComputedNode;
     use crate::GridPlacement;
+    use crate::Overflow;
+    use crate::OverflowClipMargin;
+    use crate::VisualBox;
     use bevy_math::{Rect, Vec2};
     use bevy_sprite::BorderRect;
 
@@ -3231,5 +3241,81 @@ mod tests {
 
         assert_eq!(content_box.min, Vec2::new(-40.0 + 4.0, -20.0 + 2.0));
         assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
+    }
+
+    fn abs_diff_eq_rect(s: Rect, t: Rect) -> bool {
+        s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5)
+    }
+
+    #[test]
+    fn overflow_clip_margin_boxes() {
+        let size = 100.;
+        let b = 3.;
+        let p = 5.;
+        let m = 7.;
+        let computed_node = ComputedNode {
+            size: Vec2::splat(size),
+            border: BorderRect::all(b),
+            padding: BorderRect::all(p),
+            ..Default::default()
+        };
+
+        let r = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size));
+
+        assert!(abs_diff_eq_rect(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: VisualBox::BorderBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m),
+        ));
+
+        assert!(abs_diff_eq_rect(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: VisualBox::PaddingBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m - b),
+        ));
+
+        assert!(abs_diff_eq_rect(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: VisualBox::ContentBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m - b - p),
+        ));
+    }
+
+    #[test]
+    fn overflow_clip_margin_is_logical() {
+        let size = 100.;
+        let m = 10.;
+        let scale_factor = 2.;
+        let computed_node = ComputedNode {
+            size: Vec2::splat(size),
+            inverse_scale_factor: 1. / scale_factor,
+            ..Default::default()
+        };
+
+        let r = computed_node.resolve_clip_rect(
+            Overflow::clip(),
+            OverflowClipMargin {
+                visual_box: VisualBox::BorderBox,
+                margin: m,
+            },
+        );
+        let s = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size)).inflate(m * scale_factor);
+
+        assert!(abs_diff_eq_rect(r, s));
     }
 }

@@ -38,15 +38,15 @@ In addition, a `SingleEntityQueryData` bound has been added to
 All existing query types will satisfy those bounds, but generic code may need to add bounds.
 
 ```rust
-// 0.17
+// 0.18
 fn generic_func<D: QueryData>(query: Query<D>) {
     for item in &mut query { ... }
 }
-// 0.18
+// 0.19
 fn generic_func<D: IterQueryData>(query: Query<D>) {
     for item in &mut query { ... }
 }
-// 0.18, but with support for non-iterable query types
+// 0.19, but with support for non-iterable query types
 fn generic_func<D: QueryData>(mut query: Query<D>) {
     let mut iter = query.iter_mut();
     while let Some(item) = iter.fetch_next() { ... }
