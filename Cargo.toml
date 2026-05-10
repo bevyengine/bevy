@@ -48,6 +48,7 @@ exclude = [
   "tests-integration",
   # Fuzz testing crates
   "crates/bevy_ecs/fuzz",
+  "crates/bevy_scene/macros/fuzz",
 ]
 
 [workspace.lints.clippy]
