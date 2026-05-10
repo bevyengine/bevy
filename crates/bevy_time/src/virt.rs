@@ -237,17 +237,16 @@ impl Time<Virtual> {
     /// Updates the elapsed duration of `self` by `raw_delta`, up to the `max_delta`.
     fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
-        let raw_clamped = raw_delta.min(max_delta);
         let effective_speed = if self.context().paused {
             0.0
         } else {
             self.context().relative_speed
         };
         let scaled = if effective_speed != 1.0 {
-            raw_clamped.mul_f64(effective_speed)
+            raw_delta.mul_f64(effective_speed)
         } else {
             // avoid rounding when at normal speed
-            raw_clamped
+            raw_delta
         };
         let delta = if scaled > max_delta {
             debug!(
@@ -451,5 +450,17 @@ mod test {
         time.advance_with_raw_delta(Duration::from_millis(16));
 
         assert_eq!(time.delta(), time.max_delta());
+    }
+
+    #[test]
+    fn test_dont_overclamp_at_low_speed() {
+        let mut time = Time::<Virtual>::default();
+        time.set_relative_speed_f64(0.01);
+        time.set_max_delta(Duration::from_millis(10));
+        let delta = Duration::from_millis(16);
+
+        time.advance_with_raw_delta(delta);
+
+        assert_eq!(time.delta(), delta / 100);
     }
 }
