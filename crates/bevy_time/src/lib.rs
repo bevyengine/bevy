@@ -29,6 +29,8 @@ pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
 pub use virt::*;
+
+#[cfg(feature = "std")]
 use crossbeam_channel::TryRecvError;
 
 /// The time prelude.
