@@ -19,7 +19,6 @@ env:
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
   RUSTFLAGS: "-D warnings"
-  FUZZ_RUNS: 500000
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -637,7 +636,7 @@ jobs:
         working-directory: crates/bevy_ecs/fuzz
         env:
           FUZZ_TARGET: ${{ matrix.target }}
-        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=${{ env.FUZZ_RUNS }}
+        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=500000
 
   bevy_scene-fuzz-prepare:
     runs-on: ubuntu-latest
@@ -675,4 +674,4 @@ jobs:
         working-directory: crates/bevy_scene/macros/fuzz
         env:
           FUZZ_TARGET: ${{ matrix.target }}
-        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=${{ env.FUZZ_RUNS }}
+        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=1000000
