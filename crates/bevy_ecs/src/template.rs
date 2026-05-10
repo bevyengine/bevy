@@ -3,6 +3,7 @@
 pub use bevy_ecs_macros::FromTemplate;
 
 use crate::{
+    component::Mutable,
     entity::Entity,
     error::{BevyError, Result},
     resource::Resource,
@@ -80,7 +81,7 @@ impl<'a, 'w> TemplateContext<'a, 'w> {
 
     /// Retrieves a mutable reference to the given resource `R`.
     #[inline]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         self.entity.resource_mut()
     }
 }

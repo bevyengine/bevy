@@ -132,6 +132,8 @@ pub struct FreeCamera {
     pub friction: f32,
     /// Speed of camera rotation to snapped axis in radians/second
     pub rotation_speed: f32,
+    /// Whether the vertical inputs translate the camera in world or local space axes.
+    pub vertical_movement_axis: VerticalMovementAxis,
 }
 
 impl Default for FreeCamera {
@@ -157,6 +159,7 @@ impl Default for FreeCamera {
             scroll_factor: 0.04879016,
             friction: 40.0,
             rotation_speed: PI / 16.0 * 60.0,
+            vertical_movement_axis: VerticalMovementAxis::default(),
         }
     }
 }
@@ -195,6 +198,20 @@ Freecamera Controls:
             self.axis_front,
         )
     }
+}
+
+/// Whether the vertical inputs translate the camera in world or local space axes.
+#[derive(Debug, Default, Clone, Copy)]
+pub enum VerticalMovementAxis {
+    /// Vertical movement is aligned to the world.
+    ///
+    /// This is the default behavior in Bevy, Unreal and Blender.
+    #[default]
+    World,
+    /// Vertical movement follows the camera's rotation.
+    ///
+    /// This is the default behavior in Unity and Godot.
+    Local,
 }
 
 /// Tracks the runtime state of a [`FreeCamera`] controller.
@@ -353,8 +370,12 @@ pub fn run_freecamera_controller(
     if state.velocity != Vec3::ZERO {
         let forward = *transform.forward();
         let right = *transform.right();
+        let up = match config.vertical_movement_axis {
+            VerticalMovementAxis::World => Vec3::Y,
+            VerticalMovementAxis::Local => *transform.up(),
+        };
         transform.translation += state.velocity.x * dt * right
-            + state.velocity.y * dt * Vec3::Y
+            + state.velocity.y * dt * up
             + state.velocity.z * dt * forward;
     }
 
