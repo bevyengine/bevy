@@ -237,26 +237,27 @@ impl Time<Virtual> {
     /// Updates the elapsed duration of `self` by `raw_delta`, up to the `max_delta`.
     fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
-        let clamped_delta = if raw_delta > max_delta {
-            debug!(
-                "delta time larger than maximum delta, clamping delta to {:?} and skipping {:?}",
-                max_delta,
-                raw_delta - max_delta
-            );
-            max_delta
-        } else {
-            raw_delta
-        };
+        let raw_clamped = raw_delta.min(max_delta);
         let effective_speed = if self.context().paused {
             0.0
         } else {
             self.context().relative_speed
         };
-        let delta = if effective_speed != 1.0 {
-            clamped_delta.mul_f64(effective_speed)
+        let scaled = if effective_speed != 1.0 {
+            raw_clamped.mul_f64(effective_speed)
         } else {
             // avoid rounding when at normal speed
-            clamped_delta
+            raw_clamped
+        };
+        let delta = if scaled > max_delta {
+            debug!(
+                "delta time larger than maximum delta, clamping delta to {:?} and skipping {:?}",
+                max_delta,
+                scaled - max_delta
+            );
+            max_delta
+        } else {
+            scaled
         };
         self.context_mut().effective_speed = effective_speed;
         self.advance_by(delta);
@@ -326,6 +327,7 @@ mod test {
     #[test]
     fn test_relative_speed() {
         let mut time = Time::<Virtual>::default();
+        time.set_max_delta(Duration::from_secs(1));
 
         time.advance_with_raw_delta(Duration::from_millis(250));
 
@@ -438,5 +440,16 @@ mod test {
 
         assert_eq!(time.delta(), Duration::from_millis(1000));
         assert_eq!(time.elapsed(), Duration::from_millis(3000));
+    }
+
+    #[test]
+    fn test_max_delta_clamps_after_relative_speed() {
+        let mut time = Time::<Virtual>::default();
+        time.set_relative_speed_f64(2000.0);
+        time.set_max_delta(Duration::from_secs(1));
+
+        time.advance_with_raw_delta(Duration::from_millis(16));
+
+        assert_eq!(time.delta(), time.max_delta());
     }
 }
