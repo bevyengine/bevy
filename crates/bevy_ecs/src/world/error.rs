@@ -73,6 +73,9 @@ pub enum ResourceFetchError {
     /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
     #[error("Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation.")]
     NoResourceAccess(ComponentId),
+    /// Tried to mutably fetch an immutable resource.
+    #[error("Tried to mutably fetch resource with ID {0:?}, which is immutable")]
+    Immutable(ComponentId),
 }
 
 #[cfg(test)]

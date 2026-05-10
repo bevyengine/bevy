@@ -4,7 +4,7 @@ pull_requests: [23691]
 ---
 
 The `image` field of the `Skybox` component now has the type `Option<Handle<Image>>` instead of `Handle<Image>`.
-A `Skybox` component without an image will not draw anything, just like it was not present.
+A `Skybox` component without an image will not draw anything, just as though it isn't present.
 
 If you were creating a skybox with an image, wrap the image handle in `Some`:
 

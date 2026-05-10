@@ -5,7 +5,7 @@ pull_requests: [ 22144 ]
 
 The `RenderGraph` API has been removed. Render passes are now systems that run in `Core3d` or `Core2d` schedules.
 
-Before:
+In 0.18:
 
 ```rust,ignore
 impl ViewNode for MyNode {
@@ -27,7 +27,7 @@ render_app
     .add_render_graph_edges(Core3d, (Node3d::Foo, MyLabel, Node3d::Bar));
 ```
 
-After:
+In 0.19:
 
 ```rust,ignore
 pub fn my_render_pass(
