@@ -7,13 +7,16 @@ use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "std")]
 use std::eprintln;
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    backtrace::Backtrace,
+    sync::{Mutex, MutexGuard},
+};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
 use crate::{
-    error::{ErrorContext, ErrorHandler, Result},
+    error::{BevyError, ErrorContext, ErrorHandler, Result, Severity},
     prelude::Resource,
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
@@ -662,22 +665,38 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `is_exclusive` returned false
                 unsafe {
-                    if let Err(RunSystemError::Failed(err)) =
-                        __rust_begin_short_backtrace::run_unsafe(
-                            system,
-                            context.environment.world_cell,
-                        )
-                    {
-                        (context.error_handler)(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                };
+                    __rust_begin_short_backtrace::run_unsafe(system, context.environment.world_cell)
+                }
             }));
+            // If the system returned an unhandled error or panicked,
+            // invoke the fallback error handler. If the error handler decides to panic,
+            // we need to catch this panic and rethrow it on the main thread for proper teardown.
+            let err = match res {
+                // We can ignore the panic payload here, as it will have already been printed
+                Err(_) => {
+                    let err = BevyError::new_with_backtrace(
+                        Severity::Panic,
+                        "System panicked",
+                        Backtrace::disabled(),
+                    );
+                    Some(err)
+                }
+                Ok(Err(RunSystemError::Failed(err))) => Some(err),
+                _ => None,
+            };
+            let res = if let Some(err) = err {
+                std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    (context.error_handler)(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
+                }))
+            } else {
+                Ok(())
+            };
             context.system_completed(system_index, res, system);
         };
 
@@ -716,9 +735,22 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    if let Err(RunSystemError::Failed(err)) =
-                        __rust_begin_short_backtrace::run(system, world)
-                    {
+                    __rust_begin_short_backtrace::run(system, world)
+                }));
+                let err = match res {
+                    Err(_) => {
+                        let err = BevyError::new_with_backtrace(
+                            Severity::Panic,
+                            "System panicked",
+                            Backtrace::disabled(),
+                        );
+                        Some(err)
+                    }
+                    Ok(Err(RunSystemError::Failed(err))) => Some(err),
+                    _ => None,
+                };
+                let res = if let Some(err) = err {
+                    std::panic::catch_unwind(AssertUnwindSafe(|| {
                         (context.error_handler)(
                             err,
                             ErrorContext::System {
@@ -726,8 +758,10 @@ impl ExecutorState {
                                 last_run: system.get_last_run(),
                             },
                         );
-                    }
-                }));
+                    }))
+                } else {
+                    Ok(())
+                };
                 context.system_completed(system_index, res, system);
             };
 
@@ -786,16 +820,22 @@ fn apply_deferred(
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             system.apply_deferred(world);
         }));
-        if let Err(payload) = res {
-            #[cfg(feature = "std")]
-            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-            {
-                eprintln!(
-                    "Encountered a panic when applying buffers for system `{}`!",
-                    system.name()
+        if res.is_err() {
+            let name = system.name();
+            let err = BevyError::new_with_backtrace(
+                Severity::Panic,
+                "Encountered a panic while applying system buffers",
+                Backtrace::disabled(),
+            );
+            std::panic::catch_unwind(AssertUnwindSafe(|| {
+                world.fallback_error_handler()(
+                    err,
+                    ErrorContext::System {
+                        name,
+                        last_run: system.get_last_run(),
+                    },
                 );
-            }
-            return Err(payload);
+            }))?;
         }
     }
     Ok(())

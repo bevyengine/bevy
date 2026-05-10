@@ -86,6 +86,30 @@ impl BevyError {
         Self::from(error).with_severity(severity)
     }
 
+    /// Constructs a new [`BevyError`] with the given [`Severity`].
+    ///
+    /// Like [`BevyError::new`], but if the `backtrace` cargo feature is enabled
+    /// it will use the supplied backtrace instead of capturing a new one.
+    pub fn new_with_backtrace<E>(
+        severity: Severity,
+        error: E,
+        backtrace: std::backtrace::Backtrace,
+    ) -> Self
+    where
+        Box<dyn Error + Sync + Send>: From<E>,
+    {
+        #[cfg(not(feature = "backtrace"))]
+        drop(backtrace);
+        BevyError {
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
+                severity,
+                #[cfg(feature = "backtrace")]
+                backtrace,
+            }),
+        }
+    }
+
     /// Creates a new [`BevyError`] with the [`Severity::Ignore`] severity.
     ///
     /// This is a shorthand for <code>[BevyError::new(Severity::Ignore, error)](BevyError::new)</code>.
@@ -405,9 +429,7 @@ pub fn bevy_error_panic_hook(
 ) -> impl Fn(&std::panic::PanicHookInfo) {
     move |info| {
         if SKIP_NORMAL_BACKTRACE.replace(false) {
-            if let Some(payload) = info.payload().downcast_ref::<&str>() {
-                std::println!("{payload}");
-            } else if let Some(payload) = info.payload().downcast_ref::<alloc::string::String>() {
+            if let Some(payload) = info.payload_as_str() {
                 std::println!("{payload}");
             }
             return;

@@ -6,9 +6,6 @@ use alloc::string::ToString as _;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-#[cfg(feature = "std")]
-use std::eprintln;
-
 use crate::{
     error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
@@ -146,11 +143,22 @@ impl SystemExecutor for SingleThreadedExecutor {
             });
 
             #[cfg(feature = "std")]
-            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
-                if let Err(payload) = std::panic::catch_unwind(f) {
-                    eprintln!("Encountered a panic in system `{}`!", system.name());
-                    std::panic::resume_unwind(payload);
+                if std::panic::catch_unwind(f).is_err() {
+                    use crate::error::{BevyError, Severity};
+
+                    let err = BevyError::new_with_backtrace(
+                        Severity::Panic,
+                        "System panicked",
+                        std::backtrace::Backtrace::disabled(),
+                    );
+                    error_handler(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
                 }
             }
 
