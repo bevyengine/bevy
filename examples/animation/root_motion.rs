@@ -34,11 +34,7 @@ fn apply_root_motion(
         let mut transform = q_transform.get_mut(apply_to.0).unwrap();
         // If your model is scaled, you probably want to scale the RootMotion accordingly
         // By default, the RootMotion is not affected by the scale
-        let scaled_delta = Vec3 {
-            x: root_motion.translation_delta.x * transform.scale.x,
-            y: root_motion.translation_delta.y * transform.scale.y,
-            z: root_motion.translation_delta.z * transform.scale.z,
-        };
+        let scaled_delta = root_motion.translation_delta * transform.scale;
         transform.translation += scaled_delta;
 
         // We reset the fox position before it leaves the ground.
