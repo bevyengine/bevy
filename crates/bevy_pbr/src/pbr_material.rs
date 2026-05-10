@@ -1140,6 +1140,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if has_normal_map {
             let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
+                #[expect(clippy::match_same_arms)]
                 match texture.texture_descriptor.format {
                     // Dedicated 2-component unorm formats.
                     TextureFormat::Rg8Unorm
