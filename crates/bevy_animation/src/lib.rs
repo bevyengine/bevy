@@ -39,7 +39,12 @@ use crate::{
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
+use bevy_ecs::{
+    lifecycle::HookContext,
+    prelude::*,
+    resource::IsResource,
+    world::{DeferredWorld, EntityMutExcept},
+};
 use bevy_math::{FloatOrd, Quat, Vec3};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -782,6 +787,7 @@ impl RootMotionMode {
 /// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
+#[component(on_remove=Self::on_remove)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     root_motion_target: Option<AnimationTargetId>,
@@ -1068,6 +1074,14 @@ impl AnimationPlayer {
     /// Set the [`RootMotionMode`] to control how [`RootMotion`] is extracted.
     pub fn set_root_motion_mode(&mut self, mode: RootMotionMode) {
         self.root_motion_mode = mode;
+    }
+
+    fn on_remove(mut world: DeferredWorld<'_>, context: HookContext) {
+        // Removes potential [`RootMotion`] added by the [`AnimationPlayer`]
+        world
+            .commands()
+            .entity(context.entity)
+            .remove::<RootMotion>();
     }
 }
 
