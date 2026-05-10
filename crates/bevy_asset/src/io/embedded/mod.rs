@@ -380,7 +380,7 @@ macro_rules! load_internal_asset {
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
             ::core::include_str!($path_str),
-            ::std::path::Path::new(file!())
+            ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
@@ -392,7 +392,7 @@ macro_rules! load_internal_asset {
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
             ::core::include_str!($path_str),
-            ::std::path::Path::new(file!())
+            ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
@@ -412,7 +412,7 @@ macro_rules! load_internal_binary_asset {
                 $handle.id(),
                 ($loader)(
                     ::core::include_bytes!($path_str).as_ref(),
-                    ::std::path::Path::new(file!())
+                    ::std::path::Path::new(::core::file!())
                         .parent()
                         .unwrap()
                         .join($path_str)

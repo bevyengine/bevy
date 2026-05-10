@@ -9,7 +9,7 @@ macro_rules! define_atomic_id {
         ///
         /// Note that this means the id space is process-wide, as such it may potentially be exhausted
         /// by a combination of long-running processes and multiple bevy `World`s, at which point we panic.
-        #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
+        #[derive(::core::marker::Copy, ::core::clone::Clone, ::core::hash::Hash, ::core::cmp::Eq, ::core::cmp::PartialEq, ::core::cmp::PartialOrd, ::core::cmp::Ord, ::core::fmt::Debug)]
         pub struct $atomic_id_type(::core::num::NonZero<u32>);
 
         impl $atomic_id_type {
@@ -25,9 +25,9 @@ macro_rules! define_atomic_id {
 
                 let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
                 Self(::core::num::NonZero::<u32>::new(counter).unwrap_or_else(|| {
-                    panic!(
+                    ::core::panic!(
                         "The system ran out of unique `{}`s.",
-                        stringify!($atomic_id_type)
+                        ::core::stringify!($atomic_id_type)
                     );
                 }))
             }

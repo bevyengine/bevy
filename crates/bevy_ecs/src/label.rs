@@ -111,7 +111,7 @@ macro_rules! define_label {
             $($trait_extra_methods)*
 
             /// Clones this `
-            #[doc = stringify!($label_trait_name)]
+            #[doc = ::core::stringify!($label_trait_name)]
             ///`.
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
 
