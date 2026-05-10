@@ -108,6 +108,14 @@ fn rotate(mut query: Query<&mut Transform, With<Rotating>>, time: Res<Time>) {
     }
 }
 
+// HACK: this function isn't relevant to asset processing in general.
+// We download the source textures at runtime rather than checking them
+// into the repo because they're large files we don't want to store in
+// version control. Asset processing needs to iterate through the contents of
+// an asset source to discover files to process, and the web asset source
+// doesn't support iterating through its contents, so we can't simply point
+// the processor at a remote URL and have to fetch the files to a local
+// directory first.
 fn download_assets() -> io::Result<()> {
     let asset_files = &[
         "GroundSand005_COL_2K.jpg",
