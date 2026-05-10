@@ -800,8 +800,8 @@ impl Clone for AnimationPlayer {
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
-        root_motion_target: self.root_motion_target;
-        root_motion_mode: self.root_motion_mode;
+        self.root_motion_target = source.root_motion_target;
+        self.root_motion_mode = source.root_motion_mode;
     }
 }
 
