@@ -34,7 +34,8 @@ pub mod keyboard;
 #[cfg(feature = "mouse")]
 pub mod mouse;
 
-#[cfg(feature = "touch")]
+// Also enabled with `mouse` because `MouseWheel` reuses `TouchPhase` for trackpad scroll phases.
+#[cfg(any(feature = "touch", feature = "mouse"))]
 pub mod touch;
 
 pub use axis::*;

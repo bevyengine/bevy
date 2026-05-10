@@ -13,13 +13,13 @@ In previous versions of Bevy, there were many different ways to load an asset:
 
 All these variants have been simplified to only two variants:
 
-1. `AssetServer::load()`: This is just a convenience and just calls the load builder internally.
+1. `AssetServer::load()`: This is a convenience method and just calls the load builder internally.
 2. `AssetServer::load_builder()`: allows for constructing more complex loads like untyped loads,
    loads including guards, loads with settings, etc.
 
 Every load variant above can be reimplemented using `load_builder`, and each one of these methods
 has deprecation messages on them explaining their new equivalent. For example,
-`load_with_settings_override` can now be replaced by:
+`load_with_settings_override` can now be replaced with:
 
 ```rust
 asset_server
@@ -32,7 +32,7 @@ asset_server
 ## NestedLoader
 
 To match this change, `NestedLoader` has been replaced with
-`NestedLoadBuilder`. Similarly, `LoadContext::loader` has been replaced by
+`NestedLoadBuilder`. Similarly, `LoadContext::loader` has been replaced with
 `LoadContext::load_builder`. The various calls have now been simplified:
 
 - `context.loader().load(path)` -> `context.load_builder().load(path)`

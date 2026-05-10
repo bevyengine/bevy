@@ -1,4 +1,4 @@
-use bevy_ecs_macro_logic::component::DeriveComponent;
+use bevy_ecs_macro_logic::component::{DeriveComponent, StorageAttribute, StorageTy};
 use bevy_macro_utils::{fq_std::FQDefault, BevyManifest, PathType};
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -11,7 +11,7 @@ use syn::{
 };
 
 pub(crate) fn derive_scene_component(ast: &mut DeriveInput) -> TokenStream {
-    let mut derive_component = match DeriveComponent::parse(ast) {
+    let mut derive_component = match DeriveComponent::parse(ast, StorageAttribute::Allowed) {
         Ok(value) => value,
         Err(e) => return e.into_compile_error(),
     };
@@ -46,7 +46,7 @@ pub(crate) fn derive_scene_component(ast: &mut DeriveInput) -> TokenStream {
     derive_component.additional_requires.push(quote! {
         required_components.register_required(|| #bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(false));
     });
-    let component_impl = match derive_component.impl_component(ast, &bevy_ecs) {
+    let component_impl = match derive_component.impl_component(ast, &bevy_ecs, StorageTy::Table) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error(),
     };

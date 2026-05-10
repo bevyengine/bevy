@@ -7,8 +7,8 @@ use crate::{
     prelude::FromWorld,
     query::{
         ArchetypeFilter, ContiguousQueryData, FilteredAccess, FilteredAccessSet, IterQueryData,
-        QueryCombinationIter, QueryContiguousIter, QueryIter, QueryParIter, SingleEntityQueryData,
-        WorldQuery,
+        QueryCombinationIter, QueryContiguousIter, QueryIter, QueryNotDenseError, QueryParIter,
+        SingleEntityQueryData, WorldQuery,
     },
     storage::TableId,
     system::Query,
@@ -1473,21 +1473,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query_mut(world).par_iter_inner()
     }
 
-    /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`Err`] with [`QueryNotDenseError`] if
     /// the query is not dense hence not contiguously iterable.
     #[inline]
     pub fn contiguous_iter<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> Option<QueryContiguousIter<'w, 's, D::ReadOnly, F>>
+    ) -> Result<QueryContiguousIter<'w, 's, D::ReadOnly, F>, QueryNotDenseError>
     where
         D::ReadOnly: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        self.query(world).contiguous_iter_inner().ok()
+        self.query(world).contiguous_iter_inner()
     }
 
-    /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`Err`] with [`QueryNotDenseError`] if
     /// the query is not dense hence not contiguously iterable.
     ///
     /// This can only be called for mutable queries, see [`Self::contiguous_iter`] for read-only-queries.
@@ -1495,12 +1495,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn contiguous_iter_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> Option<QueryContiguousIter<'w, 's, D, F>>
+    ) -> Result<QueryContiguousIter<'w, 's, D, F>, QueryNotDenseError>
     where
         D: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        self.query_mut(world).contiguous_iter_inner().ok()
+        self.query_mut(world).contiguous_iter_inner()
     }
 
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
