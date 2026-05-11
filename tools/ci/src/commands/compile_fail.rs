@@ -22,9 +22,10 @@ impl Prepare for CompileFailCommand {
         // - See crates/bevy_macros/compile_fail/README.md
         commands.push(
             PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test {no_fail_fast...} {jobs_ref...} --manifest-path crates/bevy_derive/compile_fail/Cargo.toml -- {test_threads_ref...}"),
+                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast...} {jobs_ref...} -- {test_threads_ref...}"),
                 "Compiler errors of the macros compile fail tests seem to be different than expected! Check locally and compare rust versions.",
-            ),
+            )
+            .with_subdir("crates/bevy_derive/compile_fail"),
         );
 
         // ECS Compile Fail Tests
@@ -32,9 +33,10 @@ impl Prepare for CompileFailCommand {
         // - See crates/bevy_ecs/compile_fail/README.md
         commands.push(
             PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test {no_fail_fast...} {jobs_ref...} --manifest-path crates/bevy_ecs/compile_fail/Cargo.toml -- {test_threads_ref...}"),
+                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast...} {jobs_ref...} -- {test_threads_ref...}"),
                 "Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.",
-            ),
+            )
+            .with_subdir("crates/bevy_ecs/compile_fail"),
         );
 
         // Reflect Compile Fail Tests
@@ -42,9 +44,10 @@ impl Prepare for CompileFailCommand {
         // - See crates/bevy_reflect/compile_fail/README.md
         commands.push(
             PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test {no_fail_fast...} {jobs...} --manifest-path crates/bevy_reflect/compile_fail/Cargo.toml -- {test_threads...}"),
+                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast...} {jobs...} -- {test_threads...}"),
                 "Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.",
-            ),
+            )
+            .with_subdir("crates/bevy_reflect/compile_fail"),
         );
 
         commands
