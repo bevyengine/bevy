@@ -911,7 +911,7 @@ mod tests {
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicBool, Ordering::Relaxed},
     };
-    use std::{panic::catch_unwind, string::String};
+    use std::{alloc::String, panic::catch_unwind};
 
     use crate::{
         error::{BevyError, ErrorContext, FallbackErrorHandler},
