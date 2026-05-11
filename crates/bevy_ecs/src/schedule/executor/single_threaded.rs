@@ -9,7 +9,7 @@ use tracing::info_span;
 use crate::{
     error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
-    system::{RunSystemError, ScheduleSystem, System},
+    system::{RunSystemError, ScheduleSystem},
     world::World,
 };
 
@@ -190,7 +190,10 @@ impl SingleThreadedExecutor {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index].system;
             #[cfg(not(feature = "std"))]
-            system.apply_deferred(world);
+            {
+                system.apply_deferred(world);
+                let _ = error_handler;
+            }
 
             #[cfg(feature = "std")]
             {
@@ -258,7 +261,7 @@ fn evaluate_and_fold_conditions(
 fn handle_unwind(
     potential_unwind: Result<(), alloc::boxed::Box<dyn core::any::Any + Send>>,
     error_handler: ErrorHandler,
-    in_system: &dyn System<In = (), Out = ()>,
+    in_system: &dyn crate::system::System<In = (), Out = ()>,
     error_message: &str,
 ) {
     if let Err(payload) = potential_unwind {
