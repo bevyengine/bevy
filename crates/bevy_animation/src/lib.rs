@@ -2262,4 +2262,13 @@ mod tests {
             animated_entity,
         );
     }
+
+    #[test]
+    fn test_root_motion_cleaning() {
+        let mut world = World::new();
+        let mut animation_player_entity =
+            world.spawn((AnimationPlayer::default(), RootMotion::default()));
+        animation_player_entity.remove::<AnimationPlayer>();
+        assert!(animation_player_entity.get::<RootMotion>().is_none());
+    }
 }
