@@ -692,7 +692,7 @@ impl ExecutorState {
                 _ => (None, Ok(())),
             };
             if let Some(err) = err {
-                // An error occured, handle it and propagate the panic if needed
+                // An error occurred, handle it and propagate the panic if needed
                 res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     __rust_begin_short_backtrace::error_handler(
                         context.error_handler,
