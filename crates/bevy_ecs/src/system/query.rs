@@ -2822,6 +2822,9 @@ impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
+/// struct Hiding;
+///
+/// #[derive(Component)]
 /// struct Boss {
 ///    health: f32
 /// };
@@ -2831,7 +2834,7 @@ impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_
 ///    height: f32
 /// };
 ///
-/// fn hurt_boss(mut boss: Single<&mut Boss>) {
+/// fn hurt_boss(mut boss: Single<&mut Boss, Without<Hiding>>) {
 ///    boss.health -= 4.0;
 /// }
 ///
