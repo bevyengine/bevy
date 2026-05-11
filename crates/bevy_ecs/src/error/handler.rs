@@ -156,6 +156,7 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
 #[track_caller]
 #[inline]
 pub fn panic(error: BevyError, ctx: ErrorContext) {
+    #[cfg(feature = "std")]
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
     inner!(panic, error, ctx);
 }

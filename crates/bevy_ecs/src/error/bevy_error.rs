@@ -90,6 +90,7 @@ impl BevyError {
     ///
     /// Like [`BevyError::new`], but if the `backtrace` cargo feature is enabled
     /// it will use the supplied backtrace instead of capturing a new one.
+    #[cfg(feature = "std")]
     pub fn new_with_backtrace<E>(
         severity: Severity,
         error: E,

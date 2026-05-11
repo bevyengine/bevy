@@ -967,7 +967,7 @@ mod tests {
         let mut schedule_panic = Schedule::default();
         schedule_panic.set_executor(MultiThreadedExecutor::new());
         schedule_panic.add_systems(|| {
-            panic!();
+            panic!("System's panic payload");
         });
 
         static HANDLER_CALLED: AtomicBool = AtomicBool::new(false);
