@@ -88,7 +88,7 @@ impl<'a> StrokeFont<'a> {
                 self.extended[i].3.clone(),
             )
         } else {
-            GlyphSource::Unsupported(self.advance, 0..0)
+            GlyphSource::Unsupported(self.advance, ())
         }
     }
 
