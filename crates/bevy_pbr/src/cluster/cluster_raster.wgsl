@@ -64,8 +64,10 @@ struct ClusterOffsetsAndCountsElementAtomic {
 
 // The list of clusterable object Z slices that we read from to.
 @group(0) @binding(0) var<storage> z_slices: array<ClusterableObjectZSlice>;
+#ifndef VERTEX_SHADER
 // The list of indices per cluster that we write to in the populate pass.
 @group(0) @binding(1) var<storage, read_write> index_lists: ClusterableObjectIndexLists;
+#endif  // VERTEX_SHADER
 // Information about each light.
 @group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
 // Information about each light probe (reflection probe or irradiance volume).
@@ -77,6 +79,7 @@ struct ClusterOffsetsAndCountsElementAtomic {
 @group(0) @binding(5) var<uniform> lights: Lights;
 // Information about the view.
 @group(0) @binding(6) var<uniform> view: View;
+#ifndef VERTEX_SHADER
 #ifdef POPULATE_PASS
 // The number of objects in each cluster, and the offset of each list.
 @group(0) @binding(7) var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
@@ -92,6 +95,7 @@ struct ClusterOffsetsAndCountsElementAtomic {
 // During the count pass, we write to this.
 @group(0) @binding(7) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
 #endif  // POPULATE_PASS
+#endif  // VERTEX_SHADER
 
 // The vertex entry point.
 @vertex
@@ -152,6 +156,8 @@ fn calculate_vertex_position(vertex: Vertex, cluster_bounds: vec4<u32>) -> vec4<
         vec2<f32>(framebuffer_position) / vec2<f32>(lights.cluster_dimensions.xy);
     return vec4(mix(vec2(-1.0, 1.0), vec2(1.0, -1.0), vertex_position), 0.0, 1.0);
 }
+
+#ifndef VERTEX_SHADER
 
 // Performs a fine-grained test to ensure that the object intersects a single
 // froxel and records the result.
@@ -225,6 +231,8 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     return vec4<f32>(0.0);
 }
+
+#endif  // VERTEX_SHADER
 
 // Returns true if the given sphere intersects the AABB with the given
 // boundaries.
@@ -426,6 +434,7 @@ fn sin_atan(tan_theta: f32) -> f32 {
     return tan_theta * inverseSqrt(1.0 + tan_theta * tan_theta);
 }
 
+#ifndef VERTEX_SHADER
 #ifdef POPULATE_PASS
 // Allocates space in the appropriate list and returns the global index that the
 // object index should be written to.
@@ -491,6 +500,7 @@ fn increment_object_count(cluster_index: u32, object_type: u32) {
     }
 }
 #endif  // POPULATE_PASS
+#endif  // VERTEX_SHADER
 
 // Looks up and returns the world-space center and radius of the bounding sphere
 // for the object with the given index and type.

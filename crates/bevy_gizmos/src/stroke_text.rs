@@ -134,7 +134,7 @@ impl<'a> StrokeTextLayout<'a> {
                 let color = current_color;
                 return Some((
                     color,
-                    stroke.chain(join.into_iter()).map(move |index| {
+                    stroke.chain(join).map(move |index| {
                         let [p, q] = self.font.positions[index];
                         Vec2::new(
                             current_x + self.scale * p as f32,

@@ -43,6 +43,7 @@ pub trait AssetSaver: TypePath + Send + Sync + 'static {
         writer: &mut Writer,
         asset: SavedAsset<'_, '_, Self::Asset>,
         settings: &Self::Settings,
+        asset_path: AssetPath<'_>,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>,
     >;
@@ -57,6 +58,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
+        asset_path: AssetPath<'a>,
     ) -> BoxedFuture<'a, Result<(), BevyError>>;
 
     /// The type name of the [`AssetSaver`].
@@ -69,13 +71,14 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
+        asset_path: AssetPath<'a>,
     ) -> BoxedFuture<'a, Result<(), BevyError>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
-            if let Err(err) = self.save(writer, saved_asset, settings).await {
+            if let Err(err) = self.save(writer, saved_asset, settings, asset_path).await {
                 return Err(err.into());
             }
             Ok(())
@@ -536,7 +539,7 @@ pub async fn save_using_saver<S: AssetSaver>(
     let mut file_writer = writer.write(path.path()).await?;
 
     let loader_settings = saver
-        .save(&mut file_writer, asset, settings)
+        .save(&mut file_writer, asset, settings, path.clone())
         .await
         .map_err(|err| SaveAssetError::SaverError(Arc::new(err.into())))?;
 
@@ -577,7 +580,7 @@ pub(crate) mod tests {
     use crate::{
         saver::{save_using_saver, AssetSaver, SavedAsset, SavedAssetBuilder},
         tests::{create_app, run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
-        AssetApp, AssetServer, Assets,
+        AssetApp, AssetPath, AssetServer, Assets,
     };
 
     fn new_subtext(text: &str) -> SubText {
@@ -600,6 +603,7 @@ pub(crate) mod tests {
             writer: &mut crate::io::Writer,
             asset: SavedAsset<'_, '_, Self::Asset>,
             _: &Self::Settings,
+            _: AssetPath<'_>,
         ) -> Result<(), Self::Error> {
             // NOTE: We can't handle embedded dependencies in any way, since we need to write to
             // another file to do so.

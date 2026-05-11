@@ -1,5 +1,6 @@
 use crate::{
     change_detection::{traits::*, ComponentTickCells, MaybeLocation, Tick},
+    component::Mutable,
     ptr::PtrMut,
     resource::Resource,
 };
@@ -12,7 +13,7 @@ use core::{
 
 /// Used by immutable query parameters (such as [`Ref`] and [`Res`])
 /// to store immutable access to the [`Tick`]s of a single component or resource.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) struct ComponentTicksRef<'w> {
     pub(crate) added: &'w Tick,
     pub(crate) changed: &'w Tick,
@@ -470,12 +471,12 @@ impl<'w, T: Resource> Res<'w, T> {
     /// prefer to just convert it to `&T` which can be freely copied.
     #[expect(
         clippy::should_implement_trait,
-        reason = "As this struct derefs to the inner resource, a `Clone` trait implementation would interfere with the common case of cloning the inner content. (A similar case of this happening can be found with `std::cell::Ref::clone()`.)"
+        reason = "As this struct derefs to the inner resource, a `Clone` trait implementation would interfere with the common case of cloning the inner content."
     )]
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks.clone(),
+            ticks: this.ticks,
         }
     }
 
@@ -487,7 +488,7 @@ impl<'w, T: Resource> Res<'w, T> {
     }
 }
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
@@ -531,12 +532,12 @@ impl_debug!(Res<'w, T>, Resource);
 /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
-pub struct ResMut<'w, T: ?Sized + Resource> {
+pub struct ResMut<'w, T: ?Sized + Resource<Mutability = Mutable>> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
+impl<'w, 'a, T: Resource<Mutability = Mutable>> IntoIterator for &'a ResMut<'w, T>
 where
     &'a T: IntoIterator,
 {
@@ -548,7 +549,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
+impl<'w, 'a, T: Resource<Mutability = Mutable>> IntoIterator for &'a mut ResMut<'w, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -561,12 +562,12 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'w, T>, T, Resource);
-change_detection_mut_impl!(ResMut<'w, T>, T, Resource);
-impl_methods!(ResMut<'w, T>, T, Resource);
-impl_debug!(ResMut<'w, T>, Resource);
+change_detection_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+change_detection_mut_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_methods!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_debug!(ResMut<'w, T>, Resource<Mutability = Mutable>);
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
     fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
@@ -721,6 +722,17 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
         self.ticks.last_run = last_run;
         self.ticks.this_run = this_run;
+    }
+}
+
+// `Ref` is `Copy` to facilitate creation of split borrows. Compared to `Res`
+// (which isn't `Copy`), `Ref` is not as widely used so can afford to require
+// `ref.as_ref().clone()` or `ref.deref().clone()` in order to clone the inner `T`.
+impl<'w, T: ?Sized> Copy for Ref<'w, T> {}
+
+impl<'w, T: ?Sized> Clone for Ref<'w, T> {
+    fn clone(&self) -> Self {
+        *self
     }
 }
 

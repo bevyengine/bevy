@@ -5,6 +5,7 @@ use variadics_please::all_tuples;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
+    component::Mutable,
     prelude::QueryBuilder,
     query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
@@ -226,7 +227,8 @@ impl ParamBuilder {
     }
 
     /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
-    pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
+    pub fn resource_mut<'w, T: Resource<Mutability = Mutable>>(
+    ) -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
 
@@ -416,24 +418,6 @@ where
         match &mut self.inner {
             BuilderSystemInner::Initialized { system, .. } => system.queue_deferred(world),
             BuilderSystemInner::Uninitialized { .. } => {}
-            BuilderSystemInner::Invalid => unreachable!(),
-        }
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        match &mut self.inner {
-            // SAFETY: requirements upheld by the caller.
-            BuilderSystemInner::Initialized { system, .. } => unsafe {
-                system.validate_param_unsafe(world)
-            },
-            BuilderSystemInner::Uninitialized { .. } => panic!(
-                "BuilderSystem {} was not initialized before calling validate_param_unsafe.",
-                self.name()
-            ),
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }

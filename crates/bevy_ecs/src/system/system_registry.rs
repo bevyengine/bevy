@@ -341,6 +341,7 @@ impl World {
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     /// Also runs any queued-up commands.
     ///
     /// # Examples
@@ -510,6 +511,7 @@ impl World {
 
     /// Runs a cached system with an input, registering it if necessary.
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
@@ -1013,7 +1015,7 @@ mod tests {
         let result = world.run_system(id);
 
         assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
-        let expected = "Resource does not exist";
+        let expected = "does not exist";
         let actual = result.unwrap_err().to_string();
 
         assert!(

@@ -263,7 +263,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     );
     let NdotV = max(dot(N, V), 0.0001);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
-    let F0_env = pbr_functions::calculate_F0(base_color, metallic, reflectance);
+    let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
 
     // Don't add stochastic noise to hits that sample the prefiltered env map.
     // The prefiltered env map already accounts for roughness.
@@ -279,7 +279,9 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     lighting_input.P = world_position.xyz;
     lighting_input.V = V;
     lighting_input.diffuse_color = diffuse_color;
-    lighting_input.F0_ = F0_env;
+    lighting_input.metallic = metallic;
+    lighting_input.F0_dielectric = F0_dielectric;
+    lighting_input.F0_metallic = base_color;
     lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
