@@ -907,11 +907,12 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::String;
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicBool, Ordering::Relaxed},
     };
-    use std::{alloc::String, panic::catch_unwind};
+    use std::panic::catch_unwind;
 
     use crate::{
         error::{BevyError, ErrorContext, FallbackErrorHandler},
