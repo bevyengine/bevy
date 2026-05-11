@@ -709,6 +709,7 @@ pub mod __macro_exports {
         pub use ::alloc::{
             borrow::{Cow, ToOwned},
             boxed::Box,
+            format,
             string::ToString,
         };
     }
