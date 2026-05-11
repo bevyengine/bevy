@@ -197,6 +197,7 @@ impl SingleThreadedExecutor {
 
             #[cfg(feature = "std")]
             {
+                crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
                 let res =
                     std::panic::catch_unwind(AssertUnwindSafe(|| system.apply_deferred(world)));
                 handle_unwind(
