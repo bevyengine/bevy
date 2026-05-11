@@ -892,8 +892,10 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use alloc::string::String;
     use core::{
+        any::Any,
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicBool, Ordering::Relaxed},
     };
@@ -972,6 +974,16 @@ mod tests {
         assert!(HANDLER_CALLED.load(Relaxed));
 
         const PANIC_PAYLOAD: &str = "UwU";
+        fn assert_panic_payload(result: Result<(), Box<dyn Any + Send>>) {
+            let payload = result.unwrap_err();
+            assert_eq!(
+                payload
+                    .downcast_ref::<String>()
+                    .map(String::as_str)
+                    .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+                PANIC_PAYLOAD
+            );
+        }
         fn panic(_: BevyError, ctx: ErrorContext) {
             assert!(matches!(ctx, ErrorContext::System { .. }));
             panic!("{}", PANIC_PAYLOAD);
@@ -980,16 +992,10 @@ mod tests {
 
         // System error, handler panic
         let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
-        assert_eq!(
-            *result.unwrap_err().downcast_ref::<String>().unwrap(),
-            PANIC_PAYLOAD
-        );
+        assert_panic_payload(result);
 
         // System panic, handler panic
         let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
-        assert_eq!(
-            *result.unwrap_err().downcast_ref::<String>().unwrap(),
-            PANIC_PAYLOAD
-        );
+        assert_panic_payload(result);
     }
 }
