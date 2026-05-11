@@ -313,6 +313,7 @@ mod __rust_begin_short_backtrace {
     }
 
     #[inline(never)]
+    #[cfg(feature = "std")]
     pub(super) fn error_handler(
         error_handler: crate::error::ErrorHandler,
         err: crate::error::BevyError,
