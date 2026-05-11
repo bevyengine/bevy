@@ -907,7 +907,14 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
+    use core::{
+        panic::AssertUnwindSafe,
+        sync::atomic::{AtomicBool, Ordering::Relaxed},
+    };
+    use std::{panic::catch_unwind, string::String};
+
     use crate::{
+        error::{BevyError, ErrorContext, FallbackErrorHandler},
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::Commands,
@@ -946,5 +953,57 @@ mod tests {
         schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn panic_to_error() {
+        let mut world = World::new();
+
+        let mut schedule_error = Schedule::default();
+        schedule_error.set_executor(MultiThreadedExecutor::new());
+        schedule_error.add_systems(|| Err(BevyError::ignore("")));
+
+        let mut schedule_panic = Schedule::default();
+        schedule_panic.set_executor(MultiThreadedExecutor::new());
+        schedule_panic.add_systems(|| {
+            panic!();
+        });
+
+        static HANDLER_CALLED: AtomicBool = AtomicBool::new(false);
+        fn handle(_: BevyError, ctx: ErrorContext) {
+            assert!(matches!(ctx, ErrorContext::System { .. }));
+            HANDLER_CALLED.store(true, Relaxed);
+        }
+        world.insert_resource(FallbackErrorHandler(handle));
+
+        // System error
+        schedule_error.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+
+        // System panic
+        HANDLER_CALLED.store(false, Relaxed);
+        schedule_panic.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+
+        const PANIC_PAYLOAD: &str = "UwU";
+        fn panic(_: BevyError, ctx: ErrorContext) {
+            assert!(matches!(ctx, ErrorContext::System { .. }));
+            panic!("{}", PANIC_PAYLOAD);
+        }
+        world.insert_resource(FallbackErrorHandler(panic));
+
+        // System error, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
+        assert_eq!(
+            *result.unwrap_err().downcast_ref::<String>().unwrap(),
+            PANIC_PAYLOAD
+        );
+
+        // System panic, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
+        assert_eq!(
+            *result.unwrap_err().downcast_ref::<String>().unwrap(),
+            PANIC_PAYLOAD
+        );
     }
 }
