@@ -242,7 +242,7 @@ impl RenderMorphTargetAllocator {
         match *self {
             RenderMorphTargetAllocator::Image {
                 ref morph_target_images,
-            } => return morph_target_images.get(handle),
+            } => morph_target_images.get(handle),
             RenderMorphTargetAllocator::Storage => panic!(
                 "Attempted to get a morph target image with allocation {:?} when using storage allocator {:?}",
                 handle,
