@@ -93,8 +93,7 @@ impl Next for Scene {
             Scene::SpriteSlicing => Scene::Gizmos,
             Scene::Gizmos => Scene::TextureAtlasBuilder,
             Scene::TextureAtlasBuilder => Scene::DynamicTextureAtlasBuilder,
-            Scene::DynamicTextureAtlasBuilder => Scene::Shapes,
-            Scene::TextureAtlasBuilder => Scene::ColorConsistency,
+            Scene::DynamicTextureAtlasBuilder => Scene::ColorConsistency,
             Scene::ColorConsistency => Scene::Shapes,
         }
     }
