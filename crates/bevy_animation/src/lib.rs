@@ -2261,6 +2261,19 @@ mod tests {
             animator_entity,
             animated_entity,
         );
+
+        // Test if RootMotion is removed when root motion is disabled
+        app.world_mut()
+            .entity_mut(animator_entity)
+            .get_mut::<AnimationPlayer>()
+            .unwrap()
+            .root_motion_target = None;
+        app.update();
+        assert!(app
+            .world_mut()
+            .entity_mut(animator_entity)
+            .get::<RootMotion>()
+            .is_none());
     }
 
     #[test]
