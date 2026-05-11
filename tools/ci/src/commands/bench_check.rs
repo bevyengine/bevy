@@ -14,7 +14,7 @@ impl Prepare for BenchCheckCommand {
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo check --benches {jobs...} --target-dir ../target --manifest-path ./benches/Cargo.toml"
+                "cargo check --benches {jobs...} --target-dir ./target --manifest-path ./benches/Cargo.toml"
             ),
             "Failed to check the benches.",
         )]
