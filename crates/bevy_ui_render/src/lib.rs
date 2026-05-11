@@ -1690,9 +1690,8 @@ pub fn prepare_uinodes(
                         let transform = extracted_uinode.transform;
 
                         // Specify the corners of the node
-                        let positions = QUAD_VERTEX_POSITIONS
-                            .map(|pos| transform.transform_point2(pos * rect_size));
                         let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+                        let positions = points.map(|pos| transform.transform_point2(pos));
 
                         let uvs = if flags == shader_flags::UNTEXTURED {
                             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]

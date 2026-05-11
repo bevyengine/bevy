@@ -729,9 +729,9 @@ pub fn prepare_gradient(
                     let rect_size = uinode_rect.size();
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| gradient.transform.transform_point2(pos * rect_size));
                     let corner_points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+                    let positions =
+                        corner_points.map(|pos| gradient.transform.transform_point2(pos));
 
                     let uvs = { [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y] };
 
