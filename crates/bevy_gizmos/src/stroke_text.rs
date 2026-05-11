@@ -6,6 +6,7 @@ use bevy_color::Color;
 use bevy_math::{vec2, Isometry2d, Isometry3d, Vec2};
 use core::ops::Range;
 
+const UNSUPPORTED_BOX: [[i8; 2]; 5] = [[2, 16], [12, 16], [12, 2], [2, 2], [2, 16]];
 /// A stroke font containing glyphs for the 95 printable ASCII codes.
 pub struct StrokeFont<'a> {
     /// Baseline-to-baseline line height ratio.
@@ -33,6 +34,7 @@ pub struct StrokeFont<'a> {
 enum GlyphSource {
     Standard(i8, Range<usize>),
     Extended(i8, Range<usize>, Range<usize>),
+    Unsupported(i8, ()),
 }
 
 impl<'a> StrokeFont<'a> {
@@ -86,7 +88,7 @@ impl<'a> StrokeFont<'a> {
                 self.extended[i].3.clone(),
             )
         } else {
-            GlyphSource::Standard(self.advance, 0..0)
+            GlyphSource::Unsupported(self.advance, 0..0)
         }
     }
 
@@ -126,7 +128,9 @@ impl<'a> StrokeTextLayout<'a> {
                 continue;
             }
             let advance = match self.font.resolve_glyph(c) {
-                GlyphSource::Standard(advance, _) | GlyphSource::Extended(advance, _, _) => advance,
+                GlyphSource::Standard(advance, _)
+                | GlyphSource::Extended(advance, _, _)
+                | GlyphSource::Unsupported(advance, _) => advance,
             };
             line_width += advance as f32 * self.scale;
         }
@@ -147,13 +151,28 @@ impl<'a> StrokeTextLayout<'a> {
         let mut current_extended_strokes: Range<usize> = 0..0;
         let mut current_x = 0.0_f32;
         let mut current_color = Color::WHITE;
+        let mut current_unsupported = false;
 
         core::iter::from_fn(move || loop {
+            if current_unsupported {
+                current_unsupported = false;
+                let (color, cx) = (current_color, current_x);
+                let inner: Box<dyn Iterator<Item = Vec2> + 'a> =
+                    Box::new(UNSUPPORTED_BOX.iter().map(move |[p, q]| {
+                        Vec2::new(
+                            cx + self.scale * *p as f32,
+                            y - self.scale * (self.font.cap_height - *q as f32),
+                        )
+                    }));
+                return Some((color, inner));
+            }
             for stroke_idx in current_main_strokes.by_ref() {
                 let stroke = self.font.strokes[stroke_idx].clone();
                 if stroke.len() < 2 {
                     continue;
                 }
+                // If this stroke is a closed loop, append one extra point to add a join at the
+                // seam.
                 let join = (self.font.positions[stroke.start]
                     == self.font.positions[stroke.end - 1])
                     .then_some(stroke.start + 1);
@@ -205,6 +224,12 @@ impl<'a> StrokeTextLayout<'a> {
                 GlyphSource::Extended(advance, main_stroke_range, extended_stroke_range) => {
                     current_main_strokes = main_stroke_range;
                     current_extended_strokes = extended_stroke_range;
+                    x += advance as f32 * self.scale;
+                }
+                GlyphSource::Unsupported(advance, _) => {
+                    current_main_strokes = 0..0;
+                    current_extended_strokes = 0..0;
+                    current_unsupported = true;
                     x += advance as f32 * self.scale;
                 }
             }
