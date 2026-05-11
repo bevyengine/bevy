@@ -124,7 +124,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             if is_apply_deferred(&**system) {
-                self.apply_deferred(schedule, world);
+                self.apply_deferred(schedule, world, error_handler);
                 continue;
             }
 
@@ -145,12 +145,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             #[cfg(feature = "std")]
             {
                 let res = std::panic::catch_unwind(f);
-                handle_unwind(
-                    res,
-                    world.fallback_error_handler(),
-                    &**system,
-                    "System panicked",
-                );
+                handle_unwind(res, error_handler, &**system, "System panicked");
             }
 
             #[cfg(not(feature = "std"))]
@@ -162,7 +157,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
 
         if self.apply_final_deferred {
-            self.apply_deferred(schedule, world);
+            self.apply_deferred(schedule, world, error_handler);
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
@@ -186,7 +181,12 @@ impl SingleThreadedExecutor {
         }
     }
 
-    fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn apply_deferred(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        error_handler: ErrorHandler,
+    ) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index].system;
             #[cfg(not(feature = "std"))]
@@ -198,7 +198,7 @@ impl SingleThreadedExecutor {
                     std::panic::catch_unwind(AssertUnwindSafe(|| system.apply_deferred(world)));
                 handle_unwind(
                     res,
-                    world.fallback_error_handler(),
+                    error_handler,
                     &**system,
                     "Encountered a panic while applying system buffers",
                 );
@@ -253,8 +253,7 @@ fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// Handle a potential panic or failed system by invoking the fallback error handler
-/// and/or returning a panic payload with which to resume unwinding.
+/// Handle a potential panic by invoking the error handler
 #[cfg(feature = "std")]
 fn handle_unwind(
     potential_unwind: Result<(), alloc::boxed::Box<dyn core::any::Any + Send>>,

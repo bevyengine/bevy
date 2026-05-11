@@ -300,7 +300,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_deferred(&state.unapplied_systems, systems, world);
+            let res = apply_deferred(&state.unapplied_systems, systems, world, error_handler);
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
@@ -699,7 +699,12 @@ impl ExecutorState {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
-                let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
+                let res = apply_deferred(
+                    &unapplied_systems,
+                    context.environment.systems,
+                    world,
+                    context.error_handler,
+                );
                 context.system_completed(system_index, res, system);
             };
 
@@ -769,6 +774,7 @@ fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
+    error_handler: ErrorHandler,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
@@ -778,7 +784,7 @@ fn apply_deferred(
         }));
         handle_errors(
             res.map(|()| Ok(())),
-            world.fallback_error_handler(),
+            error_handler,
             &**system,
             "Encountered a panic while applying system buffers",
         )?;
@@ -825,7 +831,7 @@ unsafe fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// Handle a potential panic or failed system by invoking the fallback error handler
+/// Handle a potential panic or failed system by invoking the error handler
 /// and/or returning a panic payload with which to resume unwinding.
 fn handle_errors(
     potential_unwind: Result<Result<(), RunSystemError>, Box<dyn Any + Send>>,
@@ -836,7 +842,7 @@ fn handle_errors(
     match potential_unwind {
         // A panic occurred, but it came from an error handler, so pass it on to be rethrown
         Err(payload) if PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) => Err(payload),
-        // Let the fallback error handler handle the panic, passing on any panic it throws
+        // Let the error handler handle the panic, passing on any panic it throws
         Err(_) => std::panic::catch_unwind(AssertUnwindSafe(|| {
             __rust_begin_short_backtrace::error_handler(
                 error_handler,
@@ -851,7 +857,7 @@ fn handle_errors(
                 },
             );
         })),
-        // System returned an error, let the fallback error handler handle it, passing on any panic it throws
+        // System returned an error, let the error handler handle it, passing on any panic it throws
         Ok(Err(RunSystemError::Failed(err))) => std::panic::catch_unwind(AssertUnwindSafe(|| {
             __rust_begin_short_backtrace::error_handler(
                 error_handler,
