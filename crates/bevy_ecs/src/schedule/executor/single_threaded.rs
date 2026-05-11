@@ -9,7 +9,7 @@ use tracing::info_span;
 use crate::{
     error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
-    system::{RunSystemError, ScheduleSystem},
+    system::{RunSystemError, ScheduleSystem, System},
     world::World,
 };
 
@@ -144,25 +144,13 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             #[cfg(feature = "std")]
             {
-                if let Err(payload) = std::panic::catch_unwind(f) {
-                    if crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
-                        std::panic::resume_unwind(payload);
-                    }
-
-                    let err = crate::error::BevyError::new_with_backtrace(
-                        crate::error::Severity::Panic,
-                        "System panicked",
-                        std::backtrace::Backtrace::disabled(),
-                    );
-                    __rust_begin_short_backtrace::error_handler(
-                        error_handler,
-                        err,
-                        ErrorContext::System {
-                            name: system.name(),
-                            last_run: system.get_last_run(),
-                        },
-                    );
-                }
+                let res = std::panic::catch_unwind(f);
+                handle_unwind(
+                    res,
+                    world.fallback_error_handler(),
+                    &**system,
+                    "System panicked",
+                );
             }
 
             #[cfg(not(feature = "std"))]
@@ -208,26 +196,12 @@ impl SingleThreadedExecutor {
             {
                 let res =
                     std::panic::catch_unwind(AssertUnwindSafe(|| system.apply_deferred(world)));
-
-                if let Err(payload) = res {
-                    if crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
-                        std::panic::resume_unwind(payload);
-                    }
-
-                    let err = crate::error::BevyError::new_with_backtrace(
-                        crate::error::Severity::Panic,
-                        "System panicked",
-                        std::backtrace::Backtrace::disabled(),
-                    );
-                    __rust_begin_short_backtrace::error_handler(
-                        world.fallback_error_handler(),
-                        err,
-                        ErrorContext::System {
-                            name: system.name(),
-                            last_run: system.get_last_run(),
-                        },
-                    );
-                }
+                handle_unwind(
+                    res,
+                    world.fallback_error_handler(),
+                    &**system,
+                    "Encountered a panic while applying system buffers",
+                );
             }
         }
 
@@ -277,4 +251,34 @@ fn evaluate_and_fold_conditions(
             )
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// Handle a potential panic or failed system by invoking the fallback error handler
+/// and/or returning a panic payload with which to resume unwinding.
+#[cfg(feature = "std")]
+fn handle_unwind(
+    potential_unwind: Result<(), alloc::boxed::Box<dyn core::any::Any + Send>>,
+    error_handler: ErrorHandler,
+    in_system: &dyn System<In = (), Out = ()>,
+    error_message: &str,
+) {
+    if let Err(payload) = potential_unwind {
+        if crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
+            std::panic::resume_unwind(payload);
+        }
+
+        let err = crate::error::BevyError::new_with_backtrace(
+            crate::error::Severity::Panic,
+            error_message,
+            std::backtrace::Backtrace::disabled(),
+        );
+        __rust_begin_short_backtrace::error_handler(
+            error_handler,
+            err,
+            ErrorContext::System {
+                name: in_system.name(),
+                last_run: in_system.get_last_run(),
+            },
+        );
+    }
 }

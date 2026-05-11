@@ -24,7 +24,7 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
-    system::{RunSystemError, ScheduleSystem},
+    system::{RunSystemError, ScheduleSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 #[cfg(feature = "hotpatching")]
@@ -671,39 +671,7 @@ impl ExecutorState {
                     __rust_begin_short_backtrace::run_unsafe(system, context.environment.world_cell)
                 }
             }));
-            // If the system returned an unhandled error or panicked,
-            // invoke the fallback error handler. If the error handler decides to panic,
-            // we need to catch this panic and rethrow it on the main thread for proper teardown.
-            let (err, mut res) = match res {
-                // The error has already been handled (by deliberately panicking), so propagate that
-                Err(payload) if PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) => {
-                    (None, Err(payload))
-                }
-                // We can ignore the panic payload here, as it will have already been printed.
-                Err(_) => {
-                    let err = BevyError::new_with_backtrace(
-                        Severity::Panic,
-                        "System panicked",
-                        Backtrace::disabled(),
-                    );
-                    (Some(err), Ok(()))
-                }
-                Ok(Err(RunSystemError::Failed(err))) => (Some(err), Ok(())),
-                _ => (None, Ok(())),
-            };
-            if let Some(err) = err {
-                // An error occurred, handle it and propagate the panic if needed
-                res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    __rust_begin_short_backtrace::error_handler(
-                        context.error_handler,
-                        err,
-                        ErrorContext::System {
-                            name: system.name(),
-                            last_run: system.get_last_run(),
-                        },
-                    );
-                }));
-            }
+            let res = handle_errors(res, context.error_handler, &**system, "System panicked");
             context.system_completed(system_index, res, system);
         };
 
@@ -744,30 +712,12 @@ impl ExecutorState {
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     __rust_begin_short_backtrace::run(system, world)
                 }));
-                let (err, mut res) = match res {
-                    Err(_) => {
-                        let err = BevyError::new_with_backtrace(
-                            Severity::Panic,
-                            "System panicked",
-                            Backtrace::disabled(),
-                        );
-                        (Some(err), Ok(()))
-                    }
-                    Ok(Err(RunSystemError::Failed(err))) => (Some(err), Ok(())),
-                    _ => (None, Ok(())),
-                };
-                if let Some(err) = err {
-                    res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                        __rust_begin_short_backtrace::error_handler(
-                            context.error_handler,
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }));
-                }
+                let res = handle_errors(
+                    res,
+                    context.error_handler,
+                    &**system,
+                    "Exclusive system panicked",
+                );
                 context.system_completed(system_index, res, system);
             };
 
@@ -826,25 +776,12 @@ fn apply_deferred(
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             system.apply_deferred(world);
         }));
-        if res.is_err() {
-            if PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
-                return res;
-            }
-            let err = BevyError::new_with_backtrace(
-                Severity::Panic,
-                "Encountered a panic while applying system buffers",
-                Backtrace::disabled(),
-            );
-            std::panic::catch_unwind(AssertUnwindSafe(|| {
-                world.fallback_error_handler()(
-                    err,
-                    ErrorContext::System {
-                        name: system.name(),
-                        last_run: system.get_last_run(),
-                    },
-                );
-            }))?;
-        }
+        handle_errors(
+            res.map(|()| Ok(())),
+            world.fallback_error_handler(),
+            &**system,
+            "Encountered a panic while applying system buffers",
+        )?;
     }
     Ok(())
 }
@@ -886,6 +823,48 @@ unsafe fn evaluate_and_fold_conditions(
                 })
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// Handle a potential panic or failed system by invoking the fallback error handler
+/// and/or returning a panic payload with which to resume unwinding.
+fn handle_errors(
+    potential_unwind: Result<Result<(), RunSystemError>, Box<dyn Any + Send>>,
+    error_handler: ErrorHandler,
+    in_system: &dyn System<In = (), Out = ()>,
+    error_message: &str,
+) -> Result<(), Box<dyn Any + Send>> {
+    match potential_unwind {
+        // A panic occurred, but it came from an error handler, so pass it on to be rethrown
+        Err(payload) if PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) => Err(payload),
+        // Let the fallback error handler handle the panic, passing on any panic it throws
+        Err(_) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+            __rust_begin_short_backtrace::error_handler(
+                error_handler,
+                BevyError::new_with_backtrace(
+                    Severity::Panic,
+                    error_message,
+                    Backtrace::disabled(),
+                ),
+                ErrorContext::System {
+                    name: in_system.name(),
+                    last_run: in_system.get_last_run(),
+                },
+            );
+        })),
+        // System returned an error, let the fallback error handler handle it, passing on any panic it throws
+        Ok(Err(RunSystemError::Failed(err))) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+            __rust_begin_short_backtrace::error_handler(
+                error_handler,
+                err,
+                ErrorContext::System {
+                    name: in_system.name(),
+                    last_run: in_system.get_last_run(),
+                },
+            );
+        })),
+        // Success
+        _ => Ok(()),
+    }
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
