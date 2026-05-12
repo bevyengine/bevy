@@ -286,20 +286,20 @@ fn on_pointer_drag(
         return;
     }
 
-    let Some(local_pos) = transform.try_inverse().map(|inverse| {
+    let Some(pointer_pos) = transform.try_inverse().map(|inverse| {
         inverse
             .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
-            - node.content_box().min
-            + text_scroll.0
     }) else {
         return;
     };
 
-    needs_scroll.0 = needs_scroll.0 || node.content_box().contains(local_pos);
-
+    needs_scroll.0 = needs_scroll.0 || !node.content_box().contains(pointer_pos);
+    println!("drag needs scroll = {}", needs_scroll.0);
     editable_text
         .pending_edits
-        .push(TextEdit::ExtendSelectionToPoint(local_pos));
+        .push(TextEdit::ExtendSelectionToPoint(
+            pointer_pos - node.content_box().min + text_scroll.0,
+        ));
 
     drag.propagate(false);
 }

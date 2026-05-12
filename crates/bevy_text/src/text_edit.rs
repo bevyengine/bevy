@@ -325,37 +325,37 @@ impl TextEdit {
     /// True if the text editor view should scroll after the given edit.
     pub fn needs_scroll(&self) -> bool {
         match self {
-            TextEdit::Copy => false,
-            TextEdit::Cut => true,
-            TextEdit::Paste => true,
-            TextEdit::Insert(_) => true,
-            TextEdit::Backspace => true,
-            TextEdit::BackspaceWord => true,
-            TextEdit::Delete => true,
-            TextEdit::DeleteWord => true,
-            TextEdit::Left(_) => true,
-            TextEdit::Right(_) => true,
-            TextEdit::WordLeft(_) => true,
-            TextEdit::WordRight(_) => true,
-            TextEdit::Up(_) => true,
-            TextEdit::Down(_) => true,
-            TextEdit::TextStart(_) => true,
-            TextEdit::TextEnd(_) => true,
-            TextEdit::HardLineStart(_) => true,
-            TextEdit::HardLineEnd(_) => true,
-            TextEdit::LineStart(_) => true,
-            TextEdit::LineEnd(_) => true,
-            TextEdit::CollapseSelection => true,
-            TextEdit::SelectAll => false,
-            TextEdit::SelectAllIfCollapsed => false,
-            TextEdit::MoveToPoint(_) => true,
-            TextEdit::SelectWordAtPoint(_) => false,
-            TextEdit::SelectLineAtPoint(_) => false,
-            TextEdit::SelectedHardLineAtPoint(_) => false,
-            TextEdit::ExtendSelectionToPoint(_) => false,
-            TextEdit::ShiftClickExtension(_) => false,
-            TextEdit::ImeSetCompose { .. } => true,
-            TextEdit::ImeCommit { .. } => true,
+            TextEdit::Copy
+            | TextEdit::SelectAllIfCollapsed
+            | TextEdit::SelectAll
+            | TextEdit::SelectWordAtPoint(_)
+            | TextEdit::SelectLineAtPoint(_)
+            | TextEdit::SelectedHardLineAtPoint(_)
+            | TextEdit::ExtendSelectionToPoint(_)
+            | TextEdit::ShiftClickExtension(_) => false,
+            TextEdit::Cut
+            | TextEdit::Paste
+            | TextEdit::Insert(_)
+            | TextEdit::Backspace
+            | TextEdit::BackspaceWord
+            | TextEdit::Delete
+            | TextEdit::DeleteWord
+            | TextEdit::Left(_)
+            | TextEdit::Right(_)
+            | TextEdit::WordLeft(_)
+            | TextEdit::WordRight(_)
+            | TextEdit::Up(_)
+            | TextEdit::Down(_)
+            | TextEdit::TextStart(_)
+            | TextEdit::TextEnd(_)
+            | TextEdit::HardLineStart(_)
+            | TextEdit::HardLineEnd(_)
+            | TextEdit::LineStart(_)
+            | TextEdit::LineEnd(_)
+            | TextEdit::CollapseSelection
+            | TextEdit::MoveToPoint(_)
+            | TextEdit::ImeSetCompose { .. }
+            | TextEdit::ImeCommit { .. } => true,
         }
     }
 }
