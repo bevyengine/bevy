@@ -50,16 +50,18 @@ use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        BindingResource, Buffer, BufferBinding, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, DynamicBindGroupLayoutEntries,
-        PartialBufferVec, PipelineCache, RawBufferVec, ShaderStages, ShaderType,
-        SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
-        SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
-        UninitBufferVec,
+        BindingResource, Buffer, BufferBinding, CachedComputePipelineId, ComputePassDescriptor,
+        ComputePipelineDescriptor, DynamicBindGroupLayoutEntries, PartialBufferVec, PipelineCache,
+        RawBufferVec, ShaderStages, ShaderType, SparseBufferUpdateBindGroups,
+        SparseBufferUpdateJobs, SparseBufferUpdatePipelines, SpecializedComputePipeline,
+        SpecializedComputePipelines, TextureSampleType, UninitBufferVec,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
-    view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{
+        ExtractedView, NoIndirectDrawing, RetainedViewEntity, ViewUniform, ViewUniformOffset,
+        ViewUniforms,
+    },
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
