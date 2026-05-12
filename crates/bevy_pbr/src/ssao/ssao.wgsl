@@ -150,7 +150,8 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let view_vec = normalize(-pixel_position);
 
     let noise = load_noise(pixel_coordinates);
-    let sample_scale = (-0.5 * settings.radius * view.clip_from_view[0][0]) / pixel_position.z;
+    let safe_radius = max(settings.radius, 0.0001);
+    let sample_scale = (-0.5 * safe_radius * view.clip_from_view[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
     var occluded_sample_count = 0u;

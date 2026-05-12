@@ -118,6 +118,9 @@ pub struct ScreenSpaceAmbientOcclusion {
     /// Maximum sample distance, in view-space units.
     ///
     /// Use larger values for broader occlusion. This can increase haloing and noise.
+    /// This value must be greater than `0.0`.
+    ///
+    /// To disable SSAO, remove [`ScreenSpaceAmbientOcclusion`] from the camera instead.
     pub radius: f32,
     /// A constant estimated thickness of objects.
     ///
