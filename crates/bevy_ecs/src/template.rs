@@ -12,7 +12,7 @@ use crate::{
     error::{BevyError, Result},
     lifecycle::HookContext,
     resource::Resource,
-    system::{BoxedSystem, IntoSystem, SystemId},
+    system::{BoxedSystem, IntoSystem, SystemId, SystemInput},
     world::{DeferredWorld, EntityWorldMut, Mut, World},
 };
 use alloc::{vec, vec::Vec};
@@ -495,16 +495,19 @@ impl FromTemplate for Entity {
 ///
 /// Therefore the system has same restriction as [`World::register_system_cached`].
 /// You should generally use the [`system_value`] helper function to create this, which enforces that the system is a zero-sized type.
-pub struct SystemIdTemplate(Arc<Mutex<Option<SystemOrId>>>);
+pub struct SystemIdTemplate<I: SystemInput = ()>(Arc<Mutex<Option<SystemOrId<I>>>>);
 
-enum SystemOrId {
-    BoxedSystem(BoxedSystem<(), ()>),
-    SystemId(SystemId<(), ()>),
+enum SystemOrId<I: SystemInput = ()> {
+    BoxedSystem(BoxedSystem<I, ()>),
+    SystemId(SystemId<I, ()>),
 }
 
-impl Default for SystemIdTemplate {
+impl<I> Default for SystemIdTemplate<I>
+where
+    I: SystemInput,
+{
     fn default() -> Self {
-        system_value(|| {})
+        Self(Arc::new(Mutex::new(None)))
     }
 }
 
@@ -577,8 +580,8 @@ struct LinkLifetimeWith(Entity);
 #[relationship_target(relationship = LinkLifetimeWith, linked_spawn)]
 struct LinkedWith(Vec<Entity>);
 
-impl Template for SystemIdTemplate {
-    type Output = SystemId<(), ()>;
+impl<I: SystemInput + 'static> Template for SystemIdTemplate<I> {
+    type Output = SystemId<I, ()>;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
         // ensure the registry exists.
@@ -587,7 +590,11 @@ impl Template for SystemIdTemplate {
         });
 
         let mut template_state = self.0.lock().unwrap();
-        let template_value = template_state.take().unwrap();
+        let Some(template_value) = template_state.take() else {
+            return Err(BevyError::error(
+                "Failed to build SystemIdTemplate: no system specified",
+            ));
+        };
 
         let system_id = match template_value {
             SystemOrId::BoxedSystem(system) => _context.entity.world_scope(|world| {
@@ -641,13 +648,15 @@ impl Template for SystemIdTemplate {
     }
 }
 
-impl FromTemplate for SystemId<(), ()> {
-    type Template = SystemIdTemplate;
+impl<I: SystemInput + 'static> FromTemplate for SystemId<I, ()> {
+    type Template = SystemIdTemplate<I>;
 }
 
 /// A helper function to create a [`SystemIdTemplate`] from a given system. This has the same restriction with [`World::register_system_cached`],
 /// as the system of same type will be registered only once.
-pub fn system_value<M, S: IntoSystem<(), (), M>>(system: S) -> SystemIdTemplate {
+pub fn system_value<I: SystemInput + 'static, M, S: IntoSystem<I, (), M>>(
+    system: S,
+) -> SystemIdTemplate<I> {
     const {
         assert!(
             size_of::<S>() == 0,
