@@ -8,7 +8,8 @@
 #import bevy_pbr::light_probes::transpose_affine_matrix
 #import bevy_pbr::mesh_view_types::{
     ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
-    LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
+    LightProbes, Lights, LIGHT_FALLOFF_EXPONENTIAL, LIGHT_FALLOFF_INVERSE_SQUARE,
+    LIGHT_FALLOFF_LINEAR, POINT_LIGHT_FLAGS_FALLOFF_SHIFT, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
 }
 #import bevy_render::view::View
 
@@ -53,8 +54,12 @@ struct ClusterOffsetsAndCountsAtomic {
 // fields so that we can write to it.
 struct ClusterOffsetsAndCountsElementAtomic {
     offset: atomic<u32>,
-    point_lights: atomic<u32>,
-    spot_lights: atomic<u32>,
+    point_lights_inverse_square: atomic<u32>,
+    point_lights_linear: atomic<u32>,
+    point_lights_exponential: atomic<u32>,
+    spot_lights_inverse_square: atomic<u32>,
+    spot_lights_linear: atomic<u32>,
+    spot_lights_exponential: atomic<u32>,
     reflection_probes: atomic<u32>,
     irradiance_volumes: atomic<u32>,
     decals: atomic<u32>,
@@ -221,12 +226,12 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // object index. Otherwise, if this is the count pass, just bump the
     // appropriate counter.
 #ifdef POPULATE_PASS
-    let output_index = allocate_list_entry(cluster_index, object_type);
+    let output_index = allocate_list_entry(cluster_index, object_index, object_type);
     if (output_index < arrayLength(&index_lists.data)) {
         index_lists.data[output_index] = object_index;
     }
 #else   // POPULATE_PASS
-    increment_object_count(cluster_index, object_type);
+    increment_object_count(cluster_index, object_index, object_type);
 #endif  // POPULATE_PASS
 
     return vec4<f32>(0.0);
@@ -435,24 +440,72 @@ fn sin_atan(tan_theta: f32) -> f32 {
 }
 
 #ifndef VERTEX_SHADER
+fn light_falloff_mode(object_index: u32) -> u32 {
+    return (clustered_lights.data[object_index].flags >> POINT_LIGHT_FLAGS_FALLOFF_SHIFT) & 0x3u;
+}
+
 #ifdef POPULATE_PASS
 // Allocates space in the appropriate list and returns the global index that the
 // object index should be written to.
-fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
+fn allocate_list_entry(cluster_index: u32, object_index: u32, object_type: u32) -> u32 {
     switch (object_type) {
         case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
+            let falloff = light_falloff_mode(object_index);
+            if (falloff == LIGHT_FALLOFF_LINEAR) {
+                return offsets_and_counts.data[cluster_index][0u].x +
+                    offsets_and_counts.data[cluster_index][0u].y +
+                    atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].point_lights_linear, 1u);
+            }
+            if (falloff == LIGHT_FALLOFF_EXPONENTIAL) {
+                return offsets_and_counts.data[cluster_index][0u].x +
+                    offsets_and_counts.data[cluster_index][0u].y +
+                    offsets_and_counts.data[cluster_index][0u].z +
+                    atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].point_lights_exponential, 1u);
+            }
             return offsets_and_counts.data[cluster_index][0u].x +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].point_lights, 1u);
+                atomicAdd(
+                    &scratchpad_offsets_and_counts.data[cluster_index].point_lights_inverse_square,
+                    1u
+                );
         }
         case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
+            let falloff = light_falloff_mode(object_index);
+            if (falloff == LIGHT_FALLOFF_LINEAR) {
+                return offsets_and_counts.data[cluster_index][0u].x +
+                    offsets_and_counts.data[cluster_index][0u].y +
+                    offsets_and_counts.data[cluster_index][0u].z +
+                    offsets_and_counts.data[cluster_index][0u].w +
+                    offsets_and_counts.data[cluster_index][1u].x +
+                    atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].spot_lights_linear, 1u);
+            }
+            if (falloff == LIGHT_FALLOFF_EXPONENTIAL) {
+                return offsets_and_counts.data[cluster_index][0u].x +
+                    offsets_and_counts.data[cluster_index][0u].y +
+                    offsets_and_counts.data[cluster_index][0u].z +
+                    offsets_and_counts.data[cluster_index][0u].w +
+                    offsets_and_counts.data[cluster_index][1u].x +
+                    offsets_and_counts.data[cluster_index][1u].y +
+                    atomicAdd(
+                        &scratchpad_offsets_and_counts.data[cluster_index].spot_lights_exponential,
+                        1u
+                    );
+            }
             return offsets_and_counts.data[cluster_index][0u].x +
                 offsets_and_counts.data[cluster_index][0u].y +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].spot_lights, 1u);
+                offsets_and_counts.data[cluster_index][0u].z +
+                offsets_and_counts.data[cluster_index][0u].w +
+                atomicAdd(
+                    &scratchpad_offsets_and_counts.data[cluster_index].spot_lights_inverse_square,
+                    1u
+                );
         }
         case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
             return offsets_and_counts.data[cluster_index][0u].x +
                 offsets_and_counts.data[cluster_index][0u].y +
                 offsets_and_counts.data[cluster_index][0u].z +
+                offsets_and_counts.data[cluster_index][0u].w +
+                offsets_and_counts.data[cluster_index][1u].x +
+                offsets_and_counts.data[cluster_index][1u].y +
                 atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].reflection_probes, 1u);
         }
         case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: {
@@ -460,6 +513,9 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
                 offsets_and_counts.data[cluster_index][0u].y +
                 offsets_and_counts.data[cluster_index][0u].z +
                 offsets_and_counts.data[cluster_index][0u].w +
+                offsets_and_counts.data[cluster_index][1u].x +
+                offsets_and_counts.data[cluster_index][1u].y +
+                offsets_and_counts.data[cluster_index][1u].z +
                 atomicAdd(
                     &scratchpad_offsets_and_counts.data[cluster_index].irradiance_volumes,
                     1u
@@ -471,6 +527,8 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
                 offsets_and_counts.data[cluster_index][0u].z +
                 offsets_and_counts.data[cluster_index][0u].w +
                 offsets_and_counts.data[cluster_index][1u].x +
+                offsets_and_counts.data[cluster_index][1u].y +
+                offsets_and_counts.data[cluster_index][1u].z +
                 atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].decals, 1u);
         }
         default: {}
@@ -479,13 +537,45 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
 }
 #else   // POPULATE_PASS
 // Increments the count of objects of the given type for the given cluster.
-fn increment_object_count(cluster_index: u32, object_type: u32) {
+fn increment_object_count(cluster_index: u32, object_index: u32, object_type: u32) {
     switch (object_type) {
         case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
-            atomicAdd(&offsets_and_counts.data[cluster_index].point_lights, 1u);
+            switch light_falloff_mode(object_index) {
+                case LIGHT_FALLOFF_LINEAR: {
+                    atomicAdd(&offsets_and_counts.data[cluster_index].point_lights_linear, 1u);
+                }
+                case LIGHT_FALLOFF_EXPONENTIAL: {
+                    atomicAdd(
+                        &offsets_and_counts.data[cluster_index].point_lights_exponential,
+                        1u
+                    );
+                }
+                default: {
+                    atomicAdd(
+                        &offsets_and_counts.data[cluster_index].point_lights_inverse_square,
+                        1u
+                    );
+                }
+            }
         }
         case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
-            atomicAdd(&offsets_and_counts.data[cluster_index].spot_lights, 1u);
+            switch light_falloff_mode(object_index) {
+                case LIGHT_FALLOFF_LINEAR: {
+                    atomicAdd(&offsets_and_counts.data[cluster_index].spot_lights_linear, 1u);
+                }
+                case LIGHT_FALLOFF_EXPONENTIAL: {
+                    atomicAdd(
+                        &offsets_and_counts.data[cluster_index].spot_lights_exponential,
+                        1u
+                    );
+                }
+                default: {
+                    atomicAdd(
+                        &offsets_and_counts.data[cluster_index].spot_lights_inverse_square,
+                        1u
+                    );
+                }
+            }
         }
         case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
             atomicAdd(&offsets_and_counts.data[cluster_index].reflection_probes, 1u);

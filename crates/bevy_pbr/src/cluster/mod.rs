@@ -219,15 +219,15 @@ struct GpuClusterableObjectIndexListsStorage {
 
 #[derive(ShaderType, Default)]
 struct GpuClusterOffsetsAndCountsStorage {
-    /// The starting offset, followed by the number of point lights, spot
-    /// lights, reflection probes, and irradiance volumes in each cluster, in
-    /// that order. The remaining fields are filled with zeroes.
+    /// The starting offset, followed by clustered object counts for each
+    /// cluster. Storage-buffer targets keep separate point and spot light
+    /// counts for each supported distance falloff mode.
     #[shader(size(runtime))]
     data: Vec<GpuClusterOffsetAndCounts>,
 }
 
 /// The type we use for the offset and counts for each cluster.
-type GpuClusterOffsetAndCounts = [UVec4; 2];
+type GpuClusterOffsetAndCounts = [UVec4; 3];
 
 enum ViewClusterBuffers {
     Uniform {
@@ -614,8 +614,11 @@ impl ViewClusterBindings {
                     return;
                 }
                 let component = self.n_offsets & ((1 << 2) - 1);
-                let packed =
-                    pack_offset_and_counts(offset, counts.point_lights, counts.spot_lights);
+                let packed = pack_offset_and_counts(
+                    offset,
+                    counts.total_point_lights(),
+                    counts.total_spot_lights(),
+                );
 
                 cluster_offsets_and_counts.get_mut().data[array_index][component] = packed;
             }
@@ -626,8 +629,14 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts.get_mut().data.push([
                     uvec4(
                         offset as u32,
-                        counts.point_lights,
-                        counts.spot_lights,
+                        counts.point_lights_inverse_square,
+                        counts.point_lights_linear,
+                        counts.point_lights_exponential,
+                    ),
+                    uvec4(
+                        counts.spot_lights_inverse_square,
+                        counts.spot_lights_linear,
+                        counts.spot_lights_exponential,
                         counts.reflection_probes,
                     ),
                     uvec4(counts.irradiance_volumes, counts.decals, 0, 0),

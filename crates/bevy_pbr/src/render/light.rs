@@ -22,8 +22,8 @@ use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectTy
 use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
-    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, PointLight,
-    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
+    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, LightFalloff,
+    PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
@@ -79,6 +79,7 @@ pub struct ExtractedPointLight {
     /// luminous intensity in lumens per steradian
     pub intensity: f32,
     pub range: f32,
+    pub falloff: LightFalloff,
     pub radius: f32,
     pub transform: GlobalTransform,
     pub shadow_maps_enabled: bool,
@@ -131,6 +132,8 @@ bitflags::bitflags! {
         const UNINITIALIZED                     = 0xFFFF;
     }
 }
+
+const POINT_LIGHT_FLAGS_FALLOFF_SHIFT: u32 = 6;
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuDirectionalCascade {
@@ -487,6 +490,7 @@ pub fn extract_lights(
             // for details.
             intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
             range: point_light.range,
+            falloff: point_light.falloff,
             radius: point_light.radius,
             transform: *transform,
             shadow_maps_enabled: point_light.shadow_maps_enabled,
@@ -594,6 +598,7 @@ pub fn extract_lights(
             // which seems least surprising for users
             intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
             range: spot_light.range,
+            falloff: spot_light.falloff,
             radius: spot_light.radius,
             transform: *transform,
             shadow_maps_enabled: spot_light.shadow_maps_enabled,
@@ -1073,7 +1078,8 @@ pub fn prepare_lights(
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
     // Sort lights by
-    // - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
+    // - point-light vs spot-light and then by falloff mode, so that we can iterate matching
+    //   lights in contiguous blocks in the fragment shader,
     // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
@@ -1174,6 +1180,8 @@ pub fn prepare_lights(
             }
         };
 
+        let flags = flags.bits() | (light.falloff.shader_index() << POINT_LIGHT_FLAGS_FALLOFF_SHIFT);
+
         global_clusterable_object_meta
             .gpu_clustered_lights
             .add(GpuClusteredLight {
@@ -1185,7 +1193,7 @@ pub fn prepare_lights(
                     .xyz()
                     .extend(1.0 / (light.range * light.range)),
                 position_radius: light.transform.translation().extend(light.radius),
-                flags: flags.bits(),
+                flags,
                 shadow_depth_bias: light.shadow_depth_bias,
                 shadow_normal_bias: light.shadow_normal_bias,
                 shadow_map_near_z: light.shadow_map_near_z,
@@ -2571,10 +2579,12 @@ fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> Clus
             outer_angle,
             shadow_maps_enabled: point_light.shadow_maps_enabled,
             volumetric: point_light.volumetric,
+            falloff: point_light.falloff,
         },
         None => ClusterableObjectType::PointLight {
             shadow_maps_enabled: point_light.shadow_maps_enabled,
             volumetric: point_light.volumetric,
+            falloff: point_light.falloff,
         },
     }
 }

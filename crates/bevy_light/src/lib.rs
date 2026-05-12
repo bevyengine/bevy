@@ -31,6 +31,8 @@ pub use cluster::ClusteredDecal;
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 use bevy_camera::visibility::SetViewVisibility;
+mod light_falloff;
+pub use light_falloff::LightFalloff;
 
 mod probe;
 pub use probe::{
@@ -70,7 +72,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
+        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightFalloff, LightProbe, PointLight,
+        SpotLight,
     };
 
     #[doc(hidden)]

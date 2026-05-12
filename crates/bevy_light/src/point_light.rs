@@ -10,7 +10,7 @@ use bevy_math::{primitives::ViewFrustum, Mat4};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::{cluster::ClusterVisibilityClass, light_consts};
+use crate::{cluster::ClusterVisibilityClass, light_consts, LightFalloff};
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -56,6 +56,9 @@ pub struct PointLight {
     /// this light at all, so it's important to tune this together with `intensity` to prevent hard
     /// lighting cut-offs.
     pub range: f32,
+
+    /// Controls how this light attenuates over distance within its range.
+    pub falloff: LightFalloff,
 
     /// Simulates a light source coming from a spherical volume with the given
     /// radius.
@@ -131,6 +134,7 @@ impl Default for PointLight {
             color: Color::WHITE,
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 20.0,
+            falloff: LightFalloff::InverseSquare,
             radius: 0.0,
             shadow_maps_enabled: false,
             contact_shadows_enabled: false,

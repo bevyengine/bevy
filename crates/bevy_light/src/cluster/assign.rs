@@ -20,7 +20,8 @@ use tracing::{error, warn};
 
 use super::{ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings};
 use crate::{
-    cluster::ClusterableObjects, EnvironmentMapLight, LightProbe, PointLight, SpotLight,
+    cluster::ClusterableObjects, EnvironmentMapLight, LightFalloff, LightProbe, PointLight,
+    SpotLight,
     VolumetricLight,
 };
 
@@ -73,6 +74,9 @@ pub enum ClusterableObjectType {
         ///
         /// This is used for sorting the light list.
         volumetric: bool,
+
+        /// The distance falloff mode for this light.
+        falloff: LightFalloff,
     },
 
     /// Data needed to assign spot lights to clusters.
@@ -86,6 +90,9 @@ pub enum ClusterableObjectType {
         ///
         /// This is used for sorting the light list.
         volumetric: bool,
+
+        /// The distance falloff mode for this light.
+        falloff: LightFalloff,
 
         /// The outer angle of the light cone in radians.
         outer_angle: f32,
@@ -114,15 +121,21 @@ impl ClusterableObjectType {
             ClusterableObjectType::PointLight {
                 shadow_maps_enabled,
                 volumetric,
-            } => (0, !shadow_maps_enabled, !volumetric),
+                falloff,
+            } => (falloff.bucket_index() as u8, !shadow_maps_enabled, !volumetric),
             ClusterableObjectType::SpotLight {
                 shadow_maps_enabled,
                 volumetric,
+                falloff,
                 ..
-            } => (1, !shadow_maps_enabled, !volumetric),
-            ClusterableObjectType::ReflectionProbe => (2, false, false),
-            ClusterableObjectType::IrradianceVolume => (3, false, false),
-            ClusterableObjectType::Decal => (4, false, false),
+            } => (
+                LightFalloff::VARIANT_COUNT as u8 + falloff.bucket_index() as u8,
+                !shadow_maps_enabled,
+                !volumetric,
+            ),
+            ClusterableObjectType::ReflectionProbe => (6, false, false),
+            ClusterableObjectType::IrradianceVolume => (7, false, false),
+            ClusterableObjectType::Decal => (8, false, false),
         }
     }
 }
@@ -189,6 +202,7 @@ pub(crate) fn assign_objects_to_clusters(
                         object_type: ClusterableObjectType::PointLight {
                             shadow_maps_enabled: point_light.shadow_maps_enabled,
                             volumetric: volumetric.is_some(),
+                            falloff: point_light.falloff,
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
                     })
@@ -208,6 +222,7 @@ pub(crate) fn assign_objects_to_clusters(
                             outer_angle: spot_light.outer_angle,
                             shadow_maps_enabled: spot_light.shadow_maps_enabled,
                             volumetric: volumetric.is_some(),
+                            falloff: spot_light.falloff,
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
                     })
@@ -264,17 +279,17 @@ pub(crate) fn assign_objects_to_clusters(
             ));
         }
 
+        clusterable_objects.sort_by_cached_key(|clusterable_object| {
+            (
+                clusterable_object.object_type.ordering(),
+                clusterable_object.entity,
+            )
+        });
+
         if clusterable_objects.len()
             > global_cluster_settings.max_uniform_buffer_clusterable_objects
             && !global_cluster_settings.supports_storage_buffers
         {
-            clusterable_objects.sort_by_cached_key(|clusterable_object| {
-                (
-                    clusterable_object.object_type.ordering(),
-                    clusterable_object.entity,
-                )
-            });
-
             if clusterable_objects.len()
                 > global_cluster_settings.max_uniform_buffer_clusterable_objects
                 && !*max_clusterable_objects_warning_emitted
@@ -647,7 +662,7 @@ pub(crate) fn assign_objects_to_clusters(
                             + z) as usize;
 
                         match clusterable_object.object_type {
-                            ClusterableObjectType::SpotLight { .. } => {
+                            ClusterableObjectType::SpotLight { falloff, .. } => {
                                 let (view_light_direction, angle_sin, angle_cos) =
                                     spot_light_dir_sin_cos.unwrap();
                                 for x in min_x..=max_x {
@@ -699,18 +714,18 @@ pub(crate) fn assign_objects_to_clusters(
                                     if !angle_cull && !front_cull && !back_cull {
                                         // this cluster is affected by the spot light
                                         clusterable_objects[cluster_index]
-                                            .add_spot_light(clusterable_object.entity);
+                                            .add_spot_light(clusterable_object.entity, falloff);
                                         total_cluster_index_count += 1;
                                     }
                                     cluster_index += clusters.dimensions.z as usize;
                                 }
                             }
 
-                            ClusterableObjectType::PointLight { .. } => {
+                            ClusterableObjectType::PointLight { falloff, .. } => {
                                 for _ in min_x..=max_x {
                                     // all clusters within range are affected by point lights
                                     clusterable_objects[cluster_index]
-                                        .add_point_light(clusterable_object.entity);
+                                        .add_point_light(clusterable_object.entity, falloff);
                                     cluster_index += clusters.dimensions.z as usize;
                                 }
                                 total_cluster_index_count += (max_x - min_x + 1) as usize;

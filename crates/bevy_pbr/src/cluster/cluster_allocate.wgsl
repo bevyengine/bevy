@@ -83,6 +83,7 @@ fn allocate_local_main(
         // of the rasterizer.
         scratchpad_offsets_and_counts.data[global_id.x][0u] = vec4(0u);
         scratchpad_offsets_and_counts.data[global_id.x][1u] = vec4(0u);
+        scratchpad_offsets_and_counts.data[global_id.x][2u] = vec4(0u);
     }
 }
 
@@ -123,5 +124,9 @@ fn cluster_object_count(cluster_index: u32) -> u32 {
         offsets_and_counts.data[cluster_index][0].z +
         offsets_and_counts.data[cluster_index][0].w +
         offsets_and_counts.data[cluster_index][1].x +
-        offsets_and_counts.data[cluster_index][1].y;
+        offsets_and_counts.data[cluster_index][1].y +
+        offsets_and_counts.data[cluster_index][1].z +
+        offsets_and_counts.data[cluster_index][1].w +
+        offsets_and_counts.data[cluster_index][2].x +
+        offsets_and_counts.data[cluster_index][2].y;
 }

@@ -10,7 +10,7 @@ use bevy_math::{primitives::ViewFrustum, Affine3A, Dir3, Mat3, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::cluster::ClusterVisibilityClass;
+use crate::{cluster::ClusterVisibilityClass, LightFalloff};
 
 /// A light that emits light in a given direction from a central point.
 ///
@@ -38,6 +38,9 @@ pub struct SpotLight {
     /// higher you set it, the lower-resolution your shadow maps will be.
     /// Consequently, you should set this value to be only the size that you need.
     pub range: f32,
+
+    /// Controls how this light attenuates over distance within its range.
+    pub falloff: LightFalloff,
 
     /// Simulates a light source coming from a spherical volume with the given
     /// radius.
@@ -148,6 +151,7 @@ impl Default for SpotLight {
             // this would be way too bright.
             intensity: 1_000_000.0,
             range: 20.0,
+            falloff: LightFalloff::InverseSquare,
             radius: 0.0,
             shadow_maps_enabled: false,
             contact_shadows_enabled: false,

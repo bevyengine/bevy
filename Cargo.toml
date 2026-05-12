@@ -1273,6 +1273,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "light_falloff"
+path = "examples/3d/light_falloff.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_falloff]
+name = "Light Falloff"
+description = "Compares inverse-square, linear, and exponential falloff for point and spot lights"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lines"
 path = "examples/3d/lines.rs"
 doc-scrape-examples = true

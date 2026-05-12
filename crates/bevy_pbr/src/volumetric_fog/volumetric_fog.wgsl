@@ -24,6 +24,9 @@
     atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 }
 #import bevy_pbr::mesh_view_types::{
+    LIGHT_FALLOFF_EXPONENTIAL,
+    LIGHT_FALLOFF_LINEAR,
+    POINT_LIGHT_FLAGS_FALLOFF_SHIFT,
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
@@ -45,7 +48,11 @@
     position_view_to_world
 }
 #import bevy_pbr::clustered_forward as clustering
-#import bevy_pbr::lighting::getDistanceAttenuation;
+#import bevy_pbr::lighting::{
+    getDistanceAttenuationExponential,
+    getDistanceAttenuationInverseSquare,
+    getDistanceAttenuationLinear,
+};
 
 // The GPU version of [`VolumetricFog`]. See the comments in
 // `volumetric_fog/mod.rs` for descriptions of the fields here.
@@ -341,7 +348,18 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
-    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    let first_point_light_index_offset =
+        clusterable_object_index_ranges.first_point_light_inverse_square_index_offset;
+    let first_spot_light_index_offset =
+        clusterable_object_index_ranges.first_spot_light_inverse_square_index_offset;
+#else
+    let first_point_light_index_offset =
+        clusterable_object_index_ranges.first_point_light_index_offset;
+    let first_spot_light_index_offset =
+        clusterable_object_index_ranges.first_spot_light_index_offset;
+#endif
+    for (var i: u32 = first_point_light_index_offset;
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
@@ -370,9 +388,22 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let V = Rd_world;
             let L = normalize(light_to_frag);
             let distance_square = dot(light_to_frag, light_to_frag);
-            let distance_atten = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
+            let light_falloff_mode =
+                ((*light).flags >> POINT_LIGHT_FLAGS_FALLOFF_SHIFT) & 0x3u;
+            let distance = sqrt(distance_square);
+            var distance_atten: f32;
+            if light_falloff_mode == LIGHT_FALLOFF_LINEAR {
+                distance_atten = getDistanceAttenuationLinear(distance, (*light).range);
+            } else if light_falloff_mode == LIGHT_FALLOFF_EXPONENTIAL {
+                distance_atten = getDistanceAttenuationExponential(distance, (*light).range);
+            } else {
+                distance_atten = getDistanceAttenuationInverseSquare(
+                    distance_square,
+                    (*light).color_inverse_square_range.w,
+                );
+            }
             var local_light_attenuation = distance_atten;
-            if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
+            if (i < first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                     shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);

@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use tracing::warn;
 
-use crate::LightProbe;
+use crate::{LightFalloff, LightProbe};
 
 pub mod assign;
 
@@ -198,16 +198,40 @@ pub struct ObjectsInClusterCpu {
 /// fewer than 3 SSBOs are available, which usually means on WebGL 2.
 #[derive(Clone, Copy, Default, Debug)]
 pub struct ClusterableObjectCounts {
-    /// The number of point lights in the cluster.
-    pub point_lights: u32,
-    /// The number of spot lights in the cluster.
-    pub spot_lights: u32,
+    /// The number of inverse-square point lights in the cluster.
+    pub point_lights_inverse_square: u32,
+    /// The number of linear point lights in the cluster.
+    pub point_lights_linear: u32,
+    /// The number of exponential point lights in the cluster.
+    pub point_lights_exponential: u32,
+    /// The number of inverse-square spot lights in the cluster.
+    pub spot_lights_inverse_square: u32,
+    /// The number of linear spot lights in the cluster.
+    pub spot_lights_linear: u32,
+    /// The number of exponential spot lights in the cluster.
+    pub spot_lights_exponential: u32,
     /// The number of reflection probes in the cluster.
     pub reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
     pub irradiance_volumes: u32,
     /// The number of decals in the cluster.
     pub decals: u32,
+}
+
+impl ClusterableObjectCounts {
+    /// Returns the total number of point lights in the cluster.
+    pub fn total_point_lights(self) -> u32 {
+        self.point_lights_inverse_square
+            + self.point_lights_linear
+            + self.point_lights_exponential
+    }
+
+    /// Returns the total number of spot lights in the cluster.
+    pub fn total_spot_lights(self) -> u32 {
+        self.spot_lights_inverse_square
+            + self.spot_lights_linear
+            + self.spot_lights_exponential
+    }
 }
 
 /// An object that projects a decal onto surfaces within its bounds.
@@ -474,15 +498,23 @@ impl ObjectsInClusterCpu {
     }
 
     /// Adds a spot light to the list.
-    pub fn add_spot_light(&mut self, entity: Entity) {
+    pub fn add_spot_light(&mut self, entity: Entity, falloff: LightFalloff) {
         self.clusterables.push(entity);
-        self.counts.spot_lights += 1;
+        match falloff {
+            LightFalloff::InverseSquare => self.counts.spot_lights_inverse_square += 1,
+            LightFalloff::Linear => self.counts.spot_lights_linear += 1,
+            LightFalloff::Exponential => self.counts.spot_lights_exponential += 1,
+        }
     }
 
     /// Adds a point light to the list.
-    pub fn add_point_light(&mut self, entity: Entity) {
+    pub fn add_point_light(&mut self, entity: Entity, falloff: LightFalloff) {
         self.clusterables.push(entity);
-        self.counts.point_lights += 1;
+        match falloff {
+            LightFalloff::InverseSquare => self.counts.point_lights_inverse_square += 1,
+            LightFalloff::Linear => self.counts.point_lights_linear += 1,
+            LightFalloff::Exponential => self.counts.point_lights_exponential += 1,
+        }
     }
 
     /// Adds a reflection probe to the list.

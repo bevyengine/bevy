@@ -123,16 +123,27 @@ struct DerivedLightingInput {
     LdotH: f32,
 }
 
-// distanceAttenuation is simply the square falloff of light intensity
-// combined with a smooth attenuation at the edge of the light radius
+// Distance attenuation for the default inverse-square falloff combined with a
+// smooth attenuation at the edge of the light radius.
 //
-// light radius is a non-physical construct for efficiency purposes,
-// because otherwise every light affects every fragment in the scene
-fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
+// Light radius is a non-physical construct for efficiency purposes, because
+// otherwise every light affects every fragment in the scene.
+fn getDistanceAttenuationInverseSquare(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
     let factor = distanceSquare * inverseRangeSquared;
     let smoothFactor = saturate(1.0 - factor * factor);
     let attenuation = smoothFactor * smoothFactor;
     return attenuation * 1.0 / max(distanceSquare, 0.0001);
+}
+
+fn getDistanceAttenuationLinear(distance: f32, range: f32) -> f32 {
+    return saturate(1.0 - distance / max(range, 0.0001));
+}
+
+fn getDistanceAttenuationExponential(distance: f32, range: f32) -> f32 {
+    let factor = distance / max(range, 0.0001);
+    let smoothFactor = saturate(1.0 - factor * factor);
+    let attenuation = smoothFactor * smoothFactor;
+    return attenuation * exp2(-8.0 * factor);
 }
 
 // Normal distribution function (specular D)
@@ -623,11 +634,14 @@ fn specular_fix_remap(a: f32) -> f32 {
     return 1.0 - inv_a_sq * inv_a_sq;
 }
 
-fn point_light(
+fn point_light_with_range_attenuation(
     light_id: u32,
     input: ptr<function, LightingInput>,
     enable_diffuse: bool,
     enable_texture: bool,
+    light_to_frag: vec3<f32>,
+    distance: f32,
+    rangeAttenuation: f32,
 ) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
@@ -636,11 +650,7 @@ fn point_light(
     let V = (*input).V;
 
     let light = &view_bindings::clustered_lights.data[light_id];
-    let light_to_frag = (*light).position_radius.xyz - P;
     let L = normalize(light_to_frag);
-    let distance_square = dot(light_to_frag, light_to_frag);
-    let distance = sqrt(distance_square);
-    let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
     // Base layer
 
@@ -776,14 +786,76 @@ fn point_light(
         rangeAttenuation * texture_sample;
 }
 
-fn spot_light(
+fn point_light_inverse_square(
     light_id: u32,
     input: ptr<function, LightingInput>,
-    enable_diffuse: bool
+    enable_diffuse: bool,
+    enable_texture: bool,
 ) -> vec3<f32> {
-    // reuse the point light calculations
-    let point_light = point_light(light_id, input, enable_diffuse, false);
+    let light = &view_bindings::clustered_lights.data[light_id];
+    let light_to_frag = (*light).position_radius.xyz - (*input).P;
+    let distance_square = dot(light_to_frag, light_to_frag);
+    let distance = sqrt(distance_square);
+    let rangeAttenuation =
+        getDistanceAttenuationInverseSquare(distance_square, (*light).color_inverse_square_range.w);
+    return point_light_with_range_attenuation(
+        light_id,
+        input,
+        enable_diffuse,
+        enable_texture,
+        light_to_frag,
+        distance,
+        rangeAttenuation,
+    );
+}
 
+fn point_light_linear(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool,
+    enable_texture: bool,
+) -> vec3<f32> {
+    let light = &view_bindings::clustered_lights.data[light_id];
+    let light_to_frag = (*light).position_radius.xyz - (*input).P;
+    let distance = length(light_to_frag);
+    let rangeAttenuation = getDistanceAttenuationLinear(distance, (*light).range);
+    return point_light_with_range_attenuation(
+        light_id,
+        input,
+        enable_diffuse,
+        enable_texture,
+        light_to_frag,
+        distance,
+        rangeAttenuation,
+    );
+}
+
+fn point_light_exponential(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool,
+    enable_texture: bool,
+) -> vec3<f32> {
+    let light = &view_bindings::clustered_lights.data[light_id];
+    let light_to_frag = (*light).position_radius.xyz - (*input).P;
+    let distance = length(light_to_frag);
+    let rangeAttenuation = getDistanceAttenuationExponential(distance, (*light).range);
+    return point_light_with_range_attenuation(
+        light_id,
+        input,
+        enable_diffuse,
+        enable_texture,
+        light_to_frag,
+        distance,
+        rangeAttenuation,
+    );
+}
+
+fn spot_light_with_point_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    point_light: vec3<f32>,
+) -> vec3<f32> {
     let light = &view_bindings::clustered_lights.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
@@ -822,6 +894,33 @@ fn spot_light(
 #endif
 
     return point_light * spot_attenuation * texture_sample;
+}
+
+fn spot_light_inverse_square(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool,
+) -> vec3<f32> {
+    let point_light = point_light_inverse_square(light_id, input, enable_diffuse, false);
+    return spot_light_with_point_light(light_id, input, point_light);
+}
+
+fn spot_light_linear(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool,
+) -> vec3<f32> {
+    let point_light = point_light_linear(light_id, input, enable_diffuse, false);
+    return spot_light_with_point_light(light_id, input, point_light);
+}
+
+fn spot_light_exponential(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool,
+) -> vec3<f32> {
+    let point_light = point_light_exponential(light_id, input, enable_diffuse, false);
+    return spot_light_with_point_light(light_id, input, point_light);
 }
 
 fn directional_light(

@@ -12,9 +12,31 @@
 
 // Offsets within the `cluster_offsets_and_counts` buffer for a single cluster.
 //
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 // These offsets must be monotonically nondecreasing. That is, indices are
-// always sorted into the following order: point lights, spot lights, reflection
-// probes, irradiance volumes.
+// always sorted into the following order: point lights bucketed by distance
+// falloff mode, then spot lights bucketed by distance falloff mode, followed
+// by reflection probes, irradiance volumes, and decals.
+struct ClusterableObjectIndexRanges {
+    first_point_light_inverse_square_index_offset: u32,
+    first_point_light_linear_index_offset: u32,
+    first_point_light_exponential_index_offset: u32,
+    first_spot_light_inverse_square_index_offset: u32,
+    first_spot_light_linear_index_offset: u32,
+    first_spot_light_exponential_index_offset: u32,
+    // The offset of the index of the first reflection probe, which also
+    // terminates the list of spot lights.
+    first_reflection_probe_index_offset: u32,
+    // The offset of the index of the first irradiance volumes, which also
+    // terminates the list of reflection probes.
+    first_irradiance_volume_index_offset: u32,
+    first_decal_offset: u32,
+    // One past the offset of the index of the final clusterable object for this
+    // cluster.
+    last_clusterable_object_index_offset: u32,
+}
+#else
+// Compact fallback used on targets without storage-buffer clustering support.
 struct ClusterableObjectIndexRanges {
     // The offset of the index of the first point light.
     first_point_light_index_offset: u32,
@@ -32,6 +54,7 @@ struct ClusterableObjectIndexRanges {
     // cluster.
     last_clusterable_object_index_offset: u32,
 }
+#endif
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs
 fn view_z_to_z_slice(
@@ -87,21 +110,36 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
 
     let offset_and_counts_a = bindings::cluster_offsets_and_counts.data[cluster_index][0];
     let offset_and_counts_b = bindings::cluster_offsets_and_counts.data[cluster_index][1];
+    let offset_and_counts_c = bindings::cluster_offsets_and_counts.data[cluster_index][2];
 
     // Sum up the counts to produce the range brackets.
     //
     // We could have stored the range brackets in `cluster_offsets_and_counts`
     // directly, but doing it this way makes the logic in this path more
     // consistent with the WebGL 2 path below.
-    let point_light_offset = offset_and_counts_a.x;
-    let spot_light_offset = point_light_offset + offset_and_counts_a.y;
-    let reflection_probe_offset = spot_light_offset + offset_and_counts_a.z;
-    let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_a.w;
-    let decal_offset = irradiance_volume_offset + offset_and_counts_b.x;
-    let last_clusterable_offset = decal_offset + offset_and_counts_b.y;
+    let point_light_inverse_square_offset = offset_and_counts_a.x;
+    let point_light_linear_offset =
+        point_light_inverse_square_offset + offset_and_counts_a.y;
+    let point_light_exponential_offset =
+        point_light_linear_offset + offset_and_counts_a.z;
+    let spot_light_inverse_square_offset =
+        point_light_exponential_offset + offset_and_counts_a.w;
+    let spot_light_linear_offset =
+        spot_light_inverse_square_offset + offset_and_counts_b.x;
+    let spot_light_exponential_offset =
+        spot_light_linear_offset + offset_and_counts_b.y;
+    let reflection_probe_offset =
+        spot_light_exponential_offset + offset_and_counts_b.z;
+    let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_b.w;
+    let decal_offset = irradiance_volume_offset + offset_and_counts_c.x;
+    let last_clusterable_offset = decal_offset + offset_and_counts_c.y;
     return ClusterableObjectIndexRanges(
-        point_light_offset,
-        spot_light_offset,
+        point_light_inverse_square_offset,
+        point_light_linear_offset,
+        point_light_exponential_offset,
+        spot_light_inverse_square_offset,
+        spot_light_linear_offset,
+        spot_light_exponential_offset,
         reflection_probe_offset,
         irradiance_volume_offset,
         decal_offset,
@@ -190,8 +228,13 @@ fn cluster_debug_visualization(
     // complexity measure.
     let cluster_overlay_alpha = 0.1;
     let max_complexity_per_cluster = 64.0;
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    let object_count = clusterable_object_index_ranges.first_reflection_probe_index_offset -
+        clusterable_object_index_ranges.first_point_light_inverse_square_index_offset;
+#else
     let object_count = clusterable_object_index_ranges.first_reflection_probe_index_offset -
         clusterable_object_index_ranges.first_point_light_index_offset;
+#endif
     output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r + cluster_overlay_alpha *
         smoothstep(0.0, max_complexity_per_cluster, f32(object_count));
     output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g + cluster_overlay_alpha *
