@@ -15,7 +15,7 @@ use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
-use bevy_picking::events::{Click, Drag, DragStart, Pointer, Press, Release};
+use bevy_picking::events::{Click, Drag, Pointer, Press, Release};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, PreeditCursor, TextEdit};
 use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
