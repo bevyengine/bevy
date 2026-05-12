@@ -819,6 +819,53 @@ pub mod common_conditions {
         }
     }
 
+    /// Generates a [`SystemCondition`]-satisfying closure that returns `true`
+    /// if the resource exists and satisfies a closure.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, PartialEq)]
+    /// # struct Counter(i16);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// app.add_systems(
+    ///     // `resource_exists_and` will only return true
+    ///     // if the given resource exists and satisfies the given condition
+    ///     my_system.run_if(resource_exists_and(|counter: &Counter| counter.0.is_negative())),
+    /// );
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 = -counter.0;
+    /// }
+    ///
+    /// // `Counter` hasn't been added so `my_system` can't run
+    /// app.run(&mut world);
+    /// world.insert_resource(Counter(-7));
+    ///
+    /// // `Counter` is `-7`, satisfying is_negative(), so `my_system` can run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 7);
+    ///
+    /// // `Counter` is `7`, not satisfying is_negative(), so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 7);
+    /// ```
+    pub fn resource_exists_and<T>(
+        condition: impl Fn(&T) -> bool,
+    ) -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| match res {
+            Some(res) => condition(&res),
+            None => false,
+        }
+    }
+
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
