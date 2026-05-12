@@ -1,5 +1,7 @@
 //! Functionality that relates to the [`Template`] trait.
 
+use core::marker::PhantomData;
+
 use alloc::boxed::Box;
 use bevy_ecs_macros::Component;
 use bevy_platform::sync::{Arc, Mutex};
@@ -539,36 +541,42 @@ struct TypeIdRecorder {
 /// These simulate a many-to-many between templates and systems in companion with [`LinkLifetimeWith`].
 /// A template refers to its systems via [`LinkedWith`] and a system refers to its templates via [`SystemRefs`].
 #[derive(Component)]
-#[relationship(relationship_target = SystemRefs)]
-#[component(on_remove = on_ref_to_system_remove)]
-struct RefToSystem(Entity);
+#[relationship(relationship_target = SystemRefs<I>)]
+#[component(on_remove)]
+struct RefToSystem<I: SystemInput + Send + Sync + 'static>(#[relationship] Entity, PhantomData<I>);
 
-fn on_ref_to_system_remove(mut world: DeferredWorld, ctx: HookContext) {
-    let system_refs_entity = world.get::<RefToSystem>(ctx.entity).unwrap().0;
-    let system_refs = &world.get::<SystemRefs>(system_refs_entity).unwrap().0;
+impl<I: SystemInput + Send + Sync + 'static> RefToSystem<I> {
+    pub fn on_remove(mut world: DeferredWorld, ctx: HookContext) {
+        let system_refs_entity = world.get::<RefToSystem<I>>(ctx.entity).unwrap().0;
+        let system_refs = &world.get::<SystemRefs<I>>(system_refs_entity).unwrap().0;
 
-    // This hook is called in `on_remove` while relationship is maintained in `on_discard`,
-    // which is ensured to be run before `on_remove` when removing a `Component`.
-    // The collection hereby should be empty if a system is no more referenced.
-    // And we can clean it up.
-    if system_refs.is_empty() {
-        let system_recorder = world
-            .get::<TypeIdRecorder>(system_refs_entity)
-            .unwrap()
-            .clone();
+        // This hook is called in `on_remove` while relationship is maintained in `on_discard`,
+        // which is ensured to be run before `on_remove` when removing a `Component`.
+        // The collection hereby should be empty if a system is no more referenced.
+        // And we can clean it up.
+        if system_refs.is_empty() {
+            let system_recorder = world
+                .get::<TypeIdRecorder>(system_refs_entity)
+                .unwrap()
+                .clone();
 
-        let mut registry = world.resource_mut::<SceneSystemRegistry>();
-        registry.type_map.remove(&system_recorder.type_id);
+            let mut registry = world.resource_mut::<SceneSystemRegistry>();
+            registry.type_map.remove(&system_recorder.type_id);
 
-        let mut commands = world.commands();
+            let mut commands = world.commands();
 
-        // reused the entity spawned by `register_boxed_system`, so we don't need to despawn it again.
-        commands.unregister_system::<(), ()>(SystemId::from_entity(system_refs_entity));
+            // reused the entity spawned by `register_boxed_system`, so we don't need to despawn it again.
+            commands.unregister_system::<I, ()>(SystemId::from_entity(system_refs_entity));
+        }
     }
 }
+
 #[derive(Component)]
-#[relationship_target(relationship = RefToSystem)]
-struct SystemRefs(Vec<Entity>);
+#[relationship_target(relationship = RefToSystem<I>)]
+struct SystemRefs<I: SystemInput + Send + Sync + 'static>(
+    #[relationship] Vec<Entity>,
+    PhantomData<I>,
+);
 
 #[derive(Component)]
 #[relationship(relationship_target = LinkedWith)]
@@ -580,7 +588,7 @@ struct LinkLifetimeWith(Entity);
 #[relationship_target(relationship = LinkLifetimeWith, linked_spawn)]
 struct LinkedWith(Vec<Entity>);
 
-impl<I: SystemInput + 'static> Template for SystemIdTemplate<I> {
+impl<I: SystemInput + Send + Sync + 'static> Template for SystemIdTemplate<I> {
     type Output = SystemId<I, ()>;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
@@ -635,7 +643,7 @@ impl<I: SystemInput + 'static> Template for SystemIdTemplate<I> {
         // a middle entity is needed since we don't have many-to-many relationship yet.
         _context.entity.world_scope(|world| {
             world.spawn((
-                RefToSystem(system_entity),
+                RefToSystem::<I>(system_entity, PhantomData),
                 LinkLifetimeWith(template_item_entity),
             ));
         });
@@ -648,7 +656,7 @@ impl<I: SystemInput + 'static> Template for SystemIdTemplate<I> {
     }
 }
 
-impl<I: SystemInput + 'static> FromTemplate for SystemId<I, ()> {
+impl<I: SystemInput + Send + Sync + 'static> FromTemplate for SystemId<I, ()> {
     type Template = SystemIdTemplate<I>;
 }
 
