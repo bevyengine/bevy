@@ -51,10 +51,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    // https://developer.android.com/reference/tools/gradle-api/9.1/com/android/build/api/dsl/BuildFeatures
-    buildFeatures {
-        prefab = true
-    }
     // https://developer.android.com/reference/tools/gradle-api/9.1/com/android/build/api/dsl/AndroidSourceSet
     sourceSets {
         getByName("main") {
