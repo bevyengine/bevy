@@ -294,7 +294,6 @@ fn on_pointer_drag(
     };
 
     needs_scroll.0 = needs_scroll.0 || !node.content_box().contains(pointer_pos);
-    println!("drag needs scroll = {}", needs_scroll.0);
     editable_text
         .pending_edits
         .push(TextEdit::ExtendSelectionToPoint(

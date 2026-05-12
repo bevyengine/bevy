@@ -1,7 +1,4 @@
 use bevy_clipboard::ClipboardRead;
-use bevy_derive::Deref;
-use bevy_derive::DerefMut;
-use bevy_ecs::component::Component;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
