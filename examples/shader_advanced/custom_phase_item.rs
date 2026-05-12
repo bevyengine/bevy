@@ -352,7 +352,7 @@ impl FromWorld for CustomPhasePipeline {
                     // Ordinarily, you'd want to check whether the view has the
                     // HDR format and substitute the appropriate texture format
                     // here, but we omit that for simplicity.
-                    format: TextureFormat::bevy_default(),
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -362,8 +362,8 @@ impl FromWorld for CustomPhasePipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: default(),
                 bias: default(),
             }),

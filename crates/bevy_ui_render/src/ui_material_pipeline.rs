@@ -9,7 +9,6 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
@@ -25,6 +24,7 @@ use bevy_render::{
 use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderRef};
 use bevy_sprite::BorderRect;
+use bevy_ui::ComputedStackIndex;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, marker::PhantomData, ops::Range};
@@ -50,7 +50,7 @@ where
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>, GpuImage>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -155,11 +155,7 @@ where
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -330,6 +326,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &MaterialNode<M>,
             &InheritedVisibility,
@@ -341,8 +338,16 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
+    for (
+        entity,
+        computed_node,
+        stack_index,
+        transform,
+        handle,
+        inherited_visibility,
+        clip,
+        camera,
+    ) in uinode_query.iter()
     {
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
@@ -360,7 +365,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: computed_node.stack_index,
+            stack_index: stack_index.0,
             transform: transform.into(),
             material: handle.id(),
             rect: Rect {
@@ -625,7 +630,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &pipeline_cache,
             &ui_material_pipeline,
             UiMaterialKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 bind_group_data: material.key.clone(),
             },
         );

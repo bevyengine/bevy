@@ -75,7 +75,7 @@ pub struct SystemSchedule {
     /// List of system node ids.
     pub(super) system_ids: Vec<SystemKey>,
     /// Indexed by system node id.
-    pub systems: Vec<SystemWithAccess>,
+    pub(super) systems: Vec<SystemWithAccess>,
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Indexed by system node id.
@@ -120,6 +120,15 @@ impl SystemSchedule {
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
         }
+    }
+
+    /// Accessor to allow running systems from a custom executor
+    ///
+    /// # Safety
+    /// - The only allowed mutations are from calling methods on the [`System`] trait. Replacing
+    ///   systems in the returned [`Vec`] should be considered undefined behavior.
+    pub unsafe fn systems_mut(&mut self) -> &mut Vec<SystemWithAccess> {
+        &mut self.systems
     }
 }
 

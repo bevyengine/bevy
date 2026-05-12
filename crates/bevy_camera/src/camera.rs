@@ -6,7 +6,9 @@ use super::{
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
+};
 use bevy_image::Image;
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
@@ -22,6 +24,39 @@ use wgpu_types::{BlendState, TextureUsages};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
+///
+/// <div class="warning">
+///
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
+/// Please see the example code (which assumes a single camera and window)
+///
+/// ```no_run
+/// # use bevy_camera::{Camera, Projection, Viewport};
+/// # use bevy_transform::prelude::Transform;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_math::UVec2;
+/// # use bevy_window::Window;
+/// # use bevy_utils::default;
+///
+/// fn update_viewport(
+///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
+///    windows: Query<&Window>
+/// ) {
+///     let Ok((mut camera, _, _)) = camera_query.single_mut() else { return; };
+///
+///     let window = windows.single().expect("Window not found");
+///     let scale = window.resolution.scale_factor();
+///
+///     camera.viewport = Some(Viewport {
+///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(),
+///         physical_size: (UVec2::new(100, 100).as_vec2() * scale).as_uvec2(),
+///         ..default()
+///     });
+/// }
+/// ```
+///
+/// </div>
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Clone)]
 pub struct Viewport {
@@ -837,9 +872,7 @@ impl RenderTarget {
             None
         }
     }
-}
 
-impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
@@ -884,7 +917,20 @@ pub enum NormalizedRenderTarget {
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
 /// See `ManualTextureViews` in `bevy_camera` for more details.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromTemplate,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 

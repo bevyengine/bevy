@@ -8,7 +8,7 @@ use crate::{
     archetype::Archetypes,
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
-    component::{ComponentId, Components},
+    component::{ComponentId, Components, Mutable},
     entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
@@ -262,7 +262,7 @@ pub unsafe trait SystemParam: Sized {
     /// an appropriate [`SystemParamValidationError`] should be returned.
     /// Systems will convert this to a [`RunSystemError`](super::RunSystemError),
     /// and the built-in executors will ignore any "skipped" validation results,
-    /// but pass any "invalid" results to the default error handler defined in [`bevy_ecs::error`].
+    /// but pass any "invalid" results to the fallback error handler defined in [`bevy_ecs::error`].
     ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
@@ -725,7 +725,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
+unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 
