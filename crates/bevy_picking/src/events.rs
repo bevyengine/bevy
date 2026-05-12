@@ -293,6 +293,8 @@ pub struct Press {
     pub button: PointerButton,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Number of consecutive presses, starting at `1`.
+    pub count: u8,
 }
 
 /// Fires when a pointer button is released over the [target entity](EntityEvent::event_target).
