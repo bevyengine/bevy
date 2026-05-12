@@ -19,7 +19,7 @@ impl Prepare for CompileFailCommand {
 
         // Macro Compile Fail Tests
         // Run tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_macros/compile_fail/README.md
+        // - See crates/bevy_derive/compile_fail/README.md
         commands.push(
             PreparedCommand::new::<Self>(
                 cmd!(sh, "cargo test {no_fail_fast...} {jobs_ref...} -- {test_threads_ref...}"),
