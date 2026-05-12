@@ -1,4 +1,7 @@
 use bevy_clipboard::ClipboardRead;
+use bevy_derive::Deref;
+use bevy_derive::DerefMut;
+use bevy_ecs::component::Component;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
@@ -221,7 +224,10 @@ impl TextEdit {
         clipboard: &mut bevy_clipboard::Clipboard,
         max_characters: Option<usize>,
         char_filter: impl Fn(char) -> bool,
+        needs_scroll: &mut bool,
     ) {
+        *needs_scroll = *needs_scroll || self.needs_scroll();
+
         match self {
             TextEdit::Copy => {
                 if let Some(text) = driver.editor.selected_text()
@@ -313,6 +319,43 @@ impl TextEdit {
                     driver.insert_or_replace_selection(text.as_str());
                 }
             }
+        }
+    }
+
+    /// True if the text editor view should scroll after the given edit.
+    pub fn needs_scroll(&self) -> bool {
+        match self {
+            TextEdit::Copy => false,
+            TextEdit::Cut => true,
+            TextEdit::Paste => true,
+            TextEdit::Insert(_) => true,
+            TextEdit::Backspace => true,
+            TextEdit::BackspaceWord => true,
+            TextEdit::Delete => true,
+            TextEdit::DeleteWord => true,
+            TextEdit::Left(_) => true,
+            TextEdit::Right(_) => true,
+            TextEdit::WordLeft(_) => true,
+            TextEdit::WordRight(_) => true,
+            TextEdit::Up(_) => true,
+            TextEdit::Down(_) => true,
+            TextEdit::TextStart(_) => true,
+            TextEdit::TextEnd(_) => true,
+            TextEdit::HardLineStart(_) => true,
+            TextEdit::HardLineEnd(_) => true,
+            TextEdit::LineStart(_) => true,
+            TextEdit::LineEnd(_) => true,
+            TextEdit::CollapseSelection => true,
+            TextEdit::SelectAll => false,
+            TextEdit::SelectAllIfCollapsed => false,
+            TextEdit::MoveToPoint(_) => true,
+            TextEdit::SelectWordAtPoint(_) => false,
+            TextEdit::SelectLineAtPoint(_) => false,
+            TextEdit::SelectedHardLineAtPoint(_) => false,
+            TextEdit::ExtendSelectionToPoint(_) => true,
+            TextEdit::ShiftClickExtension(_) => false,
+            TextEdit::ImeSetCompose { .. } => true,
+            TextEdit::ImeCommit { .. } => true,
         }
     }
 }

@@ -18,8 +18,8 @@ use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
-    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
-    TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, NeedsScroll, PositionedGlyph, RemSize,
+    RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -498,6 +498,7 @@ pub fn scroll_editable_text(
         &mut TextScroll,
         &ComputedNode,
         &TextLayoutInfo,
+        &mut NeedsScroll,
     )>,
 ) {
     let current_focus = input_focus
@@ -505,10 +506,13 @@ pub fn scroll_editable_text(
         .and_then(|input_focus| input_focus.get());
     let focus_changed = *previous_focus != current_focus;
 
-    for (entity, editable_text, generation, mut scroll, node, info) in query.iter_mut() {
+    for (entity, editable_text, generation, mut scroll, node, info, mut needs_scroll) in
+        query.iter_mut()
+    {
         if !(editable_text.is_changed()
             || generation.is_changed()
             || focus_changed && (Some(entity) == *previous_focus || Some(entity) == current_focus))
+            || !needs_scroll.0
         {
             continue;
         }
@@ -564,8 +568,8 @@ pub fn scroll_editable_text(
             )
             .floor(),
         }));
+        needs_scroll.0 = false;
     }
-
     *previous_focus = current_focus;
 }
 

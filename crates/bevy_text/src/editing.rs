@@ -102,7 +102,8 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
     TextColor,
     LineHeight,
     FontHinting,
-    EditableTextGeneration
+    EditableTextGeneration,
+    NeedsScroll
 )]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -215,6 +216,7 @@ impl EditableText {
         layout_context: &mut LayoutContext<TextBrush>,
         clipboard: &mut bevy_clipboard::Clipboard,
         char_filter: impl Fn(char) -> bool,
+        needs_scroll: &mut bool,
     ) {
         let Self {
             editor,
@@ -251,7 +253,13 @@ impl EditableText {
                         return;
                     }
                 }
-                other => other.apply(&mut driver, clipboard, *max_characters, &char_filter),
+                other => other.apply(
+                    &mut driver,
+                    clipboard,
+                    *max_characters,
+                    &char_filter,
+                    needs_scroll,
+                ),
             }
         }
     }
@@ -301,13 +309,14 @@ pub fn apply_text_edits(
         &mut EditableText,
         Option<&EditableTextFilter>,
         &EditableTextGeneration,
+        &mut NeedsScroll,
     )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard: ResMut<bevy_clipboard::Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text, filter, generation) in query.iter_mut() {
+    for (entity, mut editable_text, filter, generation, mut needs_scroll) in query.iter_mut() {
         // `pending_paste` can hold a cross-frame paste even when no new edits are queued,
         // so check for either before doing work.
         if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
@@ -319,6 +328,7 @@ pub fn apply_text_edits(
                     Some(EditableTextFilter(Some(filter))) => filter.as_ref(),
                     _ => &|_| true,
                 },
+                &mut needs_scroll.0,
             );
         }
 
@@ -335,3 +345,7 @@ pub fn apply_text_edits(
 pub struct TextEditChange {
     entity: Entity,
 }
+
+/// If true, scrolling needs to be updated.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Default)]
+pub struct NeedsScroll(pub bool);
