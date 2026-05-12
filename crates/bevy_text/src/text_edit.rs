@@ -331,6 +331,7 @@ impl TextEdit {
             | TextEdit::SelectWordAtPoint(_)
             | TextEdit::SelectLineAtPoint(_)
             | TextEdit::SelectedHardLineAtPoint(_)
+            | TextEdit::MoveToPoint(_)
             | TextEdit::ExtendSelectionToPoint(_)
             | TextEdit::ShiftClickExtension(_) => false,
             TextEdit::Cut
@@ -353,7 +354,6 @@ impl TextEdit {
             | TextEdit::LineStart(_)
             | TextEdit::LineEnd(_)
             | TextEdit::CollapseSelection
-            | TextEdit::MoveToPoint(_)
             | TextEdit::ImeSetCompose { .. }
             | TextEdit::ImeCommit { .. } => true,
         }
