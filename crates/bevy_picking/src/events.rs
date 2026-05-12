@@ -478,8 +478,10 @@ pub struct Scroll {
 pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
     pub pressing: EntityHashMap<(Location, Instant, HitData)>,
+    /// Stores the latest press time and count for each pressed entity.
+    pub press_counts: EntityHashMap<(Instant, u8)>,
     /// Stores the latest click time and count for each clicked entity.
-    pub clicking: EntityHashMap<(Instant, u8)>,
+    pub click_counts: EntityHashMap<(Instant, u8)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: EntityHashMap<DragEntry>,
     /// Stores the hit data for each entity currently being dragged over by the pointer.
@@ -922,6 +924,9 @@ pub fn pointer_events(
         match action {
             PointerAction::Press(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
+                state
+                    .press_counts
+                    .retain(|_, (last_press, _)| now - *last_press <= MULTI_CLICK_DURATION);
 
                 // If it's a press, emit a Pressed event and mark the hovered entities as pressed
                 for (hovered_entity, hit) in hover_map
@@ -929,12 +934,18 @@ pub fn pointer_events(
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                 {
+                    let count = state
+                        .press_counts
+                        .get(&hovered_entity)
+                        .map_or(1, |(_, count)| count.saturating_add(1));
+                    state.press_counts.insert(hovered_entity, (now, count));
                     let pressed_event = Pointer::new(
                         pointer_id,
                         location.clone(),
                         Press {
                             button,
                             hit: hit.clone(),
+                            count,
                         },
                         hovered_entity,
                     );
@@ -949,7 +960,7 @@ pub fn pointer_events(
             PointerAction::Release(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
                 state
-                    .clicking
+                    .click_counts
                     .retain(|_, (last_click, _)| now - *last_click <= MULTI_CLICK_DURATION);
 
                 // Emit Click and Release events on all the previously hovered entities.
@@ -961,10 +972,10 @@ pub fn pointer_events(
                     // If this pointer previously pressed the hovered entity, emit a Click event
                     if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity) {
                         let count = state
-                            .clicking
+                            .click_counts
                             .get(&hovered_entity)
                             .map_or(1, |(_, count)| count.saturating_add(1));
-                        state.clicking.insert(hovered_entity, (now, count));
+                        state.click_counts.insert(hovered_entity, (now, count));
                         let click_event = Pointer::new(
                             pointer_id,
                             location.clone(),
