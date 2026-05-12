@@ -640,14 +640,8 @@ mod test {
 
     #[test]
     fn test_scroll_axis_with_inset() {
-        assert_eq!(
-            scroll_axis_with_inset(25., 0., 100., 0., 100., 0., 50.),
-            0.
-        );
-        assert_eq!(
-            scroll_axis_with_inset(25., 0., 0., 0., 100., 50., 100.),
-            0.
-        );
+        assert_eq!(scroll_axis_with_inset(25., 0., 100., 0., 100., 0., 50.), 0.);
+        assert_eq!(scroll_axis_with_inset(25., 0., 0., 0., 100., 50., 100.), 0.);
     }
 
     #[test]
