@@ -196,6 +196,15 @@ pub fn update_editable_text_styles(
             let family = font_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
+            style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
+            style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
+            style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
+            style_set.insert(StyleProperty::FontFeatures(
+                (&text_font.font_features).into(),
+            ));
+            style_set.insert(StyleProperty::FontVariations(
+                (&text_font.font_variations).into(),
+            ));
             style_set.insert(StyleProperty::Brush(TextBrush::new(
                 0,
                 text_font.font_smoothing,
