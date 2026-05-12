@@ -147,7 +147,7 @@ macro_rules! impl_custom_attribute_methods {
     ($self:ident, $attributes:expr, $term:literal) => {
         #[doc = concat!("Returns the custom attributes for this ", $term, ".")]
         pub fn custom_attributes(&$self) -> Option<&$crate::attributes::CustomAttributes> {
-            $attributes.as_deref()
+            $attributes.as_ref().map(|c| &**c)
         }
 
         /// Gets a custom attribute by type.
