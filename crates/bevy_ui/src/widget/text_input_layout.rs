@@ -612,15 +612,15 @@ fn scroll_axis_with_inset(
     t_max: f32,
 ) -> f32 {
     let v_size = v_max - v_min;
-    let u_min = v_min + inset;
-    let u_max = v_max - inset;
+    let inner_min = v_min + inset;
+    let inner_max = v_max - inset;
     let t_size = t_max - t_min;
 
     let new_v_min = if v_size - 2. * inset < t_size {
         scroll_axis(v_min, v_max, t_min, t_max)
-    } else if t_min < u_min {
+    } else if t_min < inner_min {
         t_min - inset
-    } else if u_max < t_max {
+    } else if inner_max < t_max {
         t_max - v_size + inset
     } else {
         v_min
