@@ -17,7 +17,7 @@ use bevy_input_focus::{
 use bevy_math::Vec2;
 use bevy_picking::events::{Click, Drag, Pointer, Press, Release};
 use bevy_picking::pointer::PointerButton;
-use bevy_text::{EditableText, PreeditCursor, TextEdit};
+use bevy_text::{EditableText, EditableTextNeedsScroll, PreeditCursor, TextEdit};
 use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
 use bevy_ui::UiSystems;
 use bevy_ui::{
@@ -267,6 +267,7 @@ fn on_pointer_drag(
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
         &TextScroll,
+        &mut EditableTextNeedsScroll,
     )>,
     ui_scale: Res<UiScale>,
 ) {
@@ -274,7 +275,7 @@ fn on_pointer_drag(
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform, text_scroll)) =
+    let Ok((mut editable_text, node, target, transform, text_scroll, mut needs_scroll)) =
         text_input_query.get_mut(drag.entity)
     else {
         return;
@@ -285,7 +286,7 @@ fn on_pointer_drag(
         return;
     }
 
-    let Some(current_local_pos) = transform.try_inverse().map(|inverse| {
+    let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse
             .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
             - node.content_box().min
@@ -294,9 +295,11 @@ fn on_pointer_drag(
         return;
     };
 
+    needs_scroll.0 = needs_scroll.0 || node.content_box().contains(local_pos);
+
     editable_text
         .pending_edits
-        .push(TextEdit::ExtendSelectionToPoint(current_local_pos));
+        .push(TextEdit::ExtendSelectionToPoint(local_pos));
 
     drag.propagate(false);
 }

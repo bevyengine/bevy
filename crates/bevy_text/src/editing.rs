@@ -103,7 +103,7 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
     LineHeight,
     FontHinting,
     EditableTextGeneration,
-    NeedsScroll
+    EditableTextNeedsScroll
 )]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -309,7 +309,7 @@ pub fn apply_text_edits(
         &mut EditableText,
         Option<&EditableTextFilter>,
         &EditableTextGeneration,
-        &mut NeedsScroll,
+        &mut EditableTextNeedsScroll,
     )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
@@ -348,4 +348,4 @@ pub struct TextEditChange {
 
 /// If true, scrolling needs to be updated.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Default)]
-pub struct NeedsScroll(pub bool);
+pub struct EditableTextNeedsScroll(pub bool);
