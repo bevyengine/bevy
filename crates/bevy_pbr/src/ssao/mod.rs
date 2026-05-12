@@ -119,6 +119,7 @@ pub struct ScreenSpaceAmbientOcclusion {
     ///
     /// Use larger values for broader occlusion. This can increase haloing and noise.
     /// This value must be greater than `0.0`.
+    /// Defaults to `0.7285`.
     ///
     /// To disable SSAO, remove [`ScreenSpaceAmbientOcclusion`] from the camera instead.
     pub radius: f32,
