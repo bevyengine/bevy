@@ -12,9 +12,8 @@ impl Prepare for BenchCheckCommand {
         let jobs = args.build_jobs();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --benches {jobs...}"),
+            cmd!(sh, "cargo check -p benches --benches {jobs...}"),
             "Failed to check the benches.",
-        )
-        .with_subdir("benches")]
+        )]
     }
 }
