@@ -38,6 +38,9 @@ use core::{
 /// Messages are stored in the [`Messages<M>`] resource, and require periodically polling the world for new messages,
 /// typically in a system that runs as part of a schedule.
 ///
+/// A [`MessageReader`] system parameter tracks the consumption of these events on a per-system basis using a [`Local<MessageCursor>`],
+/// which will guarantee each system an opportunity to read the event once.
+///
 /// While the polling imposes a small overhead, messages are useful for efficiently batch processing
 /// a large number of messages at once. For cases like these, messages can be more efficient than [`Event`]s (which are handled via [`Observer`]s).
 ///
@@ -88,6 +91,7 @@ use core::{
 /// ```
 /// [`Event`]: crate::event::Event
 /// [`Observer`]: crate::observer::Observer
+/// [`local<MessageCursor>`]: crate::system::Local
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Message`",
     label = "invalid `Message`",
