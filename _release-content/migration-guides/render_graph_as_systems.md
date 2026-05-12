@@ -53,5 +53,5 @@ parameter instead of being passed as `&mut`. Use `.before()` / `.after()` with t
 `main_opaque_pass_3d`) rather than `Node3d` labels.
 
 System sets `Core3dSystems::Prepass`, `MainPass`, and `PostProcess` are available for coarse ordering.
-The `RenderGraph` schedule, available as `bevy_render::renderer::RenderGraph`,
+The `RenderGraph` schedule, available as `bevy::render::renderer::RenderGraph`,
 remains as the top-level schedule for non-camera rendering.
