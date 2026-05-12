@@ -303,6 +303,8 @@ pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
     /// A character offset in the string the path was parsed from.
+    ///
+    /// Generally, this is `None` when the access wasn't parsed from a string.
     pub offset: Option<usize>,
 }
 
@@ -390,7 +392,7 @@ impl ParsedPath {
     /// assert_eq!(empty_path.element::<bool>(&true).unwrap(), &true);
     /// assert_eq!(empty_path.element::<Foo>(&foo).unwrap(), &foo);
     /// ```
-    pub fn empty() -> Self {
+    pub const fn empty() -> Self {
         Self(Vec::new())
     }
 
@@ -405,6 +407,8 @@ impl ParsedPath {
     /// - Unnamed field access (`.1`)
     /// - Field index access (`#0`)
     /// - Sequence access (`[2]`)
+    ///
+    /// [`OffsetAccess::offset`] will be `Some` for paths parsed by this method.
     ///
     /// # Example
     /// ```
@@ -451,6 +455,8 @@ impl ParsedPath {
 
     /// Similar to [`Self::parse`] but only works on `&'static str`
     /// and does not allocate per named field.
+    ///
+    /// [`OffsetAccess::offset`] will be `Some` for paths parsed by this method.
     pub fn parse_static(string: &'static str) -> PathResult<'static, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
@@ -463,6 +469,8 @@ impl ParsedPath {
     }
 
     /// Append a field access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
     pub fn push_field(&mut self, field: &str) -> &mut Self {
         self.0.push(OffsetAccess {
             access: Access::Field(Cow::Owned(field.into())),
@@ -473,6 +481,8 @@ impl ParsedPath {
 
     /// Similar to [`Self::push_field`] but only works on `&'static str`
     /// and does not allocate.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
     pub fn push_field_static(&mut self, field: &'static str) -> &mut Self {
         self.0.push(OffsetAccess {
             access: Access::Field(Cow::Borrowed(field)),
@@ -482,6 +492,8 @@ impl ParsedPath {
     }
 
     /// Append a field index access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
     pub fn push_field_index(&mut self, idx: usize) -> &mut Self {
         self.0.push(OffsetAccess {
             access: Access::FieldIndex(idx),
@@ -491,6 +503,8 @@ impl ParsedPath {
     }
 
     /// Append a list access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
     pub fn push_list_index(&mut self, idx: usize) -> &mut Self {
         self.0.push(OffsetAccess {
             access: Access::ListIndex(idx),
@@ -500,6 +514,8 @@ impl ParsedPath {
     }
 
     /// Append a tuple index access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
     pub fn push_tuple_index(&mut self, idx: usize) -> &mut Self {
         self.0.push(OffsetAccess {
             access: Access::TupleIndex(idx),
