@@ -135,12 +135,12 @@ macro_rules! plugin_group {
     } => {
         $(#[$group_meta])*
         ///
-        $(#[doc = concat!(
-            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+        $(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_name), "`](" $(, ::core::stringify!($plugin_path), "::")*, ::core::stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
-       $($(#[doc = concat!(
-            " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
+       $($(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_group_name), "`](" $(, ::core::stringify!($plugin_group_path), "::")*, ::core::stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
         )])+)?
         $(
