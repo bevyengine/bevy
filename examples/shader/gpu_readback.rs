@@ -5,20 +5,17 @@ use bevy::{
     asset::RenderAssetUsages,
     prelude::*,
     render::{
-        Render, 
-        RenderApp, 
-        RenderStartup, 
-        RenderSystems, 
-        extract_resource::{ExtractResource, ExtractResourcePlugin}, 
-        gpu_readback::{Readback, ReadbackComplete}, 
-        render_asset::RenderAssets, 
+        Render, RenderApp, RenderStartup, RenderSystems,
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        gpu_readback::{Readback, ReadbackComplete},
+        render_asset::RenderAssets,
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
-        }, 
-        renderer::RenderDevice, 
-        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer}, 
-        texture::GpuImage
+        },
+        renderer::RenderDevice,
+        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+        texture::GpuImage,
     },
 };
 
@@ -203,15 +200,15 @@ fn compute(
     bind_group: Res<GpuBufferBindGroup>,
 ) {
     if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
-        let mut context = render_context.create_command_encoder(&CommandEncoderDescriptor { 
+        let mut context = render_context.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Command Encoder"),
-            ..default() 
+            ..default()
         });
 
         let mut pass = context.begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("GPU readback compute pass"),
-                    ..default()
-                });
+            label: Some("GPU readback compute pass"),
+            ..default()
+        });
 
         pass.set_bind_group(0, &bind_group.0, &[]);
         pass.set_pipeline(init_pipeline);
