@@ -1,7 +1,7 @@
 //! Types and functions for creating, manipulating and querying [`CustomAttributes`].
 
 use crate::Reflect;
-use alloc::boxed::Box;
+use alloc::{boxed::Box, sync::Arc};
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
@@ -35,63 +35,66 @@ use core::{
 /// ```
 ///
 /// [`Reflect` derive macro]: derive@crate::Reflect
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CustomAttributes {
-    attributes: TypeIdMap<CustomAttribute>,
+    attributes: Option<Arc<TypeIdMap<CustomAttribute>>>,
 }
 
 impl CustomAttributes {
-    /// Inserts a custom attribute into the collection.
-    ///
-    /// Note that this will overwrite any existing attribute of the same type.
-    pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
-        self.attributes
-            .insert(TypeId::of::<T>(), CustomAttribute::new(value));
-
-        self
-    }
-
     /// Returns `true` if this collection contains a custom attribute of the specified type.
     pub fn contains<T: Reflect>(&self) -> bool {
-        self.attributes.contains_key(&TypeId::of::<T>())
+        self.attributes
+            .as_ref()
+            .is_some_and(|a| a.contains_key(&TypeId::of::<T>()))
     }
 
     /// Returns `true` if this collection contains a custom attribute with the specified [`TypeId`].
     pub fn contains_by_id(&self, id: TypeId) -> bool {
-        self.attributes.contains_key(&id)
+        self.attributes
+            .as_ref()
+            .is_some_and(|a| a.contains_key(&id))
     }
 
     /// Gets a custom attribute by type.
     pub fn get<T: Reflect>(&self) -> Option<&T> {
-        self.attributes.get(&TypeId::of::<T>())?.value::<T>()
+        self.attributes
+            .as_ref()
+            .and_then(|a| a.get(&TypeId::of::<T>())?.value::<T>())
     }
 
     /// Gets a custom attribute by its [`TypeId`].
     pub fn get_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
-        Some(self.attributes.get(&id)?.reflect_value())
+        self.attributes
+            .as_ref()
+            .and_then(|a| a.get(&id))
+            .map(CustomAttribute::reflect_value)
     }
 
     /// Returns an iterator over all custom attributes.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)> {
+    pub fn iter(&self) -> Option<impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)>> {
         self.attributes
-            .iter()
-            .map(|(key, value)| (key, value.reflect_value()))
+            .as_ref()
+            .map(|a| a.iter().map(|(key, value)| (key, value.reflect_value())))
     }
 
     /// Returns the number of custom attributes in this collection.
     pub fn len(&self) -> usize {
-        self.attributes.len()
+        self.attributes.as_ref().map(|a| a.len()).unwrap_or(0)
     }
 
     /// Returns `true` if this collection is empty.
     pub fn is_empty(&self) -> bool {
-        self.attributes.is_empty()
+        self.attributes.is_none()
     }
 }
 
 impl Debug for CustomAttributes {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_set().entries(self.attributes.values()).finish()
+        if let Some(attributes) = &self.attributes {
+            f.debug_set().entries(attributes.values()).finish()
+        } else {
+            self.attributes.fmt(f)
+        }
     }
 }
 
@@ -146,36 +149,67 @@ macro_rules! impl_custom_attribute_methods {
     };
     ($self:ident, $attributes:expr, $term:literal) => {
         #[doc = concat!("Returns the custom attributes for this ", $term, ".")]
-        pub fn custom_attributes(&$self) -> Option<&$crate::attributes::CustomAttributes> {
-            $attributes.as_ref().map(|c| &**c)
+        pub fn custom_attributes(&$self) -> &$crate::attributes::CustomAttributes {
+            $attributes
         }
 
         /// Gets a custom attribute by type.
         ///
         /// For dynamically accessing an attribute, see [`get_attribute_by_id`](Self::get_attribute_by_id).
         pub fn get_attribute<T: $crate::Reflect>(&$self) -> Option<&T> {
-            $self.custom_attributes().and_then(|c| c.get::<T>())
+            $self.custom_attributes().get::<T>()
         }
 
         /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
         pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
-            $self.custom_attributes().and_then(|c| c.get_by_id(id))
+            $self.custom_attributes().get_by_id(id)
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute of the specified type.")]
         #[doc = "\n\nFor dynamically checking if an attribute exists, see [`has_attribute_by_id`](Self::has_attribute_by_id)."]
         pub fn has_attribute<T: $crate::Reflect>(&$self) -> bool {
-            $self.custom_attributes().is_some_and(|c| c.contains::<T>())
+            $self.custom_attributes().contains::<T>()
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::core::any::TypeId).")]
         #[doc = "\n\nThis is the dynamic equivalent of [`has_attribute`](Self::has_attribute)"]
         pub fn has_attribute_by_id(&$self, id: ::core::any::TypeId) -> bool {
-            $self.custom_attributes().is_some_and(|c| c.contains_by_id(id))
+            $self.custom_attributes().contains_by_id(id)
         }
     };
+}
+
+/// XXX TODO: Document.
+#[derive(Default)]
+pub struct CustomAttributesBuilder {
+    attributes: TypeIdMap<CustomAttribute>,
+}
+
+impl CustomAttributesBuilder {
+    /// XXX TODO: Document.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// XXX TODO: Document.
+    pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
+        self.attributes
+            .insert(TypeId::of::<T>(), CustomAttribute::new(value));
+        self
+    }
+
+    /// XXX TODO: Document.
+    pub fn build(self) -> CustomAttributes {
+        if self.attributes.is_empty() {
+            CustomAttributes { attributes: None }
+        } else {
+            CustomAttributes {
+                attributes: Some(Arc::new(self.attributes)),
+            }
+        }
+    }
 }
 
 pub(crate) use impl_custom_attribute_methods;
@@ -198,7 +232,9 @@ mod tests {
 
     #[test]
     fn should_get_custom_attribute() {
-        let attributes = CustomAttributes::default().with_attribute(0.0..=1.0);
+        let attributes = CustomAttributesBuilder::new()
+            .with_attribute(0.0..=1.0)
+            .build();
 
         let value = attributes.get::<RangeInclusive<f64>>().unwrap();
         assert_eq!(&(0.0..=1.0), value);
@@ -206,7 +242,9 @@ mod tests {
 
     #[test]
     fn should_get_custom_attribute_dynamically() {
-        let attributes = CustomAttributes::default().with_attribute(String::from("Hello, World!"));
+        let attributes = CustomAttributesBuilder::new()
+            .with_attribute(String::from("Hello, World!"))
+            .build();
 
         let value = attributes.get_by_id(TypeId::of::<String>()).unwrap();
         assert!(value
@@ -216,7 +254,9 @@ mod tests {
 
     #[test]
     fn should_debug_custom_attributes() {
-        let attributes = CustomAttributes::default().with_attribute("My awesome custom attribute!");
+        let attributes = CustomAttributesBuilder::new()
+            .with_attribute("My awesome custom attribute!")
+            .build();
 
         let debug = format!("{attributes:?}");
 
@@ -227,7 +267,9 @@ mod tests {
             value: i32,
         }
 
-        let attributes = CustomAttributes::default().with_attribute(Foo { value: 42 });
+        let attributes = CustomAttributesBuilder::new()
+            .with_attribute(Foo { value: 42 })
+            .build();
 
         let debug = format!("{attributes:?}");
 

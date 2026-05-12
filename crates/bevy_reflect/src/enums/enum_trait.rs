@@ -7,7 +7,6 @@ use crate::{
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform::collections::HashMap;
-use bevy_platform::sync::Arc;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
@@ -154,7 +153,7 @@ pub struct EnumInfo {
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
-    custom_attributes: Option<Arc<CustomAttributes>>,
+    custom_attributes: CustomAttributes,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -187,7 +186,7 @@ impl EnumInfo {
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
-            custom_attributes: None,
+            custom_attributes: CustomAttributes::default(),
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -202,7 +201,7 @@ impl EnumInfo {
     /// Sets the custom attributes for this enum.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Some(Arc::new(custom_attributes)),
+            custom_attributes,
             ..self
         }
     }

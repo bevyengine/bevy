@@ -10,7 +10,6 @@ use crate::{
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_platform::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
 use core::{
     fmt::{Debug, Formatter},
@@ -110,7 +109,7 @@ pub struct StructInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    custom_attributes: Option<Arc<CustomAttributes>>,
+    custom_attributes: CustomAttributes,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -143,7 +142,7 @@ impl StructInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            custom_attributes: None,
+            custom_attributes: CustomAttributes::default(),
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -158,7 +157,7 @@ impl StructInfo {
     /// Sets the custom attributes for this struct.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Some(Arc::new(custom_attributes)),
+            custom_attributes,
             ..self
         }
     }

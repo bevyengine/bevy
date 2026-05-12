@@ -17,8 +17,7 @@ impl CustomAttributes {
         });
 
         quote! {
-            #bevy_reflect_path::attributes::CustomAttributes::default()
-                #(#attributes)*
+            #bevy_reflect_path::attributes::CustomAttributesBuilder::new()#(#attributes)*.build()
         }
     }
 

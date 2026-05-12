@@ -12,7 +12,6 @@ use crate::{
     ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::sync::Arc;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -79,7 +78,7 @@ pub struct TupleStructInfo {
     ty: Type,
     generics: Generics,
     fields: Box<[UnnamedField]>,
-    custom_attributes: Option<Arc<CustomAttributes>>,
+    custom_attributes: CustomAttributes,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -102,7 +101,7 @@ impl TupleStructInfo {
             ty,
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
-            custom_attributes: None,
+            custom_attributes: CustomAttributes::default(),
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -117,7 +116,7 @@ impl TupleStructInfo {
     /// Sets the custom attributes for this struct.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Some(Arc::new(custom_attributes)),
+            custom_attributes,
             ..self
         }
     }
