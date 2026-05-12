@@ -14,7 +14,7 @@ use crate::{
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
-    resource::Resource,
+    resource::{Resource, ResourceEntities},
     storage::{SparseSets, Table},
     template::{EntityScopes, ScopedEntities, Template, TemplateContext},
     world::{
@@ -730,6 +730,21 @@ impl<'w> EntityWorldMut<'w> {
                 f(&mut this, res)
             })
         })
+    }
+
+    /// Retrieves this world's [`ResourceEntities`].
+    #[inline]
+    #[track_caller]
+    pub fn resource_entities(&self) -> &ResourceEntities {
+        self.world.resource_entities()
+    }
+
+    /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    #[inline]
+    #[track_caller]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let component_id = self.world.component_id::<R>()?;
+        self.world.resource_entities().get(component_id)
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
