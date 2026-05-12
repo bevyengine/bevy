@@ -641,11 +641,11 @@ mod test {
     #[test]
     fn test_scroll_axis_with_inset() {
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 0., 50.),
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 0., 50.),
             0.
         );
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 0., 0., 100., 50., 100.),
+            scroll_axis_with_inset(25., 0., 0., 0., 100., 50., 100.),
             0.
         );
     }
@@ -653,7 +653,7 @@ mod test {
     #[test]
     fn test_scroll_axis_with_inset_moves_to_inner_min() {
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 50., 150., 60., 65.),
+            scroll_axis_with_inset(25., 0., 100., 50., 150., 60., 65.),
             35.
         );
     }
@@ -661,7 +661,7 @@ mod test {
     #[test]
     fn test_scroll_axis_with_inset_moves_to_inner_max() {
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 90., 95.),
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 90., 95.),
             20.
         );
     }
@@ -669,11 +669,11 @@ mod test {
     #[test]
     fn test_scroll_axis_with_inset_saturates() {
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 10., 110., 10., 20.),
+            scroll_axis_with_inset(25., 0., 100., 10., 110., 10., 20.),
             0.
         );
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 80., 180., 175., 180.),
+            scroll_axis_with_inset(25., 0., 100., 80., 180., 175., 180.),
             100.
         );
     }
@@ -681,11 +681,11 @@ mod test {
     #[test]
     fn test_scroll_axis_with_inset_uses_full_view_when_target_larger_than_inner() {
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 20., 90.),
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 20., 90.),
             0.
         );
         assert_eq!(
-            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 80., 150.),
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 80., 150.),
             50.
         );
     }
