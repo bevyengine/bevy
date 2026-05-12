@@ -32,7 +32,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_log::warn_once;
-use bevy_math::Vec4;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     batching::gpu_preprocessing::{
@@ -51,7 +50,7 @@ use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        BindingResource, Buffer, BufferBinding, BufferVec, CachedComputePipelineId,
+        BindingResource, Buffer, BufferBinding, CachedComputePipelineId,
         ComputePassDescriptor, ComputePipelineDescriptor, DynamicBindGroupLayoutEntries,
         PartialBufferVec, PipelineCache, RawBufferVec, ShaderStages, ShaderType,
         SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
@@ -60,10 +59,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
-    view::{
-        ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
-    },
+    view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity, ViewUniform, ViewUniformOffset, ViewUniforms},
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -1267,11 +1263,11 @@ impl FromWorld for PreprocessPipelines {
         let gpu_early_occlusion_culling_bind_group_layout_entries =
             gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices((
                 (
-                    12,
+                    11,
                     storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
                 ),
                 (
-                    13,
+                    12,
                     storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
                         /*has_dynamic_offset=*/ false,
                     ),
@@ -1279,7 +1275,7 @@ impl FromWorld for PreprocessPipelines {
             ));
         let gpu_late_occlusion_culling_bind_group_layout_entries =
             gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
-                13,
+                12,
                 storage_buffer_read_only::<LatePreprocessWorkItemIndirectParameters>(
                     /*has_dynamic_offset=*/ false,
                 ),
@@ -1470,11 +1466,6 @@ fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
             9,
             storage_buffer_read_only::<MeshCullingData>(/* has_dynamic_offset= */ false),
         ),
-        // `visibility_ranges`
-        (
-            10,
-            storage_buffer_read_only::<Vec4>(/* has_dynamic_offset= */ false),
-        ),
     ))
 }
 
@@ -1485,7 +1476,7 @@ fn gpu_occlusion_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
             uniform_buffer::<PreviousViewData>(/*has_dynamic_offset=*/ false),
         ),
         (
-            11,
+            10,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
     ))
@@ -1805,7 +1796,6 @@ pub fn prepare_preprocess_bind_groups(
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
     bin_unpacking_buffers: Res<BinUnpackingBuffers>,
     mesh_culling_data_buffer: Res<MeshCullingDataBuffer>,
-    visibility_ranges: Res<RenderVisibilityRanges>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     pipelines: Res<PreprocessPipelines>,
@@ -1866,7 +1856,6 @@ pub fn prepare_preprocess_bind_groups(
                 pipeline_cache: &pipeline_cache,
                 phase_indirect_parameters_buffers,
                 mesh_culling_data_buffer: &mesh_culling_data_buffer,
-                visibility_range_data_buffer: visibility_ranges.buffer(),
                 view_uniforms: &view_uniforms,
                 previous_view_uniforms: &previous_view_uniforms,
                 pipelines: &pipelines,
@@ -1976,9 +1965,6 @@ struct PreprocessBindGroupBuilder<'a> {
     phase_indirect_parameters_buffers: &'a UntypedPhaseIndirectParametersBuffers,
     /// The GPU buffer that stores the information needed to cull each mesh.
     mesh_culling_data_buffer: &'a MeshCullingDataBuffer,
-    /// The device buffer that stores the information needed to process
-    /// visibility ranges on the GPU.
-    visibility_range_data_buffer: &'a BufferVec<Vec4>,
     /// The GPU buffer that stores information about the view.
     view_uniforms: &'a ViewUniforms,
     /// The GPU buffer that stores information about the view from last frame.
@@ -2095,7 +2081,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
-        let visibility_range_binding = self.visibility_range_data_buffer.binding()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
@@ -2150,9 +2135,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                             (7, indexed_cpu_metadata_buffer.as_entire_binding()),
                             (8, indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
-                            (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
-                            (11, &view_depth_pyramid.all_mips),
+                            (10, &view_depth_pyramid.all_mips),
                             (
                                 2,
                                 BufferBinding {
@@ -2162,7 +2146,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 },
                             ),
                             (
-                                12,
+                                11,
                                 BufferBinding {
                                     buffer: late_indexed_work_item_gpu_buffer,
                                     offset: 0,
@@ -2170,7 +2154,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 },
                             ),
                             (
-                                13,
+                                12,
                                 BufferBinding {
                                     buffer: late_indexed_indirect_parameters_buffer,
                                     offset: 0,
@@ -2197,7 +2181,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
-        let visibility_range_binding = self.visibility_range_data_buffer.binding()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
@@ -2252,9 +2235,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                             (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
                             (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
-                            (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
-                            (11, &view_depth_pyramid.all_mips),
+                            (10, &view_depth_pyramid.all_mips),
                             (
                                 2,
                                 BufferBinding {
@@ -2264,7 +2246,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 },
                             ),
                             (
-                                12,
+                                11,
                                 BufferBinding {
                                     buffer: late_non_indexed_work_item_buffer,
                                     offset: 0,
@@ -2272,7 +2254,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 },
                             ),
                             (
-                                13,
+                                12,
                                 BufferBinding {
                                     buffer: late_non_indexed_indirect_parameters_buffer,
                                     offset: 0,
@@ -2298,7 +2280,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
-        let visibility_range_binding = self.visibility_range_data_buffer.binding()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
@@ -2351,9 +2332,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                             (7, indexed_cpu_metadata_buffer.as_entire_binding()),
                             (8, indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
-                            (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
-                            (11, &view_depth_pyramid.all_mips),
+                            (10, &view_depth_pyramid.all_mips),
                             (
                                 2,
                                 BufferBinding {
@@ -2363,7 +2343,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 },
                             ),
                             (
-                                13,
+                                12,
                                 BufferBinding {
                                     buffer: late_indexed_indirect_parameters_buffer,
                                     offset: 0,
@@ -2389,7 +2369,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
-        let visibility_range_binding = self.visibility_range_data_buffer.binding()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
@@ -2442,9 +2421,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                             (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
                             (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
-                            (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
-                            (11, &view_depth_pyramid.all_mips),
+                            (10, &view_depth_pyramid.all_mips),
                             (
                                 2,
                                 BufferBinding {
@@ -2454,7 +2432,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 },
                             ),
                             (
-                                13,
+                                12,
                                 BufferBinding {
                                     buffer: late_non_indexed_indirect_parameters_buffer,
                                     offset: 0,
@@ -2494,7 +2472,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
-        let visibility_range_binding = self.visibility_range_data_buffer.binding()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
 
         match (
@@ -2544,7 +2521,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                             (7, indexed_cpu_metadata_buffer.as_entire_binding()),
                             (8, indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
-                            (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
                         )),
                     ),
@@ -2561,7 +2537,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         non_indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
-        let visibility_range_binding = self.visibility_range_data_buffer.binding()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
 
         match (
@@ -2611,7 +2586,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                             (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
                             (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
-                            (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
                         )),
                     ),
