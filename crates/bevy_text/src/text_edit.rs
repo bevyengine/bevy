@@ -352,7 +352,7 @@ impl TextEdit {
             TextEdit::SelectWordAtPoint(_) => false,
             TextEdit::SelectLineAtPoint(_) => false,
             TextEdit::SelectedHardLineAtPoint(_) => false,
-            TextEdit::ExtendSelectionToPoint(_) => true,
+            TextEdit::ExtendSelectionToPoint(_) => false,
             TextEdit::ShiftClickExtension(_) => false,
             TextEdit::ImeSetCompose { .. } => true,
             TextEdit::ImeCommit { .. } => true,
