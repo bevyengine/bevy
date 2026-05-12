@@ -217,7 +217,7 @@ fn run_deferred_prepass_system(
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
     if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        Viewport::from_size_override(camera.main_texture_size, resolution_override)
     {
         render_pass.set_camera_viewport(&viewport);
     }

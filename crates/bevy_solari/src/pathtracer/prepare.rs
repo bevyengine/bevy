@@ -23,13 +23,9 @@ pub fn prepare_pathtracer_accumulation_texture(
     mut commands: Commands,
 ) {
     for (entity, camera) in &query {
-        let Some(viewport) = camera.physical_viewport_size else {
-            continue;
-        };
-
         let descriptor = TextureDescriptor {
             label: Some("pathtracer_accumulation_texture"),
-            size: viewport.to_extents(),
+            size: camera.main_texture_size.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

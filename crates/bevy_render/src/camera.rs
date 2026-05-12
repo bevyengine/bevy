@@ -45,7 +45,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -454,9 +454,9 @@ pub fn camera_system(
 #[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
-    pub physical_viewport_size: Option<UVec2>,
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
+    pub main_texture_size: UVec2,
     pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
@@ -551,15 +551,7 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (
-            Some(URect {
-                min: viewport_origin,
-                ..
-            }),
-            Some(viewport_size),
-            Some(target_size),
-        ) = (
-            camera.physical_viewport_rect(),
+        if let (Some(viewport_size), Some(target_size)) = (
             camera.physical_viewport_size(),
             camera.physical_target_size(),
         ) {
@@ -569,6 +561,7 @@ pub fn extract_cameras(
                     .remove::<ExtractedCameraComponents>();
                 continue;
             }
+            let main_texture_size = viewport_size;
 
             let mut render_visible_entities_cpu_culling =
                 match existing_render_visible_entities_cpu_culling.get_mut(render_entity) {
@@ -624,8 +617,8 @@ pub fn extract_cameras(
                 ExtractedCamera {
                     target,
                     viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
+                    main_texture_size,
                     schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
@@ -645,12 +638,7 @@ pub fn extract_cameras(
                     world_from_view: *transform,
                     clip_from_world: None,
                     target_format,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
+                    viewport: UVec4::new(0, 0, main_texture_size.x, main_texture_size.y),
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },

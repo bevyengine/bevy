@@ -687,10 +687,6 @@ pub fn prepare_core_3d_depth_textures(
 
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
         let cached_texture = textures
             .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
@@ -701,7 +697,7 @@ pub fn prepare_core_3d_depth_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_texture_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -810,11 +806,7 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = physical_target_size.to_extents();
+        let size = camera.main_texture_size.to_extents();
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1

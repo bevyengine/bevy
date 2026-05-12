@@ -659,9 +659,7 @@ fn prepare_smaa_textures(
     view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
 ) {
     for (entity, camera) in &view_targets {
-        let Some(texture_size) = camera.physical_target_size else {
-            continue;
-        };
+        let texture_size = camera.main_texture_size;
 
         // Create the two-channel RG texture for phase 1 (edge detection).
         let edge_detection_color_texture = texture_cache.get(

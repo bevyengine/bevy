@@ -184,7 +184,7 @@ pub fn render_sky(
     });
 
     if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        Viewport::from_size_override(camera.main_texture_size, resolution_override)
     {
         render_sky_pass.set_viewport(
             viewport.physical_position.x as f32,

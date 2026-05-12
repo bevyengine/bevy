@@ -79,10 +79,9 @@ pub fn pathtracer(
         return;
     };
 
-    let (Some(pipeline), Some(scene_bind_group), Some(viewport), Some(view_uniforms_binding)) = (
+    let (Some(pipeline), Some(scene_bind_group), Some(view_uniforms_binding)) = (
         pipeline_cache.get_compute_pipeline(pathtracer_pipelines.pipeline),
         &scene_bindings.bind_group,
-        camera.physical_viewport_size,
         view_uniforms.uniforms.binding(),
     ) else {
         return;
@@ -114,5 +113,9 @@ pub fn pathtracer(
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, scene_bind_group, &[]);
     pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
-    pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
+    pass.dispatch_workgroups(
+        camera.main_texture_size.x.div_ceil(8),
+        camera.main_texture_size.y.div_ceil(8),
+        1,
+    );
 }

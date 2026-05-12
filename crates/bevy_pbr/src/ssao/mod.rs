@@ -176,20 +176,14 @@ fn ssao(
 ) {
     let (camera, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
 
-    let (
-        Some(camera_size),
-        Some(preprocess_depth_pipeline),
-        Some(spatial_denoise_pipeline),
-        Some(ssao_pipeline),
-    ) = (
-        camera.physical_viewport_size,
+    let (Some(preprocess_depth_pipeline), Some(spatial_denoise_pipeline), Some(ssao_pipeline)) = (
         pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         pipeline_cache.get_compute_pipeline(pipeline_id.0),
-    )
-    else {
+    ) else {
         return;
     };
+    let camera_size = camera.main_texture_size;
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -520,10 +514,7 @@ fn prepare_ssao_textures(
     views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
 ) {
     for (entity, camera, ssao_settings) in &views {
-        let Some(physical_viewport_size) = camera.physical_viewport_size else {
-            continue;
-        };
-        let size = physical_viewport_size.to_extents();
+        let size = camera.main_texture_size.to_extents();
 
         let preprocessed_depth_texture = texture_cache.get(
             &render_device,

@@ -82,23 +82,19 @@ pub fn upscaling(
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
-    let time_span = diagnostics.time_span(ctx.command_encoder(), "upscaling");
 
+    let mut render_pass = ctx.begin_tracked_render_pass(pass_descriptor);
+    let pass_span = diagnostics.pass_span(&mut render_pass, "upscaling");
+
+    if let Some(camera) = camera
+        && let Some(viewport) = &camera.viewport
     {
-        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
-
-        if let Some(camera) = camera
-            && let Some(viewport) = &camera.viewport
-        {
-            let size = viewport.physical_size;
-            let position = viewport.physical_position;
-            render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
-        }
-
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        render_pass.set_camera_viewport(viewport);
     }
 
-    time_span.end(ctx.command_encoder());
+    render_pass.set_render_pipeline(pipeline);
+    render_pass.set_bind_group(0, bind_group, &[]);
+    render_pass.draw(0..3, 0..1);
+
+    pass_span.end(&mut render_pass);
 }

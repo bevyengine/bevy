@@ -321,58 +321,56 @@ fn prepare_bloom_textures(
     views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
     for (entity, camera, bloom) in &views {
-        if let Some(viewport) = camera.physical_viewport_size {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if viewport.y != 0 {
-                bloom.max_mip_dimension as f32 / viewport.y as f32
-            } else {
-                0.
-            };
+        // How many times we can halve the resolution minus one so we don't go unnecessarily low
+        let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
+        let mip_height_ratio = if camera.main_texture_size.y != 0 {
+            bloom.max_mip_dimension as f32 / camera.main_texture_size.y as f32
+        } else {
+            0.
+        };
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("bloom_texture"),
-                size: (viewport.as_vec2() * mip_height_ratio)
-                    .round()
-                    .as_uvec2()
-                    .max(UVec2::ONE)
-                    .to_extents(),
-                mip_level_count: mip_count,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: BLOOM_TEXTURE_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            };
+        let texture_descriptor = TextureDescriptor {
+            label: Some("bloom_texture"),
+            size: (camera.main_texture_size.as_vec2() * mip_height_ratio)
+                .round()
+                .as_uvec2()
+                .max(UVec2::ONE)
+                .to_extents(),
+            mip_level_count: mip_count,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: BLOOM_TEXTURE_FORMAT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
 
-            #[cfg(any(
-                not(feature = "webgl"),
-                not(target_arch = "wasm32"),
-                feature = "webgpu"
-            ))]
-            let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            let texture: Vec<CachedTexture> = (0..mip_count)
-                .map(|mip| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            size: Extent3d {
-                                width: (texture_descriptor.size.width >> mip).max(1),
-                                height: (texture_descriptor.size.height >> mip).max(1),
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            ..texture_descriptor.clone()
+        #[cfg(any(
+            not(feature = "webgl"),
+            not(target_arch = "wasm32"),
+            feature = "webgpu"
+        ))]
+        let texture = texture_cache.get(&render_device, texture_descriptor);
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        let texture: Vec<CachedTexture> = (0..mip_count)
+            .map(|mip| {
+                texture_cache.get(
+                    &render_device,
+                    TextureDescriptor {
+                        size: Extent3d {
+                            width: (texture_descriptor.size.width >> mip).max(1),
+                            height: (texture_descriptor.size.height >> mip).max(1),
+                            depth_or_array_layers: 1,
                         },
-                    )
-                })
-                .collect();
+                        mip_level_count: 1,
+                        ..texture_descriptor.clone()
+                    },
+                )
+            })
+            .collect();
 
-            commands
-                .entity(entity)
-                .insert(BloomTexture { texture, mip_count });
-        }
+        commands
+            .entity(entity)
+            .insert(BloomTexture { texture, mip_count });
     }
 }
 

@@ -56,10 +56,6 @@ pub fn prepare_core_3d_transmission_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
         // Don't prepare a transmission texture if the number of steps is set to 0
         if transmission.steps == 0 {
             continue;
@@ -78,7 +74,7 @@ pub fn prepare_core_3d_transmission_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_texture_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,

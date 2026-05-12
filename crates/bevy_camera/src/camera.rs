@@ -27,7 +27,7 @@ use wgpu_types::{BlendState, TextureUsages};
 ///
 /// <div class="warning">
 ///
-/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.
 /// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
 /// Please see the example code (which assumes a single camera and window)
 ///
@@ -115,17 +115,17 @@ impl Viewport {
         }
     }
 
-    pub fn from_viewport_and_override(
-        viewport: Option<&Self>,
+    pub fn from_size_override(
+        main_texture_size: UVec2,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
-        if let Some(override_size) = main_pass_resolution_override {
-            let mut vp = viewport.map_or_else(Self::default, Self::clone);
-            vp.physical_size = **override_size;
-            Some(vp)
-        } else {
-            viewport.cloned()
-        }
+        main_pass_resolution_override.map(|override_size| Viewport {
+            physical_size: (main_texture_size.as_vec2() * **override_size)
+                .round()
+                .as_uvec2()
+                .max(UVec2::ONE),
+            ..Default::default()
+        })
     }
 }
 
@@ -137,11 +137,11 @@ impl Viewport {
 ///
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
-/// * The resolution override is specified in physical pixels.
+/// * The resolution override is specified in [0, 1].
 /// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
 #[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
-pub struct MainPassResolutionOverride(pub UVec2);
+pub struct MainPassResolutionOverride(pub Vec2);
 
 /// Settings to define a camera sub view.
 ///

@@ -77,7 +77,7 @@ pub fn meshlet_main_opaque_pass(
     });
 
     if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        Viewport::from_size_override(camera.main_texture_size, resolution_override)
     {
         render_pass.set_camera_viewport(&viewport);
     }
@@ -177,7 +177,7 @@ pub fn meshlet_prepass(
     });
 
     if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        Viewport::from_size_override(camera.main_texture_size, resolution_override)
     {
         render_pass.set_camera_viewport(&viewport);
     }
@@ -293,7 +293,7 @@ pub fn meshlet_deferred_gbuffer_prepass(
     });
 
     if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        Viewport::from_size_override(camera.main_texture_size, resolution_override)
     {
         render_pass.set_camera_viewport(&viewport);
     }

@@ -73,6 +73,11 @@ fn setup(
                 Camera {
                     // Renders cameras with different priorities to prevent ambiguities
                     order: index as isize,
+                    // TODO:
+                    // The main texture is shared by cameras.
+                    // If `MassWriteback` is on, the result of previous camera isn't never cleared.
+                    // Disable it for now.
+                    msaa_writeback: MsaaWriteback::Off,
                     ..default()
                 },
                 CameraPosition {

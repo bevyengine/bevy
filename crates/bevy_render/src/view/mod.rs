@@ -30,7 +30,7 @@ use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, VariantDefaults};
 use bevy_image::ToExtents;
-use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec2, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
@@ -1021,8 +1021,8 @@ pub fn prepare_view_uniforms(
         let viewport = extracted_view.viewport.as_vec4();
         let mut main_pass_viewport = viewport;
         if let Some(resolution_override) = resolution_override {
-            main_pass_viewport.z = resolution_override.0.x as f32;
-            main_pass_viewport.w = resolution_override.0.y as f32;
+            main_pass_viewport.z *= resolution_override.0.x;
+            main_pass_viewport.w *= resolution_override.0.y;
         }
 
         let unjittered_projection = extracted_view.clip_from_view;
@@ -1143,6 +1143,7 @@ type MainTextureKey = (
     TextureUsages,
     TextureFormat,
     Msaa,
+    UVec2,
 );
 
 pub fn prepare_view_targets(
@@ -1164,12 +1165,6 @@ pub fn prepare_view_targets(
 
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let Some(target_size) = camera.physical_target_size else {
-            // If we don't have a target size, we can't create the main texture and have to bail
-            commands.entity(entity).try_remove::<ViewTarget>();
-            continue;
-        };
-
         let out_attachment = camera
             .target
             .as_ref()
@@ -1183,6 +1178,7 @@ pub fn prepare_view_targets(
         }
 
         let main_texture_format = view.target_format;
+        let main_texture_size = camera.main_texture_size;
 
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),
@@ -1204,21 +1200,18 @@ pub fn prepare_view_targets(
             texture_usage.0,
             main_texture_format,
             *msaa,
+            main_texture_size,
         );
         let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
             let descriptor = TextureDescriptor {
                 label: None,
-                size: target_size.to_extents(),
+                size: main_texture_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: main_texture_format,
                 usage: texture_usage.0,
-                view_formats: match main_texture_format {
-                    TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                    TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                    _ => &[],
-                },
+                view_formats: &[],
             };
             let a = texture_cache.get(
                 &render_device,
@@ -1239,13 +1232,13 @@ pub fn prepare_view_targets(
                     &render_device,
                     TextureDescriptor {
                         label: Some("main_texture_sampled"),
-                        size: target_size.to_extents(),
+                        size: main_texture_size.to_extents(),
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
                         format: main_texture_format,
                         usage: TextureUsages::RENDER_ATTACHMENT,
-                        view_formats: descriptor.view_formats,
+                        view_formats: &[],
                     },
                 );
                 Some(sampled)
