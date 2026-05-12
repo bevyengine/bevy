@@ -540,17 +540,29 @@ pub fn scroll_editable_text(
             info.size.x
         } - view_size.x)
             .max(0.);
+        let max_scroll_y = (info.size.y - view_size.y).max(0.);
 
         scroll.set_if_neq(TextScroll(Vec2 {
-            x: scroll_axis(
+            x: scroll_axis_with_inset(
+                editable_text.scroll_inset.x.clamp(0., 0.49) * view_size.x,
+                0.,
+                max_scroll_x,
                 scroll.0.x,
                 scroll.0.x + view_size.x,
                 cursor.min.x,
                 cursor.max.x,
             )
-            .clamp(0., max_scroll_x)
             .floor(),
-            y: scroll_axis(scroll.0.y, scroll.0.y + view_size.y, line_min, line_max).floor(),
+            y: scroll_axis_with_inset(
+                editable_text.scroll_inset.y.clamp(0., 0.49) * view_size.x,
+                0.,
+                max_scroll_y,
+                scroll.0.y,
+                scroll.0.y + view_size.y,
+                line_min,
+                line_max,
+            )
+            .floor(),
         }));
     }
 
@@ -583,5 +595,94 @@ fn scroll_axis(v_min: f32, v_max: f32, t_min: f32, t_max: f32) -> f32 {
         t_max - v_size
     } else {
         v_min
+    }
+}
+
+fn scroll_axis_with_inset(
+    inset: f32,
+    scroll_min: f32,
+    scroll_max: f32,
+    v_min: f32,
+    v_max: f32,
+    t_min: f32,
+    t_max: f32,
+) -> f32 {
+    let v_size = v_max - v_min;
+    let u_min = v_min + inset;
+    let u_max = v_max - inset;
+    let t_size = t_max - t_min;
+
+    let new_v_min = if v_size - 2. * inset < t_size {
+        scroll_axis(v_min, v_max, t_min, t_max)
+    } else if t_min < u_min {
+        t_min - inset
+    } else if u_max < t_max {
+        t_max - v_size + inset
+    } else {
+        v_min
+    };
+
+    new_v_min.clamp(scroll_min, scroll_max)
+}
+
+#[cfg(test)]
+mod test {
+    use super::{scroll_axis, scroll_axis_with_inset};
+
+    #[test]
+    fn test_scroll_axis() {
+        assert_eq!(scroll_axis(0., 100., 0., 10.), 0.);
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset() {
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 0., 50.),
+            0.
+        );
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 0., 0., 100., 50., 100.),
+            0.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_moves_to_inner_min() {
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 50., 150., 60., 65.),
+            35.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_moves_to_inner_max() {
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 90., 95.),
+            20.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_saturates() {
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 10., 110., 10., 20.),
+            0.
+        );
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 80., 180., 175., 180.),
+            100.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_uses_full_view_when_target_larger_than_inner() {
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 20., 90.),
+            0.
+        );
+        assert_eq!(
+            scroll_axis_with_inset(0.25, 0., 100., 0., 100., 80., 150.),
+            50.
+        );
     }
 }

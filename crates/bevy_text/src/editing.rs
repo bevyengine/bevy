@@ -80,6 +80,7 @@ use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_math::Vec2;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
@@ -144,6 +145,8 @@ pub struct EditableText {
     pub visible_width: Option<f32>,
     /// Allow new lines
     pub allow_newlines: bool,
+    /// Fraction of the visible input size to keep between the cursor and the view edge when scrolling.
+    pub scroll_inset: Vec2,
 }
 
 impl Default for EditableText {
@@ -159,6 +162,7 @@ impl Default for EditableText {
             visible_lines: Some(1.),
             visible_width: None,
             allow_newlines: false,
+            scroll_inset: Vec2::new(0.1, 0.25),
         }
     }
 }
