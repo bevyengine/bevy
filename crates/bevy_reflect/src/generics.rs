@@ -37,9 +37,7 @@ impl Generics {
     pub fn get_named(&self, name: &str) -> Option<&GenericInfo> {
         // For small sets of generics (the most common case),
         // a linear search is often faster using a `HashMap`.
-        self.0
-            .as_ref()
-            .and_then(|g| g.iter().find(|info| info.name() == name))
+        self.0.iter().flatten().find(|info| info.name() == name)
     }
 
     /// Adds the given generic parameter to the set.
@@ -64,7 +62,7 @@ impl Deref for Generics {
     type Target = [GenericInfo];
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_ref().map(AsRef::as_ref).unwrap_or(&[])
+        self.0.as_deref().unwrap_or(&[])
     }
 }
 
