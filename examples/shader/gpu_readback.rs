@@ -5,22 +5,25 @@ use bevy::{
     asset::RenderAssetUsages,
     prelude::*,
     render::{
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
-        gpu_readback::{Readback, ReadbackComplete},
-        render_asset::RenderAssets,
+        Render, 
+        RenderApp, 
+        RenderStartup, 
+        RenderSystems, 
+        extract_resource::{ExtractResource, ExtractResourcePlugin}, 
+        gpu_readback::{Readback, ReadbackComplete}, 
+        render_asset::RenderAssets, 
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
-        },
-        renderer::{RenderContext, RenderDevice, RenderGraph},
-        storage::{GpuShaderBuffer, ShaderBuffer},
-        texture::GpuImage,
-        Render, RenderApp, RenderStartup, RenderSystems,
+        }, 
+        renderer::RenderDevice, 
+        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer}, 
+        texture::GpuImage
     },
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
+const SHADER_ASSET_PATH: &str = "gpu_readback.wgsl";
 
 // The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;
@@ -54,12 +57,12 @@ impl Plugin for GpuReadbackPlugin {
                     // We don't need to recreate the bind group every frame
                     .run_if(not(resource_exists::<GpuBufferBindGroup>)),
             )
-            .add_systems(RenderGraph, compute);
+            .add_systems(Last, compute);
     }
 }
 
 #[derive(Resource, ExtractResource, Clone)]
-struct ReadbackBuffer(Handle<ShaderBuffer>);
+struct ReadbackBuffer(Handle<ShaderStorageBuffer>);
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackImage(Handle<Image>);
@@ -67,11 +70,11 @@ struct ReadbackImage(Handle<Image>);
 fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    mut buffers: ResMut<Assets<ShaderBuffer>>,
+    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
     // Create a storage buffer with some data
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
-    let mut buffer = ShaderBuffer::from(buffer);
+    let mut buffer = ShaderStorageBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
@@ -146,7 +149,7 @@ fn prepare_bind_group(
     pipeline_cache: Res<PipelineCache>,
     buffer: Res<ReadbackBuffer>,
     image: Res<ReadbackImage>,
-    buffers: Res<RenderAssets<GpuShaderBuffer>>,
+    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
     images: Res<RenderAssets<GpuImage>>,
 ) {
     let buffer = buffers.get(&buffer.0).unwrap();
@@ -194,16 +197,18 @@ fn init_compute_pipeline(
 }
 
 fn compute(
-    mut render_context: RenderContext,
+    render_context: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     pipeline: Res<ComputePipeline>,
     bind_group: Res<GpuBufferBindGroup>,
 ) {
     if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
-        let mut pass =
-            render_context
-                .command_encoder()
-                .begin_compute_pass(&ComputePassDescriptor {
+        let mut context = render_context.create_command_encoder(&CommandEncoderDescriptor { 
+            label: Some("Command Encoder"),
+            ..default() 
+        });
+
+        let mut pass = context.begin_compute_pass(&ComputePassDescriptor {
                     label: Some("GPU readback compute pass"),
                     ..default()
                 });
