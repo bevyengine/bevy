@@ -16,6 +16,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
+    system::EntityCommands,
     template::{EntityScopes, ScopedEntities, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
@@ -1875,6 +1876,17 @@ impl<'w> EntityWorldMut<'w> {
         // This will run even in case the closure `f` unwinds.
         let guard = Guard { entity_mut: self };
         f(guard.entity_mut.world)
+    }
+
+    /// Creates a new [`EntityCommands`] instance that writes to the world's command queue
+    /// Use [`World::flush`] to apply all queued commands
+    #[inline]
+    pub fn entity_commands(&mut self) -> EntityCommands<'_> {
+        let id = self.id();
+        EntityCommands {
+            entity: id,
+            commands: self.world.commands(),
+        }
     }
 
     /// Updates the internal entity location to match the current location in the internal
