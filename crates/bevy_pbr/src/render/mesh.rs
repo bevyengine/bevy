@@ -1874,8 +1874,8 @@ type GpuMeshExtractionQuery = (
         Has<NotShadowCaster>,
         Has<NoAutomaticBatching>,
         Has<NoCpuCulling>,
-        Has<VisibilityRange>,
     ),
+    Has<VisibilityRange>,
     Option<Read<RenderLayers>>,
 );
 
@@ -1909,8 +1909,8 @@ pub fn extract_meshes_for_gpu_building(
                     Changed<NotShadowCaster>,
                     Changed<NoAutomaticBatching>,
                     Changed<NoCpuCulling>,
-                    Changed<VisibilityRange>,
                 )>,
+                Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
             )>,
         >,
@@ -2087,8 +2087,8 @@ fn extract_mesh_for_gpu_building(
             not_shadow_caster,
             no_automatic_batching,
             no_cpu_culling,
-            has_visibility_range,
         ),
+        visibility_range,
         render_layers,
     ): <GpuMeshExtractionQuery as QueryData>::Item<'_, '_>,
     render_visibility_ranges: &RenderVisibilityRanges,
@@ -2104,7 +2104,7 @@ fn extract_mesh_for_gpu_building(
 
     // If the entity has a visibility range, determine its LOD index.
     let mut lod_index = None;
-    if has_visibility_range {
+    if visibility_range {
         lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
     }
 

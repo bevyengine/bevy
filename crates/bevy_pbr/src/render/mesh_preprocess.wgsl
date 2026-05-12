@@ -189,8 +189,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;
     let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
-    // Frustum cull if necessary.
 #ifdef FRUSTUM_CULLING
+    // Frustum cull if necessary.
     if ((current_input[input_index].flags & MESH_FLAGS_NO_FRUSTUM_CULLING_BIT) == 0u) {
         let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
         let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
