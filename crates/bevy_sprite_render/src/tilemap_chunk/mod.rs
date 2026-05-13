@@ -77,14 +77,14 @@ impl TilemapChunk {
             // to place the 0 at left of tilemapchunk
             - self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
             // tile position
-            position.y as f32
+            -(position.y as f32
             // times display size for a tile
             * self.tile_display_size.y as f32
             // minus 1/2 the tile_display_size to correct the center
             + self.tile_display_size.y as f32 / 2.
             // plus 1/2 the tilechunk size, in terms of the tile_display_size,
-            // to place the 0 at bottom of tilemapchunk
-            - self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+            // to place the 0 at top of tilemapchunk
+            - self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.),
             0.,
         )
     }
