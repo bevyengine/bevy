@@ -80,7 +80,7 @@ impl ColorAttachment {
         }
     }
 
-    pub(crate) fn mark_as_cleared(&self) {
+    pub fn mark_as_cleared(&self) {
         self.is_first_call.store(false, Ordering::SeqCst);
     }
 }
