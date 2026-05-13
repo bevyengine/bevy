@@ -16,7 +16,6 @@ use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
-use bevy::render::camera::ViewTargetInfo;
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -650,7 +649,6 @@ fn queue_custom_meshes(
 fn custom_draw_system(
     world: &World,
     view: ViewQuery<(
-        &ViewTargetInfo,
         &ExtractedView,
         &ViewTarget,
         Option<&MainPassResolutionOverride>,
@@ -659,7 +657,7 @@ fn custom_draw_system(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (target_info, extracted_view, target, resolution_override) = view.into_inner();
+    let (extracted_view, target, resolution_override) = view.into_inner();
 
     let Some(stencil_phase) = stencil_phases.get(&extracted_view.retained_view_entity) else {
         return;
@@ -678,7 +676,7 @@ fn custom_draw_system(
         multiview_mask: None,
     });
 
-    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

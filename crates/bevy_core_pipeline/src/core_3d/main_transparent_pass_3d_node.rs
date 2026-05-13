@@ -8,7 +8,7 @@ use bevy_log::error;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
 use bevy_render::{
-    camera::ViewTargetInfo,
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
@@ -19,8 +19,8 @@ use bevy_render::{
 pub fn main_transparent_pass_3d(
     world: &World,
     view: ViewQuery<(
+        &ExtractedCamera,
         &ExtractedView,
-        &ViewTargetInfo,
         &ViewTarget,
         &ViewDepthTexture,
         Option<&MainPassResolutionOverride>,
@@ -33,8 +33,8 @@ pub fn main_transparent_pass_3d(
     let view_entity = view.entity();
 
     let (
+        _camera,
         extracted_view,
-        target_info,
         target,
         depth,
         resolution_override,
@@ -86,8 +86,7 @@ pub fn main_transparent_pass_3d(
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
-        if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override)
-        {
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 
@@ -101,7 +100,7 @@ pub fn main_transparent_pass_3d(
     // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
     // reset for the next render pass so add an empty render pass without a custom viewport
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    if camera.viewport.is_some() {
+    if _camera.viewport.is_some() {
         #[cfg(feature = "trace")]
         let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
         let pass_descriptor = RenderPassDescriptor {

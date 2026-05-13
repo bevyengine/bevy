@@ -14,7 +14,6 @@ use bevy_core_pipeline::prepass::{
 };
 use bevy_ecs::{prelude::*, query::Has};
 use bevy_render::{
-    camera::ViewTargetInfo,
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
         StoreOp,
@@ -28,7 +27,6 @@ use bevy_render::{
 pub fn meshlet_main_opaque_pass(
     view: ViewQuery<(
         &ViewTarget,
-        &ViewTargetInfo,
         &MeshViewBindGroup,
         Option<&MainPassResolutionOverride>,
         &MeshletViewMaterialsMainOpaquePass,
@@ -41,7 +39,6 @@ pub fn meshlet_main_opaque_pass(
 ) {
     let (
         target,
-        target_info,
         mesh_view_bind_group,
         resolution_override,
         meshlet_view_materials,
@@ -76,7 +73,7 @@ pub fn meshlet_main_opaque_pass(
         multiview_mask: None,
     });
 
-    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 
@@ -106,7 +103,6 @@ pub fn meshlet_main_opaque_pass(
 /// Fullscreen pass to generate prepass textures based on the visibility buffer generated from rasterizing meshlets.
 pub fn meshlet_prepass(
     view: ViewQuery<(
-        &ViewTargetInfo,
         &ViewPrepassTextures,
         &ViewUniformOffset,
         &PreviousViewUniformOffset,
@@ -122,7 +118,6 @@ pub fn meshlet_prepass(
     mut ctx: RenderContext,
 ) {
     let (
-        target_info,
         view_prepass_textures,
         view_uniform_offset,
         previous_view_uniform_offset,
@@ -174,7 +169,7 @@ pub fn meshlet_prepass(
         multiview_mask: None,
     });
 
-    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 
@@ -215,7 +210,6 @@ pub fn meshlet_prepass(
 /// Fullscreen pass to generate a gbuffer based on the visibility buffer generated from rasterizing meshlets.
 pub fn meshlet_deferred_gbuffer_prepass(
     view: ViewQuery<(
-        &ViewTargetInfo,
         &ViewPrepassTextures,
         &ViewUniformOffset,
         &PreviousViewUniformOffset,
@@ -231,7 +225,6 @@ pub fn meshlet_deferred_gbuffer_prepass(
     mut ctx: RenderContext,
 ) {
     let (
-        target_info,
         view_prepass_textures,
         view_uniform_offset,
         previous_view_uniform_offset,
@@ -288,7 +281,7 @@ pub fn meshlet_deferred_gbuffer_prepass(
         multiview_mask: None,
     });
 
-    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

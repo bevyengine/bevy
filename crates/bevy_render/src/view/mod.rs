@@ -1008,8 +1008,8 @@ pub fn prepare_view_uniforms(
         let viewport = extracted_view.viewport.as_vec4();
         let mut main_pass_viewport = viewport;
         if let Some(resolution_override) = resolution_override {
-            main_pass_viewport.z *= resolution_override.0.x;
-            main_pass_viewport.w *= resolution_override.0.y;
+            main_pass_viewport.z = resolution_override.0.x as f32;
+            main_pass_viewport.w = resolution_override.0.y as f32;
         }
 
         let unjittered_projection = extracted_view.clip_from_view;

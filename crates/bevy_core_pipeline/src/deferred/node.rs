@@ -1,6 +1,5 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
-use bevy_render::camera::ViewTargetInfo;
 use bevy_render::occlusion_culling::OcclusionCulling;
 
 use bevy_log::error;
@@ -22,7 +21,6 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 /// Type alias for the deferred prepass view query.
 type DeferredPrepassViewQueryData = (
     &'static ExtractedView,
-    &'static ViewTargetInfo,
     &'static ViewDepthTexture,
     &'static ViewPrepassTextures,
     Option<&'static MainPassResolutionOverride>,
@@ -38,21 +36,13 @@ pub(crate) fn early_deferred_prepass(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (
-        extracted_view,
-        target_info,
-        view_depth_texture,
-        view_prepass_textures,
-        resolution_override,
-        _,
-        _,
-    ) = view.into_inner();
+    let (extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _) =
+        view.into_inner();
 
     run_deferred_prepass_system(
         world,
         view_entity,
         extracted_view,
-        target_info,
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
@@ -74,7 +64,6 @@ pub fn late_deferred_prepass(
     let view_entity = view.entity();
     let (
         extracted_view,
-        target_info,
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
@@ -90,7 +79,6 @@ pub fn late_deferred_prepass(
         world,
         view_entity,
         extracted_view,
-        target_info,
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
@@ -110,7 +98,6 @@ fn run_deferred_prepass_system(
     world: &World,
     view_entity: Entity,
     extracted_view: &ExtractedView,
-    target_info: &ViewTargetInfo,
     view_depth_texture: &ViewDepthTexture,
     view_prepass_textures: &ViewPrepassTextures,
     resolution_override: Option<&MainPassResolutionOverride>,
@@ -216,7 +203,7 @@ fn run_deferred_prepass_system(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

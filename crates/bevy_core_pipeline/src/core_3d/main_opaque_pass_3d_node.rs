@@ -8,7 +8,6 @@ use bevy_log::error;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
 use bevy_render::{
-    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
@@ -22,7 +21,6 @@ pub fn main_opaque_pass_3d(
     world: &World,
     view: ViewQuery<(
         &ExtractedView,
-        &ViewTargetInfo,
         &ViewTarget,
         &ViewDepthTexture,
         Option<&SkyboxPipelineId>,
@@ -39,7 +37,6 @@ pub fn main_opaque_pass_3d(
 
     let (
         extracted_view,
-        target_info,
         target,
         depth,
         skybox_pipeline,
@@ -74,7 +71,7 @@ pub fn main_opaque_pass_3d(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
-    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

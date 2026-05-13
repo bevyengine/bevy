@@ -96,9 +96,7 @@ pub fn prepare_solari_lighting_resources(
 
         let mut view_size = target_info.size;
         if let Some(MainPassResolutionOverride(resolution_override)) = resolution_override {
-            view_size = (view_size.as_vec2() * *resolution_override)
-                .round()
-                .as_uvec2();
+            view_size = *resolution_override;
         }
 
         if solari_lighting_resources.map(|r| r.view_size) == Some(view_size) {

@@ -115,15 +115,11 @@ impl Viewport {
         }
     }
 
-    pub fn from_size_override(
-        main_texture_size: UVec2,
+    pub fn from_main_pass_resolution_override(
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
         main_pass_resolution_override.map(|override_size| Viewport {
-            physical_size: (main_texture_size.as_vec2() * **override_size)
-                .round()
-                .as_uvec2()
-                .max(UVec2::ONE),
+            physical_size: **override_size,
             ..Default::default()
         })
     }
@@ -137,11 +133,11 @@ impl Viewport {
 ///
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
-/// * The resolution override is specified in [0, 1].
+/// * The resolution override is specified in physical pixels.
 /// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
 #[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
-pub struct MainPassResolutionOverride(pub Vec2);
+pub struct MainPassResolutionOverride(pub UVec2);
 
 /// Settings to define a camera sub view.
 ///
