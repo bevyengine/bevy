@@ -112,6 +112,8 @@ pub type ErrorHandler = fn(BevyError, ErrorContext);
 /// Fallback error handler to call when an error is not handled otherwise.
 /// Defaults to [`match_severity()`].
 ///
+/// Called both for explicitly returned errors, and when a panic occurs.
+///
 /// When updated while a [`Schedule`] is running, it doesn't take effect for
 /// that schedule until it's completed.
 ///
