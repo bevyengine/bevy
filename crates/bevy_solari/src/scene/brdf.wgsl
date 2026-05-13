@@ -25,10 +25,10 @@ struct LobeReflectances {
 fn lobe_reflectances(F0: vec3<f32>, material: ResolvedMaterial, NdotV: f32) -> LobeReflectances {
     let F_ab = F_AB(material.perceptual_roughness, NdotV);
     let multiscattering_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
-    let rho_spec = (F0 * F_ab.x + F_ab.y) * (1.0 + F0 * multiscattering_factor);
+    let rho_specular = (F0 * F_ab.x + F_ab.y) * (1.0 + F0 * multiscattering_factor);
     return LobeReflectances(
-        rho_spec,
-        (1.0 - material.metallic) * (1.0 - rho_spec) * material.base_color,
+        rho_specular,
+        (1.0 - material.metallic) * (1.0 - rho_specular) * material.base_color,
     );
 }
 
@@ -69,15 +69,15 @@ fn evaluate_and_sample_brdf(
         if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
             return EvaluateAndSampleBrdfResult(
                 wi,
-                rho.specular / specular_weight,
+                evaluate_specular_brdf(wo, wi, world_normal, material) / specular_weight,
                 bitcast<f32>(0x7F800000u) // INF
-                );
+            );
         }
     }
 
     let diffuse_pdf = wi_tangent.z / PI;
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
-    let pdf = specular_weight * specular_pdf + diffuse_weight * diffuse_pdf;
+    let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
     let throughput = evaluate_brdf(wo, wi, world_normal, material) / pdf;
     return EvaluateAndSampleBrdfResult(wi, throughput, pdf);
 }
@@ -144,7 +144,6 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
     return specular_weight * specular_pdf + diffuse_weight * diffuse_pdf;
 }
-
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     return f0 + (1.0 - f0) * pow(1.0 - LdotH, 5.0);
