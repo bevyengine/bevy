@@ -17,18 +17,18 @@ struct EvaluateAndSampleBrdfResult {
 }
 
 struct LobeReflectances {
-    rho_spec: vec3<f32>,
-    rho_diff: vec3<f32>,
+    specular: vec3<f32>,
+    diffuse: vec3<f32>,
 }
 
 // Hemispherical reflectance of each lobe
 fn lobe_reflectances(F0: vec3<f32>, material: ResolvedMaterial, NdotV: f32) -> LobeReflectances {
     let F_ab = F_AB(material.perceptual_roughness, NdotV);
-    let ms_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
-    let rho_spec = (F0 * F_ab.x + vec3(F_ab.y)) * (vec3(1.0) + F0 * ms_factor);
+    let multiscattering_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
+    let rho_spec = (F0 * F_ab.x + F_ab.y) * (1.0 + F0 * multiscattering_factor);
     return LobeReflectances(
         rho_spec,
-        (1.0 - material.metallic) * (vec3(1.0) - rho_spec) * material.base_color,
+        (1.0 - material.metallic) * (1.0 - rho_spec) * material.base_color,
     );
 }
 
@@ -42,8 +42,8 @@ fn evaluate_and_sample_brdf(
     if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let rho = lobe_reflectances(F0, material, NdotV);
-    let specular_weight = luminance(rho.rho_spec) / luminance(rho.rho_spec + rho.rho_diff);
-    let diffuse_weight = 1 - specular_weight;
+    let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
+    let diffuse_weight = 1.0 - specular_weight;
 
     let TBN = orthonormalize(world_normal);
     let T = TBN[0];
@@ -93,7 +93,7 @@ fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, 
     if NdotL < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let rho = lobe_reflectances(F0, material, NdotV);
-    return rho.rho_diff / PI * NdotL;
+    return rho.diffuse / PI * NdotL;
 }
 
 fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
@@ -103,6 +103,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let LdotH = dot(wi, H);
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
+    
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let F = fresnel(F0, LdotH);
 
@@ -119,6 +120,27 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let F_ab = F_AB(material.perceptual_roughness, NdotV);
     return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0) * NdotL;
 }
+
+fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> f32 {
+    let NdotV = max(dot(world_normal, wo), 0.0001);
+    let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
+    let rho = lobe_reflectances(F0, material, NdotV);
+    let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
+    let diffuse_weight = 1.0 - specular_weight;
+
+    let TBN = orthonormalize(world_normal);
+    let T = TBN[0];
+    let B = TBN[1];
+    let N = TBN[2];
+
+    let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
+    let wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
+
+    let diffuse_pdf = wi_tangent.z / PI;
+    let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
+    return specular_weight * specular_pdf + diffuse_weight * diffuse_pdf;
+}
+
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     return f0 + (1.0 - f0) * pow(1.0 - LdotH, 5.0);
