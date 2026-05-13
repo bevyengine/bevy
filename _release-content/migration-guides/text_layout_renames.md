@@ -1,5 +1,5 @@
 ---
-title: "`new_with_` prefix removed from `TextLayout` constuctors"
+title: "`new_with_` prefix removed from `TextLayout` constructors"
 pull_requests: [24049]
 ---
 
