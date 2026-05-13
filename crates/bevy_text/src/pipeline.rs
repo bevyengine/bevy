@@ -318,6 +318,7 @@ impl TextPipeline {
 
         let layout = &mut computed.layout;
         layout_with_bounds(layout, bounds, justify);
+        layout_info.scale_factor = layout.scale();
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
@@ -469,7 +470,7 @@ pub struct TextLayoutInfo {
     ///
     /// The coordinates are unscaled and relative to the top left corner of the text layout.
     pub run_geometry: Vec<RunGeometry>,
-    /// The glyphs resulting size
+    /// The size of the text layout in physical pixels
     pub size: Vec2,
     /// Cursor visibility, size and position for editing
     pub cursor: Option<(bool, Rect)>,
