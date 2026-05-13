@@ -67,7 +67,11 @@ fn evaluate_and_sample_brdf(
 
         // Mirror specular is a delta function
         if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
-            return EvaluateAndSampleBrdfResult(wi, rho.rho_spec / specular_weight, 1.0);
+            return EvaluateAndSampleBrdfResult(
+                wi,
+                rho.specular / specular_weight,
+                bitcast<f32>(0x7F800000u) // INF
+                );
         }
     }
 
