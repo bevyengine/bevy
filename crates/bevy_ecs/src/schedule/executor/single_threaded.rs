@@ -1,4 +1,3 @@
-use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
 #[cfg(feature = "trace")]
@@ -149,6 +148,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             #[cfg(not(feature = "std"))]
             {
+                let mut f = f;
                 (f)(system);
             }
 
@@ -262,7 +262,7 @@ fn handle_unwind(
     error_message: &str,
 ) {
     crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
-    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
+    let potential_unwind = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(system)));
     let panic_originates_from_error_handler =
         crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     if let Err(payload) = potential_unwind {
