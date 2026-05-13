@@ -427,15 +427,7 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            &ExtractedView,
-            &ViewTargetInfo,
-        ),
-        (With<Camera2d>,),
-    >,
+    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &ViewTargetInfo), (With<Camera2d>,)>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (view, camera, extracted_view, target_info) in &views_2d {

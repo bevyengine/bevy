@@ -7,6 +7,7 @@
 //! into Bevy—render nodes are another, lower-level method—but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
+use bevy::render::camera::ViewTargetInfo;
 use bevy::{
     camera::{
         primitives::Aabb,
@@ -39,7 +40,6 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy::render::camera::ViewTargetInfo;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using

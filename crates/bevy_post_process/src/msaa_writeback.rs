@@ -35,11 +35,7 @@ impl Plugin for MsaaWritebackPlugin {
 }
 
 pub(crate) fn msaa_writeback(
-    view: ViewQuery<(
-        &ViewTarget,
-        &MsaaWritebackBlitPipeline,
-        &ViewTargetInfo,
-    )>,
+    view: ViewQuery<(&ViewTarget, &MsaaWritebackBlitPipeline, &ViewTargetInfo)>,
     blit_pipeline: Res<BlitPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,

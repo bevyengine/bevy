@@ -526,8 +526,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (target_format, multisample) =
-            (target_info.color_format, target_info.sample_count > 1);
+        let (target_format, multisample) = (target_info.color_format, target_info.sample_count > 1);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {

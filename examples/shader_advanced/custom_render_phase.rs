@@ -16,6 +16,7 @@ use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::render::camera::ViewTargetInfo;
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -60,7 +61,6 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
-use bevy::render::camera::ViewTargetInfo;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 

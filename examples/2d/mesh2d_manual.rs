@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite_render::Material2d
 
+use bevy::render::camera::ViewTargetInfo;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
@@ -37,7 +38,6 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy::render::camera::ViewTargetInfo;
 use std::f32::consts::PI;
 
 fn main() {
