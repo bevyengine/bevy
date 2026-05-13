@@ -800,7 +800,7 @@ impl SmaaPreset {
     }
 }
 
-pub(crate) fn smaa(
+pub fn smaa(
     view: ViewQuery<(
         &ViewTarget,
         &ViewSmaaPipelines,

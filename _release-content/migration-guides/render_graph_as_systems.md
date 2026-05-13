@@ -52,5 +52,6 @@ The `ViewNode` trait is replaced by a regular system using the `ViewQuery` param
 parameter instead of being passed as `&mut`. Use `.before()` / `.after()` with the actual system functions (e.g.,
 `main_opaque_pass_3d`) rather than `Node3d` labels.
 
-System sets `Core3dSystems::Prepass`, `MainPass`, and `PostProcess` are available for coarse ordering. The `RenderGraph`
-schedule remains as the top-level schedule for non-camera rendering.
+System sets `Core3dSystems::Prepass`, `MainPass`, and `PostProcess` are available for coarse ordering.
+The `RenderGraph` schedule, available as `bevy::render::renderer::RenderGraph`,
+remains as the top-level schedule for non-camera rendering.

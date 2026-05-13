@@ -336,9 +336,11 @@ impl Plugin for MaterialsPlugin {
                 .add_systems(
                     Render,
                     (
-                        check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
+                        check_views_lights_need_specialization
+                            .in_set(RenderSystems::Specialize)
+                            .before(specialize_shadows),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since PrepareViews is after PrepareAssets
+                        // which is fine since Specialize is after PrepareAssets
                         specialize_shadows
                             .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),

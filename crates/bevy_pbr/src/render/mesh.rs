@@ -706,12 +706,6 @@ bitflags::bitflags! {
         ///
         /// This will be `u16::MAX` if this mesh has no LOD.
         const LOD_INDEX_MASK              = (1 << 16) - 1;
-        /// Whether visibility ranges use the center of the AABB to compute
-        /// distance from the camera.
-        ///
-        /// If false, this uses distance from the world-space translation of the
-        /// mesh instead.
-        const AABB_BASED_VISIBILITY_RANGE = 1 << 27;
         /// Disables frustum culling for this mesh.
         ///
         /// This corresponds to the
@@ -731,7 +725,6 @@ impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
         lod_index: Option<NonMaxU16>,
-        visibility_range: Option<&VisibilityRange>,
         no_frustum_culling: bool,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
@@ -741,9 +734,6 @@ impl MeshFlags {
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
-        if visibility_range.is_some_and(|visibility_range| visibility_range.use_aabb) {
-            mesh_flags |= MeshFlags::AABB_BASED_VISIBILITY_RANGE;
-        }
         if no_frustum_culling {
             mesh_flags |= MeshFlags::NO_FRUSTUM_CULLING;
         }
@@ -1773,7 +1763,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
-            Option<&VisibilityRange>,
+            Has<VisibilityRange>,
             Option<&RenderLayers>,
         )>,
     >,
@@ -1801,14 +1791,13 @@ pub fn extract_meshes_for_cpu_building(
             }
 
             let mut lod_index = None;
-            if visibility_range.is_some() {
+            if visibility_range {
                 lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
             }
 
             let mesh_flags = MeshFlags::from_components(
                 transform,
                 lod_index,
-                visibility_range,
                 no_frustum_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
@@ -1885,7 +1874,7 @@ type GpuMeshExtractionQuery = (
         Has<NoAutomaticBatching>,
         Has<NoCpuCulling>,
     ),
-    Option<Read<VisibilityRange>>,
+    Has<VisibilityRange>,
     Option<Read<RenderLayers>>,
 );
 
@@ -2114,7 +2103,7 @@ fn extract_mesh_for_gpu_building(
 
     // If the entity has a visibility range, determine its LOD index.
     let mut lod_index = None;
-    if visibility_range.is_some() {
+    if visibility_range {
         lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
     }
 
@@ -2122,7 +2111,6 @@ fn extract_mesh_for_gpu_building(
     let mesh_flags = MeshFlags::from_components(
         transform,
         lod_index,
-        visibility_range,
         no_frustum_culling,
         not_shadow_receiver,
         transmitted_receiver,
