@@ -24,7 +24,7 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
-    system::{RunSystemError, ScheduleSystem, System},
+    system::{BoxedSystem, RunSystemError, ScheduleSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 #[cfg(feature = "hotpatching")]
@@ -838,8 +838,8 @@ unsafe fn evaluate_and_fold_conditions(
 /// Handle a potential panic or failed system by invoking the error handler
 /// and/or returning a panic payload with which to resume unwinding.
 fn handle_errors(
-    f: impl FnOnce(&mut Box<dyn System<In = (), Out = ()>>) -> Result<(), RunSystemError>,
-    system: &mut Box<dyn System<In = (), Out = ()>>,
+    f: impl FnOnce(&mut BoxedSystem) -> Result<(), RunSystemError>,
+    system: &mut BoxedSystem,
     error_handler: ErrorHandler,
     error_message: &str,
 ) -> Result<(), Box<dyn Any + Send>> {

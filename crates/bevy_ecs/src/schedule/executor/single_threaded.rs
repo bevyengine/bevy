@@ -5,6 +5,11 @@ use alloc::string::ToString as _;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
+#[cfg(feature = "std")]
+use crate::{
+    error::{BevyError, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER},
+    system::BoxedSystem,
+};
 use crate::{
     error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
@@ -256,22 +261,21 @@ fn evaluate_and_fold_conditions(
 /// Handle a potential panic by invoking the error handler
 #[cfg(feature = "std")]
 fn handle_unwind(
-    f: impl FnOnce(&mut alloc::boxed::Box<dyn crate::system::System<In = (), Out = ()>>),
-    system: &mut alloc::boxed::Box<dyn crate::system::System<In = (), Out = ()>>,
+    f: impl FnOnce(&mut BoxedSystem),
+    system: &mut BoxedSystem,
     error_handler: ErrorHandler,
     error_message: &str,
 ) {
-    crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+    PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
     let potential_unwind = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| f(system)));
-    let panic_originates_from_error_handler =
-        crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
+    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     if let Err(payload) = potential_unwind {
         if panic_originates_from_error_handler {
             std::panic::resume_unwind(payload);
         }
 
-        let err = crate::error::BevyError::new_with_backtrace(
-            crate::error::Severity::Panic,
+        let err = BevyError::new_with_backtrace(
+            Severity::Panic,
             error_message,
             std::backtrace::Backtrace::disabled(),
         );
