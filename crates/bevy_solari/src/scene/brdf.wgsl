@@ -107,7 +107,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let LdotH = dot(wi, H);
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
-    
+
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let F = fresnel(F0, LdotH);
 
