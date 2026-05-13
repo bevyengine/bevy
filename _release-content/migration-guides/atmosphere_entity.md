@@ -46,3 +46,9 @@ commands.spawn(Atmosphere::earth(earth_medium));
 The `bottom_radius` and `top_radius` fields on the `Atmosphere` component have been renamed to `inner_radius` and `outer_radius` respectively to reflect their new meaning.
 
 See the [updated atmosphere example](https://bevy.org/examples/3d-rendering/atmosphere/) and documentation for details.
+
+There have been some renames:
+
+- `Atmosphere::earthlike` -> `Atmosphere::earth`
+- `bevy::pbr::Atmosphere` -> `bevy::light::Atmosphere`
+- `bevy::pbr::ScatteringMedium` -> `bevy::light::atmosphere::ScatteringMedium`
