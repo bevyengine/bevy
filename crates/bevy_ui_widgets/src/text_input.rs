@@ -334,7 +334,7 @@ fn drag_scroll_text_inputs(
     input_focus: Res<InputFocus>,
     pointer_state: Res<PointerState>,
     ui_scale: Res<UiScale>,
-    mut vertical_scroll_remainder: Local<Option<(Entity, f32)>>,
+    mut y_remainder: Local<Option<(Entity, f32)>>,
     mut text_input_query: Query<(
         &mut EditableText,
         &ComputedNode,
@@ -347,7 +347,7 @@ fn drag_scroll_text_inputs(
     )>,
     rem_size: Res<RemSize>,
 ) {
-    let previous_remainder = vertical_scroll_remainder.take();
+    let previous_y_remainder = y_remainder.take();
 
     let Some(entity) = input_focus.get() else {
         return;
@@ -407,7 +407,7 @@ fn drag_scroll_text_inputs(
     let line_height = match *line_height {
         LineHeight::Px(px) => px,
         LineHeight::RelativeToFont(scale) => scale * font_size,
-    };
+    } * target.scale_factor();
     if line_height <= 0. {
         return;
     }
@@ -421,15 +421,14 @@ fn drag_scroll_text_inputs(
 
     let mut scroll_delta = signed_distance.signum() * time.delta_secs() * velocity;
     if scroll_delta.y != 0. {
-        let mut vertical_remainder = match previous_remainder {
-            Some((remainder_entity, remainder)) if remainder_entity == entity => remainder,
+        let y_rem = match previous_y_remainder {
+            Some((previous_entity, y_rem)) if previous_entity == entity => y_rem,
             _ => 0.,
         };
 
-        let accumulated_y = vertical_remainder + scroll_delta.y;
-        scroll_delta.y = (accumulated_y / line_height).trunc() * line_height;
-        vertical_remainder = accumulated_y - scroll_delta.y;
-        *vertical_scroll_remainder = Some((entity, vertical_remainder));
+        let acc = y_rem + scroll_delta.y;
+        scroll_delta.y = (acc / line_height).trunc() * line_height;
+        *y_remainder = Some((entity, acc - scroll_delta.y));
     }
 
     let new_scroll =
