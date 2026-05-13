@@ -257,6 +257,7 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 Render,
                 (
+                    parepare_ui_view_target_info.in_set(RenderSystems::PrepareAssets),
                     queue_uinodes.in_set(RenderSystems::Queue),
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
                     prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
@@ -793,7 +794,6 @@ pub fn extract_ui_camera_view(
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    target_infos: Query<&ViewTargetInfo>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
@@ -807,10 +807,6 @@ pub fn extract_ui_camera_view(
                 .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
-
-        let target_info = target_infos
-            .get(render_entity)
-            .expect("Failed to get ViewTargetInfo of the camera");
 
         if let (Some(physical_viewport_rect), Some(_viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
@@ -835,9 +831,6 @@ pub fn extract_ui_camera_view(
             // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
-                    UiViewTargetInfo {
-                        color_format: target_info.color_format,
-                    },
                     ExtractedView {
                         retained_view_entity,
                         clip_from_view: projection_matrix,
@@ -878,6 +871,17 @@ pub fn extract_ui_camera_view(
     }
 
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
+}
+
+pub fn parepare_ui_view_target_info(
+    mut commands: Commands,
+    render_views: Query<(&UiCameraView, &ViewTargetInfo), With<ExtractedView>>,
+) {
+    for (ui_view, target_info) in render_views.iter() {
+        commands.entity(ui_view.0).insert(UiViewTargetInfo {
+            color_format: target_info.color_format,
+        });
+    }
 }
 
 pub fn extract_viewport_nodes(

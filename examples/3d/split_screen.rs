@@ -78,6 +78,9 @@ fn setup(
                 Camera {
                     // Renders cameras with different priorities to prevent ambiguities
                     order: index as isize,
+                    // The main texture is shared by cameras.
+                    // To make the result correct we should not writeback the data of previous camera.
+                    msaa_writeback: MsaaWriteback::Off,
                     ..default()
                 },
                 WithColorTarget(color_target),

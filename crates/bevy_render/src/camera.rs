@@ -60,6 +60,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components::<CameraColorTarget, Msaa>()
+            .register_required_components::<ColorTarget, SyncToRenderWorld>()
             .register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
