@@ -101,6 +101,9 @@ use tracing::error;
 /// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
+///
+/// [`Msaa`]: bevy_render::view::Msaa
+/// [`Msaa::Off`]: bevy_render::view::Msaa::Off
 pub struct MeshletPlugin {
     /// The maximum amount of clusters that can be processed at once,
     /// used to control the size of a pre-allocated GPU buffer.

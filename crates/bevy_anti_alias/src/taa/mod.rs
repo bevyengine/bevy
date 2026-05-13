@@ -108,6 +108,9 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// [`Msaa`]: bevy_render::view::Msaa
+/// [`Msaa::Off`]: bevy_render::view::Msaa::Off
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
