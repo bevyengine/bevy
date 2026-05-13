@@ -2,6 +2,7 @@
 
 use argh::FromArgs;
 use bevy::{
+    camera::ColorTarget,
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
     gltf::GltfMeshName,
     pbr::{DefaultOpaqueRendererMethod, Lightmap},
@@ -54,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
             DepthPrepass,
             MotionVectorPrepass,
             DeferredPrepass,
-            Msaa::Off,
+            ColorTarget::default().with_sample_count(1),
         ));
     }
 }

@@ -65,10 +65,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    renderer::RenderDevice,
-    settings::WgpuFeatures,
-    view::{prepare_view_targets, Msaa},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    camera::ViewTargetInfo, renderer::RenderDevice, settings::WgpuFeatures,
+    view::prepare_view_targets, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
@@ -249,15 +247,17 @@ impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
 fn configure_meshlet_views(
     mut views_3d: Query<(
         Entity,
-        &Msaa,
+        &ViewTargetInfo,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
     mut commands: Commands,
 ) {
-    for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
-        if *msaa != Msaa::Off {
+    for (entity, target_info, normal_prepass, motion_vector_prepass, deferred_prepass) in
+        &mut views_3d
+    {
+        if target_info.sample_count > 1 {
             error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
             std::process::exit(1);
         }

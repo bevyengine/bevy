@@ -600,7 +600,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<&UiCameraView, With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    camera_views: Query<(&ExtractedView, &UiViewTargetInfo)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -617,7 +617,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let Ok((view, target_info)) = camera_views.get(default_camera_view.0) else {
             continue;
         };
 
@@ -630,7 +630,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &pipeline_cache,
             &ui_material_pipeline,
             UiMaterialKey {
-                target_format: view.target_format,
+                target_format: target_info.color_format,
                 bind_group_data: material.key.clone(),
             },
         );

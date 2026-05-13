@@ -29,7 +29,7 @@ use bevy_math::{Affine3A, Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    camera::{DirtySpecializations, PendingQueues},
+    camera::{DirtySpecializations, PendingQueues, ViewTargetInfo},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
@@ -38,7 +38,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
+        ExtractedView, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
         ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
@@ -798,14 +798,16 @@ pub fn check_prepass_views_need_specialization(
     mut dirty_specializations: ResMut<DirtySpecializations>,
     mut views: Query<(
         &ExtractedView,
-        &Msaa,
+        &ViewTargetInfo,
         Option<&DepthPrepass>,
         Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
     )>,
 ) {
-    for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass) in views.iter_mut() {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+    for (view, target_info, depth_prepass, normal_prepass, motion_vector_prepass) in
+        views.iter_mut()
+    {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(target_info.sample_count);
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
@@ -863,7 +865,7 @@ pub(crate) struct SpecializePrepassSystemParam<'w, 's> {
         (
             &'static ExtractedView,
             &'static RenderVisibleEntities,
-            &'static Msaa,
+            &'static ViewTargetInfo,
             Option<&'static MotionVectorPrepass>,
             Option<&'static DeferredPrepass>,
         ),
@@ -914,8 +916,13 @@ pub(crate) fn specialize_prepass_material_meshes(
 
         this_run = system_change_tick.this_run();
 
-        for (extracted_view, visible_entities, msaa, motion_vector_prepass, deferred_prepass) in
-            &views
+        for (
+            extracted_view,
+            visible_entities,
+            target_info,
+            motion_vector_prepass,
+            deferred_prepass,
+        ) in &views
         {
             if !opaque_deferred_render_phases.contains_key(&extracted_view.retained_view_entity)
                 && !alpha_mask_deferred_render_phases
@@ -1018,7 +1025,7 @@ pub(crate) fn specialize_prepass_material_meshes(
                 let alpha_mode = material.properties.alpha_mode;
                 match alpha_mode {
                     AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
-                        mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
+                        mesh_key |= alpha_mode_pipeline_key(alpha_mode, target_info.sample_count);
                     }
                     AlphaMode::Blend
                     | AlphaMode::Premultiplied

@@ -9,7 +9,6 @@ use std::{
 };
 
 use argh::FromArgs;
-use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
@@ -28,6 +27,7 @@ use bevy::{
     },
     world_serialization::WorldInstanceReady,
 };
+use bevy::{camera::ColorTarget, pbr::ContactShadows};
 use bevy::{
     camera::Hdr,
     diagnostic::FrameTimeDiagnosticsPlugin,
@@ -259,7 +259,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
 
     // Camera
     let mut cam = commands.spawn((
-        Msaa::Off,
+        ColorTarget::default().with_sample_count(1),
         Camera3d::default(),
         ScreenSpaceTransmission {
             steps: 0,

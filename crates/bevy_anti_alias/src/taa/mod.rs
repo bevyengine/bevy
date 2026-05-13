@@ -19,7 +19,7 @@ use bevy_image::ToExtents;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{ExtractedCamera, MipBias, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -34,7 +34,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::ViewTarget,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -139,16 +139,16 @@ fn temporal_anti_alias(
         &TemporalAntiAliasHistoryTextures,
         &ViewPrepassTextures,
         &TemporalAntiAliasPipelineId,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
     pipelines: Option<Res<TaaPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
+    let (view_target, taa_history_textures, prepass_textures, taa_pipeline_id, target_info) =
         view.into_inner();
 
-    if *msaa != Msaa::Off {
+    if target_info.sample_count > 1 {
         warn!("Temporal anti-aliasing requires MSAA to be disabled");
         return;
     }
@@ -389,16 +389,16 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    cameras: Query<(Entity, &ExtractedView, &ExtractedCamera), With<TemporalAntiAliasing>>,
+    cameras: Query<(Entity, &ViewTargetInfo), With<TemporalAntiAliasing>>,
 ) {
-    for (entity, view, camera) in &cameras {
+    for (entity, target_info) in &cameras {
         let mut texture_descriptor = TextureDescriptor {
             label: None,
-            size: camera.main_texture_size.to_extents(),
+            size: target_info.size.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: view.target_format,
+            format: target_info.color_format,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         };
@@ -435,13 +435,13 @@ fn prepare_taa_pipelines(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
+        &ViewTargetInfo,
         &TemporalAntiAliasing,
     )>,
 ) -> Result<(), BevyError> {
-    for (entity, camera, view, taa_settings) in &cameras {
+    for (entity, camera, target_info, taa_settings) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
-            target_format: view.target_format,
+            target_format: target_info.color_format,
             tonemap: camera.hdr,
             reset: taa_settings.reset,
         };

@@ -14,10 +14,11 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+use bevy_render::camera::ViewTargetInfo;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_render::texture::CachedTexture;
+use bevy_render::{camera::ViewTargetInfo, texture::CachedTexture};
 use bevy_render::{
-    camera::ExtractedCamera,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages, TextureView, TextureViewDescriptor,
@@ -67,7 +68,7 @@ pub fn prepare_solari_lighting_resources(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<
         (
             Entity,
-            &ExtractedCamera,
+            &ViewTargetInfo,
             Option<&SolariLightingResources>,
             Option<&MainPassResolutionOverride>,
         ),
@@ -76,7 +77,7 @@ pub fn prepare_solari_lighting_resources(
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<
         (
             Entity,
-            &ExtractedCamera,
+            &ViewTargetInfo,
             Option<&SolariLightingResources>,
             Option<&MainPassResolutionOverride>,
             Has<Dlss<DlssRayReconstructionFeature>>,
@@ -88,12 +89,12 @@ pub fn prepare_solari_lighting_resources(
 ) {
     for query_item in &query {
         #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-        let (entity, camera, solari_lighting_resources, resolution_override) = query_item;
+        let (entity, target_info, solari_lighting_resources, resolution_override) = query_item;
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let (entity, camera, solari_lighting_resources, resolution_override, has_dlss_rr) =
+        let (entity, target_info, solari_lighting_resources, resolution_override, has_dlss_rr) =
             query_item;
 
-        let mut view_size = camera.main_texture_size;
+        let mut view_size = target_info.size;
         if let Some(MainPassResolutionOverride(resolution_override)) = resolution_override {
             view_size = (view_size.as_vec2() * *resolution_override)
                 .round()

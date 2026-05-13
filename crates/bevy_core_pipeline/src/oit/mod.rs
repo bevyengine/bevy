@@ -1,21 +1,20 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_camera::Camera3d;
+use bevy_camera::{Camera3d, ColorTarget, WithColorTarget};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_log::trace;
 use bevy_math::UVec2;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
         BufferUsages, DynamicUniformBuffer, ShaderType, TextureUsages, UniformBuffer,
         UninitBufferVec,
     },
     renderer::{RenderDevice, RenderQueue},
-    view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
@@ -130,9 +129,12 @@ fn configure_camera_depth_usages(
     }
 }
 
-fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
-    for msaa in &cameras {
-        if msaa.samples() > 1 {
+fn check_msaa(
+    cameras: Query<&WithColorTarget, With<OrderIndependentTransparencySettings>>,
+    color_targets: Query<&ColorTarget>,
+) {
+    for with_color_target in &cameras {
+        if color_targets.get(with_color_target.0).unwrap().sample_count > 1 {
             panic!("MSAA is not supported when using OrderIndependentTransparency");
         }
     }
@@ -224,9 +226,9 @@ pub fn prepare_oit_buffers(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     cameras: Query<
-        (&ExtractedCamera, &OrderIndependentTransparencySettings),
+        (&ViewTargetInfo, &OrderIndependentTransparencySettings),
         (
-            Changed<ExtractedCamera>,
+            Changed<ViewTargetInfo>,
             Changed<OrderIndependentTransparencySettings>,
         ),
     >,
@@ -253,8 +255,8 @@ pub fn prepare_oit_buffers(
     // Get the max buffer size for any OIT enabled camera
     let mut max_size = UVec2::new(0, 0);
     let mut fragments_per_pixel_average = 0f32;
-    for (camera, settings) in &cameras {
-        max_size = max_size.max(camera.main_texture_size);
+    for (target_info, settings) in &cameras {
+        max_size = max_size.max(target_info.size);
         fragments_per_pixel_average =
             fragments_per_pixel_average.max(settings.fragments_per_pixel_average);
     }

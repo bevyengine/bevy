@@ -1,6 +1,7 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
+    camera::ColorTarget,
     core_pipeline::tonemapping::Tonemapping,
     math::ops,
     post_process::bloom::{Bloom, BloomCompositeMode},
@@ -30,6 +31,7 @@ fn setup_scene(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
+        ColorTarget::default().with_hdr_format(),
         Tonemapping::TonyMcMapface, // 1. Using a tonemapper that desaturates to white is recommended
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Bloom::NATURAL, // 2. Enable bloom for the camera

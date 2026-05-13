@@ -4,7 +4,7 @@ use bevy_log::error;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     occlusion_culling::OcclusionCulling,
     render_phase::ViewBinnedRenderPhases,
@@ -25,8 +25,8 @@ use super::{
 /// Type alias for the prepass view query.
 type PrepassViewQueryData = (
     (
-        &'static ExtractedCamera,
         &'static ExtractedView,
+        &'static ViewTargetInfo,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -51,7 +51,13 @@ pub fn early_prepass(
 ) {
     let view_entity = view.entity();
     let (
-        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (
+            extracted_view,
+            target_info,
+            view_depth_texture,
+            view_prepass_textures,
+            view_uniform_offset,
+        ),
         (
             deferred_prepass,
             background_motion_vectors_pipeline,
@@ -65,8 +71,8 @@ pub fn early_prepass(
     run_prepass_system(
         world,
         view_entity,
-        camera,
         extracted_view,
+        target_info,
         view_depth_texture,
         view_prepass_textures,
         view_uniform_offset,
@@ -93,7 +99,13 @@ pub fn late_prepass(
 ) {
     let view_entity = view.entity();
     let (
-        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (
+            extracted_view,
+            target_info,
+            view_depth_texture,
+            view_prepass_textures,
+            view_uniform_offset,
+        ),
         (
             deferred_prepass,
             background_motion_vectors_pipeline,
@@ -111,8 +123,8 @@ pub fn late_prepass(
     run_prepass_system(
         world,
         view_entity,
-        camera,
         extracted_view,
+        target_info,
         view_depth_texture,
         view_prepass_textures,
         view_uniform_offset,
@@ -137,8 +149,8 @@ pub fn late_prepass(
 fn run_prepass_system(
     world: &World,
     view_entity: Entity,
-    camera: &ExtractedCamera,
     extracted_view: &ExtractedView,
+    target_info: &ViewTargetInfo,
     view_depth_texture: &ViewDepthTexture,
     view_prepass_textures: &ViewPrepassTextures,
     view_uniform_offset: &ViewUniformOffset,
@@ -197,9 +209,7 @@ fn run_prepass_system(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-    if let Some(viewport) =
-        Viewport::from_size_override(camera.main_texture_size, resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

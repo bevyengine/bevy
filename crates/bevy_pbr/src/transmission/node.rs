@@ -2,9 +2,8 @@ use crate::{ScreenSpaceTransmission, Transmissive3d, ViewTransmissionTexture};
 
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
-use bevy_image::ToExtents;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -19,8 +18,8 @@ use tracing::info_span;
 pub fn main_transmissive_pass_3d(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
         &ExtractedView,
+        &ViewTargetInfo,
         &ScreenSpaceTransmission,
         &ViewTarget,
         Option<&ViewTransmissionTexture>,
@@ -33,8 +32,8 @@ pub fn main_transmissive_pass_3d(
     let view_entity = view.entity();
 
     let (
-        camera,
         extracted_view,
+        target_info,
         transmission_settings,
         target,
         transmission,
@@ -75,7 +74,7 @@ pub fn main_transmissive_pass_3d(
                 ctx.command_encoder().copy_texture_to_texture(
                     target.main_texture().as_image_copy(),
                     transmission.texture.as_image_copy(),
-                    camera.main_texture_size.to_extents(),
+                    target.main_texture().size(),
                 );
 
                 let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
@@ -95,7 +94,7 @@ pub fn main_transmissive_pass_3d(
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
             if let Some(viewport) =
-                Viewport::from_size_override(camera.main_texture_size, resolution_override)
+                Viewport::from_size_override(target_info.size, resolution_override)
             {
                 render_pass.set_camera_viewport(&viewport);
             }

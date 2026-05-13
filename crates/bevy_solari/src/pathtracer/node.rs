@@ -3,7 +3,7 @@ use crate::scene::RaytracingSceneBindings;
 use bevy_asset::{load_embedded_asset, AssetServer};
 use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     render_resource::{
         binding_types::{texture_storage_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
@@ -61,7 +61,7 @@ pub fn pathtracer(
     view: ViewQuery<(
         &Pathtracer,
         &PathtracerAccumulationTexture,
-        &ExtractedCamera,
+        &ViewTargetInfo,
         &ViewTarget,
         &ViewUniformOffset,
     )>,
@@ -72,7 +72,7 @@ pub fn pathtracer(
     render_device: Res<RenderDevice>,
     mut ctx: RenderContext,
 ) {
-    let (pathtracer_settings, accumulation_texture, camera, view_target, view_uniform_offset) =
+    let (pathtracer_settings, accumulation_texture, target_info, view_target, view_uniform_offset) =
         view.into_inner();
 
     let Some(pathtracer_pipelines) = pathtracer_pipelines else {
@@ -114,8 +114,8 @@ pub fn pathtracer(
     pass.set_bind_group(0, scene_bind_group, &[]);
     pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
     pass.dispatch_workgroups(
-        camera.main_texture_size.x.div_ceil(8),
-        camera.main_texture_size.y.div_ceil(8),
+        target_info.size.x.div_ceil(8),
+        target_info.size.y.div_ceil(8),
         1,
     );
 }

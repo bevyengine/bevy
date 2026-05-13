@@ -17,7 +17,7 @@ use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
 use derive_more::derive::From;
 use thiserror::Error;
-use wgpu_types::{BlendState, TextureUsages};
+use wgpu_types::BlendState;
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -373,14 +373,7 @@ pub enum ViewportConversionError {
 /// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(
-    Frustum,
-    CameraMainTextureUsages,
-    VisibleEntities,
-    Transform,
-    Visibility,
-    RenderTarget
-)]
+#[require(Frustum, VisibleEntities, Transform, Visibility, RenderTarget)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -992,29 +985,6 @@ impl From<Handle<Image>> for ImageRenderTarget {
 impl Default for RenderTarget {
     fn default() -> Self {
         Self::Window(Default::default())
-    }
-}
-
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
-#[derive(Component, Clone, Copy, Reflect)]
-#[reflect(opaque)]
-#[reflect(Component, Default, Clone)]
-pub struct CameraMainTextureUsages(pub TextureUsages);
-
-impl Default for CameraMainTextureUsages {
-    fn default() -> Self {
-        Self(
-            TextureUsages::RENDER_ATTACHMENT
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-        )
-    }
-}
-
-impl CameraMainTextureUsages {
-    pub fn with(mut self, usages: TextureUsages) -> Self {
-        self.0 |= usages;
-        self
     }
 }
 

@@ -20,10 +20,10 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, ColorTarget, RenderTarget, WithColorTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
+use bevy_render::camera::extract_cameras;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{
@@ -772,6 +772,11 @@ pub struct UiCameraView(pub Entity);
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
 
+#[derive(Component)]
+pub struct UiViewTargetInfo {
+    color_format: TextureFormat,
+}
+
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
     mut commands: Commands,
@@ -782,18 +787,21 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
+                &WithColorTarget,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    main_pass_formats: Res<CameraMainPassTextureFormats>,
+    color_targets: Extract<Query<&ColorTarget>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, with_color_target, ui_anti_alias, shadow_samples) in
+        &query
+    {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -803,6 +811,10 @@ pub fn extract_ui_camera_view(
             continue;
         }
 
+        let color_target = color_targets
+            .get(with_color_target.0)
+            .expect("Failed to get camera color target");
+
         if let (Some(physical_viewport_rect), Some(_viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -810,14 +822,6 @@ pub fn extract_ui_camera_view(
         ) && target_size.x != 0
             && target_size.y != 0
         {
-            let Some(target_format) = main_pass_formats.get(&render_entity).copied() else {
-                commands
-                    .get_entity(render_entity)
-                    .expect("Camera entity wasn't synced.")
-                    .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
-                continue;
-            };
-
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -834,6 +838,9 @@ pub fn extract_ui_camera_view(
             // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
+                    UiViewTargetInfo {
+                        color_format: color_target.format,
+                    },
                     ExtractedView {
                         retained_view_entity,
                         clip_from_view: projection_matrix,
@@ -843,7 +850,6 @@ pub fn extract_ui_camera_view(
                             UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                         ),
                         clip_from_world: None,
-                        target_format,
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),
@@ -1514,7 +1520,7 @@ pub fn queue_uinodes(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    camera_views: Query<(&ExtractedView, &UiViewTargetInfo)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -1531,16 +1537,18 @@ pub fn queue_uinodes(
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
-                        .and_then(|view| {
+                        .and_then(|(view, target_info)| {
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
+                                .map(|transparent_phase| {
+                                    (target_info, ui_anti_alias, transparent_phase)
+                                })
                         })
                 });
             current_camera_entity = extracted_uinode.extracted_camera_entity;
         }
 
-        let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
+        let Some((target_info, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
             continue;
         };
 
@@ -1548,7 +1556,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
-                target_format: view.target_format,
+                target_format: target_info.color_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );

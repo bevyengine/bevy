@@ -2,7 +2,7 @@ use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::system::Res;
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     extract_component::DynamicUniformIndex,
     render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, ViewQuery},
@@ -140,7 +140,7 @@ pub fn atmosphere_luts(
 
 pub fn render_sky(
     view: ViewQuery<(
-        &ExtractedCamera,
+        &ViewTargetInfo,
         &AtmosphereBindGroups,
         &ViewTarget,
         &DynamicUniformIndex<GpuAtmosphere>,
@@ -155,7 +155,7 @@ pub fn render_sky(
     mut ctx: RenderContext,
 ) {
     let (
-        camera,
+        target_info,
         atmosphere_bind_groups,
         view_target,
         atmosphere_uniforms_offset,
@@ -183,9 +183,7 @@ pub fn render_sky(
         multiview_mask: None,
     });
 
-    if let Some(viewport) =
-        Viewport::from_size_override(camera.main_texture_size, resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
         render_sky_pass.set_viewport(
             viewport.physical_position.x as f32,
             viewport.physical_position.y as f32,

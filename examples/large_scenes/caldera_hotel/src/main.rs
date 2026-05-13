@@ -5,6 +5,7 @@ use std::{f32::consts::PI, time::Instant};
 
 use crate::light_consts::lux;
 use argh::FromArgs;
+use bevy::camera::ColorTarget;
 use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
@@ -200,7 +201,7 @@ pub fn setup(
 
     // Camera
     let mut cam = commands.spawn((
-        Msaa::Off,
+        ColorTarget::default().with_sample_count(1),
         Camera3d::default(),
         Hdr,
         positions[0],

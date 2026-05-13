@@ -12,6 +12,7 @@
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
+    camera::ColorTarget,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -48,7 +49,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
-        Msaa::Off,
+        ColorTarget::default()
+            .with_sample_count(1)
+            .with_hdr_format(),
         TemporalAntiAliasing::default(),
         Bloom::default(),
         VolumetricFog {

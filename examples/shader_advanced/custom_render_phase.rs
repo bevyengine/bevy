@@ -12,7 +12,7 @@
 
 use std::ops::Range;
 
-use bevy::camera::Viewport;
+use bevy::camera::{ColorTarget, Viewport};
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
@@ -39,7 +39,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::{DirtySpecializations, ExtractedCamera, PendingQueues},
+        camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -60,6 +60,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
+use bevy_render::camera::ViewTargetInfo;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
@@ -107,7 +108,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // disable msaa for simplicity
-        Msaa::Off,
+        ColorTarget::default().with_sample_count(1),
     ));
 }
 
@@ -649,7 +650,7 @@ fn queue_custom_meshes(
 fn custom_draw_system(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
+        &ViewTargetInfo,
         &ExtractedView,
         &ViewTarget,
         Option<&MainPassResolutionOverride>,
@@ -658,7 +659,7 @@ fn custom_draw_system(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (camera, extracted_view, target, resolution_override) = view.into_inner();
+    let (target_info, extracted_view, target, resolution_override) = view.into_inner();
 
     let Some(stencil_phase) = stencil_phases.get(&extracted_view.retained_view_entity) else {
         return;
@@ -677,9 +678,7 @@ fn custom_draw_system(
         multiview_mask: None,
     });
 
-    if let Some(viewport) =
-        Viewport::from_size_override(camera.main_texture_size, resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_size_override(target_info.size, resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

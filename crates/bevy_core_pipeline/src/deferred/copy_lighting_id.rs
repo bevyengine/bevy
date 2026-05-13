@@ -7,7 +7,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
@@ -147,12 +147,12 @@ fn prepare_deferred_lighting_id_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
+    views: Query<(Entity, &ViewTargetInfo), With<DeferredPrepass>>,
 ) {
-    for (entity, camera) in &views {
+    for (entity, target_info) in &views {
         let texture_descriptor = TextureDescriptor {
             label: Some("deferred_lighting_id_depth_texture_a"),
-            size: camera.main_texture_size.to_extents(),
+            size: target_info.size.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

@@ -4,6 +4,7 @@ use std::f32::consts::*;
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
+    camera::ColorTarget,
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
     light::{
@@ -36,7 +37,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         // MSAA needs to be off for Deferred rendering
-        Msaa::Off,
+        ColorTarget::default().with_sample_count(1),
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
