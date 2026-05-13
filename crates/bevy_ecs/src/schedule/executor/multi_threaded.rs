@@ -845,9 +845,10 @@ fn handle_errors(
 ) -> Result<(), Box<dyn Any + Send>> {
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
     let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
+    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     match potential_unwind {
         // A panic occurred, but it came from an error handler, so pass it on to be rethrown
-        Err(payload) if PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) => Err(payload),
+        Err(payload) if panic_originates_from_error_handler => Err(payload),
         // Let the error handler handle the panic, passing on any panic it throws
         Err(_) => std::panic::catch_unwind(AssertUnwindSafe(|| {
             __rust_begin_short_backtrace::error_handler(
@@ -874,7 +875,7 @@ fn handle_errors(
                 },
             );
         })),
-        // Success
+        // Success (or skipped system)
         _ => Ok(()),
     }
 }

@@ -128,7 +128,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let f = AssertUnwindSafe(|| {
+            let f = |system: &mut _| {
                 if let Err(RunSystemError::Failed(err)) =
                     __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
                 {
@@ -140,17 +140,16 @@ impl SystemExecutor for SingleThreadedExecutor {
                         },
                     );
                 }
-            });
+            };
 
             #[cfg(feature = "std")]
             {
-                let res = std::panic::catch_unwind(f);
-                handle_unwind(res, error_handler, &**system, "System panicked");
+                handle_unwind(f, system, error_handler, "System panicked");
             }
 
             #[cfg(not(feature = "std"))]
             {
-                (f)();
+                (f)(system);
             }
 
             self.unapplied_systems.insert(system_index);
@@ -197,13 +196,10 @@ impl SingleThreadedExecutor {
 
             #[cfg(feature = "std")]
             {
-                crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
-                let res =
-                    std::panic::catch_unwind(AssertUnwindSafe(|| system.apply_deferred(world)));
                 handle_unwind(
-                    res,
+                    |system| system.apply_deferred(world),
+                    system,
                     error_handler,
-                    &**system,
                     "Encountered a panic while applying system buffers",
                 );
             }
@@ -260,13 +256,17 @@ fn evaluate_and_fold_conditions(
 /// Handle a potential panic by invoking the error handler
 #[cfg(feature = "std")]
 fn handle_unwind(
-    potential_unwind: Result<(), alloc::boxed::Box<dyn core::any::Any + Send>>,
+    f: impl FnOnce(&mut alloc::boxed::Box<dyn crate::system::System<In = (), Out = ()>>),
+    system: &mut alloc::boxed::Box<dyn crate::system::System<In = (), Out = ()>>,
     error_handler: ErrorHandler,
-    in_system: &dyn crate::system::System<In = (), Out = ()>,
     error_message: &str,
 ) {
+    crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
+    let panic_originates_from_error_handler =
+        crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     if let Err(payload) = potential_unwind {
-        if crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false) {
+        if panic_originates_from_error_handler {
             std::panic::resume_unwind(payload);
         }
 
@@ -279,8 +279,8 @@ fn handle_unwind(
             error_handler,
             err,
             ErrorContext::System {
-                name: in_system.name(),
-                last_run: in_system.get_last_run(),
+                name: system.name(),
+                last_run: system.get_last_run(),
             },
         );
     }
