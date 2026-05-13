@@ -10,7 +10,7 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, NoIndirectDrawing,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
         RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
@@ -22,10 +22,10 @@ use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraOutputMode, CameraUpdateSystems, ClearColor,
-    ClearColorConfig, ColorTarget, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
-    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
-    WithColorTarget,
+    Camera, Camera2d, Camera3d, CameraColorTarget, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, ColorTarget, CompositingSpace, Exposure, Hdr,
+    ManualTextureViewHandle, MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget,
+    RenderTargetInfo, Viewport, WithColorTarget,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -59,7 +59,8 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_required_components::<Camera, SyncToRenderWorld>()
+        app.register_required_components::<CameraColorTarget, Msaa>()
+            .register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins(ExtractResourcePlugin::<ClearColor>::default())
@@ -447,11 +448,23 @@ pub struct ExtractedCamera {
     pub compositing_space: Option<CompositingSpace>,
 }
 
-#[derive(Debug, Component, PartialEq, Eq, Hash)]
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ViewTargetInfo {
     pub size: UVec2,
     pub color_format: TextureFormat,
     pub sample_count: u32,
+}
+
+#[derive(Debug, Component, Clone, Copy)]
+pub struct ExtractedColorTarget {
+    /// Size of the texture.
+    pub size: UVec2,
+    /// Sample count of the multisampled texture if this is larger than 1.
+    pub sample_count: u32,
+    /// Format of the texture.
+    pub format: TextureFormat,
+    /// Allowed usages of the texture.
+    pub usage: wgpu::TextureUsages,
 }
 
 pub fn extract_cameras(
@@ -466,6 +479,7 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
+            (Option<&Msaa>, Option<&CameraColorTarget>),
             (
                 Has<Hdr>,
                 Option<&CompositingSpace>,
@@ -482,6 +496,9 @@ pub fn extract_cameras(
     >,
     color_targets: Extract<Query<(RenderEntity, &ColorTarget)>>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    extracted_windows: Res<ExtractedWindows>,
+    manual_texture_views: Res<ManualTextureViews>,
+    images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
         &mut RenderExtractedVisibleEntities,
         With<RenderVisibleEntities>,
@@ -510,6 +527,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
+        (msaa, camera_color_target),
         (
             hdr,
             compositing_space,
@@ -533,7 +551,10 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (Some(target_size),) = (camera.physical_target_size(),) {
+        if let (Some(target_size), Some(viewport_size)) = (
+            camera.physical_target_size(),
+            camera.physical_viewport_size(),
+        ) {
             if target_size.x == 0 || target_size.y == 0 {
                 commands
                     .entity(render_entity)
@@ -572,22 +593,69 @@ pub fn extract_cameras(
             // *now*, phases need to be able to find the entities that were just
             // removed from it.
 
-            let (color_target_render_entity, color_target) = color_targets
-                .get(with_color_target.0)
-                .expect("Failed to get the referenced color target");
-
             let target = render_target.normalize(primary_window);
+            let (extracted_color_target, color_target_render_entity);
+            if with_color_target.0 == main_entity
+                && let (Some(msaa), Some(camera_color_target)) = (msaa, camera_color_target)
+            {
+                let output_texture_format = target
+                    .as_ref()
+                    .and_then(|target| {
+                        target
+                            .get_texture_view_format(
+                                &extracted_windows,
+                                &images,
+                                &manual_texture_views,
+                            )
+                            .map(|format| normalize_bgra8(target, format))
+                    })
+                    .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+                let default_format = if hdr {
+                    TextureFormat::Rgba16Float
+                } else {
+                    output_texture_format
+                };
+
+                let color_format = camera_color_target.format.unwrap_or(default_format);
+                let sample_count = msaa.samples();
+                let size = match camera_color_target.size {
+                    bevy_camera::CameraColorTargetSize::Factor(vec2) => (viewport_size.as_vec2()
+                        * vec2)
+                        .round()
+                        .as_uvec2()
+                        .max(UVec2::ONE),
+                    bevy_camera::CameraColorTargetSize::Fixed(uvec2) => uvec2,
+                };
+                color_target_render_entity = render_entity;
+                extracted_color_target = ExtractedColorTarget {
+                    size,
+                    sample_count,
+                    format: color_format,
+                    usage: camera_color_target.usage,
+                }
+            } else {
+                let (render_entity, color_target) = color_targets
+                    .get(with_color_target.0)
+                    .expect("Failed to get the referenced ColorTarget");
+                color_target_render_entity = render_entity;
+                extracted_color_target = ExtractedColorTarget {
+                    size: color_target.size,
+                    sample_count: color_target.sample_count,
+                    format: color_target.format,
+                    usage: color_target.usage,
+                };
+            }
 
             commands
                 .entity(color_target_render_entity)
-                .insert(color_target.clone());
+                .insert(extracted_color_target);
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 WithColorTarget(color_target_render_entity),
                 ViewTargetInfo {
-                    color_format: color_target.format,
-                    size: color_target.size,
-                    sample_count: color_target.sample_count,
+                    color_format: extracted_color_target.format,
+                    size: extracted_color_target.size,
+                    sample_count: extracted_color_target.sample_count,
                 },
                 ExtractedCamera {
                     target,
@@ -611,7 +679,12 @@ pub fn extract_cameras(
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    viewport: UVec4::new(0, 0, color_target.size.x, color_target.size.y),
+                    viewport: UVec4::new(
+                        0,
+                        0,
+                        extracted_color_target.size.x,
+                        extracted_color_target.size.y,
+                    ),
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
@@ -655,6 +728,20 @@ pub fn extract_cameras(
             }
         };
     }
+}
+
+/// Bgra8 needs an optional feature to support storage binding, and only supports write-only.
+/// We force Rgba8 so that we can always use storage bindings, and rely on the final blit to
+/// convert at the end if needed. See <https://github.com/gpuweb/gpuweb/issues/2748>
+/// Checking just `Bgra8UnormSrgb` and not `Bgra8Unorm` is fine here, because this is the texture
+/// view we already guaranteed to be srgb space if possible. See `ExtractedWindow::set_swapchain_texture`
+fn normalize_bgra8(target: &NormalizedRenderTarget, format: TextureFormat) -> TextureFormat {
+    if matches!(target, NormalizedRenderTarget::Window(_))
+        && format == TextureFormat::Bgra8UnormSrgb
+    {
+        return TextureFormat::Rgba8UnormSrgb;
+    }
+    format
 }
 
 /// Cameras sorted by their order field. This is updated in the [`sort_cameras`] system.

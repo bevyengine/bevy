@@ -39,7 +39,7 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy_render::camera::ViewTargetInfo;
+use bevy::render::camera::ViewTargetInfo;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using

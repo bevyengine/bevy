@@ -12,7 +12,6 @@
 //! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
-    camera::ColorTarget,
     light::Skybox,
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
     post_process::auto_exposure::{
@@ -41,7 +40,6 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        ColorTarget::default().with_hdr_format(),
         Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         AutoExposure {
             metering_mask: metering_mask.clone(),

@@ -21,7 +21,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::{ColorTarget, Exposure, Hdr},
+    camera::{Exposure, Hdr},
     color::palettes::css::*,
     core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
     light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
@@ -295,10 +295,7 @@ fn setup(
         },
         Flicker,
     ));
-    let target_info = ColorTarget::default().with_hdr_format();
-    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-    // Disable MSAA since we will enable TAA.
-    let target_info = target_info.with_sample_count(1);
+
     // Camera
     commands.spawn((
         Camera3d::default(),
@@ -312,7 +309,8 @@ fn setup(
         },
         Tonemapping::TonyMcMapface,
         Exposure { ev100: 6.0 },
-        target_info,
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+        Msaa::Off,
         #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {

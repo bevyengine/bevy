@@ -4,7 +4,6 @@
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 
 use bevy::{
-    camera::ColorTarget,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     image::CompressedImageFormats,
     light::Skybox,
@@ -73,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // camera
     commands.spawn((
         Camera3d::default(),
-        ColorTarget::default().with_sample_count(1),
+        Msaa::Off,
         #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),

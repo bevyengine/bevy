@@ -1,7 +1,7 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_camera::{Camera3d, ColorTarget, WithColorTarget};
+use bevy_camera::Camera3d;
 use bevy_ecs::{component::*, prelude::*};
 use bevy_log::trace;
 use bevy_math::UVec2;
@@ -87,8 +87,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
             OitResolvePlugin,
-        ))
-        .add_systems(Update, check_msaa);
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -96,6 +95,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
         render_app
             .add_systems(RenderStartup, init_oit_buffers)
+            .add_systems(Render, check_msaa.in_set(RenderSystems::PrepareAssets))
             .add_systems(
                 Render,
                 (
@@ -129,12 +129,9 @@ fn configure_camera_depth_usages(
     }
 }
 
-fn check_msaa(
-    cameras: Query<&WithColorTarget, With<OrderIndependentTransparencySettings>>,
-    color_targets: Query<&ColorTarget>,
-) {
-    for with_color_target in &cameras {
-        if color_targets.get(with_color_target.0).unwrap().sample_count > 1 {
+fn check_msaa(cameras: Query<&ViewTargetInfo, With<OrderIndependentTransparencySettings>>) {
+    for target_info in &cameras {
+        if target_info.sample_count > 1 {
             panic!("MSAA is not supported when using OrderIndependentTransparency");
         }
     }

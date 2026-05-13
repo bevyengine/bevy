@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::{ColorTarget, Exposure},
+    camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
     image::{
@@ -164,9 +164,7 @@ fn setup_camera_fog(
             ambient_intensity: 0.0,
             ..default()
         },
-        ColorTarget::default()
-            .with_sample_count(1)
-            .with_hdr_format(),
+        Msaa::Off,
         TemporalAntiAliasing::default(),
         ScreenSpaceReflections {
             min_perceptual_roughness: 0.0..0.0,

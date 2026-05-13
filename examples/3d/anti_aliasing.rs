@@ -2,8 +2,6 @@
 
 use std::{f32::consts::PI, fmt::Write};
 
-#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-use bevy::camera::ColorTarget;
 use bevy::{
     anti_alias::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
@@ -73,7 +71,7 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut Smaa>,
             Option<&TemporalAntiAliasing>,
-            &mut ColorTarget,
+            &mut Msaa,
             Option<&mut Dlss>,
         ),
         With<Camera>,
@@ -84,7 +82,7 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut Smaa>,
             Option<&TemporalAntiAliasing>,
-            &mut ColorTarget,
+            &mut Msaa,
         ),
         With<Camera>,
     >,
@@ -94,14 +92,14 @@ fn modify_aa(
     mut commands: Commands,
 ) {
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (camera_entity, fxaa, smaa, taa, mut target_info, dlss) = camera.into_inner();
+    let (camera_entity, fxaa, smaa, taa, mut msaa, dlss) = camera.into_inner();
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (camera_entity, fxaa, smaa, taa, mut target_info) = camera.into_inner();
+    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
-        target_info.sample_count = 1;
+        *msaa = Msaa::Off;
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
@@ -110,32 +108,32 @@ fn modify_aa(
     }
 
     // MSAA
-    if keys.just_pressed(KeyCode::Digit2) && target_info.sample_count == 1 {
+    if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>()
             .remove::<DlssComponents>();
 
-        target_info.sample_count = 4;
+        *msaa = Msaa::Sample4;
     }
 
     // MSAA Sample Count
-    if target_info.sample_count != 1 {
+    if *msaa != Msaa::Off {
         if keys.just_pressed(KeyCode::KeyQ) {
-            target_info.sample_count = 2;
+            *msaa = Msaa::Sample2;
         }
         if keys.just_pressed(KeyCode::KeyW) {
-            target_info.sample_count = 4;
+            *msaa = Msaa::Sample4;
         }
         if keys.just_pressed(KeyCode::KeyE) {
-            target_info.sample_count = 8;
+            *msaa = Msaa::Sample8;
         }
     }
 
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
-        target_info.sample_count = 1;
+        *msaa = Msaa::Off;
         camera
             .remove::<Smaa>()
             .remove::<TaaComponents>()
@@ -169,7 +167,7 @@ fn modify_aa(
 
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
-        target_info.sample_count = 1;
+        *msaa = Msaa::Off;
         camera
             .remove::<Fxaa>()
             .remove::<TaaComponents>()
@@ -195,7 +193,7 @@ fn modify_aa(
 
     // TAA
     if keys.just_pressed(KeyCode::Digit5) && taa.is_none() {
-        target_info.sample_count = 1;
+        *msaa = Msaa::Off;
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
@@ -206,7 +204,7 @@ fn modify_aa(
     // DLSS
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if keys.just_pressed(KeyCode::Digit6) && dlss.is_none() && dlss_supported.is_some() {
-        target_info.sample_count = 1;
+        *msaa = Msaa::Off;
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
@@ -288,7 +286,7 @@ fn update_ui(
             Option<&Smaa>,
             Option<&TemporalAntiAliasing>,
             &ContrastAdaptiveSharpening,
-            &ColorTarget,
+            &Msaa,
             Option<&Dlss>,
         ),
         With<Camera>,
@@ -300,7 +298,7 @@ fn update_ui(
             Option<&Smaa>,
             Option<&TemporalAntiAliasing>,
             &ContrastAdaptiveSharpening,
-            &ColorTarget,
+            &Msaa,
         ),
         With<Camera>,
     >,
@@ -310,9 +308,9 @@ fn update_ui(
     >,
 ) {
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (projection, fxaa, smaa, taa, cas, target_info, dlss) = *camera;
+    let (projection, fxaa, smaa, taa, cas, msaa, dlss) = *camera;
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (projection, fxaa, smaa, taa, cas, target_info) = *camera;
+    let (projection, fxaa, smaa, taa, cas, msaa) = *camera;
 
     let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
@@ -326,13 +324,9 @@ fn update_ui(
         ui,
         "No AA",
         '1',
-        target_info.sample_count == 1
-            && fxaa.is_none()
-            && taa.is_none()
-            && smaa.is_none()
-            && dlss_none,
+        *msaa == Msaa::Off && fxaa.is_none() && taa.is_none() && smaa.is_none() && dlss_none,
     );
-    draw_selectable_menu_item(ui, "MSAA", '2', target_info.sample_count != 1);
+    draw_selectable_menu_item(ui, "MSAA", '2', *msaa != Msaa::Off);
     draw_selectable_menu_item(ui, "FXAA", '3', fxaa.is_some());
     draw_selectable_menu_item(ui, "SMAA", '4', smaa.is_some());
     draw_selectable_menu_item(ui, "TAA", '5', taa.is_some());
@@ -341,11 +335,11 @@ fn update_ui(
         draw_selectable_menu_item(ui, "DLSS", '6', dlss.is_some());
     }
 
-    if target_info.sample_count != 1 {
+    if *msaa != Msaa::Off {
         ui.push_str("\n----------\n\nSample Count\n");
-        draw_selectable_menu_item(ui, "2", 'Q', target_info.sample_count == 2);
-        draw_selectable_menu_item(ui, "4", 'W', target_info.sample_count == 4);
-        draw_selectable_menu_item(ui, "8", 'E', target_info.sample_count == 8);
+        draw_selectable_menu_item(ui, "2", 'Q', *msaa == Msaa::Sample2);
+        draw_selectable_menu_item(ui, "4", 'W', *msaa == Msaa::Sample4);
+        draw_selectable_menu_item(ui, "8", 'E', *msaa == Msaa::Sample8);
     }
 
     if let Some(fxaa) = fxaa {

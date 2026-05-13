@@ -3,7 +3,6 @@
 //! The textures are not generated for any material using alpha blending.
 
 use bevy::{
-    camera::ColorTarget,
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     light::NotShadowCaster,
     pbr::PbrPlugin,
@@ -49,7 +48,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
-        ColorTarget::default().with_sample_count(1),
+        Msaa::Off,
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
         DepthPrepass,

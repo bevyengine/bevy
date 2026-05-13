@@ -1,6 +1,6 @@
 use crate::{
-    primitives::Frustum, Camera, CameraProjection, ColorTarget, OrthographicProjection, Projection,
-    WithColorTarget,
+    primitives::Frustum, Camera, CameraColorTarget, CameraProjection, OrthographicProjection,
+    Projection, WithColorTarget,
 };
 use bevy_ecs::{lifecycle::HookContext, prelude::*, world::DeferredWorld};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
@@ -16,7 +16,7 @@ use wgpu_types::{LoadOp, TextureUsages};
     Projection::Orthographic(OrthographicProjection::default_2d()),
     Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
 )]
-#[component(on_insert=add_color_target)]
+#[component(on_insert=add_default_color_target)]
 pub struct Camera2d;
 
 /// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
@@ -26,7 +26,7 @@ pub struct Camera2d;
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(Camera, Projection)]
-#[component(on_insert=add_color_target)]
+#[component(on_insert=add_default_color_target)]
 pub struct Camera3d {
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
@@ -34,11 +34,11 @@ pub struct Camera3d {
     pub depth_texture_usages: Camera3dDepthTextureUsage,
 }
 
-fn add_color_target(mut world: DeferredWorld, context: HookContext) {
-    world
-        .commands()
-        .entity(context.entity)
-        .insert_if_new((WithColorTarget(context.entity), ColorTarget::default()));
+fn add_default_color_target(mut world: DeferredWorld, context: HookContext) {
+    world.commands().entity(context.entity).insert_if_new((
+        WithColorTarget(context.entity),
+        CameraColorTarget::default(),
+    ));
 }
 
 impl Default for Camera3d {

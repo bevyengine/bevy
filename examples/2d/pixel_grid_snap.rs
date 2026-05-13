@@ -1,7 +1,8 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
-    camera::{visibility::RenderLayers, ColorTarget, RenderTarget},
+    camera::visibility::RenderLayers,
+    camera::RenderTarget,
     color::palettes::css::GRAY,
     prelude::*,
     render::render_resource::{
@@ -119,7 +120,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         RenderTarget::Image(image_handle.clone().into()),
-        ColorTarget::default().with_sample_count(1),
+        Msaa::Off,
         InGameCamera,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -129,12 +130,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // The "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((
-        Camera2d,
-        ColorTarget::default().with_sample_count(1),
-        OuterCamera,
-        HIGH_RES_LAYERS,
-    ));
+    commands.spawn((Camera2d, Msaa::Off, OuterCamera, HIGH_RES_LAYERS));
 }
 
 /// Rotates entities to demonstrate grid snapping.

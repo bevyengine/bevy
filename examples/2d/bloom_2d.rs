@@ -1,7 +1,6 @@
 //! Illustrates bloom post-processing in 2d.
 
 use bevy::{
-    camera::ColorTarget,
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
     post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
@@ -27,7 +26,6 @@ fn setup(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        ColorTarget::default().with_hdr_format(),
         Tonemapping::TonyMcMapface, // 1. Using a tonemapper that desaturates to white is recommended
         Bloom::default(),           // 2. Enable bloom for the camera
         DebandDither::Enabled,      // Optional: bloom causes gradients which cause banding

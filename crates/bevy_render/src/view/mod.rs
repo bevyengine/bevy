@@ -2,7 +2,7 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, ClearColor, ClearColorConfig, ColorTarget, CompositingSpace, Exposure,
+    primitives::Frustum, ClearColor, ClearColorConfig, CompositingSpace, Exposure,
     MainPassResolutionOverride, NormalizedRenderTarget, WithColorTarget,
 };
 use bevy_diagnostic::FrameCount;
@@ -10,7 +10,10 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    camera::{
+        ExtractedCamera, ExtractedColorTarget, MipBias, NormalizedRenderTargetExt as _,
+        TemporalJitter,
+    },
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -211,6 +214,53 @@ impl Plugin for ViewPlugin {
             render_app
                 .init_gpu_resource::<ViewUniforms>()
                 .init_gpu_resource::<ViewTargetAttachments>();
+        }
+    }
+}
+
+/// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
+/// for a [`Camera`](bevy_camera::Camera).
+///
+/// Defaults to 4 samples. A higher number of samples results in smoother edges.
+///
+/// Some advanced rendering features may require that MSAA is disabled.
+///
+/// Note that the web currently only supports 1 or 4 samples.
+#[derive(
+    Component,
+    Default,
+    Clone,
+    Copy,
+    Reflect,
+    PartialEq,
+    PartialOrd,
+    bevy_ecs::VariantDefaults,
+    Eq,
+    Hash,
+    Debug,
+)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub enum Msaa {
+    Off = 1,
+    Sample2 = 2,
+    #[default]
+    Sample4 = 4,
+    Sample8 = 8,
+}
+
+impl Msaa {
+    #[inline]
+    pub fn samples(&self) -> u32 {
+        *self as u32
+    }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
     }
 }
@@ -1083,12 +1133,12 @@ pub struct ColorTargetTextures {
     pub atomic: Arc<AtomicUsize>,
 }
 
-/// Prepare [`ColorTargetTextures`] for [`ColorTarget`].
+/// Prepare [`ColorTargetTextures`] for [`ExtractedColorTarget`].
 pub fn prepare_color_targets(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    color_targets: Query<(Entity, &ColorTarget, Option<&ColorTargetTextures>)>,
+    color_targets: Query<(Entity, &ExtractedColorTarget, Option<&ColorTargetTextures>)>,
 ) {
     for (entity, color_target, textures) in color_targets.iter() {
         let descriptor = TextureDescriptor {

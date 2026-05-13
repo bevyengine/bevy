@@ -4,7 +4,7 @@
 //!
 //! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
-    camera::{visibility::RenderLayers, ColorTarget},
+    camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     prelude::*,
@@ -32,7 +32,7 @@ fn setup(
         OrderIndependentTransparencySettings::default(),
         RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
-        ColorTarget::default().with_sample_count(1),
+        Msaa::Off,
         // Optional: depth prepass can help OIT filter out fragments occluded by opaque objects
         DepthPrepass,
     ));

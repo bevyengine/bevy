@@ -10,7 +10,7 @@ use argh::FromArgs;
 use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::{visibility::NoCpuCulling, ColorTarget, Exposure, Hdr},
+    camera::{visibility::NoCpuCulling, Exposure, Hdr},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
@@ -130,10 +130,7 @@ fn camera() -> impl Scene {
         Bloom::NATURAL
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
         AtmosphereEnvironmentMapLight
-        ColorTarget {
-            sample_count: 1,
-            format: bevy::render::render_resource::TextureFormat::Rgba16Float
-        }
+        Msaa::Off
         TemporalAntiAliasing
         ContactShadows
     }

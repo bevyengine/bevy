@@ -10,7 +10,7 @@
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
 use bevy::{
-    camera::{ColorTarget, PhysicalCameraParameters},
+    camera::PhysicalCameraParameters,
     core_pipeline::tonemapping::Tonemapping,
     gltf::GltfMeshName,
     pbr::Lightmap,
@@ -75,7 +75,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         Camera3d::default(),
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
         Tonemapping::TonyMcMapface,
-        ColorTarget::default().with_hdr_format(),
         Bloom::NATURAL,
     ));
 

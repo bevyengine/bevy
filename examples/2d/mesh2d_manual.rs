@@ -37,7 +37,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy_render::camera::ViewTargetInfo;
+use bevy::render::camera::ViewTargetInfo;
 use std::f32::consts::PI;
 
 fn main() {

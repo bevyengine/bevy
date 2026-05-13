@@ -20,10 +20,10 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, ColorTarget, RenderTarget, WithColorTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::extract_cameras;
+use bevy_render::camera::{extract_cameras, ViewTargetInfo};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{
@@ -787,21 +787,18 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
-                &WithColorTarget,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    color_targets: Extract<Query<&ColorTarget>>,
+    target_infos: Query<&ViewTargetInfo>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, with_color_target, ui_anti_alias, shadow_samples) in
-        &query
-    {
+    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -811,9 +808,9 @@ pub fn extract_ui_camera_view(
             continue;
         }
 
-        let color_target = color_targets
-            .get(with_color_target.0)
-            .expect("Failed to get camera color target");
+        let target_info = target_infos
+            .get(render_entity)
+            .expect("Failed to get ViewTargetInfo of the camera");
 
         if let (Some(physical_viewport_rect), Some(_viewport_size), Some(target_size)) = (
             camera.physical_viewport_rect(),
@@ -839,7 +836,7 @@ pub fn extract_ui_camera_view(
             let ui_camera_view = commands
                 .spawn((
                     UiViewTargetInfo {
-                        color_format: color_target.format,
+                        color_format: target_info.color_format,
                     },
                     ExtractedView {
                         retained_view_entity,

@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_math::UVec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use wgpu_types::{TextureFormat, TextureUsages};
 
@@ -13,9 +13,9 @@ pub struct WithColorTarget(pub Entity);
 #[relationship_target(relationship=WithColorTarget)]
 pub struct ColorTargetCameras(Vec<Entity>);
 
-/// The intermediate color target texture (not the [`crate::RenderTarget`]) that can be used for cameras.
-#[derive(Component, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
-#[reflect(Component, PartialEq, Hash, Debug, Default)]
+/// Intermediate color target texture that can be used by one or more cameras.
+#[derive(Component, Clone, Reflect, PartialEq, Debug)]
+#[reflect(Component, PartialEq, Debug, Default)]
 pub struct ColorTarget {
     /// Size of the texture.
     pub size: UVec2,
@@ -60,8 +60,57 @@ impl ColorTarget {
         self.format = texture_format;
         self
     }
+}
 
-    pub fn with_hdr_format(self) -> Self {
-        self.with_format(TextureFormat::Rgba16Float)
+/// Intermediate color target texture that can only be used in a camera.
+///
+/// Different from [`ColorTarget`]:
+/// - `size` can be a factor of camera viewport size.
+/// - `format` is not required. If None it is determined by [`crate::Hdr`] and the format of [`crate::RenderTarget`].
+/// - `sample_count` isn't here and it is determined by the `Msaa` component.
+#[derive(Component, Clone, Reflect, PartialEq, Debug)]
+#[reflect(Component, PartialEq, Debug, Default)]
+pub struct CameraColorTarget {
+    /// Size of the texture.
+    pub size: CameraColorTargetSize,
+    /// Format of the texture.
+    pub format: Option<TextureFormat>,
+    /// Allowed usages of the texture.
+    pub usage: TextureUsages,
+}
+
+#[derive(Clone, Copy, Reflect, PartialEq, Debug)]
+#[reflect(PartialEq, Debug)]
+pub enum CameraColorTargetSize {
+    Factor(Vec2),
+    Fixed(UVec2),
+}
+
+impl Default for CameraColorTarget {
+    fn default() -> Self {
+        Self {
+            size: CameraColorTargetSize::Factor(Vec2::ONE),
+            format: None,
+            usage: TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+        }
+    }
+}
+
+impl CameraColorTarget {
+    pub fn with_usage(mut self, usages: TextureUsages) -> Self {
+        self.usage = usages;
+        self
+    }
+
+    pub fn with_added_usage(mut self, usages: TextureUsages) -> Self {
+        self.usage |= usages;
+        self
+    }
+
+    pub fn with_format(mut self, texture_format: Option<TextureFormat>) -> Self {
+        self.format = texture_format;
+        self
     }
 }

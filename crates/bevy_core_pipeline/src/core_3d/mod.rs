@@ -32,7 +32,7 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::{f32, ops::Range};
 
-use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp, ColorTarget, WithColorTarget};
+use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -47,7 +47,7 @@ use indexmap::IndexMap;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHash, prelude::*};
@@ -104,8 +104,7 @@ impl Plugin for Core3dPlugin {
                 CameraRenderGraph::new(Core3d)
             })
             .register_required_components::<Camera3d, Tonemapping>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
-            .add_systems(PostUpdate, check_msaa);
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -127,6 +126,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems(Render, check_msaa.in_set(RenderSystems::PrepareAssets))
             .add_systems(
                 Render,
                 (
@@ -739,17 +739,11 @@ fn configure_occlusion_culling_view_targets(
     }
 }
 
-// Disable MSAA and warn if using deferred rendering
-pub fn check_msaa(
-    deferred_views: Query<&WithColorTarget, (With<Camera>, With<DeferredPrepass>)>,
-    color_targets: Query<&ColorTarget>,
-) {
+// Panic If using MSAA and deferred rendering
+pub fn check_msaa(deferred_views: Query<&ViewTargetInfo, (With<Camera>, With<DeferredPrepass>)>) {
     for entity in deferred_views.iter() {
-        match color_targets.get(entity.0).unwrap().sample_count {
-            1 => (),
-            _ => {
-                panic!("MSAA is incompatible with deferred rendering.");
-            }
+        if entity.sample_count > 1 {
+            panic!("MSAA is incompatible with deferred rendering.");
         };
     }
 }

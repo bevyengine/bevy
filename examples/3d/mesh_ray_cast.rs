@@ -4,7 +4,7 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
-    camera::ColorTarget, color::palettes::css, core_pipeline::tonemapping::Tonemapping, math::vec3,
+    color::palettes::css, core_pipeline::tonemapping::Tonemapping, math::vec3,
     picking::backend::ray::RayMap, post_process::bloom::Bloom, prelude::*,
 };
 
@@ -102,7 +102,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-        ColorTarget::default().with_hdr_format(),
         Tonemapping::TonyMcMapface,
         Bloom::default(),
     ));

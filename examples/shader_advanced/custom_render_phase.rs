@@ -12,7 +12,7 @@
 
 use std::ops::Range;
 
-use bevy::camera::{ColorTarget, Viewport};
+use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
@@ -60,7 +60,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::camera::ViewTargetInfo;
+use bevy::render::camera::ViewTargetInfo;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
@@ -108,7 +108,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // disable msaa for simplicity
-        ColorTarget::default().with_sample_count(1),
+        Msaa::Off,
     ));
 }
 
