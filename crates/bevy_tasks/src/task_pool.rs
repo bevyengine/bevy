@@ -5,8 +5,8 @@ use std::{
     thread_local,
 };
 
-use crate::executor::FallibleTask;
-use bevy_platform::sync::Arc;
+use crate::{executor::FallibleTask, futures::KickOnWake};
+use bevy_platform::sync::{Arc, PoisonError, RwLock};
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -131,14 +131,25 @@ impl TaskPoolBuilder {
 ///
 /// If the result is not required, one may also use [`Task::detach`] and the pool
 /// will still execute a task, even if it is dropped.
-#[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool.
     executor: Arc<crate::executor::Executor<'static>>,
+    /// Kicker that is triggered whenever a future is awoken.
+    kicker: RwLock<Option<Arc<dyn Fn() + Send + Sync + 'static>>>,
 
     // The inner state of the pool.
     threads: Vec<JoinHandle<()>>,
     shutdown_tx: async_channel::Sender<()>,
+}
+
+impl core::fmt::Debug for TaskPool {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("TaskPool")
+            .field("executor", &self.executor)
+            .field("threads", &self.threads)
+            .field("shutdown_tx", &self.shutdown_tx)
+            .finish()
+    }
 }
 
 impl TaskPool {
@@ -216,9 +227,19 @@ impl TaskPool {
 
         Self {
             executor,
+            kicker: RwLock::default(),
             threads,
             shutdown_tx,
         }
+    }
+
+    /// Sets the "kicker" that futures will invoke when waking.
+    ///
+    /// This allows event loops to be notified whenever a future resolves. Note changing this at
+    /// runtime can have **unpredictable results**. Users should set this before spawning any
+    /// futures to ensure the kicker is invoked.
+    pub fn set_kicker(&self, kicker: Arc<dyn Fn() + Send + Sync + 'static>) {
+        *self.kicker.write().unwrap_or_else(PoisonError::into_inner) = Some(kicker);
     }
 
     /// Return the number of threads owned by the task pool
@@ -397,6 +418,11 @@ impl TaskPool {
             external_executor,
             scope_executor,
             spawned,
+            kicker: self
+                .kicker
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone(),
             scope: PhantomData,
             env: PhantomData,
         };
@@ -560,7 +586,12 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        self.executor.spawn(future)
+        let kicker = self
+            .kicker
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        self.executor.spawn(KickOnWake { kicker, f: future })
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -578,7 +609,12 @@ impl TaskPool {
     where
         T: 'static,
     {
-        TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
+        let kicker = self
+            .kicker
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(KickOnWake { kicker, f: future }))
     }
 
     /// Runs a function with the local executor. Typically used to tick
@@ -623,15 +659,29 @@ impl Drop for TaskPool {
 /// A [`TaskPool`] scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
-#[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope crate::executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
+    /// The kicker to wake whenever a future wakes.
+    kicker: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
+}
+
+impl<'scope, 'env: 'scope, T: core::fmt::Debug> core::fmt::Debug for Scope<'scope, 'env, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Scope")
+            .field("executor", &self.executor)
+            .field("external_executor", &self.external_executor)
+            .field("scope_executor", &self.scope_executor)
+            .field("spawned", &self.spawned)
+            .field("scope", &self.scope)
+            .field("env", &self.env)
+            .finish()
+    }
 }
 
 impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
@@ -644,9 +694,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let kicker = self.kicker.clone();
         let task = self
             .executor
-            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .spawn(AssertUnwindSafe(KickOnWake { kicker, f }).catch_unwind())
             .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
@@ -660,9 +711,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let kicker = self.kicker.clone();
         let task = self
             .scope_executor
-            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .spawn(AssertUnwindSafe(KickOnWake { kicker, f }).catch_unwind())
             .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
@@ -677,9 +729,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let kicker = self.kicker.clone();
         let task = self
-            .external_executor
-            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .scope_executor
+            .spawn(AssertUnwindSafe(KickOnWake { kicker, f }).catch_unwind())
             .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
