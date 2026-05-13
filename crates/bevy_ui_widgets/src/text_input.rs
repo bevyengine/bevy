@@ -431,8 +431,11 @@ fn drag_scroll_text_inputs(
         *y_remainder = Some((entity, acc - scroll_delta.y));
     }
 
-    let new_scroll =
+    let mut new_scroll =
         (text_scroll.0 + scroll_delta).clamp(Vec2::ZERO, (info.size - view_size).max(Vec2::ZERO));
+    if signed_distance.x == 0. {
+        new_scroll.x = text_scroll.0.x;
+    }
 
     if text_scroll.set_if_neq(TextScroll(new_scroll)) {
         editable_text.queue_edit(TextEdit::ExtendSelectionToPoint(
