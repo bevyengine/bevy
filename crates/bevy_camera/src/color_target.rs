@@ -41,6 +41,11 @@ impl Default for ColorTarget {
 }
 
 impl ColorTarget {
+    pub fn with_size(mut self, size: UVec2) -> Self {
+        self.size = size;
+        self
+    }
+
     pub fn with_sample_count(mut self, samples: u32) -> Self {
         self.sample_count = samples;
         self
@@ -99,6 +104,11 @@ impl Default for CameraColorTarget {
 }
 
 impl CameraColorTarget {
+    pub fn with_size(mut self, size: CameraColorTargetSize) -> Self {
+        self.size = size;
+        self
+    }
+
     pub fn with_usage(mut self, usages: TextureUsages) -> Self {
         self.usage = usages;
         self
