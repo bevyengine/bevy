@@ -24,7 +24,7 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
-    system::{BoxedSystem, RunSystemError, ScheduleSystem, System},
+    system::{BoxedSystem, RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 #[cfg(feature = "hotpatching")]
