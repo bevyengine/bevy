@@ -1878,8 +1878,8 @@ impl<'w> EntityWorldMut<'w> {
         f(guard.entity_mut.world)
     }
 
-    /// Creates a new [`EntityCommands`] instance that writes to the world's command queue
-    /// Use [`World::flush`] to apply all queued commands
+    /// Creates a new [`EntityCommands`] instance that writes commands
+    /// Use [`EntityWorldMut::flush`] to apply all queued commands
     #[inline]
     pub fn entity_commands(&mut self) -> EntityCommands<'_> {
         let id = self.id();
