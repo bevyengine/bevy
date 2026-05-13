@@ -392,11 +392,9 @@ impl TextPipeline {
                     layout_info.run_geometry.push(RunGeometry {
                         section_index,
                         bounds: Rect::new(
-                            line.metrics().inline_min_coord + glyph_run.offset(),
+                            glyph_run.offset(),
                             line.metrics().block_min_coord,
-                            line.metrics().inline_min_coord
-                                + glyph_run.offset()
-                                + glyph_run.advance(),
+                            glyph_run.offset() + glyph_run.advance(),
                             line.metrics().block_max_coord,
                         ),
                         strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
