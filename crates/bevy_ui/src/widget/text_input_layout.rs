@@ -529,7 +529,7 @@ pub fn scroll_editable_text(
             continue;
         };
 
-        let Some((line_min, line_max)) = find_visual_line_bounds(layout, cursor.center().y) else {
+        let (line_min, Some(line_max)) = find_visual_line_bounds(layout, cursor.center().y) else {
             continue;
         };
 
@@ -544,6 +544,21 @@ pub fn scroll_editable_text(
             .max(0.);
         let max_scroll_y = (info.size.y - view_size.y).max(0.);
 
+        let y = scroll_axis_with_inset(
+            editable_text.scroll_inset.y.clamp(0., 0.49) * view_size.x,
+            0.,
+            max_scroll_y,
+            scroll.0.y,
+            scroll.0.y + view_size.y,
+            line_min,
+            line_max,
+        );
+        let y = if y >= max_scroll_y {
+            max_scroll_y
+        } else {
+            find_visual_line_bounds(layout, y).0
+        };
+
         scroll.set_if_neq(TextScroll(Vec2 {
             x: scroll_axis_with_inset(
                 editable_text.scroll_inset.x.clamp(0., 0.49) * view_size.x,
@@ -555,16 +570,7 @@ pub fn scroll_editable_text(
                 cursor.max.x,
             )
             .floor(),
-            y: scroll_axis_with_inset(
-                editable_text.scroll_inset.y.clamp(0., 0.49) * view_size.x,
-                0.,
-                max_scroll_y,
-                scroll.0.y,
-                scroll.0.y + view_size.y,
-                line_min,
-                line_max,
-            )
-            .floor(),
+            y: y.floor(),
         }));
         needs_scroll.0 = false;
     }
@@ -574,16 +580,16 @@ pub fn scroll_editable_text(
 fn find_visual_line_bounds<B: parley::Brush>(
     layout: &parley::Layout<B>,
     y: f32,
-) -> Option<(f32, f32)> {
+) -> (f32, Option<f32>) {
     let mut min = 0.0;
     for line in layout.lines() {
         let max = min + line.metrics().line_height;
         if y < max {
-            return Some((min, max));
+            return (min, Some(max));
         }
         min = max;
     }
-    None
+    (min, None)
 }
 
 fn scroll_axis(v_min: f32, v_max: f32, t_min: f32, t_max: f32) -> f32 {
