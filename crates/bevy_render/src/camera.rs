@@ -434,7 +434,7 @@ pub fn camera_system(
 #[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
-    pub physical_target_size: Option<UVec2>,
+    /// The viewport of the camera, i.e. the target region of [`RenderTarget`]. This is used during upscaling.
     pub viewport: Option<Viewport>,
     pub schedule: InternedScheduleLabel,
     pub order: isize,
@@ -661,7 +661,6 @@ pub fn extract_cameras(
                 ExtractedCamera {
                     target,
                     viewport: camera.viewport.clone(),
-                    physical_target_size: Some(target_size),
                     schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,

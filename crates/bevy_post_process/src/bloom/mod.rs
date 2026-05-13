@@ -255,16 +255,7 @@ pub fn bloom(
             &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
             &[uniform_index.index()],
         );
-        if let Some(viewport) = camera.viewport.as_ref() {
-            upsampling_final_pass.set_viewport(
-                viewport.physical_position.x as f32,
-                viewport.physical_position.y as f32,
-                viewport.physical_size.x as f32,
-                viewport.physical_size.y as f32,
-                viewport.depth.start,
-                viewport.depth.end,
-            );
-        }
+
         let blend = compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
         upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend).into());
         upsampling_final_pass.draw(0..3, 0..1);
