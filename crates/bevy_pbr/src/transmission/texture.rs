@@ -8,7 +8,8 @@ use bevy_image::ToExtents;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
+    erased_render_asset::ErasedRenderAssets,
+    render_phase::{PhaseItem, ViewBinnedRenderPhases, ViewSortedRenderPhases},
     render_resource::{
         FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
         TextureUsages, TextureView,
@@ -18,7 +19,7 @@ use bevy_render::{
     view::ExtractedView,
 };
 
-use crate::{ScreenSpaceTransmission, Transmissive3d};
+use crate::{PreparedMaterial, RenderMaterialInstances, ScreenSpaceTransmission, Transmissive3d};
 
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
@@ -35,6 +36,8 @@ pub fn prepare_core_3d_transmission_textures(
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
+    render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
+    material_instances: Res<RenderMaterialInstances>,
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
@@ -48,25 +51,47 @@ pub fn prepare_core_3d_transmission_textures(
             || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
             || !transparent_3d_phases.contains_key(&view.retained_view_entity)
         {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
+            continue;
+        };
+
+        let Some(transparent_3d_phase) = transparent_3d_phases.get(&view.retained_view_entity)
+        else {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         };
 
         let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&view.retained_view_entity)
         else {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         };
 
         let Some(physical_target_size) = camera.physical_target_size else {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         };
 
         // Don't prepare a transmission texture if the number of steps is set to 0
         if transmission.steps == 0 {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         }
 
-        // Don't prepare a transmission texture if there are no transmissive items to render
-        if transmissive_3d_phase.items.is_empty() {
+        let transparent_phase_reads_view_transmission_texture =
+            transparent_3d_phase.items.values().any(|transparent_item| {
+                material_instances
+                    .instances
+                    .get(&transparent_item.main_entity())
+                    .and_then(|material_instance| render_materials.get(material_instance.asset_id))
+                    .is_some_and(|material| material.properties.reads_view_transmission_texture)
+            });
+
+        // Don't prepare a transmission texture if no phase will read from it.
+        if transmissive_3d_phase.items.is_empty()
+            && !transparent_phase_reads_view_transmission_texture
+        {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         }
 

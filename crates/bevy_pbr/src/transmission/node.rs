@@ -66,9 +66,9 @@ pub fn main_transmissive_pass_3d(
         multiview_mask: None,
     };
 
-    if !transmissive_phase.items.is_empty() {
-        let steps = transmission_settings.steps;
-        if steps > 0 {
+    let steps = transmission_settings.steps;
+    if steps > 0 {
+        if !transmissive_phase.items.is_empty() {
             let transmission =
                 transmission.expect("`ViewTransmissionTexture` should exist at this point");
 
@@ -98,22 +98,31 @@ pub fn main_transmissive_pass_3d(
 
                 pass_span.end(&mut render_pass);
             }
-        } else {
-            let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor);
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
-
-            if let Some(viewport) =
-                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-            {
-                render_pass.set_camera_viewport(&viewport);
-            }
-
-            if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
-                error!("Error encountered while rendering the transmissive phase {err:?}");
-            }
-
-            pass_span.end(&mut render_pass);
+        } else if let Some(transmission) = transmission {
+            // Materials in later phases can still read from `ViewTransmissionTexture`.
+            // If there are no `Transmissive3d` items, initialize it with the color
+            // output from the opaque pass.
+            ctx.command_encoder().copy_texture_to_texture(
+                target.main_texture().as_image_copy(),
+                transmission.texture.as_image_copy(),
+                physical_target_size.to_extents(),
+            );
         }
+    } else if !transmissive_phase.items.is_empty() {
+        let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
+
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
+        }
+
+        if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the transmissive phase {err:?}");
+        }
+
+        pass_span.end(&mut render_pass);
     }
 }
 
