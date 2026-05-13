@@ -1,14 +1,10 @@
-use bevy_asset::AssetId;
 use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
 use bevy_log::error;
-use bevy_mesh::{
-    morph::{MorphAttributes, MorphBuildError, MAX_MORPH_WEIGHTS, MAX_TEXTURE_WIDTH},
-    Mesh,
-};
-use bevy_platform::collections::HashMap;
+use bevy_mesh::morph::{MorphAttributes, MorphBuildError, MAX_MORPH_WEIGHTS, MAX_TEXTURE_WIDTH};
+use slotmap::SlotMap;
 use wgpu::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     TextureViewDescriptor,
@@ -111,19 +107,45 @@ impl MorphTargetImage {
     }
 }
 
+slotmap::new_key_type! {
+    pub struct MorphTargetImageKey;
+}
+
+#[derive(Debug)]
+pub struct MorphTargetImageHandle(MorphTargetImageKey);
+
+#[derive(Debug, Clone, Default)]
+pub struct MorphTargetImages(SlotMap<MorphTargetImageKey, MorphTargetImage>);
+
+impl MorphTargetImages {
+    pub fn insert(&mut self, morph_target_image: MorphTargetImage) -> MorphTargetImageHandle {
+        MorphTargetImageHandle(self.0.insert(morph_target_image))
+    }
+
+    pub fn remove(&mut self, handle: MorphTargetImageHandle) {
+        self.0
+            .remove(handle.0)
+            .expect("MorphTargetImageHandle cannot double-free");
+    }
+
+    pub fn get(&self, handle: &MorphTargetImageHandle) -> &MorphTargetImage {
+        self.0
+            .get(handle.0)
+            .expect("MorphTargetImageHandle cannot be use-after-free")
+    }
+}
+
 /// Stores the images for all morph target displacement data, if the current
 /// platform doesn't support storage buffers.
 ///
 /// If the current platform does support storage buffers, the mesh allocator
 /// stores displacement data instead.
-#[derive(Resource)]
+#[derive(Debug, Resource)]
 pub enum RenderMorphTargetAllocator {
     /// The variant used when the current platform doesn't support storage
     /// buffers.
     Image {
-        /// Maps the ID of each mesh to the image containing its morph target
-        /// displacements.
-        mesh_id_to_image: HashMap<AssetId<Mesh>, MorphTargetImage>,
+        morph_target_images: MorphTargetImages,
     },
     /// The variant used when the current platform does support storage buffers.
     ///
@@ -137,7 +159,7 @@ impl FromWorld for RenderMorphTargetAllocator {
         let render_device = world.resource::<RenderDevice>();
         if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
             RenderMorphTargetAllocator::Image {
-                mesh_id_to_image: HashMap::default(),
+                morph_target_images: MorphTargetImages::default(),
             }
         } else {
             RenderMorphTargetAllocator::Storage
@@ -175,70 +197,57 @@ impl RenderMorphTargetAllocator {
         &mut self,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
-        mesh_id: AssetId<Mesh>,
         targets: &[MorphAttributes],
         vertex_count: usize,
-    ) {
+    ) -> Option<MorphTargetImageHandle> {
         match *self {
             RenderMorphTargetAllocator::Image {
-                ref mut mesh_id_to_image,
-            } => {
-                if let Ok(morph_target_image) =
-                    MorphTargetImage::new(render_device, render_queue, targets, vertex_count)
-                {
-                    mesh_id_to_image.insert(mesh_id, morph_target_image);
+                ref mut morph_target_images,
+            } => match MorphTargetImage::new(render_device, render_queue, targets, vertex_count) {
+                Ok(morph_target_image) => {
+                    let handle = morph_target_images.insert(morph_target_image);
+                    Some(handle)
                 }
-            }
-
+                Err(e) => {
+                    error!("Failed to build morph target image for mesh {e:?}");
+                    None
+                }
+            },
             RenderMorphTargetAllocator::Storage => {
                 // Do nothing. Morph target displacements are managed by the
                 // mesh allocator in this case.
+                None
             }
         }
     }
 
     /// Frees the storage associated with morph target displacements for the
     /// mesh with the given ID.
-    ///
-    /// If the current platform doesn't support storage buffers, this drops the
-    /// reference to the [`MorphTargetImage`] that stores the data for the
-    /// mesh's morph target displacements. If the current platform does support
-    /// storage buffers, this method does nothing, as morph target displacements
-    /// are managed by the mesh allocator in this case.
-    ///
-    /// If passed a mesh without morph targets, this method does nothing.
-    pub fn free(&mut self, mesh_id: AssetId<Mesh>) {
+    pub fn free(&mut self, handle: MorphTargetImageHandle) {
         match *self {
             RenderMorphTargetAllocator::Image {
-                ref mut mesh_id_to_image,
-            } => {
-                if mesh_id_to_image.remove(&mesh_id).is_none() {
-                    error!(
-                        "Attempted to free a morph target allocation that wasn't allocated: {:?}",
-                        mesh_id
-                    );
-                }
-            }
-            RenderMorphTargetAllocator::Storage => {
-                // Do nothing. Morph target displacements are managed by the
-                // mesh allocator in this case.
-            }
+                ref mut morph_target_images,
+            } => morph_target_images.remove(handle),
+            RenderMorphTargetAllocator::Storage => error!(
+                "Attempted to free a morph target allocation {:?} when using storage allocator {:?}",
+                handle,
+                self
+            ),
         }
     }
 
     /// Returns the [`MorphTargetImage`] containing the packed morph target
-    /// displacements for the mesh with the given ID, if that image is present.
-    ///
-    /// A [`MorphTargetImage`] is only available if storage buffers aren't
-    /// supported on the given platform. If storage buffers are supported, this
-    /// method returns `None`, as the mesh allocator stores the morph target
-    /// displacements in that case.
-    pub fn get_image(&self, mesh_id: AssetId<Mesh>) -> Option<MorphTargetImage> {
+    /// displacements for the mesh with the given ID.
+    pub fn get_image(&self, handle: &MorphTargetImageHandle) -> &MorphTargetImage {
         match *self {
             RenderMorphTargetAllocator::Image {
-                ref mesh_id_to_image,
-            } => mesh_id_to_image.get(&mesh_id).cloned(),
-            RenderMorphTargetAllocator::Storage => None,
+                ref morph_target_images,
+            } => morph_target_images.get(handle),
+            RenderMorphTargetAllocator::Storage => panic!(
+                "Attempted to get a morph target image with allocation {:?} when using storage allocator {:?}",
+                handle,
+                self
+            ),
         }
     }
 }

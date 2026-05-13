@@ -80,13 +80,14 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
 
-    /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
+    /// Called whenever the [`RenderAsset`] is dropped (the [`RenderAsset::SourceAsset`] is reextracted (updated) or removed).
     ///
     /// You can implement this method if you need to access ECS data (via
     /// `_param`) in order to perform cleanup tasks when the asset is removed.
     ///
     /// The default implementation does nothing.
     fn unload_asset(
+        self,
         _source_asset: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
     ) {
@@ -364,7 +365,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 /// All assets that should be prepared next frame.
 #[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
-    assets: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+    assets: Vec<(AssetId<A::SourceAsset>, A::SourceAsset, Option<A>)>,
 }
 
 impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
@@ -388,7 +389,7 @@ pub fn prepare_assets<A: RenderAsset>(
 
     let mut param = param.into_inner();
     let queued_assets = core::mem::take(&mut prepare_next_frame.assets);
-    for (id, extracted_asset) in queued_assets {
+    for (id, extracted_asset, previous_asset) in queued_assets {
         if extracted_assets.removed.contains(&id) || extracted_assets.added.contains(&id) {
             // skip previous frame's assets that have been removed or updated
             continue;
@@ -400,47 +401,9 @@ pub fn prepare_assets<A: RenderAsset>(
             // this way we always write at least one (sized) asset per frame.
             // in future we could also consider partial asset uploads.
             if bpf.exhausted() {
-                prepare_next_frame.assets.push((id, extracted_asset));
-                continue;
-            }
-            size
-        } else {
-            0
-        };
-
-        let previous_asset = render_assets.get(id);
-        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset) {
-            Ok(prepared_asset) => {
-                render_assets.insert(id, prepared_asset);
-                bpf.write_bytes(write_bytes);
-                wrote_asset_count += 1;
-            }
-            Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
-                prepare_next_frame.assets.push((id, extracted_asset));
-            }
-            Err(PrepareAssetError::AsBindGroupError(e)) => {
-                error!(
-                    "{} Bind group construction failed: {e}",
-                    core::any::type_name::<A>()
-                );
-            }
-        }
-    }
-
-    for removed in extracted_assets.removed.drain() {
-        render_assets.remove(removed);
-        A::unload_asset(removed, &mut param);
-    }
-
-    for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
-        // we remove previous here to ensure that if we are updating the asset then
-        // any users will not see the old asset after a new asset is extracted,
-        // even if the new asset is not yet ready or we are out of bytes to write.
-        let previous_asset = render_assets.remove(id);
-
-        let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
-            if bpf.exhausted() {
-                prepare_next_frame.assets.push((id, extracted_asset));
+                prepare_next_frame
+                    .assets
+                    .push((id, extracted_asset, previous_asset));
                 continue;
             }
             size
@@ -455,7 +418,10 @@ pub fn prepare_assets<A: RenderAsset>(
                 wrote_asset_count += 1;
             }
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
-                prepare_next_frame.assets.push((id, extracted_asset));
+                prepare_next_frame
+                    .assets
+                    .push((id, extracted_asset, previous_asset));
+                continue;
             }
             Err(PrepareAssetError::AsBindGroupError(e)) => {
                 error!(
@@ -463,6 +429,59 @@ pub fn prepare_assets<A: RenderAsset>(
                     core::any::type_name::<A>()
                 );
             }
+        }
+
+        if let Some(unload) = previous_asset {
+            unload.unload_asset(id, &mut param);
+        }
+    }
+
+    for removed in extracted_assets.removed.drain() {
+        if let Some(unload) = render_assets.remove(removed) {
+            unload.unload_asset(removed, &mut param);
+        }
+    }
+
+    for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
+        // we remove previous here to ensure that if we are updating the asset then
+        // any users will not see the old asset after a new asset is extracted,
+        // even if the new asset is not yet ready or we are out of bytes to write.
+        let previous_asset = render_assets.remove(id);
+
+        let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
+            if bpf.exhausted() {
+                prepare_next_frame
+                    .assets
+                    .push((id, extracted_asset, previous_asset));
+                continue;
+            }
+            size
+        } else {
+            0
+        };
+
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset.as_ref()) {
+            Ok(prepared_asset) => {
+                render_assets.insert(id, prepared_asset);
+                bpf.write_bytes(write_bytes);
+                wrote_asset_count += 1;
+            }
+            Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
+                prepare_next_frame
+                    .assets
+                    .push((id, extracted_asset, previous_asset));
+                continue;
+            }
+            Err(PrepareAssetError::AsBindGroupError(e)) => {
+                error!(
+                    "{} Bind group construction failed: {e}",
+                    core::any::type_name::<A>()
+                );
+            }
+        }
+
+        if let Some(unload) = previous_asset {
+            unload.unload_asset(id, &mut param);
         }
     }
 

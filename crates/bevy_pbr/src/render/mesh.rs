@@ -43,7 +43,7 @@ use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer
 use bevy_render::impl_atomic_pod;
 use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
-    MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
+    MorphTargetImages, MorphTargetsResource, RenderMorphTargetAllocator,
 };
 use bevy_render::{
     batching::{
@@ -3952,7 +3952,9 @@ fn prepare_mesh_bind_groups_for_phase(
     if weights_uniform.current_buffer.buffer().is_some() {
         match (render_morph_target_allocator, &mut groups.morph_targets) {
             (
-                RenderMorphTargetAllocator::Image { mesh_id_to_image },
+                RenderMorphTargetAllocator::Image {
+                    morph_target_images,
+                },
                 &mut MeshMorphTargetBindGroups::Uniform(ref mut morph_targets),
             ) => {
                 prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
@@ -3963,7 +3965,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     pipeline_cache,
                     skins_uniform,
                     weights_uniform,
-                    mesh_id_to_image,
+                    morph_target_images,
                     morph_targets,
                 );
             }
@@ -4022,7 +4024,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
     pipeline_cache: &PipelineCache,
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
-    mesh_id_to_image: &HashMap<AssetId<Mesh>, MorphTargetImage>,
+    morph_target_images: &MorphTargetImages,
     morph_targets: &mut HashMap<AssetId<Mesh>, MeshBindGroupPair>,
 ) {
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
@@ -4037,12 +4039,11 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
         .and_then(|descriptors_buffer| descriptors_buffer.buffer());
 
     for (id, gpu_mesh) in meshes.iter() {
-        if !gpu_mesh.has_morph_targets() {
-            continue;
-        }
-        let Some(morph_targets_image) = mesh_id_to_image.get(&id) else {
+        let Some(handle) = &gpu_mesh.morph_target_handle else {
             continue;
         };
+
+        let morph_targets_image = morph_target_images.get(handle);
         let targets = MorphTargetsResource::Texture(&morph_targets_image.texture_view);
         let bind_group_pair = if is_skinned(&gpu_mesh.layout) {
             MeshBindGroupPair {
