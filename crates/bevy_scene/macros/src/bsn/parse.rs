@@ -167,18 +167,16 @@ impl BsnEntry {
                 }
                 PathType::Function => {
                     let forked = input.fork();
-                    if forked.peek(Paren)
-                        && let Ok(args) = forked.parse()
-                    {
-                        input.advance_to(&forked);
-                        BsnEntry::SceneFn(BsnSceneFn { path, args })
-                    } else {
-                        if input.peek(Paren) {
+                    if input.peek(Paren) {
+                        if let Ok(args) = forked.parse() {
+                            input.advance_to(&forked);
+                            BsnEntry::SceneFn(BsnSceneFn { path, args })
+                        } else {
                             let tokens = parenthesized_tokens(input)?;
                             BsnEntry::SceneExpression(quote! {#path(#tokens)})
-                        } else {
-                            BsnEntry::SceneExpression(quote! {#path})
                         }
+                    } else {
+                        BsnEntry::SceneExpression(quote! {#path})
                     }
                 }
             }
