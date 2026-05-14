@@ -10,7 +10,7 @@ use syn::{
     braced, bracketed,
     buffer::Cursor,
     parenthesized,
-    parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
+    parse::{Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Paren},
     Block, Expr, Ident, Lit, LitStr, Path, Result, Token,
@@ -166,15 +166,9 @@ impl BsnEntry {
                     }
                 }
                 PathType::Function => {
-                    let forked = input.fork();
                     if input.peek(Paren) {
-                        if let Ok(args) = forked.parse() {
-                            input.advance_to(&forked);
-                            BsnEntry::SceneFn(BsnSceneFn { path, args })
-                        } else {
-                            let tokens = parenthesized_tokens(input)?;
-                            BsnEntry::SceneExpression(quote! {#path(#tokens)})
-                        }
+                        let args = input.parse()?;
+                        BsnEntry::SceneFn(BsnSceneFn { path, args })
                     } else {
                         BsnEntry::SceneExpression(quote! {#path})
                     }
