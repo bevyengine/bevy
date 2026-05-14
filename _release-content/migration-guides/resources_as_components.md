@@ -142,6 +142,32 @@ Due to the split storage it used to be possible to both access an entity and a r
 This is no longer valid. In order to access multiple different entities for a `WorldQuery` implementation, use `WorldQuery::init_nested_access`.
 See the implementation of `WorldQuery` for `AssetChanged` for an example of how this can be done correctly.
 
+## Immutable Resources
+
+Since resources may now be immutable, the following now carry a `Mutability = Mutable` bound:
+
+- `ResMut`
+- `World::resource_mut`, `World::get_resource_mut`
+- `UnsafeWorldCell::get_resource_mut`
+- `EntityWorldMut::resource_mut`, `EntityWorldMut::get_resource_mut`
+- `DeferredWorld::resource_mut`, `DeferredWorld::get_resource_mut`
+- `TemplateContext::resource_mut`
+- as well as `ExtractResourcePlugin`
+
+If you're calling these in a generic context, you need to add this bound to your own type parameters:
+
+```rust
+// 0.18
+fn my_generic_system<R: Resource>(mut res: ResMut<R>) {
+    …
+}
+
+// 0.19
+fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
+    …
+}
+```
+
 ## Miscellaneous
 
 Since `MapEntities` is implemented by default for components, it's no longer necessary to add `derive(MapEntities)` to a resource.
