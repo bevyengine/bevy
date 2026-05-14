@@ -494,7 +494,7 @@ pub fn scroll_editable_text(
         Ref<EditableText>,
         Ref<EditableTextGeneration>,
         &mut TextScroll,
-        &ComputedNode,
+        Ref<ComputedNode>,
         &TextLayoutInfo,
         &mut EditableTextNeedsScroll,
     )>,
@@ -507,11 +507,15 @@ pub fn scroll_editable_text(
     for (entity, editable_text, generation, mut scroll, node, info, mut needs_scroll) in
         query.iter_mut()
     {
-        if !(editable_text.is_changed()
-            || generation.is_changed()
-            || focus_changed && (Some(entity) == *previous_focus || Some(entity) == current_focus))
-            || !needs_scroll.0
-        {
+        let is_focused = Some(entity) == current_focus;
+        let is_previous_focus = Some(entity) == *previous_focus;
+        let cursor_moved = needs_scroll.0
+            && (editable_text.is_changed()
+                || generation.is_changed()
+                || focus_changed && (is_previous_focus || is_focused));
+        let view_changed = is_focused && node.is_changed();
+
+        if !(cursor_moved || view_changed) {
             continue;
         }
 
