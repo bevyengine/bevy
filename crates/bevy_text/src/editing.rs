@@ -231,11 +231,13 @@ impl EditableText {
         // First: resolve any paste carried over from a previous frame. If it's still
         // pending, hold the remaining edits (untouched in `pending_edits`) for next frame
         // so ordering relative to the paste is preserved.
-        if let Some(mut read) = pending_paste.take()
-            && !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-        {
-            *pending_paste = Some(read);
-            return;
+        if let Some(mut read) = pending_paste.take() {
+            if poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+                *needs_scroll = true;
+            } else {
+                *pending_paste = Some(read);
+                return;
+            }
         }
 
         // Drain edits one at a time. A paste that resolves synchronously (always the case
@@ -246,8 +248,9 @@ impl EditableText {
             match edit {
                 TextEdit::Paste => {
                     let mut read = clipboard.fetch_text();
-                    if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-                    {
+                    if poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+                        *needs_scroll = true;
+                    } else {
                         *pending_paste = Some(read);
                         pending_edits.extend(edits);
                         return;

@@ -545,7 +545,7 @@ pub fn scroll_editable_text(
         let max_scroll_y = (info.size.y - view_size.y).max(0.);
 
         let y = scroll_axis_with_inset(
-            editable_text.scroll_inset.y.clamp(0., 0.49) * view_size.x,
+            editable_text.scroll_inset.y.clamp(0., 0.49) * view_size.y,
             0.,
             max_scroll_y,
             scroll.0.y,
