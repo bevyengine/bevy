@@ -1,6 +1,6 @@
 use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnSceneArgs, BsnSceneFn, BsnSceneFnArgExpr, BsnSceneList,
+    BsnRelatedSceneList, BsnRoot, BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneList,
     BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
@@ -209,19 +209,21 @@ impl Parse for BsnSceneListItem {
         })
     }
 }
-impl Parse for BsnSceneArgs {
+
+impl Parse for BsnSceneFnArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let args = if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            Some(content.parse_terminated(BsnSceneFnArgExpr::parse, Token![,])?)
+            Some(content.parse_terminated(BsnSceneFnArg::parse, Token![,])?)
         } else {
             None
         };
         Ok(Self(args))
     }
 }
-impl Parse for BsnSceneFnArgExpr {
+
+impl Parse for BsnSceneFnArg {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
@@ -231,7 +233,6 @@ impl Parse for BsnSceneFnArgExpr {
                 Ok(Self::Name(input.parse::<Ident>()?))
             }
         } else {
-            // Err(input.error("Could not parse scene fn argument"))
             Ok(Self::Expr(Expr::parse(input)?))
         }
     }

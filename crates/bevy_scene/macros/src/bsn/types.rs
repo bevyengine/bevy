@@ -53,18 +53,18 @@ pub enum BsnSceneListItem {
 }
 
 #[derive(Debug)]
-pub enum BsnSceneFnArgExpr {
+pub enum BsnSceneFnArg {
     Expr(Expr),
     Name(Ident),
     NameExpression(TokenStream),
 }
 #[derive(Debug)]
-pub struct BsnSceneArgs(pub Option<Punctuated<BsnSceneFnArgExpr, Token![,]>>);
+pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
 
 #[derive(Debug)]
 pub struct BsnSceneFn {
     pub path: Path,
-    pub args: BsnSceneArgs,
+    pub args: BsnSceneFnArgs,
 }
 
 #[derive(Debug)]
@@ -79,7 +79,7 @@ pub enum BsnInheritedScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
-    pub args: BsnSceneArgs,
+    pub args: BsnSceneFnArgs,
 }
 
 #[derive(Debug)]

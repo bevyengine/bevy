@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     error::{BevyError, Result},
     relationship::{Relationship, RelationshipTarget},
-    template::{SceneEntityIds, SceneEntityIndex, Template, TemplateContext},
+    template::{SceneEntityReference, SceneEntityReferences, Template, TemplateContext},
     world::{EntityWorldMut, World},
 };
 use bevy_platform::collections::HashSet;
@@ -67,8 +67,8 @@ impl ResolvedSceneRoot {
         entity: &mut EntityWorldMut,
         bundle_scratch: &mut BundleScratch,
     ) -> Result<(), ApplySceneError> {
-        let mut scene_entities = SceneEntityIds::default();
-        let mut context = TemplateContext::new(entity, &mut scene_entities);
+        let mut entity_references = SceneEntityReferences::default();
+        let mut context = TemplateContext::new(entity, &mut entity_references);
 
         let result = self.scene.apply(&mut context, bundle_scratch);
         if !bundle_scratch.is_empty() {
@@ -119,11 +119,11 @@ impl ResolvedSceneListRoot {
         func: impl Fn(&mut EntityWorldMut),
     ) -> Result<Vec<Entity>, ApplySceneError> {
         let mut entities = Vec::new();
-        let mut scene_entities = SceneEntityIds::default();
+        let mut entity_references = SceneEntityReferences::default();
         let mut bundle_scratch = BundleScratch::default();
         for scene in self.scenes.iter() {
-            let mut entity = if let Some(entity_index) = scene.entity_indices.first().copied() {
-                let entity = scene_entities.get_entity(entity_index, world);
+            let mut entity = if let Some(entity_index) = scene.entity_references.first().copied() {
+                let entity = entity_references.get(entity_index, world);
                 world.entity_mut(entity)
             } else {
                 world.spawn_empty()
@@ -132,7 +132,7 @@ impl ResolvedSceneListRoot {
             func(&mut entity);
             entities.push(entity.id());
             let result = scene.apply(
-                &mut TemplateContext::new(&mut entity, &mut scene_entities),
+                &mut TemplateContext::new(&mut entity, &mut entity_references),
                 &mut bundle_scratch,
             );
             if let Err(err) = result {
@@ -177,9 +177,9 @@ pub struct ResolvedScene {
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
     /// here.
     template_indices: TypeIdMap<usize>,
-    /// A list of all [`SceneEntityIndex`] values associated with this entity. There can be more than one if this scene uses
+    /// A list of all [`SceneEntityReference`] values associated with this entity. There can be more than one if this scene uses
     /// "flattened" inheritance.
-    pub entity_indices: Vec<SceneEntityIndex>,
+    pub entity_references: Vec<SceneEntityReference>,
 }
 
 impl core::fmt::Debug for ResolvedScene {
@@ -188,7 +188,7 @@ impl core::fmt::Debug for ResolvedScene {
             .field("inherited", &self.inherited)
             .field("template_types", &self.template_indices.keys())
             .field("related", &self.related)
-            .field("entity_indices", &self.entity_indices)
+            .field("entity_references", &self.entity_references)
             .finish()
     }
 }
@@ -226,10 +226,10 @@ impl ResolvedScene {
         writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
     ) -> Result<(), ApplySceneError> {
         let mut bundle_writer = bundle_scratch.writer();
-        if let Some(entity_index) = self.entity_indices.first().copied() {
+        if let Some(entity_reference) = self.entity_references.first().copied() {
             context
-                .scene_entities
-                .set_global_entity(entity_index, context.entity.id());
+                .entity_references
+                .set(entity_reference, context.entity.id());
         }
         if let Some(inherited) = &self.inherited {
             let scene_patches = context.resource::<Assets<ScenePatch>>();
@@ -355,13 +355,13 @@ impl ResolvedScene {
             let target = context.entity.id();
             let TemplateContext {
                 entity,
-                scene_entities,
+                entity_references,
             } = context;
             entity.world_scope(|world| -> Result<(), ApplySceneError> {
                 for (index, scene) in related_resolved_scenes.scenes.iter().enumerate() {
                     let mut entity =
-                        if let Some(entity_index) = scene.entity_indices.first().copied() {
-                            let entity = scene_entities.get_entity(entity_index, world);
+                        if let Some(entity_reference) = scene.entity_references.first().copied() {
+                            let entity = entity_references.get(entity_reference, world);
                             world.entity_mut(entity)
                         } else {
                             world.spawn_empty()
@@ -369,7 +369,7 @@ impl ResolvedScene {
 
                     scene
                         .apply_with(
-                            &mut TemplateContext::new(&mut entity, scene_entities),
+                            &mut TemplateContext::new(&mut entity, entity_references),
                             bundle_scratch,
                             |context, bundle_writer| {
                                 // SAFETY: `context` is used to write all previous `bundle_writer` components

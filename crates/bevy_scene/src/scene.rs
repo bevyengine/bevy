@@ -8,7 +8,7 @@ use bevy_ecs::{
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
-    template::{FnTemplate, FromTemplate, SceneEntityIndex, Template, TemplateContext},
+    template::{FnTemplate, FromTemplate, SceneEntityReference, Template, TemplateContext},
 };
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
@@ -406,13 +406,13 @@ pub struct NameEntityReference {
     /// The name to give this entity.
     pub name: Name,
     /// The index of this entity reference.
-    pub index: SceneEntityIndex,
+    pub reference: SceneEntityReference,
 }
 
 impl NameEntityReference {
     /// Resolves this reference "inline" without going through a [`Scene`] impl.
     pub fn resolve_inline(self, context: &mut ResolveContext, scene: &mut ResolvedScene) {
-        scene.entity_indices.push(self.index);
+        scene.entity_references.push(self.reference);
         let name = scene.get_or_insert_template::<Name>(context);
         *name = self.name;
     }

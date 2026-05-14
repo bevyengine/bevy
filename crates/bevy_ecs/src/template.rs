@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Deref};
 
 pub use bevy_ecs_macros::FromTemplate;
-use bevy_platform::hash::Hashed;
+use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
 use bevy_utils::PreHashMap;
 use indexmap::Equivalent;
 
@@ -45,23 +45,26 @@ pub trait Template {
 pub struct TemplateContext<'a, 'w> {
     /// The current entity the template is being applied to
     pub entity: &'a mut EntityWorldMut<'w>,
-    /// A mapping of [`SceneEntityIndex`] to [`Entity`] used for resolving `#Name` entity references
-    pub scene_entities: &'a mut SceneEntityIds,
+    /// A mapping of [`SceneEntityReference`] to [`Entity`] used for resolving `#Name` entity references
+    pub entity_references: &'a mut SceneEntityReferences,
 }
 
 impl<'a, 'w> TemplateContext<'a, 'w> {
     /// Creates a new [`TemplateContext`].
-    pub fn new(entity: &'a mut EntityWorldMut<'w>, scene_entities: &'a mut SceneEntityIds) -> Self {
+    pub fn new(
+        entity: &'a mut EntityWorldMut<'w>,
+        entity_references: &'a mut SceneEntityReferences,
+    ) -> Self {
         Self {
             entity,
-            scene_entities,
+            entity_references,
         }
     }
-    /// Get the entity associated with the [`SceneEntityIndex`], spawning a new one
+    /// Get the entity associated with the [`SceneEntityReference`], spawning a new one
     /// if this is the first call with this index.
-    pub fn get_entity(&mut self, index: SceneEntityIndex) -> Entity {
-        self.scene_entities.get_entity(
-            index,
+    pub fn get_entity(&mut self, reference: SceneEntityReference) -> Entity {
+        self.entity_references.get(
+            reference,
             // Safety: only used to create a new Entity
             unsafe { self.entity.world_mut() },
         )
@@ -80,78 +83,67 @@ impl<'a, 'w> TemplateContext<'a, 'w> {
     }
 }
 
-/// Struct to store a mapping from [`SceneEntityIndex`] to [`Entity`]
+/// Struct to store a mapping from [`SceneEntityReference`] to [`Entity`]
 /// which are used for resolving `#Name` entity references in bsn! macros
 #[derive(Default)]
-pub struct SceneEntityIds {
-    map: PreHashMap<InnerSceneEntityIndex, Entity>,
-}
+pub struct SceneEntityReferences(PreHashMap<InnerSceneEntityReference, Entity>);
 
-impl SceneEntityIds {
-    /// Get the [`Entity`] associated with this [`SceneEntityIndex`]
+impl SceneEntityReferences {
+    /// Get the [`Entity`] associated with this [`SceneEntityReference`]
     /// If the index is unknown, spawn a new empty [`Entity`] and store it
-    pub fn get_entity(
-        &mut self,
-        key: impl Deref<Target = Hashed<InnerSceneEntityIndex>>,
-        world: &mut World,
-    ) -> Entity {
-        let key: &Hashed<InnerSceneEntityIndex> = &key;
+    pub fn get(&mut self, reference: SceneEntityReference, world: &mut World) -> Entity {
+        let inner = reference.0;
         let entry = self
-            .map
-            .raw_entry()
-            .from_key_hashed_nocheck(key.hash(), key);
+            .0
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(inner.hash(), &inner);
         match entry {
-            Some((_, &entity)) => entity,
-            None => {
-                let new_entity = world.spawn_empty().id();
-                self.set_global_entity(key, new_entity);
-                new_entity
+            RawEntryMut::Occupied(entry) => *entry.get(),
+            RawEntryMut::Vacant(view) => {
+                let entity = world.spawn_empty().id();
+                view.insert_hashed_nocheck(inner.hash(), inner, entity);
+                entity
             }
         }
     }
 
-    /// Set the [`Entity`] associated with a [`SceneEntityIndex`]
-    ///
-    /// Will panic if the [`SceneEntityIndex`] is already associated with an [`Entity`]
-    pub fn set_global_entity(
-        &mut self,
-        key: impl Deref<Target = Hashed<InnerSceneEntityIndex>>,
-        entity: Entity,
-    ) {
-        use bevy_platform::collections::hash_map::RawEntryMut;
-        let key: &Hashed<InnerSceneEntityIndex> = &key;
+    /// Set the [`Entity`] associated with a [`SceneEntityReference`]
+    pub fn set(&mut self, reference: SceneEntityReference, entity: Entity) {
+        let inner = reference.0;
         match self
-            .map
+            .0
             .raw_entry_mut()
-            .from_key_hashed_nocheck(key.hash(), key)
+            .from_key_hashed_nocheck(inner.hash(), &inner)
         {
             RawEntryMut::Occupied(_) => {}
             RawEntryMut::Vacant(view) => {
-                view.insert_hashed_nocheck(key.hash(), *key, entity);
+                view.insert_hashed_nocheck(inner.hash(), inner, entity);
             }
         };
     }
 }
 
-/// A unique index for each named entity in a scene.
+/// A unique reference for a named entity in a scene.
 /// Usually used by `bevy_scene` in generated code
 ///
 /// Hashed here should allow implementing compile-time hashing in the future, and
 /// encourage constant-folding until then
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct SceneEntityIndex(Hashed<InnerSceneEntityIndex>);
+pub struct SceneEntityReference(Hashed<InnerSceneEntityReference>);
+
 /// The inner struct actually storing the unique index
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct InnerSceneEntityIndex {
+pub struct InnerSceneEntityReference {
     file: &'static str,
     line: usize,
     column: usize,
     local: usize,
 }
-impl SceneEntityIndex {
-    /// Create a new [`SceneEntityIndex`] from the invocation location and a local (per-macro) counter for names
+
+impl SceneEntityReference {
+    /// Create a new [`SceneEntityReference`] from the invocation location and a local (per-macro) counter for names
     pub fn new((file, line, column): (&'static str, usize, usize), local: usize) -> Self {
-        Self(Hashed::new(InnerSceneEntityIndex {
+        Self(Hashed::new(InnerSceneEntityReference {
             file,
             line,
             column,
@@ -159,7 +151,8 @@ impl SceneEntityIndex {
         }))
     }
 }
-impl core::fmt::Display for SceneEntityIndex {
+
+impl core::fmt::Display for SceneEntityReference {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
             "global={}:{}:{} local={}",
@@ -167,15 +160,19 @@ impl core::fmt::Display for SceneEntityIndex {
         ))
     }
 }
-impl Deref for SceneEntityIndex {
-    type Target = Hashed<InnerSceneEntityIndex>;
 
+impl Deref for SceneEntityReference {
+    type Target = Hashed<InnerSceneEntityReference>;
+
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl Equivalent<Hashed<InnerSceneEntityIndex>> for SceneEntityIndex {
-    fn equivalent(&self, key: &Hashed<InnerSceneEntityIndex>) -> bool {
+
+impl Equivalent<Hashed<InnerSceneEntityReference>> for SceneEntityReference {
+    #[inline]
+    fn equivalent(&self, key: &Hashed<InnerSceneEntityReference>) -> bool {
         &self.0 == key
     }
 }
@@ -408,8 +405,8 @@ pub trait SpecializeFromTemplate: Sized {}
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
     Entity(Entity),
-    /// A reference to an entity via a global unique reference
-    GlobalEntityIndex(SceneEntityIndex),
+    /// A reference to an entity via a unique reference
+    SceneEntityReference(SceneEntityReference),
     /// An entity has not been specified. Building a template with this variant will result in an error.
     #[default]
     None,
@@ -428,9 +425,7 @@ impl Template for EntityTemplate {
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
         Ok(match self {
             Self::Entity(entity) => *entity,
-            Self::GlobalEntityIndex(global_entity_index) => {
-                context.get_entity(*global_entity_index)
-            }
+            Self::SceneEntityReference(reference) => context.get_entity(*reference),
             Self::None => {
                 return Err(BevyError::error(
                     "Failed to specify an entity for this EntityTemplate",
@@ -442,9 +437,7 @@ impl Template for EntityTemplate {
     fn clone_template(&self) -> Self {
         match self {
             Self::Entity(entity) => Self::Entity(*entity),
-            Self::GlobalEntityIndex(global_entity_index) => {
-                Self::GlobalEntityIndex(*global_entity_index)
-            }
+            Self::SceneEntityReference(reference) => Self::SceneEntityReference(*reference),
             Self::None => Self::None,
         }
     }
