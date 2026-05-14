@@ -390,6 +390,16 @@ impl ExtractedView {
     }
 }
 
+/// The render-world component that marks the primary camera.
+///
+/// See [`bevy_camera::camera::PrimaryCamera`] for more information on primary
+/// cameras.
+///
+/// If any cameras are present in the render world, exactly one will have this
+/// component.
+#[derive(Clone, Copy, Component, Debug)]
+pub struct ExtractedPrimaryCamera;
+
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
@@ -651,6 +661,13 @@ pub struct ViewUniform {
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     pub frustum: [Vec4; 6],
+    /// The world-space position of the camera used to resolve visibility
+    /// ranges.
+    ///
+    /// This is the position of the camera itself, unless this view isn't
+    /// associated with a camera, in which case it's the position of the primary
+    /// camera.
+    pub lod_view_world_position: Vec3,
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
@@ -997,6 +1014,7 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
         Option<&MainPassResolutionOverride>,
     )>,
+    primary_view: Query<&ExtractedView, With<ExtractedPrimaryCamera>>,
     frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
@@ -1006,6 +1024,9 @@ pub fn prepare_view_uniforms(
             .uniforms
             .get_writer(view_count, &render_device, &render_queue)
     else {
+        return;
+    };
+    let Some(primary_view) = primary_view.iter().next() else {
         return;
     };
     for (
@@ -1049,6 +1070,37 @@ pub fn prepare_view_uniforms(
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
+        // Determine the position of the camera used for resolving visibility
+        // ranges (LODs).
+        let lod_view_world_position = if extracted_camera.is_some() {
+            // If we're rendering a camera directly (i.e. we're not rendering a
+            // shadow map), we use this camera's position as the LOD view
+            // position.
+            extracted_view.world_from_view.translation()
+        } else if extracted_view.retained_view_entity.auxiliary_entity
+            == MainEntity::from(Entity::PLACEHOLDER)
+        {
+            // If we're rendering a shadow map that isn't associated with a
+            // camera, we use the position of the primary camera as the LOD view
+            // position.
+            primary_view.world_from_view.translation()
+        } else {
+            // Otherwise, if we're rendering a shadow map that is associated
+            // with a camera (i.e. a directional light shadow map, at present),
+            // we use the position of that camera as the LOD view position. This
+            // ensures that each rendered object has a shadow and that no
+            // invisible objects have shadows.
+            match views.get(
+                extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .entity(),
+            ) {
+                Ok((_, _, camera_view, _, _, _, _)) => camera_view.world_from_view.translation(),
+                Err(_) => primary_view.world_from_view.translation(),
+            }
+        };
+
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
                 clip_from_world,
@@ -1065,6 +1117,7 @@ pub fn prepare_view_uniforms(
                 viewport,
                 main_pass_viewport,
                 frustum,
+                lod_view_world_position,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
