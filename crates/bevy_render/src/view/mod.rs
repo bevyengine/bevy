@@ -390,16 +390,6 @@ impl ExtractedView {
     }
 }
 
-/// The render-world component that marks the primary camera.
-///
-/// See [`bevy_camera::camera::PrimaryCamera`] for more information on primary
-/// cameras.
-///
-/// If any cameras are present in the render world, exactly one will have this
-/// component.
-#[derive(Clone, Copy, Component, Debug)]
-pub struct ExtractedPrimaryCamera;
-
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
@@ -611,6 +601,11 @@ impl ColorGrading {
         [&mut self.shadows, &mut self.midtones, &mut self.highlights].into_iter()
     }
 }
+
+/// A resource, part of the render world, that stores the resolved origin for
+/// LOD selection for shadow maps of point and spot lights.
+#[derive(Default, Resource, Debug)]
+pub struct RenderShadowLodOrigin(pub Vec3);
 
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
@@ -1014,8 +1009,8 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
         Option<&MainPassResolutionOverride>,
     )>,
-    primary_view: Query<&ExtractedView, With<ExtractedPrimaryCamera>>,
     frame_count: Res<FrameCount>,
+    shadow_lod_origin: Res<RenderShadowLodOrigin>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -1024,9 +1019,6 @@ pub fn prepare_view_uniforms(
             .uniforms
             .get_writer(view_count, &render_device, &render_queue)
     else {
-        return;
-    };
-    let Some(primary_view) = primary_view.iter().next() else {
         return;
     };
     for (
@@ -1081,9 +1073,8 @@ pub fn prepare_view_uniforms(
             == MainEntity::from(Entity::PLACEHOLDER)
         {
             // If we're rendering a shadow map that isn't associated with a
-            // camera, we use the position of the primary camera as the LOD view
-            // position.
-            primary_view.world_from_view.translation()
+            // camera, we use the shadow LOD origin.
+            shadow_lod_origin.0
         } else {
             // Otherwise, if we're rendering a shadow map that is associated
             // with a camera (i.e. a directional light shadow map, at present),
@@ -1097,7 +1088,7 @@ pub fn prepare_view_uniforms(
                     .entity(),
             ) {
                 Ok((_, _, camera_view, _, _, _, _)) => camera_view.world_from_view.translation(),
-                Err(_) => primary_view.world_from_view.translation(),
+                Err(_) => shadow_lod_origin.0,
             }
         };
 

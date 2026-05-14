@@ -10,10 +10,9 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedPrimaryCamera, ExtractedView, ExtractedWindows, Msaa,
-        NoIndirectDrawing, RenderExtractedVisibleEntities, RenderVisibleEntities,
-        RenderVisibleEntitiesClass, RetainedViewEntity, ViewUniformOffset,
-        VisibilityExtractionSystemParam,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
+        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
+        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -25,8 +24,7 @@ use bevy_camera::{
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
-    MsaaWriteback, NormalizedRenderTarget, PrimaryCamera, Projection, RenderTarget,
-    RenderTargetInfo, Viewport,
+    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -499,7 +497,6 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    primary_camera: Extract<Query<Entity, With<PrimaryCamera>>>,
     extracted_windows: Res<ExtractedWindows>,
     manual_texture_views: Res<ManualTextureViews>,
     images: Res<RenderAssets<GpuImage>>,
@@ -523,33 +520,6 @@ pub fn extract_cameras(
         NoIndirectDrawing,
         ViewUniformOffset,
     );
-
-    // Determine the primary camera. The selection priority is, from highest to
-    // lowest:
-    //
-    // 1. A camera explicitly marked with the `PrimaryCamera` component.
-    //
-    // 2. A camera that renders to a window.
-    //
-    // 3. Any camera.
-    let mut primary_camera = primary_camera.iter().next();
-    if primary_camera.is_none() {
-        primary_camera =
-            query
-                .iter()
-                .find_map(
-                    |(main_entity, _, _, render_target, _, _, _, _, _)| match *render_target {
-                        RenderTarget::Window(_) => Some(main_entity),
-                        _ => None,
-                    },
-                );
-    }
-    if primary_camera.is_none() {
-        primary_camera = query
-            .iter()
-            .map(|(main_entity, _, _, _, _, _, _, _, _)| main_entity)
-            .next();
-    }
 
     for (
         main_entity,
@@ -711,12 +681,6 @@ pub fn extract_cameras(
                 commands.insert(projection.clone());
             } else {
                 commands.remove::<Projection>();
-            }
-
-            if primary_camera == Some(main_entity) {
-                commands.insert(ExtractedPrimaryCamera);
-            } else {
-                commands.remove::<ExtractedPrimaryCamera>();
             }
 
             if no_indirect_drawing
