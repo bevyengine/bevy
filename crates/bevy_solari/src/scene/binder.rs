@@ -305,7 +305,7 @@ pub fn prepare_raytracing_scene_bindings(
             dfg_sampler,
         ))
     } else {
-        warn!("Buffer binding array invalid, enlarge the mesh allocator slab buffer.");
+        warn!("`BUFFER_BINDING_ARRAY` not supported, enlarge `max_slab_size` of `MeshAllocatorSettings` to stage meshes in a single buffer.");
         return;
     };
 

@@ -20,6 +20,9 @@ enable wgpu_ray_query;
 @group(1) @binding(11) var<uniform> view: View;
 @group(1) @binding(12) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(13) var<storage, read_write> world_cache: array<WorldCache, #{WORLD_CACHE_SIZE}>;
+
+// Packed `world_cache_active_cells_count` into `world_cache_b` array.
+// Use`get_world_cache_active_cells_count` and `set_world_cache_active_cells_count` to handle it.
 @group(1) @binding(14) var<storage, read_write> world_cache_b: array<u32, 1025u>;
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
