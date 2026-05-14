@@ -395,17 +395,16 @@ impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static,
 }
 
 /// Sets up a given name as an "entity reference" for the current entity. This pairs the [`Self::name`] field
-/// to a given [`Self::index`] field.
+/// to a given [`Self::reference`] field.
 ///
-/// The `index` should be a dense, unique identifier (within the current "entity scope") that can be used to reference this entity.
-/// Usually this is not set manually by a user. Instead this is generally done by a macro (such as the [`bsn!`] macro) or an asset loader
+/// Usually the reference is not set manually by a user. Instead this is generally done by a macro (such as the [`bsn!`] macro) or an asset loader
 /// (such as the BSN asset loader).
 ///
 /// [`bsn!`]: crate::bsn
 pub struct NameEntityReference {
     /// The name to give this entity.
     pub name: Name,
-    /// The index of this entity reference.
+    /// A unique entity reference.
     pub reference: SceneEntityReference,
 }
 
