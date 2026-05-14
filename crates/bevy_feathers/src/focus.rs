@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_input_focus::{InputFocus, InputFocusVisible};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{Outline, UiSystems, Val};
+use bevy_ui::{px, Outline, UiSystems};
 
 use crate::{theme::UiTheme, tokens};
 
@@ -57,8 +57,8 @@ fn manage_focus_indicators(
             if q_indicators.contains(entity) {
                 commands.entity(entity).insert(Outline {
                     color: theme.color(&tokens::FOCUS_RING),
-                    width: Val::Px(2.0),
-                    offset: Val::Px(2.0),
+                    width: px(2),
+                    offset: px(2),
                 });
                 visited.insert(entity);
             }
@@ -72,8 +72,8 @@ fn manage_focus_indicators(
             if q_within_indicators.contains(entity) {
                 commands.entity(entity).insert(Outline {
                     color: theme.color(&tokens::FOCUS_RING),
-                    width: Val::Px(2.0),
-                    offset: Val::Px(2.0),
+                    width: px(2),
+                    offset: px(2),
                 });
                 visited.insert(entity);
             }

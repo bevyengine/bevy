@@ -398,7 +398,7 @@ impl Scene for InheritSceneAsset {
             context.inherited = Some(scene_patch);
             Ok(())
         } else {
-            Err(ResolveSceneError::MissingSceneDependency(self.0.clone()))
+            Err(ResolveSceneError::MissingSceneDependency(self.0))
         }
     }
 
@@ -415,7 +415,7 @@ impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static,
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_template(FnTemplate(self.0.clone()));
+        scene.push_template(FnTemplate(self.0));
         Ok(())
     }
 }
@@ -435,12 +435,9 @@ pub struct NameEntityReference {
     pub index: usize,
 }
 
-impl Scene for NameEntityReference {
-    fn resolve(
-        self,
-        context: &mut ResolveContext,
-        scene: &mut ResolvedScene,
-    ) -> Result<(), ResolveSceneError> {
+impl NameEntityReference {
+    /// Resolves this reference "inline" without going through a [`Scene`] impl.
+    pub fn resolve_inline(self, context: &mut ResolveContext, scene: &mut ResolvedScene) {
         let this_index = ScopedEntityIndex {
             scope: context.current_entity_scope(),
             index: self.index,
@@ -453,13 +450,24 @@ impl Scene for NameEntityReference {
         }
         scene.entity_indices.push(this_index);
         let name = scene.get_or_insert_template::<Name>(context);
-        *name = self.name.clone();
+        *name = self.name;
+    }
+}
+
+impl Scene for NameEntityReference {
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        self.resolve_inline(context, scene);
         Ok(())
     }
 }
 
 /// A [`Scene`] that will create a new "entity scope" and fully resolve the given scene `S` on top of the current [`ResolvedScene`] (using that scope).
 /// It is not "inherited" or cached.
+#[must_use]
 pub struct SceneScope<S: Scene>(pub S);
 
 impl<S: Scene> Scene for SceneScope<S> {
@@ -478,6 +486,7 @@ impl<S: Scene> Scene for SceneScope<S> {
 
 /// A [`SceneList`] that will create a new "entity scope" and fully resolve the given scene list `L` on top of the current [`Vec<ResolvedScene>`]
 /// (using that scope). It is not "inherited" or cached.
+#[must_use]
 pub struct SceneListScope<L: SceneList>(pub L);
 
 impl<L: SceneList> SceneList for SceneListScope<L> {
@@ -527,7 +536,7 @@ impl<
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_bundle_template(OnTemplate(self.0.clone(), PhantomData));
+        scene.push_bundle_template(OnTemplate(self.0, PhantomData));
         Ok(())
     }
 }
@@ -539,4 +548,53 @@ pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>
     observer: I,
 ) -> OnTemplate<I, E, B, M> {
     OnTemplate(observer, PhantomData)
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+/// A [`Scene`] that initializes a template if it doesn't yet exist.
+#[derive(Default)]
+pub struct InitTemplate<T>(PhantomData<T>);
+
+impl<T: Template<Output: Component> + Default + Send + Sync + 'static> Scene for InitTemplate<T> {
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        let _ = scene.get_or_insert_template::<T>(context);
+        Ok(())
+    }
+}
+
+/// A [`Scene`] that uses a function `F` to perform arbitrary [`Scene`] logic.
+pub struct SceneFunction<F: FnOnce(&mut ResolveContext, &mut ResolvedScene)>(pub F);
+
+impl<F: FnOnce(&mut ResolveContext, &mut ResolvedScene) + Send + Sync + 'static> Scene
+    for SceneFunction<F>
+{
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        (self.0)(context, scene);
+        Ok(())
+    }
 }

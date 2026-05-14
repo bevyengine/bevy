@@ -20,17 +20,15 @@ Now, these methods properly propagate `TextureAccessError`:
   unsupported texture formats
 - `TextureAccessError::Uninitialized` if the image data is not initialized
 
-## Migration
-
 Update any code using these methods to handle the `Result` return type:
 
 ```rust
-// Before
+// 0.18
 if let Some(bytes) = image.pixel_bytes(coords) {
     // use bytes
 }
 
-// After
+// 0.19
 match image.pixel_bytes(coords) {
     Ok(bytes) => {
         // use bytes

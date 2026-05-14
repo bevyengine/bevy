@@ -65,6 +65,8 @@ plugin_group! {
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_sprite_render")]
         bevy_sprite_render:::SpriteRenderPlugin,
+        #[cfg(feature = "bevy_clipboard")]
+        bevy_clipboard:::ClipboardPlugin,
         #[cfg(feature = "bevy_text")]
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]

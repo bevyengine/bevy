@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputFocus,
+        FocusCause, InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
@@ -811,7 +811,7 @@ fn on_menu_event(
             }
         }
         MenuAction::FocusRoot => {
-            focus.set(anchor);
+            focus.set(anchor, FocusCause::Navigated);
         }
     }
 }

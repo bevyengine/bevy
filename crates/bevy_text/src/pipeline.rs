@@ -224,6 +224,10 @@ impl TextPipeline {
                 );
                 builder.push(
                     StyleProperty::FontFeatures((&section.text_font.font_features).into()),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::FontVariations((&section.text_font.font_variations).into()),
                     range,
                 );
             }
@@ -388,11 +392,9 @@ impl TextPipeline {
                     layout_info.run_geometry.push(RunGeometry {
                         section_index,
                         bounds: Rect::new(
-                            line.metrics().inline_min_coord + glyph_run.offset(),
+                            glyph_run.offset(),
                             line.metrics().block_min_coord,
-                            line.metrics().inline_min_coord
-                                + glyph_run.offset()
-                                + glyph_run.advance(),
+                            glyph_run.offset() + glyph_run.advance(),
                             line.metrics().block_max_coord,
                         ),
                         strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
@@ -469,8 +471,8 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
-    /// Cursor size and position for editing
-    pub cursor: Option<Rect>,
+    /// Cursor visibility, size and position for editing
+    pub cursor: Option<(bool, Rect)>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
     /// Underline rects for the active IME preedit/compose region.

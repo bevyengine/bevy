@@ -438,6 +438,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
 [Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
@@ -603,6 +604,7 @@ Example | Description
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
+[Font Variations](../examples/ui/text/font_variations.rs) | Demonstrates how to use OpenType font variations.
 [Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
@@ -765,7 +767,7 @@ Keep in mind that if you are using `bevy_audio` the minimum supported Android AP
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", features = ["android-native-activity"] }
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.

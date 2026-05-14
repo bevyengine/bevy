@@ -319,7 +319,7 @@ pub enum AssetWriterError {
     Io(#[from] std::io::Error),
 }
 
-/// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
+/// Performs write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///

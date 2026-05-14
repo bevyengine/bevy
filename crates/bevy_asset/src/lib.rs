@@ -194,9 +194,7 @@ pub use futures_lite::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
-pub use loader_builders::{
-    Deferred, DynamicTyped, Immediate, NestedLoader, StaticTyped, UnknownTyped,
-};
+pub use loader_builders::NestedLoadBuilder;
 pub use path::*;
 pub use reflect::*;
 pub use render_asset::*;
@@ -750,6 +748,7 @@ mod tests {
     use bevy_tasks::block_on;
     use core::{any::TypeId, time::Duration};
     use futures_lite::AsyncReadExt;
+    use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use thiserror::Error;
@@ -809,9 +808,8 @@ mod tests {
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
-                    .loader()
-                    .immediate()
-                    .load::<CoolText>(&dep)
+                    .load_builder()
+                    .load_value::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
@@ -991,6 +989,20 @@ mod tests {
         mut storage: ResMut<StoredEvents>,
     ) {
         storage.0.extend(reader.read().cloned());
+    }
+
+    /// Serializes `text` into a `CoolText` that can be loaded.
+    ///
+    /// This doesn't support all the features of `CoolText`, so more complex scenarios may require
+    /// doing this manually.
+    pub(crate) fn serialize_as_cool_text(text: &str) -> String {
+        let cool_text_ron = CoolTextRon {
+            text: text.into(),
+            dependencies: vec![],
+            embedded_dependencies: vec![],
+            sub_texts: vec![],
+        };
+        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
     }
 
     #[test]
@@ -1989,9 +2001,8 @@ mod tests {
             ) -> Result<Self::Asset, Self::Error> {
                 // We expect this load to fail.
                 load_context
-                    .loader()
-                    .immediate()
-                    .load::<SubText>("a.cool.ron#A")
+                    .load_builder()
+                    .load_value::<SubText>("a.cool.ron#A")
                     .await?;
                 Ok(TestAsset)
             }
@@ -2759,9 +2770,8 @@ mod tests {
                 let mut nested_path = String::new();
                 reader.read_to_string(&mut nested_path).await?;
                 let deferred_nested: LoadedAsset<DeferredNested> = load_context
-                    .loader()
-                    .immediate()
-                    .load(nested_path)
+                    .load_builder()
+                    .load_value(nested_path)
                     .await
                     .unwrap();
                 Ok(ImmediateNested(deferred_nested.get().0.clone()))
@@ -3216,5 +3226,103 @@ mod tests {
         assert!(
             asset_server.are_direct_dependencies_loaded(app.world().resource::<MyAssetHolder>())
         );
+    }
+
+    #[test]
+    fn hot_reload_folder() {
+        let (mut app, dir, event_sender) = create_app_with_source_event_sender();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let abc_path = Path::new("dir/abc.cool.ron");
+        let def_path = Path::new("dir/def.cool.ron");
+        dir.insert_asset_text(abc_path, &serialize_as_cool_text("abc"));
+        dir.insert_asset_text(def_path, &serialize_as_cool_text("def"));
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let folder_handle = asset_server.load_folder("dir");
+        run_app_until(&mut app, |_| {
+            asset_server
+                .is_loaded_with_dependencies(&folder_handle)
+                .then_some(())
+        });
+
+        let folder = app
+            .world()
+            .resource::<Assets<LoadedFolder>>()
+            .get(&folder_handle)
+            .unwrap();
+        assert_eq!(folder.handles.len(), 2);
+        let mut handles = folder
+            .handles
+            .iter()
+            .cloned()
+            .map(UntypedHandle::typed::<CoolText>)
+            .collect::<Vec<_>>();
+        // Sort the handles so we know abc is first and def is second.
+        handles.sort_by_key(|handle| handle.path().unwrap().path().to_path_buf());
+
+        let abc_handle = handles[0].clone();
+        let def_handle = handles[1].clone();
+
+        let cool_texts = app.world().resource::<Assets<CoolText>>();
+        assert_eq!(cool_texts.get(&abc_handle).unwrap().text, "abc");
+        assert_eq!(cool_texts.get(&def_handle).unwrap().text, "def");
+
+        // Before doing any hot reloading stuff, clear out any AssetEvent messages.
+        app.world_mut()
+            .resource_mut::<Messages<AssetEvent<LoadedFolder>>>()
+            .clear();
+
+        // Add a new asset to the folder, and send an event to trigger hot-reloading.
+        let ghi_path = Path::new("dir/ghi.cool.ron");
+        dir.insert_asset_text(ghi_path, &serialize_as_cool_text("ghi"));
+        event_sender
+            .send_blocking(AssetSourceEvent::AddedAsset(ghi_path.to_path_buf()))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            for event in world
+                .resource_mut::<Messages<AssetEvent<LoadedFolder>>>()
+                .drain()
+            {
+                if let AssetEvent::LoadedWithDependencies { id } = event
+                    && id == folder_handle.id()
+                {
+                    return Some(());
+                }
+            }
+            None
+        });
+
+        let folder = app
+            .world()
+            .resource::<Assets<LoadedFolder>>()
+            .get(&folder_handle)
+            .unwrap();
+        assert_eq!(folder.handles.len(), 3);
+        let mut handles = folder
+            .handles
+            .iter()
+            .cloned()
+            .map(UntypedHandle::typed::<CoolText>)
+            .collect::<Vec<_>>();
+        // Sort the handles so we know the order is abc, def, and ghi.
+        handles.sort_by_key(|handle| handle.path().unwrap().path().to_path_buf());
+
+        let new_abc_handle = handles[0].clone();
+        let new_def_handle = handles[1].clone();
+        let new_ghi_handle = handles[2].clone();
+
+        assert_eq!(new_abc_handle, abc_handle);
+        assert_eq!(new_def_handle, def_handle);
+
+        let cool_texts = app.world().resource::<Assets<CoolText>>();
+        assert_eq!(cool_texts.get(&new_abc_handle).unwrap().text, "abc");
+        assert_eq!(cool_texts.get(&new_def_handle).unwrap().text, "def");
+        assert_eq!(cool_texts.get(&new_ghi_handle).unwrap().text, "ghi");
     }
 }

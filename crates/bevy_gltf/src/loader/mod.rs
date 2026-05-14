@@ -2017,7 +2017,7 @@ impl ImageOrPath {
                 sampler_descriptor,
                 render_asset_usages,
             } => load_context
-                .loader()
+                .load_builder()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
