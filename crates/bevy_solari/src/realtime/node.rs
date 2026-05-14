@@ -376,7 +376,7 @@ pub fn solari_lighting(
 
     diagnostics.record_u32(
         ctx.command_encoder(),
-        &s.world_cache_b.slice(1024..1025),
+        &s.world_cache_b.slice(1024 * 4..1025 * 4),
         "solari_lighting/world_cache_active_cells_count",
     );
 }
