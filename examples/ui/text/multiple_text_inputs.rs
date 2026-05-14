@@ -126,7 +126,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     children![(
                         Text::default(),
                         TextLayout::no_wrap(),
-                        Node { ..default() },
                         font.clone(),
                         BackgroundColor(bevy::color::palettes::css::DARK_SLATE_GRAY.into()),
                         BorderColor::all(Color::WHITE),
@@ -152,7 +151,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     children![(
                         Text::default(),
                         TextLayout::no_wrap(),
-                        Node { ..default() },
                         font.clone(),
                         TextInputRow(row),
                         SubmitOutput,
