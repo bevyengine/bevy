@@ -5,7 +5,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::{PI, orthonormalize}
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, lobe_reflectances}
+#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 

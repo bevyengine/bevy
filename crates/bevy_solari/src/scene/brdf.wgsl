@@ -142,7 +142,7 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
 
     let diffuse_pdf = wi_tangent.z / PI;
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
-    return specular_weight * specular_pdf + diffuse_weight * diffuse_pdf;
+    return (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
 }
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
