@@ -14,6 +14,8 @@ struct Mesh {
     local_from_world_transpose_b: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
+    // Packed render layer mask used for per-mesh light filtering.
+    render_layers: u32,
     lightmap_uv_rect: vec2<u32>,
     // The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
@@ -24,6 +26,10 @@ struct Mesh {
     // User supplied index to identify the mesh instance
     tag: u32,
     morph_descriptor_index: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    // WebGL2 structs must be 16 byte aligned.
+    _webgl2_padding: array<u32, 2>,
+#endif
 };
 
 #ifdef SKINNED

@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{render::layers::render_layers_to_mask, *};
 use alloc::sync::Arc;
 use bevy_asset::UntypedAssetId;
 use bevy_camera::primitives::{
@@ -89,6 +89,7 @@ pub struct ExtractedPointLight {
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
+    pub render_layers: RenderLayers,
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
     /// whether this point light contributes diffuse light to lightmapped meshes
@@ -143,6 +144,14 @@ bitflags::bitflags! {
         const UNINITIALIZED                     = 0xFFFF;
     }
 }
+
+/// The first bit in light flags that stores packed render layer membership.
+/// The lower bits are used for light feature flags.
+const LIGHT_RENDER_LAYERS_SHIFT: u32 = 6;
+/// Number of render layer bits available for filtering.
+const LIGHT_RENDER_LAYERS_MASK_BITS: u32 = u32::BITS - LIGHT_RENDER_LAYERS_SHIFT;
+/// The bitmask used to store packed render layer membership in light flags.
+const LIGHT_RENDER_LAYERS_MASK: u32 = (1 << LIGHT_RENDER_LAYERS_MASK_BITS) - 1;
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuDirectionalCascade {
@@ -330,6 +339,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &CubemapFrusta,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -338,6 +348,7 @@ pub fn extract_lights(
                 Changed<GlobalTransform>,
                 Changed<ViewVisibility>,
                 Changed<CubemapFrusta>,
+                Changed<RenderLayers>,
                 Changed<VolumetricLight>,
             )>,
         >,
@@ -352,6 +363,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &Frustum,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -360,6 +372,7 @@ pub fn extract_lights(
                 Changed<GlobalTransform>,
                 Changed<ViewVisibility>,
                 Changed<Frustum>,
+                Changed<RenderLayers>,
                 Changed<VolumetricLight>,
             )>,
         >,
@@ -450,6 +463,7 @@ pub fn extract_lights(
         transform,
         view_visibility,
         frusta,
+        maybe_layers,
         volumetric_light,
     ) in point_lights.iter()
     {
@@ -540,6 +554,7 @@ pub fn extract_lights(
                 * core::f32::consts::SQRT_2,
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
+            render_layers: maybe_layers.unwrap_or_default().clone(),
             volumetric: volumetric_light.is_some(),
             affects_lightmapped_mesh_diffuse: point_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pbr_pcss")]
@@ -562,6 +577,7 @@ pub fn extract_lights(
         transform,
         view_visibility,
         frustum,
+        maybe_layers,
         volumetric_light,
     ) in spot_lights.iter()
     {
@@ -653,6 +669,7 @@ pub fn extract_lights(
                 * core::f32::consts::SQRT_2,
             shadow_map_near_z: spot_light.shadow_map_near_z,
             spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+            render_layers: maybe_layers.unwrap_or_default().clone(),
             volumetric: volumetric_light.is_some(),
             affects_lightmapped_mesh_diffuse: spot_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pbr_pcss")]
@@ -1216,6 +1233,12 @@ pub fn prepare_lights(
         let light = point_lights.get(*entity).unwrap().2;
 
         let mut flags = PointLightFlags::NONE;
+        let render_layers_mask = render_layers_to_mask(
+            Some(&light.render_layers),
+            LIGHT_RENDER_LAYERS_MASK_BITS,
+            LIGHT_RENDER_LAYERS_MASK,
+        );
+        flags |= PointLightFlags::from_bits_retain(render_layers_mask << LIGHT_RENDER_LAYERS_SHIFT);
 
         // Lights are sorted, shadow enabled lights are first
         if light.shadow_maps_enabled
@@ -1819,6 +1842,14 @@ pub fn prepare_lights(
             num_directional_lights_for_this_view += 1;
 
             let mut flags = DirectionalLightFlags::NONE;
+            let render_layers_mask = render_layers_to_mask(
+                Some(&light.render_layers),
+                LIGHT_RENDER_LAYERS_MASK_BITS,
+                LIGHT_RENDER_LAYERS_MASK,
+            );
+            flags |= DirectionalLightFlags::from_bits_retain(
+                render_layers_mask << LIGHT_RENDER_LAYERS_SHIFT,
+            );
 
             // Lights are sorted, volumetric and shadow enabled lights are first
             if light.volumetric
@@ -2247,6 +2278,8 @@ pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
     shadow_render_phases: Res<'w, ViewBinnedRenderPhases<Shadow>>,
     render_lightmaps: Res<'w, RenderLightmaps>,
     view_light_entities: Query<'w, 's, (&'static LightEntity, &'static ExtractedView)>,
+    directional_light_entities: Query<'w, 's, &'static ExtractedDirectionalLight>,
+    point_and_spot_light_entities: Query<'w, 's, &'static ExtractedPointLight>,
     shadow_map_visible_entities_query: Query<'w, 's, &'static RenderShadowMapVisibleEntities>,
     light_key_cache: Res<'w, LightKeyCache>,
     specialized_shadow_material_pipeline_cache: ResMut<'w, SpecializedShadowMaterialPipelineCache>,
@@ -2272,6 +2305,8 @@ pub(crate) fn specialize_shadows(
             shadow_render_phases,
             render_lightmaps,
             view_light_entities,
+            directional_light_entities,
+            point_and_spot_light_entities,
             shadow_map_visible_entities_query,
             light_key_cache,
             mut specialized_shadow_material_pipeline_cache,
@@ -2296,6 +2331,11 @@ pub(crate) fn specialize_shadows(
                 extracted_view_light,
             );
 
+            let light_render_layers = get_light_render_layers(
+                light_entity,
+                &directional_light_entities,
+                &point_and_spot_light_entities,
+            );
             let mut maybe_specialized_shadow_material_pipeline_cache =
                 specialized_shadow_material_pipeline_cache
                     .get_mut(&extracted_view_light.retained_view_entity);
@@ -2377,6 +2417,10 @@ pub(crate) fn specialize_shadows(
                     .flags()
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
+                    continue;
+                }
+                let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
+                if !light_render_layers.intersects(mesh_layers) {
                     continue;
                 }
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
@@ -2483,6 +2527,8 @@ pub fn queue_shadows(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
+    point_and_spot_light_entities: Query<&ExtractedPointLight>,
+    directional_light_entities: Query<&ExtractedDirectionalLight>,
     view_light_entities: Query<(&LightEntity, &ExtractedView, Option<&RenderLayers>)>,
     shadow_map_visible_entities_query: Query<&RenderShadowMapVisibleEntities>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
@@ -2516,6 +2562,12 @@ pub fn queue_shadows(
         let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
             continue;
         };
+
+        let light_render_layers = get_light_render_layers(
+            light_entity,
+            &directional_light_entities,
+            &point_and_spot_light_entities,
+        );
 
         // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
         for &main_entity in dirty_specializations
@@ -2555,7 +2607,9 @@ pub fn queue_shadows(
 
             let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
             let view_render_layers = maybe_view_render_layers.unwrap_or_default();
-            if !view_render_layers.intersects(mesh_layers) {
+            if !view_render_layers.intersects(mesh_layers)
+                || !light_render_layers.intersects(mesh_layers)
+            {
                 continue;
             }
 
@@ -2885,6 +2939,35 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get spot light visible entity for view")
+        }
+    }
+}
+
+/// Returns the [`RenderLayers`] associated with a [`LightEntity`] off the
+/// appropriate Extracted Light component [`ExtractedDirectionalLight`] / [`ExtractedPointLight`]
+fn get_light_render_layers<'w, 's: 'w>(
+    light_entity: &'_ LightEntity,
+    directional_light_entities: &'w Query<'w, 's, &'_ ExtractedDirectionalLight>,
+    point_and_spot_light_entities: &'w Query<'w, 's, &'_ ExtractedPointLight>,
+) -> &'w RenderLayers {
+    match light_entity {
+        LightEntity::Directional { light_entity, .. } => {
+            &directional_light_entities
+                .get(*light_entity)
+                .expect("Failed to get directional light")
+                .render_layers
+        }
+        LightEntity::Point { light_entity, .. } => {
+            &point_and_spot_light_entities
+                .get(*light_entity)
+                .expect("Failed to get point light")
+                .render_layers
+        }
+        LightEntity::Spot { light_entity } => {
+            &point_and_spot_light_entities
+                .get(*light_entity)
+                .expect("Failed to get spot light")
+                .render_layers
         }
     }
 }

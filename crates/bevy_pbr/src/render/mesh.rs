@@ -85,6 +85,7 @@ use tracing::{error, warn};
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
     render::{
+        layers::render_layers_to_mask,
         morph::{
             extract_morphs, no_automatic_morph_batching, write_morph_buffers, MorphIndices,
             MorphUniforms,
@@ -523,6 +524,8 @@ pub struct MeshUniform {
     pub local_from_world_transpose_a: [Vec4; 2],
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
+    /// Packed render layer mask used for per-mesh light filtering in shaders.
+    pub render_layers: u32,
     // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
     //
     //                         <--- MSB                   LSB --->
@@ -553,6 +556,8 @@ pub struct MeshUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    pub _webgl2_padding: [u32; 2],
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -578,6 +583,8 @@ pub struct MeshInputUniform {
     pub lightmap_uv_rect: UVec2,
     /// Various [`MeshFlags`].
     pub flags: u32,
+    /// Packed render layer mask used for per-mesh light filtering in shaders.
+    pub render_layers: u32,
     /// The index of this mesh's [`MeshInputUniform`] in the previous frame's
     /// buffer, if applicable.
     ///
@@ -622,6 +629,10 @@ pub struct MeshInputUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// Padding to preserve 16-byte alignment in WebGL2 for POD casts.
+    // This cannot be feature gated to WebGL2, or else the Pod derive complains
+    // about there being padding when combined with impl_atomic_pod!
+    pub pad: [u32; 3],
 }
 
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
@@ -660,6 +671,7 @@ impl MeshUniform {
         current_skin_index: Option<u32>,
         morph_descriptor_index: Option<MorphDescriptorIndex>,
         tag: Option<u32>,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -683,6 +695,11 @@ impl MeshUniform {
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
+            render_layers: render_layers_to_mask(
+                render_layers,
+                SHADER_RENDER_LAYER_MASK_BITS,
+                SHADER_RENDER_LAYER_MASK,
+            ),
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
             material_and_lightmap_bind_group_slot,
@@ -691,9 +708,21 @@ impl MeshUniform {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
                 None => u32::MAX,
             },
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: [0; 2],
         }
     }
 }
+
+/// Number of render layer bits available for per-mesh/per-light shader filtering.
+///
+/// Keep this in sync with the light-side packing in `light.rs` and the shader
+/// constants in `mesh_view_types.wgsl`.
+/// The light flags field is a u32, and the lower 6 bits are already used for light
+/// feature flags (bit 0..bit 5), so render-layer bits must start at shift 6,
+/// leaving exactly 26 bits for layer membership.
+const SHADER_RENDER_LAYER_MASK_BITS: u32 = 26;
+const SHADER_RENDER_LAYER_MASK: u32 = (1 << SHADER_RENDER_LAYER_MASK_BITS) - 1;
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
@@ -1482,6 +1511,11 @@ impl RenderMeshInstanceGpuBuilder {
             world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
+            render_layers: render_layers_to_mask(
+                self.render_layers.as_ref(),
+                SHADER_RENDER_LAYER_MASK_BITS,
+                SHADER_RENDER_LAYER_MASK,
+            ),
             previous_input_index: u32::MAX,
             timestamp: timestamp.0,
             first_vertex_index,
@@ -1495,6 +1529,7 @@ impl RenderMeshInstanceGpuBuilder {
             material_and_lightmap_bind_group_slot,
             tag: self.shared.tag,
             morph_descriptor_index,
+            pad: [0; 3],
         };
 
         Some(RenderMeshInstanceGpuPrepared {
@@ -2840,6 +2875,7 @@ impl GetBatchData for MeshPipeline {
                 current_skin_index,
                 morph_descriptor_index,
                 Some(mesh_instance.tag()),
+                mesh_instance.render_layers.as_ref(),
             ),
             mesh_instance.should_batch().then_some((
                 MeshBatchSetCompareData {
@@ -2921,6 +2957,7 @@ impl GetFullBatchData for MeshPipeline {
             current_skin_index,
             morph_descriptor_index,
             Some(mesh_instance.tag()),
+            mesh_instance.render_layers.as_ref(),
         ))
     }
 
@@ -3466,7 +3503,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        shader_defs.push("WEBGL2".into());
+        {
+            shader_defs.push("WEBGL2".into());
+            shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
 
         #[cfg(feature = "experimental_pbr_pcss")]
         shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());

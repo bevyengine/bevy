@@ -10,6 +10,8 @@ struct MeshInput {
     lightmap_uv_rect: vec2<u32>,
     // Various flags.
     flags: u32,
+    // Packed render layer mask used for per-mesh light filtering in shaders.
+    render_layers: u32,
     previous_input_index: u32,
     first_vertex_index: u32,
     first_index_index: u32,
@@ -26,6 +28,8 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
+    // Explicitly match the Rust-side `MeshInputUniform` trailing padding.
+    pad: array<u32, 3>,
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
