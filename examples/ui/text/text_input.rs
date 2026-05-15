@@ -95,6 +95,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             BorderColor::from(Color::from(SLATE_300)),
             Text::new(""),
             TextOutput,
+            TextLayout {
+                linebreak: LineBreak::WordOrCharacter,
+                ..default()
+            },
             TextFont {
                 font_size: FontSize::Px(24.0),
                 ..default()
