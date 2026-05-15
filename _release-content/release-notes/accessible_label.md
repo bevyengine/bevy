@@ -4,7 +4,7 @@ authors: ["@viridia"]
 pull_requests: [24308]
 ---
 
-The `AccessibleLabel` component allows the a11y `label` property to be specified seperately from
+The `AccessibleLabel` component allows the a11y `label` property to be specified separately from
 other a11y properties.
 
 In most apps, the `label` property comes from application code rather than library code.
