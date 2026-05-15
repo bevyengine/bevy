@@ -120,21 +120,19 @@ pub fn extract_text_cursor(
                     if selection.min.x <= prev.max.x {
                         border_radius.top_left = (prev.min.x - selection.min.x).clamp(0., radius);
                     }
-
                     if prev.min.x <= selection.max.x {
-                        border_radius.top_right = (selection.max.x - prev.min.x).clamp(0., radius);
+                        border_radius.top_right = (selection.max.x - prev.max.x).clamp(0., radius);
                     }
                 }
 
                 if let Some(next) = next {
-                    if selection.max.x <= next.min.x {
+                    if selection.min.x <= next.max.x {
                         border_radius.bottom_left =
                             (next.min.x - selection.min.x).clamp(0., radius);
                     }
-
-                    if next.max.x <= selection.min.x {
+                    if next.min.x <= selection.max.x {
                         border_radius.bottom_right =
-                            (selection.max.x - next.min.x).clamp(0., radius);
+                            (selection.max.x - next.max.x).clamp(0., radius);
                     }
                 }
 

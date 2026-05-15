@@ -36,7 +36,7 @@ impl Default for TextCursorStyle {
             selection_color: Color::from(SKY_300),
             unfocused_selection_color: Color::from(SKY_400),
             selected_text_color: None,
-            selection_corner_radius: 0.2,
+            selection_corner_radius: 0.,
         }
     }
 }
