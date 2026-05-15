@@ -220,14 +220,16 @@ impl NonSendData {
     /// Removes a value from the data, if present, and drops it.
     ///
     /// # Panics
-    /// This will panic if a value is present and is not accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread it was inserted in,
+    /// or if the drop function panics.
     #[inline]
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
+            // Mark as empty before dropping to prevent double drop in case of panic
+            self.is_present = false;
             // SAFETY: There is only one element, and it's always allocated.
             unsafe { self.data.drop_last_element(Self::ROW) };
-            self.is_present = false;
         }
     }
 

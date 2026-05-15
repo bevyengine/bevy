@@ -9,7 +9,10 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
+#[cfg(feature = "std")]
+use core::panic::AssertUnwindSafe;
 use core::{
+    any::Any,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
@@ -219,13 +222,24 @@ impl Table {
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
-    /// entity was swapped in)
+    /// entity was swapped in), as well as a panic payload if a component drop panicked.
+    ///
+    /// # Panics
+    /// Panics if the component's drop function panics.
     ///
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
-    pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
+    pub(crate) unsafe fn swap_remove_unchecked(
+        &mut self,
+        row: TableRow,
+    ) -> (Option<Entity>, Option<Box<dyn Any + Send>>) {
         debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
+        self.entities.swap_remove(row.index());
+        let last_element_index = self.entity_count();
+        let is_last = row.index_u32() == last_element_index;
+
+        let mut panic = None;
+
         if row.index_u32() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
@@ -235,28 +249,35 @@ impl Table {
                 // - `last_element_index` = `len` - 1
                 // - `row` != `last_element_index`
                 // - the `len` is kept within `self.entities`, it will update accordingly.
-                unsafe {
-                    col.swap_remove_and_drop_unchecked_nonoverlapping(
-                        last_element_index as usize,
-                        row,
-                    );
-                };
+                let maybe_panic =
+                    bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| unsafe {
+                        col.swap_remove_and_drop_unchecked_nonoverlapping(
+                            last_element_index as usize,
+                            row,
+                        );
+                    }));
+                panic = panic.or(maybe_panic.err());
             }
         } else {
-            // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
+            // If `row.as_usize()` == `last_element_index` then there's no point in removing the component
             // at `row`, but we still need to drop it.
             for col in self.columns.values_mut() {
-                col.drop_last_component(last_element_index as usize);
+                // SAFETY:
+                // this was the last element, and is being removed
+                let maybe_panic =
+                    bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| unsafe {
+                        col.drop_last_component(last_element_index as usize);
+                    }));
+                panic = panic.or(maybe_panic.err());
             }
         }
-        let is_last = row.index_u32() == last_element_index;
-        self.entities.swap_remove(row.index());
-        if is_last {
+        let swapped = if is_last {
             None
         } else {
             // SAFETY: This was swap removed and was not last, so it must be in bounds.
             unsafe { Some(*self.entities.get_unchecked(row.index())) }
-        }
+        };
+        (swapped, panic)
     }
 
     /// Get the data of the column matching `component_id` as a slice.
@@ -635,6 +656,8 @@ pub(crate) struct TableMoveResult<'a> {
     pub swapped_entity: Option<Entity>,
     pub new_table: &'a mut Table,
     pub new_row: TableRow,
+    /// Records if a component drop function has panicked
+    pub panic: Option<Box<dyn Any + Send>>,
 }
 
 impl Tables {
@@ -772,6 +795,8 @@ impl Tables {
 
         let mut dst_iter = dst_table.columns.iter_mut().peekable();
 
+        let mut panic = None;
+
         for (src_component_id, src_column) in src_table.columns.iter_mut() {
             // Skip past any destination columns that don't exist in the source table.
             // The caller is responsible for initializing those columns.
@@ -796,14 +821,16 @@ impl Tables {
                     dst_column.initialize_from_unchecked(src_column, last_index, row, dst_row);
                 }
             } else {
-                // SAFETY:
-                // - `last_index` is the index of the last element.
-                // - The caller ensures `row` <= `last_index`.
-                // - The length of `src_column` is given by the length of `src_table.entities`,
-                //   which has been updated.
-                unsafe {
-                    src_column.swap_remove_unchecked::<DROP>(last_index, row);
-                }
+                let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(||
+                    // SAFETY:
+                    // - `last_index` is the index of the last element.
+                    // - The caller ensures `row` <= `last_index`.
+                    // - The length of `src_column` is given by the length of `src_table.entities`,
+                    //   which has been updated.
+                    unsafe {
+                        src_column.swap_remove_unchecked::<DROP>(last_index, row);
+                    }));
+                panic = panic.or(maybe_panic.err());
             }
         }
 
@@ -819,6 +846,7 @@ impl Tables {
                 // SAFETY: This was swap-removed and was not last, so it must be in-bounds.
                 unsafe { Some(*src_table.entities.get_unchecked(row.index())) }
             },
+            panic,
         }
     }
 }

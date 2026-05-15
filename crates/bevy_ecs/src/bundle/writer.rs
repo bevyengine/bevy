@@ -6,7 +6,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_ptr::OwningPtr;
 use bumpalo::Bump;
-use core::{alloc::Layout, ptr::NonNull};
+use core::{alloc::Layout, panic::AssertUnwindSafe, ptr::NonNull};
 
 /// Enables pushing components to internal scratch space (uses a bump allocator), which can then be
 /// written as a dynamic bundle. The contents are cleared after each write and the allocated scratch
@@ -123,6 +123,9 @@ impl<'a> BundleWriter<'a> {
 
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
     ///
+    /// # Panics
+    /// Panics if any of the overwritten components panic while being dropped.
+    ///
     /// # Safety
     ///
     /// `entity` must be from the same world that all [`Self::push_component`] calls since the last
@@ -132,17 +135,20 @@ impl<'a> BundleWriter<'a> {
         // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
-            entity.insert_by_ids_internal(
-                &self.0.component_ids,
-                self.0
-                    .component_ptrs
-                    .drain(..)
-                    .map(|ptr| OwningPtr::new(ptr)),
-                RelationshipHookMode::Run,
-            );
+            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
+                entity.insert_by_ids_internal(
+                    &self.0.component_ids,
+                    self.0
+                        .component_ptrs
+                        .drain(..)
+                        .map(|ptr| OwningPtr::new(ptr)),
+                    RelationshipHookMode::Run,
+                );
+            }));
+            self.0.component_ids.clear();
+            self.0.alloc.reset();
+            bevy_utils::resume_caught_unwind(maybe_panic.err());
         }
-        self.0.component_ids.clear();
-        self.0.alloc.reset();
     }
 
     /// Returns true if there are currently no components.

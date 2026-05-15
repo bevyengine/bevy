@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bevy_ptr::{ConstNonNull, MovingPtr};
-use core::ptr::NonNull;
+use core::{any::Any, ptr::NonNull};
 
 use crate::{
     archetype::{
@@ -137,6 +138,7 @@ impl<'w> BundleInserter<'w> {
         EntityLocation,
         &'a mut SparseSets,
         &'a mut Table,
+        Option<Box<dyn Any + Send>>,
     ) {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
@@ -191,7 +193,7 @@ impl<'w> BundleInserter<'w> {
                     )
                 };
 
-                (&*archetype, location, sparse_sets, table)
+                (&*archetype, location, sparse_sets, table, None)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -224,7 +226,7 @@ impl<'w> BundleInserter<'w> {
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
-                (&*new_archetype, new_location, sparse_sets, table)
+                (&*new_archetype, new_location, sparse_sets, table, None)
             }
             ArchetypeMoveType::NewArchetypeNewTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -310,11 +312,14 @@ impl<'w> BundleInserter<'w> {
                     new_location,
                     sparse_sets,
                     move_result.new_table,
+                    move_result.panic,
                 )
             }
         }
     }
 
+    /// Returns the entity's new location and potentially a caught panic.
+    ///
     /// # Safety
     /// - `entity` must currently exist in the source archetype for this inserter.
     /// - `location` must be `entity`'s location in the archetype.
@@ -334,24 +339,27 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-    ) -> EntityLocation {
+    ) -> (EntityLocation, Option<Box<dyn Any + Send>>) {
         let archetype_after_insert = self.archetype_after_insert.as_ref();
+
+        let panic_payload;
 
         let (new_archetype, new_location) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
-            let (new_archetype, new_location, sparse_sets, table) = Self::before_insert(
-                entity,
-                location,
-                insert_mode,
-                caller,
-                relationship_hook_mode,
-                self.archetype,
-                archetype_after_insert,
-                &self.world,
-                &mut self.archetype_move_type,
-            );
+            let (new_archetype, new_location, sparse_sets, table, archetype_move_panic_payload) =
+                Self::before_insert(
+                    entity,
+                    location,
+                    insert_mode,
+                    caller,
+                    relationship_hook_mode,
+                    self.archetype,
+                    archetype_after_insert,
+                    &self.world,
+                    &mut self.archetype_move_type,
+                );
 
-            self.bundle_info.as_ref().write_components(
+            let maybe_panic = self.bundle_info.as_ref().write_components(
                 table,
                 sparse_sets,
                 archetype_after_insert,
@@ -363,6 +371,8 @@ impl<'w> BundleInserter<'w> {
                 insert_mode,
                 caller,
             );
+
+            panic_payload = archetype_move_panic_payload.or(maybe_panic);
 
             (new_archetype, new_location)
         };
@@ -382,7 +392,7 @@ impl<'w> BundleInserter<'w> {
             deferred_world,
         );
 
-        new_location
+        (new_location, panic_payload)
     }
 
     // A non-generic postlude to insert used to minimize duplicated monomorphized code.

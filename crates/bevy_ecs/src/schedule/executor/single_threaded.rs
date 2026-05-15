@@ -131,7 +131,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let f = AssertUnwindSafe(|| {
+            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
                 if let Err(RunSystemError::Failed(err)) =
                     __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
                 {
@@ -143,21 +143,15 @@ impl SystemExecutor for SingleThreadedExecutor {
                         },
                     );
                 }
-            });
+            }))
+            .err();
 
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-            {
-                if let Err(payload) = std::panic::catch_unwind(f) {
-                    eprintln!("Encountered a panic in system `{}`!", system.name());
-                    std::panic::resume_unwind(payload);
-                }
+            if maybe_panic.is_some() {
+                eprintln!("Encountered a panic in system `{}`!", system.name());
             }
-
-            #[cfg(not(feature = "std"))]
-            {
-                (f)();
-            }
+            bevy_utils::resume_caught_unwind(maybe_panic);
 
             self.unapplied_systems.insert(system_index);
         }

@@ -2504,7 +2504,7 @@ impl World {
                     };
                     move_as_ptr!(first_bundle);
                     // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                    unsafe {
+                    let (_, panic) = unsafe {
                         cache.inserter.insert(
                             first_entity,
                             first_location,
@@ -2514,6 +2514,7 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    bevy_utils::resume_caught_unwind(panic);
 
                     for (entity, bundle) in batch_iter {
                         match cache.inserter.entities().get_spawned(entity) {
@@ -2534,7 +2535,7 @@ impl World {
                                 }
                                 move_as_ptr!(bundle);
                                 // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                                unsafe {
+                                let (_, panic) = unsafe {
                                     cache.inserter.insert(
                                         entity,
                                         location,
@@ -2544,6 +2545,7 @@ impl World {
                                         RelationshipHookMode::Run,
                                     )
                                 };
+                                bevy_utils::resume_caught_unwind(panic);
                             }
                             Err(err) => {
                                 panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
@@ -2656,7 +2658,7 @@ impl World {
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - `apply_effect` is never called on this bundle.
                     // - `first_bundle` is not be accessed or dropped after this.
-                    unsafe {
+                    let (_, panic) = unsafe {
                         cache.inserter.insert(
                             first_entity,
                             first_location,
@@ -2666,6 +2668,8 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    bevy_utils::resume_caught_unwind(panic);
+
                     break Some(cache);
                 }
                 invalid_entities.push(first_entity);
@@ -2698,7 +2702,7 @@ impl World {
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - `apply_effect` is never called on this bundle.
                     // - `bundle` is not be accessed or dropped after this.
-                    unsafe {
+                    let (_, panic) = unsafe {
                         cache.inserter.insert(
                             entity,
                             location,
@@ -2708,6 +2712,7 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    bevy_utils::resume_caught_unwind(panic);
                 } else {
                     invalid_entities.push(entity);
                 }
@@ -2871,7 +2876,7 @@ impl World {
                     // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
                     //   and the caller ensures that the value is not accessed or dropped after this function
                     //   returns.
-                    let (bundle, _) = value.partial_move(|bundle| unsafe {
+                    let (bundle, (_, panic)) = value.partial_move(|bundle| unsafe {
                         bundle_inserter.insert(
                             self.entity,
                             location,
@@ -2891,6 +2896,8 @@ impl World {
                     // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
                     // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
                     unsafe { R::apply_effect(bundle, &mut entity_mut) };
+
+                    bevy_utils::resume_caught_unwind(panic);
                 }
             }
         }
@@ -3956,7 +3963,6 @@ mod tests {
     }
 
     #[derive(Component)]
-    #[component(storage = "SparseSet")]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,

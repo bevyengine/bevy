@@ -179,6 +179,9 @@ impl BlobArray {
     ///
     /// Note that this method will behave exactly the same as [`Vec::clear`].
     ///
+    /// # Panics
+    /// Panics if the stored drop function panics.
+    ///
     /// # Safety
     /// - For every element with index `i`, if `i` < `len`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
@@ -188,9 +191,6 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity >= len);
         if let Some(drop) = self.drop {
-            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.drop = None;
             let size = self.item_layout.size();
             for i in 0..len {
                 // SAFETY:
@@ -202,12 +202,14 @@ impl BlobArray {
                 // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
                 unsafe { drop(item) };
             }
-            self.drop = Some(drop);
         }
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
     /// The owner of this [`BlobArray`] must call this method with the correct information.
+    ///
+    /// # Panics
+    /// Panics if the stored drop function panics.
     ///
     /// # Safety
     /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
@@ -231,6 +233,9 @@ impl BlobArray {
 
     /// Drops the last element in this [`BlobArray`].
     ///
+    /// # Panics
+    /// Panics if the stored drop function panics.
+    ///
     /// # Safety
     // - `last_element_index` must correspond to the last element in the array.
     // - After this method is called, the last element must not be used
@@ -239,14 +244,10 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity > last_element_index);
         if let Some(drop) = self.drop {
-            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.drop = None;
             // SAFETY:
             let item = self.get_unchecked_mut(last_element_index).promote();
-            // SAFETY:
+            // SAFETY: Drop function belongs to this component
             unsafe { drop(item) };
-            self.drop = Some(drop);
         }
     }
 
@@ -335,6 +336,9 @@ impl BlobArray {
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
     ///
+    /// # Panics
+    /// Panics if the drop function panics.
+    ///
     /// # Safety
     /// - Index must be in-bounds (`index` < `len`)
     /// - `value`'s [`Layout`] must match this [`BlobArray`]'s `item_layout`,
@@ -348,48 +352,38 @@ impl BlobArray {
         let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
         let source = value.as_ptr();
 
-        if let Some(drop) = self.drop {
-            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.drop = None;
+        let on_drop = OnDrop::new(|| {
+            // Copy the new value into the vector, overwriting the previous value.
+            // This needs tp happen even if the drop function panics.
+            // SAFETY:
+            // - `source` and `destination` were obtained from `OwningPtr`s, which ensures they are
+            //   valid for both reads and writes.
+            // - The value behind `source` will only be dropped if the above branch panics,
+            //   so it must still be initialized and it is safe to transfer ownership into the vector.
+            // - `source` and `destination` were obtained from different memory locations,
+            //   both of which we have exclusive access to, so they are guaranteed not to overlap.
+            unsafe {
+                core::ptr::copy_nonoverlapping::<u8>(
+                    source,
+                    destination.as_ptr(),
+                    self.item_layout.size(),
+                );
+            }
+        });
 
+        if let Some(drop) = self.drop {
             // Transfer ownership of the old value out of the vector, so it can be dropped.
             // SAFETY:
             // - `destination` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
             //   well-aligned for the underlying type, and has proper provenance.
             // - The storage location will get overwritten with `value` later, which ensures
             //   that the element will not get observed or double dropped later.
-            // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
-            //   does not occur. Instead, all elements will be forgotten.
             let old_value = unsafe { OwningPtr::new(destination) };
 
-            // This closure will run in case `drop()` panics,
-            // which ensures that `value` does not get forgotten.
-            let on_unwind = OnDrop::new(|| drop(value));
-
             drop(old_value);
-
-            // If the above code does not panic, make sure that `value` doesn't get dropped.
-            core::mem::forget(on_unwind);
-
-            self.drop = Some(drop);
         }
 
-        // Copy the new value into the vector, overwriting the previous value.
-        // SAFETY:
-        // - `source` and `destination` were obtained from `OwningPtr`s, which ensures they are
-        //   valid for both reads and writes.
-        // - The value behind `source` will only be dropped if the above branch panics,
-        //   so it must still be initialized and it is safe to transfer ownership into the vector.
-        // - `source` and `destination` were obtained from different memory locations,
-        //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        unsafe {
-            core::ptr::copy_nonoverlapping::<u8>(
-                source,
-                destination.as_ptr(),
-                self.item_layout.size(),
-            );
-        }
+        drop(on_drop);
     }
 
     /// This method will swap two elements in the array, and return the one at `index_to_remove`.
@@ -455,6 +449,9 @@ impl BlobArray {
 
     /// This method will call [`Self::swap_remove_unchecked`] and drop the result.
     ///
+    /// # Panics
+    /// Panics if the stored drop function panics.
+    ///
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
@@ -480,6 +477,9 @@ impl BlobArray {
     }
 
     /// The same as [`Self::swap_remove_and_drop_unchecked`] but the two elements must non-overlapping.
+    ///
+    /// # Panics
+    /// Panics if the stored drop function panics. The data will still have been successfully swapped.
     ///
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
