@@ -92,7 +92,7 @@ pub fn extract_text_cursor(
 
         if !text_layout_info.selection_rects.is_empty() && !sc.is_fully_transparent() {
             let selection_color = sc.to_linear();
-            let selection_corner_radius = cursor_style.selection_corner_radius.clamp(0.0, 0.5);
+            let selection_radius = cursor_style.selection_radius.clamp(0.0, 0.5);
 
             for (prev, selection, next) in
                 text_layout_info
@@ -108,7 +108,7 @@ pub fn extract_text_cursor(
                         )
                     })
             {
-                let radius = selection.height() * selection_corner_radius;
+                let radius = selection.height() * selection_radius;
                 let mut border_radius = ResolvedBorderRadius {
                     top_left: radius,
                     top_right: radius,

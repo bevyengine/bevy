@@ -26,7 +26,7 @@ pub struct TextCursorStyle {
     /// Corner radius of selection highlight rectangles, normalized relative to the selection height.
     ///
     /// Values are clamped between `0.0` and `0.5`.
-    pub selection_corner_radius: f32,
+    pub selection_radius: f32,
 }
 
 impl Default for TextCursorStyle {
@@ -36,7 +36,7 @@ impl Default for TextCursorStyle {
             selection_color: Color::from(SKY_300),
             unfocused_selection_color: Color::from(SKY_400),
             selected_text_color: None,
-            selection_corner_radius: 0.,
+            selection_radius: 0.,
         }
     }
 }
