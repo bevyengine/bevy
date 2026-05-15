@@ -5,7 +5,7 @@ use std::{
     thread_local,
 };
 
-use crate::executor::FallibleTask;
+use crate::{executor::FallibleTask, ThreadPriority, set_thread_priority};
 use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
@@ -41,6 +41,8 @@ pub struct TaskPoolBuilder {
 
     on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
     on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+
+    thread_priority: Vec<ThreadPriority>
 }
 
 impl TaskPoolBuilder {
@@ -66,6 +68,15 @@ impl TaskPoolBuilder {
     /// be named `<thread_name> (<thread_index>)`, i.e. `MyThreadPool (2)`
     pub fn thread_name(mut self, thread_name: String) -> Self {
         self.thread_name = Some(thread_name);
+        self
+    }
+
+    /// Sets the pool's default thread priority.
+    ///
+    /// It will try to set each in sequence until one . If all fail, the thread will default to [`ThreadPriority::Normal`]. 
+    /// Defaults to [`ThreadPriority::Normal`].
+    pub fn thread_priority(mut self, priority: &[ThreadPriority]) -> TaskPoolBuilder {
+        self.thread_priority = priority.into();
         self
     }
 
@@ -176,7 +187,7 @@ impl TaskPool {
                 } else {
                     format!("TaskPool ({i})")
                 };
-                let mut thread_builder = thread::Builder::new().name(thread_name);
+                let mut thread_builder = thread::Builder::new().name(thread_name.clone());
 
                 if let Some(stack_size) = builder.stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
@@ -184,9 +195,17 @@ impl TaskPool {
 
                 let on_thread_spawn = builder.on_thread_spawn.clone();
                 let on_thread_destroy = builder.on_thread_destroy.clone();
+                let thread_priority = builder.thread_priority.clone();
 
                 thread_builder
                     .spawn(move || {
+                        for priority in thread_priority {
+                            if set_thread_priority(priority).is_ok() {
+                                log::trace!("Thread '{thread_name}' priority set to {priority:?}");
+                            }
+                        }
+                        drop(thread_name);
+
                         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
                             if let Some(on_thread_spawn) = on_thread_spawn {
                                 on_thread_spawn();
