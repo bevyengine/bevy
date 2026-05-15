@@ -3956,6 +3956,7 @@ mod tests {
     }
 
     #[derive(Component)]
+    #[component(storage = "SparseSet")]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,
@@ -4057,6 +4058,35 @@ mod tests {
                 DropLogItem::Create(1),
                 DropLogItem::Drop(0),
                 DropLogItem::Drop(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn panic_in_despawn_followed_by_insert() {
+        let helper = DropTestHelper::new();
+
+        let res = std::panic::catch_unwind(|| {
+            let mut world = World::new();
+
+            let e1 = world.spawn(helper.make_component(true, 0)).id();
+
+            let _ = std::panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                world.despawn(e1);
+            }));
+
+            world.spawn(helper.make_component(true, 1));
+        });
+
+        let drop_log = helper.finish(res);
+
+        assert_eq!(
+            &*drop_log,
+            [
+                DropLogItem::Create(0),
+                DropLogItem::Drop(0),
+                DropLogItem::Create(1),
+                DropLogItem::Drop(1)
             ]
         );
     }
