@@ -175,7 +175,7 @@ fn label_changed(
 ///
 /// The content of the `label` attribute is typically application-specific, and frequently
 /// originates in application code rather than library code. Because the primary mechanism of entity
-/// composition in Bevy is component insertion (especially in BSN scenes), and because ``AccessKit``
+/// composition in Bevy is component insertion (especially in BSN scenes), and because ``accesskit``
 /// mandates that all a11y properties be stored in a single data structure, it can be cumbersome
 /// to combine together a11y properties coming from different parts of the code; making the label
 /// its own component makes it possible to specify the label as a mixin.
