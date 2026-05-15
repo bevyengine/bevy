@@ -208,7 +208,7 @@ impl Column {
             .assign(caller);
     }
 
-    /// Removes the element from `other` at `src_row` and inserts it
+    /// Removes the element from `src` at `src_row` and inserts it
     /// into the current column to initialize the values at `dst_row`.
     /// Does not do any bounds checking.
     ///
@@ -221,34 +221,38 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut Column,
-        other_last_element_index: usize,
+        src: &mut Column,
+        src_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
     ) {
-        debug_assert!(self.data.layout() == other.data.layout());
-        // Init the data
-        let src_val = other
-            .data
-            .swap_remove_unchecked(src_row.index(), other_last_element_index);
-        self.data.initialize_unchecked(dst_row.index(), src_val);
-        // Init added_ticks
-        let added_tick = other
-            .added_ticks
-            .swap_remove_unchecked(src_row.index(), other_last_element_index);
-        self.added_ticks
-            .initialize_unchecked(dst_row.index(), added_tick);
-        // Init changed_ticks
-        let changed_tick = other
-            .changed_ticks
-            .swap_remove_unchecked(src_row.index(), other_last_element_index);
-        self.changed_ticks
-            .initialize_unchecked(dst_row.index(), changed_tick);
-        self.changed_by.as_mut().zip(other.changed_by.as_mut()).map(
-            |(self_changed_by, other_changed_by)| {
-                let changed_by = other_changed_by
-                    .swap_remove_unchecked(src_row.index(), other_last_element_index);
-                self_changed_by.initialize_unchecked(dst_row.index(), changed_by);
+        debug_assert!(self.data.layout() == src.data.layout());
+        self.data.initialize_from_swap_remove_unchecked(
+            &mut src.data,
+            src_last_element_index,
+            src_row.index(),
+            dst_row.index(),
+        );
+        self.added_ticks.initialize_from_swap_remove_unchecked(
+            &mut src.added_ticks,
+            src_last_element_index,
+            src_row.index(),
+            dst_row.index(),
+        );
+        self.changed_ticks.initialize_from_swap_remove_unchecked(
+            &mut src.changed_ticks,
+            src_last_element_index,
+            src_row.index(),
+            dst_row.index(),
+        );
+        self.changed_by.as_mut().zip(src.changed_by.as_mut()).map(
+            |(self_changed_by, src_changed_by)| {
+                self_changed_by.initialize_from_swap_remove_unchecked(
+                    src_changed_by,
+                    src_last_element_index,
+                    src_row.index(),
+                    dst_row.index(),
+                );
             },
         );
     }
