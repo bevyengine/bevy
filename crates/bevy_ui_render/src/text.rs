@@ -94,8 +94,49 @@ pub fn extract_text_cursor(
             let selection_color = sc.to_linear();
             let selection_corner_radius = cursor_style.selection_corner_radius.clamp(0.0, 0.5);
 
-            for selection in text_layout_info.selection_rects.iter() {
+            for (prev, selection, next) in
+                text_layout_info
+                    .selection_rects
+                    .iter()
+                    .enumerate()
+                    .map(|(i, current)| {
+                        (
+                            i.checked_sub(1)
+                                .map(|i| text_layout_info.selection_rects[i]),
+                            current,
+                            text_layout_info.selection_rects.get(i + 1),
+                        )
+                    })
+            {
                 let radius = selection.height() * selection_corner_radius;
+                let mut border_radius = ResolvedBorderRadius {
+                    top_left: radius,
+                    top_right: radius,
+                    bottom_right: radius,
+                    bottom_left: radius,
+                };
+
+                if let Some(prev) = prev {
+                    if selection.min.x <= prev.max.x {
+                        border_radius.top_left = (prev.min.x - selection.min.x).clamp(0., radius);
+                    }
+
+                    if prev.min.x <= selection.max.x {
+                        border_radius.top_right = (selection.max.x - prev.min.x).clamp(0., radius);
+                    }
+                }
+
+                if let Some(next) = next {
+                    if selection.max.x <= next.min.x {
+                        border_radius.bottom_left =
+                            (next.min.x - selection.min.x).clamp(0., radius);
+                    }
+
+                    if next.max.x <= selection.min.x {
+                        border_radius.bottom_right =
+                            (selection.max.x - next.min.x).clamp(0., radius);
+                    }
+                }
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -114,12 +155,7 @@ pub fn extract_text_cursor(
                         flip_x: false,
                         flip_y: false,
                         border: BorderRect::default(),
-                        border_radius: ResolvedBorderRadius {
-                            top_left: radius,
-                            top_right: radius,
-                            bottom_right: radius,
-                            bottom_left: radius,
-                        },
+                        border_radius,
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
