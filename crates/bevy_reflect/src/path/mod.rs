@@ -384,13 +384,13 @@ impl ParsedPath {
     /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     ///
     /// #[derive(Debug, PartialEq, Reflect)]
-    /// struct Foo(f64, u32);
+    /// struct Player(f64, u32);
     ///
-    /// let foo = Foo(0.0, 1);
+    /// let player = Player(0.0, 1);
     ///
     /// let empty_path = ParsedPath::empty();
     /// assert_eq!(empty_path.element::<bool>(&true).unwrap(), &true);
-    /// assert_eq!(empty_path.element::<Foo>(&foo).unwrap(), &foo);
+    /// assert_eq!(empty_path.element::<Player>(&player).unwrap(), &player);
     /// ```
     pub const fn empty() -> Self {
         Self(Vec::new())
@@ -414,33 +414,33 @@ impl ParsedPath {
     /// ```
     /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     /// #[derive(Reflect)]
-    /// struct Foo {
-    ///   bar: Bar,
+    /// struct Player {
+    ///   inventory: Inventory,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Bar {
-    ///   baz: Baz,
+    /// struct Inventory {
+    ///   item: Item,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Baz(f32, Vec<Option<u32>>);
+    /// struct Item(f32, Vec<Option<u32>>);
     ///
-    /// let foo = Foo {
-    ///   bar: Bar {
-    ///     baz: Baz(3.14, vec![None, None, Some(123)])
+    /// let player = Player {
+    ///   inventory: Inventory {
+    ///     item: Item(3.14, vec![None, None, Some(123)])
     ///   },
     /// };
     ///
-    /// let parsed_path = ParsedPath::parse("bar#0.1[2].0").unwrap();
+    /// let parsed_path = ParsedPath::parse("inventory#0.1[2].0").unwrap();
     /// // Breakdown:
-    /// //   "bar" - Access struct field named "bar"
+    /// //   "inventory" - Access struct field named "inventory"
     /// //   "#0" - Access struct field at index 0
     /// //   ".1" - Access tuple struct field at index 1
     /// //   "[2]" - Access list element at index 2
     /// //   ".0" - Access tuple variant field at index 0
     ///
-    /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
+    /// assert_eq!(parsed_path.element::<u32>(&player).unwrap(), &123);
     /// ```
     pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
@@ -531,34 +531,34 @@ impl ParsedPath {
     /// ```
     /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     /// #[derive(Reflect)]
-    /// struct Foo {
-    ///   bar: Bar,
+    /// struct Player {
+    ///   inventory: Inventory,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Bar {
-    ///   baz: Baz,
+    /// struct Inventory {
+    ///   item: Item,
     /// }
     ///
     /// #[derive(Clone, Debug, PartialEq, Reflect)]
-    /// struct Baz(f32, Vec<Option<u32>>);
+    /// struct Item(f32, Vec<Option<u32>>);
     ///
-    /// let baz = Baz(3.14, vec![None, None, Some(123)]);
+    /// let item = Item(3.14, vec![None, None, Some(123)]);
     ///
-    /// let foo = Foo {
-    ///   bar: Bar {
-    ///     baz: baz.clone(),
+    /// let player = Player {
+    ///   inventory: Inventory {
+    ///     item: item.clone(),
     ///   },
     /// };
     ///
-    /// let first_path = ParsedPath::parse(".bar#0").unwrap();
+    /// let first_path = ParsedPath::parse(".inventory#0").unwrap();
     /// let second_path = ParsedPath::parse(".1[2].0").unwrap();
     ///
     /// let joined_path = first_path.join(&second_path);
     ///
-    /// assert_eq!(first_path.element::<Baz>(&foo).unwrap(), &baz);
-    /// assert_eq!(second_path.element::<u32>(&baz).unwrap(), &123);
-    /// assert_eq!(joined_path.element::<u32>(&foo).unwrap(), &123);
+    /// assert_eq!(first_path.element::<Item>(&player).unwrap(), &item);
+    /// assert_eq!(second_path.element::<u32>(&inventory).unwrap(), &123);
+    /// assert_eq!(joined_path.element::<u32>(&player).unwrap(), &123);
     /// ```
     pub fn join(&self, other: &Self) -> ParsedPath {
         ParsedPath(self.0.iter().chain(other.0.iter()).cloned().collect())
