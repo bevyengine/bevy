@@ -92,8 +92,11 @@ pub fn extract_text_cursor(
 
         if !text_layout_info.selection_rects.is_empty() && !sc.is_fully_transparent() {
             let selection_color = sc.to_linear();
+            let selection_corner_radius = cursor_style.selection_corner_radius.clamp(0.0, 0.5);
 
             for selection in text_layout_info.selection_rects.iter() {
+                let radius = selection.height() * selection_corner_radius;
+
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
@@ -111,7 +114,12 @@ pub fn extract_text_cursor(
                         flip_x: false,
                         flip_y: false,
                         border: BorderRect::default(),
-                        border_radius: ResolvedBorderRadius::default(),
+                        border_radius: ResolvedBorderRadius {
+                            top_left: radius,
+                            top_right: radius,
+                            bottom_right: radius,
+                            bottom_left: radius,
+                        },
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
