@@ -13,7 +13,7 @@ large data structure contained in the `AccessibilityNode` component. This create
 conflict with BSN and other methods of spawning complex hierarchies, where composing multiple
 components is the primary means of behavioral reuse.
 
-By putting the label in it's own component, it can be used as a mixin within BSN templates, allowing
+By putting the label in its own component, it can be used as a mixin within BSN templates, allowing
 the label to be added by the widget user rather than the widget author.
 
 Internally, this uses component hooks to sync the `AccessibilityNode` properties with the

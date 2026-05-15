@@ -178,7 +178,7 @@ fn label_changed(
 /// composition in Bevy is component insertion (especially in BSN scenes), and because ``AccessKit``
 /// mandates that all a11y properties be stored in a single data structure, it can be cumbersome
 /// to combine together a11y properties coming from different parts of the code; making the label
-/// it's own component makes it possible to specify the label as a mixin.
+/// its own component makes it possible to specify the label as a mixin.
 ///
 /// Internally, what this does is update the [`AccessibilityNode`] component, using component hooks
 /// which are automatically registered when this component is used.
@@ -189,7 +189,7 @@ fn label_changed(
 pub struct AccessibleLabel(pub String);
 
 impl AccessibleLabel {
-    /// Makes a new [`AccessibleName`] component.
+    /// Makes a new [`AccessibleLabel`] component.
     pub fn new(text: impl Into<String>) -> Self {
         Self(text.into())
     }
