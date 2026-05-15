@@ -323,7 +323,7 @@ pub struct PickingSettings {
     /// Enables or disables picking for window entities.
     pub is_window_picking_enabled: bool,
     /// Maximum time between presses or clicks for them to count as consecutive.
-    pub multi_click_duration: Duration,
+    pub multi_click_interval: Duration,
 }
 
 impl PickingSettings {
@@ -351,7 +351,7 @@ impl Default for PickingSettings {
             is_input_enabled: true,
             is_hover_enabled: true,
             is_window_picking_enabled: true,
-            multi_click_duration: Duration::from_millis(500),
+            multi_click_interval: Duration::from_millis(500),
         }
     }
 }

@@ -921,7 +921,7 @@ pub fn pointer_events(
             PointerAction::Press(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
                 state.clicking.retain(|_, (last_click, _)| {
-                    now - *last_click <= picking_settings.multi_click_duration
+                    now - *last_click <= picking_settings.multi_click_interval
                 });
 
                 // If it's a press, emit a Pressed event and mark the hovered entities as pressed
@@ -956,7 +956,7 @@ pub fn pointer_events(
             PointerAction::Release(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
                 state.clicking.retain(|_, (last_click, _)| {
-                    now - *last_click <= picking_settings.multi_click_duration
+                    now - *last_click <= picking_settings.multi_click_interval
                 });
 
                 // Emit Click and Release events on all the previously hovered entities.
