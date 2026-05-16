@@ -43,9 +43,8 @@ pub fn tonemapping(
     let (camera, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
         view.into_inner();
 
-    if *tonemapping == Tonemapping::None {
-        return;
-    }
+    // NOTE: Do not return early when tonemapping is set to None, as color grading
+    // and auto exposure still depend on this pass.
 
     if !camera.hdr {
         return;
