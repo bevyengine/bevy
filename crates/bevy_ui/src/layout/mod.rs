@@ -165,6 +165,7 @@ pub fn ui_layout_system(
             ui_surface: &mut UiSurface,
             ui_children: &UiChildren,
             added_node_query: &Query<(), Added<Node>>,
+            fixed_nodes_query: &Query<Entity, With<FixedNode>>,
             entity: Entity,
         ) {
             let children_changed = ui_children.is_changed(entity)
@@ -178,11 +179,25 @@ pub fn ui_layout_system(
             if ui_surface.entity_to_taffy.contains_key(&entity)
                 && (added_node_query.contains(entity) || children_changed)
             {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+                ui_surface.update_children(
+                    entity,
+                    ui_children
+                        .iter_ui_children(entity)
+                        .filter(|entity| !fixed_nodes_query.contains(*entity)),
+                );
             }
 
             for child in ui_children.iter_ui_children(entity) {
-                update_children_recursively(ui_surface, ui_children, added_node_query, child);
+                if fixed_nodes_query.contains(child) {
+                    continue;
+                }
+                update_children_recursively(
+                    ui_surface,
+                    ui_children,
+                    added_node_query,
+                    fixed_nodes_query,
+                    child,
+                );
             }
         }
 
@@ -190,6 +205,7 @@ pub fn ui_layout_system(
             &mut ui_surface,
             &ui_children,
             &added_node_query,
+            &fixed_nodes_query,
             ui_root_entity,
         );
 

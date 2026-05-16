@@ -27,6 +27,7 @@ fn setup(mut commands: Commands) {
             BackgroundColor(BLUE.into()),
             Pickable::IGNORE,
             children![(
+                FixedNode,
                 Node {
                     width: px(100),
                     height: px(100),
