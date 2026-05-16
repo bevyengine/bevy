@@ -849,10 +849,11 @@ impl Camera {
 /// This algorithm means that, in most cases, you don't need to add this
 /// [`ShadowLodOrigin`] component explicitly to the scene; usually, Bevy chooses
 /// the right origin automatically. You only need to use this component
-/// explicitly if you have multiple cameras rendering to the window: e.g. a in a
+/// explicitly if you have multiple cameras rendering to the window: e.g. in a
 /// split-screen game.
 #[derive(Clone, Copy, Default, Component, Debug, Reflect)]
 #[reflect(Clone, Default, Component)]
+#[require(Transform)]
 pub struct ShadowLodOrigin;
 
 /// Control how this [`Camera`] outputs once rendering is completed.

@@ -7,7 +7,6 @@ extern crate alloc;
 use bevy_app::{App, Plugin, PostUpdate, Update};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_camera::{
-    self,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
         CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoCpuCulling,
