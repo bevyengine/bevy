@@ -1,7 +1,7 @@
 ---
 title: CompressedImageSaver Improvements
 authors: ["@JMS55", "@cwfitzgerald"]
-pull_requests: [23567]
+pull_requests: [24223]
 ---
 
 Bevy's `CompressedImageSaver` asset processor has been significantly upgraded with a new compression backend powered by the [`ctt`](https://github.com/cwfitzgerald/ctt) library.
