@@ -3065,6 +3065,10 @@ impl ComputedUiRenderTargetInfo {
     }
 }
 
+/// A fixed node is laid out like a root node even if not a root entity.
+#[derive(Component)]
+pub struct FixedNode;
+
 #[cfg(test)]
 mod tests {
     use crate::ComputedNode;
