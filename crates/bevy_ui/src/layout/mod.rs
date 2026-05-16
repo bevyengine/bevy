@@ -3,8 +3,8 @@ use crate::experimental::GhostNode;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
-    Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 #[cfg(feature = "ghost_nodes")]
 use bevy_ecs::query::With;
@@ -13,7 +13,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::Added,
+    query::{Added, Has, With},
     system::{Query, ResMut},
     world::Ref,
 };
@@ -77,6 +77,7 @@ pub enum LayoutError {
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
+    fixed_nodes_query: Query<Entity, With<FixedNode>>,
     ui_children: UiChildren,
     mut node_query: Query<(
         Entity,
@@ -94,6 +95,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Has<FixedNode>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
@@ -158,7 +160,7 @@ pub fn ui_layout_system(
             .filter(|entity| !node_query.contains(*entity)),
     );
 
-    for ui_root_entity in ui_root_node_query.iter() {
+    for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
             ui_children: &UiChildren,
@@ -202,6 +204,7 @@ pub fn ui_layout_system(
 
         update_uinode_geometry_recursive(
             ui_root_entity,
+            ui_root_entity,
             &mut ui_surface,
             true,
             computed_target.physical_size().as_vec2(),
@@ -216,6 +219,7 @@ pub fn ui_layout_system(
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
+        root: Entity,
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
@@ -230,6 +234,7 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
+            Has<FixedNode>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
@@ -245,8 +250,13 @@ pub fn ui_layout_system(
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
+            is_fixed_node,
         )) = node_update_query.get_mut(entity)
         {
+            if is_fixed_node && root != entity {
+                return;
+            }
+
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
@@ -370,6 +380,7 @@ pub fn ui_layout_system(
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
+                    root,
                     child_uinode,
                     ui_surface,
                     use_rounding,

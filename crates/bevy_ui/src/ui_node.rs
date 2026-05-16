@@ -3066,6 +3066,7 @@ impl ComputedUiRenderTargetInfo {
 }
 
 /// A fixed node is laid out like a root node even if not a root entity.
+/// Marker component.
 #[derive(Component)]
 pub struct FixedNode;
 
