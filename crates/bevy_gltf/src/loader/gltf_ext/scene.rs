@@ -1,8 +1,8 @@
 use bevy_ecs::name::Name;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Quat, Vec3};
 use bevy_transform::components::Transform;
 
-use gltf::scene::Node;
+use gltf::{scene::Node, Gltf};
 
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
@@ -10,7 +10,10 @@ use itertools::Itertools;
 #[cfg(feature = "bevy_animation")]
 use bevy_platform::collections::{HashMap, HashSet};
 
-use crate::GltfError;
+use crate::{
+    convert_coordinates::{HierarchyConverter, ResolvedConvertCoordinates},
+    GltfError,
+};
 
 pub(crate) fn node_name(node: &Node) -> Name {
     let name = node
@@ -26,8 +29,8 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-pub(crate) fn node_transform(node: &Node) -> Transform {
-    match node.transform() {
+fn node_transform(node: &Node, conversion: &HierarchyConverter) -> Transform {
+    let unconverted = match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
             Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
         }
@@ -37,10 +40,44 @@ pub(crate) fn node_transform(node: &Node) -> Transform {
             scale,
         } => Transform {
             translation: Vec3::from(translation),
-            rotation: bevy_math::Quat::from_array(rotation),
+            rotation: Quat::from_array(rotation),
             scale: Vec3::from(scale),
         },
+    };
+
+    conversion.convert_transform(unconverted)
+}
+
+/// Returns the parent of each node, indexed by `Node::index`.
+pub(crate) fn node_parents<'a>(gltf: &'a Gltf) -> Vec<Option<Node<'a>>> {
+    let mut parent_indices = vec![Option::<usize>::None; gltf.nodes().len()];
+
+    for node in gltf.nodes() {
+        for child in node.children() {
+            parent_indices[child.index()] = Some(node.index());
+        }
     }
+
+    parent_indices
+        .into_iter()
+        .map(|i| i.and_then(|i| gltf.nodes().nth(i)))
+        .collect()
+}
+
+/// Returns the transform of each node, indexed by `Node::index`.
+pub(crate) fn node_transforms<'a>(
+    gltf: &'a Gltf,
+    parents: &[Option<Node<'a>>],
+    convert_coordinates: &ResolvedConvertCoordinates,
+) -> Vec<Transform> {
+    gltf.nodes()
+        .map(|node| {
+            node_transform(
+                &node,
+                &convert_coordinates.node_hierarchy_converter(&node, parents),
+            )
+        })
+        .collect()
 }
 
 #[cfg_attr(
