@@ -1,5 +1,7 @@
 //! Demonstrates Fixed Node component
 
+use bevy::prelude::*;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -16,5 +18,5 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    comands.spawn((Node { ..default() }, children![(Node {}, FixedNode,)]));
+    commands.spawn((Node::default(), children![(Node::default(), FixedNode)]));
 }
