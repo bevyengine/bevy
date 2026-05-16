@@ -1,7 +1,6 @@
 pub mod access;
 
 pub use access::*;
-use alloc::borrow::Cow;
 
 mod error;
 pub use error::*;
@@ -11,6 +10,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::fmt;
 use derive_more::derive::From;
@@ -471,9 +471,9 @@ impl ParsedPath {
     /// Append a field access to the end of the path.
     ///
     /// [`OffsetAccess::offset`] will be `None` for the added access.
-    pub fn push_field(&mut self, field: &str) -> &mut Self {
+    pub fn push_field(&mut self, field: impl Into<Cow<'static, str>>) -> &mut Self {
         self.0.push(OffsetAccess {
-            access: Access::Field(Cow::Owned(field.into())),
+            access: Access::Field(field.into()),
             offset: None,
         });
         self
