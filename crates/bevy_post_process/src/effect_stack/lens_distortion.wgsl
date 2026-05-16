@@ -6,10 +6,10 @@
 // information on these fields.
 struct LensDistortionSettings {
     intensity: f32,
-    scale: f32,
+    inv_scale: f32,
     multiplier: vec2<f32>,
     center: vec2<f32>,
-    edge_curvature: f32,
+    edge_intensity: f32,
     unused: u32,
 }
 
@@ -24,7 +24,6 @@ fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     if (abs(intensity) < VISUAL_THRESHOLD) {
         return uv;
     }
-    let multiplier = lens_distortion_settings.multiplier;
     let center = lens_distortion_settings.center;
 
     let uv_centered = uv - center;
@@ -32,20 +31,20 @@ fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     let radius = max(length(uv_centered), MATH_EPSILON);
 
     let direction = uv_centered / radius;
-    let adjust = dot(abs(direction), multiplier);
+    let adjust = dot(abs(direction), lens_distortion_settings.multiplier);
 
     // Maintains the correlation between k2 and k1, while ensuring the sign of k2
     // is determined solely by `edge_curvature` rather than being influenced by intensity.
     let k1 = intensity * adjust;
-    let k2 = k1 * intensity * lens_distortion_settings.edge_curvature;
-
+    let k2 = k1 * lens_distortion_settings.edge_intensity;
+    
     let r2 = radius * radius;
     let r_distorted = radius * (1.0 + (k1 + k2 * r2) * r2);
 
     let uv_distorted = direction * r_distorted + center;
 
     // Compensates for the distortion pushing pixels outside the [0,1] UV bounds.
-    let uv_scaled = (uv_distorted - center) / lens_distortion_settings.scale + center;
+    let uv_scaled = (uv_distorted - center) * lens_distortion_settings.inv_scale + center;
 
     // Discard out-of-bounds pixels to prevent edge bleeding artifacts.
     let uv_safe = clamp(uv_scaled, vec2<f32>(0.0), vec2<f32>(1.0));
