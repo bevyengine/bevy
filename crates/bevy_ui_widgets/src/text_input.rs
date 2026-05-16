@@ -433,6 +433,7 @@ fn drag_scroll_text_inputs(
 
     let mut new_scroll =
         (text_scroll.0 + scroll_delta).clamp(Vec2::ZERO, (info.size - view_size).max(Vec2::ZERO));
+    new_scroll.y = new_scroll.y.floor();
     if signed_distance.x == 0. {
         new_scroll.x = text_scroll.0.x;
     }
