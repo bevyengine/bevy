@@ -557,7 +557,7 @@ impl ParsedPath {
     /// let joined_path = first_path.join(&second_path);
     ///
     /// assert_eq!(first_path.element::<Item>(&player).unwrap(), &item);
-    /// assert_eq!(second_path.element::<u32>(&inventory).unwrap(), &123);
+    /// assert_eq!(second_path.element::<u32>(&item).unwrap(), &123);
     /// assert_eq!(joined_path.element::<u32>(&player).unwrap(), &123);
     /// ```
     pub fn join(&self, other: &Self) -> ParsedPath {
