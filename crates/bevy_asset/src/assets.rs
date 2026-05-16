@@ -483,10 +483,7 @@ impl<A: Asset> Assets<A> {
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
-            AssetId::Index { index, .. } => {
-                self.duplicate_handles.remove(&index);
-                self.dense_storage.remove_still_alive(index)
-            }
+            AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
     }
