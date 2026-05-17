@@ -482,9 +482,9 @@ impl Table {
 
     /// Allocates space for a new entity
     ///
-    /// # Panics
-    /// - Panics if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
-    /// - Panics if the allocation forces a reallocation and causes an out-of-memory error.
+    /// # Aborts
+    /// - Aborts if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
+    /// - Aborts if the allocation forces a reallocation and causes an out-of-memory error.
     ///
     /// # Safety
     ///
