@@ -18,10 +18,14 @@ use crate::{
     error::{ErrorContext, ErrorHandler},
     event::EventKey,
     lifecycle::{ComponentHook, HookContext},
+<<<<<<< HEAD
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
-        observer_system_runner, ObserverRunner,
+        observer_system_runner, ObserverRunner, ObserverSet,
     },
+=======
+    observer::{observer_system_runner, ObserverRunner, ObserverSet},
+>>>>>>> 696e89e0d (ecs/observer: add ObserverSet trait, derive, and descriptor edges)
     prelude::*,
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
@@ -29,6 +33,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
+use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
 use crate::prelude::ReflectComponent;
@@ -405,6 +410,34 @@ pub struct ObserverDescriptor {
 
     /// The entities the observer is watching.
     pub(super) entities: Vec<Entity>,
+
+    /// The observer sets this observer belongs to.
+    #[expect(dead_code, reason = "Observer set dispatch is wired in a later phase.")]
+    pub(crate) sets: SmallVec<[crate::intern::Interned<dyn ObserverSet>; 1]>,
+
+    /// Ordering edges declared for this observer.
+    #[expect(dead_code, reason = "Observer edge dispatch is wired in a later phase.")]
+    pub(crate) edges: Vec<ObserverEdge>,
+}
+
+/// An ordering edge declared by an [`ObserverDescriptor`].
+#[derive(Clone, Debug)]
+#[expect(dead_code, reason = "Observer edge dispatch is wired in a later phase.")]
+pub(crate) struct ObserverEdge {
+    /// The source endpoint of the edge.
+    pub from: EdgeTarget,
+    /// The target endpoint of the edge.
+    pub to: EdgeTarget,
+}
+
+/// A public-facing observer ordering edge endpoint.
+#[derive(Clone, Debug)]
+#[expect(dead_code, reason = "Observer edge dispatch is wired in a later phase.")]
+pub(crate) enum EdgeTarget {
+    /// A specific observer entity.
+    Entity(Entity),
+    /// A configured observer set.
+    Set(crate::intern::Interned<dyn ObserverSet>),
 }
 
 impl ObserverDescriptor {
