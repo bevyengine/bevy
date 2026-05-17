@@ -5,9 +5,8 @@
 //! - [`Observers`] contains multiple distinct caches in the form of [`CachedObservers`].
 //!     - Most observers are looked up by the [`ComponentId`] of the event they are observing
 //!     - Lifecycle observers have their own fields to save lookups.
-//! - [`CachedObservers`] contains maps of [`ObserverRunner`]s, which are the actual functions that will be run when the observer is triggered.
+//! - [`CachedObservers`] contains a sorted node table of [`ObserverRunner`]s, which are the actual functions that will be run when the observer is triggered.
 //!     - These are split by target type, in order to allow for different lookup strategies.
-//!     - [`CachedComponentObservers`] is one of these maps, which contains observers that are specifically targeted at a component.
 
 use alloc::{vec, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -173,6 +172,16 @@ pub struct ComponentBucket {
 }
 
 impl ComponentBucket {
+    /// Observers watching for this component regardless of entity target.
+    pub fn global_observers(&self) -> &[NodeId] {
+        &self.globals
+    }
+
+    /// Observers watching for this component on a specific entity.
+    pub fn entity_component_observers(&self) -> &EntityHashMap<SmallVec<[NodeId; 2]>> {
+        &self.by_entity
+    }
+
     fn is_empty(&self) -> bool {
         self.globals.is_empty() && self.by_entity.is_empty()
     }
@@ -183,13 +192,6 @@ impl ComponentBucket {
 /// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
-    /// Observers watching for any time this event is triggered, regardless of target.
-    /// These will also respond to events targeting specific components or entities
-    pub(super) global_observers_legacy: ObserverMap,
-    /// Observers watching for triggers of events for a specific component
-    pub(super) component_observers_legacy: HashMap<ComponentId, CachedComponentObservers>,
-    /// Observers watching for triggers of events for a specific entity
-    pub(super) entity_observers_legacy: EntityHashMap<ObserverMap>,
     nodes: Vec<ObserverNode>,
     order: Vec<NodeId>,
     globals: SmallVec<[NodeId; 4]>,
@@ -203,20 +205,30 @@ pub struct CachedObservers {
 }
 
 impl CachedObservers {
+    /// Returns the observer node table.
+    pub fn nodes(&self) -> &[ObserverNode] {
+        &self.nodes
+    }
+
+    /// Returns the observer node for `node_id`.
+    pub fn observer(&self, node_id: NodeId) -> &ObserverNode {
+        &self.nodes[node_id.index()]
+    }
+
     /// Observers watching for any time this event is triggered, regardless of target.
     /// These will also respond to events targeting specific components or entities
-    pub fn global_observers(&self) -> &ObserverMap {
-        &self.global_observers_legacy
+    pub fn global_observers(&self) -> &[NodeId] {
+        &self.globals
     }
 
     /// Returns observers watching for triggers of events for a specific component.
-    pub fn component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
-        &self.component_observers_legacy
+    pub fn component_observers(&self) -> &HashMap<ComponentId, ComponentBucket> {
+        &self.by_component
     }
 
     /// Returns observers watching for triggers of events for a specific entity.
-    pub fn entity_observers(&self) -> &EntityHashMap<ObserverMap> {
-        &self.entity_observers_legacy
+    pub fn entity_observers(&self) -> &EntityHashMap<SmallVec<[NodeId; 2]>> {
+        &self.by_entity
     }
 
     pub(crate) fn register_observer(
@@ -379,7 +391,6 @@ impl CachedObservers {
             self.dirty = false;
             self.rebuild_order();
             self.sort_indices();
-            self.rebuild_legacy_views();
 
             attempts += 1;
             debug_assert!(attempts <= self.nodes.len().saturating_add(1));
@@ -515,38 +526,6 @@ impl CachedObservers {
         }
     }
 
-    fn rebuild_legacy_views(&mut self) {
-        self.global_observers_legacy = legacy_map_for(&self.nodes, &self.globals);
-
-        self.entity_observers_legacy.clear();
-        for (&entity, nodes) in &self.by_entity {
-            let map = legacy_map_for(&self.nodes, nodes);
-            if !map.is_empty() {
-                self.entity_observers_legacy.insert(entity, map);
-            }
-        }
-
-        self.component_observers_legacy.clear();
-        for (&component, bucket) in &self.by_component {
-            let mut component_observers = CachedComponentObservers::default();
-            component_observers.global_observers = legacy_map_for(&self.nodes, &bucket.globals);
-            for (&entity, nodes) in &bucket.by_entity {
-                let map = legacy_map_for(&self.nodes, nodes);
-                if !map.is_empty() {
-                    component_observers
-                        .entity_component_observers
-                        .insert(entity, map);
-                }
-            }
-            if !component_observers.global_observers.is_empty()
-                || !component_observers.entity_component_observers.is_empty()
-            {
-                self.component_observers_legacy
-                    .insert(component, component_observers);
-            }
-        }
-    }
-
     #[cfg(debug_assertions)]
     fn debug_assert_sorted_indices(&self) {
         let mut positions = vec![usize::MAX; self.nodes.len()];
@@ -568,45 +547,6 @@ impl CachedObservers {
             debug_assert!(is_sorted_by_order(&positions, nodes));
         }
     }
-}
-
-/// Map between an observer entity and its [`ObserverRunner`]
-pub type ObserverMap = EntityHashMap<ObserverRunner>;
-
-/// Collection of [`ObserverRunner`] for [`Observer`](crate::observer::Observer) registered to a particular event targeted at a specific component.
-///
-/// This is stored inside of [`CachedObservers`].
-#[derive(Default, Debug)]
-pub struct CachedComponentObservers {
-    // Observers watching for events targeting this component, but not a specific entity
-    pub(super) global_observers: ObserverMap,
-    // Observers watching for events targeting this component on a specific entity
-    pub(super) entity_component_observers: EntityHashMap<ObserverMap>,
-}
-
-impl CachedComponentObservers {
-    /// Returns observers watching for events targeting this component, but not a specific entity
-    pub fn global_observers(&self) -> &ObserverMap {
-        &self.global_observers
-    }
-
-    /// Returns observers watching for events targeting this component on a specific entity
-    pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
-        &self.entity_component_observers
-    }
-}
-
-fn legacy_map_for<const N: usize>(
-    nodes: &[ObserverNode],
-    node_ids: &SmallVec<[NodeId; N]>,
-) -> ObserverMap {
-    node_ids
-        .iter()
-        .map(|node_id| {
-            let node = nodes[node_id.index()];
-            (node.observer, node.runner)
-        })
-        .collect()
 }
 
 fn push_unique<const N: usize>(nodes: &mut SmallVec<[NodeId; N]>, node_id: NodeId) {

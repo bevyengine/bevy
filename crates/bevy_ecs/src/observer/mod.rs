@@ -578,7 +578,7 @@ mod tests {
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
-        assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
+        assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
         // we have one A entity and two observers
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
         assert_eq!(world.query::<&Observer>().query(&world).count(), 2);
@@ -1475,11 +1475,11 @@ mod tests {
         observer.remove::<Observer>();
         let id = observer.id();
         let event_key = world.event_key::<EventA>().unwrap();
-        assert!(!world
-            .observers
-            .get_observers_mut(event_key)
-            .global_observers_legacy
-            .contains_key(&id));
+        let cache = world.observers.get_observers_mut(event_key);
+        assert!(!cache
+            .global_observers()
+            .iter()
+            .any(|&node_id| cache.observer(node_id).observer == id));
     }
 
     #[test]
@@ -1493,7 +1493,7 @@ mod tests {
         assert!(!world
             .observers
             .get_observers_mut(event_key)
-            .entity_observers_legacy
+            .entity_observers()
             .contains_key(&entity));
     }
 
