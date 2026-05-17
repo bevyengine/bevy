@@ -13,7 +13,7 @@ use bevy_ecs::{
     error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
     message::{message_update_system, MessageCursor},
-    observer::IntoObserver,
+    observer::{IntoObserverConfigs, IntoObserverSetConfigs},
     prelude::*,
     schedule::{
         InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
@@ -1457,8 +1457,23 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
-        self.world_mut().add_observer(observer);
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserverConfigs<M>) -> &mut Self {
+        self.world_mut().add_observers(observer);
+        self
+    }
+
+    /// Adds multiple observers to the app's [`World`].
+    pub fn add_observers<M>(&mut self, observers: impl IntoObserverConfigs<M>) -> &mut Self {
+        self.world_mut().add_observers(observers);
+        self
+    }
+
+    /// Configures observer set hierarchy and ordering.
+    pub fn configure_observer_sets<M>(
+        &mut self,
+        sets: impl IntoObserverSetConfigs<M>,
+    ) -> &mut Self {
+        self.world_mut().configure_observer_sets(sets);
         self
     }
 

@@ -20,13 +20,14 @@ use crate::{
     lifecycle::{ComponentHook, HookContext},
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
-        observer_system_runner, ObserverRunner, ObserverSet,
+        observer_system_runner, IntoObserverOrderingTarget, ObserverRunner, ObserverSet,
     },
     prelude::*,
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 use smallvec::SmallVec;
@@ -326,6 +327,46 @@ impl Observer {
         self
     }
 
+    /// Add this observer to the provided observer set.
+    pub fn in_set<S: ObserverSet>(mut self, set: S) -> Self {
+        self.descriptor.sets.push(set.intern());
+        self
+    }
+
+    /// Run this observer before the observers matching `target`.
+    pub fn before(mut self, target: impl IntoObserverOrderingTarget) -> Self {
+        let target = target.into_observer_ordering_target().into_edge_target();
+        self.before_inner(target);
+        self
+    }
+
+    /// Run this observer after the observers matching `target`.
+    pub fn after(mut self, target: impl IntoObserverOrderingTarget) -> Self {
+        let target = target.into_observer_ordering_target().into_edge_target();
+        self.after_inner(target);
+        self
+    }
+
+    /// Sets a human-readable name for diagnostics.
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.descriptor.name = Some(name.into());
+        self
+    }
+
+    pub(crate) fn before_inner(&mut self, target: EdgeTarget) {
+        self.descriptor.edges.push(ObserverEdge {
+            from: EdgeTarget::Entity(Entity::PLACEHOLDER),
+            to: target,
+        });
+    }
+
+    pub(crate) fn after_inner(&mut self, target: EdgeTarget) {
+        self.descriptor.edges.push(ObserverEdge {
+            from: target,
+            to: EdgeTarget::Entity(Entity::PLACEHOLDER),
+        });
+    }
+
     /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
     /// is triggered.
     /// # Safety
@@ -412,6 +453,9 @@ pub struct ObserverDescriptor {
 
     /// Ordering edges declared for this observer.
     pub(crate) edges: Vec<ObserverEdge>,
+
+    /// Optional human-readable observer name used by diagnostics.
+    pub(crate) name: Option<String>,
 }
 
 /// An ordering edge declared by an [`ObserverDescriptor`].
@@ -427,20 +471,18 @@ pub(crate) struct ObserverEdge {
 #[derive(Clone, Debug)]
 pub(crate) enum EdgeTarget {
     /// A specific observer entity.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "Observer edge constructors are wired with the builder API in a later phase."
-        )
-    )]
     Entity(Entity),
     /// A configured observer set.
-    #[expect(
-        dead_code,
-        reason = "Observer set edge constructors are wired with the builder API in a later phase."
-    )]
     Set(crate::intern::Interned<dyn ObserverSet>),
+}
+
+impl EdgeTarget {
+    pub(crate) fn resolve_owner(self, owner: Entity) -> Self {
+        match self {
+            Self::Entity(entity) if entity == Entity::PLACEHOLDER => Self::Entity(owner),
+            target => target,
+        }
+    }
 }
 
 impl ObserverDescriptor {
