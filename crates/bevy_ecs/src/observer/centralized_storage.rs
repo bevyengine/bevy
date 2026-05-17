@@ -8,7 +8,7 @@
 //! - [`CachedObservers`] contains a sorted node table of [`ObserverRunner`]s, which are the actual functions that will be run when the observer is triggered.
 //!     - These are split by target type, in order to allow for different lookup strategies.
 
-use alloc::{vec, vec::Vec};
+use alloc::{string::String, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::PtrMut;
 use log::{debug, warn};
@@ -20,7 +20,10 @@ use crate::{
     entity::{Entity, EntityHashMap},
     event::EventKey,
     intern::Interned,
-    observer::{EdgeTarget, ObserverDescriptor, ObserverRunner, ObserverSet},
+    observer::{
+        EdgeTarget, IntoObserverOrderingTarget, IntoObserverSetConfigs, ObserverDescriptor,
+        ObserverRunner, ObserverSet, ObserverSetConfigs,
+    },
     schedule::graph::{DiGraph, DiGraphToposortError, Direction, GraphNodeId},
     world::DeferredWorld,
 };
@@ -44,9 +47,10 @@ pub struct Observers {
     despawn: CachedObservers,
     // Map from event type to set of observers watching for that event
     cache: HashMap<EventKey, CachedObservers>,
-    // Observer set hierarchy declarations. Populated by observer set configuration in a later phase.
-    #[expect(dead_code, reason = "Observer set dispatch is wired in a later phase.")]
+    // Observer set hierarchy declarations, keyed by child set with parent sets as values.
     set_hierarchy: HashMap<Interned<dyn ObserverSet>, SmallVec<[Interned<dyn ObserverSet>; 2]>>,
+    // Observer set ordering edges, stored as (before, after).
+    set_edges: Vec<(Interned<dyn ObserverSet>, Interned<dyn ObserverSet>)>,
 }
 
 impl Observers {
@@ -59,7 +63,13 @@ impl Observers {
             DISCARD => &mut self.discard,
             REMOVE => &mut self.remove,
             DESPAWN => &mut self.despawn,
-            _ => self.cache.entry(event_key).or_default(),
+            _ => {
+                let set_hierarchy = self.set_hierarchy.clone();
+                let set_edges = self.set_edges.clone();
+                self.cache
+                    .entry(event_key)
+                    .or_insert_with(|| CachedObservers::with_set_config(set_hierarchy, set_edges))
+            }
         }
     }
 
@@ -140,6 +150,89 @@ impl Observers {
             flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
     }
+
+    /// Configure observer set hierarchy and set ordering.
+    pub fn configure_observer_sets<M>(&mut self, sets: impl IntoObserverSetConfigs<M>) {
+        let mut configs = sets.into_configs();
+        configs.add_chain_edges();
+        self.apply_observer_set_configs(&configs);
+    }
+
+    fn apply_observer_set_configs(&mut self, configs: &ObserverSetConfigs) {
+        for &(child, parent) in &configs.hierarchy {
+            push_unique_set(self.set_hierarchy.entry(child).or_default(), parent);
+        }
+        for &edge in &configs.edges {
+            push_unique_edge(&mut self.set_edges, edge);
+        }
+
+        self.add.configure_observer_sets(configs);
+        self.insert.configure_observer_sets(configs);
+        self.discard.configure_observer_sets(configs);
+        self.remove.configure_observer_sets(configs);
+        self.despawn.configure_observer_sets(configs);
+        for cache in self.cache.values_mut() {
+            cache.configure_observer_sets(configs);
+        }
+    }
+
+    /// Returns observer entities for `event_key` in dispatch order.
+    pub fn dispatch_order_for(&self, event_key: EventKey) -> &[Entity] {
+        self.try_get_observers(event_key)
+            .map_or(&[], CachedObservers::dispatch_order_for)
+    }
+
+    /// Returns observer entities in `set` for `event_key` in dispatch order.
+    pub fn dispatch_order_for_set<S: IntoObserverOrderingTarget>(
+        &self,
+        event_key: EventKey,
+        set: S,
+    ) -> Vec<Entity> {
+        let EdgeTarget::Set(set) = set.into_observer_ordering_target().into_edge_target() else {
+            return Vec::new();
+        };
+        self.try_get_observers(event_key)
+            .map_or_else(Vec::new, |cache| cache.dispatch_order_for_set(set))
+    }
+
+    /// Returns observers for `target` and `event_key` in dispatch order.
+    pub fn dispatch_order_for_target(&self, event_key: EventKey, target: Entity) -> Vec<Entity> {
+        self.try_get_observers(event_key)
+            .map_or_else(Vec::new, |cache| cache.dispatch_order_for_target(target))
+    }
+
+    /// Returns observer entities and optional names for `event_key` in dispatch order.
+    pub fn dispatch_order_for_with_names(&self, event_key: EventKey) -> Vec<(Entity, Option<&str>)> {
+        self.try_get_observers(event_key)
+            .map_or_else(Vec::new, CachedObservers::dispatch_order_for_with_names)
+    }
+
+    /// Returns named dispatch-order diagnostics for observers in `set`.
+    pub fn dispatch_order_for_set_with_names<S: IntoObserverOrderingTarget>(
+        &self,
+        event_key: EventKey,
+        set: S,
+    ) -> Vec<(Entity, Option<&str>)> {
+        let EdgeTarget::Set(set) = set.into_observer_ordering_target().into_edge_target() else {
+            return Vec::new();
+        };
+        self.try_get_observers(event_key)
+            .map_or_else(Vec::new, |cache| {
+                cache.dispatch_order_for_set_with_names(set)
+            })
+    }
+
+    /// Returns named dispatch-order diagnostics for observers watching `target`.
+    pub fn dispatch_order_for_target_with_names(
+        &self,
+        event_key: EventKey,
+        target: Entity,
+    ) -> Vec<(Entity, Option<&str>)> {
+        self.try_get_observers(event_key)
+            .map_or_else(Vec::new, |cache| {
+                cache.dispatch_order_for_target_with_names(target)
+            })
+    }
 }
 
 /// Identifier for an observer node in [`CachedObservers`].
@@ -167,12 +260,13 @@ impl GraphNodeId for NodeId {
 }
 
 /// Observer data stored once per registered observer/event-key pair.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ObserverNode {
     /// The entity that owns the observer component.
     pub observer: Entity,
     /// The function used to run the observer.
     pub runner: ObserverRunner,
+    name: Option<String>,
     sort_key: u64,
 }
 
@@ -218,13 +312,27 @@ pub struct CachedObservers {
     by_entity: EntityHashMap<SmallVec<[NodeId; 2]>>,
     by_component: HashMap<ComponentId, ComponentBucket>,
     sets: HashMap<Interned<dyn ObserverSet>, SmallVec<[NodeId; 4]>>,
+    set_hierarchy: HashMap<Interned<dyn ObserverSet>, SmallVec<[Interned<dyn ObserverSet>; 2]>>,
+    set_edges: Vec<(Interned<dyn ObserverSet>, Interned<dyn ObserverSet>)>,
     edges: Vec<ObserverEdgeResolved>,
     observer_to_node: EntityHashMap<NodeId>,
+    dispatch_order: Vec<Entity>,
     dirty: bool,
     next_sort_key: u64,
 }
 
 impl CachedObservers {
+    fn with_set_config(
+        set_hierarchy: HashMap<Interned<dyn ObserverSet>, SmallVec<[Interned<dyn ObserverSet>; 2]>>,
+        set_edges: Vec<(Interned<dyn ObserverSet>, Interned<dyn ObserverSet>)>,
+    ) -> Self {
+        Self {
+            set_hierarchy,
+            set_edges,
+            ..Default::default()
+        }
+    }
+
     /// Returns the observer node table.
     pub fn nodes(&self) -> &[ObserverNode] {
         &self.nodes
@@ -277,6 +385,97 @@ impl CachedObservers {
             .map_or(&[], SmallVec::as_slice)
     }
 
+    /// Returns observer entities in dispatch order.
+    pub fn dispatch_order_for(&self) -> &[Entity] {
+        &self.dispatch_order
+    }
+
+    /// Returns observer entities in `set` in dispatch order.
+    pub fn dispatch_order_for_set(&self, set: Interned<dyn ObserverSet>) -> Vec<Entity> {
+        let nodes = self.resolve_set_target(&set);
+        self.order
+            .iter()
+            .filter(|node_id| nodes.contains(node_id))
+            .map(|node_id| self.nodes[node_id.index()].observer)
+            .collect()
+    }
+
+    /// Returns observer entities watching `target` in dispatch order.
+    pub fn dispatch_order_for_target(&self, target: Entity) -> Vec<Entity> {
+        self.by_entity
+            .get(&target)
+            .into_iter()
+            .flat_map(|nodes| nodes.iter())
+            .map(|node_id| self.nodes[node_id.index()].observer)
+            .collect()
+    }
+
+    /// Returns observer entities and optional names in dispatch order.
+    pub fn dispatch_order_for_with_names(&self) -> Vec<(Entity, Option<&str>)> {
+        self.order
+            .iter()
+            .map(|node_id| {
+                let node = &self.nodes[node_id.index()];
+                (node.observer, node.name.as_deref())
+            })
+            .collect()
+    }
+
+    /// Returns named diagnostics for observer entities in `set` in dispatch order.
+    pub fn dispatch_order_for_set_with_names(
+        &self,
+        set: Interned<dyn ObserverSet>,
+    ) -> Vec<(Entity, Option<&str>)> {
+        let nodes = self.resolve_set_target(&set);
+        self.order
+            .iter()
+            .filter(|node_id| nodes.contains(node_id))
+            .map(|node_id| {
+                let node = &self.nodes[node_id.index()];
+                (node.observer, node.name.as_deref())
+            })
+            .collect()
+    }
+
+    /// Returns named diagnostics for observer entities watching `target` in dispatch order.
+    pub fn dispatch_order_for_target_with_names(
+        &self,
+        target: Entity,
+    ) -> Vec<(Entity, Option<&str>)> {
+        self.by_entity
+            .get(&target)
+            .into_iter()
+            .flat_map(|nodes| nodes.iter())
+            .map(|node_id| {
+                let node = &self.nodes[node_id.index()];
+                (node.observer, node.name.as_deref())
+            })
+            .collect()
+    }
+
+    pub(crate) fn configure_observer_sets(&mut self, configs: &ObserverSetConfigs) {
+        let mut changed = false;
+        for &(child, parent) in &configs.hierarchy {
+            let parents = self.set_hierarchy.entry(child).or_default();
+            if !parents.contains(&parent) {
+                parents.push(parent);
+                changed = true;
+            }
+        }
+        for &edge in &configs.edges {
+            if !self.set_edges.contains(&edge) {
+                self.set_edges.push(edge);
+                changed = true;
+            }
+        }
+
+        if changed {
+            self.dirty = true;
+            self.resort();
+        }
+    }
+
+
     pub(crate) fn register_observer(
         &mut self,
         observer: Entity,
@@ -291,6 +490,7 @@ impl CachedObservers {
         self.nodes.push(ObserverNode {
             observer,
             runner,
+            name: descriptor.name.clone(),
             sort_key: self.next_sort_key,
         });
         self.next_sort_key = self.next_sort_key.wrapping_add(1);
@@ -328,8 +528,8 @@ impl CachedObservers {
         for edge in &descriptor.edges {
             self.edges.push(ObserverEdgeResolved {
                 owner: observer,
-                from: edge.from.clone(),
-                to: edge.to.clone(),
+                from: edge.from.clone().resolve_owner(observer),
+                to: edge.to.clone().resolve_owner(observer),
             });
         }
 
@@ -432,6 +632,13 @@ impl CachedObservers {
             return;
         }
 
+        #[cfg(feature = "trace")]
+        let _span = {
+            let nodes = self.nodes.len();
+            let named = self.nodes.iter().filter(|node| node.name.is_some()).count();
+            tracing::trace_span!("observer_resort", nodes = nodes, named = named).entered()
+        };
+
         let mut attempts = 0;
         while self.dirty {
             self.dirty = false;
@@ -448,7 +655,8 @@ impl CachedObservers {
 
     fn rebuild_order(&mut self) {
         let insertion_order = self.insertion_order();
-        let mut graph = DiGraph::<NodeId>::with_capacity(self.nodes.len(), self.edges.len());
+        let mut graph =
+            DiGraph::<NodeId>::with_capacity(self.nodes.len(), self.edges.len() + self.set_edges.len());
 
         for &node_id in insertion_order.iter().rev() {
             graph.add_node(node_id);
@@ -465,10 +673,30 @@ impl CachedObservers {
             }
         }
 
+        for nodes in self.sets.values() {
+            let mut nodes = nodes.iter().copied().collect::<Vec<_>>();
+            nodes.sort_by_key(|node_id| self.nodes[node_id.index()].sort_key);
+            for pair in nodes.windows(2) {
+                graph.add_edge(pair[0], pair[1]);
+            }
+        }
+
+        for &(from_set, to_set) in &self.set_edges {
+            let from_nodes = self.resolve_set_target(&from_set);
+            let to_nodes = self.resolve_set_target(&to_set);
+
+            for &from in &from_nodes {
+                for &to in &to_nodes {
+                    graph.add_edge(from, to);
+                }
+            }
+        }
+
         match graph.toposort(Vec::new()) {
             Ok(order) => {
                 debug_assert_eq!(order.len(), self.nodes.len());
                 self.order = order;
+                self.refresh_dispatch_order();
             }
             Err(error) => {
                 let cycle_members = self.cycle_members(&error);
@@ -476,6 +704,7 @@ impl CachedObservers {
                     "observer ordering graph contains a cycle involving {cycle_members:?}; falling back to registration order"
                 );
                 self.order = insertion_order;
+                self.refresh_dispatch_order();
 
                 #[cfg(test)]
                 debug_assert!(false, "observer ordering graph contains a cycle: {error:?}");
@@ -498,13 +727,52 @@ impl CachedObservers {
                 .into_iter()
                 .collect(),
             EdgeTarget::Set(set) => {
-                let Some(nodes) = self.sets.get(set) else {
+                let nodes = self.resolve_set_target(set);
+                if nodes.is_empty() {
                     debug!("observer ordering edge references empty set {set:?}");
                     return SmallVec::new();
-                };
-                nodes.iter().copied().collect()
+                }
+                nodes
             }
         }
+    }
+
+    fn resolve_set_target(
+        &self,
+        set: &Interned<dyn ObserverSet>,
+    ) -> SmallVec<[NodeId; 4]> {
+        let mut resolved = SmallVec::new();
+        let mut visited = Vec::new();
+        let mut stack = vec![*set];
+
+        while let Some(current) = stack.pop() {
+            if visited.contains(&current) {
+                continue;
+            }
+            visited.push(current);
+
+            if let Some(nodes) = self.sets.get(&current) {
+                for &node_id in nodes {
+                    push_unique(&mut resolved, node_id);
+                }
+            }
+
+            for (&child, parents) in &self.set_hierarchy {
+                if parents.contains(&current) {
+                    stack.push(child);
+                }
+            }
+        }
+
+        resolved
+    }
+
+    fn refresh_dispatch_order(&mut self) {
+        self.dispatch_order = self
+            .order
+            .iter()
+            .map(|node_id| self.nodes[node_id.index()].observer)
+            .collect();
     }
 
     fn cycle_members(&self, error: &DiGraphToposortError<NodeId>) -> Vec<Vec<Entity>> {
@@ -699,6 +967,24 @@ pub(crate) unsafe fn run_ordered<const N: usize>(
 fn push_unique<const N: usize>(nodes: &mut SmallVec<[NodeId; N]>, node_id: NodeId) {
     if !nodes.contains(&node_id) {
         nodes.push(node_id);
+    }
+}
+
+fn push_unique_set<const N: usize>(
+    sets: &mut SmallVec<[Interned<dyn ObserverSet>; N]>,
+    set: Interned<dyn ObserverSet>,
+) {
+    if !sets.contains(&set) {
+        sets.push(set);
+    }
+}
+
+fn push_unique_edge(
+    edges: &mut Vec<(Interned<dyn ObserverSet>, Interned<dyn ObserverSet>)>,
+    edge: (Interned<dyn ObserverSet>, Interned<dyn ObserverSet>),
+) {
+    if !edges.contains(&edge) {
+        edges.push(edge);
     }
 }
 
