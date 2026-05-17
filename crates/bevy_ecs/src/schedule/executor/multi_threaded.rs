@@ -813,24 +813,45 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|ConditionWithAccess { condition, .. }| {
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
-                .unwrap_or_else(|err| {
-                    if let RunSystemError::Failed(err) = err {
-                        error_handler(
-                            err,
-                            ErrorContext::RunCondition {
-                                name: condition.name(),
-                                last_run: condition.get_last_run(),
-                                system: for_system.name(),
-                                on_set,
-                            },
-                        );
-                    };
-                    false
-                })
+            let result = std::panic::catch_unwind(AssertUnwindSafe(||
+                // SAFETY:
+                // - The caller ensures that `world` has permission to read any data
+                //   required by the condition.
+                unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
+                    .unwrap_or_else(|err| {
+                        if let RunSystemError::Failed(err) = err {
+                            error_handler(
+                                err,
+                                ErrorContext::RunCondition {
+                                    name: condition.name(),
+                                    last_run: condition.get_last_run(),
+                                    system: for_system.name(),
+                                    on_set,
+                                },
+                            );
+                        };
+                        false
+                    })
+            ));
+            match result {
+                Ok(r) => r,
+                Err(_) => {
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
+                        BevyError::new_with_backtrace(
+                            Severity::Panic,
+                            "Encountered panic",
+                            Backtrace::disabled(),
+                        ),
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    );false
+                }
+            }
         })
         .fold(true, |acc, res| acc && res)
 }
