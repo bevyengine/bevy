@@ -31,6 +31,7 @@ pub fn try_codegen<T: Parse + BsnTokenStream>(input: TokenStream) -> syn::Result
         bevy_scene: &bevy_scene,
         bevy_ecs: &bevy_ecs,
         entity_refs: &mut entity_refs,
+        invocation_index: syn::parse_quote!(("", 0, 0)),
         hoisted_expressions: &mut hoisted_expressions,
         errors: Vec::new(),
     };
