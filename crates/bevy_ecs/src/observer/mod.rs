@@ -1539,7 +1539,9 @@ mod tests {
         world.init_resource::<Order>();
 
         let a = world
-            .add_observer(|_: On<EventA>, mut order: ResMut<Order>| order.observed("a"))
+            .add_observer(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            })
             .id();
         world.spawn(
             Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
@@ -1563,7 +1565,7 @@ mod tests {
         world
             .entity_mut(a)
             .insert(Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
-                order.observed("a")
+                order.observed("a");
             }));
 
         world.trigger(EventA);
@@ -1581,7 +1583,9 @@ mod tests {
         world.init_resource::<Order>();
 
         world.spawn(
-            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("x"))
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("x");
+            })
                 .in_set(SetA)
                 .in_set(SetB),
         );
@@ -1681,7 +1685,9 @@ mod tests {
         let target = world.spawn_empty().id();
 
         let global = world
-            .add_observer(|_: On<EntityEventA>, mut order: ResMut<Order>| order.observed("global"))
+            .add_observer(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("global");
+            })
             .id();
         world.spawn(
             Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
@@ -1835,9 +1841,15 @@ mod tests {
 
         world.add_observers(
             (
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("a")),
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("b")),
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("c")),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("c");
+                }),
             )
                 .chain(),
         );
@@ -1855,8 +1867,12 @@ mod tests {
         world.init_resource::<Order>();
         world.add_observers(
             (
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("a")),
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("b")),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                }),
             )
                 .in_set(SetA),
         );
@@ -1876,13 +1892,19 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
         let c = world
-            .add_observer(|_: On<EventA>, mut order: ResMut<Order>| order.observed("c"))
+            .add_observer(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("c");
+            })
             .id();
 
         world.add_observers(
             (
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("a")),
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("b")),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                }),
             )
                 .after(c),
         );
@@ -2021,8 +2043,12 @@ mod tests {
         );
         world.add_observers(
             (
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("c")),
-                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| order.observed("d")),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("c");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("d");
+                }),
             )
                 .chain()
                 .after(SetB),
