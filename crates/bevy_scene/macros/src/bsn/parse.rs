@@ -426,6 +426,27 @@ impl Parse for BsnValue {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Brace) {
             BsnValue::Expr(braced_tokens(input)?)
+        } else if input.peek(Token![const]) && input.peek2(Brace) {
+            let const_token = input.parse::<Token![const]>()?;
+            let braced = braced_tokens(input)?;
+
+            BsnValue::Expr(quote! {#const_token {#braced}})
+        } else if input.peek(Token![unsafe]) && input.peek2(Brace) {
+            let unsafe_token = input.parse::<Token![unsafe]>()?;
+            let braced = braced_tokens(input)?;
+
+            BsnValue::Expr(quote! {#unsafe_token {#braced}})
+        } else if input.peek(Token![async]) && input.peek2(Brace) {
+            let async_token = input.parse::<Token![async]>()?;
+            let braced = braced_tokens(input)?;
+
+            BsnValue::Expr(quote! {#async_token {#braced}})
+        } else if input.peek(Token![async]) && input.peek2(Token![move]) && input.peek3(Brace) {
+            let async_token = input.parse::<Token![async]>()?;
+            let move_token = input.parse::<Token![move]>()?;
+            let braced = braced_tokens(input)?;
+
+            BsnValue::Expr(quote! {#async_token #move_token {#braced}})
         } else if input.peek(Token![|]) {
             let tokens = parse_closure_loose(input)?;
             BsnValue::Closure(tokens)
