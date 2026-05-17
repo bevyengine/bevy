@@ -11,7 +11,7 @@ use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
-    hierarchy::Children,
+    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
     system::{Query, ResMut},
@@ -77,7 +77,7 @@ pub enum LayoutError {
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
-    fixed_nodes_query: Query<Entity, With<FixedNode>>,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
     mut node_query: Query<(
         Entity,
@@ -165,7 +165,7 @@ pub fn ui_layout_system(
             ui_surface: &mut UiSurface,
             ui_children: &UiChildren,
             added_node_query: &Query<(), Added<Node>>,
-            fixed_nodes_query: &Query<Entity, With<FixedNode>>,
+            fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<ChildOf>)>,
             entity: Entity,
         ) {
             let children_changed = ui_children.is_changed(entity)
