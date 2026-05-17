@@ -457,6 +457,12 @@
 //! Rust requires fields to define a lifetime for referenced data,
 //! but [`Reflect`] requires all types to have a `'static` lifetime.
 //! This makes it impossible to reflect any type with non-static borrowed data.
+//! Reference support is therefore limited to specific `'static` reference types implemented by this
+//! crate, such as `&'static str` and `&'static Path`.
+//! Arbitrary reference fields like `&'a T`, `&'static T`, or `&'static mut T`
+//! do not automatically implement [`Reflect`] just because `T` does.
+//! If reflected data needs to refer to external values, prefer storing an owned value,
+//! an asset handle, or another stable identifier that can be resolved outside reflection.
 //!
 //! ## Generic Function Reflection
 //!
