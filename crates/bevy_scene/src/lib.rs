@@ -1874,7 +1874,7 @@ mod tests {
     }
 
     #[test]
-    fn scene_component_name_reference() {
+    fn tuple_scene_component_name_reference() {
         #[derive(SceneComponent, FromTemplate)]
         struct Widget(pub Entity);
 
@@ -1885,10 +1885,10 @@ mod tests {
         }
 
         let scene = bsn! {
-          #Name
-          Children [
-              :Widget(#Name)
-          ]
+            #Name
+            Children [
+                :Widget(#Name)
+            ]
         };
 
         let mut app = test_app();
@@ -1897,6 +1897,148 @@ mod tests {
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Widget>().unwrap();
+        assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn named_scene_component_name_reference() {
+        #[derive(SceneComponent, FromTemplate)]
+        struct Widget {
+            entity: Entity,
+        }
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        let scene = bsn! {
+            #Name
+            Children [
+                :Widget{
+                    entity: #Name
+                }
+            ]
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(scene).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Widget>().unwrap();
+        assert_eq!(child_widget.entity, entity);
+    }
+
+    #[test]
+    fn scene_function_name_reference() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, FromTemplate)]
+        struct Reference(Entity);
+        fn widget(entity: EntityTemplate) -> impl Scene {
+            bsn! {
+                Reference(entity)
+            }
+        }
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let inherit_pass_expr = bsn! {
+            #Name
+            Children [
+                :widget(#{Entity::PLACEHOLDER})
+            ]
+        };
+        let entity = world.spawn_scene(inherit_pass_expr).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        let noninherit_pass_expr = bsn! {
+            #Name
+            Children [
+                widget(#{Entity::PLACEHOLDER})
+            ]
+        };
+        let entity = world.spawn_scene(noninherit_pass_expr).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        let inherit_pass_name = bsn! {
+            #Name
+            Children [
+                :widget(#Name)
+            ]
+        };
+        let entity = world.spawn_scene(inherit_pass_name).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, entity);
+        let noninherit_pass_name = bsn! {
+            #Name
+            Children [
+                widget(#Name)
+            ]
+        };
+        let entity = world.spawn_scene(noninherit_pass_name).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn scene_component_prop_name_reference() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, FromTemplate)]
+        struct Reference(Entity);
+
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(WidgetProps)]
+        struct Widget;
+
+        #[derive(Default)]
+        struct WidgetProps {
+            entity: EntityTemplate,
+        }
+
+        impl Widget {
+            fn scene(props: WidgetProps) -> impl Scene {
+                bsn! {
+                    Reference(#{props.entity})
+                }
+            }
+        }
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let prop_expr = bsn! {
+            Children [
+                :Widget {
+                    @entity: Entity::PLACEHOLDER
+                }
+            ]
+        };
+        let entity = world.spawn_scene(prop_expr).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        let scene_prop = bsn! {
+            #Name
+            Children [
+                :Widget {
+                    @entity: #Name
+                }
+            ]
+        };
+        let entity = world.spawn_scene(scene_prop).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
     }
 
