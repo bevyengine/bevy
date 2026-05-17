@@ -1862,6 +1862,36 @@ mod tests {
     }
 
     #[test]
+    fn observer_cross_bucket_set_chain_ordering() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB).chain());
+        let target = world.spawn_empty().id();
+
+        world.spawn(
+            Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("global");
+            })
+            .in_set(SetB),
+        );
+        world.spawn(
+            Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("entity");
+            })
+            .with_entity(target)
+            .in_set(SetA),
+        );
+
+        world.trigger(EntityEventA(target));
+        assert_eq!(vec!["entity", "global"], world.resource::<Order>().0);
+    }
+
+    #[test]
     fn observer_lifecycle_archetype_flag_unchanged() {
         let mut world = World::new();
         let component = world.register_component::<A>();
