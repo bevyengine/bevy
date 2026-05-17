@@ -544,16 +544,18 @@ impl MeshAllocator {
         let vertex_key = MeshAllocationKey::new(*mesh_id, ElementClass::Vertex);
         let vertex_size = mesh.get_vertex_buffer_size() as u64;
         let has_vertex = self.slab_allocator.key_to_slab.contains_key(&vertex_key);
-        if has_vertex != (vertex_size > 0) {
-            return false;
-        }
-
-        let layout = ElementLayout::vertex(mesh_vertex_buffer_layouts, mesh);
-        if !self
-            .slab_allocator
-            .is_reusable(&vertex_key, vertex_size, &layout)
-        {
-            return false;
+        match (has_vertex, vertex_size > 0) {
+            (false, false) => {}
+            (true, true) => {
+                let layout = ElementLayout::vertex(mesh_vertex_buffer_layouts, mesh);
+                if !self
+                    .slab_allocator
+                    .is_reusable(&vertex_key, vertex_size, &layout)
+                {
+                    return false;
+                }
+            }
+            _ => return false,
         }
 
         let index_key = MeshAllocationKey::new(*mesh_id, ElementClass::Index);
