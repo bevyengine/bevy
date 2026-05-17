@@ -184,3 +184,63 @@ fn fast_atan2(y: f32, x: f32) -> f32 {
 
     return t3;
 }
+
+// https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_disk.fs
+// Solves c3*x^3 + c2*x^2 + c1*x + c0 = 0, assuming there are three real roots.
+fn solve_cubic(coefficients: vec4<f32>) -> vec3<f32> {
+    var coeff = coefficients;
+
+    // Normalize the polynomial
+    coeff = vec4<f32>(coeff.xyz / coeff.w, coeff.w);
+    // Divide middle coefficients by three
+    coeff = vec4<f32>(coeff.x, coeff.yz / 3.0, coeff.w);
+
+    let A = coeff.w;
+    let B = coeff.z;
+    let C = coeff.y;
+    let D = coeff.x;
+
+    // Compute the Hessian and the discriminant
+    let delta = vec3<f32>(
+        -coeff.z * coeff.z + coeff.y,
+        -coeff.y * coeff.z + coeff.x,
+        dot(vec2<f32>(coeff.z, -coeff.y), coeff.xy)
+    );
+
+    // Clamp discriminants to 0, assuming it only goes negative because of precision errors
+    let discriminant = max(dot(vec2<f32>(4.0 * delta.x, -delta.y), delta.zy), 0.0);
+
+    // Algorithm A
+    let C_a = delta.x;
+    let D_a = -2.0 * B * delta.x + delta.y;
+    let theta_a = atan2(sqrt(discriminant), -D_a) / 3.0;
+    let x_1a = 2.0 * sqrt(-C_a) * cos(theta_a);
+    let x_3a = 2.0 * sqrt(-C_a) * cos(theta_a + (2.0 / 3.0) * PI);
+    let xl = select(x_3a, x_1a, (x_1a + x_3a) > 2.0 * B);
+    let xlc = vec2<f32>(xl - B, A);
+
+    // Algorithm D
+    let C_d = delta.z;
+    let D_d = -D * delta.y + 2.0 * C * delta.z;
+    let theta_d = atan2(D * sqrt(discriminant), -D_d) / 3.0;
+    let x_1d = 2.0 * sqrt(-C_d) * cos(theta_d);
+    let x_3d = 2.0 * sqrt(-C_d) * cos(theta_d + (2.0 / 3.0) * PI);
+    let xs = select(x_3d, x_1d, (x_1d + x_3d) < 2.0 * C);
+    let xsc = vec2<f32>(-D, xs + C);
+
+    let E =  xlc.y * xsc.y;
+    let F = -xlc.x * xsc.y - xlc.y * xsc.x;
+    let G =  xlc.x * xsc.x;
+
+    let xmc = vec2<f32>(C * F - B * G, -B * F + C * E);
+
+    var root = vec3<f32>(xsc.x / xsc.y, xmc.x / xmc.y, xlc.x / xlc.y);
+
+    if (root.x < root.y && root.x < root.z) {
+        root = root.yxz;
+    } else if (root.z < root.x && root.z < root.y) {
+        root = root.xzy;
+    }
+
+    return root;
+}
