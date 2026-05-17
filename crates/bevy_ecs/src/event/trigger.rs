@@ -4,7 +4,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{EntityEvent, Event},
-    observer::{CachedObservers, TriggerContext},
+    observer::{CachedObservers, NodeId, TriggerContext},
     traversal::Traversal,
     world::DeferredWorld,
 };
@@ -55,6 +55,28 @@ pub unsafe trait Trigger<E: Event> {
     );
 }
 
+/// # Safety
+/// - `world` must be the world that `observers` came from.
+/// - `node_id` must identify an observer in `observers` that is compatible with `event` and `trigger`.
+/// - `event` must point to an [`Event`].
+/// - `trigger` must correspond to the [`Event::Trigger`] type expected by `event`.
+/// - `trigger_context`'s [`TriggerContext::event_key`] must correspond to the `event` type.
+#[inline]
+unsafe fn run_observer_node(
+    world: DeferredWorld,
+    observers: &CachedObservers,
+    node_id: NodeId,
+    trigger_context: &TriggerContext,
+    event: PtrMut,
+    trigger: PtrMut,
+) {
+    let node = observers.observer(node_id);
+    // SAFETY: The caller upholds the observer runner's safety contract.
+    unsafe {
+        (node.runner)(world, node.observer, trigger_context, event, trigger);
+    }
+}
+
 /// A [`Trigger`] that runs _every_ "global" [`Observer`](crate::observer::Observer) (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
 /// that matches the given [`Event`].
 ///
@@ -101,7 +123,7 @@ impl GlobalTrigger {
         unsafe {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
-        for (observer, runner) in observers.global_observers() {
+        for &node_id in observers.global_observers() {
             // SAFETY:
             // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
             // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
@@ -109,9 +131,10 @@ impl GlobalTrigger {
             // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
             // - this abides by the nuances defined in the `Trigger` safety docs
             unsafe {
-                (runner)(
+                run_observer_node(
                     world.reborrow(),
-                    *observer,
+                    observers,
+                    node_id,
                     trigger_context,
                     event.reborrow(),
                     self.into(),
@@ -185,16 +208,17 @@ pub unsafe fn trigger_entity_internal(
     unsafe {
         world.as_unsafe_world_cell().increment_trigger_id();
     }
-    for (observer, runner) in observers.global_observers() {
+    for &node_id in observers.global_observers() {
         // SAFETY:
         // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
         // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
         // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
         unsafe {
-            (runner)(
+            run_observer_node(
                 world.reborrow(),
-                *observer,
+                observers,
+                node_id,
                 trigger_context,
                 event.reborrow(),
                 trigger.reborrow(),
@@ -202,17 +226,18 @@ pub unsafe fn trigger_entity_internal(
         }
     }
 
-    if let Some(map) = observers.entity_observers().get(&target_entity) {
-        for (observer, runner) in map {
+    if let Some(nodes) = observers.entity_observers().get(&target_entity) {
+        for &node_id in nodes {
             // SAFETY:
             // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
             // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
             // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
             // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
             unsafe {
-                (runner)(
+                run_observer_node(
                     world.reborrow(),
-                    *observer,
+                    observers,
+                    node_id,
                     trigger_context,
                     event.reborrow(),
                     trigger.reborrow(),
@@ -478,16 +503,17 @@ impl<'a> EntityComponentsTrigger<'a> {
         // Trigger observers watching for a specific component
         for id in self.components {
             if let Some(component_observers) = observers.component_observers().get(id) {
-                for (observer, runner) in component_observers.global_observers() {
+                for &node_id in component_observers.global_observers() {
                     // SAFETY:
                     // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
                     // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
                     // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
                     // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
                     unsafe {
-                        (runner)(
+                        run_observer_node(
                             world.reborrow(),
-                            *observer,
+                            observers,
+                            node_id,
                             trigger_context,
                             event.reborrow(),
                             self.into(),
@@ -499,16 +525,17 @@ impl<'a> EntityComponentsTrigger<'a> {
                     .entity_component_observers()
                     .get(&entity)
                 {
-                    for (observer, runner) in map {
+                    for &node_id in map {
                         // SAFETY:
                         // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
                         // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
                         // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
                         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
                         unsafe {
-                            (runner)(
+                            run_observer_node(
                                 world.reborrow(),
-                                *observer,
+                                observers,
+                                node_id,
                                 trigger_context,
                                 event.reborrow(),
                                 self.into(),
