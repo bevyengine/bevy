@@ -202,7 +202,10 @@ impl Observers {
     }
 
     /// Returns observer entities and optional names for `event_key` in dispatch order.
-    pub fn dispatch_order_for_with_names(&self, event_key: EventKey) -> Vec<(Entity, Option<&str>)> {
+    pub fn dispatch_order_for_with_names(
+        &self,
+        event_key: EventKey,
+    ) -> Vec<(Entity, Option<&str>)> {
         self.try_get_observers(event_key)
             .map_or_else(Vec::new, CachedObservers::dispatch_order_for_with_names)
     }
@@ -475,7 +478,6 @@ impl CachedObservers {
         }
     }
 
-
     pub(crate) fn register_observer(
         &mut self,
         observer: Entity,
@@ -655,8 +657,10 @@ impl CachedObservers {
 
     fn rebuild_order(&mut self) {
         let insertion_order = self.insertion_order();
-        let mut graph =
-            DiGraph::<NodeId>::with_capacity(self.nodes.len(), self.edges.len() + self.set_edges.len());
+        let mut graph = DiGraph::<NodeId>::with_capacity(
+            self.nodes.len(),
+            self.edges.len() + self.set_edges.len(),
+        );
 
         for &node_id in insertion_order.iter().rev() {
             graph.add_node(node_id);
@@ -737,10 +741,7 @@ impl CachedObservers {
         }
     }
 
-    fn resolve_set_target(
-        &self,
-        set: &Interned<dyn ObserverSet>,
-    ) -> SmallVec<[NodeId; 4]> {
+    fn resolve_set_target(&self, set: &Interned<dyn ObserverSet>) -> SmallVec<[NodeId; 4]> {
         let mut resolved = SmallVec::new();
         let mut visited = Vec::new();
         let mut stack = vec![*set];
