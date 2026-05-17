@@ -296,44 +296,42 @@ impl World {
             caller: MaybeLocation::caller(),
         };
 
-        // SAFETY:
-        // - `observers` come from `world` and correspond to `event_key`
-        // - caller guarantees `event_data` and `trigger_data` are valid
-        // - `trigger_entity_internal` increments the trigger id
+        // SAFETY: there are no outstanding world references
         unsafe {
-            crate::event::trigger_entity_internal(
-                world.reborrow(),
-                observers,
-                event_data.reborrow(),
-                trigger_data.reborrow(),
-                entity,
-                &context,
+            world.as_unsafe_world_cell().increment_trigger_id();
+        }
+
+        let mut component_global_node_ids = smallvec::SmallVec::<[NodeId; 8]>::new();
+        let mut entity_component_node_ids = smallvec::SmallVec::<[NodeId; 8]>::new();
+
+        for id in components {
+            observers.merge_ordered_node_ids(
+                &mut component_global_node_ids,
+                observers.component_global_node_ids(*id),
+            );
+            observers.merge_ordered_node_ids(
+                &mut entity_component_node_ids,
+                observers.entity_component_node_ids(*id, entity),
             );
         }
 
-        // Trigger observers watching for specific components.
-        for id in components {
-            if let Some(component_observers) = observers.component_observers().get(id) {
-                let entity_component_observers = component_observers
-                    .entity_component_observers()
-                    .get(&entity)
-                    .map_or(&[] as &[_], smallvec::SmallVec::as_slice);
-
-                // SAFETY: same as above, caller guarantees data validity.
-                unsafe {
-                    run_ordered::<2>(
-                        observers,
-                        &mut world,
-                        &context,
-                        &mut event_data,
-                        &mut trigger_data,
-                        [
-                            component_observers.global_observers(),
-                            entity_component_observers,
-                        ],
-                    );
-                }
-            }
+        // SAFETY:
+        // - `observers` come from `world` and correspond to `event_key`
+        // - caller guarantees `event_data` and `trigger_data` are valid
+        unsafe {
+            run_ordered::<4>(
+                observers,
+                &mut world,
+                &context,
+                &mut event_data,
+                &mut trigger_data,
+                [
+                    observers.global_node_ids(),
+                    observers.entity_node_ids(entity),
+                    &component_global_node_ids,
+                    &entity_component_node_ids,
+                ],
+            );
         }
     }
 
@@ -810,6 +808,73 @@ mod tests {
     }
 
     #[test]
+    fn observer_entity_components_trigger_merges_component_ordering() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let component_a = world.register_component::<A>();
+        let component_b = world.register_component::<B>();
+        let target = world.spawn_empty().id();
+
+        let a_observer = world
+            .add_observer(
+                |_: On<EntityComponentsEvent, A>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                },
+            )
+            .id();
+        world.spawn(
+            Observer::new(
+                |_: On<EntityComponentsEvent, B>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                },
+            )
+            .before(a_observer),
+        );
+
+        world.trigger_with(
+            EntityComponentsEvent(target),
+            EntityComponentsTrigger {
+                components: &[component_a, component_b],
+                old_archetype: None,
+                new_archetype: None,
+            },
+        );
+
+        assert_eq!(vec!["b", "a"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_entity_components_trigger_empty_components_runs_entity_ordering() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let target = world.spawn_empty().id();
+
+        let global_observer = world
+            .add_observer(|_: On<EntityComponentsEvent>, mut order: ResMut<Order>| {
+                order.observed("global");
+            })
+            .id();
+        world.spawn(
+            Observer::new(|_: On<EntityComponentsEvent>, mut order: ResMut<Order>| {
+                order.observed("entity");
+            })
+            .with_entity(target)
+            .before(global_observer),
+        );
+
+        world.trigger_with(
+            EntityComponentsEvent(target),
+            EntityComponentsTrigger {
+                components: &[],
+                old_archetype: None,
+                new_archetype: None,
+            },
+        );
+
+        assert_eq!(vec!["entity", "global"], world.resource::<Order>().0);
+    }
+
+    #[test]
     fn observer_dynamic_component() {
         let mut world = World::new();
         world.init_resource::<Order>();
@@ -1115,6 +1180,101 @@ mod tests {
 
         assert_eq!(vec!["global"], world.resource::<Order>().0);
         assert_eq!(vec![10], world.resource::<DynamicValues>().0);
+    }
+
+    #[test]
+    fn observer_fully_dynamic_trigger_targets_components_merges_component_ordering() {
+        use core::alloc::Layout;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        let event_id = world.register_component_with_descriptor(
+            // SAFETY: u32 layout with no drop
+            unsafe {
+                crate::component::ComponentDescriptor::new_with_layout(
+                    "DynamicOrderedComponentEvent",
+                    crate::component::StorageType::Table,
+                    Layout::new::<u32>(),
+                    None,
+                    false,
+                    crate::component::ComponentCloneBehavior::Ignore,
+                    None,
+                )
+            },
+        );
+        // SAFETY: event_id was just registered for use as an event
+        let event_key = unsafe { crate::event::EventKey::new(event_id) };
+
+        let comp_a = world.register_component_with_descriptor(
+            // SAFETY: ZST layout with no drop
+            unsafe {
+                crate::component::ComponentDescriptor::new_with_layout(
+                    "DynamicOrderedCompA",
+                    crate::component::StorageType::Table,
+                    Layout::new::<()>(),
+                    None,
+                    false,
+                    crate::component::ComponentCloneBehavior::Ignore,
+                    None,
+                )
+            },
+        );
+        let comp_b = world.register_component_with_descriptor(
+            // SAFETY: ZST layout with no drop
+            unsafe {
+                crate::component::ComponentDescriptor::new_with_layout(
+                    "DynamicOrderedCompB",
+                    crate::component::StorageType::Table,
+                    Layout::new::<()>(),
+                    None,
+                    false,
+                    crate::component::ComponentCloneBehavior::Ignore,
+                    None,
+                )
+            },
+        );
+
+        // SAFETY: event_key was just created, observer only records execution order
+        let a_observer = unsafe {
+            Observer::with_dynamic_runner(
+                |mut world, _observer, _trigger_context, _event, _trigger| {
+                    world.resource_mut::<Order>().observed("a");
+                },
+            )
+            .with_event_key(event_key)
+            .with_component(comp_a)
+        };
+        let a_observer = world.spawn(a_observer).id();
+
+        // SAFETY: event_key was just created, observer only records execution order
+        let b_observer = unsafe {
+            Observer::with_dynamic_runner(
+                |mut world, _observer, _trigger_context, _event, _trigger| {
+                    world.resource_mut::<Order>().observed("b");
+                },
+            )
+            .with_event_key(event_key)
+            .with_component(comp_b)
+            .before(a_observer)
+        };
+        world.spawn(b_observer);
+
+        let target = world.spawn_empty().id();
+        let mut event_data: u32 = 0;
+        let mut trigger_data: u32 = 0;
+        // SAFETY: pointers are valid u32s matching the registered layout
+        unsafe {
+            world.trigger_dynamic_targets_components(
+                event_key,
+                target,
+                &[comp_a, comp_b],
+                bevy_ptr::PtrMut::from(&mut event_data),
+                bevy_ptr::PtrMut::from(&mut trigger_data),
+            );
+        }
+
+        assert_eq!(vec!["b", "a"], world.resource::<Order>().0);
     }
 
     #[test]

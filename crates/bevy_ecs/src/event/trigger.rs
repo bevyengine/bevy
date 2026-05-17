@@ -10,6 +10,7 @@ use crate::{
 };
 use bevy_ptr::PtrMut;
 use core::{fmt, marker::PhantomData};
+use smallvec::SmallVec;
 
 /// [`Trigger`] determines _how_ an [`Event`] is triggered when [`World::trigger`](crate::world::World::trigger) is called.
 /// This decides which [`Observer`](crate::observer::Observer)s will run, what data gets passed to them, and the order they will
@@ -449,53 +450,42 @@ impl<'a> EntityComponentsTrigger<'a> {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
 
-        let mut global_node_ids = observers.global_node_ids();
-        let mut entity_node_ids = observers.entity_node_ids(entity);
+        let global_node_ids = observers.global_node_ids();
+        let entity_node_ids = observers.entity_node_ids(entity);
+        let mut component_global_node_ids = SmallVec::<[crate::observer::NodeId; 8]>::new();
+        let mut entity_component_node_ids = SmallVec::<[crate::observer::NodeId; 8]>::new();
 
-        if self.components.is_empty() {
-            // SAFETY:
-            // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
-            // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
-            // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
-            // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-            unsafe {
-                let mut trigger = self.into();
-                run_ordered::<4>(
-                    observers,
-                    &mut world,
-                    trigger_context,
-                    &mut event,
-                    &mut trigger,
-                    [global_node_ids, entity_node_ids, &[], &[]],
-                );
-            }
+        for &id in self.components {
+            observers.merge_ordered_node_ids(
+                &mut component_global_node_ids,
+                observers.component_global_node_ids(id),
+            );
+            observers.merge_ordered_node_ids(
+                &mut entity_component_node_ids,
+                observers.entity_component_node_ids(id, entity),
+            );
         }
 
-        // Trigger observers watching for a specific component
-        for &id in self.components {
-            // SAFETY:
-            // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
-            // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
-            // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
-            // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-            unsafe {
-                let mut trigger = self.into();
-                run_ordered::<4>(
-                    observers,
-                    &mut world,
-                    trigger_context,
-                    &mut event,
-                    &mut trigger,
-                    [
-                        global_node_ids,
-                        entity_node_ids,
-                        observers.component_global_node_ids(id),
-                        observers.entity_component_node_ids(id, entity),
-                    ],
-                );
-            }
-            global_node_ids = &[];
-            entity_node_ids = &[];
+        // SAFETY:
+        // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
+        // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
+        // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
+        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
+        unsafe {
+            let mut trigger = self.into();
+            run_ordered::<4>(
+                observers,
+                &mut world,
+                trigger_context,
+                &mut event,
+                &mut trigger,
+                [
+                    global_node_ids,
+                    entity_node_ids,
+                    &component_global_node_ids,
+                    &entity_component_node_ids,
+                ],
+            );
         }
     }
 }

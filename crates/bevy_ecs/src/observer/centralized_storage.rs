@@ -393,6 +393,49 @@ impl CachedObservers {
         &self.dispatch_order
     }
 
+    /// Merges `stream` into `merged`, preserving the ordering required by [`run_ordered`].
+    pub(crate) fn merge_ordered_node_ids<const N: usize>(
+        &self,
+        merged: &mut SmallVec<[NodeId; N]>,
+        stream: &[NodeId],
+    ) {
+        if stream.is_empty() {
+            return;
+        }
+
+        if merged.is_empty() {
+            merged.extend_from_slice(stream);
+            return;
+        }
+
+        let existing = core::mem::take(merged);
+        let mut existing_index = 0;
+        let mut stream_index = 0;
+
+        while existing_index < existing.len() && stream_index < stream.len() {
+            let existing_id = existing[existing_index];
+            let stream_id = stream[stream_index];
+
+            if self.order_position(existing_id) <= self.order_position(stream_id) {
+                merged.push(existing_id);
+                existing_index += 1;
+            } else {
+                merged.push(stream_id);
+                stream_index += 1;
+            }
+        }
+
+        merged.extend_from_slice(&existing[existing_index..]);
+        merged.extend_from_slice(&stream[stream_index..]);
+    }
+
+    fn order_position(&self, node_id: NodeId) -> usize {
+        self.order
+            .iter()
+            .position(|ordered_node_id| *ordered_node_id == node_id)
+            .expect("observer node must be present in dispatch order")
+    }
+
     /// Returns observer entities in `set` in dispatch order.
     pub fn dispatch_order_for_set(&self, set: Interned<dyn ObserverSet>) -> Vec<Entity> {
         let nodes = self.resolve_set_target(&set);
