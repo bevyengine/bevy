@@ -813,28 +813,18 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|ConditionWithAccess { condition, .. }| {
-            let result = std::panic::catch_unwind(AssertUnwindSafe(||
+            PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+            let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(||
                 // SAFETY:
                 // - The caller ensures that `world` has permission to read any data
                 //   required by the condition.
-                unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
-                    .unwrap_or_else(|err| {
-                        if let RunSystemError::Failed(err) = err {
-                            error_handler(
-                                err,
-                                ErrorContext::RunCondition {
-                                    name: condition.name(),
-                                    last_run: condition.get_last_run(),
-                                    system: for_system.name(),
-                                    on_set,
-                                },
-                            );
-                        };
-                        false
-                    })
+                unsafe {__rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)}
             ));
-            match result {
-                Ok(r) => r,
+            let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
+            match potential_unwind {
+                // A panic occurred, but it came from an error handler, so rethrow it
+                Err(payload) if panic_originates_from_error_handler => std::panic::resume_unwind(payload),
+                // Let the error handler handle the panic
                 Err(_) => {
                     __rust_begin_short_backtrace::error_handler(
                         error_handler,
@@ -849,8 +839,22 @@ unsafe fn evaluate_and_fold_conditions(
                             system: for_system.name(),
                             on_set,
                         },
-                    );false
-                }
+                    ); false},
+                // Condition returned an error, let the error handler handle it
+                Ok(Err(RunSystemError::Failed(err))) => {
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
+                        err,
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    ); false
+                },
+                Ok(Err(RunSystemError::Skipped(_))) => false,
+                Ok(Ok(result)) => result,
             }
         })
         .fold(true, |acc, res| acc && res)
@@ -1030,5 +1034,58 @@ mod tests {
                 .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
             PANIC_PAYLOAD
         );
+
+        static SYSTEM_RAN: AtomicBool = AtomicBool::new(false);
+        let system = || {
+            SYSTEM_RAN.store(true, Relaxed);
+        };
+        let mut schedule_condition_error = Schedule::default();
+        schedule_condition_error.set_executor(MultiThreadedExecutor::new());
+        schedule_condition_error.add_systems(system.run_if(|| Err(BevyError::ignore(""))));
+
+        let mut schedule_condition_panic = Schedule::default();
+        schedule_condition_panic.set_executor(MultiThreadedExecutor::new());
+        schedule_condition_panic.add_systems(system.run_if(|| {
+            panic!("Condition's panic payload");
+        }));
+
+        world.insert_resource(FallbackErrorHandler(handle));
+
+        // Condition error
+        schedule_error.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        // Condition panic
+        HANDLER_CALLED.store(false, Relaxed);
+        schedule_panic.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        world.insert_resource(FallbackErrorHandler(panic));
+
+        // Condition error, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        // Condition panic, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+        assert!(!SYSTEM_RAN.load(Relaxed));
     }
 }
