@@ -9,13 +9,17 @@
 //!     - These are split by target type, in order to allow for different lookup strategies.
 //!     - [`CachedComponentObservers`] is one of these maps, which contains observers that are specifically targeted at a component.
 
+use alloc::{vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use smallvec::SmallVec;
 
 use crate::{
-    archetype::ArchetypeFlags, component::ComponentId, entity::EntityHashMap, event::EventKey,
+    archetype::ArchetypeFlags,
+    component::ComponentId,
+    entity::{Entity, EntityHashMap},
+    event::EventKey,
     intern::Interned,
-    observer::{ObserverRunner, ObserverSet},
+    observer::{EdgeTarget, ObserverDescriptor, ObserverRunner, ObserverSet},
 };
 
 /// An internal lookup table tracking all of the observers in the world.
@@ -95,25 +99,99 @@ impl Observers {
         component_id: ComponentId,
         flags: &mut ArchetypeFlags,
     ) {
-        if self.add.component_observers.contains_key(&component_id) {
+        if self
+            .add
+            .component_observers_legacy
+            .contains_key(&component_id)
+        {
             flags.insert(ArchetypeFlags::ON_ADD_OBSERVER);
         }
 
-        if self.insert.component_observers.contains_key(&component_id) {
+        if self
+            .insert
+            .component_observers_legacy
+            .contains_key(&component_id)
+        {
             flags.insert(ArchetypeFlags::ON_INSERT_OBSERVER);
         }
 
-        if self.discard.component_observers.contains_key(&component_id) {
+        if self
+            .discard
+            .component_observers_legacy
+            .contains_key(&component_id)
+        {
             flags.insert(ArchetypeFlags::ON_DISCARD_OBSERVER);
         }
 
-        if self.remove.component_observers.contains_key(&component_id) {
+        if self
+            .remove
+            .component_observers_legacy
+            .contains_key(&component_id)
+        {
             flags.insert(ArchetypeFlags::ON_REMOVE_OBSERVER);
         }
 
-        if self.despawn.component_observers.contains_key(&component_id) {
+        if self
+            .despawn
+            .component_observers_legacy
+            .contains_key(&component_id)
+        {
             flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
+    }
+}
+
+/// Identifier for an observer node in [`CachedObservers`].
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct NodeId(u32);
+
+impl NodeId {
+    fn new(index: usize) -> Self {
+        debug_assert!(u32::try_from(index).is_ok());
+        Self(index as u32)
+    }
+
+    fn index(self) -> usize {
+        self.0 as usize
+    }
+}
+
+/// Observer data stored once per registered observer/event-key pair.
+#[derive(Clone, Copy, Debug)]
+pub struct ObserverNode {
+    /// The entity that owns the observer component.
+    pub observer: Entity,
+    /// The function used to run the observer.
+    pub runner: ObserverRunner,
+    sort_key: u64,
+}
+
+/// An ordering edge stored in event-local observer storage.
+#[derive(Clone, Debug)]
+pub struct ObserverEdgeResolved {
+    owner: Entity,
+    #[expect(
+        dead_code,
+        reason = "Observer edge sorting is wired in the graph-sort phase."
+    )]
+    from: EdgeTarget,
+    #[expect(
+        dead_code,
+        reason = "Observer edge sorting is wired in the graph-sort phase."
+    )]
+    to: EdgeTarget,
+}
+
+/// Per-component observer indices.
+#[derive(Default, Debug)]
+pub struct ComponentBucket {
+    globals: SmallVec<[NodeId; 2]>,
+    by_entity: EntityHashMap<SmallVec<[NodeId; 2]>>,
+}
+
+impl ComponentBucket {
+    fn is_empty(&self) -> bool {
+        self.globals.is_empty() && self.by_entity.is_empty()
     }
 }
 
@@ -124,28 +202,241 @@ impl Observers {
 pub struct CachedObservers {
     /// Observers watching for any time this event is triggered, regardless of target.
     /// These will also respond to events targeting specific components or entities
-    pub(super) global_observers: ObserverMap,
+    pub(super) global_observers_legacy: ObserverMap,
     /// Observers watching for triggers of events for a specific component
-    pub(super) component_observers: HashMap<ComponentId, CachedComponentObservers>,
+    pub(super) component_observers_legacy: HashMap<ComponentId, CachedComponentObservers>,
     /// Observers watching for triggers of events for a specific entity
-    pub(super) entity_observers: EntityHashMap<ObserverMap>,
+    pub(super) entity_observers_legacy: EntityHashMap<ObserverMap>,
+    nodes: Vec<ObserverNode>,
+    order: Vec<NodeId>,
+    globals: SmallVec<[NodeId; 4]>,
+    by_entity: EntityHashMap<SmallVec<[NodeId; 2]>>,
+    by_component: HashMap<ComponentId, ComponentBucket>,
+    sets: HashMap<Interned<dyn ObserverSet>, SmallVec<[NodeId; 4]>>,
+    edges: Vec<ObserverEdgeResolved>,
+    observer_to_node: EntityHashMap<NodeId>,
+    dirty: bool,
+    next_sort_key: u64,
 }
 
 impl CachedObservers {
     /// Observers watching for any time this event is triggered, regardless of target.
     /// These will also respond to events targeting specific components or entities
     pub fn global_observers(&self) -> &ObserverMap {
-        &self.global_observers
+        &self.global_observers_legacy
     }
 
     /// Returns observers watching for triggers of events for a specific component.
     pub fn component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
-        &self.component_observers
+        &self.component_observers_legacy
     }
 
     /// Returns observers watching for triggers of events for a specific entity.
     pub fn entity_observers(&self) -> &EntityHashMap<ObserverMap> {
-        &self.entity_observers
+        &self.entity_observers_legacy
+    }
+
+    pub(crate) fn register_observer(
+        &mut self,
+        observer: Entity,
+        runner: ObserverRunner,
+        descriptor: &ObserverDescriptor,
+    ) -> SmallVec<[ComponentId; 4]> {
+        if self.observer_to_node.contains_key(&observer) {
+            self.unregister_observer(observer, descriptor);
+        }
+
+        let node_id = NodeId::new(self.nodes.len());
+        self.nodes.push(ObserverNode {
+            observer,
+            runner,
+            sort_key: self.next_sort_key,
+        });
+        self.next_sort_key = self.next_sort_key.wrapping_add(1);
+        self.observer_to_node.insert(observer, node_id);
+
+        if descriptor.components.is_empty() && descriptor.entities.is_empty() {
+            push_unique(&mut self.globals, node_id);
+        } else if descriptor.components.is_empty() {
+            for &watched_entity in &descriptor.entities {
+                push_unique(self.by_entity.entry(watched_entity).or_default(), node_id);
+            }
+        } else {
+            for &component in &descriptor.components {
+                let bucket = self.by_component.entry(component).or_default();
+                if descriptor.entities.is_empty() {
+                    push_unique(&mut bucket.globals, node_id);
+                } else {
+                    for &watched_entity in &descriptor.entities {
+                        push_unique(bucket.by_entity.entry(watched_entity).or_default(), node_id);
+                    }
+                }
+            }
+        }
+
+        for &set in &descriptor.sets {
+            push_unique(self.sets.entry(set).or_default(), node_id);
+        }
+
+        for edge in &descriptor.edges {
+            self.edges.push(ObserverEdgeResolved {
+                owner: observer,
+                from: edge.from.clone(),
+                to: edge.to.clone(),
+            });
+        }
+
+        self.dirty = true;
+        self.resort();
+
+        let mut newly_observed_components = SmallVec::new();
+        for &component in &descriptor.components {
+            if self.by_component.contains_key(&component) {
+                push_unique_component(&mut newly_observed_components, component);
+            }
+        }
+        newly_observed_components
+    }
+
+    pub(crate) fn unregister_observer(
+        &mut self,
+        observer: Entity,
+        descriptor: &ObserverDescriptor,
+    ) -> SmallVec<[ComponentId; 4]> {
+        let Some(node_id) = self.observer_to_node.remove(&observer) else {
+            return SmallVec::new();
+        };
+
+        remove_node_id(&mut self.globals, node_id);
+        remove_node_id_from_entity_map(&mut self.by_entity, node_id, &descriptor.entities);
+
+        let mut removed_components = SmallVec::new();
+        for &component in &descriptor.components {
+            let Some(bucket) = self.by_component.get_mut(&component) else {
+                continue;
+            };
+
+            remove_node_id(&mut bucket.globals, node_id);
+            remove_node_id_from_entity_map(&mut bucket.by_entity, node_id, &descriptor.entities);
+
+            if bucket.is_empty() {
+                self.by_component.remove(&component);
+                push_unique_component(&mut removed_components, component);
+            }
+        }
+
+        for set in &descriptor.sets {
+            let Some(nodes) = self.sets.get_mut(set) else {
+                continue;
+            };
+            remove_node_id(nodes, node_id);
+            if nodes.is_empty() {
+                self.sets.remove(set);
+            }
+        }
+
+        self.edges.retain(|edge| edge.owner != observer);
+        self.remove_node(node_id);
+        self.dirty = true;
+        self.resort();
+
+        removed_components
+    }
+
+    #[expect(
+        dead_code,
+        reason = "The new component-observer check is used after the register/unregister cutover."
+    )]
+    pub(crate) fn contains_component_observers(&self, component_id: ComponentId) -> bool {
+        self.by_component
+            .get(&component_id)
+            .is_some_and(|bucket| !bucket.is_empty())
+    }
+
+    pub(crate) fn resort(&mut self) {
+        if !self.dirty {
+            return;
+        }
+
+        self.order.clear();
+        self.order.extend((0..self.nodes.len()).map(NodeId::new));
+        self.order
+            .sort_by_key(|node_id| self.nodes[node_id.index()].sort_key);
+        self.sort_indices();
+        self.dirty = false;
+
+        #[cfg(debug_assertions)]
+        self.debug_assert_sorted_indices();
+    }
+
+    fn remove_node(&mut self, node_id: NodeId) {
+        let index = node_id.index();
+        let last_index = self.nodes.len() - 1;
+        self.nodes.swap_remove(index);
+
+        if index != last_index {
+            let moved_from = NodeId::new(last_index);
+            let moved_to = node_id;
+            self.observer_to_node
+                .insert(self.nodes[index].observer, moved_to);
+            self.replace_node_id(moved_from, moved_to);
+        }
+    }
+
+    fn replace_node_id(&mut self, from: NodeId, to: NodeId) {
+        replace_node_id(&mut self.order, from, to);
+        replace_node_id(&mut self.globals, from, to);
+        replace_node_id_in_entity_map(&mut self.by_entity, from, to);
+
+        for bucket in self.by_component.values_mut() {
+            replace_node_id(&mut bucket.globals, from, to);
+            replace_node_id_in_entity_map(&mut bucket.by_entity, from, to);
+        }
+
+        for nodes in self.sets.values_mut() {
+            replace_node_id(nodes, from, to);
+        }
+    }
+
+    fn sort_indices(&mut self) {
+        let mut positions = vec![usize::MAX; self.nodes.len()];
+        for (position, node_id) in self.order.iter().copied().enumerate() {
+            positions[node_id.index()] = position;
+        }
+
+        sort_node_ids(&positions, &mut self.globals);
+        sort_entity_map_node_ids(&positions, &mut self.by_entity);
+
+        for bucket in self.by_component.values_mut() {
+            sort_node_ids(&positions, &mut bucket.globals);
+            sort_entity_map_node_ids(&positions, &mut bucket.by_entity);
+        }
+
+        for nodes in self.sets.values_mut() {
+            sort_node_ids(&positions, nodes);
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_assert_sorted_indices(&self) {
+        let mut positions = vec![usize::MAX; self.nodes.len()];
+        for (position, node_id) in self.order.iter().copied().enumerate() {
+            positions[node_id.index()] = position;
+        }
+
+        debug_assert!(is_sorted_by_order(&positions, &self.globals));
+        for nodes in self.by_entity.values() {
+            debug_assert!(is_sorted_by_order(&positions, nodes));
+        }
+        for bucket in self.by_component.values() {
+            debug_assert!(is_sorted_by_order(&positions, &bucket.globals));
+            for nodes in bucket.by_entity.values() {
+                debug_assert!(is_sorted_by_order(&positions, nodes));
+            }
+        }
+        for nodes in self.sets.values() {
+            debug_assert!(is_sorted_by_order(&positions, nodes));
+        }
     }
 }
 
@@ -173,4 +464,74 @@ impl CachedComponentObservers {
     pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
         &self.entity_component_observers
     }
+}
+
+fn push_unique<const N: usize>(nodes: &mut SmallVec<[NodeId; N]>, node_id: NodeId) {
+    if !nodes.contains(&node_id) {
+        nodes.push(node_id);
+    }
+}
+
+fn push_unique_component(components: &mut SmallVec<[ComponentId; 4]>, component_id: ComponentId) {
+    if !components.contains(&component_id) {
+        components.push(component_id);
+    }
+}
+
+fn remove_node_id<const N: usize>(nodes: &mut SmallVec<[NodeId; N]>, node_id: NodeId) {
+    nodes.retain(|id| *id != node_id);
+}
+
+fn remove_node_id_from_entity_map(
+    by_entity: &mut EntityHashMap<SmallVec<[NodeId; 2]>>,
+    node_id: NodeId,
+    entities: &[Entity],
+) {
+    for entity in entities {
+        let Some(nodes) = by_entity.get_mut(entity) else {
+            continue;
+        };
+        remove_node_id(nodes, node_id);
+        if nodes.is_empty() {
+            by_entity.remove(entity);
+        }
+    }
+}
+
+fn replace_node_id(nodes: &mut [NodeId], from: NodeId, to: NodeId) {
+    for node_id in nodes {
+        if *node_id == from {
+            *node_id = to;
+        }
+    }
+}
+
+fn replace_node_id_in_entity_map(
+    by_entity: &mut EntityHashMap<SmallVec<[NodeId; 2]>>,
+    from: NodeId,
+    to: NodeId,
+) {
+    for nodes in by_entity.values_mut() {
+        replace_node_id(nodes, from, to);
+    }
+}
+
+fn sort_node_ids<const N: usize>(positions: &[usize], nodes: &mut SmallVec<[NodeId; N]>) {
+    nodes.sort_by_key(|node_id| positions[node_id.index()]);
+}
+
+fn sort_entity_map_node_ids(
+    positions: &[usize],
+    by_entity: &mut EntityHashMap<SmallVec<[NodeId; 2]>>,
+) {
+    for nodes in by_entity.values_mut() {
+        sort_node_ids(positions, nodes);
+    }
+}
+
+#[cfg(debug_assertions)]
+fn is_sorted_by_order<const N: usize>(positions: &[usize], nodes: &SmallVec<[NodeId; N]>) -> bool {
+    nodes
+        .windows(2)
+        .all(|window| positions[window[0].index()] <= positions[window[1].index()])
 }
