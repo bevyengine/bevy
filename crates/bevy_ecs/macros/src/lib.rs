@@ -524,6 +524,18 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
     derive_label(input, "SystemSet", &trait_path)
 }
 
+/// Derive macro generating an impl of the trait `ObserverSet`.
+///
+/// This does not work for unions.
+#[proc_macro_derive(ObserverSet)]
+pub fn derive_observer_set(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("observer").into());
+    trait_path.segments.push(format_ident!("ObserverSet").into());
+    derive_label(input, "ObserverSet", &trait_path)
+}
+
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }

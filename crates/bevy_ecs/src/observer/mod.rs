@@ -8,12 +8,14 @@ mod condition;
 mod distributed_storage;
 mod entity_cloning;
 mod runner;
+mod set;
 mod system_param;
 
 pub use centralized_storage::*;
 pub use condition::*;
 pub use distributed_storage::*;
 pub use runner::*;
+pub use set::*;
 pub use system_param::*;
 
 use crate::{

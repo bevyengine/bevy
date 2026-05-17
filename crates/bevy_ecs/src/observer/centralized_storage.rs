@@ -10,10 +10,12 @@
 //!     - [`CachedComponentObservers`] is one of these maps, which contains observers that are specifically targeted at a component.
 
 use bevy_platform::collections::HashMap;
+use smallvec::SmallVec;
 
 use crate::{
     archetype::ArchetypeFlags, component::ComponentId, entity::EntityHashMap, event::EventKey,
-    observer::ObserverRunner,
+    intern::Interned,
+    observer::{ObserverRunner, ObserverSet},
 };
 
 /// An internal lookup table tracking all of the observers in the world.
@@ -33,6 +35,9 @@ pub struct Observers {
     despawn: CachedObservers,
     // Map from event type to set of observers watching for that event
     cache: HashMap<EventKey, CachedObservers>,
+    // Observer set hierarchy declarations. Populated by observer set configuration in a later phase.
+    #[expect(dead_code, reason = "Observer set dispatch is wired in a later phase.")]
+    set_hierarchy: HashMap<Interned<dyn ObserverSet>, SmallVec<[Interned<dyn ObserverSet>; 2]>>,
 }
 
 impl Observers {
