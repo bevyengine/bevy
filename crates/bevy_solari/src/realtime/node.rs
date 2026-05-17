@@ -575,7 +575,7 @@ pub fn init_solari_lighting_pipelines(
             "specular_gi",
             load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
             None,
-            vec!["NO_JITTER_WORLD_CACHE".into()],
+            vec!["JITTER_WORLD_CACHE".into()],
         ),
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         specular_gi_with_psr_pipeline: create_pipeline(

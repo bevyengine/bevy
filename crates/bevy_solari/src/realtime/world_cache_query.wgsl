@@ -44,7 +44,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     var world_position = world_position_in;
     var cell_size = get_cell_size(world_position, view_position, rng);
 
-#ifndef NO_JITTER_WORLD_CACHE
+#ifdef JITTER_WORLD_CACHE
     // Jitter query point, which essentially blurs the cache a bit so it's not so grid-like
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
     let TBN = orthonormalize(world_normal);
