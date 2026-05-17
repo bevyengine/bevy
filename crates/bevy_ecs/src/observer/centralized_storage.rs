@@ -11,6 +11,7 @@
 
 use alloc::{vec, vec::Vec};
 use bevy_platform::collections::HashMap;
+use log::{debug, warn};
 use smallvec::SmallVec;
 
 use crate::{
@@ -20,6 +21,7 @@ use crate::{
     event::EventKey,
     intern::Interned,
     observer::{EdgeTarget, ObserverDescriptor, ObserverRunner, ObserverSet},
+    schedule::graph::{DiGraph, DiGraphToposortError, Direction, GraphNodeId},
 };
 
 /// An internal lookup table tracking all of the observers in the world.
@@ -156,6 +158,15 @@ impl NodeId {
     }
 }
 
+impl GraphNodeId for NodeId {
+    type Adjacent = (Self, Direction);
+    type Edge = (Self, Self);
+
+    fn kind(&self) -> &'static str {
+        "observer"
+    }
+}
+
 /// Observer data stored once per registered observer/event-key pair.
 #[derive(Clone, Copy, Debug)]
 pub struct ObserverNode {
@@ -170,15 +181,7 @@ pub struct ObserverNode {
 #[derive(Clone, Debug)]
 pub struct ObserverEdgeResolved {
     owner: Entity,
-    #[expect(
-        dead_code,
-        reason = "Observer edge sorting is wired in the graph-sort phase."
-    )]
     from: EdgeTarget,
-    #[expect(
-        dead_code,
-        reason = "Observer edge sorting is wired in the graph-sort phase."
-    )]
     to: EdgeTarget,
 }
 
@@ -358,15 +361,96 @@ impl CachedObservers {
             return;
         }
 
-        self.order.clear();
-        self.order.extend((0..self.nodes.len()).map(NodeId::new));
-        self.order
-            .sort_by_key(|node_id| self.nodes[node_id.index()].sort_key);
-        self.sort_indices();
-        self.dirty = false;
+        let mut attempts = 0;
+        while self.dirty {
+            self.dirty = false;
+            self.rebuild_order();
+            self.sort_indices();
+
+            attempts += 1;
+            debug_assert!(attempts <= self.nodes.len().saturating_add(1));
+        }
 
         #[cfg(debug_assertions)]
         self.debug_assert_sorted_indices();
+    }
+
+    fn rebuild_order(&mut self) {
+        let insertion_order = self.insertion_order();
+        let mut graph = DiGraph::<NodeId>::with_capacity(self.nodes.len(), self.edges.len());
+
+        for &node_id in insertion_order.iter().rev() {
+            graph.add_node(node_id);
+        }
+
+        for edge in &self.edges {
+            let from_nodes = self.resolve_edge_target(&edge.from);
+            let to_nodes = self.resolve_edge_target(&edge.to);
+
+            for &from in &from_nodes {
+                for &to in &to_nodes {
+                    graph.add_edge(from, to);
+                }
+            }
+        }
+
+        match graph.toposort(Vec::new()) {
+            Ok(order) => {
+                debug_assert_eq!(order.len(), self.nodes.len());
+                self.order = order;
+            }
+            Err(error) => {
+                let cycle_members = self.cycle_members(&error);
+                warn!(
+                    "observer ordering graph contains a cycle involving {cycle_members:?}; falling back to registration order"
+                );
+                self.order = insertion_order;
+
+                #[cfg(test)]
+                debug_assert!(false, "observer ordering graph contains a cycle: {error:?}");
+            }
+        }
+    }
+
+    fn insertion_order(&self) -> Vec<NodeId> {
+        let mut order = (0..self.nodes.len()).map(NodeId::new).collect::<Vec<_>>();
+        order.sort_by_key(|node_id| self.nodes[node_id.index()].sort_key);
+        order
+    }
+
+    fn resolve_edge_target(&self, target: &EdgeTarget) -> SmallVec<[NodeId; 4]> {
+        match target {
+            EdgeTarget::Entity(entity) => self
+                .observer_to_node
+                .get(entity)
+                .copied()
+                .into_iter()
+                .collect(),
+            EdgeTarget::Set(set) => {
+                let Some(nodes) = self.sets.get(set) else {
+                    debug!("observer ordering edge references empty set {set:?}");
+                    return SmallVec::new();
+                };
+                nodes.iter().copied().collect()
+            }
+        }
+    }
+
+    fn cycle_members(&self, error: &DiGraphToposortError<NodeId>) -> Vec<Vec<Entity>> {
+        match error {
+            DiGraphToposortError::Loop(node_id) => {
+                vec![vec![self.nodes[node_id.index()].observer]]
+            }
+            DiGraphToposortError::Cycle(cycles) => cycles
+                .iter()
+                .map(|cycle| {
+                    cycle
+                        .iter()
+                        .map(|node_id| self.nodes[node_id.index()].observer)
+                        .collect()
+                })
+                .collect(),
+        }
     }
 
     fn remove_node(&mut self, node_id: NodeId) {
@@ -534,4 +618,55 @@ fn is_sorted_by_order<const N: usize>(positions: &[usize], nodes: &SmallVec<[Nod
     nodes
         .windows(2)
         .all(|window| positions[window[0].index()] <= positions[window[1].index()])
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ptr::PtrMut;
+
+    use crate::{
+        observer::{ObserverEdge, TriggerContext},
+        world::DeferredWorld,
+    };
+
+    use super::*;
+
+    unsafe fn noop_runner(
+        _world: DeferredWorld,
+        _observer: Entity,
+        _trigger_context: &TriggerContext,
+        _event: PtrMut,
+        _trigger: PtrMut,
+    ) {
+    }
+
+    fn entity(index: u32) -> Entity {
+        Entity::from_raw_u32(index).unwrap()
+    }
+
+    #[test]
+    fn resort_applies_observer_edges() {
+        let mut cache = CachedObservers::default();
+        let observer_a = entity(1);
+        let observer_b = entity(2);
+        let observer_c = entity(3);
+
+        cache.register_observer(observer_a, noop_runner, &ObserverDescriptor::default());
+        cache.register_observer(observer_b, noop_runner, &ObserverDescriptor::default());
+
+        let mut descriptor_c = ObserverDescriptor::default();
+        descriptor_c.edges.push(ObserverEdge {
+            from: EdgeTarget::Entity(observer_c),
+            to: EdgeTarget::Entity(observer_a),
+        });
+        cache.register_observer(observer_c, noop_runner, &descriptor_c);
+
+        let order = cache
+            .order
+            .iter()
+            .map(|node_id| cache.nodes[node_id.index()].observer)
+            .collect::<Vec<_>>();
+
+        assert_eq!(order, vec![observer_b, observer_c, observer_a]);
+    }
 }
