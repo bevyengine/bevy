@@ -429,14 +429,21 @@ pub(crate) struct ObserverEdge {
 
 /// A public-facing observer ordering edge endpoint.
 #[derive(Clone, Debug)]
-#[expect(
-    dead_code,
-    reason = "Observer edge constructors are wired with the builder API in a later phase."
-)]
 pub(crate) enum EdgeTarget {
     /// A specific observer entity.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Observer edge constructors are wired with the builder API in a later phase."
+        )
+    )]
     Entity(Entity),
     /// A configured observer set.
+    #[expect(
+        dead_code,
+        reason = "Observer set edge constructors are wired with the builder API in a later phase."
+    )]
     Set(crate::intern::Interned<dyn ObserverSet>),
 }
 
