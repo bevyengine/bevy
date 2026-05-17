@@ -3,7 +3,7 @@ title: "New crate `bevy_material`"
 pull_requests: [22426]
 ---
 
-Various material-related machinery where extracted from `bevy_pbr` and `bevy_render` into a new crate called `bevy_material`.
+Various material-related machinery was extracted from `bevy_pbr` and `bevy_render` into a new crate called `bevy_material`.
 
 The following were moved from `bevy_render` to `bevy_material`:
 

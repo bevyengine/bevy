@@ -3,15 +3,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::visibility::{NoCpuCulling, VisibilityRange},
+    camera::visibility::VisibilityRange,
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
     light::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     math::vec3,
     prelude::*,
 };
-
-use argh::FromArgs;
 
 // Where the camera is focused.
 const CAMERA_FOCAL_POINT: Vec3 = vec3(0.0, 0.3, 0.0);
@@ -70,20 +68,8 @@ struct AppStatus {
     prepass: bool,
 }
 
-/// Demonstrates visibility ranges, also known as HLODs
-#[derive(FromArgs, Resource)]
-struct Args {
-    /// whether to use GPU culling only
-    #[argh(switch)]
-    no_cpu_culling: bool,
-}
-
+// Sets up the app.
 fn main() {
-    #[cfg(not(target_arch = "wasm32"))]
-    let args: Args = argh::from_env();
-    #[cfg(target_arch = "wasm32")]
-    let args = Args::from_args(&[], &[]).unwrap();
-
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -93,7 +79,6 @@ fn main() {
             ..default()
         }))
         .init_resource::<AppStatus>()
-        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -191,7 +176,6 @@ fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Mesh3d>>,
     children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
-    args: Res<Args>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
@@ -211,22 +195,16 @@ fn set_visibility_ranges(
         // Add the `VisibilityRange` component.
         match main_model {
             Some(MainModel::HighPoly) => {
-                let mut entity_commands = commands.entity(new_mesh);
-                entity_commands
+                commands
+                    .entity(new_mesh)
                     .insert(NORMAL_VISIBILITY_RANGE_HIGH_POLY.clone())
                     .insert(MainModel::HighPoly);
-                if args.no_cpu_culling {
-                    entity_commands.insert(NoCpuCulling);
-                }
             }
             Some(MainModel::LowPoly) => {
-                let mut entity_commands = commands.entity(new_mesh);
-                entity_commands
+                commands
+                    .entity(new_mesh)
                     .insert(NORMAL_VISIBILITY_RANGE_LOW_POLY.clone())
                     .insert(MainModel::LowPoly);
-                if args.no_cpu_culling {
-                    entity_commands.insert(NoCpuCulling);
-                }
             }
             None => {}
         }

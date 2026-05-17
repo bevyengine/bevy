@@ -1,29 +1,29 @@
 ---
 title: Resources as Components
-authors: ["@Trashtalk", "@cart"]
-pull_requests: [20934, 22910, 22911, 22919, 22930]
+authors: ["@Trashtalk217", "@cart", "@SpecificProtagonist"]
+pull_requests: [20934, 22910, 22911, 22919, 22930, 23616, 23716, 24077, 24164]
 ---
 
-Resources are very similar to Components: they are both data that can be stored in the ECS and queried.
-The only real difference between them is that querying a resource will return either one or zero resources, whereas querying for a component can return any number of matching entities.
+Resources and components have always been separate concepts in Bevy's ECS, even though they're fundamentally the same thing: data stored in the world. While the simple `Res<Time>` sugar is nice, the only real distinction is cardinality — a resource is a component of which at most one exists at any time.
 
-Even so, resources and components have always been separate concepts within the ECS.
-This leads to some annoying restrictions.
-While components have [`ComponentHooks`](https://docs.rs/bevy/latest/bevy/ecs/component/struct.ComponentHooks.html), it's not possible to add lifecycle hooks to resources.
-The same is true for relations, observers, and a host of other concepts that already exist for components.
-Moreover, the engine internals contain a lot of duplication because of it.
+That separation has been a persistent source of friction.
+Many of our tools for components (like hooks, observers and relations) simply weren't available for resources,
+and the engine carried a significant amount of duplicated internal machinery to keep the two mechanisms in sync.
 
-This first implementation is limited, only enabling observers for resources.
+In Bevy 0.19, resources are now stored as components on singleton entities,
+unifying our internals.
 
-```rust
-#[derive(Resource)]
-struct GlobalSetting;
+You can now:
 
-fn on_add_setting(add: On<Add, GlobalSetting>, query: Query<&LevelSetting>) {
-    // ...
-}
-```
+- Simplify networking and dev-tools code by assuming that entities + components are the only form of data you need to worry about
+- Query over both resources and components to support flexible usage patterns
+- Add relationships pointing to resource entities
+- Add additional components to your resource entities
+- Add lifecycle observers to your resource types
+- Add your own hooks to resources
+- Mark resources as immutable
 
-The main drawbacks are twofold. First it's no longer possible to derive both `Component` and `Resource` for a struct.
-Secondly `ReflectResource` has been gutted, so use `ReflectComponent` instead.
-For more information, see the migration guide.
+We don't intend to ever support:
+
+- Changing the storage type of resources.
+  - Resources have consistent insertion and access patterns: this is not a useful performance lever to expose.

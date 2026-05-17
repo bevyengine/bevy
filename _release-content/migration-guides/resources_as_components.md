@@ -10,7 +10,7 @@ This means it's no longer possible to doubly derive both `Component` and `Resour
 Instead, you should split them up:
 
 ```rust
-// 0.18.0
+// 0.18
 #[derive(Component, Resource)]
 struct Dual
 ```
@@ -18,7 +18,7 @@ struct Dual
 becomes
 
 ```rust
-// 0.19.0
+// 0.19
 #[derive(Component)]
 struct DualComp;
 
@@ -30,9 +30,9 @@ Consequently, `UiDebugOverlay` is split into `GlobalUiDebugOverlay` (resource) a
 
 ## `#[reflect(Resource)]` Changes
 
-The `ReflectResource` is a ZST (zero-sized type) in 0.19 and only functions to signify that the trait is reflected.
+In 0.19, the `ReflectResource` is a ZST (zero-sized type) and only functions to signify that the trait is reflected.
 Instead, `#[reflect(Resource)]` also reflects the `Component` trait, so use `ReflectComponent` instead.
-This is likely to show up in code that uses reflection, like BRP (Bevy Reflect Protocol) and `bevy_scene`.
+This is likely to show up in code that uses reflection, like BRP (Bevy Remote Protocol) and `bevy_world_serialization`.
 
 ## Broad Queries and System Conflicts
 
@@ -68,7 +68,7 @@ This can be fixed by adding a `Without<MyNonSend>` filter to the query.
 Previously there were two types of resources: `Send` resources and `!Send` resources.
 Now that `Send` resources are stored as components, `!Send` resources have little in common with their `Send` counterparts.
 This is why non-send resources are being renamed to non-send data.
-The following APIs are effected:
+The following APIs are affected:
 
 - `App::init_non_send_resource` is deprecated in favor of `App::init_non_send`.
 - `App::insert_non_send_resource` is deprecated in favor of `App::insert_non_send`.
@@ -142,16 +142,42 @@ Due to the split storage it used to be possible to both access an entity and a r
 This is no longer valid. In order to access multiple different entities for a `WorldQuery` implementation, use `WorldQuery::init_nested_access`.
 See the implementation of `WorldQuery` for `AssetChanged` for an example of how this can be done correctly.
 
+## Immutable Resources
+
+Since resources may now be immutable, the following now carry a `Mutability = Mutable` bound:
+
+- `ResMut`
+- `World::resource_mut`, `World::get_resource_mut`
+- `UnsafeWorldCell::get_resource_mut`
+- `EntityWorldMut::resource_mut`, `EntityWorldMut::get_resource_mut`
+- `DeferredWorld::resource_mut`, `DeferredWorld::get_resource_mut`
+- `TemplateContext::resource_mut`
+- as well as `ExtractResourcePlugin`
+
+If you're calling these in a generic context, you need to add this bound to your own type parameters:
+
+```rust
+// 0.18
+fn my_generic_system<R: Resource>(mut res: ResMut<R>) {
+    …
+}
+
+// 0.19
+fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
+    …
+}
+```
+
 ## Miscellaneous
 
 Since `MapEntities` is implemented by default for components, it's no longer necessary to add `derive(MapEntities)` to a resource.
 
 ```rust
-// 0.17.0
+// 0.18
 #[derive(Resource, MapEntities)]
 struct EntityStruct(#[entities] Entity);
 
-// 0.18.0
+// 0.19
 #[derive(Resource)]
 struct EntityStruct(#[entities] Entity);
 ```
