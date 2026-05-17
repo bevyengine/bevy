@@ -23,7 +23,7 @@ use crate::cluster::ClusterVisibilityClass;
 /// **Warning:**
 /// If this component is used on an entity that also has the [`Camera`](`bevy_camera::Camera`)
 /// component, the [`Frustum`](`bevy_camera::primitives::Frustum`) of the
-/// spotlight, will override the frustum of the camera, causing possible
+/// spotlight will override the frustum of the camera, causing possible
 /// rendering artifacts. To fix this, add either the spotlight or the camera
 /// component on a child entity instead.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
