@@ -170,19 +170,18 @@ impl World {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
 
-        for (observer, runner) in observers.global_observers() {
-            // SAFETY:
-            // - `observers` come from `world` and correspond to `event_key`
-            // - caller guarantees `event_data` and `trigger_data` are valid
-            unsafe {
-                (runner)(
-                    world.reborrow(),
-                    *observer,
-                    &context,
-                    event_data.reborrow(),
-                    trigger_data.reborrow(),
-                );
-            }
+        // SAFETY:
+        // - `observers` come from `world` and correspond to `event_key`
+        // - caller guarantees `event_data` and `trigger_data` are valid
+        unsafe {
+            run_ordered::<1>(
+                observers,
+                &mut world,
+                &context,
+                &mut event_data,
+                &mut trigger_data,
+                [observers.global_observers()],
+            );
         }
     }
 
@@ -285,35 +284,24 @@ impl World {
         // Trigger observers watching for specific components.
         for id in components {
             if let Some(component_observers) = observers.component_observers().get(id) {
-                for (observer, runner) in component_observers.global_observers() {
-                    // SAFETY: same as above, caller guarantees data validity
-                    unsafe {
-                        (runner)(
-                            world.reborrow(),
-                            *observer,
-                            &context,
-                            event_data.reborrow(),
-                            trigger_data.reborrow(),
-                        );
-                    }
-                }
-
-                if let Some(map) = component_observers
+                let entity_component_observers = component_observers
                     .entity_component_observers()
                     .get(&entity)
-                {
-                    for (observer, runner) in map {
-                        // SAFETY: same as above, caller guarantees data validity
-                        unsafe {
-                            (runner)(
-                                world.reborrow(),
-                                *observer,
-                                &context,
-                                event_data.reborrow(),
-                                trigger_data.reborrow(),
-                            );
-                        }
-                    }
+                    .map_or(&[] as &[_], smallvec::SmallVec::as_slice);
+
+                // SAFETY: same as above, caller guarantees data validity.
+                unsafe {
+                    run_ordered::<2>(
+                        observers,
+                        &mut world,
+                        &context,
+                        &mut event_data,
+                        &mut trigger_data,
+                        [
+                            component_observers.global_observers(),
+                            entity_component_observers,
+                        ],
+                    );
                 }
             }
         }
