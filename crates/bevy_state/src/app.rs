@@ -14,6 +14,8 @@ use crate::{
         despawn_entities_when_state, disable_entities_on_enter_state,
         disable_entities_on_exit_state, disable_entities_when_state,
         enable_entities_on_enter_state, enable_entities_on_exit_state, enable_entities_when_state,
+        on_disabled_in_spawn, on_enabled_in_spawn, update_disabled_in_state,
+        update_enabled_in_state,
     },
 };
 
@@ -280,9 +282,13 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
             despawn_entities_when_state::<S>,
             disable_entities_when_state::<S>,
             enable_entities_when_state::<S>,
+            update_enabled_in_state::<S>,
+            update_disabled_in_state::<S>,
         )
             .in_set(StateTransitionSystems::TransitionSchedules),
     );
+    app.add_observer(on_enabled_in_spawn::<S>)
+        .add_observer(on_disabled_in_spawn::<S>);
 }
 
 impl AppExtStates for App {
