@@ -18,14 +18,10 @@ use crate::{
     error::{ErrorContext, ErrorHandler},
     event::EventKey,
     lifecycle::{ComponentHook, HookContext},
-<<<<<<< HEAD
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
         observer_system_runner, ObserverRunner, ObserverSet,
     },
-=======
-    observer::{observer_system_runner, ObserverRunner, ObserverSet},
->>>>>>> 696e89e0d (ecs/observer: add ObserverSet trait, derive, and descriptor edges)
     prelude::*,
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
