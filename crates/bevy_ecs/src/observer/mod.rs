@@ -500,7 +500,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_order_replace() {
+    fn observer_order_discard_on_replace() {
         let mut world = World::new();
         world.init_resource::<Order>();
 
