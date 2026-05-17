@@ -785,6 +785,17 @@ impl<'w> DeferredWorld<'w> {
         trigger: &mut E::Trigger<'a>,
         caller: MaybeLocation,
     ) {
+        // SAFETY:
+        // - `self` is a mutable DeferredWorld, so there are no outstanding world metadata borrows.
+        // - This only touches observer metadata for the event cache and does not perform structural ECS changes.
+        unsafe {
+            let world = self.as_unsafe_world_cell().world_mut();
+            let Some(observers) = world.observers.try_get_observers_mut(event_key) else {
+                return;
+            };
+            observers.resort();
+        }
+
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
             let world = self.as_unsafe_world_cell();

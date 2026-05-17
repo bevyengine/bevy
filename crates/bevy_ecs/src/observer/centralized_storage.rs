@@ -10,6 +10,7 @@
 
 use alloc::{vec, vec::Vec};
 use bevy_platform::collections::HashMap;
+use bevy_ptr::PtrMut;
 use log::{debug, warn};
 use smallvec::SmallVec;
 
@@ -21,7 +22,10 @@ use crate::{
     intern::Interned,
     observer::{EdgeTarget, ObserverDescriptor, ObserverRunner, ObserverSet},
     schedule::graph::{DiGraph, DiGraphToposortError, Direction, GraphNodeId},
+    world::DeferredWorld,
 };
+
+use super::TriggerContext;
 
 /// An internal lookup table tracking all of the observers in the world.
 ///
@@ -79,6 +83,22 @@ impl Observers {
             REMOVE => Some(&self.remove),
             DESPAWN => Some(&self.despawn),
             _ => self.cache.get(&event_key),
+        }
+    }
+
+    pub(crate) fn try_get_observers_mut(
+        &mut self,
+        event_key: EventKey,
+    ) -> Option<&mut CachedObservers> {
+        use crate::lifecycle::*;
+
+        match event_key {
+            ADD => Some(&mut self.add),
+            INSERT => Some(&mut self.insert),
+            REPLACE => Some(&mut self.replace),
+            REMOVE => Some(&mut self.remove),
+            DESPAWN => Some(&mut self.despawn),
+            _ => self.cache.get_mut(&event_key),
         }
     }
 
@@ -221,6 +241,12 @@ impl CachedObservers {
         &self.globals
     }
 
+    /// Observers watching for any time this event is triggered, regardless of target.
+    /// These will also respond to events targeting specific components or entities.
+    pub fn global_node_ids(&self) -> &[NodeId] {
+        &self.globals
+    }
+
     /// Returns observers watching for triggers of events for a specific component.
     pub fn component_observers(&self) -> &HashMap<ComponentId, ComponentBucket> {
         &self.by_component
@@ -229,6 +255,26 @@ impl CachedObservers {
     /// Returns observers watching for triggers of events for a specific entity.
     pub fn entity_observers(&self) -> &EntityHashMap<SmallVec<[NodeId; 2]>> {
         &self.by_entity
+    }
+
+    /// Returns observers watching for triggers of events for a specific entity.
+    pub fn entity_node_ids(&self, entity: Entity) -> &[NodeId] {
+        self.by_entity.get(&entity).map_or(&[], SmallVec::as_slice)
+    }
+
+    /// Returns observers watching for triggers of events for a specific component.
+    pub fn component_global_node_ids(&self, component: ComponentId) -> &[NodeId] {
+        self.by_component
+            .get(&component)
+            .map_or(&[], |bucket| bucket.globals.as_slice())
+    }
+
+    /// Returns observers watching for triggers of events for a specific component on a specific entity.
+    pub fn entity_component_node_ids(&self, component: ComponentId, entity: Entity) -> &[NodeId] {
+        self.by_component
+            .get(&component)
+            .and_then(|bucket| bucket.by_entity.get(&entity))
+            .map_or(&[], SmallVec::as_slice)
     }
 
     pub(crate) fn register_observer(
@@ -545,6 +591,107 @@ impl CachedObservers {
         }
         for nodes in self.sets.values() {
             debug_assert!(is_sorted_by_order(&positions, nodes));
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_assert_stream_sorted(&self, nodes: &[NodeId]) {
+        let mut last_position = None;
+        for node_id in nodes {
+            let position = self
+                .order
+                .iter()
+                .position(|ordered_id| ordered_id == node_id)
+                .unwrap_or(usize::MAX);
+            if let Some(last_position) = last_position {
+                debug_assert!(last_position <= position);
+            }
+            last_position = Some(position);
+        }
+    }
+}
+
+/// SAFETY: every `&[NodeId]` stream MUST be sorted ascending by the node's
+/// position in `cache.order`. Caller must hold the same pointer-validity
+/// invariants as the dispatch helpers in `event::trigger`.
+#[inline]
+pub(crate) unsafe fn run_ordered<const N: usize>(
+    cache: &CachedObservers,
+    world: &mut DeferredWorld,
+    trigger_context: &TriggerContext,
+    event: &mut PtrMut,
+    trigger: &mut PtrMut,
+    streams: [&[NodeId]; N],
+) {
+    #[cfg(debug_assertions)]
+    for stream in &streams {
+        cache.debug_assert_stream_sorted(stream);
+    }
+
+    if N == 1 {
+        for &node_id in streams[0] {
+            let node = cache.observer(node_id);
+            // SAFETY: The caller upholds the observer runner's safety contract.
+            unsafe {
+                (node.runner)(
+                    world.reborrow(),
+                    node.observer,
+                    trigger_context,
+                    event.reborrow(),
+                    trigger.reborrow(),
+                );
+            }
+        }
+        return;
+    }
+
+    if cache.edges.is_empty() {
+        for stream in streams {
+            for &node_id in stream {
+                let node = cache.observer(node_id);
+                // SAFETY: The caller upholds the observer runner's safety contract.
+                unsafe {
+                    (node.runner)(
+                        world.reborrow(),
+                        node.observer,
+                        trigger_context,
+                        event.reborrow(),
+                        trigger.reborrow(),
+                    );
+                }
+            }
+        }
+        return;
+    }
+
+    let mut indices = [0usize; N];
+
+    for &ordered_node_id in &cache.order {
+        let mut run_node = false;
+
+        for stream_index in 0..N {
+            let stream = streams[stream_index];
+            if stream
+                .get(indices[stream_index])
+                .is_some_and(|node_id| *node_id == ordered_node_id)
+            {
+                indices[stream_index] += 1;
+                run_node = true;
+            }
+        }
+
+        if run_node {
+            let node = cache.observer(ordered_node_id);
+            // SAFETY: The caller upholds the observer runner's safety contract.
+            unsafe {
+                (node.runner)(
+                    world.reborrow(),
+                    node.observer,
+                    trigger_context,
+                    event.reborrow(),
+                    trigger.reborrow(),
+                );
+            }
         }
     }
 }
