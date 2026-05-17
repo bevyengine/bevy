@@ -623,6 +623,7 @@ Example | Description
 [Scroll](../examples/ui/scroll_and_overflow/scroll.rs) | Demonstrates scrolling UI containers
 [Scrollbars](../examples/ui/scroll_and_overflow/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
 [Size Constraints](../examples/ui/layout/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
+[Spinbox Months](../examples/ui/widgets/spinbox_months.rs) | Demonstrates using the headless spinbox with a Month enum and a non-editable text field
 [Stacked Gradients](../examples/ui/styling/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Standard Widgets](../examples/ui/widgets/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
 [Standard Widgets (w/Observers)](../examples/ui/widgets/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers

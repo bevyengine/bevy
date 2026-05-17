@@ -5375,6 +5375,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "spinbox_months"
+path = "examples/ui/widgets/spinbox_months.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.spinbox_months]
+name = "Spinbox Months"
+description = "Demonstrates using the headless spinbox with a Month enum and a non-editable text field"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "scrollbars"
 path = "examples/ui/scroll_and_overflow/scrollbars.rs"
 doc-scrape-examples = true
