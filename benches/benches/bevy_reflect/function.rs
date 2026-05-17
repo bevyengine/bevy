@@ -21,35 +21,35 @@ fn add(a: i32, b: i32) -> i32 {
 fn typed(c: &mut Criterion) {
     c.benchmark_group(bench!("typed"))
         .bench_function("function", |b| {
-            b.iter(|| add.get_function_info());
+            b.iter(|| black_box(add.get_function_info()));
         })
         .bench_function("closure", |b| {
             let capture = 25;
             let closure = |a: i32| a + capture;
-            b.iter(|| closure.get_function_info());
+            b.iter(|| black_box(closure.get_function_info()));
         })
         .bench_function("closure_mut", |b| {
             let mut capture = 25;
             let closure = |a: i32| capture += a;
-            b.iter(|| closure.get_function_info());
+            b.iter(|| black_box(closure.get_function_info()));
         });
 }
 
 fn into(c: &mut Criterion) {
     c.benchmark_group(bench!("into"))
         .bench_function("function", |b| {
-            b.iter(|| add.into_function());
+            b.iter(|| black_box(add.into_function()));
         })
         .bench_function("closure", |b| {
             let capture = 25;
             let closure = |a: i32| a + capture;
-            b.iter(|| closure.into_function());
+            b.iter(|| black_box(closure.into_function()));
         })
         .bench_function("closure_mut", |b| {
             let mut _capture = 25;
             // `move` is required here because `into_function_mut()` takes ownership of `self`.
             let closure = move |a: i32| _capture += a;
-            b.iter(|| closure.into_function_mut());
+            b.iter(|| black_box(closure.into_function_mut()));
         });
 }
 
@@ -94,7 +94,7 @@ fn clone(c: &mut Criterion) {
     c.benchmark_group(bench!("clone"))
         .bench_function("function", |b| {
             let add = add.into_function();
-            b.iter(|| add.clone());
+            b.iter(|| black_box(add.clone()));
         });
 }
 
