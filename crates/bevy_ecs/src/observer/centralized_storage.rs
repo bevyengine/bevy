@@ -101,43 +101,23 @@ impl Observers {
         component_id: ComponentId,
         flags: &mut ArchetypeFlags,
     ) {
-        if self
-            .add
-            .component_observers_legacy
-            .contains_key(&component_id)
-        {
+        if self.add.contains_component_observers(component_id) {
             flags.insert(ArchetypeFlags::ON_ADD_OBSERVER);
         }
 
-        if self
-            .insert
-            .component_observers_legacy
-            .contains_key(&component_id)
-        {
+        if self.insert.contains_component_observers(component_id) {
             flags.insert(ArchetypeFlags::ON_INSERT_OBSERVER);
         }
 
-        if self
-            .discard
-            .component_observers_legacy
-            .contains_key(&component_id)
-        {
+        if self.discard.contains_component_observers(component_id) {
             flags.insert(ArchetypeFlags::ON_DISCARD_OBSERVER);
         }
 
-        if self
-            .remove
-            .component_observers_legacy
-            .contains_key(&component_id)
-        {
+        if self.remove.contains_component_observers(component_id) {
             flags.insert(ArchetypeFlags::ON_REMOVE_OBSERVER);
         }
 
-        if self
-            .despawn
-            .component_observers_legacy
-            .contains_key(&component_id)
-        {
+        if self.despawn.contains_component_observers(component_id) {
             flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
     }
@@ -258,6 +238,8 @@ impl CachedObservers {
         self.next_sort_key = self.next_sort_key.wrapping_add(1);
         self.observer_to_node.insert(observer, node_id);
 
+        let mut newly_observed_components = SmallVec::new();
+
         if descriptor.components.is_empty() && descriptor.entities.is_empty() {
             push_unique(&mut self.globals, node_id);
         } else if descriptor.components.is_empty() {
@@ -266,6 +248,7 @@ impl CachedObservers {
             }
         } else {
             for &component in &descriptor.components {
+                let was_empty = !self.by_component.contains_key(&component);
                 let bucket = self.by_component.entry(component).or_default();
                 if descriptor.entities.is_empty() {
                     push_unique(&mut bucket.globals, node_id);
@@ -273,6 +256,9 @@ impl CachedObservers {
                     for &watched_entity in &descriptor.entities {
                         push_unique(bucket.by_entity.entry(watched_entity).or_default(), node_id);
                     }
+                }
+                if was_empty {
+                    push_unique_component(&mut newly_observed_components, component);
                 }
             }
         }
@@ -292,12 +278,6 @@ impl CachedObservers {
         self.dirty = true;
         self.resort();
 
-        let mut newly_observed_components = SmallVec::new();
-        for &component in &descriptor.components {
-            if self.by_component.contains_key(&component) {
-                push_unique_component(&mut newly_observed_components, component);
-            }
-        }
         newly_observed_components
     }
 
@@ -346,14 +326,47 @@ impl CachedObservers {
         removed_components
     }
 
-    #[expect(
-        dead_code,
-        reason = "The new component-observer check is used after the register/unregister cutover."
-    )]
     pub(crate) fn contains_component_observers(&self, component_id: ComponentId) -> bool {
         self.by_component
             .get(&component_id)
             .is_some_and(|bucket| !bucket.is_empty())
+    }
+
+    pub(crate) fn clone_entity_observers(
+        &mut self,
+        source: Entity,
+        target: Entity,
+        components: &[ComponentId],
+    ) {
+        let mut changed = false;
+        if components.is_empty() {
+            if let Some(nodes) = self.by_entity.get(&source).cloned() {
+                let target_nodes = self.by_entity.entry(target).or_default();
+                for node_id in nodes {
+                    push_unique(target_nodes, node_id);
+                    changed = true;
+                }
+            }
+        } else {
+            for component in components {
+                let Some(bucket) = self.by_component.get_mut(component) else {
+                    continue;
+                };
+                let Some(nodes) = bucket.by_entity.get(&source).cloned() else {
+                    continue;
+                };
+                let target_nodes = bucket.by_entity.entry(target).or_default();
+                for node_id in nodes {
+                    push_unique(target_nodes, node_id);
+                    changed = true;
+                }
+            }
+        }
+
+        if changed {
+            self.dirty = true;
+            self.resort();
+        }
     }
 
     pub(crate) fn resort(&mut self) {
@@ -366,6 +379,7 @@ impl CachedObservers {
             self.dirty = false;
             self.rebuild_order();
             self.sort_indices();
+            self.rebuild_legacy_views();
 
             attempts += 1;
             debug_assert!(attempts <= self.nodes.len().saturating_add(1));
@@ -501,6 +515,38 @@ impl CachedObservers {
         }
     }
 
+    fn rebuild_legacy_views(&mut self) {
+        self.global_observers_legacy = legacy_map_for(&self.nodes, &self.globals);
+
+        self.entity_observers_legacy.clear();
+        for (&entity, nodes) in &self.by_entity {
+            let map = legacy_map_for(&self.nodes, nodes);
+            if !map.is_empty() {
+                self.entity_observers_legacy.insert(entity, map);
+            }
+        }
+
+        self.component_observers_legacy.clear();
+        for (&component, bucket) in &self.by_component {
+            let mut component_observers = CachedComponentObservers::default();
+            component_observers.global_observers = legacy_map_for(&self.nodes, &bucket.globals);
+            for (&entity, nodes) in &bucket.by_entity {
+                let map = legacy_map_for(&self.nodes, nodes);
+                if !map.is_empty() {
+                    component_observers
+                        .entity_component_observers
+                        .insert(entity, map);
+                }
+            }
+            if !component_observers.global_observers.is_empty()
+                || !component_observers.entity_component_observers.is_empty()
+            {
+                self.component_observers_legacy
+                    .insert(component, component_observers);
+            }
+        }
+    }
+
     #[cfg(debug_assertions)]
     fn debug_assert_sorted_indices(&self) {
         let mut positions = vec![usize::MAX; self.nodes.len()];
@@ -548,6 +594,19 @@ impl CachedComponentObservers {
     pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
         &self.entity_component_observers
     }
+}
+
+fn legacy_map_for<const N: usize>(
+    nodes: &[ObserverNode],
+    node_ids: &SmallVec<[NodeId; N]>,
+) -> ObserverMap {
+    node_ids
+        .iter()
+        .map(|node_id| {
+            let node = nodes[node_id.index()];
+            (node.observer, node.runner)
+        })
+        .collect()
 }
 
 fn push_unique<const N: usize>(nodes: &mut SmallVec<[NodeId; N]>, node_id: NodeId) {
