@@ -285,23 +285,18 @@ fn on_pointer_drag(
         return;
     }
 
-    let Some((drag_start_local_pos, current_local_pos)) = transform.try_inverse().map(|inverse| {
-        let transform_pos = |pointer_pos| {
-            inverse.transform_point2(pointer_pos * target.scale_factor() / ui_scale.0)
-                - node.content_box().min
-                + text_scroll.0
-        };
-        let current_pos = drag.pointer_location.position;
-        let drag_start_pos = current_pos - drag.distance;
-        (transform_pos(drag_start_pos), transform_pos(current_pos))
+    let Some(current_local_pos) = transform.try_inverse().map(|inverse| {
+        inverse
+            .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
+            - node.content_box().min
+            + text_scroll.0
     }) else {
         return;
     };
 
-    editable_text.pending_edits.extend([
-        TextEdit::MoveToPoint(drag_start_local_pos),
-        TextEdit::ExtendSelectionToPoint(current_local_pos),
-    ]);
+    editable_text
+        .pending_edits
+        .push(TextEdit::ExtendSelectionToPoint(current_local_pos));
 
     drag.propagate(false);
 }
