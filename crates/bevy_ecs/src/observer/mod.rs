@@ -1586,8 +1586,8 @@ mod tests {
             Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
                 order.observed("x");
             })
-                .in_set(SetA)
-                .in_set(SetB),
+            .in_set(SetA)
+            .in_set(SetB),
         );
         world.spawn(
             Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
