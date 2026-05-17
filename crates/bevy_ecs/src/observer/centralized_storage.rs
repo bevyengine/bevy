@@ -95,7 +95,7 @@ impl Observers {
         match event_key {
             ADD => Some(&mut self.add),
             INSERT => Some(&mut self.insert),
-            REPLACE => Some(&mut self.replace),
+            DISCARD => Some(&mut self.discard),
             REMOVE => Some(&mut self.remove),
             DESPAWN => Some(&mut self.despawn),
             _ => self.cache.get_mut(&event_key),

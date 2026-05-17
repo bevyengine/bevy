@@ -532,7 +532,9 @@ pub fn derive_observer_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("observer").into());
-    trait_path.segments.push(format_ident!("ObserverSet").into());
+    trait_path
+        .segments
+        .push(format_ident!("ObserverSet").into());
     derive_label(input, "ObserverSet", &trait_path)
 }
 

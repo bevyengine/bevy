@@ -82,11 +82,7 @@ pub mod prelude {
             Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
         },
         name::{Name, NameOrEntity},
-<<<<<<< HEAD
         observer::{Observer, ObserverSet, ObserverSystemExt, On},
-=======
-        observer::{Observer, ObserverSet, On},
->>>>>>> 696e89e0d (ecs/observer: add ObserverSet trait, derive, and descriptor edges)
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
