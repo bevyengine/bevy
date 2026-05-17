@@ -741,10 +741,6 @@ struct FreshAllocator {
 }
 
 impl FreshAllocator {
-    /// This exists because it may possibly change depending on platform.
-    /// Ex: We may want this to be smaller on 32 bit platforms at some point.
-    const MAX_ENTITIES: u32 = u32::MAX;
-
     pub(crate) fn new(range: Range<u32>) -> Self {
         Self {
             next_entity_index: AtomicU32::new(range.start),
@@ -775,7 +771,7 @@ impl FreshAllocator {
         if index >= self.max_index {
             self.next_entity_index
                 .store(self.max_index, Ordering::Relaxed);
-            if index >= Self::MAX_ENTITIES {
+            if index == u32::MAX {
                 Self::on_overflow();
             }
             return None;
