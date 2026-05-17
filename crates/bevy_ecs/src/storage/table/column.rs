@@ -209,14 +209,14 @@ impl Column {
     }
 
     /// Removes the element from `src` at `src_row` and inserts it
-    /// into the current column to initialize the values at `dst_row`.
+    /// into this column to initialize the values at `dst_row`.
     /// Does not do any bounds checking.
     ///
     /// # Safety
-    ///  - `other` must have the same data layout as `self`
-    ///  - `src_row` must be in bounds for `other`
+    ///  - `src` must have the same data layout as `self`
+    ///  - `src_row` must be in bounds for `src`
     ///  - `dst_row` must be in bounds for `self`
-    ///  - `other[src_row]` must be initialized to a valid value.
+    ///  - `src[src_row]` must be initialized to a valid value.
     ///  - `self[dst_row]` must not be initialized yet.
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
