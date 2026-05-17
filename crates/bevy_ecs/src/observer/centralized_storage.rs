@@ -318,6 +318,8 @@ pub struct CachedObservers {
     set_hierarchy: HashMap<Interned<dyn ObserverSet>, SmallVec<[Interned<dyn ObserverSet>; 2]>>,
     set_edges: Vec<(Interned<dyn ObserverSet>, Interned<dyn ObserverSet>)>,
     edges: Vec<ObserverEdgeResolved>,
+    // true iff `!edges.is_empty() || !set_edges.is_empty() || any set has > 1 member`
+    has_ordering_constraints: bool,
     observer_to_node: EntityHashMap<NodeId>,
     dispatch_order: Vec<Entity>,
     dirty: bool,
@@ -331,6 +333,7 @@ impl CachedObservers {
     ) -> Self {
         Self {
             set_hierarchy,
+            has_ordering_constraints: !set_edges.is_empty(),
             set_edges,
             ..Default::default()
         }
@@ -511,6 +514,7 @@ impl CachedObservers {
         for &edge in &configs.edges {
             if !self.set_edges.contains(&edge) {
                 self.set_edges.push(edge);
+                self.has_ordering_constraints = true;
                 changed = true;
             }
         }
@@ -567,7 +571,11 @@ impl CachedObservers {
         }
 
         for &set in &descriptor.sets {
-            push_unique(self.sets.entry(set).or_default(), node_id);
+            let nodes = self.sets.entry(set).or_default();
+            push_unique(nodes, node_id);
+            if nodes.len() > 1 {
+                self.has_ordering_constraints = true;
+            }
         }
 
         for edge in &descriptor.edges {
@@ -576,6 +584,9 @@ impl CachedObservers {
                 from: edge.from.clone().resolve_owner(observer),
                 to: edge.to.clone().resolve_owner(observer),
             });
+        }
+        if !descriptor.edges.is_empty() {
+            self.has_ordering_constraints = true;
         }
 
         self.dirty = true;
@@ -622,6 +633,7 @@ impl CachedObservers {
         }
 
         self.edges.retain(|edge| edge.owner != observer);
+        self.recompute_has_ordering_constraints();
         self.remove_node(node_id);
         self.dirty = true;
         self.resort();
@@ -819,6 +831,12 @@ impl CachedObservers {
             .collect();
     }
 
+    fn recompute_has_ordering_constraints(&mut self) {
+        self.has_ordering_constraints = !self.edges.is_empty()
+            || !self.set_edges.is_empty()
+            || self.sets.values().any(|nodes| nodes.len() > 1);
+    }
+
     fn cycle_members(&self, error: &DiGraphToposortError<NodeId>) -> Vec<Vec<Entity>> {
         match error {
             DiGraphToposortError::Loop(node_id) => {
@@ -940,6 +958,14 @@ pub(crate) unsafe fn run_ordered<const N: usize>(
         cache.debug_assert_stream_sorted(stream);
     }
 
+    #[cfg(debug_assertions)]
+    debug_assert_eq!(
+        cache.has_ordering_constraints,
+        !cache.edges.is_empty()
+            || !cache.set_edges.is_empty()
+            || cache.sets.values().any(|nodes| nodes.len() > 1)
+    );
+
     if N == 1 {
         for &node_id in streams[0] {
             let node = cache.observer(node_id);
@@ -957,7 +983,7 @@ pub(crate) unsafe fn run_ordered<const N: usize>(
         return;
     }
 
-    if cache.edges.is_empty() {
+    if !cache.has_ordering_constraints {
         for stream in streams {
             for &node_id in stream {
                 let node = cache.observer(node_id);
