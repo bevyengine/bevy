@@ -13,6 +13,8 @@ mod graph_map;
 mod tarjan_scc;
 
 pub use dag::*;
+// Observer ordering storage also reuses this graph kernel so observer and
+// schedule execution order share one topological-sort implementation.
 pub use graph_map::{DiGraph, DiGraphToposortError, Direction, GraphNodeId, UnGraph};
 
 /// Specifies what kind of edge should be added to the dependency graph.
