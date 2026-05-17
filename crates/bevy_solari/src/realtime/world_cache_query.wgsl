@@ -54,7 +54,8 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 #else
     // Reduce light leaks
     if ray_t < cell_size {
-        cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE;
+        let lod = max(floor(log2(ray_t / WORLD_CACHE_POSITION_BASE_CELL_SIZE)), 0.0);
+        cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE * exp2(lod);
     }
 #endif
 
