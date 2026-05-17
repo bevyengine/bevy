@@ -5,7 +5,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::{PI, orthonormalize}
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, fresnel}
+#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 
@@ -62,7 +62,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
                 mis_weight = 1.0;
                 if direct_lighting.brdf_rays_can_hit {
-                    let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
+                    let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material);
                     mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
                 }
 
@@ -95,24 +95,3 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
 }
 
-fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
-    let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
-    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
-    let df = 1.0 - luminance(fresnel(F0, NdotV));
-
-    let diffuse_weight = mix(df, 0.0, ray_hit.material.metallic);
-    let specular_weight = 1.0 - diffuse_weight;
-
-    let TBN = orthonormalize(ray_hit.world_normal);
-    let T = TBN[0];
-    let B = TBN[1];
-    let N = TBN[2];
-
-    let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
-    let wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
-
-    let diffuse_pdf = wi_tangent.z / PI;
-    let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-    let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
-    return pdf;
-}
