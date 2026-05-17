@@ -27,7 +27,7 @@ fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: Re
     let rho_specular_metallic = (F0_metal * F_ab.x + F_ab.y) * (1.0 + F0_metal * multiscattering_factor);
     let rho_specular_dielectric = (F0_dielectric * F_ab.x + F_ab.y) * (1.0 + F0_dielectric * multiscattering_factor);
     return LobeReflectances(
-        material.metallic * rho_specular_metallic + (1.0 - material.metallic) * rho_specular_dielectric,
+        mix(rho_specular_dielectric, rho_specular_metallic, material.metallic),
         (1.0 - material.metallic) * (1.0 - rho_specular_dielectric) * material.base_color,
     );
 }
@@ -119,7 +119,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
         if abs(NdotH - 1.0) < 0.0001 {
             let F_metal = fresnel(F0_metal, LdotH);
             let F_dielectric = fresnel(F0_dielectric, LdotH);
-            return material.metallic * F_metal + (1.0 - material.metallic) * F_dielectric;
+            return mix(F_dielectric, F_metal, material.metallic);
         } else {
             return vec3(0.0);
         }
@@ -129,8 +129,9 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let Vs = V_SmithGGXCorrelated(material.roughness, NdotV, NdotL);
     let F_metal = fresnel(F0_metal, LdotH);
     let F_dielectric = fresnel(F0_dielectric, LdotH);
-    return (material.metallic * specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0)
-          + (1.0 - material.metallic) * specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, F_ab, 1.0)) * NdotL;
+    return mix(specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, F_ab, 1.0),
+               specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0),
+               material.metallic) * NdotL;
 }
 
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
