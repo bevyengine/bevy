@@ -336,30 +336,33 @@ impl World {
 
         for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
+            cache.register_observer(observer_entity, observer_state.runner, descriptor);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache
-                    .global_observers
+                    .global_observers_legacy
                     .insert(observer_entity, observer_state.runner);
             } else if descriptor.components.is_empty() {
                 // Observer is not targeting any components so register it as an entity observer
                 for &watched_entity in &observer_state.descriptor.entities {
-                    let map = cache.entity_observers.entry(watched_entity).or_default();
+                    let map = cache
+                        .entity_observers_legacy
+                        .entry(watched_entity)
+                        .or_default();
                     map.insert(observer_entity, observer_state.runner);
                 }
             } else {
                 // Register observer for each watched component
                 for &component in &descriptor.components {
-                    let observers =
-                        cache
-                            .component_observers
-                            .entry(component)
-                            .or_insert_with(|| {
-                                if let Some(flag) = Observers::is_archetype_cached(event_key) {
-                                    archetypes.update_flags(component, flag, true);
-                                }
-                                CachedComponentObservers::default()
-                            });
+                    let observers = cache
+                        .component_observers_legacy
+                        .entry(component)
+                        .or_insert_with(|| {
+                            if let Some(flag) = Observers::is_archetype_cached(event_key) {
+                                archetypes.update_flags(component, flag, true);
+                            }
+                            CachedComponentObservers::default()
+                        });
                     if descriptor.entities.is_empty() {
                         // Register for all triggers targeting the component
                         observers
@@ -387,22 +390,25 @@ impl World {
 
         for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
+            cache.unregister_observer(entity, &descriptor);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
-                cache.global_observers.remove(&entity);
+                cache.global_observers_legacy.remove(&entity);
             } else if descriptor.components.is_empty() {
                 for watched_entity in &descriptor.entities {
                     // This check should be unnecessary since this observer hasn't been unregistered yet
-                    let Some(observers) = cache.entity_observers.get_mut(watched_entity) else {
+                    let Some(observers) = cache.entity_observers_legacy.get_mut(watched_entity)
+                    else {
                         continue;
                     };
                     observers.remove(&entity);
                     if observers.is_empty() {
-                        cache.entity_observers.remove(watched_entity);
+                        cache.entity_observers_legacy.remove(watched_entity);
                     }
                 }
             } else {
                 for component in &descriptor.components {
-                    let Some(observers) = cache.component_observers.get_mut(component) else {
+                    let Some(observers) = cache.component_observers_legacy.get_mut(component)
+                    else {
                         continue;
                     };
                     if descriptor.entities.is_empty() {
@@ -424,16 +430,17 @@ impl World {
                     if observers.global_observers.is_empty()
                         && observers.entity_component_observers.is_empty()
                     {
-                        cache.component_observers.remove(component);
+                        cache.component_observers_legacy.remove(component);
                         if let Some(flag) = Observers::is_archetype_cached(event_key)
                             && let Some(by_component) = archetypes.by_component.get(component)
                         {
                             for archetype in by_component.keys() {
                                 let archetype = &mut archetypes.archetypes[archetype.index()];
                                 if archetype.contains(*component) {
-                                    let no_longer_observed = archetype
-                                        .iter_components()
-                                        .all(|id| !cache.component_observers.contains_key(&id));
+                                    let no_longer_observed =
+                                        archetype.iter_components().all(|id| {
+                                            !cache.component_observers_legacy.contains_key(&id)
+                                        });
 
                                     if no_longer_observed {
                                         archetype.flags.set(flag, false);
@@ -1548,7 +1555,7 @@ mod tests {
         assert!(!world
             .observers
             .get_observers_mut(event_key)
-            .global_observers
+            .global_observers_legacy
             .contains_key(&id));
     }
 
@@ -1563,7 +1570,7 @@ mod tests {
         assert!(!world
             .observers
             .get_observers_mut(event_key)
-            .entity_observers
+            .entity_observers_legacy
             .contains_key(&entity));
     }
 

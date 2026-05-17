@@ -412,17 +412,14 @@ pub struct ObserverDescriptor {
     pub(super) entities: Vec<Entity>,
 
     /// The observer sets this observer belongs to.
-    #[expect(dead_code, reason = "Observer set dispatch is wired in a later phase.")]
     pub(crate) sets: SmallVec<[crate::intern::Interned<dyn ObserverSet>; 1]>,
 
     /// Ordering edges declared for this observer.
-    #[expect(dead_code, reason = "Observer edge dispatch is wired in a later phase.")]
     pub(crate) edges: Vec<ObserverEdge>,
 }
 
 /// An ordering edge declared by an [`ObserverDescriptor`].
 #[derive(Clone, Debug)]
-#[expect(dead_code, reason = "Observer edge dispatch is wired in a later phase.")]
 pub(crate) struct ObserverEdge {
     /// The source endpoint of the edge.
     pub from: EdgeTarget,
@@ -432,7 +429,10 @@ pub(crate) struct ObserverEdge {
 
 /// A public-facing observer ordering edge endpoint.
 #[derive(Clone, Debug)]
-#[expect(dead_code, reason = "Observer edge dispatch is wired in a later phase.")]
+#[expect(
+    dead_code,
+    reason = "Observer edge constructors are wired with the builder API in a later phase."
+)]
 pub(crate) enum EdgeTarget {
     /// A specific observer entity.
     Entity(Entity),
