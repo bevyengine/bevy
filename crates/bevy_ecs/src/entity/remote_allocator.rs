@@ -775,9 +775,10 @@ impl FreshAllocator {
         if index >= self.max_index {
             self.next_entity_index
                 .store(self.max_index, Ordering::Relaxed);
+            if index >= Self::MAX_ENTITIES {
+                Self::on_overflow();
+            }
             return None;
-        } else if index == Self::MAX_ENTITIES {
-            Self::on_overflow();
         }
 
         // SAFETY: We just checked that this was not max and we only added 1, so we can't have missed it.
