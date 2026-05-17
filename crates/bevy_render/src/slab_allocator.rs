@@ -621,6 +621,53 @@ where
         }
     }
 
+    /// Does this allocation have the same length & layout such that we can
+    /// reupload it to the same location?
+    pub fn is_reusable(&self, key: &I::Key, data_byte_len: u64, layout: &I::Layout) -> bool {
+        let Some(&slab_id) = self.key_to_slab.get(key) else {
+            return false;
+        };
+
+        let Some(Slab::General(slab)) = self.slabs.get(&slab_id) else {
+            return false;
+        };
+
+        if slab.element_layout != *layout {
+            return false;
+        }
+
+        let (slot_count, padding) = Self::slots_and_padding(data_byte_len, &layout);
+        let Some(existing) = slab.resident_allocations.get(key) else {
+            return false;
+        };
+
+        existing.slot_count == slot_count && existing.padding == padding
+    }
+
+    /// Reupload an allocation to the GPU.
+    pub fn reupload(&mut self, key: &I::Key) {
+        let Some(&slab_id) = self.key_to_slab.get(key) else {
+            return;
+        };
+
+        let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
+            return;
+        };
+
+        if let Some(allocation) = slab.resident_allocations.get(key) {
+            slab.pending_allocations
+                .insert(key.clone(), allocation.clone());
+        }
+    }
+
+    fn slots_and_padding(data_byte_len: u64, layout: &I::Layout) -> (u32, u32) {
+        let element_count = data_byte_len.div_ceil(layout.size()) as u32;
+        let slot_count = element_count.div_ceil(layout.elements_per_slot());
+        let padding = slot_count * layout.elements_per_slot() - element_count;
+
+        (slot_count, padding)
+    }
+
     /// Allocates space for data with the given byte size and layout in the
     /// appropriate slab, creating that slab if necessary.
     fn allocate(
@@ -633,9 +680,7 @@ where
     ) {
         debug_assert!(!self.key_to_slab.contains_key(key));
 
-        let data_element_count = data_byte_len.div_ceil(layout.size()) as u32;
-        let data_slot_count = data_element_count.div_ceil(layout.elements_per_slot());
-        let padding = data_slot_count * layout.elements_per_slot() - data_element_count;
+        let (data_slot_count, padding) = Self::slots_and_padding(data_byte_len, &layout);
 
         // If the data is too large for a slab, give it a slab of its own.
         if data_slot_count as u64 * layout.slot_size()

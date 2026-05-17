@@ -7,11 +7,13 @@ use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    prelude::Local,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_platform::collections::HashSet;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
 #[cfg(feature = "morph")]
@@ -247,17 +249,32 @@ pub fn allocate_and_free_meshes(
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-) {
-    // Process removed or modified meshes.
-    mesh_allocator.free_meshes(&extracted_meshes);
 
-    // Process newly-added or modified meshes.
+    mut realloc: Local<HashSet<AssetId<Mesh>>>,
+) {
+    realloc.clear();
+
+    for (mesh_id, mesh) in &extracted_meshes.extracted {
+        if !extracted_meshes.modified.contains(mesh_id) {
+            continue;
+        }
+
+        if mesh_allocator.mesh_is_reusable(mesh_id, mesh, &mut mesh_vertex_buffer_layouts) {
+            mesh_allocator.mesh_reuse(mesh_id);
+        } else {
+            realloc.insert(*mesh_id);
+        }
+    }
+
+    // Process newly-added, removed, or modified meshes with different sizes/layouts.
+    mesh_allocator.free_meshes(&extracted_meshes, &realloc);
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
         &mut mesh_vertex_buffer_layouts,
         &render_device,
         &render_queue,
+        &realloc,
     );
 }
 
@@ -366,11 +383,16 @@ impl MeshAllocator {
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        realloc: &HashSet<AssetId<Mesh>>,
     ) {
         let mut allocation_stage = self.slab_allocator.stage_allocation();
 
         // Loop over each mesh that was extracted this frame.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            if extracted_meshes.modified.contains(mesh_id) && !realloc.contains(mesh_id) {
+                continue;
+            }
+
             let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
             if vertex_buffer_size == 0 {
                 continue;
@@ -495,18 +517,15 @@ impl MeshAllocator {
         );
     }
 
-    /// Frees allocations for meshes that were removed or modified this frame.
-    fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
+    /// Frees allocations for meshes that were removed or are being reallocated this frame.
+    fn free_meshes(
+        &mut self,
+        extracted_meshes: &ExtractedAssets<RenderMesh>,
+        realloc: &HashSet<AssetId<Mesh>>,
+    ) {
         let mut deallocation_stage = self.slab_allocator.stage_deallocation();
 
-        // TODO: Consider explicitly reusing allocations for changed meshes of
-        // the same size
-        let meshes_to_free = extracted_meshes
-            .removed
-            .iter()
-            .chain(extracted_meshes.modified.iter());
-
-        for mesh_id in meshes_to_free {
+        for mesh_id in extracted_meshes.removed.iter().chain(realloc.iter()) {
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Vertex));
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Index));
             #[cfg(feature = "morph")]
@@ -514,6 +533,79 @@ impl MeshAllocator {
         }
 
         deallocation_stage.commit();
+    }
+
+    fn mesh_is_reusable(
+        &self,
+        mesh_id: &AssetId<Mesh>,
+        mesh: &Mesh,
+        mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
+    ) -> bool {
+        let vertex_key = MeshAllocationKey::new(*mesh_id, ElementClass::Vertex);
+        let vertex_size = mesh.get_vertex_buffer_size() as u64;
+        let has_vertex = self.slab_allocator.key_to_slab.contains_key(&vertex_key);
+        if has_vertex != (vertex_size > 0) {
+            return false;
+        }
+
+        let layout = ElementLayout::vertex(mesh_vertex_buffer_layouts, mesh);
+        if !self
+            .slab_allocator
+            .is_reusable(&vertex_key, vertex_size, &layout)
+        {
+            return false;
+        }
+
+        let index_key = MeshAllocationKey::new(*mesh_id, ElementClass::Index);
+        let has_index = self.slab_allocator.key_to_slab.contains_key(&index_key);
+        match (
+            has_index,
+            mesh.get_index_buffer_bytes(),
+            ElementLayout::index(mesh),
+        ) {
+            (false, None, _) => {}
+            (true, Some(indices), Some(layout)) => {
+                if !self
+                    .slab_allocator
+                    .is_reusable(&index_key, indices.len() as u64, &layout)
+                {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+
+        #[cfg(feature = "morph")]
+        {
+            let morph_key = MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget);
+            let has_morph = self.slab_allocator.key_to_slab.contains_key(&morph_key);
+            match (has_morph, mesh.get_morph_targets()) {
+                (false, None) => {}
+                (true, Some(morphs)) => {
+                    let size = morphs.len() as u64 * size_of::<MorphAttributes>() as u64;
+                    if !self.slab_allocator.is_reusable(
+                        &morph_key,
+                        size,
+                        &MORPH_ATTRIBUTE_ELEMENT_LAYOUT,
+                    ) {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        true
+    }
+
+    fn mesh_reuse(&mut self, mesh_id: &AssetId<Mesh>) {
+        self.slab_allocator
+            .reupload(&MeshAllocationKey::new(*mesh_id, ElementClass::Vertex));
+        self.slab_allocator
+            .reupload(&MeshAllocationKey::new(*mesh_id, ElementClass::Index));
+        #[cfg(feature = "morph")]
+        self.slab_allocator
+            .reupload(&MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget));
     }
 }
 
