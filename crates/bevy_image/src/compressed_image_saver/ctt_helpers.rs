@@ -1,6 +1,12 @@
 use std::env;
 
-use ctt::{AlphaMode, TargetFormat};
+use ctt::{
+    encoders::{
+        astcenc::{AstcencSettings, AstcencUsage, NormalSwizzle},
+        Encoder,
+    },
+    AlphaMode, TargetFormat,
+};
 use ktx2::Format;
 use wgpu_types::{AstcBlock, AstcChannel, TextureFormat};
 
@@ -68,11 +74,16 @@ pub fn choose_ctt_compressed_format(
     if is_normal_map {
         return Ok(match astc_block {
             Some((astc_unorm, _)) => TargetFormat::Compressed {
-                encoder_name: None,
+                encoder: Encoder::Astcenc(AstcencSettings {
+                    usage: AstcencUsage::NormalMap {
+                        swizzle: NormalSwizzle::Bc5Compat,
+                    },
+                    ..Default::default()
+                }),
                 format: astc_unorm,
             },
             None => TargetFormat::Compressed {
-                encoder_name: None,
+                encoder: Encoder::Auto,
                 format: Format::BC5_UNORM_BLOCK,
             },
         });
@@ -220,7 +231,7 @@ pub fn choose_ctt_compressed_format(
     };
 
     Ok(TargetFormat::Compressed {
-        encoder_name: None,
+        encoder: Encoder::Auto,
         format,
     })
 }

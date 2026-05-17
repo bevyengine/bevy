@@ -1,4 +1,8 @@
 use bevy_asset::{io::Writer, saver::SavedAsset, AssetPath, AsyncWriteExt};
+use ctt::{
+    convert, ColorSpace, Container, ConvertSettings, Image as CttImage, MipmapFilter,
+    PipelineOutput, Quality, Surface, TextureKind,
+};
 
 use super::{
     ctt_helpers::{
@@ -35,9 +39,9 @@ impl CompressedImageSaverCtt {
 
         let is_srgb = image.texture_descriptor.format.is_srgb();
         let color_space = if is_srgb {
-            ctt::ColorSpace::Srgb
+            ColorSpace::Srgb
         } else {
-            ctt::ColorSpace::Linear
+            ColorSpace::Linear
         };
 
         let is_cubemap = matches!(
@@ -56,54 +60,48 @@ impl CompressedImageSaverCtt {
         let surfaces = data
             .chunks_exact((image.width() * image.height() * bytes_per_pixel) as usize)
             .map(|layer_data| {
-                vec![ctt::Surface {
+                vec![Surface {
                     data: layer_data.to_vec(),
                     width: image.width(),
                     height: image.height(),
+                    depth: 1,
                     stride: image.width() * bytes_per_pixel,
+                    slice_stride: 0,
                     format: input_format,
                     color_space,
                     alpha: bevy_to_ctt_alpha_mode(settings.input_alpha_mode),
                 }]
             })
             .collect();
-        let ctt_image = ctt::Image {
+        let ctt_image = CttImage {
             surfaces,
-            is_cubemap,
+            kind: if is_cubemap {
+                TextureKind::Cubemap
+            } else {
+                TextureKind::Texture2D
+            },
         };
 
-        // TODO: https://github.com/cwfitzgerald/ctt/issues/66
-        // Convert to two-component normal map so that ASTC does not waste bits on other channels
-        // (BC5 does this implicitly)
-        let swizzle = settings.is_normal_map.then_some(ctt::Swizzle([
-            ctt::SwizzleChannel::R,
-            ctt::SwizzleChannel::G,
-            ctt::SwizzleChannel::Zero,
-            ctt::SwizzleChannel::One,
-        ]));
-
-        let settings = ctt::ConvertSettings {
+        let settings = ConvertSettings {
             format: Some(output_format),
-            container: ctt::Container::ktx2_zstd(0),
-            quality: ctt::Quality::default(),
+            container: Container::ktx2_zstd(0),
+            quality: Quality::default(),
             output_color_space: None,
             output_alpha: Some(bevy_to_ctt_alpha_mode(settings.output_alpha_mode)),
-            swizzle,
+            swizzle: None,
             mipmap: true,
             mipmap_count: None,
             mipmap_filter: if settings.is_normal_map {
                 // TODO: https://github.com/cwfitzgerald/ctt/issues/65
-                ctt::MipmapFilter::Triangle
+                MipmapFilter::Triangle
             } else {
-                ctt::MipmapFilter::Lanczos3
+                MipmapFilter::Lanczos3
             },
-            encoder_settings: None,
-            registry: None,
         };
 
-        let output = ctt::convert(ctt_image, settings)
+        let output = convert(ctt_image, settings)
             .map_err(|e| CompressedImageSaverError::CompressionFailed(Box::new(e)))?;
-        let ctt::PipelineOutput::Encoded(compressed_bytes) = &output else {
+        let PipelineOutput::Encoded(compressed_bytes) = &output else {
             return Err(CompressedImageSaverError::CompressionFailed(
                 "Expected encoded output from ctt".into(),
             ));
