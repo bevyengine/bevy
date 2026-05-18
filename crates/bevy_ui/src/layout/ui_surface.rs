@@ -343,7 +343,7 @@ impl UiSurface {
         self.root_entity_to_viewport_node.len()
     }
 
-    /// Returns the number of taffy nodes with corresponding entites.
+    /// Returns the number of taffy nodes with an associated entity.
     pub fn count(&self) -> usize {
         self.entity_to_taffy.len()
     }
