@@ -436,17 +436,6 @@ impl Parse for BsnValue {
             let braced = braced_tokens(input)?;
 
             BsnValue::Expr(quote! {#unsafe_token {#braced}})
-        } else if input.peek(Token![async]) && input.peek2(Brace) {
-            let async_token = input.parse::<Token![async]>()?;
-            let braced = braced_tokens(input)?;
-
-            BsnValue::Expr(quote! {#async_token {#braced}})
-        } else if input.peek(Token![async]) && input.peek2(Token![move]) && input.peek3(Brace) {
-            let async_token = input.parse::<Token![async]>()?;
-            let move_token = input.parse::<Token![move]>()?;
-            let braced = braced_tokens(input)?;
-
-            BsnValue::Expr(quote! {#async_token #move_token {#braced}})
         } else if input.peek(Token![|]) {
             let tokens = parse_closure_loose(input)?;
             BsnValue::Closure(tokens)
