@@ -308,7 +308,7 @@ impl PluginGroup for DefaultPickingPlugins {
 ///         is_input_enabled: false,
 ///         is_hover_enabled: true,
 ///         is_window_picking_enabled: false,
-///         multi_click_duration: Duration::from_millis(450),
+///         multi_click_interval: Duration::from_millis(450),
 ///     })
 ///     // or DefaultPlugins
 ///     .add_plugins(PickingPlugin);
