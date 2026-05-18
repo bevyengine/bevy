@@ -22,6 +22,14 @@ pub mod icons {
     pub const CHEVRON_RIGHT: &str = "embedded://bevy_feathers/assets/icons/chevron-right.png";
     /// Diagonal Cross
     pub const X: &str = "embedded://bevy_feathers/assets/icons/x.png";
+    /// Circle alert
+    pub const CIRCLE_ALERT: &str = "embedded://bevy_feathers/assets/icons/circle-alert.png";
+    /// Circle check
+    pub const CIRCLE_CHECK: &str = "embedded://bevy_feathers/assets/icons/circle-check.png";
+    /// Circle info
+    pub const CIRCLE_INFO: &str = "embedded://bevy_feathers/assets/icons/circle-info.png";
+    /// Triangle alert
+    pub const TRIANGLE_ALERT: &str = "embedded://bevy_feathers/assets/icons/triangle-alert.png";
 }
 
 /// Size constants

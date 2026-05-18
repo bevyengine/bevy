@@ -42,6 +42,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
+    feedback::FeedbackPlugin,
     theme::{ThemedText, UiTheme},
 };
 
@@ -52,6 +53,7 @@ pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
 pub mod display;
+pub mod feedback;
 pub mod focus;
 pub mod font_styles;
 pub mod palette;
@@ -77,6 +79,10 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/icons/chevron-down.png");
         embedded_asset!(app, "assets/icons/chevron-right.png");
         embedded_asset!(app, "assets/icons/x.png");
+        embedded_asset!(app, "assets/icons/circle-alert.png");
+        embedded_asset!(app, "assets/icons/circle-check.png");
+        embedded_asset!(app, "assets/icons/circle-info.png");
+        embedded_asset!(app, "assets/icons/triangle-alert.png");
 
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
@@ -85,6 +91,7 @@ impl Plugin for FeathersCorePlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
+            FeedbackPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
