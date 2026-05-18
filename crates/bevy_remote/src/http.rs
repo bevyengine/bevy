@@ -386,7 +386,7 @@ async fn process_request_batch(
 async fn process_single_request(
     request: Value,
     request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<BrpHttpResponse<BrpResponse, BrpStream>> {
+) -> AnyhowResult<BrpHttpResponse<BrpResponse<'_>, BrpStream>> {
     // Reach in and get the request ID early so that we can report it even when parsing fails.
     let id = request.as_object().and_then(|map| map.get("id")).cloned();
 

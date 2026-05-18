@@ -534,6 +534,7 @@
 
 extern crate alloc;
 
+use alloc::borrow::Cow;
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
@@ -1156,9 +1157,9 @@ impl<'de> Deserialize<'de> for BrpRequest {
 
 /// A response according to BRP.
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BrpResponse {
+pub struct BrpResponse<'a> {
     /// This field is mandatory and must be set to `"2.0"`.
-    pub jsonrpc: &'static str,
+    pub jsonrpc: Cow<'a, str>,
 
     /// The id of the original request.
     pub id: Option<Value>,
@@ -1168,12 +1169,12 @@ pub struct BrpResponse {
     pub payload: BrpPayload,
 }
 
-impl BrpResponse {
+impl BrpResponse<'static> {
     /// Generates a [`BrpResponse`] from an id and a `Result`.
     #[must_use]
     pub fn new(id: Option<Value>, result: BrpResult) -> Self {
         Self {
-            jsonrpc: "2.0",
+            jsonrpc: Cow::Borrowed("2.0"),
             id,
             payload: BrpPayload::from(result),
         }
