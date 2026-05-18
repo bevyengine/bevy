@@ -6,6 +6,7 @@ use bevy_color::Color;
 use bevy_math::{vec2, Isometry2d, Isometry3d, Vec2};
 use core::ops::Range;
 
+const UNSUPPORTED_BOX: [[i8; 2]; 5] = [[2, 16], [12, 16], [12, 2], [2, 2], [2, 16]];
 /// A stroke font containing glyphs for the 95 printable ASCII codes.
 pub struct StrokeFont<'a> {
     /// Baseline-to-baseline line height ratio.
@@ -22,6 +23,18 @@ pub struct StrokeFont<'a> {
     pub strokes: &'a [Range<usize>],
     /// Glyph advances and stroke ranges.
     pub glyphs: &'a [(i8, Range<usize>); 95],
+    /// Extended glyph point positions.
+    pub extended_positions: &'a [[i8; 2]],
+    /// Stroke ranges for extended glyphs
+    pub extended_strokes: &'a [Range<usize>],
+    /// Extended glyphs
+    pub extended: &'a [(char, i8, Range<usize>, Range<usize>)],
+}
+
+enum GlyphSource {
+    Standard(i8, Range<usize>),
+    Extended(i8, Range<usize>, Range<usize>),
+    Unsupported(i8, ()),
 }
 
 impl<'a> StrokeFont<'a> {
@@ -35,14 +48,12 @@ impl<'a> StrokeFont<'a> {
         let glyph_height = SIMPLEX_HEIGHT * scale;
         let line_height = LINE_HEIGHT * glyph_height;
         let margin_top = line_height - glyph_height;
-        let space_advance = SIMPLEX_GLYPHS[0].0 as f32 * scale;
         StrokeTextLayout {
             font: self,
             sections,
             scale,
             line_height,
             margin_top,
-            space_advance,
         }
     }
 
@@ -57,12 +68,33 @@ impl<'a> StrokeFont<'a> {
 
     /// Get the advance and stroke point ranges for a glyph.
     pub fn get_glyph(&self, c: char) -> Option<(i8, Range<usize>)> {
-        Some(self.glyphs[self.get_glyph_index(c)?].clone())
+        if let Some(idx) = self.get_glyph_index(c) {
+            Some(self.glyphs[idx].clone())
+        } else {
+            self.extended
+                .binary_search_by_key(&c, |entry| entry.0)
+                .ok()
+                .map(|i| (self.extended[i].1, self.extended[i].2.clone()))
+        }
+    }
+
+    fn resolve_glyph(&self, c: char) -> GlyphSource {
+        if let Some(idx) = self.get_glyph_index(c) {
+            GlyphSource::Standard(self.glyphs[idx].0, self.glyphs[idx].1.clone())
+        } else if let Ok(i) = self.extended.binary_search_by_key(&c, |entry| entry.0) {
+            GlyphSource::Extended(
+                self.extended[i].1,
+                self.extended[i].2.clone(),
+                self.extended[i].3.clone(),
+            )
+        } else {
+            GlyphSource::Unsupported(self.advance, ())
+        }
     }
 
     /// Get the advance for a glyph.
     pub fn get_glyph_advance(&self, c: char) -> Option<i8> {
-        Some(self.glyphs[self.get_glyph_index(c)?].0)
+        self.get_glyph(c).map(|(advance, _)| advance)
     }
 }
 
@@ -78,8 +110,6 @@ pub struct StrokeTextLayout<'a> {
     line_height: f32,
     /// Space between top of line and cap height.
     margin_top: f32,
-    /// Width of a space.
-    space_advance: f32,
 }
 
 impl<'a> StrokeTextLayout<'a> {
@@ -97,12 +127,12 @@ impl<'a> StrokeTextLayout<'a> {
                 layout_size.y += self.line_height;
                 continue;
             }
-
-            line_width += self
-                .font
-                .get_glyph_advance(c)
-                .map(|advance| advance as f32 * self.scale)
-                .unwrap_or(self.space_advance);
+            let advance = match self.font.resolve_glyph(c) {
+                GlyphSource::Standard(advance, _)
+                | GlyphSource::Extended(advance, _, _)
+                | GlyphSource::Unsupported(advance, _) => advance,
+            };
+            line_width += advance as f32 * self.scale;
         }
 
         layout_size.x = layout_size.x.max(line_width);
@@ -111,56 +141,98 @@ impl<'a> StrokeTextLayout<'a> {
 
     /// Returns an iterator over the font strokes for this text layout, grouped into polylines
     /// of `Vec2` points, each paired with its color from the text sections.
-    pub fn render(&'a self) -> impl Iterator<Item = (Color, impl Iterator<Item = Vec2> + 'a)> + 'a {
+    pub fn render(
+        &'a self,
+    ) -> impl Iterator<Item = (Color, Box<dyn Iterator<Item = Vec2> + 'a>)> + 'a {
         let mut chars = colored_chars(self.sections);
         let mut x = 0.0_f32;
         let mut y = -self.margin_top;
-        let mut current_strokes: Range<usize> = 0..0;
+        let mut current_main_strokes: Range<usize> = 0..0;
+        let mut current_extended_strokes: Range<usize> = 0..0;
         let mut current_x = 0.0_f32;
         let mut current_color = Color::WHITE;
+        let mut current_unsupported = false;
 
         core::iter::from_fn(move || loop {
-            for stroke_index in current_strokes.by_ref() {
-                let stroke = self.font.strokes[stroke_index].clone();
+            if current_unsupported {
+                current_unsupported = false;
+                let (color, cx) = (current_color, current_x);
+                let inner: Box<dyn Iterator<Item = Vec2> + 'a> =
+                    Box::new(UNSUPPORTED_BOX.iter().map(move |[p, q]| {
+                        Vec2::new(
+                            cx + self.scale * *p as f32,
+                            y - self.scale * (self.font.cap_height - *q as f32),
+                        )
+                    }));
+                return Some((color, inner));
+            }
+            for stroke_idx in current_main_strokes.by_ref() {
+                let stroke = self.font.strokes[stroke_idx].clone();
                 if stroke.len() < 2 {
                     continue;
                 }
-
-                // If this stroke is a closed loop, append one extra point to add a join at the seam.
+                // If this stroke is a closed loop, append one extra point to add a join at the
+                // seam.
                 let join = (self.font.positions[stroke.start]
                     == self.font.positions[stroke.end - 1])
                     .then_some(stroke.start + 1);
-
-                let color = current_color;
-                return Some((
-                    color,
-                    stroke.chain(join).map(move |index| {
-                        let [p, q] = self.font.positions[index];
+                let (color, cx) = (current_color, current_x);
+                let inner: Box<dyn Iterator<Item = Vec2> + 'a> =
+                    Box::new(stroke.chain(join).map(move |idx| {
+                        let [p, q] = self.font.positions[idx];
                         Vec2::new(
-                            current_x + self.scale * p as f32,
+                            cx + self.scale * p as f32,
                             y - self.scale * (self.font.cap_height - q as f32),
                         )
-                    }),
-                ));
+                    }));
+                return Some((color, inner));
             }
 
+            for stroke_idx in current_extended_strokes.by_ref() {
+                let stroke = self.font.extended_strokes[stroke_idx].clone();
+                if stroke.len() < 2 {
+                    continue;
+                }
+                let join = (self.font.extended_positions[stroke.start]
+                    == self.font.extended_positions[stroke.end - 1])
+                    .then_some(stroke.start + 1);
+                let (color, cx) = (current_color, current_x);
+                let inner: Box<dyn Iterator<Item = Vec2> + 'a> =
+                    Box::new(stroke.chain(join).map(move |idx| {
+                        let [p, q] = self.font.extended_positions[idx];
+                        Vec2::new(
+                            cx + self.scale * p as f32,
+                            y - self.scale * (self.font.cap_height - q as f32),
+                        )
+                    }));
+                return Some((color, inner));
+            }
             let (c, char_color) = chars.next()?;
-
             if c == '\n' {
-                x = 0.0;
+                x = 0.;
                 y -= self.line_height;
                 continue;
             }
-
-            let Some((advance, strokes)) = self.font.get_glyph(c) else {
-                x += self.space_advance;
-                continue;
-            };
             current_color = char_color;
-            current_strokes = strokes;
             current_x = x;
-
-            x += advance as f32 * self.scale;
+            match self.font.resolve_glyph(c) {
+                GlyphSource::Standard(advance, stroke_range) => {
+                    current_main_strokes = stroke_range;
+                    x += advance as f32 * self.scale;
+                    current_extended_strokes = 0..0;
+                }
+                GlyphSource::Extended(advance, main_stroke_range, extended_stroke_range) => {
+                    current_main_strokes = main_stroke_range;
+                    current_extended_strokes = extended_stroke_range;
+                    x += advance as f32 * self.scale;
+                }
+                GlyphSource::Unsupported(advance, _) => {
+                    current_main_strokes = 0..0;
+                    current_extended_strokes = 0..0;
+                    current_unsupported = true;
+                    x += advance as f32 * self.scale;
+                }
+            }
         })
     }
 }
@@ -173,7 +245,7 @@ where
     /// Draw text using a stroke font with the given isometry applied.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -210,7 +282,7 @@ where
     /// independently.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -257,7 +329,7 @@ where
     /// Draw text using a stroke font in 2d with the given isometry applied.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -294,7 +366,7 @@ where
     /// independently.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
