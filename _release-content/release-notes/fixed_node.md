@@ -8,4 +8,4 @@ pull_requests: [24323]
 
 A UI node entity with the `FixedNode` component is positioned relative to the window rather than its parent element.
 
-In the Taffy layout there is nothing to distinguish `FixedNode`s and root nodes, so they are treated identically during updates.
+In the Taffy layout (stored in `UiSurface`) there is nothing to distinguish `FixedNode`s and root nodes, so they are treated identically during updates.
