@@ -1564,7 +1564,7 @@ mod tests {
         assert!(ui_surface.is_root(b));
         assert_eq!(ui_surface.child_count(a).unwrap(), 0);
 
-        world.entity_mut(b).add_child(a);
+        world.entity_mut(b).remove::<ChildOf>().add_child(a);
 
         app.update();
         let world = app.world_mut();
