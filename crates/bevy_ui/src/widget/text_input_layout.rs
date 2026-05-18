@@ -376,8 +376,8 @@ pub fn update_editable_text_layout(
                                         + atlas_info.rect.size() / 2.
                                         + atlas_info.offset,
                                     atlas_info,
-                                    section_index: brush.section_index as usize,
-                                    line_index,
+                                    section_index: brush.section_index,
+                                    line_index: line_index as u32,
                                 });
                             }
 
@@ -415,7 +415,7 @@ pub fn update_editable_text_layout(
                             }
 
                             info.run_geometry.push(RunGeometry {
-                                section_index: brush.section_index as usize,
+                                section_index: brush.section_index,
                                 bounds: Rect {
                                     min: Vec2::new(
                                         glyph_run.offset(),
