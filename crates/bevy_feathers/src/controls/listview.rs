@@ -87,7 +87,7 @@ impl FeathersListView {
                 ),
 
                 :FeathersScrollbar {
-                    // @target: #inner,
+                    @target: #inner,
                     @orientation: {ControlOrientation::Vertical}
                 }
                 Node {

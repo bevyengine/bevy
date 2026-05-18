@@ -70,6 +70,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(MenuPlugin)
             .add(RadioGroupPlugin)
             .add(ScrollAreaPlugin)
+            .add(ScrollbarPlugin)
             .add(SliderPlugin)
             .add(EditableTextInputPlugin)
     }
