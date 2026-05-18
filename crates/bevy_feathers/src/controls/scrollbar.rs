@@ -7,11 +7,12 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
+    template::EntityTemplate,
 };
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_ui::{px, BorderRadius, Node, PositionType};
+use bevy_ui::{px, BorderRadius, Node};
 use bevy_ui_widgets::{ControlOrientation, Scrollbar, ScrollbarDragState, ScrollbarThumb};
 
 use crate::{cursor::EntityCursor, theme::ThemeBackgroundColor, tokens};
@@ -24,25 +25,17 @@ use crate::{cursor::EntityCursor, theme::ThemeBackgroundColor, tokens};
 pub struct FeathersScrollbar;
 
 /// Props used to construct a [`FeathersScrollbar`] scene.
+#[derive(Default, Clone)]
 pub struct FeathersScrollbarProps {
     /// The entity whose scroll position will be synchronized with this scrollbar.
-    pub target: Entity,
+    pub target: EntityTemplate,
     /// Whether this is a vertical or horizontal scrollbar.
     pub orientation: ControlOrientation,
 }
 
-impl Default for FeathersScrollbarProps {
-    fn default() -> Self {
-        Self {
-            target: Entity::PLACEHOLDER,
-            orientation: Default::default(),
-        }
-    }
-}
-
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-struct ScrollbarThumbStyle;
+struct FeathersScrollbarThumb;
 
 impl FeathersScrollbar {
     /// Scene function for scrollbar.
@@ -59,14 +52,12 @@ impl FeathersScrollbar {
             FeathersScrollbar
             ThemeBackgroundColor(tokens::SCROLLBAR_BG)
             Children [(
-                Node {
-                    position_type: PositionType::Absolute,
-                    border_radius: BorderRadius::all(px(3))
-                }
                 Hovered
                 ThemeBackgroundColor(tokens::SCROLLBAR_THUMB)
-                ScrollbarThumb
-                ScrollbarThumbStyle
+                ScrollbarThumb {
+                    border_radius: BorderRadius::all(px(3))
+                }
+                FeathersScrollbarThumb
                 EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             )]
         }
@@ -77,7 +68,7 @@ fn update_scrollbar_thumb_styles(
     q_thumbs: Query<
         (Entity, &Hovered, &ThemeBackgroundColor, &ScrollbarDragState),
         (
-            With<ScrollbarThumbStyle>,
+            With<FeathersScrollbarThumb>,
             Or<(Changed<Hovered>, Changed<ScrollbarDragState>)>,
         ),
     >,
