@@ -588,7 +588,7 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
 
         // `ui_node` is removed, attempting to retrieve a style for `ui_node` panics
-        let _ = ui_surface.taffy().style(ui_node.id);
+        let _ = ui_surface.taffy.style(ui_node.id);
     }
 
     #[test]
@@ -638,7 +638,7 @@ mod tests {
 
         // the children should have a corresponding ui node and that ui node's parent should be `ui_parent_node`
         for node in child_node_map.values() {
-            assert_eq!(node.id, ui_parent_node.id);
+            assert_eq!(ui_surface.taffy.parent(node.id), Some(ui_parent_node.id));
         }
 
         // delete every second child
@@ -1466,13 +1466,11 @@ mod tests {
         let world = app.world_mut();
         let ui_surface = world.resource::<UiSurface>();
 
-        assert_eq!(ui_surface.count(), 6);
+        assert_eq!(ui_surface.total_count(), 6);
         assert_eq!(ui_surface.root_count(), 3);
-
         assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_1).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_2).unwrap(), 0);
-
         assert_eq!(
             ui_surface.parent(fixed),
             ui_surface.get(fixed).unwrap().viewport_id
@@ -1488,8 +1486,7 @@ mod tests {
         assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_1).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_2).unwrap(), 0);
-
-        assert_eq!(ui_surface.count(), 6);
+        assert_eq!(ui_surface.total_count(), 6);
         assert_eq!(ui_surface.root_count(), 3);
 
         world.entity_mut(root_2).add_child(fixed);
@@ -1502,8 +1499,7 @@ mod tests {
         assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_1).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_2).unwrap(), 0);
-
-        assert_eq!(ui_surface.count(), 6);
+        assert_eq!(ui_surface.total_count(), 6);
         assert_eq!(ui_surface.root_count(), 3);
 
         world.entity_mut(fixed).remove::<FixedNode>();
@@ -1516,18 +1512,17 @@ mod tests {
         assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_1).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_2).unwrap(), 1);
-
-        assert_eq!(ui_surface.count(), 5);
+        assert_eq!(ui_surface.total_count(), 5);
         assert_eq!(ui_surface.root_count(), 2);
 
         world.entity_mut(root_2).remove::<Children>();
         let world = app.world_mut();
         let ui_surface = world.resource::<UiSurface>();
+
         assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_1).unwrap(), 0);
         assert_eq!(ui_surface.child_count(root_2).unwrap(), 0);
-
-        assert_eq!(ui_surface.count(), 6);
+        assert_eq!(ui_surface.total_count(), 6);
         assert_eq!(ui_surface.root_count(), 3);
     }
 
@@ -1546,8 +1541,8 @@ mod tests {
         assert!(ui_surface.is_root(a));
         assert!(!ui_surface.is_root(b));
         assert_eq!(ui_surface.parent(b).unwrap(), ui_surface.get(a).unwrap().id);
-        assert_eq!(ui_surface.child_count(a).unwrap(), 0);
-        assert_eq!(ui_surface.child_count(b).unwrap(), 1);
+        assert_eq!(ui_surface.child_count(a).unwrap(), 1);
+        assert_eq!(ui_surface.child_count(b).unwrap(), 0);
         assert_eq!(ui_surface.total_count(), 3);
 
         world.entity_mut(a).insert(FixedNode);
@@ -1633,9 +1628,11 @@ mod tests {
 
         assert!(ui_surface.is_root(p));
         assert!(ui_surface.is_root(a));
+        assert!(!ui_surface.is_root(b));
+        assert!(!ui_surface.is_root(c));
         assert_eq!(ui_surface.root_count(), 2);
         assert_eq!(ui_surface.total_count(), 6);
-        assert_eq!(ui_surface.parent(a), None);
+        assert!(ui_surface.child_count(p).is_ok_and(|count| count == 2));
         assert_eq!(ui_surface.parent(b), ui_surface.get(p).map(|n| n.id));
         assert_eq!(ui_surface.parent(c), ui_surface.get(p).map(|n| n.id));
         assert_eq!(ui_surface.root_count(), 2);
@@ -1646,12 +1643,12 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.is_root(p));
         assert!(ui_surface.is_root(a));
-        assert!(ui_surface.is_root(b));
+        assert!(!ui_surface.is_root(b));
+        assert!(ui_surface.is_root(c));
         assert_eq!(ui_surface.root_count(), 3);
         assert_eq!(ui_surface.total_count(), 7);
-        assert_eq!(ui_surface.parent(a), None);
+        assert!(ui_surface.child_count(p).is_ok_and(|count| count == 1));
         assert_eq!(ui_surface.parent(b), ui_surface.get(p).map(|n| n.id));
-        assert_eq!(ui_surface.parent(c), None);
 
         world.entity_mut(p).detach_all_children();
         world.entity_mut(p).despawn();
@@ -1665,10 +1662,6 @@ mod tests {
         assert!(ui_surface.is_root(c));
         assert_eq!(ui_surface.root_count(), 3);
         assert_eq!(ui_surface.total_count(), 6);
-
-        assert_eq!(ui_surface.parent(a), None);
-        assert_eq!(ui_surface.parent(b), None);
-        assert_eq!(ui_surface.parent(c), None);
     }
 
     #[cfg(feature = "ghost_nodes")]

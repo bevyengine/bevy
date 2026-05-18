@@ -363,15 +363,11 @@ impl UiSurface {
         self.entity_to_taffy.get(&entity).copied()
     }
 
-    pub(super) fn taffy(&self) -> &UiTree<NodeMeasure> {
-        &self.taffy
-    }
-
     pub fn get_style(&self, entity: Entity) -> Result<&Style, UiSurfaceError> {
         self.get(entity)
             .ok_or(UiSurfaceError::NoAssociatedTaffyNode)
             .and_then(|node| {
-                self.taffy()
+                self.taffy
                     .style(node.id)
                     .map_err(UiSurfaceError::TaffyError)
             })
