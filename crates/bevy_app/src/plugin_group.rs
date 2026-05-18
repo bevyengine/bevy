@@ -37,11 +37,15 @@ use log::{debug, warn};
 /// # pub struct TickratePlugin;
 /// # impl Plugin for TickratePlugin { fn build(&self, _: &mut App) {} }
 /// #
+/// # pub fn bullet_time_plugin(_: &mut App) {}
+/// #
 /// # mod features {
 /// #   use bevy_app::*;
 /// #   #[derive(Default)]
 /// #   pub struct ForcePlugin;
 /// #   impl Plugin for ForcePlugin { fn build(&self, _: &mut App) {} }
+/// #
+/// #   pub fn force_debug_plugin(_: &mut App) {}
 /// # }
 /// #
 /// # mod web {
@@ -67,6 +71,8 @@ use log::{debug, warn};
 /// #   #[derive(Default)]
 /// #   pub struct InternalPlugin;
 /// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
+/// #
+/// #   pub fn internal_plugin(_: &mut App) {}
 /// # }
 /// #
 /// plugin_group! {
@@ -94,9 +100,18 @@ use log::{debug, warn};
 ///         #[plugin_group]
 ///         audio:::AudioPlugins,
 ///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
-///         // must be last.
+///         // must be after all other plugins.
 ///         #[doc(hidden)]
-///         internal:::InternalPlugin
+///         internal:::InternalPlugin,
+///         // The last thing within the block can be a "fn block", which allows using plugin functions
+///         // within function groups.
+///         fn {
+///             :bullet_time_plugin,
+///             #[cfg(feature = "external_forces")]
+///             features:::force_debug_plugin,
+///             #[doc(hidden)]
+///             internal:::internal_plugin,
+///         }
 ///     }
 ///     /// You may add doc comments after the plugin group as well. They will be appended after
 ///     /// the documented list of plugins.
@@ -127,6 +142,24 @@ macro_rules! plugin_group {
                     $(#[custom($hidden_plugin_meta:meta)])*
                     $($hidden_plugin_path:ident::)* : $hidden_plugin_name:ident
                 ),+
+            )?
+            $(
+                $(,)? fn {
+                    $(
+                        $(#[cfg(feature = $fn_plugin_feature:literal)])?
+                        $(#[custom($fn_plugin_meta:meta)])*
+                        $($fn_plugin_path:ident::)* : $fn_plugin_name:ident
+                    ),*
+                    $(
+                        $(,)?$(
+                            #[doc(hidden)]
+                            $(#[cfg(feature = $fn_hidden_plugin_feature:literal)])?
+                            $(#[custom($fn_hidden_plugin_meta:meta)])*
+                            $($fn_hidden_plugin_path:ident::)* : $fn_hidden_plugin_name:ident
+                        ),+
+                    )?
+                    $(,)?
+                }
             )?
 
             $(,)?
@@ -166,6 +199,13 @@ macro_rules! plugin_group {
                     }
                 )*
                 $($(
+                    $(#[cfg(feature = $fn_plugin_feature)])?
+                    $(#[$fn_plugin_meta])*
+                    {
+                        group = group.add($($fn_plugin_path::)*$fn_plugin_name);
+                    }
+                )*)?
+                $($(
                     $(#[cfg(feature = $plugin_group_feature)])?
                     $(#[$plugin_group_meta])*
                     {
@@ -189,6 +229,13 @@ macro_rules! plugin_group {
                         group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
                     }
                 )+)?
+                $($($(
+                    $(#[cfg(feature = $fn_hidden_plugin_feature)])?
+                    $(#[$fn_hidden_plugin_meta])*
+                    {
+                        group = group.add($($fn_hidden_plugin_path::)*$fn_hidden_plugin_name);
+                    }
+                )+)?)?
 
                 group
             }
