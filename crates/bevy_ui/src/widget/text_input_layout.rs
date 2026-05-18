@@ -17,9 +17,9 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
-    EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
-    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
-    TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    EditableTextGeneration, EditableTextNeedsScroll, Font, FontAtlasKey, FontAtlasSet, FontCx,
+    FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph,
+    RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -446,6 +446,15 @@ pub fn update_editable_text_layout(
                 .iter()
                 .map(|&b| bounding_box_to_rect(b.0))
                 .collect();
+
+            for i in 0..info.selection_rects.len().saturating_sub(1) {
+                let [a, b] = &mut info.selection_rects[i..i + 2] else {
+                    unreachable!();
+                };
+                if a.max.y < b.min.y {
+                    a.max.y = b.min.y;
+                }
+            }
         }
 
         if let Some(input_focus) = input_focus.as_ref()
@@ -494,8 +503,9 @@ pub fn scroll_editable_text(
         Ref<EditableText>,
         Ref<EditableTextGeneration>,
         &mut TextScroll,
-        &ComputedNode,
+        Ref<ComputedNode>,
         &TextLayoutInfo,
+        &mut EditableTextNeedsScroll,
     )>,
 ) {
     let current_focus = input_focus
@@ -503,11 +513,18 @@ pub fn scroll_editable_text(
         .and_then(|input_focus| input_focus.get());
     let focus_changed = *previous_focus != current_focus;
 
-    for (entity, editable_text, generation, mut scroll, node, info) in query.iter_mut() {
-        if !(editable_text.is_changed()
-            || generation.is_changed()
-            || focus_changed && (Some(entity) == *previous_focus || Some(entity) == current_focus))
-        {
+    for (entity, editable_text, generation, mut scroll, node, info, mut needs_scroll) in
+        query.iter_mut()
+    {
+        let is_focused = Some(entity) == current_focus;
+        let is_previous_focus = Some(entity) == *previous_focus;
+        let cursor_moved = needs_scroll.0
+            && (editable_text.is_changed()
+                || generation.is_changed()
+                || focus_changed && (is_previous_focus || is_focused));
+        let view_changed = is_focused && node.is_changed();
+
+        if !(cursor_moved || view_changed) {
             continue;
         }
 
@@ -525,7 +542,7 @@ pub fn scroll_editable_text(
             continue;
         };
 
-        let Some((line_min, line_max)) = find_visual_line_bounds(layout, cursor.center().y) else {
+        let (line_min, Some(line_max)) = find_visual_line_bounds(layout, cursor.center().y) else {
             continue;
         };
 
@@ -538,36 +555,54 @@ pub fn scroll_editable_text(
             info.size.x
         } - view_size.x)
             .max(0.);
+        let max_scroll_y = (info.size.y - view_size.y).max(0.);
+
+        let y = scroll_axis_with_inset(
+            editable_text.scroll_inset.y.clamp(0., 0.49) * view_size.y,
+            0.,
+            max_scroll_y,
+            scroll.0.y,
+            scroll.0.y + view_size.y,
+            line_min,
+            line_max,
+        );
+        let y = if y >= max_scroll_y {
+            max_scroll_y
+        } else {
+            find_visual_line_bounds(layout, y).0
+        };
 
         scroll.set_if_neq(TextScroll(Vec2 {
-            x: scroll_axis(
+            x: scroll_axis_with_inset(
+                editable_text.scroll_inset.x.clamp(0., 0.49) * view_size.x,
+                0.,
+                max_scroll_x,
                 scroll.0.x,
                 scroll.0.x + view_size.x,
                 cursor.min.x,
                 cursor.max.x,
             )
-            .clamp(0., max_scroll_x)
             .floor(),
-            y: scroll_axis(scroll.0.y, scroll.0.y + view_size.y, line_min, line_max).floor(),
+            y: y.floor(),
         }));
+        needs_scroll.0 = false;
     }
-
     *previous_focus = current_focus;
 }
 
 fn find_visual_line_bounds<B: parley::Brush>(
     layout: &parley::Layout<B>,
     y: f32,
-) -> Option<(f32, f32)> {
+) -> (f32, Option<f32>) {
     let mut min = 0.0;
     for line in layout.lines() {
         let max = min + line.metrics().line_height;
         if y < max {
-            return Some((min, max));
+            return (min, Some(max));
         }
         min = max;
     }
-    None
+    (min, None)
 }
 
 fn scroll_axis(v_min: f32, v_max: f32, t_min: f32, t_max: f32) -> f32 {
@@ -581,5 +616,88 @@ fn scroll_axis(v_min: f32, v_max: f32, t_min: f32, t_max: f32) -> f32 {
         t_max - v_size
     } else {
         v_min
+    }
+}
+
+fn scroll_axis_with_inset(
+    inset: f32,
+    scroll_min: f32,
+    scroll_max: f32,
+    v_min: f32,
+    v_max: f32,
+    t_min: f32,
+    t_max: f32,
+) -> f32 {
+    let v_size = v_max - v_min;
+    let inner_min = v_min + inset;
+    let inner_max = v_max - inset;
+    let t_size = t_max - t_min;
+
+    let new_v_min = if v_size - 2. * inset < t_size {
+        scroll_axis(v_min, v_max, t_min, t_max)
+    } else if t_min < inner_min {
+        t_min - inset
+    } else if inner_max < t_max {
+        t_max - v_size + inset
+    } else {
+        v_min
+    };
+
+    new_v_min.clamp(scroll_min, scroll_max)
+}
+
+#[cfg(test)]
+mod test {
+    use super::{scroll_axis, scroll_axis_with_inset};
+
+    #[test]
+    fn test_scroll_axis() {
+        assert_eq!(scroll_axis(0., 100., 0., 10.), 0.);
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset() {
+        assert_eq!(scroll_axis_with_inset(25., 0., 100., 0., 100., 0., 50.), 0.);
+        assert_eq!(scroll_axis_with_inset(25., 0., 0., 0., 100., 50., 100.), 0.);
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_moves_to_inner_min() {
+        assert_eq!(
+            scroll_axis_with_inset(25., 0., 100., 50., 150., 60., 65.),
+            35.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_moves_to_inner_max() {
+        assert_eq!(
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 90., 95.),
+            20.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_saturates() {
+        assert_eq!(
+            scroll_axis_with_inset(25., 0., 100., 10., 110., 10., 20.),
+            0.
+        );
+        assert_eq!(
+            scroll_axis_with_inset(25., 0., 100., 80., 180., 175., 180.),
+            100.
+        );
+    }
+
+    #[test]
+    fn test_scroll_axis_with_inset_uses_full_view_when_target_larger_than_inner() {
+        assert_eq!(
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 20., 90.),
+            0.
+        );
+        assert_eq!(
+            scroll_axis_with_inset(25., 0., 100., 0., 100., 80., 150.),
+            50.
+        );
     }
 }
