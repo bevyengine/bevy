@@ -121,7 +121,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{fmt, hash::Hash, mem, num::NonZero, ops::Range, panic::Location};
 use derive_more::derive::Display;
 use log::warn;
 use nonmax::NonMaxU32;
@@ -708,9 +708,17 @@ pub struct EntityAllocator {
 }
 
 impl EntityAllocator {
+    /// Creates a new `EntityAllocator` with a given range
+    pub fn new(range: Range<u32>) -> Self {
+        Self {
+            inner: remote_allocator::Allocator::new(range),
+        }
+    }
+
     /// Restarts the allocator.
     pub(crate) fn restart(&mut self) {
-        self.inner = remote_allocator::Allocator::new();
+        let range = self.inner.range().clone();
+        self.inner = remote_allocator::Allocator::new(range);
     }
 
     /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
@@ -779,7 +787,13 @@ impl EntityAllocator {
     /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
     /// This is useful if you want to enforce properties about the [`EntityIndex`]s of a group of entities, make a custom allocator, etc.
     pub fn alloc(&self) -> Entity {
-        self.inner.alloc()
+        self.inner.try_alloc().expect("out of entities")
+    }
+
+    /// Allocates some [`Entity`].
+    /// Returns `None` if no entities are available. This is a non-`panic`ing version of `alloc`.
+    pub fn try_alloc(&self) -> Option<Entity> {
+        self.inner.try_alloc()
     }
 
     /// A more efficient way of calling [`alloc`](Self::alloc) repeatedly `count` times.

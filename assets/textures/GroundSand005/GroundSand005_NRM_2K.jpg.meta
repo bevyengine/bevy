@@ -1,0 +1,16 @@
+(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "LoadTransformAndSave<ImageLoader, IdentityAssetTransformer<Image>, CompressedImageSaver>",
+        settings: (
+            loader_settings: (
+                format: FromExtension,
+                is_srgb: false,
+                sampler: Default,
+                asset_usage: ("RENDER_WORLD"),
+            ),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)

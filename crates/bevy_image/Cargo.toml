@@ -45,8 +45,11 @@ zstd_rust = ["zstd", "dep:ruzstd"]
 # Binding to zstd C implementation (faster)
 zstd_c = ["zstd", "dep:zstd"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["basis-universal"]
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = ["basis-universal"]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
+compressed_image_saver = ["dep:ctt", "ktx2", "zstd"]
 
 [dependencies]
 # bevy
@@ -88,6 +91,7 @@ ruzstd = { version = "0.8.0", optional = true }
 basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
+ctt = { version = "0.3", optional = true }
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
