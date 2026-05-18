@@ -3065,9 +3065,12 @@ impl ComputedUiRenderTargetInfo {
     }
 }
 
-/// A fixed node is laid out like a root node even if not a root entity.
-/// Marker component.
-#[derive(Component)]
+/// Treats this UI node as a root node, even when it has a UI node parent.
+///
+/// `FixedNode`s don't inherit their parent's layout context or transform.
+/// They also ignore clipping inherited from ancestors through [`OverrideClip`].
+#[derive(Component, Clone, Default)]
+#[require(OverrideClip, Node)]
 pub struct FixedNode;
 
 #[cfg(test)]
