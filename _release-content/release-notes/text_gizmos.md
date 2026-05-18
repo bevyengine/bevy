@@ -1,37 +1,29 @@
 ---
 title: "Text Gizmos"
-authors: ["@ickshonpe, @nuts-rice"]
+authors: ["@ickshonpe", "@nuts-rice"]
 pull_requests: [22732, 23120]
 ---
 
-Gizmos can now render text using a built-in stroke font, with support for coloring
-individual sections of text independently.
+*TODO: Add a screenshot showing text gizmos rendered in a 3D scene.*
 
-## Usage
+Sometimes you just want to slap a label on something while debugging.
+Text gizmos are for exactly that: a zero-setup way to draw world-space text anywhere in your scene using a built-in stroke font.
 
-Use `text` and `text_2d` to draw single-color text:
+Unlike Bevy's `Text2D` — the right choice for damage numbers, nameplates, and in-game labels — text gizmos are *strictly* for dev tools.
+The font is fixed and only supports ASCII; the value is entirely in "text now plz".
+
+Use `Gizmos::text` and `text_2d` to quickly draw text:
 
 ```rust
 fn draw_text(mut gizmos: Gizmos) {
     gizmos.text_2d(
-        Isometry2d::IDENTITY, // Position and rotation of the text
+        Isometry2d::IDENTITY, // Position and rotation of the text in world-space
         "Hello Bevy",         // Only supports ASCII text
-        40.0,                 // Font size in pixels
+        40.0,                 // Font size in screen-space pixels
         Vec2::ZERO,           // Anchor point, zero is centered
         Color::WHITE,         // Color of the text
     );
 }
 ```
 
-Use `text_sections` and `text_sections_2d` to color each sections of characters independently:
-
-```rust
-fn draw_colored_text(mut gizmos: Gizmos) {
-    gizmos.text_sections(
-        Isometry3d::IDENTITY,
-        &[("Hello ", Color::WHITE), ("World!", Color::srgb(1., 0.3, 0.))], //Sections of text paired with color
-        25.,
-        Vec2::ZERO,
-    );
-}
-```
+If you want to color each section of characters separately, reach for `text_sections` and `text_sections_2d`.

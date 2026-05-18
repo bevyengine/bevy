@@ -16,7 +16,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
-    template::{EntityScopes, ScopedEntities, Template, TemplateContext},
+    template::{SceneEntityReferences, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -672,7 +672,7 @@ impl<'w> EntityWorldMut<'w> {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         self.world.resource_mut::<R>()
     }
 
@@ -684,7 +684,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         self.world.get_resource_mut()
     }
 
@@ -1600,9 +1600,8 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         func: impl FnOnce(&mut TemplateContext) -> crate::error::Result<T>,
     ) -> crate::error::Result<T> {
-        let mut scoped_entities = ScopedEntities::new(0);
-        let entity_scopes = EntityScopes::default();
-        let mut context = TemplateContext::new(self, &mut scoped_entities, &entity_scopes);
+        let mut scene_entities = SceneEntityReferences::default();
+        let mut context = TemplateContext::new(self, &mut scene_entities);
         func(&mut context)
     }
 

@@ -1042,7 +1042,11 @@ pub fn prepare_lights(
         Res<GpuPreprocessingSupport>,
         Option<Res<RenderClusteredDecals>>,
     ),
-    existing_shadow_views: Query<&ShadowView>,
+    (existing_shadow_views, mut light_key_cache, mut specialized_shadow_material_pipeline_cache): (
+        Query<&ShadowView>,
+        ResMut<LightKeyCache>,
+        ResMut<SpecializedShadowMaterialPipelineCache>,
+    ),
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -2147,6 +2151,9 @@ pub fn prepare_lights(
     }
 
     shadow_render_phases.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
+    light_key_cache.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
+    specialized_shadow_material_pipeline_cache
+        .retain(|entity, _| live_shadow_mapping_lights.contains(entity));
 }
 
 fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {

@@ -1,14 +1,57 @@
 ---
-title: "Add an infinite grid to bevy_dev_tools"
-authors: [ "@icesentry" ]
+title: "Infinite Grid"
+authors: [ "@IceSentry" ]
 pull_requests: [ 23482 ]
 ---
 
-When working on a 3d scene in an editor it's often very useful to have a transparent grid that indicates the ground plane and the major axis.
+*TODO: Add a screenshot of the infinite grid with a real model.*
 
-There are various techniques to render an infinite grid and avoid artifacts.
-This implementation works by rendering the grid as a fullscreen shader.
-The grid is rendered from the perspective of the camera and fades out relative to the camera position.
-The fade out hides artifacts from drawing lines too far in the horizon.
+A transparent ground-plane grid is a staple of 3D editor tooling: it marks the major axes, orients the scene, and makes scale immediately legible.
 
-This is an upstreamed version of the bevy_infinite_grid crate that is maintained by foresight spatial labs.
+Simply drawing lines doesn't work well: the mesh has to end somewhere, and the lines that reach toward the horizon create aliasing artifacts and Moiré patterns no matter how far you extend it.
+
+Our implementation renders the grid as a fullscreen shader: the grid is computed per-pixel in screen space from the camera's perspective, and fades out with distance to eliminate aliasing at the horizon.
+
+To add an infinite grid to your app, register `InfiniteGridPlugin` and spawn the `InfiniteGrid` component:
+
+```rust
+use bevy::dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin};
+use bevy::prelude::*;
+
+App::new()
+    .add_plugins((DefaultPlugins, InfiniteGridPlugin))
+    .add_systems(Startup, setup)
+    .run();
+
+fn setup(mut commands: Commands) {
+    commands.spawn(InfiniteGrid);
+}
+```
+
+Grid appearance — colors, fade distance, line scale — is controlled by `InfiniteGridSettings`, which can be placed on the grid entity or on a specific camera to override it per-view:
+
+```rust
+use bevy::dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridSettings};
+
+// On the grid entity (applies to all cameras)
+commands.spawn((
+    InfiniteGrid,
+    InfiniteGridSettings {
+        fadeout_distance: 200.0,
+        ..default()
+    },
+));
+
+// On a camera (overrides settings for that camera only)
+commands.spawn((
+    Camera3d::default(),
+    InfiniteGridSettings {
+        scale: 0.5,
+        ..default()
+    },
+));
+```
+
+This is an upstreamed version of the [`bevy_infinite_grid` crate], created and maintained by Foresight Spatial Labs — thank you for building it and generously contributing it to Bevy!
+
+[`bevy_infinite_grid` crate]: https://github.com/fslabs/bevy_infinite_grid
