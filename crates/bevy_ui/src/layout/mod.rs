@@ -1479,7 +1479,6 @@ mod tests {
         world.entity_mut(root_1).add_child(fixed);
 
         app.update();
-
         let world = app.world_mut();
         let ui_surface = world.resource::<UiSurface>();
 
@@ -1492,7 +1491,6 @@ mod tests {
         world.entity_mut(root_2).add_child(fixed);
 
         app.update();
-
         let world = app.world_mut();
         let ui_surface = world.resource::<UiSurface>();
 
@@ -1505,7 +1503,6 @@ mod tests {
         world.entity_mut(fixed).remove::<FixedNode>();
 
         app.update();
-
         let world = app.world_mut();
         let ui_surface = world.resource::<UiSurface>();
 
@@ -1516,6 +1513,8 @@ mod tests {
         assert_eq!(ui_surface.root_count(), 2);
 
         world.entity_mut(root_2).remove::<Children>();
+
+        app.update();
         let world = app.world_mut();
         let ui_surface = world.resource::<UiSurface>();
 
