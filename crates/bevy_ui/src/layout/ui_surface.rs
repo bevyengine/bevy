@@ -363,6 +363,7 @@ impl UiSurface {
         self.entity_to_taffy.get(&entity).copied()
     }
 
+    /// Returns the Taffy `Style` for the given entity.
     pub fn get_style(&self, entity: Entity) -> Result<&Style, UiSurfaceError> {
         self.get(entity)
             .ok_or(UiSurfaceError::NoAssociatedTaffyNode)
