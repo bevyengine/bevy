@@ -8,8 +8,8 @@
 //! - [`CachedObservers`] contains a sorted node table of [`ObserverRunner`]s, which are the actual functions that will be run when the observer is triggered.
 //!     - These are split by target type, in order to allow for different lookup strategies.
 
-use alloc::{string::String, vec, vec::Vec};
-use bevy_platform::collections::HashMap;
+use alloc::{format, string::String, vec, vec::Vec};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::PtrMut;
 use log::{debug, warn};
 use smallvec::SmallVec;
@@ -51,6 +51,9 @@ pub struct Observers {
     set_hierarchy: HashMap<Interned<dyn ObserverSet>, SmallVec<[Interned<dyn ObserverSet>; 2]>>,
     // Observer set ordering edges, stored as (before, after).
     set_edges: Vec<(Interned<dyn ObserverSet>, Interned<dyn ObserverSet>)>,
+    // Active depth of `bump_defer_resort` / `release_defer_resort` calls.
+    // While > 0, per-cache `resort()` short-circuits; release flushes all caches.
+    defer_count: u32,
 }
 
 impl Observers {
@@ -66,10 +69,79 @@ impl Observers {
             _ => {
                 let set_hierarchy = self.set_hierarchy.clone();
                 let set_edges = self.set_edges.clone();
-                self.cache
-                    .entry(event_key)
-                    .or_insert_with(|| CachedObservers::with_set_config(set_hierarchy, set_edges))
+                let defer_count = self.defer_count;
+                self.cache.entry(event_key).or_insert_with(|| {
+                    let mut cache = CachedObservers::with_set_config(set_hierarchy, set_edges);
+                    cache.defer_count = defer_count;
+                    cache
+                })
             }
+        }
+    }
+
+    /// Suppress per-cache `resort()` calls until the matching
+    /// `release_defer_resort` runs. Calls nest (counter-based), and the
+    /// deferral propagates to every existing and newly-created cache.
+    ///
+    /// Used by batch entry points such as
+    /// [`World::add_observers`](crate::world::World::add_observers) and
+    /// [`World::configure_observer_sets`](crate::world::World::configure_observer_sets)
+    /// to avoid a quadratic toposort cost on plugin startup.
+    pub(crate) fn bump_defer_resort(&mut self) {
+        self.defer_count = self.defer_count.saturating_add(1);
+        self.propagate_defer_count();
+    }
+
+    /// Release a previous `bump_defer_resort`. When the counter returns to
+    /// zero, every cache that became dirty during the deferral flushes a
+    /// single `resort()`.
+    pub(crate) fn release_defer_resort(&mut self) {
+        debug_assert!(
+            self.defer_count > 0,
+            "release_defer_resort called without a matching bump_defer_resort",
+        );
+        self.defer_count = self.defer_count.saturating_sub(1);
+        self.propagate_defer_count();
+        if self.defer_count == 0 {
+            self.flush_dirty_caches();
+        }
+    }
+
+    fn propagate_defer_count(&mut self) {
+        let count = self.defer_count;
+        self.add.defer_count = count;
+        self.insert.defer_count = count;
+        self.discard.defer_count = count;
+        self.remove.defer_count = count;
+        self.despawn.defer_count = count;
+        for cache in self.cache.values_mut() {
+            cache.defer_count = count;
+        }
+    }
+
+    /// Sum of `rebuild_order` invocations across every observer cache.
+    /// Used by tests to assert that batch entry points coalesce resorts.
+    #[cfg(test)]
+    pub(crate) fn total_rebuild_order_calls(&self) -> u32 {
+        let mut total = self.add.rebuild_order_call_count
+            + self.insert.rebuild_order_call_count
+            + self.discard.rebuild_order_call_count
+            + self.remove.rebuild_order_call_count
+            + self.despawn.rebuild_order_call_count;
+        for cache in self.cache.values() {
+            total += cache.rebuild_order_call_count;
+        }
+        total
+    }
+
+    fn flush_dirty_caches(&mut self) {
+        self.add.resort();
+        self.insert.resort();
+        self.discard.resort();
+        self.remove.resort();
+        self.despawn.resort();
+        for cache in self.cache.values_mut() {
+            cache.resort();
         }
     }
 
@@ -324,6 +396,11 @@ pub struct CachedObservers {
     dispatch_order: Vec<Entity>,
     dirty: bool,
     next_sort_key: u64,
+    // When > 0, `resort()` short-circuits and the cache keeps `dirty` set
+    // until the deferral is released. Propagated from the parent `Observers`.
+    defer_count: u32,
+    #[cfg(test)]
+    rebuild_order_call_count: u32,
 }
 
 impl CachedObservers {
@@ -647,71 +724,10 @@ impl CachedObservers {
             .is_some_and(|bucket| !bucket.is_empty())
     }
 
-    pub(crate) fn clone_entity_observers(
-        &mut self,
-        source: Entity,
-        target: Entity,
-        components: &[ComponentId],
-    ) {
-        let mut changed = false;
-        if components.is_empty() {
-            if let Some(nodes) = self.by_entity.get(&source).cloned() {
-                let target_nodes = self.by_entity.entry(target).or_default();
-                for node_id in nodes {
-                    push_unique(target_nodes, node_id);
-                    changed = true;
-                }
-            }
-        } else {
-            for component in components {
-                let Some(bucket) = self.by_component.get_mut(component) else {
-                    continue;
-                };
-                let Some(nodes) = bucket.by_entity.get(&source).cloned() else {
-                    continue;
-                };
-                let target_nodes = bucket.by_entity.entry(target).or_default();
-                for node_id in nodes {
-                    push_unique(target_nodes, node_id);
-                    changed = true;
-                }
-            }
-        }
-
-        if changed {
-            self.dirty = true;
-            self.resort();
-        }
-    }
-
-    pub(crate) fn resort(&mut self) {
-        if !self.dirty {
-            return;
-        }
-
-        #[cfg(feature = "trace")]
-        let _span = {
-            let nodes = self.nodes.len();
-            let named = self.nodes.iter().filter(|node| node.name.is_some()).count();
-            tracing::trace_span!("observer_resort", nodes = nodes, named = named).entered()
-        };
-
-        let mut attempts = 0;
-        while self.dirty {
-            self.dirty = false;
-            self.rebuild_order();
-            self.sort_indices();
-
-            attempts += 1;
-            debug_assert!(attempts <= self.nodes.len().saturating_add(1));
-        }
-
-        #[cfg(debug_assertions)]
-        self.debug_assert_sorted_indices();
-    }
-
-    fn rebuild_order(&mut self) {
-        let insertion_order = self.insertion_order();
+    /// Build the topological ordering graph from explicit edges, intra-set
+    /// windows and cross-set edges. Used by `rebuild_order` to drive the
+    /// toposort and by test helpers below to assert the graph shape.
+    fn build_ordering_graph(&self, insertion_order: &[NodeId]) -> DiGraph<NodeId> {
         let mut graph = DiGraph::<NodeId>::with_capacity(
             self.nodes.len(),
             self.edges.len() + self.set_edges.len(),
@@ -751,6 +767,100 @@ impl CachedObservers {
             }
         }
 
+        graph
+    }
+
+    #[cfg(test)]
+    pub(crate) fn ordering_edge_count(&self) -> usize {
+        self.build_ordering_graph(&self.insertion_order())
+            .edge_count()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn contains_ordering_edge(&self, from: Entity, to: Entity) -> bool {
+        let Some(&from) = self.observer_to_node.get(&from) else {
+            return false;
+        };
+        let Some(&to) = self.observer_to_node.get(&to) else {
+            return false;
+        };
+
+        self.build_ordering_graph(&self.insertion_order())
+            .contains_edge(from, to)
+    }
+
+    pub(crate) fn clone_entity_observers(
+        &mut self,
+        source: Entity,
+        target: Entity,
+        components: &[ComponentId],
+    ) {
+        let mut changed = false;
+        if components.is_empty() {
+            if let Some(nodes) = self.by_entity.get(&source).cloned() {
+                let target_nodes = self.by_entity.entry(target).or_default();
+                for node_id in nodes {
+                    push_unique(target_nodes, node_id);
+                    changed = true;
+                }
+            }
+        } else {
+            for component in components {
+                let Some(bucket) = self.by_component.get_mut(component) else {
+                    continue;
+                };
+                let Some(nodes) = bucket.by_entity.get(&source).cloned() else {
+                    continue;
+                };
+                let target_nodes = bucket.by_entity.entry(target).or_default();
+                for node_id in nodes {
+                    push_unique(target_nodes, node_id);
+                    changed = true;
+                }
+            }
+        }
+
+        if changed {
+            self.dirty = true;
+            self.resort();
+        }
+    }
+
+    pub(crate) fn resort(&mut self) {
+        if !self.dirty || self.defer_count > 0 {
+            return;
+        }
+
+        #[cfg(feature = "trace")]
+        let _span = {
+            let nodes = self.nodes.len();
+            let named = self.nodes.iter().filter(|node| node.name.is_some()).count();
+            tracing::trace_span!("observer_resort", nodes = nodes, named = named).entered()
+        };
+
+        let mut attempts = 0;
+        while self.dirty {
+            self.dirty = false;
+            self.rebuild_order();
+            self.sort_indices();
+
+            attempts += 1;
+            debug_assert!(attempts <= self.nodes.len().saturating_add(1));
+        }
+
+        #[cfg(debug_assertions)]
+        self.debug_assert_sorted_indices();
+    }
+
+    fn rebuild_order(&mut self) {
+        #[cfg(test)]
+        {
+            self.rebuild_order_call_count = self.rebuild_order_call_count.saturating_add(1);
+        }
+
+        let insertion_order = self.insertion_order();
+        let graph = self.build_ordering_graph(&insertion_order);
+
         match graph.toposort(Vec::new()) {
             Ok(order) => {
                 debug_assert_eq!(order.len(), self.nodes.len());
@@ -758,9 +868,10 @@ impl CachedObservers {
                 self.refresh_dispatch_order();
             }
             Err(error) => {
-                let cycle_members = self.cycle_members(&error);
+                let cycle_members = self.cycle_members_with_names(&error);
                 warn!(
-                    "observer ordering graph contains a cycle involving {cycle_members:?}; falling back to registration order"
+                    "observer ordering graph contains a cycle involving {}; falling back to registration order",
+                    format_cycle_members(&cycle_members)
                 );
                 self.order = insertion_order;
                 self.refresh_dispatch_order();
@@ -837,21 +948,33 @@ impl CachedObservers {
             || self.sets.values().any(|nodes| nodes.len() > 1);
     }
 
-    fn cycle_members(&self, error: &DiGraphToposortError<NodeId>) -> Vec<Vec<Entity>> {
+    pub(crate) fn cycle_members_with_names(
+        &self,
+        error: &DiGraphToposortError<NodeId>,
+    ) -> Vec<Vec<(Entity, Option<&str>)>> {
         match error {
             DiGraphToposortError::Loop(node_id) => {
-                vec![vec![self.nodes[node_id.index()].observer]]
+                let node = &self.nodes[node_id.index()];
+                vec![vec![(node.observer, node.name.as_deref())]]
             }
             DiGraphToposortError::Cycle(cycles) => cycles
                 .iter()
                 .map(|cycle| {
                     cycle
                         .iter()
-                        .map(|node_id| self.nodes[node_id.index()].observer)
+                        .map(|node_id| {
+                            let node = &self.nodes[node_id.index()];
+                            (node.observer, node.name.as_deref())
+                        })
                         .collect()
                 })
                 .collect(),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn observer_node_id(&self, observer: Entity) -> Option<NodeId> {
+        self.observer_to_node.get(&observer).copied()
     }
 
     fn remove_node(&mut self, node_id: NodeId) {
@@ -939,6 +1062,26 @@ impl CachedObservers {
             last_position = Some(position);
         }
     }
+}
+
+fn format_cycle_members(cycles: &[Vec<(Entity, Option<&str>)>]) -> String {
+    let mut formatted_cycles = Vec::with_capacity(cycles.len());
+
+    for cycle in cycles {
+        let mut formatted_cycle = Vec::with_capacity(cycle.len());
+        for (entity, name) in cycle {
+            let mut formatted = format!("{entity:?}");
+            if let Some(name) = name {
+                formatted.push_str(" [");
+                formatted.push_str(name);
+                formatted.push(']');
+            }
+            formatted_cycle.push(formatted);
+        }
+        formatted_cycles.push(formatted_cycle);
+    }
+
+    format!("{formatted_cycles:?}")
 }
 
 /// SAFETY: every `&[NodeId]` stream MUST be sorted ascending by the node's

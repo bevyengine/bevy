@@ -17,7 +17,7 @@ use crate::{
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
     error::EntityCommandOutput,
     name::Name,
-    observer::IntoEntityObserver,
+    observer::IntoObserverConfigs,
     relationship::RelationshipHookMode,
     system::Command,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
@@ -272,11 +272,16 @@ pub fn despawn() -> impl EntityCommand {
 /// watching for an [`EntityEvent`](crate::event::EntityEvent) of type `E` whose
 /// [`event_target`](crate::event::EntityEvent::event_target) targets this entity.
 ///
-/// Accepts any type that implements [`IntoEntityObserver`], including:
-/// - Observer systems (closures or functions implementing [`IntoObserverSystem`](crate::system::IntoObserverSystem))
-/// - Observer systems with run conditions (via `.run_if()`)
+/// Accepts any type that implements [`IntoObserverConfigs`], including:
+/// - bare observer systems (closures or functions implementing [`IntoObserverSystem`](crate::system::IntoObserverSystem))
+/// - observer systems with run conditions via `.run_if()`
+/// - tuples of observer systems, optionally with `.chain()`,
+///   `.in_set(Set)`, `.before(target)`, or `.after(target)` applied
+///
+/// All observers in the configs are attached to the target entity (i.e.
+/// `watch_entity` is called for each) before being spawned.
 #[track_caller]
-pub fn observe<M>(observer: impl IntoEntityObserver<M>) -> impl EntityCommand {
+pub fn observe<M>(observer: impl IntoObserverConfigs<M> + Send + 'static) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
