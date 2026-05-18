@@ -13,7 +13,7 @@ pub struct NamedField {
     name: &'static str,
     type_info: fn() -> Option<&'static TypeInfo>,
     ty: Type,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -25,7 +25,7 @@ impl NamedField {
             name,
             type_info: T::maybe_type_info,
             ty: Type::of::<T>(),
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -40,7 +40,7 @@ impl NamedField {
     /// Sets the custom attributes for this field.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }
@@ -76,7 +76,7 @@ pub struct UnnamedField {
     index: usize,
     type_info: fn() -> Option<&'static TypeInfo>,
     ty: Type,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -88,7 +88,7 @@ impl UnnamedField {
             index,
             type_info: T::maybe_type_info,
             ty: Type::of::<T>(),
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -103,7 +103,7 @@ impl UnnamedField {
     /// Sets the custom attributes for this field.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }

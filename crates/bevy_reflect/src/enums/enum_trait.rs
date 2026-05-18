@@ -154,7 +154,7 @@ pub struct EnumInfo {
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: Option<Arc<CustomAttributes>>,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -166,6 +166,13 @@ impl EnumInfo {
     ///
     /// * `variants`: The variants of this enum in the order they are defined
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
+        Self::from_erased(variants, Type::of::<TEnum>())
+    }
+
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
+    #[inline(never)]
+    fn from_erased(variants: &[VariantInfo], ty: Type) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -175,12 +182,12 @@ impl EnumInfo {
         let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
-            ty: Type::of::<TEnum>(),
+            ty,
             generics: Generics::new(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: None,
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -195,7 +202,7 @@ impl EnumInfo {
     /// Sets the custom attributes for this enum.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes: Some(Arc::new(custom_attributes)),
             ..self
         }
     }
