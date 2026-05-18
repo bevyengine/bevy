@@ -13,9 +13,10 @@ pub use bevy_ecs_macros::ObserverSet;
 define_label!(
     /// Observer sets are tag-like labels that can be used to group observers together.
     ///
-    /// They are intended to support observer ordering and shared observer configuration.
-    /// Observer set configuration is not yet wired into dispatch; this trait is the
-    /// foundation used by the observer storage and builder APIs.
+    /// Use them to group observers, configure ordering with
+    /// [`World::configure_observer_sets`](crate::world::World::configure_observer_sets),
+    /// and attach configured observers with [`Observer::in_set`](crate::observer::Observer::in_set)
+    /// or tuple-style configuration such as `(a, b, c).in_set(Set)`.
     ///
     /// # Defining new observer sets
     ///
