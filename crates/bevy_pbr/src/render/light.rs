@@ -8,7 +8,7 @@ use bevy_camera::visibility::{
     CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
     VisibleMeshEntities,
 };
-use bevy_camera::Camera3d;
+use bevy_camera::{Camera, Camera3d, RenderTarget, ShadowLodOrigin};
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_core_pipeline::schedule::RootNonCameraView;
@@ -47,8 +47,8 @@ use bevy_render::occlusion_culling::{
 };
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, RenderEntity};
 use bevy_render::view::{
-    RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities, RenderVisibleEntities,
-    VisibilityExtractionSystemParam,
+    RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin, RenderShadowMapVisibleEntities,
+    RenderVisibleEntities, VisibilityExtractionSystemParam,
 };
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -2886,5 +2886,32 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 .get(&retained_view_entity)
                 .expect("Failed to get spot light visible entity for view")
         }
+    }
+}
+
+/// An extraction system that determines the origin for LOD computation for
+/// point and spot light shadow maps and updates the [`RenderShadowLodOrigin`]
+/// with the result.
+///
+/// See [`ShadowLodOrigin`] for more details on the algorithm that this system
+/// uses.
+pub fn extract_shadow_lod_origin(
+    global_transform_query: Extract<Query<&GlobalTransform>>,
+    mut camera_query: Extract<Query<(Entity, &RenderTarget), With<Camera>>>,
+    mut shadow_lod_origin_query: Extract<Query<Entity, With<ShadowLodOrigin>>>,
+    mut lights_query: Extract<Query<Entity, Or<(With<PointLight>, With<SpotLight>)>>>,
+    mut render_shadow_lod_origin: ResMut<RenderShadowLodOrigin>,
+) {
+    match bevy_light::get_shadow_lod_origin(
+        camera_query.transmute_lens_filtered(),
+        shadow_lod_origin_query.transmute_lens_filtered(),
+        lights_query.transmute_lens_filtered(),
+    )
+    .and_then(|shadow_lod_origin_entity| global_transform_query.get(shadow_lod_origin_entity).ok())
+    {
+        Some(global_transform) => {
+            render_shadow_lod_origin.0 = global_transform.translation();
+        }
+        None => render_shadow_lod_origin.0 = Default::default(),
     }
 }
