@@ -1141,11 +1141,18 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
                 match texture.texture_descriptor.format {
-                    // All 2-component unorm formats
+                    // Dedicated 2-component unorm formats.
                     TextureFormat::Rg8Unorm
                     | TextureFormat::Rg16Unorm
                     | TextureFormat::Bc5RgUnorm
-                    | TextureFormat::EacRg11Unorm => {
+                    | TextureFormat::EacRg11Unorm
+                    // ASTC has no dedicated 2-channel block format; all ASTC blocks are
+                    // RGBA-shaped. Since `compressed_image_saver` writes 2-component normal maps
+                    // when using the ASTC backend, assume ASTC normal maps are 2-component.
+                    | TextureFormat::Astc {
+                        channel: AstcChannel::Unorm,
+                        ..
+                    } => {
                         flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP;
                     }
                     _ => {}
