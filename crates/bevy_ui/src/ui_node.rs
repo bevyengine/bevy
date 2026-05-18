@@ -1,4 +1,5 @@
 use crate::{
+    layout::ui_surface::ComputedLayout,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val,
 };
@@ -472,6 +473,7 @@ impl From<BVec2> for IgnoreScroll {
 #[require(
     ComputedNode,
     ComputedStackIndex,
+    ComputedLayout,
     ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,

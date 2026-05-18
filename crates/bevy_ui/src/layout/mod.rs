@@ -7,13 +7,13 @@ use crate::{
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    system::{Query, ResMut},
+    system::{ParamSet, Query, ResMut},
 };
 
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
 use thiserror::Error;
-use ui_surface::UiSurface;
+use ui_surface::{ComputedLayout, UiSurface};
 
 use bevy_text::ComputedTextBlock;
 
@@ -70,27 +70,39 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     ui_children: UiChildren,
-    mut node_query: Query<(Entity, &Node, &mut ContentSize, &ComputedUiRenderTargetInfo)>,
-    mut node_update_query: Query<(
-        &mut ComputedNode,
-        &UiTransform,
-        &mut UiGlobalTransform,
-        &Node,
-        Option<&LayoutConfig>,
-        Option<&Outline>,
-        Option<&ScrollPosition>,
-        Option<&IgnoreScroll>,
+    mut node_queries: ParamSet<(
+        Query<(
+            Entity,
+            &Node,
+            &mut ContentSize,
+            &ComputedUiRenderTargetInfo,
+            &mut ComputedLayout,
+        )>,
+        Query<(
+            &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
+            &Node,
+            &ComputedLayout,
+            Option<&LayoutConfig>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+            Option<&IgnoreScroll>,
+        )>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
 ) {
-    ui_surface.clear();
+    for (_, _, _, _, mut computed_layout) in &mut node_queries.p0() {
+        computed_layout.clear();
+    }
 
     for ui_root_entity in ui_root_node_query.iter() {
         let Ok((physical_size, scale_factor)) =
-            node_query
+            node_queries
+                .p0()
                 .get(ui_root_entity)
-                .map(|(_, _, _, computed_target)| {
+                .map(|(_, _, _, computed_target, _)| {
                     (
                         computed_target.physical_size(),
                         computed_target.scale_factor(),
@@ -100,8 +112,9 @@ pub fn ui_layout_system(
             continue;
         };
 
-        if ui_surface
-            .compute_layout(
+        let computed = {
+            let mut node_query = node_queries.p0();
+            ui_surface.compute_layout(
                 ui_root_entity,
                 physical_size,
                 &ui_children,
@@ -109,14 +122,15 @@ pub fn ui_layout_system(
                 &mut buffer_query,
                 &mut font_system,
             )
-            .is_err()
-        {
+        };
+
+        if computed.is_err() {
             continue;
         }
 
+        let mut node_update_query = node_queries.p1();
         update_uinode_geometry_recursive(
             ui_root_entity,
-            &ui_surface,
             true,
             physical_size.as_vec2(),
             Affine2::IDENTITY,
@@ -131,7 +145,6 @@ pub fn ui_layout_system(
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
         entity: Entity,
-        ui_surface: &UiSurface,
         inherited_use_rounding: bool,
         target_size: Vec2,
         mut inherited_transform: Affine2,
@@ -140,6 +153,7 @@ pub fn ui_layout_system(
             &UiTransform,
             &mut UiGlobalTransform,
             &Node,
+            &ComputedLayout,
             Option<&LayoutConfig>,
             Option<&Outline>,
             Option<&ScrollPosition>,
@@ -155,6 +169,7 @@ pub fn ui_layout_system(
             transform,
             mut global_transform,
             style,
+            computed_layout,
             maybe_layout_config,
             maybe_outline,
             maybe_scroll_position,
@@ -165,7 +180,7 @@ pub fn ui_layout_system(
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
 
-            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity, use_rounding) else {
+            let Some((layout, unrounded_size)) = computed_layout.get(use_rounding) else {
                 return;
             };
 
@@ -285,7 +300,6 @@ pub fn ui_layout_system(
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     child_uinode,
-                    ui_surface,
                     use_rounding,
                     target_size,
                     inherited_transform,
@@ -303,8 +317,11 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::propagate_ui_target_cameras, ContentSize,
+        layout::ui_surface::{ComputedLayout, UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::propagate_ui_target_cameras,
+        ContentSize,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -384,10 +401,17 @@ mod tests {
 
     fn layout_for(app: &App, entity: Entity, use_rounding: bool) -> taffy::Layout {
         app.world()
-            .resource::<UiSurface>()
-            .get_layout(entity, use_rounding)
+            .get::<ComputedLayout>(entity)
+            .and_then(|layout| layout.get(use_rounding))
             .unwrap()
             .0
+    }
+
+    fn has_layout(app: &App, entity: Entity) -> bool {
+        app.world()
+            .get::<ComputedLayout>(entity)
+            .and_then(|layout| layout.get(true))
+            .is_some()
     }
 
     #[test]
@@ -426,20 +450,12 @@ mod tests {
         let entity = app.world_mut().spawn(Node::default()).id();
 
         app.update();
-        assert!(app
-            .world()
-            .resource::<UiSurface>()
-            .get_layout(entity, true)
-            .is_ok());
+        assert!(has_layout(&app, entity));
 
         app.world_mut().despawn(entity);
         app.update();
 
-        assert!(app
-            .world()
-            .resource::<UiSurface>()
-            .get_layout(entity, true)
-            .is_err());
+        assert!(!has_layout(&app, entity));
     }
 
     #[test]
@@ -732,19 +748,11 @@ mod tests {
                 .id();
 
             app.update();
-            assert!(app
-                .world()
-                .resource::<UiSurface>()
-                .get_layout(child, true)
-                .is_ok());
+            assert!(has_layout(&app, child));
 
             app.world_mut().entity_mut(mid).remove::<GhostNode>();
             app.update();
-            assert!(app
-                .world()
-                .resource::<UiSurface>()
-                .get_layout(child, true)
-                .is_err());
+            assert!(!has_layout(&app, child));
 
             app.world_mut().entity_mut(mid).insert(GhostNode);
             app.update();

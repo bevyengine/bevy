@@ -1,9 +1,7 @@
 use core::fmt;
 
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
-    entity::{Entity, EntityHashMap},
-    prelude::Resource,
+    change_detection::DetectChangesMut, component::Component, entity::Entity, prelude::Resource,
     system::Query,
 };
 use bevy_math::{UVec2, Vec2};
@@ -32,37 +30,60 @@ fn viewport_node_id() -> NodeId {
     NodeId::from(u64::MAX)
 }
 
-#[derive(Debug, Copy, Clone)]
-pub(crate) struct ComputedLayout {
-    pub(crate) unrounded: Layout,
-    pub(crate) rounded: Layout,
+#[derive(Component, Debug, Copy, Clone, Default)]
+#[doc(hidden)]
+pub struct ComputedLayout {
+    unrounded: Option<Layout>,
+    rounded: Option<Layout>,
+}
+
+impl ComputedLayout {
+    pub(crate) fn clear(&mut self) {
+        self.unrounded = None;
+        self.rounded = None;
+    }
+
+    fn set(&mut self, unrounded: Layout, rounded: Layout) {
+        self.unrounded = Some(unrounded);
+        self.rounded = Some(rounded);
+    }
+
+    pub(crate) fn get(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
+        let unrounded = self.unrounded?;
+        let selected_layout = if use_rounding {
+            self.rounded?
+        } else {
+            unrounded
+        };
+        let unrounded_size = Vec2::new(unrounded.size.width, unrounded.size.height);
+
+        Some((selected_layout, unrounded_size))
+    }
 }
 
 #[derive(Resource, Default)]
-pub struct UiSurface {
-    pub(crate) layouts: EntityHashMap<ComputedLayout>,
-}
+pub struct UiSurface;
 
 impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UiSurface")
-            .field("layouts", &self.layouts)
-            .finish()
+        f.debug_struct("UiSurface").finish()
     }
 }
 
 impl UiSurface {
-    pub(crate) fn clear(&mut self) {
-        self.layouts.clear();
-    }
-
     /// Compute and store layout results for one UI root entity.
     pub(crate) fn compute_layout(
         &mut self,
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         ui_children: &UiChildren,
-        node_query: &mut Query<(Entity, &Node, &mut ContentSize, &ComputedUiRenderTargetInfo)>,
+        node_query: &mut Query<(
+            Entity,
+            &Node,
+            &mut ContentSize,
+            &ComputedUiRenderTargetInfo,
+            &mut ComputedLayout,
+        )>,
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
     ) -> Result<(), LayoutError> {
@@ -126,47 +147,29 @@ impl UiSurface {
                 continue;
             };
 
-            self.layouts.insert(
-                entity,
-                ComputedLayout {
-                    unrounded: runtime_node.unrounded_layout,
-                    rounded: runtime_node.final_layout,
-                },
-            );
-
-            if let Ok((_, _, mut content_size, _)) = node_query.get_mut(entity) {
+            if let Ok((_, _, mut content_size, _, mut computed_layout)) = node_query.get_mut(entity)
+            {
                 content_size.bypass_change_detection().measure = runtime_node.measure;
+                computed_layout
+                    .bypass_change_detection()
+                    .set(runtime_node.unrounded_layout, runtime_node.final_layout);
             }
         }
 
         Ok(())
-    }
-
-    /// Get the layout geometry for a UI node entity.
-    pub fn get_layout(
-        &self,
-        entity: Entity,
-        use_rounding: bool,
-    ) -> Result<(Layout, Vec2), LayoutError> {
-        let Some(layout) = self.layouts.get(&entity) else {
-            return Err(LayoutError::InvalidHierarchy);
-        };
-
-        let selected_layout = if use_rounding {
-            layout.rounded
-        } else {
-            layout.unrounded
-        };
-        let unrounded_size = Vec2::new(layout.unrounded.size.width, layout.unrounded.size.height);
-
-        Ok((selected_layout, unrounded_size))
     }
 }
 
 fn build_runtime_layout_tree(
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &mut Query<(Entity, &Node, &mut ContentSize, &ComputedUiRenderTargetInfo)>,
+    node_query: &mut Query<(
+        Entity,
+        &Node,
+        &mut ContentSize,
+        &ComputedUiRenderTargetInfo,
+        &mut ComputedLayout,
+    )>,
     runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode>,
 ) -> Result<bool, LayoutError> {
     let mut child_ids = Vec::new();
@@ -176,7 +179,7 @@ fn build_runtime_layout_tree(
         }
     }
 
-    let Ok((_, node, mut content_size, computed_target)) = node_query.get_mut(entity) else {
+    let Ok((_, node, mut content_size, computed_target, _)) = node_query.get_mut(entity) else {
         return Ok(false);
     };
 
@@ -473,18 +476,12 @@ mod tests {
 
     #[test]
     fn test_initialization() {
-        let ui_surface = UiSurface::default();
-        assert!(ui_surface.layouts.is_empty());
+        let _ui_surface = UiSurface;
     }
 
     #[test]
-    fn missing_layout_returns_invalid_hierarchy() {
-        let ui_surface = UiSurface::default();
-        let entity = Entity::from_raw_u32(1).unwrap();
-
-        assert!(matches!(
-            ui_surface.get_layout(entity, true),
-            Err(LayoutError::InvalidHierarchy)
-        ));
+    fn missing_layout_returns_none() {
+        let computed_layout = ComputedLayout::default();
+        assert!(computed_layout.get(true).is_none());
     }
 }
