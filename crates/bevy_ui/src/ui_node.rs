@@ -3067,7 +3067,7 @@ impl ComputedUiRenderTargetInfo {
 
 /// Treats this UI node as a root node, even when it has a UI node parent.
 ///
-/// `FixedNode`s don't inherit their parent's layout context or transform.
+/// `FixedNode`s don't inherit their parent's layout or transform context.
 /// They also ignore clipping inherited from ancestors through [`OverrideClip`].
 #[derive(Component, Clone, Default)]
 #[require(OverrideClip, Node)]
