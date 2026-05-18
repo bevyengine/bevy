@@ -334,25 +334,28 @@ pub(crate) fn changed_windows(
                         ))))
                     }
                     WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
-                        let monitor = &select_monitor(
+                        match select_monitor(
                             &monitors,
                             winit_window.primary_monitor(),
                             winit_window.current_monitor(),
                             &monitor_selection,
-                        )
-                        .unwrap_or_else(|| {
-                            panic!("Could not find monitor for {monitor_selection:?}")
-                        });
-
-                        if let Some(video_mode) = get_selected_videomode(monitor, &video_mode_selection)
-                        {
-                            Some(Some(winit::window::Fullscreen::Exclusive(video_mode)))
-                        } else {
-                            warn!(
-                                "Could not find valid fullscreen video mode for {:?} {:?}",
-                                monitor_selection, video_mode_selection
-                            );
-                            None
+                        ) {
+                            Some(monitor) => {
+                                if let Some(video_mode) = get_selected_videomode(&monitor, &video_mode_selection)
+                                {
+                                    Some(Some(winit::window::Fullscreen::Exclusive(video_mode)))
+                                } else {
+                                    warn!(
+                                        "Could not find valid fullscreen video mode for {:?} {:?}",
+                                        monitor_selection, video_mode_selection
+                                    );
+                                    None
+                                }
+                            }
+                            None => {
+                                warn!("Could not find monitor for {:?}", monitor_selection);
+                                None
+                            }
                         }
                     }
                     WindowMode::Windowed => Some(None),
