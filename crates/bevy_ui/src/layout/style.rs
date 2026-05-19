@@ -1,4 +1,4 @@
-use core::slice;
+use core::{marker::PhantomData, slice};
 
 use taffy::{
     geometry::{Line, Point, Rect, Size},
@@ -6,33 +6,24 @@ use taffy::{
         AlignContent, AlignItems, AlignSelf, BlockContainerStyle, BlockItemStyle,
         BoxGenerationMode, BoxSizing, CoreStyle, Dimension, Direction, Display, FlexDirection,
         FlexWrap, FlexboxContainerStyle, FlexboxItemStyle, GenericGridTemplateComponent,
-        GridAutoFlow, GridContainerStyle, GridItemStyle, GridPlacement as TaffyGridPlacement,
-        GridTemplateArea, GridTemplateComponent, GridTemplateRepetition, JustifyContent,
-        LengthPercentage, LengthPercentageAuto, Overflow, Position, Style, TextAlign,
-        TrackSizingFunction,
+        GenericRepetition, GridAutoFlow, GridContainerStyle, GridItemStyle,
+        GridPlacement as TaffyGridPlacement, GridTemplateArea, JustifyContent, LengthPercentage,
+        LengthPercentageAuto, Overflow, Position, RepetitionCount, Style, TemplateLineNames,
+        TextAlign, TrackSizingFunction,
     },
 };
 
 use crate::{
-    layout::convert, AlignItems as UiAlignItems, Display as UiDisplay,
-    JustifyItems as UiJustifyItems, LayoutContext, Node, Val,
+    layout::convert, AlignItems as UiAlignItems, Display as UiDisplay, GridTrack,
+    GridTrackRepetition, JustifyItems as UiJustifyItems, LayoutContext, Node, RepeatedGridTrack,
+    Val,
 };
-
-fn as_component_ref(
-    component: &GridTemplateComponent<String>,
-) -> GenericGridTemplateComponent<String, &GridTemplateRepetition<String>> {
-    component.as_component_ref()
-}
 
 /// Runtime style adapter that exposes Bevy [`Node`] values through Taffy's style traits.
 #[derive(Clone)]
 pub(super) struct CoreNode<'a> {
     node: NodeSource<'a>,
     context: LayoutContext,
-    grid_template_rows: Vec<GridTemplateComponent<String>>,
-    grid_template_columns: Vec<GridTemplateComponent<String>>,
-    grid_auto_rows: Vec<TrackSizingFunction>,
-    grid_auto_columns: Vec<TrackSizingFunction>,
 }
 
 #[derive(Clone)]
@@ -50,31 +41,157 @@ impl NodeSource<'_> {
     }
 }
 
+#[derive(Clone)]
+pub(super) struct GridTemplateTrackList<'a> {
+    tracks: slice::Iter<'a, RepeatedGridTrack>,
+    context: LayoutContext,
+}
+
+impl<'a> Iterator for GridTemplateTrackList<'a> {
+    type Item = GenericGridTemplateComponent<String, RepeatedGridTrackRef<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let track = self.tracks.next()?;
+        Some(
+            if track.tracks.len() == 1 && track.repetition == GridTrackRepetition::Count(1) {
+                GenericGridTemplateComponent::Single(
+                    track.tracks[0].into_taffy_track(&self.context),
+                )
+            } else {
+                GenericGridTemplateComponent::Repeat(RepeatedGridTrackRef {
+                    track,
+                    context: self.context,
+                })
+            },
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.tracks.size_hint()
+    }
+}
+
+impl ExactSizeIterator for GridTemplateTrackList<'_> {}
+
+#[derive(Clone)]
+pub(super) struct GridTrackList<'a> {
+    tracks: slice::Iter<'a, GridTrack>,
+    context: LayoutContext,
+}
+
+impl Iterator for GridTrackList<'_> {
+    type Item = TrackSizingFunction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.tracks
+            .next()
+            .map(|track| track.into_taffy_track(&self.context))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.tracks.size_hint()
+    }
+}
+
+impl ExactSizeIterator for GridTrackList<'_> {}
+
+#[derive(Copy, Clone)]
+pub(super) struct RepeatedGridTrackRef<'a> {
+    track: &'a RepeatedGridTrack,
+    context: LayoutContext,
+}
+
+impl GenericRepetition for RepeatedGridTrackRef<'_> {
+    type CustomIdent = String;
+
+    type RepetitionTrackList<'a>
+        = GridTrackList<'a>
+    where
+        Self: 'a;
+
+    type TemplateLineNames<'a>
+        = EmptyLineNames<'a>
+    where
+        Self: 'a;
+
+    fn count(&self) -> RepetitionCount {
+        match self.track.repetition {
+            GridTrackRepetition::Count(count) => RepetitionCount::Count(count),
+            GridTrackRepetition::AutoFill => RepetitionCount::AutoFill,
+            GridTrackRepetition::AutoFit => RepetitionCount::AutoFit,
+        }
+    }
+
+    fn tracks(&self) -> Self::RepetitionTrackList<'_> {
+        GridTrackList {
+            tracks: self.track.tracks.iter(),
+            context: self.context,
+        }
+    }
+
+    fn lines_names(&self) -> Self::TemplateLineNames<'_> {
+        EmptyLineNames::new()
+    }
+}
+
+#[derive(Copy, Clone)]
+pub(super) struct EmptyLineNames<'a> {
+    marker: PhantomData<&'a String>,
+}
+
+impl<'a> EmptyLineNames<'a> {
+    const fn new() -> Self {
+        Self {
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a> Iterator for EmptyLineNames<'a> {
+    type Item = EmptyLineNameSet<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(0))
+    }
+}
+
+impl ExactSizeIterator for EmptyLineNames<'_> {}
+
+impl<'a> TemplateLineNames<'a, String> for EmptyLineNames<'a> {
+    type LineNameSet<'b>
+        = EmptyLineNameSet<'b>
+    where
+        Self: 'b;
+}
+
+#[derive(Copy, Clone)]
+pub(super) struct EmptyLineNameSet<'a> {
+    marker: PhantomData<&'a String>,
+}
+
+impl<'a> Iterator for EmptyLineNameSet<'a> {
+    type Item = &'a String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(0))
+    }
+}
+
+impl ExactSizeIterator for EmptyLineNameSet<'_> {}
+
 impl<'a> CoreNode<'a> {
     pub(super) fn from_node(node: &'a Node, context: LayoutContext) -> Self {
         Self {
             node: NodeSource::Borrowed(node),
             context,
-            grid_template_rows: node
-                .grid_template_rows
-                .iter()
-                .map(|track| track.clone_into_repeated_taffy_track(&context))
-                .collect(),
-            grid_template_columns: node
-                .grid_template_columns
-                .iter()
-                .map(|track| track.clone_into_repeated_taffy_track(&context))
-                .collect(),
-            grid_auto_rows: node
-                .grid_auto_rows
-                .iter()
-                .map(|track| track.into_taffy_track(&context))
-                .collect(),
-            grid_auto_columns: node
-                .grid_auto_columns
-                .iter()
-                .map(|track| track.into_taffy_track(&context))
-                .collect(),
         }
     }
 
@@ -91,10 +208,6 @@ impl<'a> CoreNode<'a> {
         Self {
             node: NodeSource::Owned(node),
             context: LayoutContext::DEFAULT,
-            grid_template_rows: Vec::new(),
-            grid_template_columns: Vec::new(),
-            grid_auto_rows: Vec::new(),
-            grid_auto_columns: Vec::new(),
         }
     }
 
@@ -287,27 +400,22 @@ impl FlexboxItemStyle for CoreNode<'_> {
 
 impl GridContainerStyle for CoreNode<'_> {
     type Repetition<'a>
-        = &'a GridTemplateRepetition<String>
+        = RepeatedGridTrackRef<'a>
     where
         Self: 'a;
 
     type TemplateTrackList<'a>
-        = core::iter::Map<
-        slice::Iter<'a, GridTemplateComponent<String>>,
-        fn(
-            &'a GridTemplateComponent<String>,
-        ) -> GenericGridTemplateComponent<String, &'a GridTemplateRepetition<String>>,
-    >
+        = GridTemplateTrackList<'a>
     where
         Self: 'a;
 
     type AutoTrackList<'a>
-        = core::iter::Copied<slice::Iter<'a, TrackSizingFunction>>
+        = GridTrackList<'a>
     where
         Self: 'a;
 
     type TemplateLineNames<'a>
-        = core::iter::Map<slice::Iter<'a, Vec<String>>, fn(&Vec<String>) -> slice::Iter<'_, String>>
+        = EmptyLineNames<'a>
     where
         Self: 'a;
 
@@ -318,22 +426,34 @@ impl GridContainerStyle for CoreNode<'_> {
 
     #[inline(always)]
     fn grid_template_rows(&self) -> Option<Self::TemplateTrackList<'_>> {
-        Some(self.grid_template_rows.iter().map(as_component_ref))
+        Some(GridTemplateTrackList {
+            tracks: self.node().grid_template_rows.iter(),
+            context: self.context,
+        })
     }
 
     #[inline(always)]
     fn grid_template_columns(&self) -> Option<Self::TemplateTrackList<'_>> {
-        Some(self.grid_template_columns.iter().map(as_component_ref))
+        Some(GridTemplateTrackList {
+            tracks: self.node().grid_template_columns.iter(),
+            context: self.context,
+        })
     }
 
     #[inline(always)]
     fn grid_auto_rows(&self) -> Self::AutoTrackList<'_> {
-        self.grid_auto_rows.iter().copied()
+        GridTrackList {
+            tracks: self.node().grid_auto_rows.iter(),
+            context: self.context,
+        }
     }
 
     #[inline(always)]
     fn grid_auto_columns(&self) -> Self::AutoTrackList<'_> {
-        self.grid_auto_columns.iter().copied()
+        GridTrackList {
+            tracks: self.node().grid_auto_columns.iter(),
+            context: self.context,
+        }
     }
 
     #[inline(always)]
