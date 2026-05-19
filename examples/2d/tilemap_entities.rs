@@ -5,7 +5,7 @@ use std::time::Duration;
 use bevy::{
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite::{DespawnOnRemove, TileOf, TileCoord, Tilemap},
+    sprite::{DespawnOnRemove, TileCoord, TileOf, Tilemap},
     sprite_render::{TileRenderData, TilemapRenderData},
 };
 use chacha20::ChaCha8Rng;

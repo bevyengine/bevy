@@ -5,7 +5,7 @@
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
-    sprite::{TileOf, TileCoord, Tilemap, TilemapEntityQuery},
+    sprite::{TileCoord, TileOf, Tilemap, TilemapEntityQuery},
 };
 
 mod stepping;
