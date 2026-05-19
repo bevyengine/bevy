@@ -3069,7 +3069,6 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-/// They also ignore clipping inherited from ancestors through [`OverrideClip`].
 #[derive(Component, Clone, Default)]
 #[require(Node, OverrideClip)]
 pub struct FixedNode;
