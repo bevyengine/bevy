@@ -83,6 +83,10 @@ where
         let chunk_coord = self.map.tile_chunk_position(coord);
         let chunk_entity = self.map.chunks.get(&chunk_coord).cloned()?;
 
+        // SAFETY: We are using the chunk_entity as an index to look up the chunk storages,
+        // which is guaranteed to be valid since we got the chunk_entity from the map's chunks HashMap.
+        // The returned reference is only valid as long as the original query is alive.
+        #[allow(clippy::manual_let_else)]
         #[expect(unsafe_code, reason = "unchecked accessor")]
         let storages = if let Ok(storages) = unsafe { self.chunks.get_unchecked(chunk_entity) } {
             storages
@@ -183,7 +187,7 @@ where
             // this returned itemed will keep the original borrow used to make the iterator alive in the mind of the compiler.
             #[expect(unsafe_code, reason = "necessary for iterator lifetimes")]
             return unsafe {
-                std::mem::transmute::<
+                core::mem::transmute::<
                     Option<Option<<D as TileQueryData>::Data<'_>>>,
                     Option<Option<<D as TileQueryData>::Data<'_>>>,
                 >(Some(tile))
@@ -296,6 +300,7 @@ where
         let entity =
             <<&EntityTile as TileQueryData>::ReadOnly as TileQueryData>::get_at(storages, index)?;
 
+        // SAFETY: This is an unsafe function, the caller must ensure that the returned reference is not used to violate Rust's aliasing guarantees.
         #[expect(unsafe_code, reason = "unchecked access")]
         unsafe {
             self.tiles.get_unchecked(**entity).ok()
@@ -396,7 +401,7 @@ where
             // this returned itemed will keep the original borrow used to make the iterator alive in the mind of the compiler.
             #[expect(unsafe_code, reason = "necessary for iterator lifetimes")]
             return unsafe {
-                std::mem::transmute::<
+                core::mem::transmute::<
                     Option<Option<<D as QueryData>::Item<'_, '_>>>,
                     Option<Option<<D as QueryData>::Item<'_, '_>>>,
                 >(Some(tile))
