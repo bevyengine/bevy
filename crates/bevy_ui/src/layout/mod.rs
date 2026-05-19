@@ -1792,7 +1792,7 @@ mod tests {
         }
 
         #[test]
-        fn ghosts_and_fixed_nodes_attach_and_detatch() {
+        fn ghosts_and_fixed_nodes_attach_and_detach() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
