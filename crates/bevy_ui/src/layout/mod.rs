@@ -21,8 +21,10 @@ use bevy_text::FontCx;
 
 mod convert;
 pub mod debug;
+mod style;
 pub mod ui_surface;
 
+#[derive(Copy, Clone)]
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,

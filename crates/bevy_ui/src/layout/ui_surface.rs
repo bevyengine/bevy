@@ -7,18 +7,17 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_text::{ComputedTextBlock, FontCx};
-use bevy_utils::default;
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
     style::{AvailableSpace, Display, Style},
-    style_helpers, Cache, CacheTree, Layout, LayoutBlockContainer, LayoutFlexboxContainer,
-    LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
-    TraversePartialTree, TraverseTree,
+    Cache, CacheTree, Layout, LayoutBlockContainer, LayoutFlexboxContainer, LayoutGridContainer,
+    LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode, TraversePartialTree,
+    TraverseTree,
 };
 
 use crate::{
-    experimental::UiChildren, layout::convert, ComputedUiRenderTargetInfo, ContentSize,
+    experimental::UiChildren, layout::style::CoreNode, ComputedUiRenderTargetInfo, ContentSize,
     LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
 };
 
@@ -192,7 +191,7 @@ fn build_runtime_layout_tree(
         entity_node_id(entity),
         RuntimeLayoutNode {
             entity: Some(entity),
-            style: convert::from_node(node, &layout_context),
+            style: CoreNode::from_node(node, layout_context),
             cache: Cache::new(),
             unrounded_layout: Layout::new(),
             final_layout: Layout::new(),
@@ -206,7 +205,7 @@ fn build_runtime_layout_tree(
 
 struct RuntimeLayoutNode {
     entity: Option<Entity>,
-    style: Style,
+    style: CoreNode,
     cache: Cache,
     unrounded_layout: Layout,
     final_layout: Layout,
@@ -218,16 +217,7 @@ impl RuntimeLayoutNode {
     fn viewport(root_node_id: NodeId) -> Self {
         Self {
             entity: None,
-            style: Style {
-                display: Display::Grid,
-                size: taffy::geometry::Size {
-                    width: style_helpers::percent(1.0),
-                    height: style_helpers::percent(1.0),
-                },
-                align_items: Some(taffy::style::AlignItems::Start),
-                justify_items: Some(taffy::style::JustifyItems::Start),
-                ..default()
-            },
+            style: CoreNode::viewport(),
             cache: Cache::new(),
             unrounded_layout: Layout::new(),
             final_layout: Layout::new(),
@@ -282,11 +272,11 @@ impl TraverseTree for EcsLayoutTree<'_> {}
 
 impl LayoutPartialTree for EcsLayoutTree<'_> {
     type CoreContainerStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 
-    type CustomIdent = <Style as taffy::CoreStyle>::CustomIdent;
+    type CustomIdent = <CoreNode as taffy::CoreStyle>::CustomIdent;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
         &self.nodes.get(&node_id).expect("missing layout node").style
@@ -313,7 +303,7 @@ impl LayoutPartialTree for EcsLayoutTree<'_> {
                 .clone();
             let has_children = tree.child_count(node_id) > 0;
 
-            match (style.display, has_children) {
+            match (style.display(), has_children) {
                 (Display::None, _) => compute_hidden_layout(tree, node_id),
                 (Display::Block, true) => compute_block_layout(tree, node_id, inputs, None),
                 (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
@@ -323,6 +313,7 @@ impl LayoutPartialTree for EcsLayoutTree<'_> {
                     &style,
                     |_, _| 0.0,
                     |known_dimensions, available_space| {
+                        let taffy_style = style.to_taffy_style();
                         let Some(mut measure) = tree
                             .nodes
                             .get_mut(&node_id)
@@ -336,7 +327,7 @@ impl LayoutPartialTree for EcsLayoutTree<'_> {
                             known_dimensions,
                             available_space,
                             &mut measure,
-                            &style,
+                            &taffy_style,
                         );
                         tree.nodes
                             .get_mut(&node_id)
@@ -378,12 +369,12 @@ impl CacheTree for EcsLayoutTree<'_> {
 
 impl LayoutBlockContainer for EcsLayoutTree<'_> {
     type BlockContainerStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 
     type BlockItemStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 
@@ -398,12 +389,12 @@ impl LayoutBlockContainer for EcsLayoutTree<'_> {
 
 impl LayoutFlexboxContainer for EcsLayoutTree<'_> {
     type FlexboxContainerStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 
     type FlexboxItemStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 
@@ -418,12 +409,12 @@ impl LayoutFlexboxContainer for EcsLayoutTree<'_> {
 
 impl LayoutGridContainer for EcsLayoutTree<'_> {
     type GridContainerStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 
     type GridItemStyle<'a>
-        = &'a Style
+        = &'a CoreNode
     where
         Self: 'a;
 

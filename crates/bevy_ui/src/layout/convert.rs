@@ -10,7 +10,7 @@ use crate::{
 use super::LayoutContext;
 
 impl Val {
-    fn into_length_percentage_auto(
+    pub(super) fn into_length_percentage_auto(
         self,
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
@@ -29,7 +29,10 @@ impl Val {
         }
     }
 
-    fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
+    pub(super) fn into_length_percentage(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
@@ -45,13 +48,16 @@ impl Val {
         }
     }
 
-    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
+    pub(super) fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
         self.into_length_percentage_auto(context).into()
     }
 }
 
 impl UiRect {
-    fn map_to_taffy_rect<T>(self, map_fn: impl Fn(Val) -> T) -> taffy::geometry::Rect<T> {
+    pub(super) fn map_to_taffy_rect<T>(
+        self,
+        map_fn: impl Fn(Val) -> T,
+    ) -> taffy::geometry::Rect<T> {
         taffy::geometry::Rect {
             left: map_fn(self.left),
             right: map_fn(self.right),
@@ -408,7 +414,10 @@ impl MaxTrackSizingFunction {
 }
 
 impl GridTrack {
-    fn into_taffy_track(self, context: &LayoutContext) -> taffy::style::TrackSizingFunction {
+    pub(super) fn into_taffy_track(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::TrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(context);
         let max = self.max_sizing_function.into_taffy(context);
         style_helpers::minmax(min, max)
@@ -416,7 +425,7 @@ impl GridTrack {
 }
 
 impl RepeatedGridTrack {
-    fn clone_into_repeated_taffy_track(
+    pub(super) fn clone_into_repeated_taffy_track(
         &self,
         context: &LayoutContext,
     ) -> taffy::style::GridTemplateComponent<String> {
