@@ -91,7 +91,7 @@ pub fn ui_layout_system(
     mut font_system: ResMut<FontCx>,
 ) {
     for (_, _, mut computed_layout) in &mut node_queries.p0() {
-        computed_layout.clear();
+        computed_layout.bypass_change_detection().clear();
     }
 
     for ui_root_entity in ui_root_node_query.iter() {
