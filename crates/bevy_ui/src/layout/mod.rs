@@ -1792,7 +1792,7 @@ mod tests {
         }
 
         #[test]
-        fn fixed_ghost() {
+        fn ghosts_and_fixed_nodes_attach_and_detatch() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
@@ -1873,6 +1873,35 @@ mod tests {
                     .unwrap(),
                 &[child_node.id]
             );
+        }
+
+        #[test]
+        fn unghost_ghost_node_with_fixed_and_normal_children() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let fixed = world.spawn((Node::default(), FixedNode)).id();
+            let child = world.spawn(Node::default()).id();
+            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
+
+            app.update();
+            let world = app.world_mut();
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(ui_surface.is_root(fixed));
+            assert!(ui_surface.is_root(child));
+
+            world
+                .entity_mut(ghost)
+                .remove::<GhostNode>()
+                .insert(Node::default());
+
+            app.update();
+            let world = app.world_mut();
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(ui_surface.is_root(fixed));
+            assert!(!ui_surface.is_root(child));
         }
     }
 }
