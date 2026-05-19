@@ -47,23 +47,7 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
             let components = observer_state.descriptor.components.clone();
             for event_key in event_keys {
                 let observers = world.observers.get_observers_mut(event_key);
-                if components.is_empty() {
-                    if let Some(map) = observers.entity_observers.get(&source).cloned() {
-                        observers.entity_observers.insert(target, map);
-                    }
-                } else {
-                    for component in &components {
-                        let Some(observers) = observers.component_observers.get_mut(component)
-                        else {
-                            continue;
-                        };
-                        if let Some(map) =
-                            observers.entity_component_observers.get(&source).cloned()
-                        {
-                            observers.entity_component_observers.insert(target, map);
-                        }
-                    }
-                }
+                observers.clone_entity_observers(source, target, &components);
             }
         }
     });

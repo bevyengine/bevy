@@ -82,7 +82,10 @@ pub mod prelude {
             Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
         },
         name::{Name, NameOrEntity},
-        observer::{Observer, ObserverSystemExt, On},
+        observer::{
+            IntoObserverConfigs, IntoObserverOrderingTarget, IntoObserverSetConfigs, Observer,
+            ObserverSet, ObserverSystemExt, On,
+        },
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,

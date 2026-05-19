@@ -4,12 +4,13 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{EntityEvent, Event},
-    observer::{CachedObservers, TriggerContext},
+    observer::{run_ordered, CachedObservers, TriggerContext},
     traversal::Traversal,
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
 use core::{fmt, marker::PhantomData};
+use smallvec::SmallVec;
 
 /// [`Trigger`] determines _how_ an [`Event`] is triggered when [`World::trigger`](crate::world::World::trigger) is called.
 /// This decides which [`Observer`](crate::observer::Observer)s will run, what data gets passed to them, and the order they will
@@ -101,22 +102,23 @@ impl GlobalTrigger {
         unsafe {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
-        for (observer, runner) in observers.global_observers() {
-            // SAFETY:
-            // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
-            // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
-            // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `event`, enforced by `trigger_internal`
-            // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-            // - this abides by the nuances defined in the `Trigger` safety docs
-            unsafe {
-                (runner)(
-                    world.reborrow(),
-                    *observer,
-                    trigger_context,
-                    event.reborrow(),
-                    self.into(),
-                );
-            }
+
+        // SAFETY:
+        // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
+        // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
+        // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `event`, enforced by `trigger_internal`
+        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
+        // - this abides by the nuances defined in the `Trigger` safety docs
+        unsafe {
+            let mut trigger = self.into();
+            run_ordered::<1>(
+                observers,
+                &mut world,
+                trigger_context,
+                &mut event,
+                &mut trigger,
+                [observers.global_node_ids()],
+            );
         }
     }
 }
@@ -185,40 +187,24 @@ pub unsafe fn trigger_entity_internal(
     unsafe {
         world.as_unsafe_world_cell().increment_trigger_id();
     }
-    for (observer, runner) in observers.global_observers() {
-        // SAFETY:
-        // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
-        // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
-        // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
-        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
-        unsafe {
-            (runner)(
-                world.reborrow(),
-                *observer,
-                trigger_context,
-                event.reborrow(),
-                trigger.reborrow(),
-            );
-        }
-    }
 
-    if let Some(map) = observers.entity_observers().get(&target_entity) {
-        for (observer, runner) in map {
-            // SAFETY:
-            // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
-            // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
-            // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
-            // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
-            unsafe {
-                (runner)(
-                    world.reborrow(),
-                    *observer,
-                    trigger_context,
-                    event.reborrow(),
-                    trigger.reborrow(),
-                );
-            }
-        }
+    // SAFETY:
+    // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
+    // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
+    // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
+    // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
+    unsafe {
+        run_ordered::<2>(
+            observers,
+            &mut world,
+            trigger_context,
+            &mut event,
+            &mut trigger,
+            [
+                observers.global_node_ids(),
+                observers.entity_node_ids(target_entity),
+            ],
+        );
     }
 }
 
@@ -459,64 +445,47 @@ impl<'a> EntityComponentsTrigger<'a> {
         entity: Entity,
         trigger_context: &TriggerContext,
     ) {
-        // SAFETY:
-        // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
-        // - the passed in event pointer comes from `event`, which is an `Event`
-        // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
-        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
+        // SAFETY: there are no outstanding world references
         unsafe {
-            trigger_entity_internal(
-                world.reborrow(),
-                observers,
-                event.reborrow(),
-                self.into(),
-                entity,
-                trigger_context,
+            world.as_unsafe_world_cell().increment_trigger_id();
+        }
+
+        let global_node_ids = observers.global_node_ids();
+        let entity_node_ids = observers.entity_node_ids(entity);
+        let mut component_global_node_ids = SmallVec::<[crate::observer::NodeId; 8]>::new();
+        let mut entity_component_node_ids = SmallVec::<[crate::observer::NodeId; 8]>::new();
+
+        for &id in self.components {
+            observers.merge_ordered_node_ids(
+                &mut component_global_node_ids,
+                observers.component_global_node_ids(id),
+            );
+            observers.merge_ordered_node_ids(
+                &mut entity_component_node_ids,
+                observers.entity_component_node_ids(id, entity),
             );
         }
 
-        // Trigger observers watching for a specific component
-        for id in self.components {
-            if let Some(component_observers) = observers.component_observers().get(id) {
-                for (observer, runner) in component_observers.global_observers() {
-                    // SAFETY:
-                    // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
-                    // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
-                    // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
-                    // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-                    unsafe {
-                        (runner)(
-                            world.reborrow(),
-                            *observer,
-                            trigger_context,
-                            event.reborrow(),
-                            self.into(),
-                        );
-                    }
-                }
-
-                if let Some(map) = component_observers
-                    .entity_component_observers()
-                    .get(&entity)
-                {
-                    for (observer, runner) in map {
-                        // SAFETY:
-                        // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
-                        // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
-                        // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
-                        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-                        unsafe {
-                            (runner)(
-                                world.reborrow(),
-                                *observer,
-                                trigger_context,
-                                event.reborrow(),
-                                self.into(),
-                            );
-                        }
-                    }
-                }
-            }
+        // SAFETY:
+        // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
+        // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
+        // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
+        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
+        unsafe {
+            let mut trigger = self.into();
+            run_ordered::<4>(
+                observers,
+                &mut world,
+                trigger_context,
+                &mut event,
+                &mut trigger,
+                [
+                    global_node_ids,
+                    entity_node_ids,
+                    &component_global_node_ids,
+                    &entity_component_node_ids,
+                ],
+            );
         }
     }
 }

@@ -8,13 +8,17 @@ mod condition;
 mod distributed_storage;
 mod entity_cloning;
 mod runner;
+mod set;
 mod system_param;
 
 pub use centralized_storage::*;
 pub use condition::*;
 pub use distributed_storage::*;
 pub use runner::*;
+pub use set::*;
 pub use system_param::*;
+
+use alloc::vec::Vec;
 
 use crate::{
     change_detection::MaybeLocation,
@@ -24,10 +28,10 @@ use crate::{
 };
 
 impl World {
-    /// Spawns a "global" [`Observer`] which will watch for the given event.
-    /// Returns its [`Entity`] as a [`EntityWorldMut`].
+    /// Spawns one or more "global" [`Observer`]s which will watch for the given event.
+    /// Returns the first registered observer as an [`EntityWorldMut`].
     ///
-    /// `system` can be any system whose first parameter is [`On`].
+    /// `observer` can be any observer configuration whose first parameter is [`On`].
     ///
     /// # Example
     ///
@@ -52,8 +56,70 @@ impl World {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> EntityWorldMut<'_> {
-        self.spawn(observer.into_observer())
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserverConfigs<M>) -> EntityWorldMut<'_> {
+        let entity = self
+            .add_observers(observer)
+            .into_iter()
+            .next()
+            .expect("observer configs must contain at least one observer");
+        self.entity_mut(entity)
+    }
+
+    /// Spawns multiple observers and returns their entities in registration order.
+    ///
+    /// Internally batches per-observer cache resorts so the topological sort
+    /// runs at most once for the whole call, instead of once per spawned
+    /// observer. On panic mid-batch the deferral is released and the unwind
+    /// resumes.
+    pub fn add_observers<M>(&mut self, observers: impl IntoObserverConfigs<M>) -> Vec<Entity> {
+        struct ReleaseOnDrop<'w>(&'w mut World);
+        impl Drop for ReleaseOnDrop<'_> {
+            fn drop(&mut self) {
+                self.0.observers.release_defer_resort();
+            }
+        }
+
+        let configs = observers.into_configs();
+        let mut entities = Vec::with_capacity(configs.observers.len());
+
+        self.observers.bump_defer_resort();
+        let guard = ReleaseOnDrop(&mut *self);
+        for mut observer in configs.observers {
+            if configs.chain
+                && let Some(&previous) = entities.last()
+            {
+                observer.after_inner(EdgeTarget::Entity(previous));
+            }
+
+            let entity = guard.0.spawn(observer).id();
+            entities.push(entity);
+        }
+        drop(guard);
+
+        entities
+    }
+
+    /// Configures observer set hierarchy and ordering.
+    ///
+    /// Batches per-cache resorts so the topological sort runs once at the
+    /// end of the call rather than once per affected cache.
+    pub fn configure_observer_sets<M>(
+        &mut self,
+        sets: impl IntoObserverSetConfigs<M>,
+    ) -> &mut Self {
+        struct ReleaseOnDrop<'w>(&'w mut World);
+        impl Drop for ReleaseOnDrop<'_> {
+            fn drop(&mut self) {
+                self.0.observers.release_defer_resort();
+            }
+        }
+
+        self.observers.bump_defer_resort();
+        {
+            let guard = ReleaseOnDrop(&mut *self);
+            guard.0.observers.configure_observer_sets(sets);
+        }
+        self
     }
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
@@ -168,19 +234,18 @@ impl World {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
 
-        for (observer, runner) in observers.global_observers() {
-            // SAFETY:
-            // - `observers` come from `world` and correspond to `event_key`
-            // - caller guarantees `event_data` and `trigger_data` are valid
-            unsafe {
-                (runner)(
-                    world.reborrow(),
-                    *observer,
-                    &context,
-                    event_data.reborrow(),
-                    trigger_data.reborrow(),
-                );
-            }
+        // SAFETY:
+        // - `observers` come from `world` and correspond to `event_key`
+        // - caller guarantees `event_data` and `trigger_data` are valid
+        unsafe {
+            run_ordered::<1>(
+                observers,
+                &mut world,
+                &context,
+                &mut event_data,
+                &mut trigger_data,
+                [observers.global_observers()],
+            );
         }
     }
 
@@ -265,55 +330,42 @@ impl World {
             caller: MaybeLocation::caller(),
         };
 
-        // SAFETY:
-        // - `observers` come from `world` and correspond to `event_key`
-        // - caller guarantees `event_data` and `trigger_data` are valid
-        // - `trigger_entity_internal` increments the trigger id
+        // SAFETY: there are no outstanding world references
         unsafe {
-            crate::event::trigger_entity_internal(
-                world.reborrow(),
-                observers,
-                event_data.reborrow(),
-                trigger_data.reborrow(),
-                entity,
-                &context,
+            world.as_unsafe_world_cell().increment_trigger_id();
+        }
+
+        let mut component_global_node_ids = smallvec::SmallVec::<[NodeId; 8]>::new();
+        let mut entity_component_node_ids = smallvec::SmallVec::<[NodeId; 8]>::new();
+
+        for id in components {
+            observers.merge_ordered_node_ids(
+                &mut component_global_node_ids,
+                observers.component_global_node_ids(*id),
+            );
+            observers.merge_ordered_node_ids(
+                &mut entity_component_node_ids,
+                observers.entity_component_node_ids(*id, entity),
             );
         }
 
-        // Trigger observers watching for specific components.
-        for id in components {
-            if let Some(component_observers) = observers.component_observers().get(id) {
-                for (observer, runner) in component_observers.global_observers() {
-                    // SAFETY: same as above, caller guarantees data validity
-                    unsafe {
-                        (runner)(
-                            world.reborrow(),
-                            *observer,
-                            &context,
-                            event_data.reborrow(),
-                            trigger_data.reborrow(),
-                        );
-                    }
-                }
-
-                if let Some(map) = component_observers
-                    .entity_component_observers()
-                    .get(&entity)
-                {
-                    for (observer, runner) in map {
-                        // SAFETY: same as above, caller guarantees data validity
-                        unsafe {
-                            (runner)(
-                                world.reborrow(),
-                                *observer,
-                                &context,
-                                event_data.reborrow(),
-                                trigger_data.reborrow(),
-                            );
-                        }
-                    }
-                }
-            }
+        // SAFETY:
+        // - `observers` come from `world` and correspond to `event_key`
+        // - caller guarantees `event_data` and `trigger_data` are valid
+        unsafe {
+            run_ordered::<4>(
+                observers,
+                &mut world,
+                &context,
+                &mut event_data,
+                &mut trigger_data,
+                [
+                    observers.global_node_ids(),
+                    observers.entity_node_ids(entity),
+                    &component_global_node_ids,
+                    &entity_component_node_ids,
+                ],
+            );
         }
     }
 
@@ -321,7 +373,9 @@ impl World {
     pub(crate) fn register_observer(&mut self, observer_entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_state, archetypes, observers) = unsafe {
-            let observer_state: *const Observer = self.get::<Observer>(observer_entity).unwrap();
+            let mut observer_state = self.get_mut::<Observer>(observer_entity).unwrap();
+            observer_state.descriptor.frozen = true;
+            let observer_state: *const Observer = observer_state.as_ref();
             // Populate ObservedBy for each observed entity.
             for watched_entity in (*observer_state).descriptor.entities.iter().copied() {
                 let mut entity_mut = self.entity_mut(watched_entity);
@@ -334,45 +388,12 @@ impl World {
 
         for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
+            let newly_observed_components =
+                cache.register_observer(observer_entity, observer_state.runner, descriptor);
 
-            if descriptor.components.is_empty() && descriptor.entities.is_empty() {
-                cache
-                    .global_observers
-                    .insert(observer_entity, observer_state.runner);
-            } else if descriptor.components.is_empty() {
-                // Observer is not targeting any components so register it as an entity observer
-                for &watched_entity in &observer_state.descriptor.entities {
-                    let map = cache.entity_observers.entry(watched_entity).or_default();
-                    map.insert(observer_entity, observer_state.runner);
-                }
-            } else {
-                // Register observer for each watched component
-                for &component in &descriptor.components {
-                    let observers =
-                        cache
-                            .component_observers
-                            .entry(component)
-                            .or_insert_with(|| {
-                                if let Some(flag) = Observers::is_archetype_cached(event_key) {
-                                    archetypes.update_flags(component, flag, true);
-                                }
-                                CachedComponentObservers::default()
-                            });
-                    if descriptor.entities.is_empty() {
-                        // Register for all triggers targeting the component
-                        observers
-                            .global_observers
-                            .insert(observer_entity, observer_state.runner);
-                    } else {
-                        // Register for each watched entity
-                        for &watched_entity in &descriptor.entities {
-                            let map = observers
-                                .entity_component_observers
-                                .entry(watched_entity)
-                                .or_default();
-                            map.insert(observer_entity, observer_state.runner);
-                        }
-                    }
+            if let Some(flag) = Observers::is_archetype_cached(event_key) {
+                for component in newly_observed_components {
+                    archetypes.update_flags(component, flag, true);
                 }
             }
         }
@@ -385,58 +406,21 @@ impl World {
 
         for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
-            if descriptor.components.is_empty() && descriptor.entities.is_empty() {
-                cache.global_observers.remove(&entity);
-            } else if descriptor.components.is_empty() {
-                for watched_entity in &descriptor.entities {
-                    // This check should be unnecessary since this observer hasn't been unregistered yet
-                    let Some(observers) = cache.entity_observers.get_mut(watched_entity) else {
-                        continue;
-                    };
-                    observers.remove(&entity);
-                    if observers.is_empty() {
-                        cache.entity_observers.remove(watched_entity);
-                    }
-                }
-            } else {
-                for component in &descriptor.components {
-                    let Some(observers) = cache.component_observers.get_mut(component) else {
-                        continue;
-                    };
-                    if descriptor.entities.is_empty() {
-                        observers.global_observers.remove(&entity);
-                    } else {
-                        for watched_entity in &descriptor.entities {
-                            let Some(map) =
-                                observers.entity_component_observers.get_mut(watched_entity)
-                            else {
-                                continue;
-                            };
-                            map.remove(&entity);
-                            if map.is_empty() {
-                                observers.entity_component_observers.remove(watched_entity);
-                            }
-                        }
-                    }
+            let removed_components = cache.unregister_observer(entity, &descriptor);
 
-                    if observers.global_observers.is_empty()
-                        && observers.entity_component_observers.is_empty()
-                    {
-                        cache.component_observers.remove(component);
-                        if let Some(flag) = Observers::is_archetype_cached(event_key)
-                            && let Some(by_component) = archetypes.by_component.get(component)
-                        {
-                            for archetype in by_component.keys() {
-                                let archetype = &mut archetypes.archetypes[archetype.index()];
-                                if archetype.contains(*component) {
-                                    let no_longer_observed = archetype
-                                        .iter_components()
-                                        .all(|id| !cache.component_observers.contains_key(&id));
+            for component in removed_components {
+                if let Some(flag) = Observers::is_archetype_cached(event_key)
+                    && let Some(by_component) = archetypes.by_component.get(&component)
+                {
+                    for archetype in by_component.keys() {
+                        let archetype = &mut archetypes.archetypes[archetype.index()];
+                        if archetype.contains(component) {
+                            let no_longer_observed = archetype
+                                .iter_components()
+                                .all(|id| !cache.contains_component_observers(id));
 
-                                    if no_longer_observed {
-                                        archetype.flags.set(flag, false);
-                                    }
-                                }
+                            if no_longer_observed {
+                                archetype.flags.set(flag, false);
                             }
                         }
                     }
@@ -448,8 +432,11 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
+    use alloc::{string::String, vec, vec::Vec};
     use core::any::type_name;
+    #[cfg(debug_assertions)]
+    use core::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
 
     use bevy_ptr::OwningPtr;
 
@@ -459,8 +446,9 @@ mod tests {
         error::Result,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
-        observer::{Discard, Observer},
+        observer::{Discard, Observer, WATCH_ENTITY_AFTER_REGISTRATION_MESSAGE},
         prelude::*,
+        schedule::graph::DiGraphToposortError,
         world::DeferredWorld,
     };
 
@@ -568,7 +556,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_order_replace() {
+    fn observer_order_discard_on_replace() {
         let mut world = World::new();
         world.init_resource::<Order>();
 
@@ -646,7 +634,7 @@ mod tests {
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
-        assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
+        assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
         // we have one A entity and two observers
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
         assert_eq!(world.query::<&Observer>().query(&world).count(), 2);
@@ -857,6 +845,73 @@ mod tests {
         );
         assert_eq!(2222211, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
+    }
+
+    #[test]
+    fn observer_entity_components_trigger_merges_component_ordering() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let component_a = world.register_component::<A>();
+        let component_b = world.register_component::<B>();
+        let target = world.spawn_empty().id();
+
+        let a_observer = world
+            .add_observer(
+                |_: On<EntityComponentsEvent, A>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                },
+            )
+            .id();
+        world.spawn(
+            Observer::new(
+                |_: On<EntityComponentsEvent, B>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                },
+            )
+            .before(a_observer),
+        );
+
+        world.trigger_with(
+            EntityComponentsEvent(target),
+            EntityComponentsTrigger {
+                components: &[component_a, component_b],
+                old_archetype: None,
+                new_archetype: None,
+            },
+        );
+
+        assert_eq!(vec!["b", "a"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_entity_components_trigger_empty_components_runs_entity_ordering() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let target = world.spawn_empty().id();
+
+        let global_observer = world
+            .add_observer(|_: On<EntityComponentsEvent>, mut order: ResMut<Order>| {
+                order.observed("global");
+            })
+            .id();
+        world.spawn(
+            Observer::new(|_: On<EntityComponentsEvent>, mut order: ResMut<Order>| {
+                order.observed("entity");
+            })
+            .with_entity(target)
+            .before(global_observer),
+        );
+
+        world.trigger_with(
+            EntityComponentsEvent(target),
+            EntityComponentsTrigger {
+                components: &[],
+                old_archetype: None,
+                new_archetype: None,
+            },
+        );
+
+        assert_eq!(vec!["entity", "global"], world.resource::<Order>().0);
     }
 
     #[test]
@@ -1165,6 +1220,101 @@ mod tests {
 
         assert_eq!(vec!["global"], world.resource::<Order>().0);
         assert_eq!(vec![10], world.resource::<DynamicValues>().0);
+    }
+
+    #[test]
+    fn observer_fully_dynamic_trigger_targets_components_merges_component_ordering() {
+        use core::alloc::Layout;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        let event_id = world.register_component_with_descriptor(
+            // SAFETY: u32 layout with no drop
+            unsafe {
+                crate::component::ComponentDescriptor::new_with_layout(
+                    "DynamicOrderedComponentEvent",
+                    crate::component::StorageType::Table,
+                    Layout::new::<u32>(),
+                    None,
+                    false,
+                    crate::component::ComponentCloneBehavior::Ignore,
+                    None,
+                )
+            },
+        );
+        // SAFETY: event_id was just registered for use as an event
+        let event_key = unsafe { crate::event::EventKey::new(event_id) };
+
+        let comp_a = world.register_component_with_descriptor(
+            // SAFETY: ZST layout with no drop
+            unsafe {
+                crate::component::ComponentDescriptor::new_with_layout(
+                    "DynamicOrderedCompA",
+                    crate::component::StorageType::Table,
+                    Layout::new::<()>(),
+                    None,
+                    false,
+                    crate::component::ComponentCloneBehavior::Ignore,
+                    None,
+                )
+            },
+        );
+        let comp_b = world.register_component_with_descriptor(
+            // SAFETY: ZST layout with no drop
+            unsafe {
+                crate::component::ComponentDescriptor::new_with_layout(
+                    "DynamicOrderedCompB",
+                    crate::component::StorageType::Table,
+                    Layout::new::<()>(),
+                    None,
+                    false,
+                    crate::component::ComponentCloneBehavior::Ignore,
+                    None,
+                )
+            },
+        );
+
+        // SAFETY: event_key was just created, observer only records execution order
+        let a_observer = unsafe {
+            Observer::with_dynamic_runner(
+                |mut world, _observer, _trigger_context, _event, _trigger| {
+                    world.resource_mut::<Order>().observed("a");
+                },
+            )
+            .with_event_key(event_key)
+            .with_component(comp_a)
+        };
+        let a_observer = world.spawn(a_observer).id();
+
+        // SAFETY: event_key was just created, observer only records execution order
+        let b_observer = unsafe {
+            Observer::with_dynamic_runner(
+                |mut world, _observer, _trigger_context, _event, _trigger| {
+                    world.resource_mut::<Order>().observed("b");
+                },
+            )
+            .with_event_key(event_key)
+            .with_component(comp_b)
+            .before(a_observer)
+        };
+        world.spawn(b_observer);
+
+        let target = world.spawn_empty().id();
+        let mut event_data: u32 = 0;
+        let mut trigger_data: u32 = 0;
+        // SAFETY: pointers are valid u32s matching the registered layout
+        unsafe {
+            world.trigger_dynamic_targets_components(
+                event_key,
+                target,
+                &[comp_a, comp_b],
+                bevy_ptr::PtrMut::from(&mut event_data),
+                bevy_ptr::PtrMut::from(&mut trigger_data),
+            );
+        }
+
+        assert_eq!(vec!["b", "a"], world.resource::<Order>().0);
     }
 
     #[test]
@@ -1536,6 +1686,872 @@ mod tests {
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
     }
 
+    #[cfg(debug_assertions)]
+    #[test]
+    fn observer_watch_entity_panics_after_registration() {
+        let mut world = World::new();
+        let observer = world.spawn(Observer::new(|_: On<EntityEventA>| {})).id();
+        let watched = world.spawn_empty().id();
+
+        let panic = catch_unwind(AssertUnwindSafe(|| {
+            world
+                .get_mut::<Observer>(observer)
+                .unwrap()
+                .watch_entity(watched);
+        }))
+        .unwrap_err();
+
+        let message = panic
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| panic.downcast_ref::<&'static str>().copied())
+            .unwrap();
+        assert_eq!(message, WATCH_ENTITY_AFTER_REGISTRATION_MESSAGE);
+    }
+
+    #[test]
+    fn observer_chain_in_set_dedupes_edges() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct Sequenced;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        let observers = (
+            |_: On<EventA>, mut order: ResMut<Order>| order.observed("a"),
+            |_: On<EventA>, mut order: ResMut<Order>| order.observed("b"),
+            |_: On<EventA>, mut order: ResMut<Order>| order.observed("c"),
+        )
+            .chain()
+            .in_set(Sequenced);
+
+        let entities = world.add_observers(observers);
+        let event_key = world.register_event_key::<EventA>();
+
+        world.trigger(EventA);
+
+        assert_eq!(vec!["a", "b", "c"], world.resource::<Order>().0);
+
+        let cache = world.observers().try_get_observers(event_key).unwrap();
+        assert_eq!(cache.ordering_edge_count(), 2);
+        assert!(cache.contains_ordering_edge(entities[0], entities[1]));
+        assert!(cache.contains_ordering_edge(entities[1], entities[2]));
+    }
+
+    #[test]
+    fn observe_accepts_configs() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB).chain());
+        let target = world.spawn_empty().id();
+
+        world
+            .entity_mut(target)
+            .observe(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("direct");
+            });
+
+        {
+            let mut commands = world.commands();
+            commands.entity(target).observe(
+                (|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                    order.observed("configured");
+                })
+                .in_set(SetA)
+                .before(SetB),
+            );
+        }
+        world.flush();
+
+        world.spawn(
+            Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("after");
+            })
+            .in_set(SetB),
+        );
+
+        world.trigger(EntityEventA(target));
+        assert_eq!(
+            vec!["direct", "configured", "after"],
+            world.resource::<Order>().0
+        );
+    }
+
+    #[test]
+    fn add_observer_accepts_configs() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB).chain());
+
+        world.add_observer(|_: On<EventA>, mut order: ResMut<Order>| {
+            order.observed("direct");
+        });
+
+        {
+            let mut commands = world.commands();
+            let observer = commands
+                .add_observer(
+                    (|_: On<EventA>, mut order: ResMut<Order>| {
+                        order.observed("configured");
+                    })
+                    .in_set(SetA)
+                    .before(SetB),
+                )
+                .id();
+            assert_ne!(observer, Entity::PLACEHOLDER);
+        }
+        world.flush();
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("after");
+            })
+            .in_set(SetB),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(
+            vec!["direct", "configured", "after"],
+            world.resource::<Order>().0
+        );
+    }
+
+    #[test]
+    fn observer_set_before_after_global() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct WinCheck;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("win1");
+            })
+            .in_set(WinCheck),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("win2");
+            })
+            .in_set(WinCheck),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("win3");
+            })
+            .in_set(WinCheck),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("after");
+            })
+            .after(WinCheck),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("before");
+            })
+            .before(WinCheck),
+        );
+
+        world.trigger(EventA);
+
+        assert_eq!(
+            vec!["before", "win1", "win2", "win3", "after"],
+            world.resource::<Order>().0
+        );
+    }
+
+    #[test]
+    fn observer_after_by_entity() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        let a = world
+            .add_observer(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            })
+            .id();
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b");
+            })
+            .after(a),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b"], world.resource::<Order>().0);
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let a = world.spawn_empty().id();
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b");
+            })
+            .after(a),
+        );
+        world
+            .entity_mut(a)
+            .insert(Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            }));
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_multiple_sets() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("x");
+            })
+            .in_set(SetA)
+            .in_set(SetB),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("y");
+            })
+            .after(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("z");
+            })
+            .after(SetB),
+        );
+
+        world.trigger(EventA);
+        let order = &world.resource::<Order>().0;
+        let x = order.iter().position(|value| *value == "x").unwrap();
+        let y = order.iter().position(|value| *value == "y").unwrap();
+        let z = order.iter().position(|value| *value == "z").unwrap();
+        assert!(x < y);
+        assert!(x < z);
+    }
+
+    #[test]
+    fn observer_after_empty_set() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptySet;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("runs");
+            })
+            .after(EmptySet),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["runs"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    #[should_panic(expected = "observer ordering graph contains a cycle")]
+    fn observer_cycle_detection() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        world
+            .entity_mut(a)
+            .insert(Observer::new(|_: On<EventA>| {}).after(b));
+        world
+            .entity_mut(b)
+            .insert(Observer::new(|_: On<EventA>| {}).after(a));
+    }
+
+    #[test]
+    fn cycle_warning_includes_names() {
+        let mut world = World::new();
+        let first = world
+            .spawn(Observer::new(|_: On<EventA>| {}).with_name("first"))
+            .id();
+        let second = world
+            .spawn(Observer::new(|_: On<EventA>| {}).with_name("second"))
+            .id();
+        let event_key = world.event_key::<EventA>().unwrap();
+        let cache = world.observers().try_get_observers(event_key).unwrap();
+        let first_node = cache.observer_node_id(first).unwrap();
+        let second_node = cache.observer_node_id(second).unwrap();
+        let cycle = DiGraphToposortError::Cycle(vec![vec![first_node, second_node]]);
+
+        assert_eq!(
+            vec![vec![(first, Some("first")), (second, Some("second"))]],
+            cache.cycle_members_with_names(&cycle)
+        );
+
+        let self_loop = DiGraphToposortError::Loop(first_node);
+        assert_eq!(
+            vec![vec![(first, Some("first"))]],
+            cache.cycle_members_with_names(&self_loop)
+        );
+    }
+
+    #[test]
+    fn batch_add_observers_runs_one_resort() {
+        let mut world = World::new();
+        let before = world.observers().total_rebuild_order_calls();
+
+        world.add_observers((
+            |_: On<EventA>| {},
+            |_: On<EventA>| {},
+            |_: On<EventA>| {},
+            |_: On<EventA>| {},
+            |_: On<EventA>| {},
+        ));
+
+        let after = world.observers().total_rebuild_order_calls();
+        assert_eq!(
+            after - before,
+            1,
+            "batch add_observers must coalesce to a single resort, got {} resorts",
+            after - before,
+        );
+    }
+
+    #[test]
+    fn single_add_observer_resorts_per_call() {
+        let mut world = World::new();
+        let before = world.observers().total_rebuild_order_calls();
+
+        for _ in 0..5 {
+            world.add_observer(|_: On<EventA>| {});
+        }
+
+        let after = world.observers().total_rebuild_order_calls();
+        assert_eq!(
+            after - before,
+            5,
+            "five separate add_observer calls must each resort, got {} resorts",
+            after - before,
+        );
+    }
+
+    #[test]
+    fn observer_set_unregister_preserves_order() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct WinCheck;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            })
+            .in_set(WinCheck),
+        );
+        let b = world
+            .spawn(
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                })
+                .in_set(WinCheck),
+            )
+            .id();
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("c");
+            })
+            .in_set(WinCheck),
+        );
+        world.entity_mut(b).remove::<Observer>();
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "c"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_cross_bucket_ordering() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let target = world.spawn_empty().id();
+
+        let global = world
+            .add_observer(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("global");
+            })
+            .id();
+        world.spawn(
+            Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("entity");
+            })
+            .with_entity(target)
+            .after(global),
+        );
+
+        world.trigger(EntityEventA(target));
+        assert_eq!(vec!["global", "entity"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_cross_bucket_set_chain_ordering() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB).chain());
+        let target = world.spawn_empty().id();
+
+        world.spawn(
+            Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("global");
+            })
+            .in_set(SetB),
+        );
+        world.spawn(
+            Observer::new(|_: On<EntityEventA>, mut order: ResMut<Order>| {
+                order.observed("entity");
+            })
+            .with_entity(target)
+            .in_set(SetA),
+        );
+
+        world.trigger(EntityEventA(target));
+        assert_eq!(vec!["entity", "global"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_lifecycle_archetype_flag_unchanged() {
+        let mut world = World::new();
+        let component = world.register_component::<A>();
+        let observer = world.add_observer(|_: On<Insert, A>| {}).id();
+        world.spawn(A).flush();
+
+        assert!(world
+            .archetypes
+            .iter()
+            .any(|archetype| archetype.contains(component) && archetype.has_insert_observer()));
+
+        world.entity_mut(observer).remove::<Observer>();
+        assert!(world
+            .archetypes
+            .iter()
+            .filter(|archetype| archetype.contains(component))
+            .all(|archetype| !archetype.has_insert_observer()));
+    }
+
+    #[test]
+    fn observer_propagation_uses_sorted_dispatch() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct WinCheck;
+
+        #[derive(Resource, Default)]
+        struct PropagationOrder(Vec<(Entity, &'static str)>);
+
+        let mut world = World::new();
+        world.init_resource::<PropagationOrder>();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+
+        world.spawn(
+            Observer::new(
+                |event: On<EventPropagating>, mut order: ResMut<PropagationOrder>| {
+                    order.0.push((event.event_target(), "win"));
+                },
+            )
+            .in_set(WinCheck),
+        );
+        world.spawn(
+            Observer::new(
+                |event: On<EventPropagating>, mut order: ResMut<PropagationOrder>| {
+                    order.0.push((event.event_target(), "after"));
+                },
+            )
+            .after(WinCheck),
+        );
+
+        world.trigger(EventPropagating(child));
+        assert_eq!(
+            vec![
+                (child, "win"),
+                (child, "after"),
+                (parent, "win"),
+                (parent, "after")
+            ],
+            world.resource::<PropagationOrder>().0
+        );
+    }
+
+    #[test]
+    fn observer_nested_sets() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct Outer;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB).in_set(Outer));
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a1");
+            })
+            .in_set(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a2");
+            })
+            .in_set(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b1");
+            })
+            .in_set(SetB),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b2");
+            })
+            .in_set(SetB),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("after");
+            })
+            .after(Outer),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(
+            vec!["a1", "a2", "b1", "b2", "after"],
+            world.resource::<Order>().0
+        );
+    }
+
+    #[test]
+    fn observer_dispatch_order_for_accessor() {
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        let global = world.add_observer(|_: On<EntityEventA>| {}).id();
+        let entity = world
+            .spawn(
+                Observer::new(|_: On<EntityEventA>| {})
+                    .with_entity(target)
+                    .after(global),
+            )
+            .id();
+
+        let event_key = world.event_key::<EntityEventA>().unwrap();
+        assert_eq!(
+            &[global, entity],
+            world.observers().dispatch_order_for(event_key)
+        );
+    }
+
+    #[test]
+    fn observer_chain_three() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        world.add_observers(
+            (
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("c");
+                }),
+            )
+                .chain(),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b", "c"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_tuple_in_set_applies_to_all() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.add_observers(
+            (
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                }),
+            )
+                .in_set(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("after");
+            })
+            .after(SetA),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b", "after"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_tuple_after_applies_to_all() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let c = world
+            .add_observer(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("c");
+            })
+            .id();
+
+        world.add_observers(
+            (
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("b");
+                }),
+            )
+                .after(c),
+        );
+
+        world.trigger(EventA);
+        let order = &world.resource::<Order>().0;
+        let c = order.iter().position(|value| *value == "c").unwrap();
+        let a = order.iter().position(|value| *value == "a").unwrap();
+        let b = order.iter().position(|value| *value == "b").unwrap();
+        assert!(c < a);
+        assert!(c < b);
+    }
+
+    #[test]
+    fn observer_set_chain() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetC;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB, SetC).chain());
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            })
+            .in_set(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b");
+            })
+            .in_set(SetB),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("c");
+            })
+            .in_set(SetC),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b", "c"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_set_chain_respects_run_if() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetC;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.insert_resource(RunConditionFlag(false));
+        world.configure_observer_sets((SetA, SetB, SetC).chain());
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            })
+            .in_set(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b");
+            })
+            .in_set(SetB)
+            .run_if(|flag: Res<RunConditionFlag>| flag.0),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("c");
+            })
+            .in_set(SetC),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "c"], world.resource::<Order>().0);
+
+        world.resource_mut::<Order>().0.clear();
+        world.resource_mut::<RunConditionFlag>().0 = true;
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b", "c"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_naming_appears_in_dispatch_order() {
+        let mut world = World::new();
+        let observer = world
+            .spawn(Observer::new(|_: On<EventA>| {}).with_name("named"))
+            .id();
+        let event_key = world.event_key::<EventA>().unwrap();
+
+        assert_eq!(
+            vec![(observer, Some("named"))],
+            world.observers().dispatch_order_for_with_names(event_key)
+        );
+    }
+
+    #[test]
+    fn observer_dispatch_order_for_set_filters_correctly() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+
+        let mut world = World::new();
+        let a = world
+            .spawn(Observer::new(|_: On<EventA>| {}).in_set(SetA))
+            .id();
+        world.add_observer(|_: On<EventA>| {});
+        let b = world
+            .spawn(Observer::new(|_: On<EventA>| {}).in_set(SetA))
+            .id();
+        let event_key = world.event_key::<EventA>().unwrap();
+
+        assert_eq!(
+            vec![a, b],
+            world.observers().dispatch_order_for_set(event_key, SetA)
+        );
+    }
+
+    #[test]
+    fn observer_dispatch_order_for_target_filters_correctly() {
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        let other = world.spawn_empty().id();
+        world.add_observer(|_: On<EntityEventA>| {});
+        let target_observer = world
+            .spawn(Observer::new(|_: On<EntityEventA>| {}).with_entity(target))
+            .id();
+        world.spawn(Observer::new(|_: On<EntityEventA>| {}).with_entity(other));
+        let event_key = world.event_key::<EntityEventA>().unwrap();
+
+        assert_eq!(
+            vec![target_observer],
+            world
+                .observers()
+                .dispatch_order_for_target(event_key, target)
+        );
+        assert_eq!(
+            vec![(target_observer, None)],
+            world
+                .observers()
+                .dispatch_order_for_target_with_names(event_key, target)
+        );
+    }
+
+    #[test]
+    fn followup_phase01_smoke_api_surface_present() {
+        // API surface canary — do not remove.
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.configure_observer_sets((SetA, SetB).chain());
+        let a = world
+            .spawn(
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("a");
+                })
+                .in_set(SetA),
+            )
+            .id();
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b");
+            })
+            .in_set(SetB)
+            .after(a)
+            .with_name("b"),
+        );
+        world.add_observers(
+            (
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("c");
+                }),
+                Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                    order.observed("d");
+                }),
+            )
+                .chain()
+                .after(SetB),
+        );
+
+        world.trigger(EventA);
+        let event_key = world.event_key::<EventA>().unwrap();
+        assert!(!world.observers().dispatch_order_for(event_key).is_empty());
+        assert!(!world
+            .observers()
+            .dispatch_order_for_set(event_key, SetA)
+            .is_empty());
+        assert!(!world
+            .observers()
+            .dispatch_order_for_with_names(event_key)
+            .is_empty());
+        assert!(world
+            .observers()
+            .dispatch_order_for_target_with_names(event_key, Entity::PLACEHOLDER)
+            .is_empty());
+        assert_eq!(vec!["a", "b", "c", "d"], world.resource::<Order>().0);
+    }
+
     #[test]
     fn unregister_global_observer() {
         let mut world = World::new();
@@ -1543,11 +2559,11 @@ mod tests {
         observer.remove::<Observer>();
         let id = observer.id();
         let event_key = world.event_key::<EventA>().unwrap();
-        assert!(!world
-            .observers
-            .get_observers_mut(event_key)
-            .global_observers
-            .contains_key(&id));
+        let cache = world.observers.get_observers_mut(event_key);
+        assert!(!cache
+            .global_observers()
+            .iter()
+            .any(|&node_id| cache.observer(node_id).observer == id));
     }
 
     #[test]
@@ -1561,7 +2577,7 @@ mod tests {
         assert!(!world
             .observers
             .get_observers_mut(event_key)
-            .entity_observers
+            .entity_observers()
             .contains_key(&entity));
     }
 

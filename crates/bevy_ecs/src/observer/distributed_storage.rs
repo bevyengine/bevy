@@ -20,18 +20,23 @@ use crate::{
     lifecycle::{ComponentHook, HookContext},
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
-        observer_system_runner, ObserverRunner,
+        observer_system_runner, IntoObserverOrderingTarget, ObserverRunner, ObserverSet,
     },
     prelude::*,
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
+use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
 use crate::prelude::ReflectComponent;
+
+pub(crate) const WATCH_ENTITY_AFTER_REGISTRATION_MESSAGE: &str =
+    "Observer::watch_entity called after the observer was registered with the world; this has no effect - use entity.observe(...) instead";
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
@@ -284,6 +289,7 @@ impl Observer {
     /// Observes the given `entity` (in addition to any entity already being observed).
     /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is the given `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    /// In debug builds, calling this after registration will panic to highlight the mistake.
     pub fn with_entity(mut self, entity: Entity) -> Self {
         self.watch_entity(entity);
         self
@@ -292,6 +298,7 @@ impl Observer {
     /// Observes the given `entities` (in addition to any entity already being observed).
     /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is any of the `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    /// In debug builds, calling this after registration will panic to highlight the mistake.
     pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
         self.watch_entities(entities);
         self
@@ -300,14 +307,30 @@ impl Observer {
     /// Observes the given `entity` (in addition to any entity already being observed).
     /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is the given `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    /// In debug builds, calling this after registration will panic to highlight the mistake.
     pub fn watch_entity(&mut self, entity: Entity) {
+        debug_assert!(
+            !self.descriptor.frozen,
+            "{WATCH_ENTITY_AFTER_REGISTRATION_MESSAGE}"
+        );
+        if self.descriptor.frozen {
+            return;
+        }
         self.descriptor.entities.push(entity);
     }
 
-    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// Observes the given `entities` (in addition to any entity already being observed).
     /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is any of the `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    /// In debug builds, calling this after registration will panic to highlight the mistake.
     pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
+        debug_assert!(
+            !self.descriptor.frozen,
+            "{WATCH_ENTITY_AFTER_REGISTRATION_MESSAGE}"
+        );
+        if self.descriptor.frozen {
+            return;
+        }
         self.descriptor.entities.extend(entities);
     }
 
@@ -323,6 +346,46 @@ impl Observer {
     pub fn with_components<I: IntoIterator<Item = ComponentId>>(mut self, components: I) -> Self {
         self.descriptor.components.extend(components);
         self
+    }
+
+    /// Add this observer to the provided observer set.
+    pub fn in_set<S: ObserverSet>(mut self, set: S) -> Self {
+        self.descriptor.sets.push(set.intern());
+        self
+    }
+
+    /// Run this observer before the observers matching `target`.
+    pub fn before(mut self, target: impl IntoObserverOrderingTarget) -> Self {
+        let target = target.into_observer_ordering_target().into_edge_target();
+        self.before_inner(target);
+        self
+    }
+
+    /// Run this observer after the observers matching `target`.
+    pub fn after(mut self, target: impl IntoObserverOrderingTarget) -> Self {
+        let target = target.into_observer_ordering_target().into_edge_target();
+        self.after_inner(target);
+        self
+    }
+
+    /// Sets a human-readable name for diagnostics.
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.descriptor.name = Some(name.into());
+        self
+    }
+
+    pub(crate) fn before_inner(&mut self, target: EdgeTarget) {
+        self.descriptor.edges.push(ObserverEdge {
+            from: EdgeTarget::Entity(Entity::PLACEHOLDER),
+            to: target,
+        });
+    }
+
+    pub(crate) fn after_inner(&mut self, target: EdgeTarget) {
+        self.descriptor.edges.push(ObserverEdge {
+            from: target,
+            to: EdgeTarget::Entity(Entity::PLACEHOLDER),
+        });
     }
 
     /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
@@ -405,6 +468,45 @@ pub struct ObserverDescriptor {
 
     /// The entities the observer is watching.
     pub(super) entities: Vec<Entity>,
+
+    /// The observer sets this observer belongs to.
+    pub(crate) sets: SmallVec<[crate::intern::Interned<dyn ObserverSet>; 1]>,
+
+    /// Ordering edges declared for this observer.
+    pub(crate) edges: Vec<ObserverEdge>,
+
+    /// Optional human-readable observer name used by diagnostics.
+    pub(crate) name: Option<String>,
+
+    /// Registration freezes descriptor retargeting because the cache has already consumed it.
+    pub(crate) frozen: bool,
+}
+
+/// An ordering edge declared by an [`ObserverDescriptor`].
+#[derive(Clone, Debug)]
+pub(crate) struct ObserverEdge {
+    /// The source endpoint of the edge.
+    pub from: EdgeTarget,
+    /// The target endpoint of the edge.
+    pub to: EdgeTarget,
+}
+
+/// A public-facing observer ordering edge endpoint.
+#[derive(Clone, Debug)]
+pub(crate) enum EdgeTarget {
+    /// A specific observer entity.
+    Entity(Entity),
+    /// A configured observer set.
+    Set(crate::intern::Interned<dyn ObserverSet>),
+}
+
+impl EdgeTarget {
+    pub(crate) fn resolve_owner(self, owner: Entity) -> Self {
+        match self {
+            Self::Entity(entity) if entity == Entity::PLACEHOLDER => Self::Entity(owner),
+            target => target,
+        }
+    }
 }
 
 impl ObserverDescriptor {
