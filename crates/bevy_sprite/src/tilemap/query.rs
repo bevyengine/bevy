@@ -86,7 +86,10 @@ where
         // SAFETY: We are using the chunk_entity as an index to look up the chunk storages,
         // which is guaranteed to be valid since we got the chunk_entity from the map's chunks HashMap.
         // The returned reference is only valid as long as the original query is alive.
-        #[allow(clippy::manual_let_else)]
+        #[expect(
+            clippy::manual_let_else,
+            reason = "cannot do unsafe block inside let-else"
+        )]
         #[expect(unsafe_code, reason = "unchecked accessor")]
         let storages = if let Ok(storages) = unsafe { self.chunks.get_unchecked(chunk_entity) } {
             storages
