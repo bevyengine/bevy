@@ -21,7 +21,7 @@ use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_animation")]
 use {bevy_animation::AnimationClip, bevy_platform::collections::HashSet};
 
-use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
+use crate::{GltfError, GltfLoaderSettings, GltfMaterial, GltfMesh, GltfParsedImage};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
@@ -32,6 +32,14 @@ pub(crate) use self::{
 /// can be added by users and also passed to the glTF loader
 #[derive(Resource, Default)]
 pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn ErasedGltfExtensionHandler>>>>);
+
+/// The result of [`GltfExtensionHandler::on_texture_load`].
+pub enum GltfExtensionTextureLoadResult {
+    /// Bypass this hook and let other handlers or default image loader to load the texture.
+    Bypass,
+    /// A result contains the loaded image or error if loading failed.
+    Loaded(Result<Handle<bevy_image::Image>, GltfError>),
+}
 
 /// glTF Extensions can attach data to any objects in a glTF file.
 /// This is done by inserting data in the `extensions` sub-object, and
@@ -107,6 +115,20 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
         named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
         animation_roots: &HashSet<usize>,
     ) {
+    }
+
+    /// Called when an individual [`GltfParsedImage`] is going to be loaded as a [`bevy_image::Image`].
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
+    fn on_texture_load(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        image_source: GltfParsedImage<'_>,
+        supported_compressed_formats: bevy_image::CompressedImageFormats,
+    ) -> GltfExtensionTextureLoadResult {
+        GltfExtensionTextureLoadResult::Bypass
     }
 
     /// Called when an individual texture is processed
@@ -310,6 +332,14 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
         animation_roots: &HashSet<usize>,
     );
 
+    /// Called when loading an individual texture.
+    fn on_texture_load(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        image_source: GltfParsedImage<'_>,
+        supported_compressed_formats: bevy_image::CompressedImageFormats,
+    ) -> GltfExtensionTextureLoadResult;
+
     /// Called when an individual texture is processed
     fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>);
 
@@ -437,6 +467,20 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
             named_animations,
             animation_roots,
         );
+    }
+
+    fn on_texture_load(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        image_source: GltfParsedImage<'_>,
+        supported_compressed_formats: bevy_image::CompressedImageFormats,
+    ) -> GltfExtensionTextureLoadResult {
+        Self::on_texture_load(
+            self,
+            load_context,
+            image_source,
+            supported_compressed_formats,
+        )
     }
 
     fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {
