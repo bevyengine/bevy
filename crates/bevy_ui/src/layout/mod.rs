@@ -72,14 +72,9 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     ui_children: UiChildren,
+    node_query: Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
     mut node_queries: ParamSet<(
-        Query<(
-            Entity,
-            &Node,
-            &mut ContentSize,
-            &ComputedUiRenderTargetInfo,
-            &mut ComputedLayout,
-        )>,
+        Query<(Entity, &mut ContentSize, &mut ComputedLayout)>,
         Query<(
             &mut ComputedNode,
             &UiTransform,
@@ -95,16 +90,15 @@ pub fn ui_layout_system(
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
 ) {
-    for (_, _, _, _, mut computed_layout) in &mut node_queries.p0() {
+    for (_, _, mut computed_layout) in &mut node_queries.p0() {
         computed_layout.clear();
     }
 
     for ui_root_entity in ui_root_node_query.iter() {
         let Ok((physical_size, scale_factor)) =
-            node_queries
-                .p0()
+            node_query
                 .get(ui_root_entity)
-                .map(|(_, _, _, computed_target, _)| {
+                .map(|(_, _, computed_target)| {
                     (
                         computed_target.physical_size(),
                         computed_target.scale_factor(),
@@ -115,12 +109,13 @@ pub fn ui_layout_system(
         };
 
         let computed = {
-            let mut node_query = node_queries.p0();
+            let mut layout_query = node_queries.p0();
             ui_surface.compute_layout(
                 ui_root_entity,
                 physical_size,
                 &ui_children,
-                &mut node_query,
+                &node_query,
+                &mut layout_query,
                 &mut buffer_query,
                 &mut font_system,
             )

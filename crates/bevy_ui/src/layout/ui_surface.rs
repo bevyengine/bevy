@@ -76,19 +76,19 @@ impl UiSurface {
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         ui_children: &UiChildren,
-        node_query: &mut Query<(
-            Entity,
-            &Node,
-            &mut ContentSize,
-            &ComputedUiRenderTargetInfo,
-            &mut ComputedLayout,
-        )>,
+        node_query: &Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
+        layout_query: &mut Query<(Entity, &mut ContentSize, &mut ComputedLayout)>,
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
     ) -> Result<(), LayoutError> {
         let mut runtime_nodes = HashMap::default();
-        if !build_runtime_layout_tree(ui_root_entity, ui_children, node_query, &mut runtime_nodes)?
-        {
+        if !build_runtime_layout_tree(
+            ui_root_entity,
+            ui_children,
+            node_query,
+            layout_query,
+            &mut runtime_nodes,
+        )? {
             return Err(LayoutError::InvalidHierarchy);
         }
 
@@ -146,8 +146,7 @@ impl UiSurface {
                 continue;
             };
 
-            if let Ok((_, _, mut content_size, _, mut computed_layout)) = node_query.get_mut(entity)
-            {
+            if let Ok((_, mut content_size, mut computed_layout)) = layout_query.get_mut(entity) {
                 content_size.bypass_change_detection().measure = runtime_node.measure;
                 computed_layout
                     .bypass_change_detection()
@@ -159,26 +158,25 @@ impl UiSurface {
     }
 }
 
-fn build_runtime_layout_tree(
+fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &mut Query<(
-        Entity,
-        &Node,
-        &mut ContentSize,
-        &ComputedUiRenderTargetInfo,
-        &mut ComputedLayout,
-    )>,
-    runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode>,
+    node_query: &'a Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
+    layout_query: &mut Query<(Entity, &mut ContentSize, &mut ComputedLayout)>,
+    runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
 ) -> Result<bool, LayoutError> {
     let mut child_ids = Vec::new();
     for child in ui_children.iter_ui_children(entity) {
-        if build_runtime_layout_tree(child, ui_children, node_query, runtime_nodes)? {
+        if build_runtime_layout_tree(child, ui_children, node_query, layout_query, runtime_nodes)? {
             child_ids.push(entity_node_id(child));
         }
     }
 
-    let Ok((_, node, mut content_size, computed_target, _)) = node_query.get_mut(entity) else {
+    let Ok((_, node, computed_target)) = node_query.get(entity) else {
+        return Ok(false);
+    };
+
+    let Ok((_, mut content_size, _)) = layout_query.get_mut(entity) else {
         return Ok(false);
     };
 
@@ -203,9 +201,9 @@ fn build_runtime_layout_tree(
     Ok(true)
 }
 
-struct RuntimeLayoutNode {
+struct RuntimeLayoutNode<'a> {
     entity: Option<Entity>,
-    style: CoreNode,
+    style: CoreNode<'a>,
     cache: Cache,
     unrounded_layout: Layout,
     final_layout: Layout,
@@ -213,7 +211,7 @@ struct RuntimeLayoutNode {
     children: Vec<NodeId>,
 }
 
-impl RuntimeLayoutNode {
+impl<'a> RuntimeLayoutNode<'a> {
     fn viewport(root_node_id: NodeId) -> Self {
         Self {
             entity: None,
@@ -227,8 +225,8 @@ impl RuntimeLayoutNode {
     }
 }
 
-struct EcsLayoutTree<'a> {
-    nodes: HashMap<NodeId, RuntimeLayoutNode>,
+struct EcsLayoutTree<'a, 'node> {
+    nodes: HashMap<NodeId, RuntimeLayoutNode<'node>>,
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
@@ -237,7 +235,7 @@ struct EcsLayoutTree<'a> {
     ) -> taffy::Size<f32>,
 }
 
-impl TraversePartialTree for EcsLayoutTree<'_> {
+impl TraversePartialTree for EcsLayoutTree<'_, '_> {
     type ChildIter<'a>
         = core::iter::Copied<core::slice::Iter<'a, NodeId>>
     where
@@ -268,15 +266,15 @@ impl TraversePartialTree for EcsLayoutTree<'_> {
     }
 }
 
-impl TraverseTree for EcsLayoutTree<'_> {}
+impl TraverseTree for EcsLayoutTree<'_, '_> {}
 
-impl LayoutPartialTree for EcsLayoutTree<'_> {
+impl<'tree, 'node> LayoutPartialTree for EcsLayoutTree<'tree, 'node> {
     type CoreContainerStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
-    type CustomIdent = <CoreNode as taffy::CoreStyle>::CustomIdent;
+    type CustomIdent = String;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
         &self.nodes.get(&node_id).expect("missing layout node").style
@@ -341,7 +339,7 @@ impl LayoutPartialTree for EcsLayoutTree<'_> {
     }
 }
 
-impl CacheTree for EcsLayoutTree<'_> {
+impl CacheTree for EcsLayoutTree<'_, '_> {
     fn cache_get(&self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
         self.nodes
             .get(&node_id)
@@ -367,14 +365,14 @@ impl CacheTree for EcsLayoutTree<'_> {
     }
 }
 
-impl LayoutBlockContainer for EcsLayoutTree<'_> {
+impl<'tree, 'node> LayoutBlockContainer for EcsLayoutTree<'tree, 'node> {
     type BlockContainerStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
     type BlockItemStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
@@ -387,14 +385,14 @@ impl LayoutBlockContainer for EcsLayoutTree<'_> {
     }
 }
 
-impl LayoutFlexboxContainer for EcsLayoutTree<'_> {
+impl<'tree, 'node> LayoutFlexboxContainer for EcsLayoutTree<'tree, 'node> {
     type FlexboxContainerStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
     type FlexboxItemStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
@@ -407,14 +405,14 @@ impl LayoutFlexboxContainer for EcsLayoutTree<'_> {
     }
 }
 
-impl LayoutGridContainer for EcsLayoutTree<'_> {
+impl<'tree, 'node> LayoutGridContainer for EcsLayoutTree<'tree, 'node> {
     type GridContainerStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
     type GridItemStyle<'a>
-        = &'a CoreNode
+        = &'a CoreNode<'node>
     where
         Self: 'a;
 
@@ -427,7 +425,7 @@ impl LayoutGridContainer for EcsLayoutTree<'_> {
     }
 }
 
-impl RoundTree for EcsLayoutTree<'_> {
+impl RoundTree for EcsLayoutTree<'_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
         self.nodes
             .get(&node_id)
