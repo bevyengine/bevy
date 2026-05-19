@@ -4194,6 +4194,7 @@ mod tests {
                 true,
                 ComponentCloneBehavior::Default,
                 None,
+                false,
             )
         };
 

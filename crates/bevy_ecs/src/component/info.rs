@@ -3,6 +3,7 @@ use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+use log::warn;
 use bevy_utils::{prelude::DebugName, TypeIdMap};
 use core::{
     alloc::Layout,
@@ -230,6 +231,7 @@ pub struct ComponentDescriptor {
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
     relationship_accessor: MaybeRelationshipAccessor,
+    resource: bool,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -272,6 +274,7 @@ impl ComponentDescriptor {
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
+            resource: false,
         }
     }
 
@@ -293,6 +296,7 @@ impl ComponentDescriptor {
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
         relationship_accessor: Option<RelationshipAccessorInitializer>,
+        resource: bool,
     ) -> Self {
         assert_eq!(
             layout.pad_to_align(),
@@ -309,6 +313,7 @@ impl ComponentDescriptor {
             mutable,
             clone_behavior,
             relationship_accessor: relationship_accessor.into(),
+            resource,
         }
     }
 
@@ -332,6 +337,7 @@ impl ComponentDescriptor {
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
             relationship_accessor: None.into(),
+            resource: false,
         }
     }
 
@@ -339,6 +345,12 @@ impl ComponentDescriptor {
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.storage_type
+    }
+
+    /// Returns 'true' if this descriptor is a Resource 
+    #[inline] 
+    pub fn is_resource(&self) -> bool { 
+        self.resource 
     }
 
     /// Returns the [`TypeId`] of the underlying component type.
@@ -387,7 +399,12 @@ impl Components {
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
+        let resource = descriptor.is_resource(); 
         let info = ComponentInfo::new(id, descriptor);
+        let is_required_by_other_components = info.required_by.len() != 0; 
+        if resource && is_required_by_other_components { 
+            warn!("This component is a resource and can't be a required component. Resources store globally unique data, so can't be tied to or required by specific entities."); 
+        }
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
             self.components.resize_with(least_len, || None);

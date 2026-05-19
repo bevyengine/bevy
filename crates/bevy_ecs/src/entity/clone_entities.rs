@@ -2110,6 +2110,7 @@ mod tests {
                 true,
                 ComponentCloneBehavior::Custom(test_handler),
                 None,
+                false,
             )
         };
         let component_id = world.register_component_with_descriptor(descriptor);

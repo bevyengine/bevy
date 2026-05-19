@@ -935,6 +935,7 @@ mod tests {
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
+                    false,
                 )
             },
         );
@@ -989,6 +990,7 @@ mod tests {
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
+                    false,
                 )
             },
         );
@@ -1079,6 +1081,7 @@ mod tests {
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
+                    false,
                 )
             },
         );
@@ -1097,6 +1100,7 @@ mod tests {
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
+                    false,
                 )
             },
         );
