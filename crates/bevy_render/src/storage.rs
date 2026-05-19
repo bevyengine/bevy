@@ -176,10 +176,11 @@ impl RenderAsset for GpuShaderBuffer {
             && prev.buffer_descriptor.size == actual_size
             && prev.buffer_descriptor.usage == source_asset.buffer_description.usage
             && prev.buffer_descriptor.label == source_asset.buffer_description.label
-            && source_asset
-                .buffer_description
-                .usage
-                .contains(BufferUsages::COPY_DST)
+            && (!had_data
+                || source_asset
+                    .buffer_description
+                    .usage
+                    .contains(BufferUsages::COPY_DST))
         {
             if let Some(ref data) = source_asset.data {
                 render_queue.write_buffer(&prev.buffer, 0, data);

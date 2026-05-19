@@ -1,10 +1,14 @@
 //! Shows how to use animation clips to animate UI properties.
 
 use bevy::{
-    animation::{AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId},
+    animation::{
+        animated_field, AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
+    },
     prelude::*,
 };
-use std::any::TypeId;
+
+use core::any::TypeId;
+use core::f32::consts::TAU;
 
 // Holds information about the animation we programmatically create.
 struct AnimationInfo {
@@ -41,15 +45,15 @@ impl AnimationInfo {
         // Allocate an animation clip.
         let mut animation_clip = AnimationClip::default();
 
-        // Create a curve that animates font size.
+        // Create a curve that animates `UiTransform::scale`.
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                TextFontSizeProperty,
+                animated_field!(UiTransform::scale),
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
-                        .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
+                        .zip([0.3, 1.0, 0.3, 1.0, 0.3, 1.0, 0.3].map(Vec2::splat)),
                 )
                 .expect(
                     "should be able to build translation curve because we pass in valid samples",
@@ -75,6 +79,24 @@ impl AnimationInfo {
                 .expect(
                     "should be able to build translation curve because we pass in valid samples",
                 ),
+            ),
+        );
+
+        // Create a curve that animates `UiTransform::rotation`.
+        //
+        // This animates the 2D rotation of the UI element using `Rot2`.
+        // Like other `Animatable` types, it uses shortest-path interpolation (slerp)
+        // to ensure smooth movement between keyframes.
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(
+                animated_field!(UiTransform::rotation),
+                AnimatableKeyframeCurve::new(
+                    [0.0, 1.0, 2.0, 3.0]
+                        .into_iter()
+                        .zip([0., TAU / 3., TAU / 1.5, TAU].map(Rot2::radians)),
+                )
+                .expect("should be able to build rotation curve because we pass in valid samples"),
             ),
         );
 
@@ -108,7 +130,7 @@ fn setup(
         target_id: animation_target_id,
         graph: animation_graph,
         node_index: animation_node_index,
-    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
+    } = AnimationInfo::create(animation_graphs.as_mut(), animation_clips.as_mut());
 
     // Build an animation player that automatically plays the UI animation.
     let mut animation_player = AnimationPlayer::default();
@@ -137,19 +159,19 @@ fn setup(
     ));
 
     let player = entity.id();
-    entity.insert(children![(
+    entity.with_child((
         Text::new("Bevy"),
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            font_size: FontSize::Px(24.0),
+            font_size: FontSize::Px(80.),
             ..default()
         },
         TextColor(Color::Srgba(Srgba::RED)),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         animation_target_id,
         AnimatedBy(player),
         animation_target_name,
-    )]);
+    ));
 }
 
 // A type that represents the color of the first text section.
@@ -180,38 +202,6 @@ impl AnimatableProperty for TextColorProperty {
             Color::Srgba(ref mut color) => Ok(color),
             _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
                 Srgba,
-            >(
-            ))),
-        }
-    }
-}
-
-#[derive(Clone)]
-struct TextFontSizeProperty;
-
-impl AnimatableProperty for TextFontSizeProperty {
-    type Property = f32;
-
-    fn evaluator_id(&self) -> EvaluatorId<'_> {
-        EvaluatorId::Type(TypeId::of::<Self>())
-    }
-
-    fn get_mut<'a>(
-        &self,
-        entity: &'a mut AnimationEntityMut,
-    ) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
-        let text_font = entity
-            .get_mut::<TextFont>()
-            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
-                TextFont,
-            >(
-            )))?
-            .into_inner();
-
-        match &mut text_font.font_size {
-            FontSize::Px(size) => Ok(size),
-            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
-                FontSize,
             >(
             ))),
         }

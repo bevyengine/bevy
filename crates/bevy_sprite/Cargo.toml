@@ -23,6 +23,7 @@ bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.19.0-dev", optional = true }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.19.0-dev", optional = true }
@@ -35,7 +36,7 @@ variadics_please = { version = "1.1", default-features = false }
 # other
 radsort = "0.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-wgpu-types = { version = "28", default-features = false }
+wgpu-types = { version = "29.0.3", default-features = false }
 
 [dev-dependencies]
 approx = "0.5.1"
@@ -44,5 +45,9 @@ approx = "0.5.1"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

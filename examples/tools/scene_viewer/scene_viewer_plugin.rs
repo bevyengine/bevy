@@ -6,7 +6,7 @@
 use bevy::{
     camera_controller::free_camera::FreeCamera,
     gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup, gltf::Gltf,
-    input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
+    input::common_conditions::input_just_pressed, prelude::*, world_serialization::InstanceId,
 };
 
 use std::{f32::consts::*, fmt};
@@ -37,6 +37,7 @@ const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     compile with "--features animation" for animation controls.
@@ -48,6 +49,7 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
+    F           - toggle camera frusta
     J           - toggle skinned mesh joint bounding boxes
     C           - cycle through the camera controller and any cameras loaded from the scene
 
@@ -74,6 +76,7 @@ impl Plugin for SceneViewerPlugin {
                     camera_tracker,
                     (
                         toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                        toggle_camera_frusta.run_if(input_just_pressed(KeyCode::KeyF)),
                         toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
                     )
                         .chain(),
@@ -86,6 +89,10 @@ fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
 
+fn toggle_camera_frusta(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all ^= true;
+}
+
 fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
     config
         .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
@@ -95,10 +102,10 @@ fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
 
 fn scene_load_check(
     asset_server: Res<AssetServer>,
-    mut scenes: ResMut<Assets<Scene>>,
+    mut scenes: ResMut<Assets<WorldAsset>>,
     gltf_assets: Res<Assets<Gltf>>,
     mut scene_handle: ResMut<SceneHandle>,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<WorldInstanceSpawner>,
 ) {
     match scene_handle.instance_id {
         None => {
@@ -125,7 +132,7 @@ fn scene_load_check(
                                 scene_handle.scene_index
                             )
                         });
-                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+                let mut scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
                 let mut query = scene
                     .world

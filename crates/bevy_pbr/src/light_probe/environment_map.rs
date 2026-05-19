@@ -46,17 +46,17 @@
 
 use bevy_asset::AssetId;
 use bevy_ecs::{
-    query::{Has, QueryData, QueryItem},
+    query::{QueryData, QueryItem},
     system::lifetimeless::Read,
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, NoParallaxCorrection};
+use bevy_light::{EnvironmentMapLight, ParallaxCorrection};
+use bevy_math::{Affine3A, Quat, Vec3};
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, ShaderStages, TextureSampleType,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
         TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
@@ -66,8 +66,8 @@ use bevy_render::{
 use core::{num::NonZero, ops::Deref};
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
-    RenderLightProbeFlags, MAX_VIEW_LIGHT_PROBES,
+    add_cubemap_texture_view, binding_arrays_are_usable, RenderLightProbeFlags,
+    MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};
@@ -135,6 +135,8 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// Whether this lightmap affects the diffuse lighting of lightmapped
     /// meshes.
     pub(crate) affects_lightmapped_mesh_diffuse: bool,
+    /// World space rotation applied to the environment light cubemaps.
+    pub(crate) rotation: Quat,
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -155,7 +157,7 @@ impl ExtractInstance for EnvironmentMapIds {
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
-) -> [BindGroupLayoutEntryBuilder; 4] {
+) -> [BindGroupLayoutEntryBuilder; 3] {
     let mut texture_cube_binding =
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device, render_adapter) {
@@ -167,7 +169,6 @@ pub(crate) fn get_bind_group_layout_entries(
         texture_cube_binding,
         texture_cube_binding,
         binding_types::sampler(SamplerBindingType::Filtering),
-        uniform_buffer::<EnvironmentMapUniform>(true).visibility(ShaderStages::FRAGMENT),
     ]
 }
 
@@ -246,7 +247,7 @@ impl LightProbeComponent for EnvironmentMapLight {
     // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
-    type QueryData = Has<NoParallaxCorrection>;
+    type QueryData = Option<Read<ParallaxCorrection>>;
 
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.diffuse_map).is_none()
@@ -267,13 +268,15 @@ impl LightProbeComponent for EnvironmentMapLight {
 
     fn flags(
         &self,
-        no_parallax_correction: <Self::QueryData as QueryData>::Item<'_, '_>,
+        maybe_parallax_correction: &<Self::QueryData as QueryData>::Item<'_, '_>,
     ) -> RenderLightProbeFlags {
         let mut flags = RenderLightProbeFlags::empty();
         if self.affects_lightmapped_mesh_diffuse {
             flags.insert(RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE);
         }
-        if !no_parallax_correction {
+        if maybe_parallax_correction.is_some_and(|parallax_correction| {
+            !matches!(*parallax_correction, ParallaxCorrection::None)
+        }) {
             flags.insert(RenderLightProbeFlags::ENABLE_PARALLAX_CORRECTION);
         }
         flags
@@ -292,6 +295,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             specular_map: specular_map_handle,
             intensity,
             affects_lightmapped_mesh_diffuse,
+            rotation,
             ..
         }) = view_component
             && let (Some(_), Some(specular_map)) = (
@@ -311,10 +315,27 @@ impl LightProbeComponent for EnvironmentMapLight {
                         - 1,
                     intensity: *intensity,
                     affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
+                    rotation: *rotation,
                 });
         };
 
         render_view_light_probes
+    }
+
+    fn get_world_from_light_matrix(&self, original_transform: &Affine3A) -> Affine3A {
+        // Take the `rotation` field into account.
+        *original_transform * Affine3A::from_quat(self.rotation)
+    }
+
+    fn parallax_correction_bounds(
+        &self,
+        maybe_parallax_correction: &<Self::QueryData as QueryData>::Item<'_, '_>,
+    ) -> Vec3 {
+        match *maybe_parallax_correction {
+            Some(&ParallaxCorrection::Custom(bounds)) => bounds,
+            Some(&ParallaxCorrection::Auto) => Vec3::splat(0.5),
+            Some(&ParallaxCorrection::None) | None => Vec3::ZERO,
+        }
     }
 }
 
@@ -325,6 +346,7 @@ impl Default for EnvironmentMapViewLightProbeInfo {
             smallest_specular_mip_level: 0,
             intensity: 1.0,
             affects_lightmapped_mesh_diffuse: true,
+            rotation: Quat::IDENTITY,
         }
     }
 }

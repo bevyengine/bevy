@@ -8,6 +8,8 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
+use crate::prepass::DepthPrepass;
+
 use super::{OitResolveBindGroup, OitResolvePipeline, OitResolvePipelineId};
 
 pub fn oit_resolve(
@@ -18,15 +20,25 @@ pub fn oit_resolve(
         &OitResolvePipelineId,
         &ViewDepthTexture,
         Option<&MainPassResolutionOverride>,
+        Has<DepthPrepass>,
     )>,
     resolve_pipeline: Option<Res<OitResolvePipeline>>,
     bind_group: Option<Res<OitResolveBindGroup>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_target, view_uniform, oit_resolve_pipeline_id, depth, resolution_override) =
-        view.into_inner();
+    let (
+        camera,
+        view_target,
+        view_uniform,
+        oit_resolve_pipeline_id,
+        depth,
+        resolution_override,
+        depth_prepass,
+    ) = view.into_inner();
 
+    // This *must* run after main_transparent_pass_3d to reset the `oit_atomic_counter` and `oit_heads` buffer
+    // Otherwise transparent pass will construct a corrupted linked list(can have circular references which causes infinite loop and device lost) on the next pass.
     let Some(resolve_pipeline) = resolve_pipeline else {
         return;
     };
@@ -37,11 +49,15 @@ pub fn oit_resolve(
         return;
     };
 
-    let depth_bind_group = ctx.render_device().create_bind_group(
-        "oit_resolve_depth_bind_group",
-        &pipeline_cache.get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
-        &BindGroupEntries::single(depth.view()),
-    );
+    let depth_bind_group = if !depth_prepass {
+        Some(ctx.render_device().create_bind_group(
+            "oit_resolve_depth_bind_group",
+            &pipeline_cache.get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
+            &BindGroupEntries::single(depth.view()),
+        ))
+    } else {
+        None
+    };
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -64,8 +80,9 @@ pub fn oit_resolve(
 
     render_pass.set_render_pipeline(pipeline);
     render_pass.set_bind_group(0, &bind_group, &[view_uniform.offset]);
-    render_pass.set_bind_group(1, &depth_bind_group, &[]);
-
+    if let Some(depth_bind_group) = &depth_bind_group {
+        render_pass.set_bind_group(1, depth_bind_group, &[]);
+    }
     render_pass.draw(0..3, 0..1);
 
     pass_span.end(&mut render_pass);

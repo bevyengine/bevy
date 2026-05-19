@@ -8,24 +8,23 @@ use super::{
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
     VertexAttributeValues, VertexBufferLayout,
 };
+#[cfg(feature = "morph")]
+use crate::morph::MorphAttributes;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-#[cfg(feature = "morph")]
-use bevy_asset::Handle;
 use bevy_asset::{Asset, RenderAssetUsages};
-#[cfg(feature = "morph")]
-use bevy_image::Image;
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
-#[cfg(feature = "serialize")]
-use bevy_platform::collections::HashMap;
-use bevy_reflect::Reflect;
+use bevy_platform::collections::{hash_map, HashMap};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
+use core::hash::{Hash, Hasher};
+use core::ptr;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
-use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
+use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode, WriteOnly};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -236,7 +235,7 @@ pub struct Mesh {
     attributes: MeshExtractableData<BTreeMap<MeshVertexAttributeId, MeshAttributeData>>,
     indices: MeshExtractableData<Indices>,
     #[cfg(feature = "morph")]
-    morph_targets: MeshExtractableData<Handle<Image>>,
+    morph_targets: MeshExtractableData<Vec<MorphAttributes>>,
     #[cfg(feature = "morph")]
     morph_target_names: MeshExtractableData<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
@@ -287,7 +286,7 @@ impl Mesh {
     /// one color, for example a logo, and you want to "extend" those borders.
     ///
     /// For different mapping outside of `0..=1` range,
-    /// see [`ImageAddressMode`](bevy_image::ImageAddressMode).
+    /// see [`ImageAddressMode`](https://docs.rs/bevy_image/latest/bevy_image/enum.ImageAddressMode.html).
     ///
     /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
@@ -855,6 +854,20 @@ impl Mesh {
         })
     }
 
+    /// If any morph displacements are present, returns them as a
+    /// [`MorphAttributes`] array.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to the render
+    /// world.
+    #[cfg(feature = "morph")]
+    pub fn get_morph_targets(&self) -> Option<&[MorphAttributes]> {
+        self.morph_targets
+            .as_ref_option()
+            .expect(MESH_EXTRACTED_ERROR)
+            .map(|morph_attributes| &morph_attributes[..])
+    }
+
     /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in `SpecializedMeshPipeline`.
     ///
     /// # Panics
@@ -934,7 +947,9 @@ impl Mesh {
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
         let mut attributes_interleaved_buffer = vec![0; self.get_vertex_buffer_size()];
-        self.write_packed_vertex_buffer_data(&mut attributes_interleaved_buffer);
+        self.write_packed_vertex_buffer_data(WriteOnly::from_mut(
+            &mut attributes_interleaved_buffer,
+        ));
         attributes_interleaved_buffer
     }
 
@@ -947,7 +962,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
+    pub fn write_packed_vertex_buffer_data(&self, mut slice: WriteOnly<'_, [u8]>) {
         let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
         let vertex_size = self.get_vertex_size() as usize;
@@ -963,7 +978,9 @@ impl Mesh {
                 .enumerate()
             {
                 let offset = vertex_index * vertex_size + attribute_offset;
-                slice[offset..offset + attribute_size].copy_from_slice(attribute_bytes);
+                slice
+                    .slice(offset..offset + attribute_size)
+                    .copy_from_slice(attribute_bytes);
             }
 
             attribute_offset += attribute_size;
@@ -1034,6 +1051,23 @@ impl Mesh {
                 VertexAttributeValues::Snorm8x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint8x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float16x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float16x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x3(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm10_10_10_2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm8x4Bgra(vec) => *vec = duplicate(vec, indices),
             }
         }
 
@@ -1069,6 +1103,121 @@ impl Mesh {
         Ok(self)
     }
 
+    /// Remove duplicate vertices and create the index pointing to the unique vertices.
+    ///
+    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
+    /// Returns an error if the mesh already has [`Indices`] set, even if there
+    /// are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn merge_duplicate_vertices(&mut self) -> Result<(), MeshMergeDuplicateVerticesError> {
+        match self.try_indices() {
+            Ok(_) => return Err(MeshMergeDuplicateVerticesError::IndicesAlreadySet),
+            Err(err) => match err {
+                MeshAccessError::ExtractedToRenderWorld => return Err(err.into()),
+                MeshAccessError::NotFound => (),
+            },
+        }
+
+        #[derive(Copy, Clone)]
+        struct VertexRef<'a> {
+            mesh_attributes: &'a BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
+            i: usize,
+        }
+        impl<'a> VertexRef<'a> {
+            fn push_to(&self, target: &mut BTreeMap<MeshVertexAttributeId, MeshAttributeData>) {
+                for (key, this_attribute_data) in self.mesh_attributes.iter() {
+                    let target_attribute_data = target.get_mut(key).unwrap(); // ok to unwrap, all keys added to new_attributes below
+                    target_attribute_data
+                        .values
+                        .push_from(&this_attribute_data.values, self.i);
+                }
+            }
+        }
+        impl<'a> PartialEq for VertexRef<'a> {
+            fn eq(&self, other: &Self) -> bool {
+                assert!(ptr::eq(self.mesh_attributes, other.mesh_attributes));
+                for values in self.mesh_attributes.values() {
+                    if values.values.get_bytes_at(self.i) != values.values.get_bytes_at(other.i) {
+                        return false;
+                    }
+                }
+                true
+            }
+        }
+        impl<'a> Eq for VertexRef<'a> {}
+        impl<'a> Hash for VertexRef<'a> {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                for values in self.mesh_attributes.values() {
+                    values.values.get_bytes_at(self.i).hash(state);
+                }
+            }
+        }
+
+        let old_attributes = self.attributes.as_ref()?;
+
+        let mut new_attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData> = self
+            .attributes
+            .as_ref()?
+            .iter()
+            .map(|(k, v)| {
+                (
+                    *k,
+                    MeshAttributeData {
+                        attribute: v.attribute,
+                        values: VertexAttributeValues::new(VertexFormat::from(&v.values)),
+                    },
+                )
+            })
+            .collect();
+
+        let mut vertex_to_new_index: HashMap<VertexRef, u32> = HashMap::new();
+        let mut indices = Vec::with_capacity(self.count_vertices());
+        for i in 0..self.count_vertices() {
+            let len: u32 = vertex_to_new_index
+                .len()
+                .try_into()
+                .expect("The number of vertices exceeds u32::MAX");
+            let vertex_ref = VertexRef {
+                mesh_attributes: old_attributes,
+                i,
+            };
+            let j = match vertex_to_new_index.entry(vertex_ref) {
+                hash_map::Entry::Occupied(e) => *e.get(),
+                hash_map::Entry::Vacant(e) => {
+                    e.insert(len);
+                    vertex_ref.push_to(&mut new_attributes);
+                    len
+                }
+            };
+            indices.push(j);
+        }
+        drop(vertex_to_new_index);
+
+        for v in new_attributes.values_mut() {
+            v.values.shrink_to_fit();
+        }
+
+        self.attributes = MeshExtractableData::Data(new_attributes);
+        self.indices = MeshExtractableData::Data(Indices::U32(indices));
+
+        Ok(())
+    }
+
+    /// Consumes the mesh and returns a mesh with merged vertices.
+    ///
+    /// (Alternatively, you can use [`Mesh::merge_duplicate_vertices`] to mutate an existing mesh in-place)
+    ///
+    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
+    /// Returns an error if the mesh already has [`Indices`] set, even if there
+    /// are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn with_merge_duplicate_vertices(
+        mut self,
+    ) -> Result<Self, MeshMergeDuplicateVerticesError> {
+        self.merge_duplicate_vertices()?;
+        Ok(self)
+    }
+
     /// Inverts the winding of the indices such that all counter-clockwise triangles are now
     /// clockwise and vice versa.
     /// For lines, their start and end indices are flipped.
@@ -1082,15 +1231,12 @@ impl Mesh {
         ) -> Result<(), MeshWindingInvertError> {
             match topology {
                 PrimitiveTopology::TriangleList => {
-                    // Early return if the index count doesn't match
-                    if !indices.len().is_multiple_of(3) {
+                    let (chunks, []) = indices.as_chunks_mut() else {
+                        // Early return if the index count doesn't match
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
-                    }
-                    for chunk in indices.chunks_mut(3) {
-                        // This currently can only be optimized away with unsafe, rework this when `feature(slice_as_chunks)` gets stable.
-                        let [_, b, c] = chunk else {
-                            return Err(MeshWindingInvertError::AbruptIndicesEnd);
-                        };
+                    };
+
+                    for [_, b, c] in chunks {
                         core::mem::swap(b, c);
                     }
                     Ok(())
@@ -1204,9 +1350,10 @@ impl Mesh {
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
         let normals: Vec<_> = positions
-            .chunks_exact(3)
-            .map(|p| triangle_normal(p[0], p[1], p[2]))
-            .flat_map(|normal| [normal; 3])
+            .as_chunks()
+            .0
+            .iter()
+            .flat_map(|&[a, b, c]| [triangle_normal(a, b, c); 3])
             .collect();
 
         self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -1459,11 +1606,14 @@ impl Mesh {
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
-        self.try_indices()?
-            .iter()
-            .collect::<Vec<usize>>()
-            .chunks_exact(3)
-            .for_each(|face| per_triangle([face[0], face[1], face[2]], positions, &mut normals));
+        match self.try_indices()? {
+            Indices::U16(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+            Indices::U32(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+        }
 
         for normal in &mut normals {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
@@ -2055,6 +2205,18 @@ impl Mesh {
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
+        fn indices_to_triangle<T: TryInto<usize> + Copy>(
+            vertices: &[[f32; 3]],
+            indices: &[T; 3],
+        ) -> Option<Triangle3d> {
+            let vert0 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
+            let vert1 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
+            let vert2 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
+            Some(Triangle3d {
+                vertices: [vert0, vert1, vert2],
+            })
+        }
+
         let position_data = self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
 
         let Some(vertices) = position_data.as_float3() else {
@@ -2069,73 +2231,53 @@ impl Mesh {
                 // This implicitly truncates the indices to a multiple of 3.
                 let iterator = match indices {
                     Indices::U16(vec) => FourIterators::First(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                     Indices::U32(vec) => FourIterators::Second(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                 };
 
-                return Ok(iterator);
+                Ok(iterator)
             }
-
             PrimitiveTopology::TriangleStrip => {
                 // When indices reference out-of-bounds vertex data, the triangle is omitted.
                 // If there aren't enough indices to make a triangle, then an empty vector will be
                 // returned.
                 let iterator = match indices {
                     Indices::U16(vec) => {
-                        FourIterators::Third(vec.as_slice().windows(3).enumerate().flat_map(
-                            move |(i, indices)| {
+                        FourIterators::Third(vec.array_windows().enumerate().flat_map(
+                            |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
-                                    indices_to_triangle(
-                                        vertices,
-                                        &[indices[1], indices[0], indices[2]],
-                                    )
+                                    indices_to_triangle(vertices, &[idx1, idx0, idx2])
                                 }
                             },
                         ))
                     }
                     Indices::U32(vec) => {
-                        FourIterators::Fourth(vec.as_slice().windows(3).enumerate().flat_map(
-                            move |(i, indices)| {
+                        FourIterators::Fourth(vec.array_windows().enumerate().flat_map(
+                            |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
-                                    indices_to_triangle(
-                                        vertices,
-                                        &[indices[1], indices[0], indices[2]],
-                                    )
+                                    indices_to_triangle(vertices, &[idx1, idx0, idx2])
                                 }
                             },
                         ))
                     }
                 };
 
-                return Ok(iterator);
+                Ok(iterator)
             }
-
-            _ => {
-                return Err(MeshTrianglesError::WrongTopology);
-            }
-        };
-
-        fn indices_to_triangle<T: TryInto<usize> + Copy>(
-            vertices: &[[f32; 3]],
-            indices: &[T],
-        ) -> Option<Triangle3d> {
-            let vert0: Vec3 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
-            let vert1: Vec3 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
-            let vert2: Vec3 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
-            Some(Triangle3d {
-                vertices: [vert0, vert1, vert2],
-            })
+            _ => Err(MeshTrianglesError::WrongTopology),
         }
     }
 
@@ -2230,76 +2372,82 @@ impl Mesh {
         Ok(self.morph_targets.as_ref_option()?.is_some())
     }
 
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    /// Set the [morph target] displacements for this mesh.
     ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    /// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_set_morph_targets`]
-    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+    #[cfg(feature = "morph")]
+    pub fn set_morph_targets(&mut self, morph_targets: Vec<MorphAttributes>) {
         self.try_set_morph_targets(morph_targets)
             .expect(MESH_EXTRACTED_ERROR);
     }
 
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    /// Set the [morph target] displacements for this mesh.
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[cfg(feature = "morph")]
     pub fn try_set_morph_targets(
         &mut self,
-        morph_targets: Handle<Image>,
+        morph_targets: Vec<MorphAttributes>,
     ) -> Result<(), MeshAccessError> {
         self.morph_targets.replace(Some(morph_targets))?;
         Ok(())
     }
 
-    /// Retrieve the morph targets for this mesh, or None if there are no morph targets.
+    /// Retrieve the morph target displacements for this mesh, or None if there
+    /// are no morph targets.
+    ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_morph_targets`]
-    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
+    #[cfg(feature = "morph")]
+    pub fn morph_targets(&self) -> Option<&Vec<MorphAttributes>> {
         self.morph_targets
             .as_ref_option()
             .expect(MESH_EXTRACTED_ERROR)
     }
 
-    /// Retrieve the morph targets for this mesh, or None if there are no morph targets.
+    /// Retrieve the morph displacements for this mesh, or None if there are no
+    /// morph targets.
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`or
     /// if the morph targets do not exist.
-    pub fn try_morph_targets(&self) -> Result<&Handle<Image>, MeshAccessError> {
+    #[cfg(feature = "morph")]
+    pub fn try_morph_targets(&self) -> Result<&Vec<MorphAttributes>, MeshAccessError> {
         self.morph_targets.as_ref()
     }
 
-    /// Consumes the mesh and returns a mesh with the given [morph targets].
-    ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    /// Consumes the mesh and returns a mesh with the given [morph target]
+    /// displacements.
     ///
     /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
     ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    /// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_with_morph_targets`]
     #[must_use]
-    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+    #[cfg(feature = "morph")]
+    pub fn with_morph_targets(mut self, morph_targets: Vec<MorphAttributes>) -> Self {
         self.set_morph_targets(morph_targets);
         self
     }
 
     /// Consumes the mesh and returns a mesh with the given [morph targets].
     ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
     /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
+    #[cfg(feature = "morph")]
     pub fn try_with_morph_targets(
         mut self,
-        morph_targets: Handle<Image>,
+        morph_targets: Vec<MorphAttributes>,
     ) -> Result<Self, MeshAccessError> {
         self.try_set_morph_targets(morph_targets)?;
         Ok(self)
@@ -2373,6 +2521,19 @@ impl Mesh {
             .as_ref_option()?
             .map(core::ops::Deref::deref))
     }
+}
+
+/// An enum to define which UV attribute to use for a texture.
+///
+/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and
+/// [`Mesh::ATTRIBUTE_UV_1`].
+/// The default is [`UvChannel::Uv0`].
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug, Clone, PartialEq)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
 }
 
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
@@ -2526,6 +2687,15 @@ impl MeshDeserializer {
             ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
         }
     }
+}
+
+/// Error that can occur when calling [`Mesh::merge_duplicate_vertices`]
+#[derive(Error, Debug, Clone)]
+pub enum MeshMergeDuplicateVerticesError {
+    #[error("Index attribute already set.")]
+    IndicesAlreadySet,
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// Error that can occur when calling [`Mesh::merge`].
@@ -2956,5 +3126,65 @@ mod tests {
             serde_json::from_str(&serialized_string).unwrap();
         let deserialized_mesh = serialized_mesh_from_string.into_mesh();
         assert_eq!(mesh, deserialized_mesh);
+    }
+
+    #[test]
+    fn merge_duplicate_vertices() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        // Quad made of two triangles.
+        let positions = vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            // This will be deduplicated.
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            // Position is equal to the first one but UV is different so it won't be deduplicated.
+            [0.0, 0.0, 0.0],
+        ];
+        let uvs = vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            // This will be deduplicated.
+            [1.0, 1.0],
+            [0.0, 1.0],
+            // Use different UV here so it won't be deduplicated.
+            [0.0, 0.5],
+        ];
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            VertexAttributeValues::Float32x3(positions.clone()),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            VertexAttributeValues::Float32x2(uvs.clone()),
+        );
+
+        let res = mesh.merge_duplicate_vertices();
+        assert!(res.is_ok());
+        assert_eq!(6, mesh.indices().unwrap().len());
+        // Note we have 5 unique vertices, not 6.
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len());
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap().len());
+
+        // Duplicate back.
+        mesh.duplicate_vertices();
+        assert!(mesh.indices().is_none());
+        let VertexAttributeValues::Float32x3(new_positions) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        let VertexAttributeValues::Float32x2(new_uvs) =
+            mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        assert_eq!(&positions, new_positions);
+        assert_eq!(&uvs, new_uvs);
     }
 }

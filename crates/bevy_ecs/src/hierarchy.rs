@@ -14,6 +14,7 @@ use crate::{
     entity::Entity,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
+    template::FromTemplate,
     world::{EntityWorldMut, FromWorld, World},
 };
 use alloc::vec::Vec;
@@ -90,7 +91,7 @@ use core::slice;
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
-#[derive(Component, Clone, PartialEq, Eq, Debug)]
+#[derive(Component, FromTemplate, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1156,7 +1157,7 @@ mod tests {
         assert_eq!(
             &**world.entity(parent).get::<Children>().unwrap(),
             &[child],
-            "Children should still have the old value, as on_insert/on_replace didn't run"
+            "Children should still have the old value, as on_insert/on_discard didn't run"
         );
     }
 }

@@ -7,7 +7,7 @@ homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.85.0"
+rust-version = "1.94.0"
 
 [features]
 default = [
@@ -88,5 +88,9 @@ log = { version = "0.4", default-features = false }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

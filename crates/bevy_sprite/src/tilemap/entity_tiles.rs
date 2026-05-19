@@ -72,10 +72,10 @@ fn on_insert_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: H
     };
 
     world.commands().queue(move |world: &mut World| {
-        let SetTileResult {
+        let Ok(SetTileResult {
             chunk_id: Some(chunk_id),
             replaced_tile,
-        } = SetTile {
+        }) = SetTile {
             tilemap_id: in_map.0,
             tile_position: tile_position.0,
             maybe_tile: Some(EntityTile(entity)),

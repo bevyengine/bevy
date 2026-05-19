@@ -9,9 +9,12 @@
 //! to distance fog, but more complex) is handled as well, and takes into
 //! account the directional light color and direction.
 //!
-//! Adding the [`Atmosphere`] component to a 3d camera will enable the effect,
-//! which by default is set to look similar to Earth's atmosphere. See the
-//! documentation on the component itself for information regarding its fields.
+//! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
+//! [`bevy_transform::components::GlobalTransform`], and add [`AtmosphereSettings`] to each
+//! 3D camera that should render it. Detailed documentation is on the [`Atmosphere`] component.
+//!
+//! Placement and scene scale come from the entity's transform. With several atmospheres in one
+//! scene, each camera picks the atmosphere whose origin is closest in world space.
 //!
 //! Performance-wise, the effect should be fairly cheap since the LUTs (Look
 //! Up Tables) that encode most of the data are small, and take advantage of the
@@ -39,32 +42,35 @@ pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, AssetId};
-use bevy_camera::Camera3d;
+use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
     component::Component,
-    query::{Changed, QueryItem, With},
+    entity::Entity,
+    query::{Changed, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Commands, Local, Query},
+    system::{Commands, Query},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
-use bevy_math::{UVec2, UVec3, Vec3};
+use bevy_math::{Mat4, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::UniformComponentPlugin,
+    extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    renderer::RenderDevice,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     Extract, ExtractSchedule, RenderStartup,
 };
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
+use bevy_transform::components::GlobalTransform;
 
 use bevy_shader::load_shader_library;
 use environment::{
@@ -104,12 +110,11 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            SyncComponentPlugin::<AtmosphereSettings>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
-        .register_required_components::<Atmosphere, AtmosphereSettings>()
         .add_systems(Update, prepare_atmosphere_probe_components);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -142,13 +147,22 @@ impl Plugin for AtmospherePlugin {
             return;
         }
 
+        // Check the `RenderDevice` in addition to the `RenderAdapter`. The
+        // former takes the `WGPU_SETTINGS_PRIO` environment variable into
+        // account, and the latter doesn't.
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if render_device.limits().max_storage_textures_per_shader_stage == 0 {
+            warn!("AtmospherePlugin not loaded. GPU lacks support: `max_storage_textures_per_shader_stage` is 0");
+            return;
+        }
+
         render_app
             .insert_resource(AtmosphereBindGroupLayouts::new())
-            .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSampler>()
-            .init_resource::<AtmosphereLutPipelines>()
-            .init_resource::<AtmosphereTransforms>()
-            .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .init_gpu_resource::<RenderSkyBindGroupLayouts>()
+            .init_gpu_resource::<AtmosphereSampler>()
+            .init_gpu_resource::<AtmosphereLutPipelines>()
+            .init_gpu_resource::<AtmosphereTransforms>()
+            .init_gpu_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 RenderStartup,
                 (
@@ -161,15 +175,15 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
                     prepare_probe_textures
                         .in_set(RenderSystems::PrepareResources)
                         .after(prepare_atmosphere_textures),
                     prepare_atmosphere_uniforms
-                        .before(RenderSystems::PrepareResources)
-                        .after(RenderSystems::PrepareAssets),
+                        .in_set(RenderSystems::Prepare)
+                        .before(RenderSystems::PrepareResources),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
@@ -191,37 +205,64 @@ impl Plugin for AtmospherePlugin {
     }
 }
 
-// This is needed because of the orphan rule not allowing implementing
-// foreign trait ExtractComponent on foreign type Atmosphere
+/// For each camera with [`AtmosphereSettings`], picks the nearest [`Atmosphere`] by world-space
+/// distance to its origin, copies it as [`ExtractedAtmosphere`], and builds [`GpuAtmosphereSettings`].
 pub fn extract_atmosphere(
     mut commands: Commands,
-    mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &Atmosphere), With<Camera3d>>>,
+    atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform)>>,
+    cameras: Extract<Query<(RenderEntity, &AtmosphereSettings, &GlobalTransform), With<Camera3d>>>,
 ) {
-    let mut values = Vec::with_capacity(*previous_len);
-    for (entity, item) in &query {
-        values.push((
-            entity,
-            ExtractedAtmosphere {
-                bottom_radius: item.bottom_radius,
-                top_radius: item.top_radius,
-                ground_albedo: item.ground_albedo,
-                medium: item.medium.id(),
-            },
-        ));
+    let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform)> =
+        atmosphere_entities.iter().collect();
+
+    if candidates.is_empty() {
+        for (render_entity, ..) in &cameras {
+            commands
+                .entity(render_entity)
+                .remove::<ExtractedAtmosphere>();
+            commands
+                .entity(render_entity)
+                .remove::<GpuAtmosphereSettings>();
+        }
+        return;
     }
-    *previous_len = values.len();
-    commands.try_insert_batch(values);
+
+    for (render_entity, settings, cam_global) in &cameras {
+        let cam_world = cam_global.translation();
+        let selected = candidates
+            .iter()
+            .min_by(|(ea, _, gt_a), (eb, _, gt_b)| {
+                let da = cam_world.distance(gt_a.translation());
+                let db = cam_world.distance(gt_b.translation());
+                da.total_cmp(&db).then_with(|| ea.cmp(eb))
+            })
+            .expect("checked non-empty above");
+        let atmo = selected.1;
+        let gt = selected.2;
+
+        let extracted = ExtractedAtmosphere {
+            inner_radius: atmo.inner_radius,
+            outer_radius: atmo.outer_radius,
+            ground_albedo: atmo.ground_albedo,
+            medium: atmo.medium.id(),
+            world_to_atmosphere: gt.to_matrix().inverse(),
+        };
+        commands.entity(render_entity).insert(extracted);
+        commands
+            .entity(render_entity)
+            .insert(GpuAtmosphereSettings::from(settings.clone()));
+    }
 }
 
 /// The render-world representation of an `Atmosphere`, but which
 /// hasn't been converted into shader uniforms yet.
 #[derive(Clone, Component)]
 pub struct ExtractedAtmosphere {
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
     pub ground_albedo: Vec3,
     pub medium: AssetId<ScatteringMedium>,
+    pub world_to_atmosphere: Mat4,
 }
 
 /// This component controls the resolution of the atmosphere LUTs, and
@@ -244,6 +285,7 @@ pub struct ExtractedAtmosphere {
 /// transmittance to that point (A channel).
 #[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
+#[require(Hdr)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,
@@ -285,10 +327,6 @@ pub struct AtmosphereSettings {
     /// units: m
     pub aerial_view_lut_max_distance: f32,
 
-    /// A conversion factor between scene units and meters, used to
-    /// ensure correctness at different length scales.
-    pub scene_units_to_m: f32,
-
     /// The number of points to sample for each fragment when the using
     /// ray marching to render the sky
     pub sky_max_samples: u32,
@@ -310,7 +348,6 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
-            scene_units_to_m: 1.0,
             sky_max_samples: 16,
             rendering_method: AtmosphereMode::LookupTexture,
         }
@@ -330,7 +367,6 @@ pub struct GpuAtmosphereSettings {
     pub sky_view_lut_samples: u32,
     pub aerial_view_lut_samples: u32,
     pub aerial_view_lut_max_distance: f32,
-    pub scene_units_to_m: f32,
     pub sky_max_samples: u32,
     pub rendering_method: u32,
 }
@@ -354,23 +390,14 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             sky_view_lut_samples: s.sky_view_lut_samples,
             aerial_view_lut_samples: s.aerial_view_lut_samples,
             aerial_view_lut_max_distance: s.aerial_view_lut_max_distance,
-            scene_units_to_m: s.scene_units_to_m,
             sky_max_samples: s.sky_max_samples,
             rendering_method: s.rendering_method as u32,
         }
     }
 }
 
-impl ExtractComponent for GpuAtmosphereSettings {
-    type QueryData = Read<AtmosphereSettings>;
-
-    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
-
-    type Out = GpuAtmosphereSettings;
-
-    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone().into())
-    }
+impl SyncComponent for AtmosphereSettings {
+    type Target = GpuAtmosphereSettings;
 }
 
 fn configure_camera_depth_usages(

@@ -109,13 +109,13 @@ fn score_candidate(
     let dy = (candidate_rect.min.y - origin_rect.max.y)
         .max(origin_rect.min.y - candidate_rect.max.y)
         .max(0.0);
-    let distance = (dx * dx + dy * dy).sqrt();
+    let distance = bevy_math::ops::sqrt(dx * dx + dy * dy);
 
     // Check max distance
-    if let Some(max_dist) = config.max_search_distance {
-        if distance > max_dist {
-            return f32::INFINITY;
-        }
+    if let Some(max_dist) = config.max_search_distance
+        && distance > max_dist
+    {
+        return f32::INFINITY;
     }
 
     // Calculate alignment score using center-to-center direction

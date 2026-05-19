@@ -10,12 +10,20 @@ mod render_asset_diagnostic_plugin;
 mod tracy_gpu;
 
 use alloc::{borrow::Cow, sync::Arc};
+use bevy_ecs::{
+    schedule::IntoScheduleConfigs,
+    system::{Res, ResMut},
+    world::{FromWorld, World},
+};
 use core::marker::PhantomData;
 use wgpu::{BufferSlice, CommandEncoder};
 
 use bevy_app::{App, Plugin, PreUpdate};
 
-use crate::{renderer::RenderAdapterInfo, RenderApp};
+use crate::{
+    renderer::{PendingCommandBuffers, RenderGraph, RenderGraphSystems},
+    GpuResourceAppExt, RenderApp,
+};
 
 use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
 pub use self::{
@@ -24,7 +32,7 @@ pub use self::{
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::renderer::RenderDevice;
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
@@ -71,11 +79,54 @@ impl Plugin for RenderDiagnosticsPlugin {
             return;
         };
 
-        let adapter_info = render_app.world().resource::<RenderAdapterInfo>();
-        let device = render_app.world().resource::<RenderDevice>();
-        let queue = render_app.world().resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(adapter_info, device, queue));
+        render_app.init_gpu_resource::<DiagnosticsRecorder>();
+
+        render_app.add_systems(
+            RenderGraph,
+            (
+                begin_diagnostics_frame.in_set(RenderGraphSystems::Begin),
+                resolve_encoder
+                    .after(RenderGraphSystems::Render)
+                    .before(RenderGraphSystems::Submit),
+                finish_diagnostics_frame.in_set(RenderGraphSystems::Finish),
+            ),
+        );
     }
+}
+
+impl FromWorld for DiagnosticsRecorder {
+    fn from_world(world: &mut World) -> Self {
+        DiagnosticsRecorder::new(world.resource(), world.resource(), world.resource())
+    }
+}
+
+/// Starts the diagnostics recorder for the frame.
+pub fn begin_diagnostics_frame(mut recorder: ResMut<DiagnosticsRecorder>) {
+    recorder.begin_frame();
+}
+
+/// Resolves the encoder used for diagnostic recording
+pub fn resolve_encoder(
+    mut recorder: ResMut<DiagnosticsRecorder>,
+    render_device: Res<RenderDevice>,
+    mut pending_buffers: ResMut<PendingCommandBuffers>,
+) {
+    let mut encoder =
+        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+    recorder.resolve(&mut encoder);
+    pending_buffers.push_encoder(encoder);
+}
+
+/// Ends the current frame for the diagnostics recorder and syncs it with the main world.
+fn finish_diagnostics_frame(
+    mut recorder: ResMut<DiagnosticsRecorder>,
+    render_device: Res<RenderDevice>,
+    mutex: Res<RenderDiagnosticsMutex>,
+) {
+    let mutex = mutex.0.clone();
+    recorder.finish_frame(&render_device, move |diagnostics| {
+        *mutex.lock().unwrap() = Some(diagnostics);
+    });
 }
 
 /// Allows recording diagnostic spans.
@@ -158,7 +209,7 @@ impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
 
 impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
     fn drop(&mut self) {
-        panic!("TimeSpanScope::end was never called")
+        bevy_log::error!("TimeSpanScope::end was never called");
     }
 }
 

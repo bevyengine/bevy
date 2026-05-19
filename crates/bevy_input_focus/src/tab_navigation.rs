@@ -42,7 +42,7 @@ use bevy_window::{PrimaryWindow, Window};
 use log::warn;
 use thiserror::Error;
 
-use crate::{AcquireFocus, FocusedInput, InputFocus, InputFocusVisible};
+use crate::{AcquireFocus, FocusCause, FocusedInput, InputFocus, InputFocusVisible};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -101,7 +101,7 @@ impl TabGroup {
 /// A navigation action that users might take to navigate your user interface in a cyclic fashion.
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     ///
@@ -187,7 +187,7 @@ impl TabNavigation<'_, '_> {
 
         // Start by identifying which tab group we are in. Mainly what we want to know is if
         // we're in a modal group.
-        let tabgroup = focus.0.and_then(|focus_ent| {
+        let tabgroup = focus.get().and_then(|focus_ent| {
             self.parent_query
                 .iter_ancestors(focus_ent)
                 .find_map(|entity| {
@@ -198,7 +198,7 @@ impl TabNavigation<'_, '_> {
                 })
         });
 
-        self.navigate_internal(focus.0, action, tabgroup)
+        self.navigate_internal(focus.get(), action, tabgroup)
     }
 
     /// Initialize focus to a focusable child of a container, either the first or last
@@ -323,10 +323,10 @@ impl TabNavigation<'_, '_> {
         tab_group_idx: usize,
     ) {
         if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
-            if let Some(tabindex) = tabindex {
-                if tabindex.0 >= 0 {
-                    out.push((entity, *tabindex, tab_group_idx));
-                }
+            if let Some(tabindex) = tabindex
+                && tabindex.0 >= 0
+            {
+                out.push((entity, *tabindex, tab_group_idx));
             }
             if let Some(children) = children {
                 for child in children.iter() {
@@ -336,11 +336,11 @@ impl TabNavigation<'_, '_> {
                     }
                 }
             }
-        } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent) {
-            if !tabgroup.modal {
-                for child in children.iter() {
-                    self.gather_focusable(out, *child, tab_group_idx);
-                }
+        } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent)
+            && !tabgroup.modal
+        {
+            for child in children.iter() {
+                self.gather_focusable(out, *child, tab_group_idx);
             }
         }
     }
@@ -358,14 +358,14 @@ pub(crate) fn acquire_focus(
         // Stop and focus it
         acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0 != Some(acquire_focus.focused_entity) {
-            focus.0 = Some(acquire_focus.focused_entity);
+        if focus.get() != Some(acquire_focus.focused_entity) {
+            focus.set(acquire_focus.focused_entity, FocusCause::Navigated);
         }
     } else if windows.contains(acquire_focus.focused_entity) {
         // Stop and clear focus
         acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0.is_some() {
+        if focus.get().is_some() {
             focus.clear();
         }
     }
@@ -446,7 +446,7 @@ pub fn handle_tab_navigation(
         match maybe_next {
             Ok(next) => {
                 event.propagate(false);
-                focus.set(next);
+                focus.set(next, FocusCause::Navigated);
                 visible.0 = true;
             }
             Err(e) => {
@@ -454,7 +454,7 @@ pub fn handle_tab_navigation(
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
                     event.propagate(false);
-                    focus.set(new_focus);
+                    focus.set(new_focus, FocusCause::Navigated);
                     visible.0 = true;
                 }
             }
@@ -478,7 +478,7 @@ mod tests {
         let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
+        let tab_navigation = system_state.get(world).unwrap();
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
         assert!(tab_navigation.tabindex_query.iter().count() >= 2);
 
@@ -511,7 +511,7 @@ mod tests {
         let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
+        let tab_navigation = system_state.get(world).unwrap();
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
         assert!(tab_navigation.tabindex_query.iter().count() >= 4);
 

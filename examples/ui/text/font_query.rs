@@ -231,7 +231,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontStyle::Oblique"),
                                 TextFont {
                                     font: family.clone(),
-                                    style: FontStyle::Oblique,
+                                    style: FontStyle::Oblique(None),
                                     ..default()
                                 },
                             ),

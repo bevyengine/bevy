@@ -1,4 +1,5 @@
 use crate::{
+    error_handler::DeviceErrorHandler,
     render_resource::PipelineCache,
     renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
     FutureRenderResources,
@@ -8,17 +9,17 @@ use bevy_ecs::world::World;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_window::RawHandleWrapperHolder;
 
+use wgpu::MemoryBudgetThresholds;
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
     Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
-use wgpu::{DxcShaderModel, MemoryBudgetThresholds};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
 pub enum WgpuSettingsPriority {
     /// WebGPU default features and limits
-    Compatibility,
+    WebGPU,
     /// The maximum supported features and limits of the adapter and backend
     Functionality,
     /// WebGPU default limits plus additional constraints in order to be compatible with WebGL2
@@ -118,7 +119,6 @@ impl Default for WgpuSettings {
                 if cfg!(target_os = "windows") && std::fs::metadata(dxc).is_ok() {
                     Dx12Compiler::DynamicDxc {
                         dxc_path: String::from(dxc),
-                        max_shader_model: DxcShaderModel::V6_7,
                     }
                 } else {
                     Dx12Compiler::Fxc
@@ -127,7 +127,21 @@ impl Default for WgpuSettings {
 
         let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
-        let instance_flags = InstanceFlags::default().with_env();
+        let mut instance_flags = InstanceFlags::default();
+        #[cfg(not(debug_assertions))]
+        {
+            // wgpu executes additional necessary logic during validation passes for the DX12 backend,
+            // so the `VALIDATION_INDIRECT_CALL` flag should stay for DX12.
+            if !backends.is_some_and(|backends| backends.contains(Backends::DX12)) {
+                // Removing this flag improves performance.
+                instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+            }
+        }
+        #[cfg(all(not(debug_assertions), feature = "raw_vulkan_init"))]
+        // intending to use vulkan even if backends may contain DX12
+        instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+
+        instance_flags = instance_flags.with_env();
 
         Self {
             device_label: Default::default(),
@@ -197,6 +211,7 @@ impl RenderResources {
             render_adapter.clone(),
             synchronous_pipeline_compilation,
         ));
+        render_world.insert_resource(DeviceErrorHandler::new(&device));
         render_world.insert_resource(device);
         render_world.insert_resource(queue);
         render_world.insert_resource(render_adapter);
@@ -205,15 +220,11 @@ impl RenderResources {
 }
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
-#[expect(
-    clippy::large_enum_variant,
-    reason = "See https://github.com/bevyengine/bevy/issues/19220"
-)]
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
     Manual(RenderResources),
     /// Lets the rendering plugin create resources itself.
-    Automatic(WgpuSettings),
+    Automatic(Box<WgpuSettings>),
 }
 
 impl RenderCreation {
@@ -303,7 +314,7 @@ impl Default for RenderCreation {
 
 impl From<WgpuSettings> for RenderCreation {
     fn from(value: WgpuSettings) -> Self {
-        Self::Automatic(value)
+        Self::Automatic(Box::new(value))
     }
 }
 
@@ -315,7 +326,7 @@ pub fn settings_priority_from_env() -> Option<WgpuSettingsPriority> {
             .map(str::to_lowercase)
             .as_deref()
         {
-            Ok("compatibility") => WgpuSettingsPriority::Compatibility,
+            Ok("webgpu") => WgpuSettingsPriority::WebGPU,
             Ok("functionality") => WgpuSettingsPriority::Functionality,
             Ok("webgl2") => WgpuSettingsPriority::WebGL2,
             _ => return None,

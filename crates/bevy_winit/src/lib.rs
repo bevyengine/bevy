@@ -16,14 +16,14 @@ extern crate alloc;
 
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{ExitSystems, RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_window::{exit_on_all_closed, CursorOptions, Window, WindowCreated};
+use bevy_window::{CursorOptions, Window, WindowCreated};
 use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
@@ -136,11 +136,9 @@ impl Plugin for WinitPlugin {
             .add_systems(
                 Last,
                 (
-                    // `exit_on_all_closed` only checks if windows exist but doesn't access data,
-                    // so we don't need to care about its ordering relative to `changed_windows`
-                    changed_windows.ambiguous_with(exit_on_all_closed),
+                    changed_windows,
                     changed_cursor_options,
-                    despawn_windows,
+                    despawn_windows.after(ExitSystems),
                     check_keyboard_focus_lost,
                 )
                     .chain(),

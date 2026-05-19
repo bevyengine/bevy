@@ -4,6 +4,7 @@ use bevy::{
     input::keyboard::Key,
     prelude::*,
     render::{
+        error_handler::{RenderErrorHandler, RenderErrorPolicy},
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_resource::{
             BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePassDescriptor,
@@ -63,10 +64,17 @@ fn setup(
     // help text
     commands.spawn((
         Text::new(
-            "Press O to trigger an OutOfMemory error\n\
+            "Test at your own risk: you may need to restart your computer to fully recover\n\
+            Press O to trigger an OutOfMemory error\n\
             Press V to trigger a Validation error\n\
             Press D to Destroy the render device (causes device lost error)\n\
             Press L to Loop infinitely in a compute shader (causes device lost error)\n\
+            \n\
+            Press 1 to ignore errors, pretending nothing happened and continue rendering.\n\
+            Press 2 to panic on error.\n\
+            Press 3 to signals app exit on error.\n\
+            Press 4 to keeps the app alive, but stops rendering further on error.\n\
+            Press 5 to attempt renderer recovery.\n\
             ",
         ),
         Node {
@@ -95,7 +103,11 @@ enum RenderError {
     Loop,
 }
 
-fn input(input: Res<ButtonInput<Key>>, mut error: ResMut<RenderError>) {
+fn input(
+    input: Res<ButtonInput<Key>>,
+    mut error: ResMut<RenderError>,
+    mut handler: ResMut<RenderErrorHandler>,
+) {
     *error = RenderError::None;
     if input.just_pressed(Key::Character("o".into())) {
         *error = RenderError::OutOfMemory;
@@ -108,6 +120,25 @@ fn input(input: Res<ButtonInput<Key>>, mut error: ResMut<RenderError>) {
     }
     if input.just_pressed(Key::Character("l".into())) {
         *error = RenderError::Loop;
+    }
+
+    if input.just_pressed(Key::Character("1".into())) {
+        *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::Ignore);
+    }
+    if input.just_pressed(Key::Character("2".into())) {
+        *handler = RenderErrorHandler(|error, _, _| panic!("Rendering error {error:?}"));
+    }
+    if input.just_pressed(Key::Character("3".into())) {
+        *handler = RenderErrorHandler(|_, main_world, _| {
+            main_world.write_message(AppExit::error());
+            RenderErrorPolicy::StopRendering
+        });
+    }
+    if input.just_pressed(Key::Character("4".into())) {
+        *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::StopRendering);
+    }
+    if input.just_pressed(Key::Character("5".into())) {
+        *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::Recover(default()));
     }
 }
 

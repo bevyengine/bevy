@@ -240,13 +240,13 @@ fn setup_render_target(
 
     // This is the texture that will be rendered to.
     let mut render_target_image =
-        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
+        Image::new_target_texture(size.width, size.height, TextureFormat::Rgba8UnormSrgb, None);
     render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let render_target_image_handle = images.add(render_target_image);
 
     // This is the texture that will be copied to.
     let cpu_image =
-        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
+        Image::new_target_texture(size.width, size.height, TextureFormat::Rgba8UnormSrgb, None);
     let cpu_image_handle = images.add(cpu_image);
 
     commands.spawn(ImageCopier::new(
@@ -289,9 +289,7 @@ impl ImageCopier {
         size: Extent3d,
         render_device: &RenderDevice,
     ) -> ImageCopier {
-        let padded_bytes_per_row =
-            RenderDevice::align_copy_bytes_per_row((size.width) as usize) * 4;
-
+        let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(size.width as usize * 4);
         let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
             label: None,
             size: padded_bytes_per_row as u64 * size.height as u64,
@@ -470,7 +468,7 @@ fn update(
             if !image_data.is_empty() {
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
-                    let img_bytes = images.get_mut(image.id()).unwrap();
+                    let mut img_bytes = images.get_mut(image.id()).unwrap();
 
                     // We need to ensure that this works regardless of the image dimensions
                     // If the image became wider when copying from the texture to the buffer,

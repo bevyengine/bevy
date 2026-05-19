@@ -13,6 +13,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Command, Query, ResMut},
+    template::FromTemplate,
     world::{DeferredWorld, World},
 };
 use bevy_image::Image;
@@ -28,6 +29,10 @@ use tracing::{trace, warn};
 mod tilemap_chunk_material;
 
 pub use tilemap_chunk_material::*;
+
+mod tile_orientation;
+
+pub use tile_orientation::*;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
@@ -54,7 +59,7 @@ pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunkRenderData {
@@ -170,6 +175,8 @@ pub struct TileRenderData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
+    /// The orientation of the tile.
+    pub orientation: TileOrientation,
 }
 
 impl TileRenderData {
@@ -188,6 +195,7 @@ impl Default for TileRenderData {
             tileset_index: 0,
             color: Color::WHITE,
             visible: true,
+            orientation: TileOrientation::Default,
         }
     }
 }
@@ -294,7 +302,7 @@ pub fn update_tilemap_chunk_indices(
             );
             continue;
         };
-        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+        let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
                 chunk_entity
@@ -332,7 +340,7 @@ fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
     };
 
     world.commands().queue(move |world: &mut World| {
-        SetTile {
+        let _ = SetTile {
             tilemap_id: in_map.0,
             tile_position: tile_position.0,
             maybe_tile: Some(tile_render_data),
@@ -356,7 +364,7 @@ fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
     };
 
     world.commands().queue(move |world: &mut World| {
-        SetTile::<TileRenderData> {
+        let _ = SetTile::<TileRenderData> {
             tilemap_id: in_map.0,
             tile_position: tile_position.0,
             maybe_tile: None,

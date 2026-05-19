@@ -15,9 +15,8 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault as _, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::vec2;
-use bevy_post_process::{bloom::bloom, motion_blur::motion_blur};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
@@ -32,7 +31,7 @@ use bevy_render::{
         TextureFormat, TextureSampleType, TextureUsages, Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
@@ -62,7 +61,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter.in_set(RenderSystems::ManageViews),
+                    prepare_taa_jitter.in_set(RenderSystems::PrepareViews),
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
                     prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),
@@ -70,10 +69,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 
         render_app.add_systems(
             Core3d,
-            temporal_anti_alias
-                .after(motion_blur)
-                .before(bloom)
-                .in_set(Core3dSystems::PostProcess),
+            temporal_anti_alias.in_set(Core3dSystems::EarlyPostProcess),
         );
     }
 }
@@ -131,6 +127,10 @@ impl Default for TemporalAntiAliasing {
     fn default() -> Self {
         Self { reset: true }
     }
+}
+
+impl SyncComponent for TemporalAntiAliasing {
+    type Target = Self;
 }
 
 fn temporal_anti_alias(
@@ -292,7 +292,8 @@ struct TaaPipelineSpecializer;
 
 #[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 struct TaaPipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
+    tonemap: bool,
     reset: bool,
 }
 
@@ -305,19 +306,16 @@ impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
         let fragment = descriptor.fragment_mut()?;
-        let format = if key.hdr {
+        if key.tonemap {
             fragment.shader_defs.push("TONEMAP".into());
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        }
 
         if key.reset {
             fragment.shader_defs.push("RESET".into());
         }
 
         let color_target_state = ColorTargetState {
-            format,
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         };
@@ -395,9 +393,9 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
+    cameras: Query<(Entity, &ExtractedView, &ExtractedCamera), With<TemporalAntiAliasing>>,
 ) {
-    for (entity, camera, view) in &views {
+    for (entity, view, camera) in &cameras {
         if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
@@ -405,11 +403,7 @@ fn prepare_taa_history_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                format: view.target_format,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
             };
@@ -444,11 +438,17 @@ fn prepare_taa_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipeline: ResMut<TaaPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
+    cameras: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ExtractedView,
+        &TemporalAntiAliasing,
+    )>,
 ) -> Result<(), BevyError> {
-    for (entity, view, taa_settings) in &views {
+    for (entity, camera, view, taa_settings) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
-            hdr: view.hdr,
+            target_format: view.target_format,
+            tonemap: camera.hdr,
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline

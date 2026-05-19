@@ -43,12 +43,13 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
-    render_resource::SpecializedRenderPipelines, sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    render_resource::SpecializedRenderPipelines,
+    sync_component::{SyncComponent, SyncComponentPlugin},
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::volumetric_fog::render::init_volumetric_fog_pipeline;
+use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSystems};
 
 pub mod render;
 
@@ -69,7 +70,7 @@ impl Plugin for VolumetricFogPlugin {
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
         let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
-        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
+        app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -80,9 +81,12 @@ impl Plugin for VolumetricFogPlugin {
                 plane_mesh,
                 cube_mesh,
             })
-            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
-            .init_resource::<VolumetricFogUniformBuffer>()
-            .add_systems(RenderStartup, init_volumetric_fog_pipeline)
+            .init_gpu_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
+            .init_gpu_resource::<VolumetricFogUniformBuffer>()
+            .add_systems(
+                RenderStartup,
+                init_volumetric_fog_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
                 Render,
@@ -98,7 +102,11 @@ impl Plugin for VolumetricFogPlugin {
                 Core3d,
                 volumetric_fog
                     .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::PostProcess),
+                    .before(Core3dSystems::EarlyPostProcess),
             );
     }
+}
+
+impl SyncComponent<VolumetricFogPlugin> for FogVolume {
+    type Target = Self;
 }

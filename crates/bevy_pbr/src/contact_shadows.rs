@@ -16,10 +16,10 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
+    sync_component::SyncComponent,
     view::ExtractedView,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
-use bevy_utils::default;
 
 /// Enables contact shadows for a camera.
 pub struct ContactShadowsPlugin;
@@ -58,7 +58,7 @@ impl Default for ContactShadows {
 }
 
 /// A version of [`ContactShadows`] for upload to the GPU.
-#[derive(Clone, Copy, Component, ShaderType, Default)]
+#[derive(Clone, Copy, ShaderType, Default)]
 pub struct ContactShadowsUniform {
     pub linear_steps: u32,
     pub thickness: f32,
@@ -79,10 +79,14 @@ impl From<ContactShadows> for ContactShadowsUniform {
     }
 }
 
+impl SyncComponent for ContactShadows {
+    type Target = (Self, ViewContactShadowsUniformOffset);
+}
+
 impl ExtractComponent for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
-    type Out = ContactShadows;
+    type Out = Self;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(*settings)
@@ -103,7 +107,7 @@ impl Plugin for ContactShadowsPlugin {
         };
 
         render_app
-            .init_resource::<ContactShadowsBuffer>()
+            .init_gpu_resource::<ContactShadowsBuffer>()
             .add_systems(
                 Render,
                 prepare_contact_shadows_settings.in_set(RenderSystems::PrepareResources),
@@ -113,29 +117,25 @@ impl Plugin for ContactShadowsPlugin {
 
 fn prepare_contact_shadows_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ContactShadows>), With<ExtractedView>>,
+    views: Query<(Entity, &ContactShadows), With<ExtractedView>>,
     mut contact_shadows_buffer: ResMut<ContactShadowsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    contact_shadows_buffer.0.clear();
+    let Some(mut writer) =
+        contact_shadows_buffer
+            .0
+            .get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
     for (entity, settings) in &views {
-        let uniform = if let Some(settings) = settings {
-            ContactShadowsUniform::from(*settings)
-        } else {
-            ContactShadowsUniform {
-                linear_steps: 0,
-                ..default()
-            }
-        };
-        let offset = contact_shadows_buffer.0.push(&uniform);
+        let uniform = ContactShadowsUniform::from(*settings);
+        let offset = writer.write(&uniform);
         commands
             .entity(entity)
             .insert(ViewContactShadowsUniformOffset(offset));
     }
-    contact_shadows_buffer
-        .0
-        .write_buffer(&render_device, &render_queue);
 }
 
 /// A component that stores the offset within the [`ContactShadowsBuffer`] for

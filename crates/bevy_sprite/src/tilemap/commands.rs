@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_ecs::{
     entity::Entity,
+    error::BevyError,
     hierarchy::ChildOf,
     system::{Command, Commands},
     world::World,
@@ -30,7 +31,7 @@ impl CommandsTilemapExt for Commands<'_, '_> {
         maybe_tile: Option<T>,
     ) {
         self.queue(move |world: &mut World| {
-            SetTile {
+            let _ = SetTile {
                 tilemap_id,
                 tile_position,
                 maybe_tile,
@@ -70,16 +71,18 @@ impl<T: Send + Sync + 'static> Default for SetTileResult<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
-    fn apply(self, world: &mut World) -> SetTileResult<T> {
+impl<T: Send + Sync + 'static> Command for SetTile<T> {
+    type Out = Result<SetTileResult<T>, BevyError>;
+
+    fn apply(self, world: &mut World) -> Result<SetTileResult<T>, BevyError> {
         let Ok(mut tilemap_entity) = world.get_entity_mut(self.tilemap_id) else {
             tracing::warn!("Could not find Tilemap Entity {:?}", self.tilemap_id);
-            return Default::default();
+            return Ok(Default::default());
         };
 
         let Some(tilemap) = tilemap_entity.get::<Tilemap>() else {
             tracing::warn!("Could not find Tilemap on Entity {:?}", self.tilemap_id);
-            return Default::default();
+            return Ok(Default::default());
         };
 
         let chunk_position = tilemap.tile_chunk_position(self.tile_position);
@@ -104,10 +107,10 @@ impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
 
                 tile_storage.set(tile_relative_position, self.maybe_tile)
             });
-            SetTileResult {
+            Ok(SetTileResult {
                 chunk_id: Some(tile_storage_id),
                 replaced_tile,
-            }
+            })
         } else {
             let tile_storage_id = tilemap_entity.world_scope(move |w| {
                 let mut tile_storage = TileStorage::<T>::new(chunk_size);
@@ -122,13 +125,13 @@ impl<T: Send + Sync + 'static> Command<SetTileResult<T>> for SetTile<T> {
             });
             let Some(mut tilemap) = tilemap_entity.get_mut::<Tilemap>() else {
                 tracing::warn!("Could not find Tilemap on Entity {:?}", self.tilemap_id);
-                return Default::default();
+                return Ok(Default::default());
             };
             tilemap.chunks.insert(chunk_position, tile_storage_id);
-            SetTileResult {
+            Ok(SetTileResult {
                 chunk_id: Some(tile_storage_id),
                 replaced_tile: None,
-            }
+            })
         }
     }
 }
@@ -139,6 +142,8 @@ pub struct RemoveTile {
 }
 
 impl Command for RemoveTile {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         let Ok(mut tilemap_entity) = world.get_entity_mut(self.tilemap_id) else {
             tracing::warn!("Could not find Tilemap Entity {:?}", self.tilemap_id);

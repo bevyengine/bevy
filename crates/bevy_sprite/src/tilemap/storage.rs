@@ -35,6 +35,15 @@ impl<T: Send + Sync + 'static> TileStorage<T> {
         Self { tiles, size }
     }
 
+    pub fn new_with_tiles(size: UVec2, tiles: Vec<Option<T>>) -> Self {
+        assert_eq!(
+            tiles.len(),
+            size.element_product() as usize,
+            "The number of tiles must match the size of the tile storage"
+        );
+        Self { tiles, size }
+    }
+
     pub fn index(&self, tile_coord: UVec2) -> usize {
         (tile_coord.y * self.size.x + tile_coord.x) as usize
     }
