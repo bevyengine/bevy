@@ -41,7 +41,7 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
-    /// Emit a warning if this command is dropped before it is applied.
+    /// Emit a warning if a command is dropped before it is applied.
     /// Default true.
     ///
     /// This setting can be turned off for commands that might be dropped in ordinary situations,
