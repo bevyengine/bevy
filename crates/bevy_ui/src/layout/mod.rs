@@ -88,6 +88,7 @@ pub fn ui_layout_system(
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
         )>,
+        Query<(&mut ComputedNode, &mut UiGlobalTransform, &ComputedLayout)>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
@@ -145,7 +146,21 @@ pub fn ui_layout_system(
     for mut computed_layout in &mut node_queries.p0() {
         computed_layout
             .bypass_change_detection()
-            .clear_if_unvisited();
+            .clear_if_unreachable();
+    }
+
+    for (mut node, mut global_transform, computed_layout) in &mut node_queries.p2() {
+        if computed_layout.get(true).is_some() {
+            continue;
+        }
+
+        if *node != ComputedNode::DEFAULT {
+            *node = ComputedNode::DEFAULT;
+        }
+
+        if *global_transform != UiGlobalTransform::default() {
+            *global_transform = UiGlobalTransform::default();
+        }
     }
 
     // Returns the combined bounding box of the node and any of its overflowing children.
@@ -795,6 +810,10 @@ mod tests {
             app.world_mut().entity_mut(mid).remove::<GhostNode>();
             app.update();
             assert!(!has_layout(&app, child));
+            assert_eq!(
+                app.world().get::<ComputedNode>(child).unwrap().size(),
+                Vec2::ZERO
+            );
 
             app.world_mut().entity_mut(mid).insert(GhostNode);
             app.update();

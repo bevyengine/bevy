@@ -52,7 +52,7 @@ impl ComputedLayout {
         self.visited = false;
     }
 
-    pub(crate) fn clear_if_unvisited(&mut self) {
+    pub(crate) fn clear_if_unreachable(&mut self) {
         if !self.visited {
             self.clear();
             self.cache.clear();
