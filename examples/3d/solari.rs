@@ -22,8 +22,11 @@ use rand::{RngExt, SeedableRng};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_alias::dlss::{
-    Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+use bevy::{
+    anti_alias::dlss::{
+        Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+    },
+    render::camera::{MipBias, TemporalJitter},
 };
 
 /// `bevy_solari` demo.
@@ -64,11 +67,14 @@ fn main() {
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
     } else {
+        app.add_systems(Update, toggle_quarter_res);
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        app.add_systems(Update, toggle_dlss_rr);
+
         if args.many_lights != Some(true) {
-            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path))
-                .add_systems(PostUpdate, update_control_text);
+            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
         }
-        app.add_systems(PostUpdate, update_performance_text);
+        app.add_systems(PostUpdate, (update_control_text, update_performance_text));
     }
 
     app.run();
@@ -352,6 +358,17 @@ fn setup_many_lights(
     }
 
     commands.spawn((
+        ControlText,
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(12.0),
+            left: px(12.0),
+            ..default()
+        },
+    ));
+
+    commands.spawn((
         Node {
             position_type: PositionType::Absolute,
             right: px(0.0),
@@ -443,6 +460,45 @@ fn add_raytracing_meshes_on_scene_load(
     }
 }
 
+fn toggle_quarter_res(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut solari_lighting: Single<&mut SolariLighting>,
+) {
+    if key_input.just_pressed(KeyCode::Digit3) {
+        solari_lighting.quarter_resolution_direct_lighting =
+            !solari_lighting.quarter_resolution_direct_lighting;
+    }
+    if key_input.just_pressed(KeyCode::Digit4) {
+        solari_lighting.quarter_resolution_indirect_lighting =
+            !solari_lighting.quarter_resolution_indirect_lighting;
+    }
+}
+
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+fn toggle_dlss_rr(
+    key_input: Res<ButtonInput<KeyCode>>,
+    camera: Single<(Entity, Has<Dlss<DlssRayReconstructionFeature>>), With<SolariLighting>>,
+    dlss_rr_supported: Option<Res<DlssRayReconstructionSupported>>,
+    mut commands: Commands,
+) {
+    if key_input.just_pressed(KeyCode::Digit5) && dlss_rr_supported.is_some() {
+        let (entity, dlss) = *camera;
+        if dlss {
+            commands
+                .entity(entity)
+                .remove::<(Dlss<DlssRayReconstructionFeature>, TemporalJitter, MipBias)>();
+        } else {
+            commands
+                .entity(entity)
+                .insert(Dlss::<DlssRayReconstructionFeature> {
+                    perf_quality_mode: Default::default(),
+                    reset: Default::default(),
+                    _phantom_data: Default::default(),
+                });
+        }
+    }
+}
+
 fn pause_scene(mut time: ResMut<Time<Virtual>>, key_input: Res<ButtonInput<KeyCode>>) {
     if key_input.just_pressed(KeyCode::Space) {
         time.toggle();
@@ -530,38 +586,64 @@ fn update_control_text(
     robot_light_material: Option<Res<RobotLightMaterial>>,
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
+    solari_lighting: Single<&SolariLighting>,
     time: Res<Time<Virtual>>,
+    args: Res<Args>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
         Res<DlssRayReconstructionSupported>,
+    >,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_camera: Query<
+        Has<Dlss<DlssRayReconstructionFeature>>,
+        With<SolariLighting>,
     >,
 ) {
     text.0.clear();
 
-    if time.is_paused() {
-        text.0.push_str("(Space): Resume");
-    } else {
-        text.0.push_str("(Space): Pause");
+    if args.many_lights != Some(true) {
+        if time.is_paused() {
+            text.0.push_str("(Space): Resume");
+        } else {
+            text.0.push_str("(Space): Pause");
+        }
+
+        if directional_light.single().is_ok() {
+            text.0.push_str("\n(1): Disable directional light");
+        } else {
+            text.0.push_str("\n(1): Enable directional light");
+        }
+
+        match robot_light_material.and_then(|m| materials.get(&m.0)) {
+            Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
+                text.0.push_str("\n(2): Disable robot emissive light");
+            }
+            _ => {
+                text.0.push_str("\n(2): Enable robot emissive light");
+            }
+        }
     }
 
-    if directional_light.single().is_ok() {
-        text.0.push_str("\n(1): Disable directional light");
+    if solari_lighting.quarter_resolution_direct_lighting {
+        text.0
+            .push_str("\n(3): Disable quarter-res direct lighting");
     } else {
-        text.0.push_str("\n(1): Enable directional light");
+        text.0.push_str("\n(3): Enable quarter-res direct lighting");
     }
 
-    match robot_light_material.and_then(|m| materials.get(&m.0)) {
-        Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
-            text.0.push_str("\n(2): Disable robot emissive light");
-        }
-        _ => {
-            text.0.push_str("\n(2): Enable robot emissive light");
-        }
+    if solari_lighting.quarter_resolution_indirect_lighting {
+        text.0
+            .push_str("\n(4): Disable quarter-res indirect lighting");
+    } else {
+        text.0
+            .push_str("\n(4): Enable quarter-res indirect lighting");
     }
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        text.0
-            .push_str("\nDenoising: DLSS Ray Reconstruction enabled");
+        if matches!(dlss_camera.single(), Ok(true)) {
+            text.0.push_str("\n(5): Disable DLSS Ray Reconstruction");
+        } else {
+            text.0.push_str("\n(5): Enable DLSS Ray Reconstruction");
+        }
     } else {
         text.0
             .push_str("\nDenoising: DLSS Ray Reconstruction not supported");
@@ -578,6 +660,10 @@ struct PerformanceText;
 fn update_performance_text(
     mut text: Single<&mut Text, With<PerformanceText>>,
     diagnostics: Res<DiagnosticsStore>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_camera: Query<
+        Has<Dlss<DlssRayReconstructionFeature>>,
+        With<SolariLighting>,
+    >,
 ) {
     text.0.clear();
 
@@ -610,7 +696,10 @@ fn update_performance_text(
         "Specular indirect",
         "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
     );
-    (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if matches!(dlss_camera.single(), Ok(true)) {
+        (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    }
     text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
 
     if let Some(world_cache_active_cells_count) = diagnostics

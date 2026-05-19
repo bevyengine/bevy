@@ -6,7 +6,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
-#import bevy_render::view::View
+#import bevy_solari::resolution_utils::{gi_resolution, gi_thread_to_full_resolution_pixel, gi_reservoir_index}
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}
@@ -23,16 +23,17 @@ const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
+    if any(global_id.xy >= gi_resolution()) { return; }
 
-    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
+    let pixel_id = gi_thread_to_full_resolution_pixel(global_id.xy);
+    let pixel_index = pixel_id.x + pixel_id.y * u32(view.main_pass_viewport.z);
     var rng = pixel_index + constants.frame_index;
 
-    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    let depth = textureLoad(depth_buffer, pixel_id, 0);
     if depth == 0.0 {
         return;
     }
-    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
 
     let wo_unnormalized = view.world_position - surface.world_position;
     let wo_length = length(wo_unnormalized);
@@ -42,7 +43,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var wi: vec3<f32>;
     if surface.material.roughness > DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
         // Surface is very rough, reuse the ReSTIR GI reservoir
-        let gi_reservoir = gi_reservoirs_a[pixel_index];
+        let gi_reservoir = gi_reservoirs_a[gi_reservoir_index(pixel_id)];
         wi = normalize(gi_reservoir.sample_point_world_position - surface.world_position);
         radiance = gi_reservoir.radiance * gi_reservoir.unbiased_contribution_weight;
     } else {
@@ -60,7 +61,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
             wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
             let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-            radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng);
+            radiance = trace_glossy_path(pixel_id, surface, wo_length, wi, pdf, &rng);
             if surface.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
                 radiance /= pdf;
             }
@@ -70,12 +71,16 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material);
     radiance *= brdf * view.exposure;
 
-    var pixel_color = textureLoad(view_output, global_id.xy);
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        radiance *= 4.0;
+    }
+
+    var pixel_color = textureLoad(view_output, pixel_id);
     pixel_color += vec4(radiance, 0.0);
-    textureStore(view_output, global_id.xy, pixel_color);
+    textureStore(view_output, pixel_id, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
+    textureStore(view_output, pixel_id, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
 #endif
 }
 
