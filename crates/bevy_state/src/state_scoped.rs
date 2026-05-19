@@ -759,8 +759,11 @@ pub fn enable_entities_on_enter_state<S: States>(
     }
 }
 
-/// Entities marked with this component will be automatically Enabled when the world is in the given state, and disabled otherwise.
-/// This component takes ownership of adding or removing entity's [`Disabled`] component.
+/// Entities marked with this component will be automatically enabled
+/// when the world is in the given state, and disabled otherwise.
+/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// at state transitions and component insertion.
+///
 /// Use [`EnableOnEnter`] and [`DisableOnExit`] separately if you need finer control.
 ///
 /// ```
@@ -794,6 +797,8 @@ pub fn enable_entities_on_enter_state<S: States>(
 /// app.init_state::<GameState>();
 /// app.add_systems(Startup, spawn_player);
 /// ```
+///
+/// See also [`EnabledIf`] and [`DisabledIn`].
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct EnabledIn<S: States>(pub S);
@@ -804,8 +809,8 @@ impl<S: States + Default> Default for EnabledIn<S> {
     }
 }
 
-/// Enables entities marked with [`EnabledIn<S>`] when their state
-/// matches the world state and disables when they don't.
+/// Enables or disables entities marked with [`EnabledIn<S>`] on state transition.
+/// Removes [`Disabled`] when entering the target state, inserts it when exiting.
 pub fn update_enabled_in_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
@@ -833,8 +838,8 @@ pub fn update_enabled_in_state<S: States>(
     }
 }
 
-/// On [`EnabledIn<S>`] insertion updates [`Disabled`] component depending on world state
-pub fn on_enabled_in_spawn<S: States>(
+/// On [`EnabledIn<S>`] insertion updates [`Disabled`] component of that entity based on current state.
+pub fn on_enabled_in_insert<S: States>(
     on: On<Insert, EnabledIn<S>>,
     mut commands: Commands,
     current_state: Option<Res<State<S>>>,
@@ -844,7 +849,7 @@ pub fn on_enabled_in_spawn<S: States>(
     let Ok(enabled_in) = query.get(entity) else {
         return;
     };
-    let in_target_state = current_state.is_some_and(|s| *s == enabled_in.0);
+    let in_target_state = current_state.is_some_and(|s| s.get() == &enabled_in.0);
     if in_target_state {
         commands
             .entity(entity)
@@ -856,9 +861,12 @@ pub fn on_enabled_in_spawn<S: States>(
     }
 }
 
-/// Entities marked with this component will be automatically Disabled when the world is in the given state, and enabled otherwise.
-/// This component takes ownership of adding or removing entity's [`Disabled`] component.
-/// Use [`EnableOnEnter`] and [`DisableOnExit`] separately if you need finer control.
+/// Entities marked with this component will be automatically disabled
+/// when the world is in the given state, and enabled otherwise.
+/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// at state transitions and component insertion.
+///
+/// Use [`DisableOnEnter`] and [`EnableOnExit`] separately if you need finer control.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -891,6 +899,8 @@ pub fn on_enabled_in_spawn<S: States>(
 /// app.init_state::<GameState>();
 /// app.add_systems(Startup, spawn_player);
 /// ```
+///
+/// See also [`DisabledIf`] and [`EnabledIn`].
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct DisabledIn<S: States>(pub S);
@@ -901,8 +911,8 @@ impl<S: States + Default> Default for DisabledIn<S> {
     }
 }
 
-/// Disables entities marked with [`DisabledIn<S>`] when their state
-/// matches the world state and enables when they don't.
+/// Disables or enables entities marked with [`DisabledIn<S>`] on state transition.
+/// Inserts [`Disabled`] when entering the target state, removes it when exiting.
 pub fn update_disabled_in_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
@@ -930,8 +940,8 @@ pub fn update_disabled_in_state<S: States>(
     }
 }
 
-/// On [`DisabledIn<S>`] insertion updates [`Disabled`] component depending on world state
-pub fn on_disabled_in_spawn<S: States>(
+/// On [`DisabledIn<S>`] insertion updates [`Disabled`] component of that entity based on current state.
+pub fn on_disabled_in_insert<S: States>(
     on: On<Insert, DisabledIn<S>>,
     mut commands: Commands,
     current_state: Option<Res<State<S>>>,
@@ -941,9 +951,235 @@ pub fn on_disabled_in_spawn<S: States>(
     let Ok(disabled_in) = query.get(entity) else {
         return;
     };
-    // If state isn't initialized, assume it's not in the target state
-    let in_target_state = current_state.is_some_and(|s| *s == disabled_in.0);
+    let in_target_state = current_state.is_some_and(|s| s.get() == &disabled_in.0);
     if in_target_state {
+        commands
+            .entity(entity)
+            .insert_recursive::<Children>(Disabled);
+    } else {
+        commands
+            .entity(entity)
+            .remove_recursive::<Children, Disabled>();
+    }
+}
+
+/// Entities marked with this component will be automatically enabled
+/// when predicate returns `true` for current state, disabled otherwise.
+/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// at state transitions and component insertion.
+///
+/// ```
+/// # use bevy_app::Startup;
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::{prelude::*, system::ScheduleSystem};
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     InGame,
+/// }
+/// # #[derive(Component)]
+/// # struct Player;
+/// fn spawn_player(mut commands: Commands) {
+///     commands.spawn((
+///         EnabledIf::new(|s|  matches!(
+///             s,
+///             GameState::InGame
+///         )),
+///         Player,
+///     ));
+/// }
+///
+/// # struct AppMock;
+/// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
+/// # }
+/// # struct Update;
+/// # let mut app = AppMock;
+///
+/// app.init_state::<GameState>();
+/// app.add_systems(Startup, spawn_player);
+/// ```
+///
+/// See also [`DisabledIf`] and [`EnabledIn`].
+#[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+pub struct EnabledIf<S: States> {
+    /// The predicate used to determine if the entity should be enabled for the given state.
+    pub predicate: Box<dyn Fn(&S) -> bool + Sync + Send + 'static>,
+}
+
+impl<S: States> EnabledIf<S> {
+    /// Creates an [`EnabledIf`] for the given predicate.
+    pub fn new(f: impl Fn(&S) -> bool + Sync + Send + 'static) -> Self {
+        Self {
+            predicate: Box::new(f),
+        }
+    }
+}
+
+/// Enables or disables entities marked with [`EnabledIf<S>`] based on their predicate evaluated against the entered state.
+/// Removes [`Disabled`] when `true` and inserts it when `false`.
+pub fn update_enabled_if_state<S: States>(
+    mut commands: Commands,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &EnabledIf<S>), Allow<Disabled>>,
+) {
+    // We use the latest event, because state machine internals generate at most 1
+    // transition event (per type) each frame. No event means no change happened
+    // and we skip iterating all entities.
+    let Some(transition) = transitions.read().last() else {
+        return;
+    };
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
+        return;
+    }
+    for (entity, enabled_if) in &query {
+        let should_enable = transition
+            .entered
+            .as_ref()
+            .is_some_and(|s| (enabled_if.predicate)(s));
+        if should_enable {
+            commands
+                .entity(entity)
+                .remove_recursive::<Children, Disabled>();
+        } else {
+            commands
+                .entity(entity)
+                .insert_recursive::<Children>(Disabled);
+        }
+    }
+}
+
+/// On [`EnabledIf<S>`] insertion updates [`Disabled`] component depending on predicate evaluated against the current state.
+pub fn on_enabled_if_insert<S: States>(
+    on: On<Insert, EnabledIf<S>>,
+    mut commands: Commands,
+    current_state: Option<Res<State<S>>>,
+    query: Query<&EnabledIf<S>, Allow<Disabled>>,
+) {
+    let entity = on.entity;
+    let Ok(enabled_if) = query.get(entity) else {
+        return;
+    };
+    let should_enable = current_state.is_some_and(|s| (enabled_if.predicate)(s.get()));
+    if should_enable {
+        commands
+            .entity(entity)
+            .remove_recursive::<Children, Disabled>();
+    } else {
+        commands
+            .entity(entity)
+            .insert_recursive::<Children>(Disabled);
+    }
+}
+
+/// Entities marked with this component will be automatically disabled
+/// when predicate returns `true` for current state, enabled otherwise.
+/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// at state transitions and component insertion.
+///
+/// ```
+/// # use bevy_app::Startup;
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::{prelude::*, system::ScheduleSystem};
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     InGame,
+///     Settings,
+/// }
+/// # #[derive(Component)]
+/// # struct Player;
+/// fn spawn_player(mut commands: Commands) {
+///     commands.spawn((
+///         DisabledIf::new(|s|  matches!(
+///             s,
+///             GameState::MainMenu | GameState::Settings
+///         )),
+///         Player,
+///     ));
+/// }
+///
+/// # struct AppMock;
+/// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
+/// # }
+/// # struct Update;
+/// # let mut app = AppMock;
+///
+/// app.init_state::<GameState>();
+/// app.add_systems(Startup, spawn_player);
+/// ```
+///
+/// See also [`EnabledIf`] and [`DisabledIn`].
+#[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+pub struct DisabledIf<S: States> {
+    /// The predicate used to determine if the entity should be disabled for the given state.
+    pub predicate: Box<dyn Fn(&S) -> bool + Sync + Send + 'static>,
+}
+
+impl<S: States> DisabledIf<S> {
+    /// Creates a [`DisabledIf`] for the given predicate.
+    pub fn new(f: impl Fn(&S) -> bool + Sync + Send + 'static) -> Self {
+        Self {
+            predicate: Box::new(f),
+        }
+    }
+}
+
+/// Disables or enables entities marked with [`DisabledIf<S>`] based on their predicate evaluated against the entered state.
+/// Inserts [`Disabled`] when `true` and removes it when `false`.
+pub fn update_disabled_if_state<S: States>(
+    mut commands: Commands,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
+    query: Query<(Entity, &DisabledIf<S>), Allow<Disabled>>,
+) {
+    // We use the latest event, because state machine internals generate at most 1
+    // transition event (per type) each frame. No event means no change happened
+    // and we skip iterating all entities.
+    let Some(transition) = transitions.read().last() else {
+        return;
+    };
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
+        return;
+    }
+    for (entity, disabled_if) in &query {
+        let should_disable = transition
+            .entered
+            .as_ref()
+            .is_some_and(|s| (disabled_if.predicate)(s));
+        if should_disable {
+            commands
+                .entity(entity)
+                .insert_recursive::<Children>(Disabled);
+        } else {
+            commands
+                .entity(entity)
+                .remove_recursive::<Children, Disabled>();
+        }
+    }
+}
+
+/// On [`DisabledIf<S>`] insertion updates [`Disabled`] component depending on predicate evaluated against the current state.
+pub fn on_disabled_if_insert<S: States>(
+    on: On<Insert, DisabledIf<S>>,
+    mut commands: Commands,
+    current_state: Option<Res<State<S>>>,
+    query: Query<&DisabledIf<S>, Allow<Disabled>>,
+) {
+    let entity = on.entity;
+    let Ok(disabled_if) = query.get(entity) else {
+        return;
+    };
+    let should_disable = current_state.is_some_and(|s| (disabled_if.predicate)(s.get()));
+    if should_disable {
         commands
             .entity(entity)
             .insert_recursive::<Children>(Disabled);
@@ -1089,17 +1325,19 @@ mod tests {
         }
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
+
         app.insert_state(State::Off);
         app.update();
         let entity = app.world_mut().spawn(EnabledIn(State::On)).id();
         assert!(app.world().get::<Disabled>(entity).is_some());
+
         app.world_mut().commands().set_state(State::On);
         app.update();
         assert!(app.world().get::<Disabled>(entity).is_none());
     }
 
     #[test]
-    fn disabled_in_spawns_outside_target_state() {
+    fn disabled_in_spawns_inside_target_state() {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
         enum State {
             On,
@@ -1107,11 +1345,78 @@ mod tests {
         }
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
-        app.insert_state(State::On);
+
+        app.insert_state(State::Off);
         app.update();
         let entity = app.world_mut().spawn(DisabledIn(State::Off)).id();
+        assert!(app.world().get::<Disabled>(entity).is_some());
+
+        app.world_mut().commands().set_state(State::On);
+        app.update();
         assert!(app.world().get::<Disabled>(entity).is_none());
-        app.world_mut().commands().set_state(State::Off);
+    }
+
+    #[test]
+    fn enabled_if_spawns_outside_target_state() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            On,
+            Off,
+            Limbo,
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::Off);
+        app.update();
+        let entity = app
+            .world_mut()
+            .spawn(EnabledIf::new(|state: &State| {
+                matches!(state, State::On | State::Limbo) // predicate evals to false - Disabled
+            }))
+            .id();
+        assert!(app.world().get::<Disabled>(entity).is_some());
+
+        // predicate evals to true - Enabled
+        app.world_mut().commands().set_state(State::Limbo);
+        app.update();
+        assert!(app.world().get::<Disabled>(entity).is_none());
+
+        // predicate evals to true - Enabled
+        app.world_mut().commands().set_state(State::On);
+        app.update();
+        assert!(app.world().get::<Disabled>(entity).is_none());
+    }
+
+    #[test]
+    fn disabled_if_spawns_inside_target_state() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            On,
+            Off,
+            Limbo,
+        }
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::Off);
+        app.update();
+        let entity = app
+            .world_mut()
+            .spawn(DisabledIf::new(|state: &State| {
+                matches!(state, State::Off | State::Limbo) // predicate evals to true - Disabled
+            }))
+            .id();
+        assert!(app.world().get::<Disabled>(entity).is_some());
+
+        // predicate evals to false - Enabled
+        app.world_mut().commands().set_state(State::On);
+        app.update();
+        assert!(app.world().get::<Disabled>(entity).is_none());
+
+        // predicate evals to true - Disabled
+        app.world_mut().commands().set_state(State::Limbo);
         app.update();
         assert!(app.world().get::<Disabled>(entity).is_some());
     }

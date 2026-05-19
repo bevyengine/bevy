@@ -94,7 +94,7 @@ pub mod prelude {
         },
         state_scoped::{
             DespawnOnEnter, DespawnOnExit, DespawnWhen, DisableOnEnter, DisableOnExit, DisableWhen,
-            DisabledIn, EnableOnEnter, EnableOnExit, EnableWhen, EnabledIn,
+            DisabledIf, DisabledIn, EnableOnEnter, EnableOnExit, EnableWhen, EnabledIf, EnabledIn,
         },
     };
 }
