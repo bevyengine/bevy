@@ -7,7 +7,7 @@ use bevy_ecs::{
     entity::Entity,
     entity_disabling::Disabled,
     hierarchy::Children,
-    lifecycle::Insert,
+    lifecycle::{Insert, Remove},
     message::MessageReader,
     observer::On,
     query::{Allow, With},
@@ -764,6 +764,9 @@ pub fn enable_entities_on_enter_state<S: States>(
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
 ///
+/// # Safety
+/// System is added on state registration, so `Res<State<S>>` should always exist
+///
 /// Use [`EnableOnEnter`] and [`DisableOnExit`] separately if you need finer control.
 ///
 /// ```
@@ -842,14 +845,14 @@ pub fn update_enabled_in_state<S: States>(
 pub fn on_enabled_in_insert<S: States>(
     on: On<Insert, EnabledIn<S>>,
     mut commands: Commands,
-    current_state: Option<Res<State<S>>>,
+    current_state: Res<State<S>>,
     query: Query<&EnabledIn<S>, Allow<Disabled>>,
 ) {
     let entity = on.entity;
     let Ok(enabled_in) = query.get(entity) else {
         return;
     };
-    let in_target_state = current_state.is_some_and(|s| s.get() == &enabled_in.0);
+    let in_target_state = current_state.get() == &enabled_in.0;
     if in_target_state {
         commands
             .entity(entity)
@@ -865,6 +868,9 @@ pub fn on_enabled_in_insert<S: States>(
 /// when the world is in the given state, and enabled otherwise.
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
+///
+/// # Safety
+/// System is added on state registration, so `Res<State<S>>` should always exist
 ///
 /// Use [`DisableOnEnter`] and [`EnableOnExit`] separately if you need finer control.
 ///
@@ -944,14 +950,14 @@ pub fn update_disabled_in_state<S: States>(
 pub fn on_disabled_in_insert<S: States>(
     on: On<Insert, DisabledIn<S>>,
     mut commands: Commands,
-    current_state: Option<Res<State<S>>>,
+    current_state: Res<State<S>>,
     query: Query<&DisabledIn<S>, Allow<Disabled>>,
 ) {
     let entity = on.entity;
     let Ok(disabled_in) = query.get(entity) else {
         return;
     };
-    let in_target_state = current_state.is_some_and(|s| s.get() == &disabled_in.0);
+    let in_target_state = current_state.get() == &disabled_in.0;
     if in_target_state {
         commands
             .entity(entity)
@@ -967,6 +973,10 @@ pub fn on_disabled_in_insert<S: States>(
 /// when predicate returns `true` for current state, disabled otherwise.
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
+///
+/// # Safety
+/// System is added on state registration, so `Res<State<S>>` should always exist
+///
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -1081,6 +1091,9 @@ pub fn on_enabled_if_insert<S: States>(
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
 ///
+/// # Safety
+/// System is added on state registration, so `Res<State<S>>` should always exist
+///
 /// ```
 /// # use bevy_app::Startup;
 /// use bevy_state::prelude::*;
@@ -1171,14 +1184,14 @@ pub fn update_disabled_if_state<S: States>(
 pub fn on_disabled_if_insert<S: States>(
     on: On<Insert, DisabledIf<S>>,
     mut commands: Commands,
-    current_state: Option<Res<State<S>>>,
+    current_state: Res<State<S>>,
     query: Query<&DisabledIf<S>, Allow<Disabled>>,
 ) {
     let entity = on.entity;
     let Ok(disabled_if) = query.get(entity) else {
         return;
     };
-    let should_disable = current_state.is_some_and(|s| (disabled_if.predicate)(s.get()));
+    let should_disable = (disabled_if.predicate)(current_state.get());
     if should_disable {
         commands
             .entity(entity)
@@ -1188,6 +1201,14 @@ pub fn on_disabled_if_insert<S: States>(
             .entity(entity)
             .remove_recursive::<Children, Disabled>();
     }
+}
+
+/// Removes [`Disabled`] component from an entity when its managing state-driven disabling components are removed.
+/// i.e. [`EnabledIf`], [`DisabledIf`], [`EnabledIn`], [`DisabledIn`]
+pub fn on_state_disabled_component_remove<C: Component>(on: On<Remove, C>, mut commands: Commands) {
+    commands
+        .entity(on.entity)
+        .remove_recursive::<Children, Disabled>();
 }
 
 #[cfg(test)]
@@ -1333,6 +1354,16 @@ mod tests {
 
         app.world_mut().commands().set_state(State::On);
         app.update();
+        assert!(app.world().get::<Disabled>(entity).is_none());
+
+        app.world_mut().commands().set_state(State::Off);
+        app.update();
+        assert!(app.world().get::<Disabled>(entity).is_some());
+
+        // cleanup observer should remove the disabled component
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<EnabledIn<State>>();
         assert!(app.world().get::<Disabled>(entity).is_none());
     }
 
