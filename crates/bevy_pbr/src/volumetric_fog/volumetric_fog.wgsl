@@ -351,6 +351,20 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
         var density = density_factor;
+#ifdef DENSITY_TEXTURE
+            // Take the density texture into account, if there is one.
+            //
+            // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
+            // but sometimes due to floating point error they can. Handle this
+            // case.
+            let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
+            if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
+                density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
+            } else {
+                density = 0.0;
+            }
+#endif  // DENSITY_TEXTURE
+
         var sample_color = vec3(0.0);
 
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
