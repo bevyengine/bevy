@@ -2391,6 +2391,49 @@ mod tests {
     }
 
     #[test]
+    fn observer_set_chain_respects_run_if() {
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetA;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetB;
+        #[derive(ObserverSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct SetC;
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.insert_resource(RunConditionFlag(false));
+        world.configure_observer_sets((SetA, SetB, SetC).chain());
+
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("a");
+            })
+            .in_set(SetA),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("b");
+            })
+            .in_set(SetB)
+            .run_if(|flag: Res<RunConditionFlag>| flag.0),
+        );
+        world.spawn(
+            Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+                order.observed("c");
+            })
+            .in_set(SetC),
+        );
+
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "c"], world.resource::<Order>().0);
+
+        world.resource_mut::<Order>().0.clear();
+        world.resource_mut::<RunConditionFlag>().0 = true;
+        world.trigger(EventA);
+        assert_eq!(vec!["a", "b", "c"], world.resource::<Order>().0);
+    }
+
+    #[test]
     fn observer_naming_appears_in_dispatch_order() {
         let mut world = World::new();
         let observer = world
