@@ -10,7 +10,7 @@ use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
-    camera::CameraRenderGraph,
+    camera::{CameraRenderGraph, ViewTargetInfo},
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
@@ -40,7 +40,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::MainEntity,
     texture::TextureCache,
-    view::{Msaa, ViewDepthTexture},
+    view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
@@ -427,17 +427,13 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &ViewTargetInfo), (With<Camera2d>,)>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (view, camera, extracted_view, msaa) in &views_2d {
+    for (view, camera, extracted_view, target_info) in &views_2d {
         if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
         {
-            continue;
-        };
-
-        let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
@@ -447,9 +443,9 @@ pub fn prepare_core_2d_depth_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: target_info.size.to_extents(),
                     mip_level_count: 1,
-                    sample_count: msaa.samples(),
+                    sample_count: target_info.sample_count,
                     dimension: TextureDimension::D2,
                     format: CORE_2D_DEPTH_FORMAT,
                     usage: TextureUsages::RENDER_ATTACHMENT,

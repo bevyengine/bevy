@@ -1,6 +1,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+extern crate alloc;
 mod camera;
 mod clear_color;
+mod color_target;
 mod components;
 pub mod primitives;
 mod projection;
@@ -9,6 +11,7 @@ pub mod visibility;
 use bevy_ecs::schedule::SystemSet;
 pub use camera::*;
 pub use clear_color::*;
+pub use color_target::*;
 pub use components::*;
 pub use projection::*;
 

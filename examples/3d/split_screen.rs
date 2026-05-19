@@ -3,7 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::Viewport, light::CascadeShadowConfigBuilder, prelude::*, window::WindowResized,
+    camera::{ColorTarget, Viewport, WithColorTarget},
+    light::CascadeShadowConfigBuilder,
+    prelude::*,
+    window::WindowResized,
 };
 
 fn main() {
@@ -56,6 +59,8 @@ fn setup(
         .build(),
     ));
 
+    let color_target = commands.spawn(ColorTarget::default()).id();
+
     // Cameras and their dedicated UI
     for (index, (camera_name, camera_pos)) in [
         ("Player 1", Vec3::new(0.0, 200.0, -150.0)),
@@ -73,8 +78,12 @@ fn setup(
                 Camera {
                     // Renders cameras with different priorities to prevent ambiguities
                     order: index as isize,
+                    // The main texture is shared by cameras.
+                    // To make the result correct we should not writeback the data of previous camera.
+                    msaa_writeback: MsaaWriteback::Off,
                     ..default()
                 },
+                WithColorTarget(color_target),
                 CameraPosition {
                     pos: UVec2::new((index % 2) as u32, (index / 2) as u32),
                 },
