@@ -134,8 +134,8 @@ Example | Description
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap](../examples/2d/tilemap.rs) | Renders a tilemap
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
-[Tilemap Entities](../examples/2d/tilemap_entities.rs) | Renders a tilemap where each tile is an entity
 [Tilemap Chunk with Orientations](../examples/2d/tilemap_chunk_orientation.rs) | Renders a tilemap chunk using tile orientations (mirrored, rotated)
+[Tilemap Entities](../examples/2d/tilemap_entities.rs) | Renders a tilemap where each tile is an entity
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ### 3D Rendering
