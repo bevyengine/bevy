@@ -28,7 +28,7 @@ use crate::{
     controls::FeathersScrollbar,
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeTextColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
@@ -121,7 +121,7 @@ impl FeathersListRow {
                 padding: UiRect::axes(px(8), px(2)),
             }
             AccessibilityNode(accesskit::Node::new(Role::ListItem))
-            ThemeTextColor(tokens::LISTROW_TEXT)
+            InheritableThemeTextColor(tokens::LISTROW_TEXT)
             ThemeBackgroundColor(tokens::LISTROW_BG)
             InheritableFont {
                 font: fonts::REGULAR,
@@ -148,7 +148,7 @@ fn update_listrow_styles(
             Has<Selected>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeTextColor,
+            &InheritableThemeTextColor,
         ),
         (
             With<FeathersListRow>,
@@ -182,7 +182,7 @@ fn update_listrow_styles_remove(
             Has<Selected>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeTextColor,
+            &InheritableThemeTextColor,
         ),
         With<FeathersListRow>,
     >,
@@ -216,7 +216,7 @@ fn set_listrow_styles(
     selected: bool,
     hovered: bool,
     bg_color: &ThemeBackgroundColor,
-    font_color: &ThemeTextColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let outline_bg_token = match (disabled, selected, hovered) {
@@ -246,7 +246,7 @@ fn set_listrow_styles(
     if font_color.0 != font_color_token {
         commands
             .entity(listrow_ent)
-            .insert(ThemeTextColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 
     // Change cursor shape
