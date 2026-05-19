@@ -57,8 +57,8 @@ impl Plugin for TilemapChunkPlugin {
 #[reflect(Resource, Default)]
 pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
-/// A component representing a chunk of a tilemap.
-/// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
+/// A component representing the information needed to render a chunk of a tilemap.
+/// Requires a `TileStorage<TileRenderData>` component to be present on the same entity to provide the tile data for the chunk.
 #[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
@@ -74,8 +74,9 @@ pub struct TilemapChunkRenderData {
     pub alpha_mode: AlphaMode2d,
 }
 
-/// A component representing a chunk of a tilemap.
-/// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
+/// A component representing the information needed to render chunks in a tilemap.
+/// This component is copied/applied to the TilemapChunkRenderData of each chunk in the tilemap,
+/// so that the chunk has all the information it needs to render itself without needing to query for data from its parent tilemap.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Clone, Debug, Default)]
 #[require(Transform, Visibility)]
