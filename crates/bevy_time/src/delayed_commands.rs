@@ -26,7 +26,10 @@ impl<'w, 's> DelayedCommands<'w, 's> {
     #[must_use = "The returned Commands must be used to submit commands with this delay."]
     pub fn duration(&mut self, duration: Duration) -> Commands<'w, '_> {
         // Fetch a queue with the given duration or create one
-        let queue = self.queues.entry(duration).or_default();
+        let queue = self
+            .queues
+            .entry(duration)
+            .or_insert(CommandQueue::silent());
         // Return a new `Commands` to write commands to the queue
         self.commands.rebound_to(queue)
     }

@@ -41,6 +41,15 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
+    /// An unapplied drop should only warn users if it not being applied is unexpected.
+    ///
+    /// Something like delayed commands should not warn if unapplied b/c it being unapplied
+    /// is expected in some relatively common situations (i.e. if the program exits before application).
+    ///
+    /// This should *only* be enabled once confidence is established that command queues are applied where
+    /// applicable, as it turns off a really useful debug tool (but targeted at situations where the tool
+    /// doesn't make sense).
+    pub(crate) warn_on_unapplied: bool,
 }
 
 impl Default for CommandQueue {
@@ -51,6 +60,7 @@ impl Default for CommandQueue {
             cursor: Default::default(),
             panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
+            warn_on_unapplied: true,
         }
     }
 }
@@ -85,6 +95,19 @@ unsafe impl Send for CommandQueue {}
 unsafe impl Sync for CommandQueue {}
 
 impl CommandQueue {
+    /// Create a queue that does not warn when dropped if unapplied.
+    // There are specific, narrow usecases for this (i.e. delayed commands)
+    #[track_caller]
+    pub fn silent() -> Self {
+        CommandQueue {
+            bytes: Default::default(),
+            cursor: Default::default(),
+            panic_recovery: Default::default(),
+            caller: MaybeLocation::caller(),
+            warn_on_unapplied: false,
+        }
+    }
+
     /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push(&mut self, command: impl Command<Out = ()>) {
@@ -322,7 +345,7 @@ impl RawCommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        if !self.bytes.is_empty() {
+        if !self.bytes.is_empty() && self.warn_on_unapplied {
             if let Some(caller) = self.caller.into_option() {
                 warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{caller:?}");
             } else {
