@@ -51,9 +51,6 @@ pub struct ListItem;
 #[component(immutable)]
 pub struct ActiveDescendant(pub Option<Entity>);
 
-// TODO:
-// * Scroll into view when keyboard navigating
-
 fn listbox_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
     q_listbox: Query<&ActiveDescendant, With<ListBox>>,
@@ -237,6 +234,11 @@ fn listbox_on_row_click(
             // If they clicked the currently checked list row, do nothing
             return;
         }
+
+        // Clicking sets the active descendant
+        commands
+            .entity(ev.entity)
+            .insert(ActiveDescendant(Some(row_id)));
 
         // Trigger the on_change event for the newly checked list row
         commands.trigger(ValueChange::<Entity> {

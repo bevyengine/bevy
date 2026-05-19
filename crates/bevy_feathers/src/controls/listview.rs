@@ -130,7 +130,6 @@ impl FeathersListRow {
             }
             Hovered
             ListItem
-            FeathersListRow
         }
     }
 }
@@ -267,7 +266,6 @@ fn on_change_focus(
             && let Ok(active_descendant) = q_listbox.get(focus_entity)
         {
             // Highlight the active descendant of the current focused listbox, clear all others.
-            // TODO: Set active descendant if not set.
             highlight_active(
                 &q_row_outline,
                 &mut commands,

@@ -49,7 +49,6 @@ impl FeathersScrollbar {
             Node {
                 border_radius: BorderRadius::all(px(3))
             }
-            FeathersScrollbar
             ThemeBackgroundColor(tokens::SCROLLBAR_BG)
             Children [(
                 Hovered
