@@ -5,7 +5,7 @@
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
-    sprite::{InMap, TileCoord, Tilemap, TilemapEntityQuery},
+    sprite::{TileOf, TileCoord, Tilemap, TilemapEntityQuery},
 };
 
 mod stepping;
@@ -310,7 +310,7 @@ fn setup(
                         },
                         Bomb,
                         Brick,
-                        InMap(map),
+                        TileOf(map),
                         TileCoord(IVec2::new(column as i32, row as i32)),
                         Collider,
                     ))
@@ -329,7 +329,7 @@ fn setup(
                             ..default()
                         },
                         Brick,
-                        InMap(map),
+                        TileOf(map),
                         TileCoord(IVec2::new(column as i32, row as i32)),
                         Collider,
                     ))

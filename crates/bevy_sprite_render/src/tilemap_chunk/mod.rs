@@ -21,7 +21,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_sprite::{InMap, SetTile, TileCoord, TileStorage, Tilemap};
+use bevy_sprite::{SetTile, TileCoord, TileOf, TileStorage, Tilemap};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::{trace, warn};
@@ -326,7 +326,7 @@ fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
         warn!("Tile {} not found", entity);
         return;
     };
-    let Some(in_map) = tile.get::<InMap>().cloned() else {
+    let Some(in_map) = tile.get::<TileOf>().cloned() else {
         warn!("Tile {} is not in a TileMap", entity);
         return;
     };
@@ -354,7 +354,7 @@ fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
         warn!("Tile {} not found", entity);
         return;
     };
-    let Some(in_map) = tile.get::<InMap>().cloned() else {
+    let Some(in_map) = tile.get::<TileOf>().cloned() else {
         warn!("Tile {} is not in a TileMap", entity);
         return;
     };

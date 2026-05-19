@@ -5,7 +5,7 @@ use std::time::Duration;
 use bevy::{
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite::{DespawnOnRemove, InMap, TileCoord, Tilemap},
+    sprite::{DespawnOnRemove, TileOf, TileCoord, Tilemap},
     sprite_render::{TileRenderData, TilemapRenderData},
 };
 use chacha20::ChaCha8Rng;
@@ -66,7 +66,7 @@ fn update_tilemap(
         let y = rng.random_range(-64..=64);
 
         commands.spawn((
-            InMap(map),
+            TileOf(map),
             TileCoord(IVec2::new(x, y)),
             TileRenderData {
                 tileset_index: rng.random_range(0..4),

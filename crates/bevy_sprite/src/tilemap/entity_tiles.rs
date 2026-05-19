@@ -24,7 +24,7 @@ impl Plugin for EntityTilePlugin {
             .on_insert(on_insert_entity_tile)
             .on_remove(on_remove_entity_tile);
         app.world_mut()
-            .register_component_hooks::<InMap>()
+            .register_component_hooks::<TileOf>()
             .on_remove(on_remove_entity_tile);
     }
 }
@@ -35,7 +35,7 @@ pub struct EntityTile(pub Entity);
 
 #[derive(Component, Clone, Debug, Deref)]
 #[component(immutable)]
-pub struct InMap(pub Entity);
+pub struct TileOf(pub Entity);
 
 #[derive(Component, Clone, Debug, Deref)]
 #[component(immutable)]
@@ -43,7 +43,7 @@ pub struct TileCoord(pub IVec2);
 
 impl TileCoord {
     /// Iterate through the non-diagonal adjacent tiles to this coord
-    pub fn adjacent(&self) -> impl Iterator<Item = TileCoord> + use<> {
+    pub fn adjacent(&self) -> impl Iterator<Item = TileCoord> + '_ {
         [
             TileCoord(IVec2::new(self.x + 1, self.y)),
             TileCoord(IVec2::new(self.x, self.y + 1)),
@@ -62,7 +62,7 @@ fn on_insert_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: H
         warn!("Tile {} not found", entity);
         return;
     };
-    let Some(in_map) = tile.get::<InMap>().cloned() else {
+    let Some(in_map) = tile.get::<TileOf>().cloned() else {
         warn!("Tile {} is not in a TileMap", entity);
         return;
     };
@@ -93,7 +93,7 @@ fn on_insert_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: H
             if replaced_tile.contains::<DespawnOnRemove>() {
                 replaced_tile.despawn();
             } else {
-                replaced_tile.remove::<(InMap, TileCoord)>();
+                replaced_tile.remove::<(TileOf, TileCoord)>();
             }
         }
     });
@@ -104,7 +104,7 @@ fn on_remove_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: H
         warn!("Tile {} not found", entity);
         return;
     };
-    let Some(in_map) = tile.get::<InMap>().cloned() else {
+    let Some(in_map) = tile.get::<TileOf>().cloned() else {
         warn!("Tile {} is not in a TileMap", entity);
         return;
     };
@@ -126,7 +126,7 @@ fn on_remove_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: H
         if removed.contains::<DespawnOnRemove>() {
             removed.despawn();
         } else {
-            removed.remove::<InMap>();
+            removed.remove::<TileOf>();
         }
     });
 }
