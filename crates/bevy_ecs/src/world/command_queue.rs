@@ -41,14 +41,11 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
-    /// An unapplied drop should only warn users if it not being applied is unexpected.
+    /// Emit a warning if this command is dropped before it is applied.
+    /// Default true.
     ///
-    /// Something like delayed commands should not warn if unapplied b/c it being unapplied
-    /// is expected in some relatively common situations (i.e. if the program exits before application).
-    ///
-    /// This should *only* be enabled once confidence is established that command queues are applied where
-    /// applicable, as it turns off a really useful debug tool (but targeted at situations where the tool
-    /// doesn't make sense).
+    /// This setting can be turned off for commands that might be dropped in ordinary situations,
+    /// for example delayed commands that are still around when the application exits.
     pub(crate) warn_on_unapplied: bool,
 }
 
