@@ -44,8 +44,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);
     var local_uv = tile_uv - vec2<f32>(tile_coord);
 
-    tile_coord.y = chunk_size.y - 1 - tile_coord.y;
-
     let tile = get_tile_data(tile_coord);
 
     if (tile.tileset_index == 0xffffu || !tile.visible) {
