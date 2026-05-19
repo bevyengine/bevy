@@ -442,6 +442,22 @@
 //! Braces are required when the macro would otherwise misparse the expression
 //! and for complex expressions like `{hp * 2}`.
 //!
+//! ### Using dynamic template values (component values)
+//!
+//! A [`Template`] value, like a instance of a Component, cannot be directly returned from a curly bracketed `{ ... }` expression.
+//! For this, `template_value(...)` has to be used, which returns a [`Template`] version of the given value.
+//!
+//! ```rs
+//! fn enemy(translation: Vec3){
+//!     let transform = Transform::from_translation(translation);
+//!     bsn! {
+//!         #Foo
+//!         template_value(transform)
+//!     }
+//!
+//! }
+//! ```
+//!
 //! ### Expressions as scenes
 //!
 //! You can insert a [`Scene`] or [`SceneList`] in another Scene using curly-bracketed expressions:
@@ -833,37 +849,39 @@ use bevy_ecs::prelude::*;
 /// ## Syntax Reference
 ///
 /// ### Parts of a scene
-/// | Examples                                           | Explanation                                                                                                     |
+/// | Examples                                           | Explanation                                                                                                  
 /// | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 /// | `CompA`                                            | A unit or default component. Fields, if any exist, will be default                                          |
-/// | `CompA(val)`<br>`CompA(val, val)`                  | Tuple Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)                              |
-/// | `CompA { name: val }`                              | Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)                                    |
+/// | `CompA(val)`<br>`CompA(val, val)`                  | Tuple Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)|
+/// | `CompA { name: val }`                              | Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)     |
 /// | `mymodule::CompA { name: val }`                    | Same as above, but referring to the component by module path                                                |
 /// | `MyEnum::Variant`                                  | Enum Component `MyEnum` with the `Variant` variant                                                          |
 /// | `template_value(component)`                        | Insert the component value from a variable                                                                  |
 /// | `template_value(Transform::from_xyz(2., 3., 1.,))` | Insert the component value by immediately calling the constructor                                           |
+/// | `template(|context| { ... })`                      | Register a function or closure which returns a Template, and is given [`context`] with full World access      |
 /// | **Composition and Inheritance**                    |                                                                                                             |
-/// | `scene()`<br>`scene(val)`                          | Composition with [`Scene`] function                                                                            |
-/// | `{ expr }`                                         | Composition with the result of `expr`, which should be a [`Scene`]                                              |
-/// | `:scene()`<br>`:scene(val)`                        | Inherit from [`Scene`] function                                                                                 |
-/// | `:CompA`                                           | Inherit from [`SceneComponent`]. Fields, if any exist, will be default                                          |
-/// | `:CompA { @prop: val }`                            | Inherit from [`SceneComponent`] with a `prop` field, passed to this components scene function                   |
-/// | `:CompA { name: val }`                             | Inherit from [`SceneComponent`] with a normal field, works the same as it does for normal components            |
-/// | `:CompA { @prop: val1, name: val2 }`               | Inherit from [`SceneComponent`] with both a `prop` and a field                                                  |
+/// | `scene()`<br>`scene(val)`                          | Composition with [`Scene`] function                                                                         |
+/// | `{ expr }`                                         | Composition with the result of `expr`, which should be a [`Scene`]                                          |
+/// | `:scene()`<br>`:scene(val)`                        | Inherit from [`Scene`] function                                                                             |
+/// | `:CompA`                                           | Inherit from [`SceneComponent`]. Fields, if any exist, will be default                                      |
+/// | `:CompA { @prop: val }`                            | Inherit from [`SceneComponent`] with a `prop` field, passed to this components scene function               |
+/// | `:CompA { name: val }`                             | Inherit from [`SceneComponent`] with a normal field, works the same as it does for normal components        |
+/// | `:CompA { @prop: val1, name: val2 }`               | Inherit from [`SceneComponent`] with both a `prop` and a field                                              |
 /// | `:"scene.bsn"`                                     | <div class="warning">Not yet implemented!</div> Inherit from a scene asset file                             |
 /// | **Named entity references**                        |                                                                                                             |
 /// | `#MyName`                                          | Becomes `Name("MyName")` when used as a `part` of a scene                                                   |
 /// | `#{ expr }`                                        | Same as `#MyName` but using the result of the expression as the name                                        |
-/// | `CompA(#MyName)`<br>`:scene(#MyName)`              | Referring to the entity which was named `MyName` in this scope, results in an [`EntityTemplate`] being passed |
-/// | `CompA(#{ expr })`<br>`:scene(#{ expr })`          | Using the result of `expr` as the name. Note: This has a special case, allowing a [`Entity`] id as well       |
+/// | `CompA(#MyName)`<br>`:scene(#MyName)`              | Referring to the entity which was named `MyName` in this scope, results in an [`EntityTemplate`] being passed|
+/// | `CompA(#{ expr })`<br>`:scene(#{ expr })`          | Using the result of `expr` as the name. Note: This has a special case, allowing a [`Entity`] id as well      |
 /// | **Observers**                                      |                                                                                                             |
-/// | `on(\|ev: On<Ev>\| { … })`                         | Attaches an entity [`observer`] that fires when `Ev` targets this entity. In this example, using a closure      |
-/// | `on(my_observer)`                                  | Attaches an entity [`observer`] that fires when `Ev` targets this entity. In this example, using a function     |
+/// | `on(\|ev: On<Ev>\| { … })`                         | Attaches an entity [`observer`] that fires when `Ev` targets this entity. In this example, using a closure  |
+/// | `on(my_observer)`                                  | Attaches an entity [`observer`] that fires when `Ev` targets this entity. In this example, using a function |
 /// | **Relationships**                                  |                                                                                                             |
 /// | `Children []`                                      | Spawns each entry as a child of this entity, see **Scene Lists** below for details                          |
-/// | `ChildOf(entity)`                                  | Makes **this** entity a child of `entity`, accepts a [`Entity`]/[`EntityTemplate`] or a `#Name` reference       |
+/// | `ChildOf(entity)`                                  | Makes **this** entity a child of `entity`, accepts a [`Entity`]/[`EntityTemplate`] or a `#Name` reference    |
 /// | `MyRel []`                                         | Like `Children`, but uses any `RelationshipTarget` component                                                |
 ///
+/// [`context`]: bevy_ecs::template::TemplateContext
 /// [`EntityTemplate`]: bevy_ecs::template::EntityTemplate
 /// ### Scene Lists
 ///
@@ -973,6 +991,7 @@ mod tests {
     use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
     use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
     use bevy_ecs::lifecycle::HookContext;
+    use bevy_ecs::name::Name;
     use bevy_ecs::prelude::*;
     use bevy_ecs::relationship::Relationship;
     use bevy_ecs::world::DeferredWorld;
@@ -1761,7 +1780,7 @@ mod tests {
         );
         assert_eq!(world.entity(entity_a).get::<Armor>().unwrap().0, 10);
         assert_eq!(world.entity(entity_b).get::<Armor>().unwrap().0, 10);
-        assert_eq!(world.entity(entity_).get::<Armor>().unwrap().0, 10);
+        assert_eq!(world.entity(entity_c).get::<Armor>().unwrap().0, 10);
     }
 
     #[test]
