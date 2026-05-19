@@ -77,18 +77,14 @@ impl UiSurface {
         render_target_resolution: UVec2,
         ui_children: &UiChildren,
         node_query: &Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
-        layout_query: &mut Query<(Entity, &mut ContentSize, &mut ComputedLayout)>,
+        content_size_query: &Query<&ContentSize>,
+        computed_layout_query: &mut Query<&mut ComputedLayout>,
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
     ) -> Result<(), LayoutError> {
         let mut runtime_nodes = HashMap::default();
-        if !build_runtime_layout_tree(
-            ui_root_entity,
-            ui_children,
-            node_query,
-            layout_query,
-            &mut runtime_nodes,
-        )? {
+        if !build_runtime_layout_tree(ui_root_entity, ui_children, node_query, &mut runtime_nodes)?
+        {
             return Err(LayoutError::InvalidHierarchy);
         }
 
@@ -106,8 +102,14 @@ impl UiSurface {
         let runtime_nodes = {
             let mut measure_function = |known_dimensions: taffy::Size<Option<f32>>,
                                         available_space: taffy::Size<AvailableSpace>,
-                                        measure: &mut NodeMeasure,
+                                        entity: Entity,
                                         style: &Style| {
+                let Ok(content_size) = content_size_query.get(entity) else {
+                    return taffy::Size::ZERO;
+                };
+                let Some(measure) = content_size.measure.as_ref() else {
+                    return taffy::Size::ZERO;
+                };
                 let buffer = get_text_buffer(
                     crate::widget::TextMeasure::needs_buffer(
                         known_dimensions.height,
@@ -146,8 +148,7 @@ impl UiSurface {
                 continue;
             };
 
-            if let Ok((_, mut content_size, mut computed_layout)) = layout_query.get_mut(entity) {
-                content_size.bypass_change_detection().measure = runtime_node.measure;
+            if let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) {
                 computed_layout
                     .bypass_change_detection()
                     .set(runtime_node.unrounded_layout, runtime_node.final_layout);
@@ -162,21 +163,16 @@ fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
     node_query: &'a Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
-    layout_query: &mut Query<(Entity, &mut ContentSize, &mut ComputedLayout)>,
     runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
 ) -> Result<bool, LayoutError> {
     let mut child_ids = Vec::new();
     for child in ui_children.iter_ui_children(entity) {
-        if build_runtime_layout_tree(child, ui_children, node_query, layout_query, runtime_nodes)? {
+        if build_runtime_layout_tree(child, ui_children, node_query, runtime_nodes)? {
             child_ids.push(entity_node_id(child));
         }
     }
 
     let Ok((_, node, computed_target)) = node_query.get(entity) else {
-        return Ok(false);
-    };
-
-    let Ok((_, mut content_size, _)) = layout_query.get_mut(entity) else {
         return Ok(false);
     };
 
@@ -193,7 +189,6 @@ fn build_runtime_layout_tree<'a>(
             cache: Cache::new(),
             unrounded_layout: Layout::new(),
             final_layout: Layout::new(),
-            measure: content_size.bypass_change_detection().measure.take(),
             children: child_ids,
         },
     );
@@ -207,7 +202,6 @@ struct RuntimeLayoutNode<'a> {
     cache: Cache,
     unrounded_layout: Layout,
     final_layout: Layout,
-    measure: Option<NodeMeasure>,
     children: Vec<NodeId>,
 }
 
@@ -219,7 +213,6 @@ impl<'a> RuntimeLayoutNode<'a> {
             cache: Cache::new(),
             unrounded_layout: Layout::new(),
             final_layout: Layout::new(),
-            measure: None,
             children: vec![root_node_id],
         }
     }
@@ -230,7 +223,7 @@ struct EcsLayoutTree<'a, 'node> {
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
-        &mut NodeMeasure,
+        Entity,
         &Style,
     ) -> taffy::Size<f32>,
 }
@@ -312,26 +305,20 @@ impl<'tree, 'node> LayoutPartialTree for EcsLayoutTree<'tree, 'node> {
                     |_, _| 0.0,
                     |known_dimensions, available_space| {
                         let taffy_style = style.to_taffy_style();
-                        let Some(mut measure) = tree
+                        let Some(entity) = tree
                             .nodes
-                            .get_mut(&node_id)
+                            .get(&node_id)
                             .expect("missing layout node")
-                            .measure
-                            .take()
+                            .entity
                         else {
                             return taffy::Size::ZERO;
                         };
-                        let measured = (tree.measure_function)(
+                        (tree.measure_function)(
                             known_dimensions,
                             available_space,
-                            &mut measure,
+                            entity,
                             &taffy_style,
-                        );
-                        tree.nodes
-                            .get_mut(&node_id)
-                            .expect("missing layout node")
-                            .measure = Some(measure);
-                        measured
+                        )
                     },
                 ),
             }
@@ -443,7 +430,7 @@ impl RoundTree for EcsLayoutTree<'_, '_> {
 
 pub fn get_text_buffer<'a>(
     needs_buffer: bool,
-    ctx: &mut NodeMeasure,
+    ctx: &NodeMeasure,
     query: &'a mut Query<&mut ComputedTextBlock>,
 ) -> Option<&'a mut ComputedTextBlock> {
     // We avoid a query lookup whenever the buffer is not required.

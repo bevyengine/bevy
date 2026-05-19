@@ -35,7 +35,7 @@ struct TextInputMeasure {
 }
 
 impl crate::Measure for TextInputMeasure {
-    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>) -> Vec2 {
+    fn measure(&self, measure_args: crate::MeasureArgs<'_>) -> Vec2 {
         let width = measure_args.resolve_width();
         let height = measure_args.resolve_height();
 

@@ -73,8 +73,9 @@ pub fn ui_layout_system(
     ui_root_node_query: UiRootNodes,
     ui_children: UiChildren,
     node_query: Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
+    content_size_query: Query<&ContentSize>,
     mut node_queries: ParamSet<(
-        Query<(Entity, &mut ContentSize, &mut ComputedLayout)>,
+        Query<&mut ComputedLayout>,
         Query<(
             &mut ComputedNode,
             &UiTransform,
@@ -90,7 +91,7 @@ pub fn ui_layout_system(
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
 ) {
-    for (_, _, mut computed_layout) in &mut node_queries.p0() {
+    for mut computed_layout in &mut node_queries.p0() {
         computed_layout.bypass_change_detection().clear();
     }
 
@@ -109,13 +110,14 @@ pub fn ui_layout_system(
         };
 
         let computed = {
-            let mut layout_query = node_queries.p0();
+            let mut computed_layout_query = node_queries.p0();
             ui_surface.compute_layout(
                 ui_root_entity,
                 physical_size,
                 &ui_children,
                 &node_query,
-                &mut layout_query,
+                &content_size_query,
+                &mut computed_layout_query,
                 &mut buffer_query,
                 &mut font_system,
             )
