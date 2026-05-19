@@ -8,6 +8,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     system::{ParamSet, Query, ResMut},
+    world::Ref,
 };
 
 use bevy_math::{Affine2, Vec2};
@@ -72,8 +73,8 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     ui_children: UiChildren,
-    node_query: Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
-    content_size_query: Query<&ContentSize>,
+    node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+    content_size_query: Query<Ref<ContentSize>>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
         Query<(
@@ -92,19 +93,19 @@ pub fn ui_layout_system(
     mut font_system: ResMut<FontCx>,
 ) {
     for mut computed_layout in &mut node_queries.p0() {
-        computed_layout.bypass_change_detection().clear();
+        computed_layout
+            .bypass_change_detection()
+            .prepare_for_layout();
     }
 
     for ui_root_entity in ui_root_node_query.iter() {
         let Ok((physical_size, scale_factor)) =
-            node_query
-                .get(ui_root_entity)
-                .map(|(_, _, computed_target)| {
-                    (
-                        computed_target.physical_size(),
-                        computed_target.scale_factor(),
-                    )
-                })
+            node_query.get(ui_root_entity).map(|(_, computed_target)| {
+                (
+                    computed_target.physical_size(),
+                    computed_target.scale_factor(),
+                )
+            })
         else {
             continue;
         };
@@ -139,6 +140,12 @@ pub fn ui_layout_system(
             Vec2::ZERO,
             Vec2::ZERO,
         );
+    }
+
+    for mut computed_layout in &mut node_queries.p0() {
+        computed_layout
+            .bypass_change_detection()
+            .clear_if_unvisited();
     }
 
     // Returns the combined bounding box of the node and any of its overflowing children.
@@ -493,6 +500,42 @@ mod tests {
         world.entity_mut(root_b).add_child(child);
         app.update();
         assert_eq!(layout_for(&app, child, true).size.width, 200.);
+    }
+
+    #[test]
+    fn child_style_change_invalidates_parent_cache() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world
+            .spawn(Node {
+                width: px(50.),
+                height: px(10.),
+                ..default()
+            })
+            .id();
+        let root = world
+            .spawn(Node {
+                width: px(100.),
+                height: px(20.),
+                ..default()
+            })
+            .add_child(child)
+            .id();
+
+        app.update();
+        app.update();
+
+        app.world_mut()
+            .entity_mut(child)
+            .get_mut::<Node>()
+            .unwrap()
+            .width = px(75.);
+
+        app.update();
+
+        assert_eq!(layout_for(&app, root, true).size.width, 100.);
+        assert_eq!(layout_for(&app, child, true).size.width, 75.);
     }
 
     #[test]

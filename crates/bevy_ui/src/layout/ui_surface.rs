@@ -1,8 +1,12 @@
 use core::fmt;
 
 use bevy_ecs::{
-    change_detection::DetectChangesMut, component::Component, entity::Entity, prelude::Resource,
+    change_detection::{DetectChanges, DetectChangesMut},
+    component::Component,
+    entity::Entity,
+    prelude::Resource,
     system::Query,
+    world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
@@ -29,11 +33,13 @@ fn viewport_node_id() -> NodeId {
     NodeId::from(u64::MAX)
 }
 
-#[derive(Component, Debug, Copy, Clone, Default)]
+#[derive(Component, Debug, Clone, Default)]
 #[doc(hidden)]
 pub struct ComputedLayout {
     unrounded: Option<Layout>,
     rounded: Option<Layout>,
+    cache: Cache,
+    visited: bool,
 }
 
 impl ComputedLayout {
@@ -42,9 +48,35 @@ impl ComputedLayout {
         self.rounded = None;
     }
 
-    fn set(&mut self, unrounded: Layout, rounded: Layout) {
-        self.unrounded = Some(unrounded);
-        self.rounded = Some(rounded);
+    pub(crate) fn prepare_for_layout(&mut self) {
+        self.visited = false;
+    }
+
+    pub(crate) fn clear_if_unvisited(&mut self) {
+        if !self.visited {
+            self.clear();
+            self.cache.clear();
+        }
+    }
+
+    fn mark_visited(&mut self) {
+        self.visited = true;
+    }
+
+    fn clear_cache(&mut self) {
+        self.cache.clear();
+    }
+
+    fn has_layout(&self) -> bool {
+        self.unrounded.is_some() && self.rounded.is_some()
+    }
+
+    fn set_unrounded(&mut self, layout: Layout) {
+        self.unrounded = Some(layout);
+    }
+
+    fn set_rounded(&mut self, layout: Layout) {
+        self.rounded = Some(layout);
     }
 
     pub(crate) fn get(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
@@ -76,19 +108,25 @@ impl UiSurface {
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         ui_children: &UiChildren,
-        node_query: &Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
-        content_size_query: &Query<&ContentSize>,
+        node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+        content_size_query: &Query<Ref<ContentSize>>,
         computed_layout_query: &mut Query<&mut ComputedLayout>,
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
     ) -> Result<(), LayoutError> {
         let mut runtime_nodes = HashMap::default();
-        if !build_runtime_layout_tree(ui_root_entity, ui_children, node_query, &mut runtime_nodes)?
-        {
+        let Some(root_node_id) = build_runtime_layout_tree(
+            ui_root_entity,
+            ui_children,
+            node_query,
+            content_size_query,
+            computed_layout_query,
+            &mut runtime_nodes,
+        )?
+        .map(|built_node| built_node.node_id) else {
             return Err(LayoutError::InvalidHierarchy);
-        }
+        };
 
-        let root_node_id = entity_node_id(ui_root_entity);
         runtime_nodes.insert(
             viewport_node_id(),
             RuntimeLayoutNode::viewport(root_node_id),
@@ -99,7 +137,7 @@ impl UiSurface {
             height: AvailableSpace::Definite(render_target_resolution.y as f32),
         };
 
-        let runtime_nodes = {
+        {
             let mut measure_function = |known_dimensions: taffy::Size<Option<f32>>,
                                         available_space: taffy::Size<AvailableSpace>,
                                         entity: Entity,
@@ -135,73 +173,95 @@ impl UiSurface {
 
             let mut tree = EcsLayoutTree {
                 nodes: runtime_nodes,
+                computed_layout_query,
+                viewport_layout: LayoutState::default(),
                 measure_function: &mut measure_function,
             };
 
             compute_root_layout(&mut tree, viewport_node_id(), available_space);
             round_layout(&mut tree, viewport_node_id());
-            tree.nodes
         };
-
-        for runtime_node in runtime_nodes.into_values() {
-            let Some(entity) = runtime_node.entity else {
-                continue;
-            };
-
-            if let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) {
-                computed_layout
-                    .bypass_change_detection()
-                    .set(runtime_node.unrounded_layout, runtime_node.final_layout);
-            }
-        }
 
         Ok(())
     }
 }
 
+struct BuiltNode {
+    node_id: NodeId,
+    subtree_dirty: bool,
+}
+
 fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &'a Query<(Entity, &Node, &ComputedUiRenderTargetInfo)>,
+    node_query: &'a Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+    content_size_query: &Query<Ref<ContentSize>>,
+    computed_layout_query: &mut Query<&mut ComputedLayout>,
     runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
-) -> Result<bool, LayoutError> {
+) -> Result<Option<BuiltNode>, LayoutError> {
     let mut child_ids = Vec::new();
+    let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
-        if build_runtime_layout_tree(child, ui_children, node_query, runtime_nodes)? {
-            child_ids.push(entity_node_id(child));
+        if let Some(child) = build_runtime_layout_tree(
+            child,
+            ui_children,
+            node_query,
+            content_size_query,
+            computed_layout_query,
+            runtime_nodes,
+        )? {
+            child_ids.push(child.node_id);
+            subtree_dirty |= child.subtree_dirty;
         }
     }
 
-    let Ok((_, node, computed_target)) = node_query.get(entity) else {
-        return Ok(false);
+    let Ok((node, computed_target)) = node_query.get(entity) else {
+        return Ok(None);
     };
+    let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
+        return Ok(None);
+    };
+    let computed_layout = computed_layout.bypass_change_detection();
+
+    let node_id = entity_node_id(entity);
+    let own_dirty = node.is_changed()
+        || computed_target.is_changed()
+        || content_size_query
+            .get(entity)
+            .is_ok_and(|content_size| content_size.is_changed())
+        || ui_children.is_changed(entity)
+        || !computed_layout.has_layout();
+    subtree_dirty |= own_dirty;
 
     let layout_context = LayoutContext::new(
         computed_target.scale_factor(),
         computed_target.physical_size().as_vec2(),
     );
+    let node = node.into_inner();
+
+    computed_layout.mark_visited();
+    if subtree_dirty {
+        computed_layout.clear_cache();
+    }
 
     runtime_nodes.insert(
-        entity_node_id(entity),
+        node_id,
         RuntimeLayoutNode {
             entity: Some(entity),
             style: CoreNode::from_node(node, layout_context),
-            cache: Cache::new(),
-            unrounded_layout: Layout::new(),
-            final_layout: Layout::new(),
             children: child_ids,
         },
     );
 
-    Ok(true)
+    Ok(Some(BuiltNode {
+        node_id,
+        subtree_dirty,
+    }))
 }
 
 struct RuntimeLayoutNode<'a> {
     entity: Option<Entity>,
     style: CoreNode<'a>,
-    cache: Cache,
-    unrounded_layout: Layout,
-    final_layout: Layout,
     children: Vec<NodeId>,
 }
 
@@ -210,16 +270,22 @@ impl<'a> RuntimeLayoutNode<'a> {
         Self {
             entity: None,
             style: CoreNode::viewport(),
-            cache: Cache::new(),
-            unrounded_layout: Layout::new(),
-            final_layout: Layout::new(),
             children: vec![root_node_id],
         }
     }
 }
 
-struct EcsLayoutTree<'a, 'node> {
+#[derive(Default)]
+struct LayoutState {
+    cache: Cache,
+    unrounded: Layout,
+    rounded: Layout,
+}
+
+struct EcsLayoutTree<'a, 'w, 's, 'layout, 'node> {
     nodes: HashMap<NodeId, RuntimeLayoutNode<'node>>,
+    computed_layout_query: &'a mut Query<'w, 's, &'layout mut ComputedLayout>,
+    viewport_layout: LayoutState,
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
@@ -228,7 +294,7 @@ struct EcsLayoutTree<'a, 'node> {
     ) -> taffy::Size<f32>,
 }
 
-impl TraversePartialTree for EcsLayoutTree<'_, '_> {
+impl TraversePartialTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
     type ChildIter<'a>
         = core::iter::Copied<core::slice::Iter<'a, NodeId>>
     where
@@ -259,9 +325,11 @@ impl TraversePartialTree for EcsLayoutTree<'_, '_> {
     }
 }
 
-impl TraverseTree for EcsLayoutTree<'_, '_> {}
+impl TraverseTree for EcsLayoutTree<'_, '_, '_, '_, '_> {}
 
-impl<'tree, 'node> LayoutPartialTree for EcsLayoutTree<'tree, 'node> {
+impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
+    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+{
     type CoreContainerStyle<'a>
         = &'a CoreNode<'node>
     where
@@ -274,10 +342,22 @@ impl<'tree, 'node> LayoutPartialTree for EcsLayoutTree<'tree, 'node> {
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
-        self.nodes
-            .get_mut(&node_id)
+        if node_id == viewport_node_id() {
+            self.viewport_layout.unrounded = *layout;
+            return;
+        }
+
+        let entity = self
+            .nodes
+            .get(&node_id)
             .expect("missing layout node")
-            .unrounded_layout = *layout;
+            .entity
+            .expect("missing layout entity");
+        self.computed_layout_query
+            .get_mut(entity)
+            .expect("missing computed layout")
+            .bypass_change_detection()
+            .set_unrounded(*layout);
     }
 
     fn compute_child_layout(&mut self, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
@@ -326,33 +406,69 @@ impl<'tree, 'node> LayoutPartialTree for EcsLayoutTree<'tree, 'node> {
     }
 }
 
-impl CacheTree for EcsLayoutTree<'_, '_> {
+impl CacheTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
     fn cache_get(&self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
-        self.nodes
+        if node_id == viewport_node_id() {
+            return self.viewport_layout.cache.get(input);
+        }
+
+        let entity = self
+            .nodes
             .get(&node_id)
             .expect("missing layout node")
+            .entity
+            .expect("missing layout entity");
+        self.computed_layout_query
+            .get(entity)
+            .expect("missing computed layout")
             .cache
             .get(input)
     }
 
     fn cache_store(&mut self, node_id: NodeId, input: &LayoutInput, layout_output: LayoutOutput) {
-        self.nodes
+        if node_id == viewport_node_id() {
+            self.viewport_layout.cache.store(input, layout_output);
+            return;
+        }
+
+        let entity = self
+            .nodes
             .get_mut(&node_id)
             .expect("missing layout node")
+            .entity
+            .expect("missing layout entity");
+        self.computed_layout_query
+            .get_mut(entity)
+            .expect("missing computed layout")
+            .bypass_change_detection()
             .cache
             .store(input, layout_output);
     }
 
     fn cache_clear(&mut self, node_id: NodeId) {
-        self.nodes
+        if node_id == viewport_node_id() {
+            self.viewport_layout.cache.clear();
+            return;
+        }
+
+        let entity = self
+            .nodes
             .get_mut(&node_id)
             .expect("missing layout node")
+            .entity
+            .expect("missing layout entity");
+        self.computed_layout_query
+            .get_mut(entity)
+            .expect("missing computed layout")
+            .bypass_change_detection()
             .cache
             .clear();
     }
 }
 
-impl<'tree, 'node> LayoutBlockContainer for EcsLayoutTree<'tree, 'node> {
+impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
+    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+{
     type BlockContainerStyle<'a>
         = &'a CoreNode<'node>
     where
@@ -372,7 +488,9 @@ impl<'tree, 'node> LayoutBlockContainer for EcsLayoutTree<'tree, 'node> {
     }
 }
 
-impl<'tree, 'node> LayoutFlexboxContainer for EcsLayoutTree<'tree, 'node> {
+impl<'tree, 'w, 's, 'layout, 'node> LayoutFlexboxContainer
+    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+{
     type FlexboxContainerStyle<'a>
         = &'a CoreNode<'node>
     where
@@ -392,7 +510,9 @@ impl<'tree, 'node> LayoutFlexboxContainer for EcsLayoutTree<'tree, 'node> {
     }
 }
 
-impl<'tree, 'node> LayoutGridContainer for EcsLayoutTree<'tree, 'node> {
+impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
+    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+{
     type GridContainerStyle<'a>
         = &'a CoreNode<'node>
     where
@@ -412,19 +532,42 @@ impl<'tree, 'node> LayoutGridContainer for EcsLayoutTree<'tree, 'node> {
     }
 }
 
-impl RoundTree for EcsLayoutTree<'_, '_> {
+impl RoundTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
-        self.nodes
+        if node_id == viewport_node_id() {
+            return self.viewport_layout.unrounded;
+        }
+
+        let entity = self
+            .nodes
             .get(&node_id)
             .expect("missing layout node")
-            .unrounded_layout
+            .entity
+            .expect("missing layout entity");
+        self.computed_layout_query
+            .get(entity)
+            .expect("missing computed layout")
+            .unrounded
+            .expect("missing unrounded layout")
     }
 
     fn set_final_layout(&mut self, node_id: NodeId, layout: &Layout) {
-        self.nodes
-            .get_mut(&node_id)
+        if node_id == viewport_node_id() {
+            self.viewport_layout.rounded = *layout;
+            return;
+        }
+
+        let entity = self
+            .nodes
+            .get(&node_id)
             .expect("missing layout node")
-            .final_layout = *layout;
+            .entity
+            .expect("missing layout entity");
+        self.computed_layout_query
+            .get_mut(entity)
+            .expect("missing computed layout")
+            .bypass_change_detection()
+            .set_rounded(*layout);
     }
 }
 
