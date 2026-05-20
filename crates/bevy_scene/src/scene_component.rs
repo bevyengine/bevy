@@ -9,7 +9,7 @@ use crate::Scene;
 /// In general, developers should not implement this manually. Instead, they should derive it,
 /// which also derives [`Component`] and adds additional protections and assurances.
 ///
-/// See the ["Scene Components"](crate#scene-components) sections of the module docs to see how this is used in practice.
+/// See the ["Scene Components"](crate#scene-components) section of the module docs to see how this is used in practice.
 pub trait SceneComponent: Component + FromTemplate<Template: Default> {
     /// The "properties" passed into [`Self::scene`] to build the final scene.
     type Props: Default;
