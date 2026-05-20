@@ -2123,4 +2123,24 @@ mod tests {
 
         b();
     }
+
+    #[test]
+    fn scene_with_blocks() {
+        #[derive(Component, Clone, Default)]
+        struct Holder {
+            const_block: i32,
+            unsafe_block: i32,
+        }
+
+        fn func() -> impl Scene {
+            bsn! {
+                Holder {
+                    const_block: const {0},
+                    unsafe_block: unsafe {0},
+                }
+            }
+        }
+
+        func();
+    }
 }

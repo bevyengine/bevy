@@ -192,6 +192,20 @@ use syn::{parse_macro_input, DeriveInput};
 /// }
 /// ```
 ///
+/// `{...}` blocks can also be `unsafe` or `const` (but not both at once without nesting):
+///
+/// ```rust, ignore
+/// fn friendly(people: &[&'static str]) -> impl Scene {
+///     bsn! {
+///         Friend {
+///             name: const {"John"}
+///             /// SAFETY: Jesus take the wheel
+///             father: unsafe {people.get_unchecked(0)}
+///         }
+///     }
+/// }
+/// ```
+///
 /// **Note:** `.bsn` asset files will not support arbitrary Rust expressions,
 /// as we do not intend to require Bevy games to ship a Rust compiler.
 ///
