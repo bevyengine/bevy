@@ -105,8 +105,7 @@ impl BsnEntry {
         } else if input.peek(Brace) {
             BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else if input.peek(At) {
-            input.parse::<At>()?;
-            BsnEntry::UncachedScene(BsnScene::SceneComponent(input.parse::<BsnType>()?))
+            BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else {
             let is_template = input.peek(Tilde);
             if is_template {
@@ -236,27 +235,43 @@ impl Parse for BsnSceneFnArg {
 }
 impl BsnScene {
     fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
-        let colon = input.parse::<Token![:]>()?;
+        let cached = if input.peek(Token![:]) {
+            Some(input.parse::<Token![:]>()?)
+        } else {
+            None
+        };
+
+        let err_cached = |msg: &str| {
+            if let Some(colon) = cached {
+                Err(syn::Error::new(colon.span(), msg))
+            } else {
+                Ok(())
+            }
+        };
+
         if found_cached_scene {
-            return Err(syn::Error::new(
-                colon.span(),
-                "Cannot cache scenes more than once",
-            ));
+            err_cached("Cannot cache scenes more than once")?;
         }
+
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
             BsnScene::Asset(path)
         } else if input.peek(Brace) {
+            err_cached("Cannot cache scene expressions")?;
             BsnScene::Expression(braced_tokens(input)?)
         } else if input.peek(At) {
             input.parse::<At>()?;
-            BsnScene::SceneComponent(input.parse::<BsnType>()?)
+            let sc = input.parse::<BsnType>()?;
+            if sc.fields.len() > 0 {
+                err_cached("Cannot cache Scene Components with props/fields")?;
+            }
+            BsnScene::SceneComponent(sc)
         } else {
             // PERF: do we really need this fork here?
             let path = input.fork().parse::<Path>()?;
             match PathType::new(&path) {
                 PathType::Type | PathType::Enum => {
-                    // Scene components are parsed externally if an @ is found.
+                    // Scene components are parsed before this if an @ is found.
                     // If this path is hit, that means it wasn't prefixed by @
                     return Err(syn::Error::new(
                         path.span(),
@@ -268,10 +283,14 @@ impl BsnScene {
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
-                    BsnScene::Fn(BsnSceneFn {
+                    let func = BsnSceneFn {
                         path,
                         args: input.parse()?,
-                    })
+                    };
+                    if func.args.0.is_some() {
+                        err_cached("Cannot cache Scene function with arguments")?;
+                    }
+                    BsnScene::Fn(func)
                 }
                 path_type => {
                     return Err(syn::Error::new(

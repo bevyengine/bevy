@@ -86,6 +86,14 @@ pub enum BsnFields {
     Named(Vec<BsnNamedField>),
     Tuple(Vec<BsnUnnamedField>),
 }
+impl BsnFields {
+    pub fn len(&self) -> usize {
+        match self {
+            BsnFields::Named(vec) => vec.len(),
+            BsnFields::Tuple(vec) => vec.len(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct BsnTuple(pub Vec<BsnValue>);

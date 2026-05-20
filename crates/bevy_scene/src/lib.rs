@@ -1027,7 +1027,7 @@ mod tests {
 
         // "a.bsn" as AWidget's "component scene"
         let id = world
-            .spawn_scene(bsn! {:AWidget { value: 2 }})
+            .spawn_scene(bsn! {@AWidget { value: 2 }})
             .unwrap()
             .id();
         let root = world.entity(id);
@@ -1783,14 +1783,14 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:@Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<Widget>());
 
         #[derive(SceneComponent, Default, Clone)]
         #[scene(Widget::scene)]
         struct OtherWidget;
-        let entity = world.spawn_scene(bsn! {:@OtherWidget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@OtherWidget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<OtherWidget>());
         assert!(
@@ -1832,7 +1832,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entity = world
-            .spawn_scene(bsn! {:@Widget {
+            .spawn_scene(bsn! {@Widget {
                 @children: 2,
                 value: 10,
             }})
@@ -1847,7 +1847,7 @@ mod tests {
         }
 
         let entity = world
-            .spawn_scene(bsn! {:@OtherWidget {
+            .spawn_scene(bsn! {@OtherWidget {
                 @children: 2,
                 value: 10,
             }})
@@ -1869,7 +1869,7 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:@Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
         assert!(entity.contains::<Widget>());
     }
 
@@ -1887,7 +1887,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                :Widget(#Name)
+                @Widget(#Name)
             ]
         };
 
@@ -1916,7 +1916,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                :@Widget{
+                @Widget{
                     entity: #Name
                 }
             ]
@@ -1947,7 +1947,7 @@ mod tests {
         let inherit_pass_expr = bsn! {
             #Name
             Children [
-                :widget(#{Entity::PLACEHOLDER})
+                widget(#{Entity::PLACEHOLDER})
             ]
         };
         let entity = world.spawn_scene(inherit_pass_expr).unwrap().id();
@@ -1969,7 +1969,7 @@ mod tests {
         let inherit_pass_name = bsn! {
             #Name
             Children [
-                :widget(#Name)
+                widget(#Name)
             ]
         };
         let entity = world.spawn_scene(inherit_pass_name).unwrap().id();
@@ -2017,7 +2017,7 @@ mod tests {
 
         let prop_expr = bsn! {
             Children [
-                :@Widget {
+                @Widget {
                     @entity: Entity::PLACEHOLDER
                 }
             ]
@@ -2030,7 +2030,7 @@ mod tests {
         let scene_prop = bsn! {
             #Name
             Children [
-                :@Widget {
+                @Widget {
                     @entity: #Name
                 }
             ]
