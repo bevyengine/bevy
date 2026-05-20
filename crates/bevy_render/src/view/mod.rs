@@ -1010,7 +1010,7 @@ pub fn prepare_view_uniforms(
         Option<&MainPassResolutionOverride>,
     )>,
     frame_count: Res<FrameCount>,
-    shadow_lod_origin: Res<RenderShadowLodOrigin>,
+    shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -1064,31 +1064,38 @@ pub fn prepare_view_uniforms(
 
         // Determine the position of the camera used for resolving visibility
         // ranges (LODs).
-        let lod_view_world_position = if extracted_camera.is_some() {
-            // If we're rendering a camera directly (i.e. we're not rendering a
-            // shadow map), we use this camera's position as the LOD view
-            // position.
-            extracted_view.world_from_view.translation()
-        } else if extracted_view.retained_view_entity.auxiliary_entity
-            == MainEntity::from(Entity::PLACEHOLDER)
-        {
-            // If we're rendering a shadow map that isn't associated with a
-            // camera, we use the shadow LOD origin.
-            shadow_lod_origin.0
-        } else {
-            // Otherwise, if we're rendering a shadow map that is associated
-            // with a camera (i.e. a directional light shadow map, at present),
-            // we use the position of that camera as the LOD view position. This
-            // ensures that each rendered object has a shadow and that no
-            // invisible objects have shadows.
-            match views.get(
-                extracted_view
-                    .retained_view_entity
-                    .auxiliary_entity
-                    .entity(),
-            ) {
-                Ok((_, _, camera_view, _, _, _, _)) => camera_view.world_from_view.translation(),
-                Err(_) => shadow_lod_origin.0,
+        let lod_view_world_position = match (&extracted_camera, &shadow_lod_origin) {
+            (Some(_), _) | (None, None) => {
+                // If we're rendering a camera directly (i.e. we're not
+                // rendering a shadow map), we use this camera's position as the
+                // LOD view position.
+                extracted_view.world_from_view.translation()
+            }
+            (None, Some(shadow_lod_origin))
+                if extracted_view.retained_view_entity.auxiliary_entity
+                    == MainEntity::from(Entity::PLACEHOLDER) =>
+            {
+                // If this is a shadow map not associated with a camera (a point
+                // light or spot light shadow map), use the shadow LOD origin.
+                shadow_lod_origin.0
+            }
+            (None, Some(shadow_lod_origin)) => {
+                // Otherwise, if we're rendering a shadow map that is associated
+                // with a camera (i.e. a directional light shadow map, at
+                // present), we use the position of that camera as the LOD view
+                // position. This ensures that each rendered object has a shadow
+                // and that no invisible objects have shadows.
+                match views.get(
+                    extracted_view
+                        .retained_view_entity
+                        .auxiliary_entity
+                        .entity(),
+                ) {
+                    Ok((_, _, camera_view, _, _, _, _)) => {
+                        camera_view.world_from_view.translation()
+                    }
+                    Err(_) => shadow_lod_origin.0,
+                }
             }
         };
 
