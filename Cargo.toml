@@ -752,7 +752,7 @@ bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-rc.1", default-fe
 bevy_image = { path = "crates/bevy_image", version = "0.19.0-rc.1", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-rc.1", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-rc.1", default-features = false }
-bevy_settings = { path = "crates/bevy_settings", version = "0.19.0-rc.1", default-features = false }
+bevy-settings = { path = "crates/bevy_settings", version = "0.19.0-rc.1", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-rc.1", default-features = false }
 bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-rc.1", default-features = false }
 # Needed to poll Task examples
