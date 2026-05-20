@@ -158,10 +158,10 @@ pub enum ResolveSceneError {
     /// Caused when a dependency listed in [`Scene::register_dependencies`] is not available when calling [`Scene::resolve`]
     #[error("Cannot resolve scene because the asset dependency {0} is not present. This could be because it isn't loaded yet, or because the asset does not exist. Consider using `queue_spawn_scene()` if you would like to wait for scene dependencies before spawning.")]
     MissingSceneDependency(AssetPath<'static>),
-    /// Caused when using a cached scene during [`Scene::resolve`] fails.
+    /// Caused when including a cached scene during [`Scene::resolve`] fails.
     #[error(transparent)]
     CachedSceneError(#[from] CachedSceneError),
-    /// Caused when a Scene/SceneList is not present on the scene asset.
+    /// Caused when a [`Scene`]/[`SceneList`] is not present on the scene asset.
     #[error("The Scene/SceneList is not present on the scene asset. This is likely because the scene has already been resolved, which consumed the source scene")]
     MissingScene,
 }
@@ -341,15 +341,15 @@ impl<R: Relationship, L: SceneList> Scene for RelatedScenes<R, L> {
     }
 }
 
-/// A [`Scene`] that will be used from the [`ScenePatch`] stored at the given [`AssetPath`].
+/// A [`Scene`] that will include the cached [`ScenePatch`] stored at the given [`AssetPath`].
 /// This will _not_ resolve the cached scene directly on top of this [`ResolvedScene`]. Instead
-/// it will set [`ResolvedScene::use_cached`], which (when spawning the [`ResolvedScene`]) will apply the cached [`ResolvedScene`]
+/// it will set [`ResolvedScene::include_cached`], which (when spawning the [`ResolvedScene`]) will apply the cached [`ResolvedScene`]
 /// first. _Then_ the top-level [`ResolvedScene`] will be applied.
 ///
 /// This also enables copy-on-write semantics for all future [`Template`] accesses. See [`ResolvedScene`] for more info on caching.
 #[derive(Clone)]
 pub struct CachedSceneAsset(
-    /// The [`AssetPath`] of the [`ScenePatch`] to use.
+    /// The [`AssetPath`] of the [`ScenePatch`] to include.
     pub AssetPath<'static>,
 );
 
@@ -429,7 +429,7 @@ impl Scene for NameEntityReference {
 }
 
 /// A [`Scene`] that will create a new "entity scope" and fully resolve the given scene `S` on top of the current [`ResolvedScene`] (using that scope).
-/// It is not "cached" or cached.
+/// It is not cached.
 #[must_use]
 pub struct SceneScope<S: Scene>(pub S);
 
@@ -448,7 +448,7 @@ impl<S: Scene> Scene for SceneScope<S> {
 }
 
 /// A [`SceneList`] that will create a new "entity scope" and fully resolve the given scene list `L` on top of the current [`Vec<ResolvedScene>`]
-/// (using that scope). It is not "cached" or cached.
+/// (using that scope). It is not cached.
 #[must_use]
 pub struct SceneListScope<L: SceneList>(pub L);
 

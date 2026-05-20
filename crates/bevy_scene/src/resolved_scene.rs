@@ -61,7 +61,7 @@ impl ResolvedSceneRoot {
     /// This will apply all of the [`Template`]s in this root [`ResolvedScene`] to the entity. It will also
     /// spawn all of this [`ResolvedScene`]'s related entities.
     ///
-    /// If this root [`ResolvedScene`] relies on a cached scene, that scene will be applied _first_.
+    /// If this root [`ResolvedScene`] includes a cached scene, that scene will be applied _first_.
     pub fn apply(
         &self,
         entity: &mut EntityWorldMut,
@@ -153,8 +153,8 @@ impl ResolvedSceneListRoot {
 /// 2. A collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
 /// 3. An optional cached [`ScenePatch`].
 ///
-/// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] that the cached scene has is requested, it will be
-/// cloned (using [`Template::clone_template`]) and added to the current [`ResolvedScene`].
+/// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
+/// it will be cloned (using [`Template::clone_template`]) and added to the current [`ResolvedScene`].
 ///
 /// When applying this [`ResolvedScene`] to an [`Entity`], the cached scene (including its related scenes) is applied _first_. _Then_ this
 /// [`ResolvedScene`] is applied.
@@ -199,7 +199,7 @@ impl ResolvedScene {
     /// This will apply all of the [`Template`]s in this [`ResolvedScene`] to the entity in the [`TemplateContext`]. It will also
     /// spawn all of this [`ResolvedScene`]'s related entities.
     ///
-    /// If this [`ResolvedScene`] relies on a cached scene, that scene will be applied _first_.
+    /// If this [`ResolvedScene`] includes a cached scene, that scene will be applied _first_.
     fn apply(
         &self,
         context: &mut TemplateContext,
@@ -213,7 +213,7 @@ impl ResolvedScene {
     /// This will apply all of the [`Template`]s in this [`ResolvedScene`] to the entity in the [`TemplateContext`]. It will also
     /// spawn all of this [`ResolvedScene`]'s related entities.
     ///
-    /// If this [`ResolvedScene`] relies on a cached scene, that scene will be applied _first_.
+    /// If this [`ResolvedScene`] includes a cached scene, that scene will be applied _first_.
     ///
     /// This will call `writer_ops` right before calling [`BundleWriter::write`]. This will pass in the `context` value,
     /// which is the same context used to write all of the scene components to the [`BundleWriter`]. This ensures that
@@ -401,8 +401,8 @@ impl ResolvedScene {
     /// This will get the [`Template`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
     /// it will use [`Default`] to create a new [`Template`].
     ///
-    /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] that the cached scene has is requested, it will be
-    /// cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
+    /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
+    /// it will be cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
     ///
     /// This will ignore [`Template`]s added to this scene using [`ResolvedScene::push_template`], as these are not registered as the "canonical"
     /// [`Template`] for a given [`TypeId`].
@@ -425,8 +425,8 @@ impl ResolvedScene {
     /// it will use the `default` function to create a new [`ErasedComponentTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
     /// by `default` should match the passed in `type_id`_.
     ///
-    /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] that the cached scene has is requested, it will be
-    /// cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
+    /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
+    /// it will be cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
     ///
     /// This will ignore [`Template`]s added to this scene using [`ResolvedScene::push_template`], as these are not registered as the "canonical"
     /// [`Template`] for a given [`TypeId`].
@@ -514,11 +514,11 @@ impl ResolvedScene {
             .or_insert_with(RelatedResolvedScenes::new::<R>)
     }
 
-    /// Configures this [`ResolvedScene`] to use the given [`ScenePatch`] cached.
+    /// Configures this [`ResolvedScene`] to include the given [`ScenePatch`] cached.
     ///
-    /// If this [`ResolvedScene`] already relies on a cached scene, it will return [`CachedSceneError::MultipleCached`].
+    /// If this [`ResolvedScene`] already includes a cached scene, it will return [`CachedSceneError::MultipleCached`].
     /// If this [`ResolvedScene`] already has [`Template`]s or related scenes, it will return [`CachedSceneError::LateCached`].
-    pub fn use_cached(&mut self, handle: Handle<ScenePatch>) -> Result<(), CachedSceneError> {
+    pub fn include_cached(&mut self, handle: Handle<ScenePatch>) -> Result<(), CachedSceneError> {
         if let Some(cached) = &self.cached {
             return Err(CachedSceneError::MultipleCached {
                 id: cached.handle.id().untyped(),
@@ -550,12 +550,12 @@ pub(crate) struct CachedSceneInfo {
     pub(crate) duplicate_templates: HashSet<TypeId>,
 }
 
-/// The error returned by [`ResolvedScene::use_cached`].
+/// The error returned by [`ResolvedScene::include_cached`].
 #[derive(Error, Debug)]
 pub enum CachedSceneError {
-    /// Caused when attempting to use a second cached scene.
+    /// Caused when attempting to include a second cached scene.
     #[error(
-        "Attempted to use a second cached scene (id {id:?}, path: {path:?}), which is not allowed."
+        "Attempted to include a second cached scene (id {id:?}, path: {path:?}), which is not allowed."
     )]
     MultipleCached {
         /// The asset id of the second cached scene.
@@ -563,12 +563,12 @@ pub enum CachedSceneError {
         /// The path of the second cached scene.
         path: Option<AssetPath<'static>>,
     },
-    /// Caused when attempting to use a cached scene when a [`ResolvedScene`] already has [`Template`]s or related scenes.
-    #[error("Attempted to use cached scene (id {id:?}, path: {path:?}), but the resolved scene already has templates. For correctness, cached scenes should always come first.")]
+    /// Caused when attempting to include a cached scene when a [`ResolvedScene`] already has [`Template`]s or related scenes.
+    #[error("Attempted to include cached scene (id {id:?}, path: {path:?}), but the resolved scene already has templates. For correctness, the cached scene should always be included first.")]
     LateCached {
-        /// The asset id of the scene that was cached late.
+        /// The asset id of the cached scene that was included late.
         id: UntypedAssetId,
-        /// The path of the scene that was cached late.
+        /// The path of the cached scene that was included late.
         path: Option<AssetPath<'static>>,
     },
 }
