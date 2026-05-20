@@ -1,7 +1,7 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneList,
-    BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnListRoot, BsnNamedField, BsnRelatedSceneList,
+    BsnRoot, BsnScene, BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneList, BsnSceneListItem,
+    BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -12,7 +12,7 @@ use syn::{
     parenthesized,
     parse::{Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
-    token::{At, Brace, Bracket, Colon, Comma, Paren},
+    token::{At, Brace, Bracket, Colon, Comma, Paren, Tilde},
     Block, Expr, Ident, Lit, LitStr, Path, Result, Token,
 };
 
@@ -59,22 +59,22 @@ impl Parse for BsnListRoot {
 impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
-        let mut found_inherited_scene = false;
+        let mut found_cached_scene = false;
         if input.peek(Paren) {
             let content;
             parenthesized![content in input];
             while !content.is_empty() {
-                let entry = BsnEntry::parse(&content, found_inherited_scene)?;
-                if matches!(entry, BsnEntry::InheritedScene(_)) {
-                    found_inherited_scene = true;
+                let entry = BsnEntry::parse(&content, found_cached_scene)?;
+                if matches!(entry, BsnEntry::CachedScene(_)) {
+                    found_cached_scene = true;
                 }
                 entries.push(entry);
             }
         } else if ALLOW_FLAT {
             while !input.is_empty() {
-                let entry = BsnEntry::parse(input, found_inherited_scene)?;
-                if matches!(entry, BsnEntry::InheritedScene(_)) {
-                    found_inherited_scene = true;
+                let entry = BsnEntry::parse(input, found_cached_scene)?;
+                if matches!(entry, BsnEntry::CachedScene(_)) {
+                    found_cached_scene = true;
                 }
                 entries.push(entry);
                 if input.peek(Comma) {
@@ -84,7 +84,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                 }
             }
         } else {
-            entries.push(BsnEntry::parse(input, found_inherited_scene)?);
+            entries.push(BsnEntry::parse(input, found_cached_scene)?);
         }
 
         Ok(Self { entries })
@@ -92,9 +92,9 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 }
 
 impl BsnEntry {
-    fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
+    fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
         Ok(if input.peek(Token![:]) {
-            BsnEntry::InheritedScene(BsnInheritedScene::parse(input, found_inherited_scene)?)
+            BsnEntry::CachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
             if input.peek(Brace) {
@@ -103,11 +103,14 @@ impl BsnEntry {
                 BsnEntry::Name(input.parse::<Ident>()?)
             }
         } else if input.peek(Brace) {
-            BsnEntry::SceneExpression(braced_tokens(input)?)
+            BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
+        } else if input.peek(At) {
+            input.parse::<At>()?;
+            BsnEntry::UncachedScene(BsnScene::SceneComponent(input.parse::<BsnType>()?))
         } else {
-            let is_template = input.peek(At);
+            let is_template = input.peek(Tilde);
             if is_template {
-                input.parse::<At>()?;
+                input.parse::<Tilde>()?;
             }
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
@@ -168,9 +171,9 @@ impl BsnEntry {
                 PathType::Function => {
                     if input.peek(Paren) {
                         let args = input.parse()?;
-                        BsnEntry::SceneFn(BsnSceneFn { path, args })
+                        BsnEntry::UncachedScene(BsnScene::Fn(BsnSceneFn { path, args }))
                     } else {
-                        BsnEntry::SceneExpression(quote! {#path})
+                        BsnEntry::UncachedScene(BsnScene::Expression(quote! {#path}))
                     }
                 }
             }
@@ -231,30 +234,41 @@ impl Parse for BsnSceneFnArg {
         }
     }
 }
-impl BsnInheritedScene {
-    fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
+impl BsnScene {
+    fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
         let colon = input.parse::<Token![:]>()?;
-        if found_inherited_scene {
+        if found_cached_scene {
             return Err(syn::Error::new(
                 colon.span(),
-                "Cannot inherit scenes more than once",
+                "Cannot cache scenes more than once",
             ));
         }
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
-            BsnInheritedScene::Asset(path)
+            BsnScene::Asset(path)
         } else if input.peek(Brace) {
-            BsnInheritedScene::Expression(braced_tokens(input)?)
+            BsnScene::Expression(braced_tokens(input)?)
+        } else if input.peek(At) {
+            input.parse::<At>()?;
+            BsnScene::SceneComponent(input.parse::<BsnType>()?)
         } else {
             // PERF: do we really need this fork here?
             let path = input.fork().parse::<Path>()?;
             match PathType::new(&path) {
                 PathType::Type | PathType::Enum => {
-                    BsnInheritedScene::Type(input.parse::<BsnType>()?)
+                    // Scene components are parsed externally if an @ is found.
+                    // If this path is hit, that means it wasn't prefixed by @
+                    return Err(syn::Error::new(
+                        path.span(),
+                        format!(
+                            "Scene component {} needs to be prefixed by @",
+                            path_to_string(&path),
+                        ),
+                    ));
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
-                    BsnInheritedScene::Fn(BsnSceneFn {
+                    BsnScene::Fn(BsnSceneFn {
                         path,
                         args: input.parse()?,
                     })
@@ -263,7 +277,7 @@ impl BsnInheritedScene {
                     return Err(syn::Error::new(
                         path.span(),
                         format!(
-                            "Cannot inherit from path {} of type {:?}",
+                            "Cannot cache path {} of type {:?}",
                             path_to_string(&path),
                             path_type,
                         ),

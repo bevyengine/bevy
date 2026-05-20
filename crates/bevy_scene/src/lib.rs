@@ -1783,14 +1783,14 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {:@Widget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<Widget>());
 
         #[derive(SceneComponent, Default, Clone)]
         #[scene(Widget::scene)]
         struct OtherWidget;
-        let entity = world.spawn_scene(bsn! {:OtherWidget}).unwrap();
+        let entity = world.spawn_scene(bsn! {:@OtherWidget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<OtherWidget>());
         assert!(
@@ -1832,7 +1832,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entity = world
-            .spawn_scene(bsn! {:Widget {
+            .spawn_scene(bsn! {:@Widget {
                 @children: 2,
                 value: 10,
             }})
@@ -1847,7 +1847,7 @@ mod tests {
         }
 
         let entity = world
-            .spawn_scene(bsn! {:OtherWidget {
+            .spawn_scene(bsn! {:@OtherWidget {
                 @children: 2,
                 value: 10,
             }})
@@ -1869,7 +1869,7 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {:@Widget}).unwrap();
         assert!(entity.contains::<Widget>());
     }
 
@@ -1916,7 +1916,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                :Widget{
+                :@Widget{
                     entity: #Name
                 }
             ]
@@ -2017,7 +2017,7 @@ mod tests {
 
         let prop_expr = bsn! {
             Children [
-                :Widget {
+                :@Widget {
                     @entity: Entity::PLACEHOLDER
                 }
             ]
@@ -2030,7 +2030,7 @@ mod tests {
         let scene_prop = bsn! {
             #Name
             Children [
-                :Widget {
+                :@Widget {
                     @entity: #Name
                 }
             ]
