@@ -529,7 +529,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 pub(crate) fn bevy_settings_path() -> syn::Path {
-    BevyManifest::shared(|manifest| manifest.get_path("bevy_settings"))
+    BevyManifest::shared(|manifest| manifest.get_path("bevy-settings"))
 }
 
 /// Implement the `Event` trait.
