@@ -2056,6 +2056,7 @@ mod tests {
         assert_eq!(value, None);
     }
 
+    #[track_caller]
     fn compare_root_motion(
         expected_translation: Vec3,
         expected_rotation: Quat,
@@ -2091,6 +2092,7 @@ mod tests {
         );
     }
 
+    #[track_caller]
     fn root_motion_tests(
         app: &mut App,
         tick_count: u32,
