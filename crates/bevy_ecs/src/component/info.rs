@@ -58,6 +58,12 @@ impl ComponentInfo {
         self.descriptor.mutable
     }
 
+    /// Returns `true` if mutable access to this component is restricted.
+    #[inline]
+    pub fn restricted_access(&self) -> bool {
+        self.descriptor.restricted_access
+    }
+
     /// Returns [`ComponentCloneBehavior`] of the current component.
     #[inline]
     pub fn clone_behavior(&self) -> &ComponentCloneBehavior {
@@ -228,6 +234,7 @@ pub struct ComponentDescriptor {
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
+    restricted_access: bool,
     clone_behavior: ComponentCloneBehavior,
     relationship_accessor: MaybeRelationshipAccessor,
 }
@@ -242,6 +249,7 @@ impl Debug for ComponentDescriptor {
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
+            .field("restricted_access", &self.restricted_access)
             .field("clone_behavior", &self.clone_behavior)
             .field("relationship_accessor", &self.relationship_accessor)
             .finish()
@@ -270,6 +278,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
+            restricted_access: T::RESTRICTED_ACCESS,
             clone_behavior: T::clone_behavior(),
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
@@ -307,6 +316,7 @@ impl ComponentDescriptor {
             layout,
             drop,
             mutable,
+            restricted_access: false,
             clone_behavior,
             relationship_accessor: relationship_accessor.into(),
         }
@@ -330,6 +340,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            restricted_access: false,
             clone_behavior: ComponentCloneBehavior::Default,
             relationship_accessor: None.into(),
         }

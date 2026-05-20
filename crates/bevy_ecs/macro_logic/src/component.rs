@@ -285,6 +285,8 @@ impl DeriveComponent {
             }
         });
 
+        let restricted_access = derives_restricted_access(ast);
+
         let mutable_type = (self.immutable || relationship.is_some())
             .then_some(quote! { #bevy_ecs::component::Immutable })
             .unwrap_or(quote! { #bevy_ecs::component::Mutable });
@@ -338,6 +340,7 @@ impl DeriveComponent {
             #required_component_docs
             impl #impl_generics #bevy_ecs::component::Component for #struct_name #type_generics #where_clause {
                 const STORAGE_TYPE: #bevy_ecs::component::StorageType = #storage;
+                const RESTRICTED_ACCESS: bool = #restricted_access;
                 type Mutability = #mutable_type;
                 fn register_required_components(
                     _requiree: #bevy_ecs::component::ComponentId,
@@ -595,6 +598,22 @@ pub struct Relationship {
 pub struct RelationshipTarget {
     relationship: Type,
     linked_spawn: bool,
+}
+
+fn derives_restricted_access(ast: &DeriveInput) -> bool {
+    ast.attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("derive"))
+        .filter_map(|attr| {
+            attr.parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
+                .ok()
+        })
+        .flatten()
+        .any(|path| {
+            path.segments
+                .last()
+                .is_some_and(|segment| segment.ident == "RestrictedAccess")
+        })
 }
 
 // values for `storage` attribute

@@ -9,6 +9,7 @@ mod message;
 mod query_data;
 mod query_filter;
 mod resource;
+mod restricted_access;
 mod template;
 mod variant_defaults;
 mod world_query;
@@ -838,6 +839,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             Err(err) => return err.into_compile_error().into(),
         };
     TokenStream::from(impl_component)
+}
+
+/// Implement the `RestrictedAccess` trait.
+#[proc_macro_derive(RestrictedAccess)]
+pub fn derive_restricted_access(input: TokenStream) -> TokenStream {
+    restricted_access::derive_restricted_access(input)
 }
 
 /// Implement the `FromWorld` trait.

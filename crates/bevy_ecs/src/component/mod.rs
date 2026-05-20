@@ -5,12 +5,14 @@ mod constants;
 mod info;
 mod register;
 mod required;
+mod restricted_access;
 
 pub use clone::*;
 pub use constants::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
+pub use restricted_access::*;
 
 use crate::{
     entity::EntityMapper,
@@ -19,7 +21,7 @@ use crate::{
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
-pub use bevy_ecs_macros::Component;
+pub use bevy_ecs_macros::{Component, RestrictedAccess};
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
 /// A data type that can be used to store data for an [entity].
@@ -511,6 +513,14 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+
+    /// Whether this component opts into restricted mutable access.
+    ///
+    /// Components marked with [`RestrictedAccess`] are intended to be mutated
+    /// through [`RestrictedMut`](crate::system::RestrictedMut), allowing
+    /// framework code to mediate writes for use cases like auditing,
+    /// serialization, or replication.
+    const RESTRICTED_ACCESS: bool = false;
 
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
