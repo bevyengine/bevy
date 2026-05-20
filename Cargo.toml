@@ -2391,17 +2391,6 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
-name = "callbacks_boxed"
-path = "examples/ecs/callbacks_boxed.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.callbacks_boxed]
-name = "callbacks_boxed"
-description = "Store arbitrary boxed systems in components and run them on demand"
-category = "ECS (Entity Component System)"
-wasm = true
-
-[[example]]
 name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
 doc-scrape-examples = true
