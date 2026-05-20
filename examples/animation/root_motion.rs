@@ -2,6 +2,7 @@
 
 use bevy::{
     animation::{AnimationTargetId, RepeatAnimation, RootMotion, RootMotionMode},
+    app::AnimationSystems,
     color::palettes::css::SILVER,
     light::CascadeShadowConfigBuilder,
     prelude::*,
@@ -16,7 +17,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (apply_root_motion, toggle_root_motion))
+        .add_systems(Update, toggle_root_motion)
+        // We apply the root motion after the animations are processed, but before propagating the transform
+        .add_systems(
+            PostUpdate,
+            apply_root_motion
+                .after(AnimationSystems)
+                .before(TransformSystems::Propagate),
+        )
         .run();
 }
 
