@@ -13,7 +13,7 @@ pub trait RestrictedAccess: Component<Mutability = RestrictedMutable> {}
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{Component, RestrictedAccess},
+        component::RestrictedAccess,
         world::World,
     };
 

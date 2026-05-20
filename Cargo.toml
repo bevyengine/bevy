@@ -2447,6 +2447,30 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "restricted_access_audit"
+path = "examples/restricted_access_audit.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.restricted_access_audit]
+name = "Restricted Access Audit"
+description = "Audits writes to a restricted component"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "restricted_access_save"
+path = "examples/restricted_access_save.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.restricted_access_save]
+name = "Restricted Access Save"
+description = "Saves restricted components through mediated writes"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "dynamic"
 path = "examples/ecs/dynamic.rs"
 doc-scrape-examples = true
