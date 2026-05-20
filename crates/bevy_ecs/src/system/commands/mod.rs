@@ -1110,6 +1110,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`register_system`](Self::register_system) to register a system that has not been boxed.
     pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
     where
         I: SystemInput + Send + 'static,
