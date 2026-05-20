@@ -18,7 +18,7 @@ use bevy_image::ToExtents;
 use bevy_light::atmosphere::ScatteringMedium;
 use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
 use bevy_render::{
-    extract_component::ComponentUniforms,
+    extract_component::{ComponentUniforms, ExtractComponent},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
@@ -134,6 +134,7 @@ impl AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<GpuAtmosphere>(true)),
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
@@ -144,7 +145,7 @@ impl AtmosphereBindGroupLayouts {
                     (8, texture_2d(TextureSampleType::default())), // transmittance
                     (9, texture_2d(TextureSampleType::default())), // multiscattering
                     (12, sampler(SamplerBindingType::Filtering)),
-                    // eerial view lut storage texture
+                    // aerial view lut storage texture
                     (
                         13,
                         texture_storage_3d(
@@ -519,6 +520,36 @@ impl AtmosphereTransforms {
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
     atmosphere_from_world: Mat4,
+    /// Transform from ECEF to standard Y-up coordinates.
+    /// Identity when ECEF is not in use.
+    globe_to_plane: Mat4,
+    /// Camera altitude above the reference ellipsoid in meters.
+    view_height: f32,
+}
+
+/// Provides the ECEF-to-standard transform for geospatial atmosphere rendering.
+///
+/// When attached to the same camera entity as `AtmosphereSettings`, the
+/// [`ecf_to_std`](AtmosphereGlobe::globe_to_plane) matrix and
+/// [`view_height`](AtmosphereGlobe::view_height) altitude are forwarded to the shader
+/// as part of [`AtmosphereTransforms`]. Leave this component unset (or set both
+/// fields to their default identity / 0.0) when not using an ECEF coordinate
+/// system — the atmosphere will behave identically to the original implementation.
+#[derive(Clone, Component, ShaderType, ExtractComponent)]
+pub struct AtmosphereGlobe {
+    /// Transform matrix from ECEF to standard Y-up coordinates.
+    pub globe_to_plane: Mat4,
+    /// Camera altitude above the reference ellipsoid, in meters.
+    pub view_height: f32,
+}
+
+impl Default for AtmosphereGlobe {
+    fn default() -> Self {
+        Self {
+            globe_to_plane: Mat4::IDENTITY,
+            view_height: 0.0,
+        }
+    }
 }
 
 #[derive(Component)]
@@ -535,7 +566,12 @@ impl AtmosphereTransformsOffset {
 
 pub(super) fn prepare_atmosphere_transforms(
     views: Query<
-        (Entity, &ExtractedView, &GpuAtmosphere),
+        (
+            Entity,
+            &ExtractedView,
+            &GpuAtmosphere,
+            Option<&AtmosphereGlobe>,
+        ),
         (With<ExtractedAtmosphere>, With<Camera3d>),
     >,
     render_device: Res<RenderDevice>,
@@ -552,9 +588,14 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view, gpu_atmosphere) in &views {
+    for (entity, view, gpu_atmosphere, globe) in &views {
         // Camera position in atmosphere space
         let cam_world = view.world_from_view.translation();
+
+        let (globe_to_plane, view_height) = globe
+            .map(|g| (g.globe_to_plane, g.view_height))
+            .unwrap_or((Mat4::IDENTITY, 0.0));
+
         let cam_pos = Vec3A::from(
             gpu_atmosphere
                 .world_to_atmosphere
@@ -584,6 +625,8 @@ pub(super) fn prepare_atmosphere_transforms(
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
                 atmosphere_from_world,
+                globe_to_plane,
+                view_height,
             }),
         });
     }
@@ -730,12 +773,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
         );
 
         let aerial_view_lut = render_device.create_bind_group(
-            "sky_view_lut_bind_group",
+            "aerial_view_lut_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.aerial_view_lut),
             &BindGroupEntries::with_indices((
                 // uniforms
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 // scattering medium luts and sampler

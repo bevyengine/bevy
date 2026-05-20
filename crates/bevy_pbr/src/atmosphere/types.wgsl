@@ -31,4 +31,6 @@ struct AtmosphereSettings {
 struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
     atmosphere_from_world: mat4x4<f32>,
+    globe_to_plane: mat4x4<f32>,
+    view_height: f32,
 }

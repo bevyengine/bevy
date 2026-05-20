@@ -81,7 +81,7 @@ use environment::{
 use node::{atmosphere_luts, render_sky};
 use resources::{
     prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
-    AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
+    AtmosphereGlobe, AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
@@ -111,9 +111,11 @@ impl Plugin for AtmospherePlugin {
 
         app.add_plugins((
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            ExtractComponentPlugin::<AtmosphereGlobe>::default(),
             SyncComponentPlugin::<AtmosphereSettings>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
+            UniformComponentPlugin::<AtmosphereGlobe>::default(),
         ))
         .add_systems(Update, prepare_atmosphere_probe_components);
 

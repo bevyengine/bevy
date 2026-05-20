@@ -1,5 +1,6 @@
 #import bevy_pbr::{
     atmosphere::{
+        bindings::atmosphere_transforms,
         functions::{direction_world_to_atmosphere, sample_sky_view_lut, get_view_position},
     },
     utils::sample_cube_dir
@@ -26,6 +27,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     // invert the z direction to account for cubemaps being lefthanded
     ray_dir_ws.z = -ray_dir_ws.z;
+    ray_dir_ws = (atmosphere_transforms.globe_to_plane * vec4(ray_dir_ws, 0.0)).xyz;
 
     let world_pos = get_view_position();
     let r = length(world_pos);

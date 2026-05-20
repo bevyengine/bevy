@@ -130,6 +130,7 @@ pub fn atmosphere_luts(
         &[
             atmosphere_uniforms_offset.index(),
             settings_uniforms_offset.index(),
+            atmosphere_transforms_offset.index(),
             view_uniforms_offset.offset,
             lights_uniforms_offset.offset,
         ],
