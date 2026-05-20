@@ -282,7 +282,7 @@ impl BsnScene {
         let bevy_scene = ctx.bevy_scene;
         match self {
             BsnScene::Asset(lit) => Ok(quote! {
-                #bevy_scene::InheritSceneAsset::from(#lit)
+                #bevy_scene::CachedSceneAsset::from(#lit)
             }),
             BsnScene::Fn(func) => Ok(func.to_tokens(ctx)),
             BsnScene::SceneComponent(bsn_type) => {
@@ -453,8 +453,8 @@ impl BsnType {
                                 format!(
                                     "Scene prop fields are not supported in normal component patches\
                                      . If you would like to set a component scene's prop field, it \
-                                     should be set using \"scene inheritance\": \
-                                     bsn! {{ :{} {{ @{field_name}: VALUE }} }}",
+                                     should be set using \"scene component\" syntax: \
+                                     bsn! {{ @{} {{ @{field_name}: VALUE }} }}",
                                      path_to_string(type_path)
                                 ),
                             ));

@@ -102,9 +102,7 @@ impl BsnEntry {
             } else {
                 BsnEntry::Name(input.parse::<Ident>()?)
             }
-        } else if input.peek(Brace) {
-            BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
-        } else if input.peek(At) {
+        } else if input.peek(Brace) || input.peek(At) {
             BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else {
             let is_template = input.peek(Tilde);
@@ -255,6 +253,12 @@ impl BsnScene {
 
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
+            if cached.is_none() {
+                return Err(syn::Error::new(
+                    path.span(),
+                    "Cannot use scene from asset path without caching, please add : prefix.",
+                ));
+            }
             BsnScene::Asset(path)
         } else if input.peek(Brace) {
             err_cached("Cannot cache scene expressions")?;
