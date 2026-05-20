@@ -454,7 +454,6 @@ mod tests {
     use bevy_ptr::OwningPtr;
 
     use crate::{
-        archetype::{Archetype, ArchetypeId},
         change_detection::MaybeLocation,
         error::Result,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
@@ -938,8 +937,7 @@ mod tests {
                 )
             },
         );
-        // SAFETY: event_id was just registered for use as an event
-        let event_key = unsafe { crate::event::EventKey::new(event_id) };
+        let event_key = crate::event::EventKey(event_id);
 
         // SAFETY: event_key was just created, observer reads event_data as u32
         let observe = unsafe {
@@ -992,8 +990,7 @@ mod tests {
                 )
             },
         );
-        // SAFETY: event_id was just registered for use as an event
-        let event_key = unsafe { crate::event::EventKey::new(event_id) };
+        let event_key = crate::event::EventKey(event_id);
 
         let target = world.spawn_empty().id();
         let other = world.spawn_empty().id();
@@ -1082,8 +1079,7 @@ mod tests {
                 )
             },
         );
-        // SAFETY: event_id was just registered for use as an event
-        let event_key = unsafe { crate::event::EventKey::new(event_id) };
+        let event_key = crate::event::EventKey(event_id);
 
         // Register a dynamic component to scope an observer to.
         let comp_id = world.register_component_with_descriptor(
@@ -1791,27 +1787,21 @@ mod tests {
     }
 
     #[test]
-    fn observer_new_old_archetypes() {
+    fn observer_entity_components_trigger_components() {
         #[derive(Resource, Default)]
-        struct Changes(Vec<(&'static str, Option<ArchetypeId>, Option<ArchetypeId>)>);
+        struct Changes(Vec<(&'static str, Vec<crate::component::ComponentId>)>);
 
         let mut world = World::new();
         world.init_resource::<Changes>();
+        let a = world.register_component::<A>();
+        let b = world.register_component::<B>();
 
         fn observer<E: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>>(
             e: On<E, A>,
             mut c: ResMut<Changes>,
         ) {
-            c.0.push((
-                type_name::<E>(),
-                e.trigger().old_archetype.map(Archetype::id),
-                e.trigger().new_archetype.map(Archetype::id),
-            ));
+            c.0.push((type_name::<E>(), e.trigger().components.to_vec()));
         }
-
-        let empty = world.spawn(()).archetype().id();
-        let a = world.spawn(A).archetype().id();
-        let ab = world.spawn((A, B)).archetype().id();
 
         world.add_observer(observer::<Add>);
         world.add_observer(observer::<Insert>);
@@ -1828,17 +1818,17 @@ mod tests {
         assert_eq!(
             &world.resource_mut::<Changes>().0,
             &[
-                ("bevy_ecs::lifecycle::Add", None, Some(ab)),
-                ("bevy_ecs::lifecycle::Insert", None, Some(ab)),
-                ("bevy_ecs::lifecycle::Discard", Some(ab), Some(empty)),
-                ("bevy_ecs::lifecycle::Remove", Some(ab), Some(empty)),
-                ("bevy_ecs::lifecycle::Add", Some(empty), Some(a)),
-                ("bevy_ecs::lifecycle::Insert", Some(empty), Some(a)),
-                ("bevy_ecs::lifecycle::Discard", Some(a), Some(a)),
-                ("bevy_ecs::lifecycle::Insert", Some(a), Some(a)),
-                ("bevy_ecs::lifecycle::Despawn", Some(a), None),
-                ("bevy_ecs::lifecycle::Discard", Some(a), None),
-                ("bevy_ecs::lifecycle::Remove", Some(a), None),
+                ("bevy_ecs::lifecycle::Add", vec![a, b]),
+                ("bevy_ecs::lifecycle::Insert", vec![a, b]),
+                ("bevy_ecs::lifecycle::Discard", vec![a, b]),
+                ("bevy_ecs::lifecycle::Remove", vec![a, b]),
+                ("bevy_ecs::lifecycle::Add", vec![a]),
+                ("bevy_ecs::lifecycle::Insert", vec![a]),
+                ("bevy_ecs::lifecycle::Discard", vec![a]),
+                ("bevy_ecs::lifecycle::Insert", vec![a]),
+                ("bevy_ecs::lifecycle::Despawn", vec![a]),
+                ("bevy_ecs::lifecycle::Discard", vec![a]),
+                ("bevy_ecs::lifecycle::Remove", vec![a]),
             ],
         );
     }

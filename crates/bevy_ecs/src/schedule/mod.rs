@@ -1189,24 +1189,24 @@ mod tests {
 
             let expected = &[
                 (
-                    "system_d".to_string(),
-                    "system_a".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
+                    system_name("system_d"),
+                    system_name("system_a"),
+                    vec![component_name()],
                 ),
                 (
-                    "system_d".to_string(),
-                    "system_e".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
+                    system_name("system_d"),
+                    system_name("system_e"),
+                    vec![component_name()],
                 ),
                 (
-                    "system_b".to_string(),
-                    "system_a".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
+                    system_name("system_b"),
+                    system_name("system_a"),
+                    vec![component_name()],
                 ),
                 (
-                    "system_b".to_string(),
-                    "system_e".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
+                    system_name("system_b"),
+                    system_name("system_e"),
+                    vec![component_name()],
                 ),
             ];
 
@@ -1249,11 +1249,38 @@ mod tests {
             assert_eq!(
                 ambiguities[0],
                 (
-                    "resmut_system (in set (resmut_system, resmut_system))".to_string(),
-                    "resmut_system (in set (resmut_system, resmut_system))".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
+                    anonymous_set_system_name(),
+                    anonymous_set_system_name(),
+                    vec![component_name()],
                 )
             );
+        }
+
+        #[cfg(feature = "trace")]
+        fn system_name(name: &str) -> alloc::string::String {
+            if cfg!(feature = "debug") {
+                alloc::string::String::from(name)
+            } else {
+                alloc::string::String::from("<Enable the debug feature to see the name>")
+            }
+        }
+
+        #[cfg(feature = "trace")]
+        fn component_name() -> alloc::string::String {
+            if cfg!(feature = "debug") {
+                alloc::string::String::from("bevy_ecs::schedule::tests::system_ambiguity::R")
+            } else {
+                alloc::string::String::from("<Enable the debug feature to see the name>")
+            }
+        }
+
+        #[cfg(feature = "trace")]
+        fn anonymous_set_system_name() -> alloc::string::String {
+            if cfg!(feature = "debug") {
+                alloc::string::String::from("resmut_system (in set (resmut_system, resmut_system))")
+            } else {
+                alloc::string::String::from("<Enable the debug feature to see the name> (in set (<Enable the debug feature to see the name>, <Enable the debug feature to see the name>))")
+            }
         }
 
         #[test]

@@ -12,10 +12,7 @@ pub trait RestrictedAccess: Component<Mutability = RestrictedMutable> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        component::RestrictedAccess,
-        world::World,
-    };
+    use crate::{component::RestrictedAccess, world::World};
 
     #[test]
     fn restricted_access_derive_compiles() {

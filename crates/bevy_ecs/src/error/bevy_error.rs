@@ -193,11 +193,16 @@ impl BevyError {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains("<bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
+                        if line.contains(
+                            "<bevy_ecs::error::bevy_error::BevyError as core::convert::From<",
+                        ) {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains("<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
+                        if line.contains("<core::result::Result<")
+                            && line.contains(" as core::ops::try_trait::FromResidual<")
+                            && line.contains(">::from_residual")
+                        {
                             skip_next_location_line = true;
                             continue;
                         }
@@ -429,6 +434,10 @@ mod tests {
             let _: usize = "I am not a number".parse()?;
             Ok(())
         }
+        fn is_call_once_frame(line: &str) -> bool {
+            line == "core::ops::function::FnOnce::call_once"
+                || line.ends_with(" as core::ops::function::FnOnce<()>>::call_once")
+        }
 
         let capture_backtrace = std::env::var_os("RUST_BACKTRACE");
 
@@ -461,13 +470,18 @@ mod tests {
         let expected_lines = alloc::vec![
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
             "core::ops::function::FnOnce::call_once",
         ];
 
         for expected in expected_lines {
             let line = lines.next().unwrap();
-            assert_eq!(&line[6..], expected);
+            let line = &line[6..];
+            if expected == "core::ops::function::FnOnce::call_once" {
+                assert!(is_call_once_frame(line), "unexpected frame: {line}");
+            } else {
+                assert_eq!(line, expected);
+            }
             let mut skip = false;
             if let Some(line) = lines.peek()
                 && line.starts_with("             at")
@@ -483,7 +497,7 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "core::ops::function::FnOnce::call_once"
+            && is_call_once_frame(&line[6..])
         {
             skip = true;
         }

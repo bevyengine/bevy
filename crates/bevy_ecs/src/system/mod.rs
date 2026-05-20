@@ -1910,9 +1910,17 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "debug"), ignore)]
-    #[should_panic(
-        expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
+    #[cfg_attr(
+        feature = "debug",
+        should_panic(
+            expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "debug"),
+        should_panic(
+            expected = "Encountered an error in system `<Enable the debug feature to see the name>`: error"
+        )
     )]
     fn simple_fallible_system() {
         fn sys() -> Result {
@@ -1925,9 +1933,17 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "debug"), ignore)]
-    #[should_panic(
-        expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
+    #[cfg_attr(
+        feature = "debug",
+        should_panic(
+            expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "debug"),
+        should_panic(
+            expected = "Encountered an error in system `<Enable the debug feature to see the name>`: error"
+        )
     )]
     fn simple_fallible_exclusive_system() {
         fn sys(_world: &mut World) -> Result {
