@@ -210,11 +210,12 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
 
-        let mu_light = dot((*light).direction_to_light, local_up);
+        let light_dir = (atmosphere_transforms.globe_to_plane * vec4((*light).direction_to_light, 0.0)).xyz;
+        let mu_light = dot(light_dir, local_up);
 
         // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view
         // instead of towards it (as is the convention for V)
-        let neg_LdotV = dot((*light).direction_to_light, ray_dir);
+        let neg_LdotV = dot(light_dir, ray_dir);
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
@@ -241,7 +242,8 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     var sun_radiance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
-        let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
+        let light_dir = (atmosphere_transforms.globe_to_plane * vec4((*light).direction_to_light, 0.0)).xyz;
+        let neg_LdotV = dot(light_dir, ray_dir_ws);
         let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
         let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
         let sun_angular_size = (*light).sun_disk_angular_size;
@@ -299,8 +301,15 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
-/// Returns the observer's position in the atmosphere
+/// Returns the observer's position in the atmosphere.
+/// When `atmosphere_transforms.ecef_altitude` is non-zero (geospatial / ECEF mode),
+/// the camera is placed at `(0, bottom_radius + ecef_altitude, 0)` in Y-up space.
+/// Otherwise, the camera position is derived from `view.world_position`.
 fn get_view_position() -> vec3<f32> {
+    if atmosphere_transforms.ecef_altitude != 0.0 {
+        var world_pos = vec3(0.0, atmosphere.bottom_radius + atmosphere_transforms.ecef_altitude, 0.0);
+        return clamp_to_surface(atmosphere, world_pos);
+    }
     var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
     return clamp_to_surface(atmosphere, world_pos);
 }
@@ -369,7 +378,7 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec3<f32> {
     // direction to world space. Note that the w element is set to 0.0, as this is a
     // vector direction, not a position, That causes the matrix multiplication to ignore
     // the translations from the view matrix.
-    let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
+    let ray_direction = (atmosphere_transforms.globe_to_plane * view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
     return normalize(ray_direction);
 }
@@ -491,7 +500,7 @@ fn raymarch_atmosphere(
     if ground && ray_intersects_ground(r, mu) {
         for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
             let light = &lights.directional_lights[light_i];
-            let light_dir = (*light).direction_to_light;
+            let light_dir = (atmosphere_transforms.globe_to_plane * vec4((*light).direction_to_light, 0.0)).xyz;
             let light_color = (*light).color.rgb;
             let transmittance_to_ground = exp(-optical_depth);
             // position on the sphere and get the sphere normal (up)

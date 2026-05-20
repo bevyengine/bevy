@@ -47,7 +47,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Query},
 };
-use bevy_math::{UVec2, UVec3, Vec3};
+use bevy_math::{Mat4, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
@@ -110,6 +110,7 @@ impl Plugin for AtmospherePlugin {
             ExtractComponentPlugin::<Atmosphere>::default(),
             ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            ExtractComponentPlugin::<AtmosphereGlobe>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
@@ -446,4 +447,41 @@ pub enum AtmosphereMode {
     /// Best for cinematic shots, planets seen from orbit, and scenes requiring
     /// accurate long-distance lighting.
     Raymarched = 1,
+}
+
+/// Provides ECEF (Earth-Centered Earth-Fixed) coordinate system information for
+/// the atmosphere renderer. Set by an external geospatial plugin to enable
+/// WGS84 / Earth-curvature support.
+///
+/// When this component is absent, the atmosphere uses the default flat Y-up
+/// world coordinate system.
+#[derive(Clone, Component, Reflect)]
+#[reflect(Clone, Default)]
+pub struct AtmosphereGlobe {
+    /// Transform from ECEF coordinates to the atmosphere's "standard" space,
+    /// aligning the local up vector with the Y axis.
+    pub globe_to_plane: Mat4,
+    /// Altitude of the camera above the ellipsoid surface (meters).
+    pub ecef_altitude: f32,
+}
+
+impl Default for AtmosphereGlobe {
+    fn default() -> Self {
+        Self {
+            globe_to_plane: Mat4::IDENTITY,
+            ecef_altitude: 0.0,
+        }
+    }
+}
+
+impl ExtractComponent for AtmosphereGlobe {
+    type QueryData = Read<AtmosphereGlobe>;
+
+    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+
+    type Out = AtmosphereGlobe;
+
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
+    }
 }

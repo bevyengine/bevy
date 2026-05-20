@@ -1,6 +1,6 @@
 use crate::{
-    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMedium,
-    ScatteringMediumSampler,
+    atmosphere::AtmosphereGlobe, ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta,
+    ScatteringMedium, ScatteringMediumSampler,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
@@ -134,6 +134,7 @@ impl AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<GpuAtmosphere>(true)),
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
@@ -144,7 +145,7 @@ impl AtmosphereBindGroupLayouts {
                     (8, texture_2d(TextureSampleType::default())), // transmittance
                     (9, texture_2d(TextureSampleType::default())), // multiscattering
                     (12, sampler(SamplerBindingType::Filtering)),
-                    // eerial view lut storage texture
+                    // aerial view lut storage texture
                     (
                         13,
                         texture_storage_3d(
@@ -510,6 +511,8 @@ impl AtmosphereTransforms {
 #[derive(ShaderType)]
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
+    globe_to_plane: Mat4,
+    ecef_altitude: f32,
 }
 
 #[derive(Component)]
@@ -525,7 +528,10 @@ impl AtmosphereTransformsOffset {
 }
 
 pub(super) fn prepare_atmosphere_transforms(
-    views: Query<(Entity, &ExtractedView), (With<ExtractedAtmosphere>, With<Camera3d>)>,
+    views: Query<
+        (Entity, &ExtractedView, Option<&AtmosphereGlobe>),
+        (With<ExtractedAtmosphere>, With<Camera3d>),
+    >,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut atmo_uniforms: ResMut<AtmosphereTransforms>,
@@ -540,7 +546,7 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view) in &views {
+    for (entity, view, globe) in &views {
         let world_from_view = view.world_from_view.affine();
         let camera_z = world_from_view.matrix3.z_axis;
         let camera_y = world_from_view.matrix3.y_axis;
@@ -555,9 +561,15 @@ pub(super) fn prepare_atmosphere_transforms(
 
         let world_from_atmosphere = Mat4::from(world_from_atmosphere);
 
+        let (globe_to_plane, ecef_altitude) = globe
+            .map(|g| (g.globe_to_plane, g.ecef_altitude))
+            .unwrap_or((Mat4::IDENTITY, 0.0));
+
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
+                globe_to_plane,
+                ecef_altitude,
             }),
         });
     }
@@ -710,6 +722,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 // uniforms
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 // scattering medium luts and sampler
