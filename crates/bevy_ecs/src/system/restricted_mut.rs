@@ -87,7 +87,7 @@ unsafe impl<T: RestrictedAccess> SystemParam for RestrictedMut<'_, '_, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{Component, RestrictedAccess},
+        component::RestrictedAccess,
         entity::Entity,
         resource::Resource,
         schedule::Schedule,
@@ -95,7 +95,7 @@ mod tests {
         world::World,
     };
 
-    #[derive(Component, RestrictedAccess)]
+    #[derive(RestrictedAccess)]
     struct RestrictedCounter(u32);
 
     #[derive(Resource)]

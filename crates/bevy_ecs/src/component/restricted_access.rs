@@ -1,11 +1,14 @@
-use crate::component::Component;
+use crate::component::{Component, RestrictedMutable};
 
 /// Marks a component whose mutable access must be mediated by
 /// [`RestrictedMut`](crate::system::RestrictedMut).
 ///
 /// Use cases include audit trails, save systems, undo/redo, time travel,
 /// debugging, and multi-process replication.
-pub trait RestrictedAccess: Component {}
+///
+/// `#[derive(RestrictedAccess)]` also implements [`Component`] with restricted
+/// mutability. Do not combine it with `#[derive(Component)]` on the same type.
+pub trait RestrictedAccess: Component<Mutability = RestrictedMutable> {}
 
 #[cfg(test)]
 mod tests {
@@ -16,7 +19,7 @@ mod tests {
 
     #[test]
     fn restricted_access_derive_compiles() {
-        #[derive(Component, RestrictedAccess)]
+        #[derive(RestrictedAccess)]
         struct Audited;
 
         fn assert_restricted<T: RestrictedAccess>() {}

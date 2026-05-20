@@ -51,6 +51,8 @@ pub struct DeriveComponent {
     pub map_entities: Option<MapEntitiesAttributeKind>,
     /// Additional required component registrations that are added in `Component::register_required_components`
     pub additional_requires: Vec<TokenStream>,
+    /// Whether this component restricts mutable access to authorized APIs.
+    pub restricted_access: bool,
 }
 
 impl DeriveComponent {
@@ -70,6 +72,7 @@ impl DeriveComponent {
             clone_behavior: None,
             map_entities: None,
             additional_requires: Vec::new(),
+            restricted_access: false,
         };
 
         let mut require_paths = HashSet::new();
@@ -163,6 +166,13 @@ impl DeriveComponent {
         Ok(attrs)
     }
 
+    /// Marks this component as requiring restricted mutable access.
+    #[must_use]
+    pub fn with_restricted_access(mut self) -> Self {
+        self.restricted_access = true;
+        self
+    }
+
     /// Generates a new `Component` trait implementation from this specification.
     ///
     /// Note that this will add Send + Sync + 'static to the where clause
@@ -195,6 +205,21 @@ impl DeriveComponent {
             Ok(value) => value,
             Err(err) => Some(err.into_compile_error()),
         };
+        let restricted_access = self.restricted_access;
+
+        if restricted_access && self.immutable {
+            return Err(syn::Error::new(
+                ast.span(),
+                "RestrictedAccess components cannot also be marked immutable",
+            ));
+        }
+
+        if restricted_access && relationship.is_some() {
+            return Err(syn::Error::new(
+                ast.span(),
+                "RestrictedAccess cannot be derived for relationship components, which are immutable",
+            ));
+        }
 
         let map_entities = map_entities(
             &ast.data,
@@ -285,11 +310,13 @@ impl DeriveComponent {
             }
         });
 
-        let restricted_access = derives_restricted_access(ast);
-
-        let mutable_type = (self.immutable || relationship.is_some())
-            .then_some(quote! { #bevy_ecs::component::Immutable })
-            .unwrap_or(quote! { #bevy_ecs::component::Mutable });
+        let mutable_type = if restricted_access {
+            quote! { #bevy_ecs::component::RestrictedMutable }
+        } else {
+            (self.immutable || relationship.is_some())
+                .then_some(quote! { #bevy_ecs::component::Immutable })
+                .unwrap_or(quote! { #bevy_ecs::component::Mutable })
+        };
 
         let clone_behavior = if relationship_target.is_some() || relationship.is_some() {
             quote!(
@@ -598,22 +625,6 @@ pub struct Relationship {
 pub struct RelationshipTarget {
     relationship: Type,
     linked_spawn: bool,
-}
-
-fn derives_restricted_access(ast: &DeriveInput) -> bool {
-    ast.attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("derive"))
-        .filter_map(|attr| {
-            attr.parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
-                .ok()
-        })
-        .flatten()
-        .any(|path| {
-            path.segments
-                .last()
-                .is_some_and(|segment| segment.ident == "RestrictedAccess")
-        })
 }
 
 // values for `storage` attribute

@@ -523,11 +523,15 @@ pub trait Component: Send + Sync + 'static {
     const RESTRICTED_ACCESS: bool = false;
 
     /// A marker type to assist Bevy with determining if this component is
-    /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
-    /// while immutable components will instead have [`Component<Mutability = Immutable>`].
+    /// mutable, restricted mutable, or immutable. Mutable components will have
+    /// [`Component<Mutability = Mutable>`], restricted mutable components will
+    /// have [`Component<Mutability = RestrictedMutable>`], while immutable
+    /// components will instead have [`Component<Mutability = Immutable>`].
     ///
     /// * For a component to be mutable, this type must be [`Mutable`].
     /// * For a component to be immutable, this type must be [`Immutable`].
+    /// * For a component to restrict mutable access, this type must be
+    ///   [`RestrictedMutable`].
     type Mutability: ComponentMutability;
 
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
@@ -673,6 +677,7 @@ mod private {
 /// The mutability option for a [`Component`]. This can either be:
 /// * [`Mutable`]
 /// * [`Immutable`]
+/// * [`RestrictedMutable`]
 ///
 /// This is controlled through either [`Component::Mutability`] or `#[component(immutable)]`
 /// when using the derive macro.
@@ -720,6 +725,18 @@ pub struct Mutable;
 impl private::Seal for Mutable {}
 
 impl ComponentMutability for Mutable {
+    const MUTABLE: bool = true;
+}
+
+/// Parameter indicating a [`Component`] is mutable only through
+/// [`RestrictedMut`](crate::system::RestrictedMut).
+///
+/// See [`ComponentMutability`] for details.
+pub struct RestrictedMutable;
+
+impl private::Seal for RestrictedMutable {}
+
+impl ComponentMutability for RestrictedMutable {
     const MUTABLE: bool = true;
 }
 

@@ -841,8 +841,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     TokenStream::from(impl_component)
 }
 
-/// Implement the `RestrictedAccess` trait.
-#[proc_macro_derive(RestrictedAccess)]
+/// Implement the `RestrictedAccess` trait and a restricted `Component` impl.
+#[proc_macro_derive(
+    RestrictedAccess,
+    attributes(component, require, relationship, relationship_target, entities)
+)]
 pub fn derive_restricted_access(input: TokenStream) -> TokenStream {
     restricted_access::derive_restricted_access(input)
 }
