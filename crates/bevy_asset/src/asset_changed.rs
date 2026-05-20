@@ -206,6 +206,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 
     const IS_DENSE: bool = <&A>::IS_DENSE;
 
+    /// # Safety
+    /// `archetype` and `table` must correspond to a valid archetype that matches the
+    /// query, and `fetch` must have been initialized via `init_fetch` for the same
+    /// `world` and `state`. Caller must ensure no concurrent mutable access to the
+    /// component data.
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
@@ -220,6 +225,10 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
+    /// # Safety
+    /// `table` must be a valid table that matches the query, and `fetch` must have
+    /// been initialized via `init_fetch` for the same `world` and `state`. Caller
+    /// must ensure no concurrent mutable access to the component data.
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
@@ -291,6 +300,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
+    /// # Safety
+    /// `fetch` must have been initialized via `init_fetch` and set up via
+    /// `set_archetype` or `set_table`. `entity` and `table_row` must identify a valid
+    /// entity within the current archetype/table. Caller must ensure no concurrent
+    /// mutable access to the component data.
     #[inline]
     unsafe fn filter_fetch(
         state: &Self::State,
