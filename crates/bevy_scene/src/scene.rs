@@ -368,7 +368,7 @@ impl Scene for CachedSceneAsset {
         if let Some(handle) = context.assets.get_handle::<ScenePatch>(&self.0)
             && let Some(scene_patch) = context.patches.get(&handle)
         {
-            scene.use_cached(handle)?;
+            scene.include_cached(handle)?;
             context.cached = Some(scene_patch);
             Ok(())
         } else {

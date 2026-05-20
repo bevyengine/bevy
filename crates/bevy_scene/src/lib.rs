@@ -527,7 +527,7 @@
 //! # }
 //! # let mut world = World::new();
 //! world.spawn_scene(bsn! {
-//!  :Player { score: 0 }
+//!  @Player { score: 0 }
 //! });
 //! ```
 //!
@@ -617,7 +617,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :Player { image: "player.png" }
+//!    @Player { image: "player.png" }
 //! });
 //! ```
 //!
@@ -659,7 +659,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :HelloRepeater {
+//!    @HelloRepeater {
 //!        @repeat: 5
 //!    }
 //! });
@@ -689,7 +689,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :Widget {
+//!    @Widget {
 //!        @border: true,
 //!        value: 10,
 //!    }

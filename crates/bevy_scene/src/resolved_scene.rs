@@ -178,7 +178,7 @@ pub struct ResolvedScene {
     /// here.
     template_indices: TypeIdMap<usize>,
     /// A list of all [`SceneEntityReference`] values associated with this entity. There can be more than one if this scene uses
-    /// "flattened" cacheing.
+    /// "flattened" caching.
     pub entity_references: Vec<SceneEntityReference>,
 }
 
