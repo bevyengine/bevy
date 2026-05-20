@@ -72,7 +72,7 @@ pub mod prelude {
             ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
         },
         children,
-        component::Component,
+        component::{Component, RestrictedAccess},
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result, ResultSeverityExt, Severity},
         event::{EntityEvent, Event},
@@ -95,7 +95,7 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            Res, ResMut, RestrictedMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
         template::{template, FromTemplate, Template},

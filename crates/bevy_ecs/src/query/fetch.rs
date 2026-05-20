@@ -5,7 +5,7 @@ use crate::{
         ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
         ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
     },
-    component::{Component, ComponentId, Components, Mutable, StorageType},
+    component::{Component, ComponentId, Components, Mutable, RestrictedAccess, StorageType},
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
@@ -2488,6 +2488,166 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
         )
     }
 }
+
+/// [`QueryData`] used by [`RestrictedMut`](crate::system::RestrictedMut) to
+/// authorize writes to [`RestrictedAccess`] components.
+#[doc(hidden)]
+pub struct RestrictedWrite<T: RestrictedAccess>(PhantomData<T>);
+
+/// SAFETY:
+/// `fetch` accesses a single component mutably.
+/// This is sound because `update_component_access` adds write access for that component and panics when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
+unsafe impl<T: RestrictedAccess> WorldQuery for RestrictedWrite<T> {
+    type Fetch<'w> = WriteFetch<'w, T>;
+    type State = ComponentId;
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w, 's>(
+        world: UnsafeWorldCell<'w>,
+        state: &'s ComponentId,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> WriteFetch<'w, T> {
+        // SAFETY: This query data registers the same component write access as `&mut T`.
+        unsafe { <&mut T as WorldQuery>::init_fetch(world, state, last_run, this_run) }
+    }
+
+    const IS_DENSE: bool = <&mut T as WorldQuery>::IS_DENSE;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut WriteFetch<'w, T>,
+        state: &ComponentId,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        // SAFETY: This query data registers the same component write access as `&mut T`.
+        unsafe { <&mut T as WorldQuery>::set_archetype(fetch, state, archetype, table) };
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(fetch: &mut WriteFetch<'w, T>, state: &ComponentId, table: &'w Table) {
+        // SAFETY: This query data registers the same component write access as `&mut T`.
+        unsafe { <&mut T as WorldQuery>::set_table(fetch, state, table) };
+    }
+
+    fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
+        assert!(
+            !access.access().has_read(component_id),
+            "RestrictedMut<{}> conflicts with a previous access in this query. Mutable component access must be unique.",
+            DebugName::type_name::<T>(),
+        );
+        access.add_write(component_id);
+    }
+
+    fn init_state(world: &mut World) -> ComponentId {
+        world.register_component::<T>()
+    }
+
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
+    }
+
+    fn matches_component_set(
+        &state: &ComponentId,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(state)
+    }
+}
+
+/// SAFETY: access of `&T` is a subset of `RestrictedWrite<T>`.
+unsafe impl<T: RestrictedAccess> QueryData for RestrictedWrite<T> {
+    const IS_READ_ONLY: bool = false;
+    const IS_ARCHETYPAL: bool = true;
+    type ReadOnly = &'static T;
+    type Item<'w, 's> = Mut<'w, T>;
+
+    fn shrink<'wlong: 'wshort, 'wshort, 's>(
+        item: Self::Item<'wlong, 's>,
+    ) -> Self::Item<'wshort, 's> {
+        item
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Option<Self::Item<'w, 's>> {
+        Some(fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called.
+                let (table_components, added_ticks, changed_ticks, callers) =
+                    unsafe { table.debug_checked_unwrap() };
+
+                // SAFETY: The caller ensures `table_row` is in range.
+                let component = unsafe { table_components.get_unchecked(table_row.index()) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let added = unsafe { added_ticks.get_unchecked(table_row.index()) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
+
+                Mut {
+                    value: component.deref_mut(),
+                    ticks: ComponentTicksMut {
+                        added: added.deref_mut(),
+                        changed: changed.deref_mut(),
+                        changed_by: caller.map(|caller| caller.deref_mut()),
+                        this_run: fetch.this_run,
+                        last_run: fetch.last_run,
+                    },
+                }
+            },
+            |sparse_set| {
+                // SAFETY: The caller ensures `entity` is in range and has the component.
+                let (component, ticks) = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_with_ticks(entity)
+                        .debug_checked_unwrap()
+                };
+
+                Mut {
+                    value: component.assert_unique().deref_mut(),
+                    ticks: ComponentTicksMut::from_tick_cells(
+                        ticks,
+                        fetch.last_run,
+                        fetch.this_run,
+                    ),
+                }
+            },
+        ))
+    }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::Write(*state)))
+    }
+}
+
+impl<T: RestrictedAccess> ReleaseStateQueryData for RestrictedWrite<T> {
+    fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+        item
+    }
+}
+
+impl<T: RestrictedAccess> ArchetypeQueryData for RestrictedWrite<T> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<T: RestrictedAccess> IterQueryData for RestrictedWrite<T> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<T: RestrictedAccess> SingleEntityQueryData for RestrictedWrite<T> {}
 
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
 ///
