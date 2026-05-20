@@ -3942,7 +3942,7 @@ mod tests {
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
-        panic,
+        panic::AssertUnwindSafe,
         sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
     use std::{println, sync::Mutex};
@@ -4063,20 +4063,46 @@ mod tests {
     }
 
     #[test]
-    fn panic_in_despawn_followed_by_insert() {
+    fn panic_in_component_drop() {
         let helper = DropTestHelper::new();
 
-        let res = std::panic::catch_unwind(|| {
-            let mut world = World::new();
+        let mut world = World::new();
 
-            let e1 = world.spawn(helper.make_component(true, 0)).id();
+        let e1 = world.spawn(helper.make_component(true, 0)).id();
+        let e2 = world.spawn(helper.make_component(true, 1)).id();
 
-            let _ = std::panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                world.despawn(e1);
-            }));
+        // Panic despawning component not last in table
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.despawn(e1);
+        }))
+        .unwrap_err();
 
-            world.spawn(helper.make_component(true, 1));
-        });
+        // Panic despawning component last in table
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.despawn(e2);
+        }))
+        .unwrap_err();
+
+        let mut e3 = world.spawn(helper.make_component(true, 2));
+        let e3_id = e3.id();
+        let old_loc = e3.location();
+        // Drop old component through override
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            e3.insert((helper.make_component(true, 3), Foo));
+        }))
+        .unwrap_err();
+        assert_ne!(e3.location(), old_loc);
+        assert_eq!(e3.location(), world.entity(e3_id).location());
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.entity_mut(e3_id).remove::<MayPanicInDrop>();
+        }))
+        .unwrap_err();
+
+        world.spawn(helper.make_component(true, 4));
+        // Panic during world drop
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            drop(world);
+        }));
 
         let drop_log = helper.finish(res);
 
@@ -4084,9 +4110,15 @@ mod tests {
             &*drop_log,
             [
                 DropLogItem::Create(0),
-                DropLogItem::Drop(0),
                 DropLogItem::Create(1),
-                DropLogItem::Drop(1)
+                DropLogItem::Drop(0),
+                DropLogItem::Drop(1),
+                DropLogItem::Create(2),
+                DropLogItem::Create(3),
+                DropLogItem::Drop(2),
+                DropLogItem::Drop(3),
+                DropLogItem::Create(4),
+                DropLogItem::Drop(4),
             ]
         );
     }
