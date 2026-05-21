@@ -10,7 +10,8 @@ use core::{
 
 /// A collection of custom attributes for a type, field, or variant.
 ///
-/// These attributes can be created with the [`Reflect` derive macro].
+/// These attributes can be created with the [`Reflect` derive macro], or with
+/// [`CustomAttributesBuilder`].
 ///
 /// Attributes are stored by their [`TypeId`].
 /// Because of this, there can only be one attribute per type.
@@ -41,6 +42,16 @@ pub struct CustomAttributes {
 }
 
 impl CustomAttributes {
+    fn new(attributes: TypeIdMap<CustomAttribute>) -> Self {
+        Self {
+            attributes: if attributes.is_empty() {
+                None
+            } else {
+                Some(Arc::new(attributes))
+            },
+        }
+    }
+
     /// Returns `true` if this collection contains a custom attribute of the specified type.
     pub fn contains<T: Reflect>(&self) -> bool {
         self.attributes
@@ -181,34 +192,43 @@ macro_rules! impl_custom_attribute_methods {
     };
 }
 
-/// XXX TODO: Document.
+/// Builder for [`CustomAttributes`].
+///
+/// ```
+/// # use bevy_reflect::attributes::CustomAttributesBuilder;
+/// let custom_attributes = CustomAttributesBuilder::new()
+///     .attribute("my attribute")
+///     .attribute(123)
+///     .build();
+/// ```
 #[derive(Default)]
 pub struct CustomAttributesBuilder {
     attributes: TypeIdMap<CustomAttribute>,
 }
 
 impl CustomAttributesBuilder {
-    /// XXX TODO: Document.
+    /// Creates a new, empty builder.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// XXX TODO: Document.
-    pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
-        self.attributes
-            .insert(TypeId::of::<T>(), CustomAttribute::new(value));
+    /// Adds a single attribute to the builder.
+    pub fn attribute<T: Reflect>(self, value: T) -> Self {
+        self.attribute_erased(TypeId::of::<T>(), CustomAttribute::new(value))
+    }
+
+    // Erased version of `attribute` with inlining disabled. This reduces
+    // monomorphization costs, and avoids excessive inlining in cold generated
+    // code.
+    #[inline(never)]
+    fn attribute_erased(mut self, type_id: TypeId, value: CustomAttribute) -> Self {
+        self.attributes.insert(type_id, value);
         self
     }
 
-    /// XXX TODO: Document.
+    /// Consumes the builder, returning the final [`CustomAttributes`].
     pub fn build(self) -> CustomAttributes {
-        if self.attributes.is_empty() {
-            CustomAttributes { attributes: None }
-        } else {
-            CustomAttributes {
-                attributes: Some(Arc::new(self.attributes)),
-            }
-        }
+        CustomAttributes::new(self.attributes)
     }
 }
 
@@ -232,9 +252,7 @@ mod tests {
 
     #[test]
     fn should_get_custom_attribute() {
-        let attributes = CustomAttributesBuilder::new()
-            .with_attribute(0.0..=1.0)
-            .build();
+        let attributes = CustomAttributesBuilder::new().attribute(0.0..=1.0).build();
 
         let value = attributes.get::<RangeInclusive<f64>>().unwrap();
         assert_eq!(&(0.0..=1.0), value);
@@ -243,7 +261,7 @@ mod tests {
     #[test]
     fn should_get_custom_attribute_dynamically() {
         let attributes = CustomAttributesBuilder::new()
-            .with_attribute(String::from("Hello, World!"))
+            .attribute(String::from("Hello, World!"))
             .build();
 
         let value = attributes.get_by_id(TypeId::of::<String>()).unwrap();
@@ -255,7 +273,7 @@ mod tests {
     #[test]
     fn should_debug_custom_attributes() {
         let attributes = CustomAttributesBuilder::new()
-            .with_attribute("My awesome custom attribute!")
+            .attribute("My awesome custom attribute!")
             .build();
 
         let debug = format!("{attributes:?}");
@@ -268,7 +286,7 @@ mod tests {
         }
 
         let attributes = CustomAttributesBuilder::new()
-            .with_attribute(Foo { value: 42 })
+            .attribute(Foo { value: 42 })
             .build();
 
         let debug = format!("{attributes:?}");
