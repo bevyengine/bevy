@@ -8,10 +8,7 @@ use syn::{GenericParam, Token};
 ///
 /// Returns `None` if `Generics` cannot or should not be generated.
 pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
-    if !meta.attrs().type_path_attrs().should_auto_derive() {
-        // Cannot verify that all generic parameters implement `TypePath`
-        return None;
-    }
+    let include_generic_type = meta.attrs().type_path_attrs().should_auto_derive();
 
     let bevy_reflect_path = meta.bevy_reflect_path();
 
@@ -29,11 +26,14 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
                     .as_ref()
                     .map(|default_ty| quote!(.with_default::<#default_ty>()));
 
+                let with_type = include_generic_type.then(|| quote!(.with_type::<#ident>()));
+
                 Some(quote! {
                     #bevy_reflect_path::GenericInfo::Type(
-                        #bevy_reflect_path::TypeParamInfo::new::<#ident>(
+                        #bevy_reflect_path::TypeParamInfo::new(
                             #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#name),
                         )
+                        #with_type
                         #with_default
                     )
                 })
@@ -45,6 +45,7 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
                     // We add the `as #ty` to ensure that the correct type is inferred.
                     quote!(.with_default(#default as #ty))
                 });
+                let with_type = include_generic_type.then(|| quote!(.with_type::<#ty>()));
 
                 Some(quote! {
                     #[allow(
@@ -52,9 +53,10 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
                         reason = "reflection requires an explicit type hint for const generics"
                     )]
                     #bevy_reflect_path::GenericInfo::Const(
-                        #bevy_reflect_path::ConstParamInfo::new::<#ty>(
+                        #bevy_reflect_path::ConstParamInfo::new(
                             #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#name),
                         )
+                        #with_type
                         #with_default
                     )
                 })

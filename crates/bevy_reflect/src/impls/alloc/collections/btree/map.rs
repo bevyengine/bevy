@@ -185,8 +185,8 @@ where
         CELL.get_or_insert::<Self, _>(|| {
             TypeInfo::Map(
                 MapInfo::new::<Self, K, V>().with_generics(Generics::from_iter([
-                    TypeParamInfo::new::<K>("K"),
-                    TypeParamInfo::new::<V>("V"),
+                    TypeParamInfo::new("K").with_type::<K>(),
+                    TypeParamInfo::new("V").with_type::<V>(),
                 ])),
             )
         })
