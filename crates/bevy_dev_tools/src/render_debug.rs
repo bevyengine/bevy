@@ -521,6 +521,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
             primitive: bevy_render::render_resource::PrimitiveState::default(),
             depth_stencil: None,
             multisample: bevy_render::render_resource::MultisampleState::default(),
+            multiview_mask: None,
             immediate_size: 0,
             zero_initialize_workgroup_memory: false,
         }

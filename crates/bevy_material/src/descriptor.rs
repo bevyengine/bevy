@@ -3,7 +3,7 @@ use bevy_asset::Handle;
 use bevy_derive::Deref;
 use bevy_mesh::VertexBufferLayout;
 use bevy_shader::{CachedPipelineId, Shader, ShaderDefVal};
-use core::iter;
+use core::{iter, num::NonZeroU32};
 use thiserror::Error;
 use wgpu_types::{
     BindGroupLayoutEntry, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
@@ -43,6 +43,14 @@ pub struct RenderPipelineDescriptor {
     pub depth_stencil: Option<DepthStencilState>,
     /// The multi-sampling properties of the pipeline.
     pub multisample: MultisampleState,
+    /// The view mask for multiview rendering, if any.
+    ///
+    /// When `Some`, the pipeline renders to multiple view layers in a single
+    /// pass; each bit of the mask selects a layer of the render target's
+    /// texture array. Shaders can read the current view via
+    /// `@builtin(view_index)`. The render pass that uses this pipeline must
+    /// be configured with a matching multiview mask.
+    pub multiview_mask: Option<NonZeroU32>,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
