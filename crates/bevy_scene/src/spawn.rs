@@ -20,6 +20,7 @@ pub trait WorldSceneExt {
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
     /// # use bevy_app::App;
@@ -83,7 +84,7 @@ pub trait WorldSceneExt {
     /// #[derive(Component, Default, Clone)]
     /// struct Shield;
     ///
-    /// // This scene includes the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is fully loaded.
     /// world.queue_spawn_scene(bsn! {
     ///     :"player.bsn"
@@ -105,6 +106,7 @@ pub trait WorldSceneExt {
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene list has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene_list`].
+    /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
     /// # use bevy_app::App;
@@ -164,7 +166,7 @@ pub trait WorldSceneExt {
     ///     Red,
     ///     Blue,
     /// }
-    /// // This scene list includes the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
     /// world.queue_spawn_scene_list(bsn_list! [
     ///     (
@@ -227,6 +229,7 @@ pub trait CommandsSceneExt {
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`Commands::queue_spawn_scene`].
+    /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
     /// # use bevy_scene::prelude::*;
@@ -274,7 +277,7 @@ pub trait CommandsSceneExt {
     /// #[derive(Component, Default, Clone)]
     /// struct Shield;
     ///
-    /// // This scene includes the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is fully loaded.
     /// commands.queue_spawn_scene(bsn! {
     ///     :"player.bsn"
@@ -309,6 +312,7 @@ pub trait CommandsSceneExt {
     ///     Blue,
     /// }
     ///
+    /// // Note that the .bsn file format is not yet released.
     /// commands.spawn_scene_list(bsn_list! {
     ///     (
     ///         :"player.bsn"
@@ -341,7 +345,7 @@ pub trait CommandsSceneExt {
     ///     Blue,
     /// }
     ///
-    /// // This scene list includes the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
     /// commands.queue_spawn_scene_list(bsn_list! [
     ///     (
@@ -451,6 +455,7 @@ pub trait EntityWorldMutSceneExt {
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// Note that the .bsn file format is not yet released.
     fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
@@ -550,6 +555,7 @@ pub trait EntityCommandsSceneExt {
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`Commands::spawn_scene`].
+    /// Note that the .bsn file format is not yet released.
     fn apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned

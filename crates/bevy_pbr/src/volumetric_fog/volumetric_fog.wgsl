@@ -52,7 +52,7 @@
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
-    far_planes: array<vec4<f32>, 3>,
+    far_planes: array<vec4<f32>, 6>,
     fog_color: vec3<f32>,
     light_tint: vec3<f32>,
     ambient_color: vec3<f32>,
@@ -142,12 +142,15 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
     // Calculate the end position of the ray. This requires us to raytrace the
-    // three back faces of the AABB to find the one that our ray intersects.
+    // back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
-    for (var plane_index = 0; plane_index < 3; plane_index += 1) {
+    for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
-        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
+        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 6];
+        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 6];
+        let other_plane_c = volumetric_fog.far_planes[(plane_index + 3) % 6];
+        let other_plane_d = volumetric_fog.far_planes[(plane_index + 4) % 6];
+        let other_plane_e = volumetric_fog.far_planes[(plane_index + 5) % 6];
 
         // Calculate the intersection of the ray and the plane. The ray must
         // intersect in front of us (t > 0).
@@ -158,13 +161,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let hit_pos = view_start_pos.xyz * t;
 
         // The intersection point must be in front of the other backfaces.
-        let other_sides = vec2(
-            dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0,
-            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0
-        );
-
         // If those tests pass, we found our backface.
-        if (all(other_sides)) {
+        if (dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_c) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_d) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_e) >= 0.0)
+        {
             end_depth_view = -hit_pos.z;
             break;
         }
@@ -351,6 +354,20 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
         var density = density_factor;
+#ifdef DENSITY_TEXTURE
+            // Take the density texture into account, if there is one.
+            //
+            // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
+            // but sometimes due to floating point error they can. Handle this
+            // case.
+            let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
+            if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
+                density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
+            } else {
+                density = 0.0;
+            }
+#endif  // DENSITY_TEXTURE
+
         var sample_color = vec3(0.0);
 
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);

@@ -128,6 +128,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Normal")
                         on(|_activate: On<Activate>| {
                             info!("Normal button clicked!");
                         })
@@ -140,6 +141,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Disabled")
                         InteractionDisabled
                         DemoDisabledButton
                         on(|_activate: On<Activate>| {
@@ -151,6 +153,7 @@ fn demo_column_1() -> impl Scene {
                             @caption: {bsn! { Text("Primary") ThemedText }},
                             @variant: ButtonVariant::Primary,
                         }
+                        AccessibleLabel("Primary")
                         Node {
                             flex_grow: 1.0,
                         }
@@ -165,6 +168,7 @@ fn demo_column_1() -> impl Scene {
                                 @FeathersMenuButton {
                                     @caption: {bsn! { Text("Menu") ThemedText }}
                                 }
+                                AccessibleLabel("Menu Example")
                                 Node {
                                     flex_grow: 1.0,
                                 }
@@ -220,6 +224,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Left")
                         on(|_activate: On<Activate>| {
                             info!("Left button clicked!");
                         })
@@ -232,6 +237,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Center")
                         on(|_activate: On<Activate>| {
                             info!("Center button clicked!");
                         })
@@ -245,6 +251,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Right")
                         on(|_activate: On<Activate>| {
                             info!("Right button clicked!");
                         })
@@ -268,6 +275,7 @@ fn demo_column_1() -> impl Scene {
                     @caption: {bsn! { Text("Checkbox") ThemedText }}
                 }
                 Checked
+                AccessibleLabel("Checkbox Example")
                 on(
                     |change: On<ValueChange<bool>>,
                         query: Query<Entity, With<DemoDisabledButton>>,
@@ -293,6 +301,7 @@ fn demo_column_1() -> impl Scene {
                     @caption: {bsn! { Text("Fast Click Checkbox") ThemedText }}
                 }
                 ActivateOnPress
+                AccessibleLabel("Fast Click Checkbox Example")
                 on(
                     |change: On<ValueChange<bool>>,
                      mut commands: Commands| {
@@ -311,6 +320,7 @@ fn demo_column_1() -> impl Scene {
                     @caption: {bsn! { Text("Disabled") ThemedText }},
                 }
                 InteractionDisabled
+                AccessibleLabel("Disabled Checkbox Example")
                 on(|_change: On<ValueChange<bool>>| {
                     warn!("Disabled checkbox clicked!");
                 })
@@ -321,6 +331,7 @@ fn demo_column_1() -> impl Scene {
                 }
                 InteractionDisabled
                 Checked
+                AccessibleLabel("Disabled and Checked Checkbox Example")
                 on(|_change: On<ValueChange<bool>>| {
                     warn!("Disabled checkbox clicked!");
                 })
@@ -441,6 +452,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::Red
                 }
+                AccessibleLabel("Red Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.red = change.value;
                 })
@@ -450,6 +462,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::Green
                 }
+                AccessibleLabel("Green Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.green = change.value;
                 })
@@ -459,6 +472,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::Blue
                 }
+                AccessibleLabel("Blue Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.blue = change.value;
                 })
@@ -468,6 +482,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::Alpha
                 }
+                AccessibleLabel("Alpha Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.alpha = change.value;
                 })
@@ -489,6 +504,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::HslHue
                 }
+                AccessibleLabel("Hue Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.hue = change.value;
                 })
@@ -498,6 +514,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::HslSaturation
                 }
+                AccessibleLabel("Saturation Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.saturation = change.value;
                 })
@@ -507,6 +524,7 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::HslLightness
                 }
+                AccessibleLabel("Lightness Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.lightness = change.value;
                 })
