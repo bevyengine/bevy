@@ -333,7 +333,7 @@ impl UiSurface {
         Ok(self.taffy.child_count(node.id))
     }
 
-    /// Returns the number of nodes in the taffy tree, inclduding viewport nodes.
+    /// Returns the number of nodes in the taffy tree, including viewport nodes.
     pub fn total_count(&self) -> usize {
         self.taffy.total_node_count()
     }
@@ -374,7 +374,7 @@ impl UiSurface {
             })
     }
 
-    /// Returns the `NodeId` of the parenty of `Entity`, if any.
+    /// Returns the `NodeId` of the parent of `Entity`, if any.
     pub fn parent(&self, entity: Entity) -> Option<NodeId> {
         self.get(entity).and_then(|node| self.taffy.parent(node.id))
     }
