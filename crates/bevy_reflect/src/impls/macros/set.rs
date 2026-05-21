@@ -151,7 +151,7 @@ macro_rules! impl_reflect_for_hashset {
                     CELL.get_or_insert::<Self, _>(|| {
                         $crate::type_info::TypeInfo::Set(
                             $crate::set::SetInfo::new::<Self, V>().with_generics($crate::generics::Generics::from_iter([
-                                $crate::generics::TypeParamInfo::new::<V>("V")
+                                $crate::generics::TypeParamInfo::new("V").with_type::<V>()
                             ]))
                         )
                     })

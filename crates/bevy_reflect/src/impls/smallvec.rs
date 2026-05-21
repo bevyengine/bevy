@@ -199,7 +199,7 @@ where
         CELL.get_or_insert::<Self, _>(|| {
             TypeInfo::List(
                 ListInfo::new::<Self, T::Item>()
-                    .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")])),
+                    .with_generics(Generics::from_iter([TypeParamInfo::new("T").with_type::<T>()])),
             )
         })
     }

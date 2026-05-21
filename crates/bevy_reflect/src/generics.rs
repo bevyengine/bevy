@@ -1,9 +1,79 @@
-use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform::sync::Arc;
 use core::ops::Deref;
 use derive_more::derive::From;
+
+macro_rules! impl_generic_type_methods {
+    // Generates the type methods based off a single field.
+    ($field:ident) => {
+        impl_generic_type_methods!(self => {
+            self.$field.as_ref()
+        });
+    };
+    // Generates the type methods based off a custom expression.
+    ($self:ident => $expr:expr) => {
+        /// The underlying Rust [type].
+        ///
+        /// Note: If the type was not originally provided (possibly due to reflection opt-outs),
+        /// then this method will return `None`.
+        ///
+        /// [type]: crate::type_info::Type
+        pub fn ty(&$self) -> core::option::Option<&$crate::type_info::Type> {
+            $expr
+        }
+
+        /// The [`TypeId`] of this type.
+        ///
+        /// Note: If the type was not originally provided (possibly due to reflection opt-outs),
+        /// then this method will return `None`.
+        ///
+        /// [`TypeId`]: core::any::TypeId
+        pub fn type_id(&self) -> core::option::Option<::core::any::TypeId> {
+            Some(self.ty()?.id())
+        }
+
+        /// The [stable, full type path] of this type.
+        ///
+        /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+        ///
+        /// Note: If the type was not originally provided (possibly due to reflection opt-outs),
+        /// then this method will return `None`.
+        ///
+        /// [stable, full type path]: TypePath
+        /// [`type_path_table`]: Self::type_path_table
+        pub fn type_path(&self) -> core::option::Option<&'static str> {
+            Some(self.ty()?.path())
+        }
+
+        /// A representation of the type path of this type.
+        ///
+        /// Provides dynamic access to all methods on [`TypePath`].
+        ///
+        /// Note: If the type was not originally provided (possibly due to reflection opt-outs),
+        /// then this method will return `None`.
+        ///
+        /// [`TypePath`]: crate::type_path::TypePath
+        pub fn type_path_table(&self) -> core::option::Option<&$crate::type_path::TypePathTable> {
+            Some(&self.ty()?.type_path_table())
+        }
+
+        /// Check if the given type matches this one.
+        ///
+        /// This only compares the [`TypeId`] of the types
+        /// and does not verify they share the same [`TypePath`]
+        /// (though it implies they do).
+        ///
+        /// Note: If the type was not originally provided (possibly due to reflection opt-outs),
+        /// then this method will return `None`.
+        ///
+        /// [`TypeId`]: core::any::TypeId
+        /// [`TypePath`]: crate::type_path::TypePath
+        pub fn is<T: ::core::any::Any>(&self) -> Option<bool> {
+            Some(self.ty()?.is::<T>())
+        }
+    };
+}
 
 /// The generic parameters of a type.
 ///
@@ -17,7 +87,7 @@ use derive_more::derive::From;
 /// If the type has no generics, this will be empty.
 ///
 /// If the type is marked with `#[reflect(type_path = false)]`,
-/// the generics will be empty even if the type has generics.
+/// the generics will only their capture the parameter names and their [`Type`] information.
 ///
 /// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 /// [`TypeInfo`]: crate::type_info::TypeInfo
@@ -93,7 +163,7 @@ impl GenericInfo {
         }
     }
 
-    impl_type_methods!(self => {
+    impl_generic_type_methods!(self => {
         match self {
             Self::Type(info) => info.ty(),
             Self::Const(info) => info.ty(),
@@ -107,17 +177,25 @@ impl GenericInfo {
 #[derive(Clone, Debug)]
 pub struct TypeParamInfo {
     name: Cow<'static, str>,
-    ty: Type,
+    ty: Option<Type>,
     default: Option<Type>,
 }
 
 impl TypeParamInfo {
     /// Creates a new type parameter with the given name.
-    pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: name.into(),
-            ty: Type::of::<T>(),
+            ty: None,
             default: None,
+        }
+    }
+
+    /// Add a type to the parameter.
+    pub fn with_type<T: TypePath + ?Sized>(self) -> Self {
+        Self {
+            ty: Some(Type::of::<T>()),
+            ..self
         }
     }
 
@@ -154,7 +232,7 @@ impl TypeParamInfo {
         self.default.as_ref()
     }
 
-    impl_type_methods!(ty);
+    impl_generic_type_methods!(ty);
 }
 
 /// Type information for a const generic parameter.
@@ -163,7 +241,7 @@ impl TypeParamInfo {
 #[derive(Clone, Debug)]
 pub struct ConstParamInfo {
     name: Cow<'static, str>,
-    ty: Type,
+    ty: Option<Type>,
     // Rust currently only allows certain primitive types in const generic position,
     // meaning that `Reflect` is guaranteed to be implemented for the default value.
     default: Option<Arc<dyn Reflect>>,
@@ -171,11 +249,19 @@ pub struct ConstParamInfo {
 
 impl ConstParamInfo {
     /// Creates a new const parameter with the given name.
-    pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: name.into(),
-            ty: Type::of::<T>(),
+            ty: None,
             default: None,
+        }
+    }
+
+    /// Add a type to the parameter.
+    pub fn with_type<T: TypePath + ?Sized>(self) -> Self {
+        Self {
+            ty: Some(Type::of::<T>()),
+            ..self
         }
     }
 
@@ -224,7 +310,7 @@ impl ConstParamInfo {
         self.default.as_deref()
     }
 
-    impl_type_methods!(ty);
+    impl_generic_type_methods!(ty);
 }
 
 macro_rules! impl_generic_info_methods {
@@ -272,17 +358,17 @@ mod tests {
 
         let t = iter.next().unwrap();
         assert_eq!(t.name(), "T");
-        assert!(t.ty().is::<f32>());
+        assert!(t.is::<f32>().unwrap());
         assert!(!t.is_const());
 
         let u = iter.next().unwrap();
         assert_eq!(u.name(), "U");
-        assert!(u.ty().is::<String>());
+        assert!(u.is::<String>().unwrap());
         assert!(!u.is_const());
 
         let n = iter.next().unwrap();
         assert_eq!(n.name(), "N");
-        assert!(n.ty().is::<usize>());
+        assert!(n.is::<usize>().unwrap());
         assert!(n.is_const());
 
         assert!(iter.next().is_none());
@@ -302,17 +388,17 @@ mod tests {
 
         let t = generics.get_named("T").unwrap();
         assert_eq!(t.name(), "T");
-        assert!(t.ty().is::<f32>());
+        assert!(t.is::<f32>().unwrap());
         assert!(!t.is_const());
 
         let u = generics.get_named("U").unwrap();
         assert_eq!(u.name(), "U");
-        assert!(u.ty().is::<String>());
+        assert!(u.is::<String>().unwrap());
         assert!(!u.is_const());
 
         let n = generics.get_named("N").unwrap();
         assert_eq!(n.name(), "N");
-        assert!(n.ty().is::<usize>());
+        assert!(n.is::<usize>().unwrap());
         assert!(n.is_const());
     }
 
@@ -335,5 +421,37 @@ mod tests {
             panic!("expected a const parameter");
         };
         assert_eq!(n.default().unwrap().downcast_ref::<usize>().unwrap(), &10);
+    }
+
+    #[test]
+    fn should_store_untyped_generics_with_type_path_opt_out() {
+        #[derive(Reflect)]
+        #[reflect(type_path = false)]
+        struct Test<T: Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        impl<T: Default + 'static, const N: usize> TypePath for Test<T, N> {
+            fn type_path() -> &'static str {
+                ::core::any::type_name::<Self>()
+            }
+
+            fn short_type_path() -> &'static str {
+                "Test<T, N>"
+            }
+        }
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_tuple_struct()
+            .unwrap()
+            .generics();
+
+        let t = generics.get_named("T").unwrap();
+        assert_eq!(t.name(), "T");
+        assert_eq!(t.ty(), None);
+        assert!(!t.is_const());
+
+        let n = generics.get_named("N").unwrap();
+        assert_eq!(n.name(), "N");
+        assert_eq!(n.ty(), None);
+        assert!(n.is_const());
     }
 }

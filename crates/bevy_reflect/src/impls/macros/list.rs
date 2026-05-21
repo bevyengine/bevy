@@ -147,7 +147,7 @@ macro_rules! impl_reflect_for_veclike {
                     CELL.get_or_insert::<Self, _>(|| {
                         $crate::type_info::TypeInfo::List(
                             $crate::list::ListInfo::new::<Self, T>().with_generics($crate::generics::Generics::from_iter([
-                                $crate::generics::TypeParamInfo::new::<T>("T")
+                                $crate::generics::TypeParamInfo::new("T").with_type::<T>()
                             ]))
                         )
                     })

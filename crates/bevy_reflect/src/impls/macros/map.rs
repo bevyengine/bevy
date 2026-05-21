@@ -186,8 +186,8 @@ macro_rules! impl_reflect_for_hashmap {
                     CELL.get_or_insert::<Self, _>(|| {
                         $crate::type_info::TypeInfo::Map(
                             $crate::map::MapInfo::new::<Self, K, V>().with_generics($crate::generics::Generics::from_iter([
-                                $crate::generics::TypeParamInfo::new::<K>("K"),
-                                $crate::generics::TypeParamInfo::new::<V>("V"),
+                                $crate::generics::TypeParamInfo::new("K").with_type::<K>(),
+                                $crate::generics::TypeParamInfo::new("V").with_type::<V>(),
                             ])),
                         )
                     })
