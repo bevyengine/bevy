@@ -586,26 +586,56 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - The caller is required to ensure that `dst` must be valid for writes.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
 
     /// Writes the value pointed to by this pointer into `dst`.
     ///
     /// The value previously stored at `dst` will be dropped.
+    ///
+    /// This has the same semantics as a normal `*dst = ...` assignment.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
-        // SAFETY:
-        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `dst` is a mutable borrow, it must not alias any other access.
-        unsafe {
-            ptr::drop_in_place(dst);
+        // This code has the same semantics as the following:
+        // ```
+        // let src = self.0.as_ptr();
+        // mem::forget(self);
+        // *dst = unsafe { A::read(src) };
+        // ```
+        //
+        // However the above might codegen to multiple `memcpy`s, while the code below will avoid that.
+
+        struct DropGuard<'a, 'b, T, A: IsAligned> {
+            src: ManuallyDrop<MovingPtr<'a, T, A>>,
+            dst: &'b mut T,
         }
+
+        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
+            fn drop(&mut self) {
+                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
+                // in drop. No other code can observe the invalid `self.src` after this point.
+                let src = unsafe { ManuallyDrop::take(&mut self.src) };
+
+                // SAFETY:
+                // - `dst` is a mutable borrow, it must be valid for writes.
+                // - `dst` is a mutable borrow, it must always be aligned.
+                unsafe { src.write_to(self.dst) };
+            }
+        }
+
+        let guard = DropGuard {
+            src: ManuallyDrop::new(self),
+            dst,
+        };
+
         // SAFETY:
-        // - `dst` is a mutable borrow, it must be valid for writes.
-        // - `dst` is a mutable borrow, it must always be aligned.
+        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `guard.dst` is a mutable borrow, it must not alias any other access.
+        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
         unsafe {
-            self.write_to(dst);
+            ptr::drop_in_place(guard.dst);
         }
     }
 
