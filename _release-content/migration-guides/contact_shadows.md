@@ -1,6 +1,6 @@
 ---
 title: Contact Shadows
-pull_requests: [ 22382 ]
+pull_requests: [22382]
 ---
 
 The `shadows_enabled` field on `PointLight`, `DirectionalLight`, and `SpotLight` has changed to `shadow_maps_enabled`.

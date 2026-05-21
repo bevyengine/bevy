@@ -1,6 +1,6 @@
 ---
 title: Render Graph as Systems
-pull_requests: [ 22144 ]
+pull_requests: [22144]
 ---
 
 The `RenderGraph` API has been removed. Render passes are now systems that run in `Core3d` or `Core2d` schedules.

@@ -1,7 +1,7 @@
 ---
 title: Render Graph as Systems
-authors: [ "@tychedelia" ]
-pull_requests: [ 22144 ]
+authors: ["@tychedelia"]
+pull_requests: [22144]
 ---
 
 Bevy's `RenderGraph` architecture has been replaced with schedules. Render passes are now regular systems that run in
