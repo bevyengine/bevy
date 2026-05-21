@@ -2312,7 +2312,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2389,6 +2389,16 @@ impl Outline {
             width,
             offset,
             color,
+        }
+    }
+}
+
+impl Default for Outline {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            width: Val::Px(1.),
+            offset: Val::Px(0.),
         }
     }
 }

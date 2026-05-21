@@ -584,9 +584,9 @@ fn update_performance_text(
     let mut total = 0.0;
     let mut add_diagnostic = |name: &str, path: &'static str| {
         let path = DiagnosticPath::new(path);
-        if let Some(average) = diagnostics.get(&path).and_then(Diagnostic::average) {
-            text.push_str(&format!("{name:17}  {average:.2} ms\n"));
-            total += average;
+        if let Some(value) = diagnostics.get(&path).and_then(Diagnostic::smoothed) {
+            text.push_str(&format!("{name:17}  {value:.2} ms\n"));
+            total += value;
         }
     };
 
@@ -617,7 +617,7 @@ fn update_performance_text(
         .get(&DiagnosticPath::new(
             "render/solari_lighting/world_cache_active_cells_count",
         ))
-        .and_then(Diagnostic::average)
+        .and_then(Diagnostic::smoothed)
     {
         text.push_str(&format!(
             "\nWorld cache cells {} ({:.0}%)",

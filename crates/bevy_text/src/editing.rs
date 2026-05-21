@@ -10,11 +10,15 @@
 //! [`EditableText`] supports the following functionality:
 //!
 //! - Text entry
-//! - Basic keyboard-driven cursor movement (arrow keys, home/end keys)
-//! - Home / End key support for moving the cursor to the start / end of the text
-//! - Backspace and delete operations
+//! - Keyboard-driven cursor movement: arrow keys, Home/End, and word-level shortcuts (Ctrl/Alt+arrow)
+//! - Shift+arrow and Shift+word-arrow to extend the selection by character or word
+//! - Backspace and delete operations, both for single characters and words
 //! - Clipboard operations (copy, cut, paste) — requires the `system_clipboard` feature for OS clipboard integration
-//! - Click to place cursor
+//! - Click to place cursor; click and drag to extend the selection
+//! - Multi-click: double-click to select a word, triple-click to select a line
+//! - Optional select-all on focus via the `SelectAllOnFocus` component
+//! - Per-character input filtering via the [`EditableTextFilter`] component
+//! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
 //! - Newline support for multi-line input
 //! - Soft-wrapping of long lines
@@ -54,7 +58,7 @@
 //!
 //! - Placeholder text (displayed when the input is empty)
 //! - Undo/redo functionality
-//! - Text validation (e.g., email format, numeric input, max length)
+//! - Text validation (e.g., email format, numeric input)
 //! - Password-style character masking
 //! - Mobile pop-up keyboard support
 //! - Overwrite mode (typically toggled by the `Insert` key)

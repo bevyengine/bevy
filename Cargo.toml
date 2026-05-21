@@ -752,7 +752,7 @@ bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-fea
 bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
-bevy_settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
+bevy-settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
@@ -3804,6 +3804,17 @@ doc-scrape-examples = true
 [package.metadata.example.font_weights]
 name = "Font Weights"
 description = "Demonstrates how to use font weights."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "font_variations"
+path = "examples/ui/text/font_variations.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_variations]
+name = "Font Variations"
+description = "Demonstrates how to use OpenType font variations."
 category = "UI (User Interface)"
 wasm = true
 

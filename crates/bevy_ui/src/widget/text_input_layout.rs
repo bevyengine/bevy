@@ -196,6 +196,15 @@ pub fn update_editable_text_styles(
             let family = font_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
+            style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
+            style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
+            style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
+            style_set.insert(StyleProperty::FontFeatures(
+                (&text_font.font_features).into(),
+            ));
+            style_set.insert(StyleProperty::FontVariations(
+                (&text_font.font_variations).into(),
+            ));
             style_set.insert(StyleProperty::Brush(TextBrush::new(
                 0,
                 text_font.font_smoothing,
@@ -367,8 +376,8 @@ pub fn update_editable_text_layout(
                                         + atlas_info.rect.size() / 2.
                                         + atlas_info.offset,
                                     atlas_info,
-                                    section_index: brush.section_index as usize,
-                                    line_index,
+                                    section_index: brush.section_index,
+                                    line_index: line_index as u32,
                                 });
                             }
 
@@ -406,16 +415,14 @@ pub fn update_editable_text_layout(
                             }
 
                             info.run_geometry.push(RunGeometry {
-                                section_index: brush.section_index as usize,
+                                section_index: brush.section_index,
                                 bounds: Rect {
                                     min: Vec2::new(
-                                        line.metrics().inline_min_coord + glyph_run.offset(),
+                                        glyph_run.offset(),
                                         line.metrics().block_min_coord,
                                     ),
                                     max: Vec2::new(
-                                        line.metrics().inline_min_coord
-                                            + glyph_run.offset()
-                                            + glyph_run.advance(),
+                                        glyph_run.offset() + glyph_run.advance(),
                                         line.metrics().block_max_coord,
                                     ),
                                 },

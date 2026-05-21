@@ -5,6 +5,7 @@ use variadics_please::all_tuples;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
+    component::Mutable,
     prelude::QueryBuilder,
     query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
@@ -226,7 +227,8 @@ impl ParamBuilder {
     }
 
     /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
-    pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
+    pub fn resource_mut<'w, T: Resource<Mutability = Mutable>>(
+    ) -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
 
