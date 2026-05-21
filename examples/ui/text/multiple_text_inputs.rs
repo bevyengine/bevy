@@ -103,6 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font.clone(),
                     BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
                     TextInputRow(row),
+                    TextLayout::no_wrap(),
                     TabIndex(row as i32),
                     BorderColor::all(SLATE_300),
                 ));
@@ -111,39 +112,50 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 }
 
                 parent.spawn((
-                    Text::default(),
-                    TextLayout {
-                        linebreak: LineBreak::AnyCharacter,
-                        ..default()
-                    },
                     Node {
                         border: px(4.).all(),
                         padding: px(4.).all(),
+                        overflow: Overflow::clip_x(),
+                        overflow_clip_margin: OverflowClipMargin {
+                            visual_box: VisualBox::ContentBox,
+                            ..default()
+                        },
                         ..default()
                     },
-                    font.clone(),
-                    BackgroundColor(bevy::color::palettes::css::DARK_SLATE_GRAY.into()),
+                    BackgroundColor(bevy::color::palettes::css::DARK_SLATE_BLUE.into()),
                     BorderColor::all(Color::WHITE),
-                    TextInputRow(row),
-                    TextOutput,
+                    children![(
+                        Text::default(),
+                        TextLayout::no_wrap(),
+                        font.clone(),
+                        BackgroundColor(bevy::color::palettes::css::DARK_SLATE_GRAY.into()),
+                        BorderColor::all(Color::WHITE),
+                        TextInputRow(row),
+                        TextOutput,
+                    )],
                 ));
 
                 parent.spawn((
-                    Text::default(),
-                    TextLayout {
-                        linebreak: LineBreak::AnyCharacter,
-                        ..default()
-                    },
                     Node {
                         border: px(4.).all(),
                         padding: px(4.).all(),
+                        overflow: Overflow::clip_x(),
+                        overflow_clip_margin: OverflowClipMargin {
+                            visual_box: VisualBox::ContentBox,
+                            ..default()
+                        },
+
                         ..default()
                     },
-                    font.clone(),
                     BackgroundColor(bevy::color::palettes::css::DARK_SLATE_BLUE.into()),
                     BorderColor::all(Color::WHITE),
-                    TextInputRow(row),
-                    SubmitOutput,
+                    children![(
+                        Text::default(),
+                        TextLayout::no_wrap(),
+                        font.clone(),
+                        TextInputRow(row),
+                        SubmitOutput,
+                    )],
                 ));
             }
 
