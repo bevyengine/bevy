@@ -1,5 +1,5 @@
 ---
-title: `FromType` replaced by `CreateTypeData`
+title: "`FromType` replaced by `CreateTypeData`"
 pull_requests: [13723]
 ---
 

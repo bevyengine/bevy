@@ -41,7 +41,7 @@ pub struct ReflectMessageFns {
 
 impl ReflectMessageFns {
     /// Get the default set of [`ReflectMessageFns`] for a specific event type
-    /// using its [`FromType`] implementation.
+    /// using its [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation
     /// before overriding some of the functions to create a custom implementation.

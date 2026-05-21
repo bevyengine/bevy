@@ -602,7 +602,7 @@ mod tests {
         pub struct ReflectCustomData;
 
         impl<T: Reflect> bevy_reflect::CreateTypeData<T> for ReflectCustomData {
-            fn create_type_data(input: ()) -> Self {
+            fn create_type_data(_input: ()) -> Self {
                 ReflectCustomData
             }
         }

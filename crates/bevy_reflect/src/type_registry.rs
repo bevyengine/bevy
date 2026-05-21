@@ -666,7 +666,7 @@ impl TypeRegistration {
     /// If another instance of `T` was previously inserted, it is replaced.
     ///
     /// Note that unlike [`TypeRegistration::register_type_data`], this will not
-    /// automatically insert any type data dependcies for `T`.
+    /// automatically insert any type data dependencies for `T`.
     /// That will need to be done manually using [`CreateTypeData::insert_dependencies`].
     ///
     /// [type data]: TypeData
