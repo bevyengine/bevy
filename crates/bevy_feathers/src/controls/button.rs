@@ -126,7 +126,7 @@ pub struct FeathersToolButton;
 impl FeathersToolButton {
     fn scene(props: FeathersButtonProps) -> impl Scene {
         bsn! {
-            :FeathersButton {
+            @FeathersButton {
                 @caption: {props.caption},
                 @variant: {props.variant},
                 @corners: {props.corners}
