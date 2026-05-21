@@ -160,7 +160,7 @@ pub struct GltfLoader {
     /// extension data during the loading process.
     pub extensions: Arc<RwLock<Vec<Box<dyn extensions::ErasedGltfExtensionHandler>>>>,
     /// The default policy for skinned mesh bounds. Can be overridden per-load
-    /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
+    /// by [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
     /// The default animation settings. Can be overridden per-load by
     /// [`GltfLoaderSettings::animation_settings`].
