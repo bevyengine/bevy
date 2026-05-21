@@ -3985,6 +3985,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "fixed_node"
+path = "examples/ui/layout/fixed_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fixed_node]
+name = "Fixed Node"
+description = "Demonstrates how to use FixedNode to lay out a UI node as a root node"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_wrap_debug"
 path = "examples/ui/text/text_wrap_debug.rs"
 doc-scrape-examples = true

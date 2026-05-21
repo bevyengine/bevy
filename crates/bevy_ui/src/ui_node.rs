@@ -3065,6 +3065,14 @@ impl ComputedUiRenderTargetInfo {
     }
 }
 
+/// A UI entity with a `FixedNode` component is treated as a root node, even when it has a UI node parent.
+/// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
+///
+/// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
+#[derive(Component, Clone, Default)]
+#[require(Node, OverrideClip)]
+pub struct FixedNode;
+
 #[cfg(test)]
 mod tests {
     use crate::ComputedNode;
