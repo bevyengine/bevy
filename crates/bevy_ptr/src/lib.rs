@@ -594,37 +594,13 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// The value previously stored at `dst` will be dropped.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
-        struct DropGuard<'a, 'b, T, A: IsAligned> {
-            src: ManuallyDrop<MovingPtr<'a, T, A>>,
-            dst: &'b mut T,
-        }
-
-        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
-            fn drop(&mut self) {
-                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
-                // in drop. No other code can observe the invalid `self.src` after this point.
-                let src = unsafe { ManuallyDrop::take(&mut self.src) };
-
-                // SAFETY:
-                // - `dst` is a mutable borrow, it must be valid for writes.
-                // - `dst` is a mutable borrow, it must always be aligned.
-                unsafe { src.write_to(self.dst) };
-            }
-        }
-
-        let guard = DropGuard {
-            src: ManuallyDrop::new(self),
-            dst,
-        };
-
+        let src = self.0.as_ptr();
+        mem::forget(self);
         // SAFETY:
-        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `guard.dst` is a mutable borrow, it must not alias any other access.
-        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
-        unsafe {
-            ptr::drop_in_place(guard.dst);
-        }
+        //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
+        //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
+        //    be aligned by the type's invariants.
+        *dst = unsafe { A::read_ptr(src) };
     }
 
     /// Creates a [`MovingPtr`] for a specific field within `self`.
