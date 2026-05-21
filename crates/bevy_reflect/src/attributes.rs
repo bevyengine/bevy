@@ -82,10 +82,12 @@ impl CustomAttributes {
     }
 
     /// Returns an iterator over all custom attributes.
-    pub fn iter(&self) -> Option<impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)>> {
-        self.attributes
-            .as_ref()
-            .map(|a| a.iter().map(|(key, value)| (key, value.reflect_value())))
+    pub fn iter(&self) -> impl Iterator<Item = (&TypeId, &dyn Reflect)> {
+        self.attributes.iter().flat_map(|attributes| {
+            attributes
+                .iter()
+                .map(|(key, value)| (key, value.reflect_value()))
+        })
     }
 
     /// Returns the number of custom attributes in this collection.
@@ -268,6 +270,32 @@ mod tests {
         assert!(value
             .reflect_partial_eq(&String::from("Hello, World!"))
             .unwrap());
+    }
+
+    #[test]
+    fn should_iterate_custom_attribute() {
+        let empty_attributes = CustomAttributesBuilder::new().build();
+
+        assert!(empty_attributes.iter().next().is_none());
+
+        let attributes = CustomAttributesBuilder::new()
+            .attribute(1i32)
+            .attribute("string")
+            .build();
+
+        let mut iter = attributes.iter();
+
+        let (type_id, reflected) = iter.next().unwrap();
+
+        assert_eq!(TypeId::of::<i32>(), *type_id);
+        assert_eq!(1i32, *reflected.downcast_ref::<i32>().unwrap());
+
+        let (type_id, reflected) = iter.next().unwrap();
+
+        assert_eq!(TypeId::of::<&str>(), *type_id);
+        assert_eq!("string", *reflected.downcast_ref::<&str>().unwrap());
+
+        assert!(iter.next().is_none());
     }
 
     #[test]
