@@ -46,7 +46,8 @@ pub struct CommandQueue {
     ///
     /// This setting can be turned off for commands that might be dropped in ordinary situations,
     /// for example delayed commands that are still around when the application exits.
-    pub(crate) warn_on_unapplied: bool,
+    warn_on_unapplied: bool,
+    is_exiting: bool,
 }
 
 impl Default for CommandQueue {
@@ -58,6 +59,7 @@ impl Default for CommandQueue {
             panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: true,
+            is_exiting: false,
         }
     }
 }
@@ -92,8 +94,9 @@ unsafe impl Send for CommandQueue {}
 unsafe impl Sync for CommandQueue {}
 
 impl CommandQueue {
-    /// Create a queue that does not warn when dropped if unapplied.
-    // There are specific, narrow usecases for this (i.e. delayed commands)
+    /// Create a queue that does not warn when dropped if unapplied while the application is exiting.
+    ///
+    /// This is useful for *automatic* systems that might leave queues unapplied (like delayed commands).
     #[track_caller]
     pub fn silent() -> Self {
         CommandQueue {
@@ -102,6 +105,7 @@ impl CommandQueue {
             panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: false,
+            is_exiting: false,
         }
     }
 
@@ -148,6 +152,12 @@ impl CommandQueue {
                 panic_recovery: NonNull::new_unchecked(addr_of_mut!(self.panic_recovery)),
             }
         }
+    }
+
+    /// Notify a queue that the application is about to exit.
+    #[doc(hidden)]
+    pub fn mark_app_exit(&mut self) {
+        self.is_exiting = true;
     }
 }
 
@@ -342,7 +352,7 @@ impl RawCommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        if !self.bytes.is_empty() && self.warn_on_unapplied {
+        if !self.bytes.is_empty() && (self.warn_on_unapplied || !self.is_exiting) {
             if let Some(caller) = self.caller.into_option() {
                 warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{caller:?}");
             } else {

@@ -26,6 +26,7 @@ mod window;
 
 pub use crate::raw_handle::*;
 
+use bevy_time::AppExitSystems;
 pub use cursor::*;
 pub use event::*;
 pub use monitor::*;
@@ -150,6 +151,8 @@ impl Plugin for WindowPlugin {
             // Need to run before `exit_on_*` systems
             app.add_systems(Last, close_when_requested.before(ExitSystems));
         }
+
+        app.configure_sets(Last, AppExitSystems.after(ExitSystems));
     }
 }
 

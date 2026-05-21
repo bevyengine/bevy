@@ -63,6 +63,11 @@ pub struct TimePlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystems;
 
+/// A [`SystemSet`] for systems that should should run before app exit (but
+/// after an [`AppExit`] message has been sent).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AppExitSystems;
+
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
@@ -89,6 +94,12 @@ impl Plugin for TimePlugin {
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
+        )
+        .add_systems(
+            Last,
+            silence_delayed_command_queues_on_exit
+                .in_set(AppExitSystems)
+                .run_if(|messages: Res<Messages<AppExit>>| !messages.is_empty()),
         );
 
         // Ensure the messages are not dropped until `FixedMain` systems can observe them
