@@ -89,10 +89,13 @@ pub mod prelude {
         condition::*,
         state::{
             last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter,
-            OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
-            SubStates, TransitionSchedules,
+            OnExit, OnTransition, PreviousState, State, StateSet, StateTransition,
+            StateTransitionEvent, States, SubStates, TransitionSchedules,
         },
-        state_scoped::{DespawnOnEnter, DespawnOnExit},
+        state_scoped::{
+            DespawnOnEnter, DespawnOnExit, DespawnWhen, DisableOnEnter, DisableOnExit, DisableWhen,
+            EnableOnEnter, EnableOnExit, EnableWhen,
+        },
     };
 }
 

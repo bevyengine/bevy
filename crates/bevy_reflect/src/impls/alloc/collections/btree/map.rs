@@ -2,11 +2,11 @@ use crate::{
     error::ReflectCloneError,
     generics::{Generics, TypeParamInfo},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
-    map::{map_apply, map_partial_eq, map_try_apply, Map, MapInfo},
+    map::{map_apply, map_partial_cmp, map_partial_eq, map_try_apply, Map, MapInfo},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
     type_info::{MaybeTyped, TypeInfo, Typed},
-    type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
+    type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::GenericTypeInfoCell,
 };
 use alloc::vec::Vec;
@@ -155,6 +155,10 @@ where
         map_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        map_partial_cmp(self, value)
+    }
+
     fn apply(&mut self, value: &dyn PartialReflect) {
         map_apply(self, value);
     }
@@ -196,8 +200,8 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }

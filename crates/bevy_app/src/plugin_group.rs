@@ -4,8 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_platform::collections::hash_map::Entry;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdMap, TypeIdMapEntry as Entry};
 use core::any::TypeId;
 use log::{debug, warn};
 
@@ -136,12 +135,12 @@ macro_rules! plugin_group {
     } => {
         $(#[$group_meta])*
         ///
-        $(#[doc = concat!(
-            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+        $(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_name), "`](" $(, ::core::stringify!($plugin_path), "::")*, ::core::stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
-       $($(#[doc = concat!(
-            " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
+       $($(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_group_name), "`](" $(, ::core::stringify!($plugin_group_path), "::")*, ::core::stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
         )])+)?
         $(
@@ -159,7 +158,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_path::)*$plugin_name>();
                         };
 
@@ -171,7 +170,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_group_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_group_path::)*$plugin_group_name>();
                         };
 
@@ -183,7 +182,7 @@ macro_rules! plugin_group {
                     $(#[$hidden_plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
                         };
 
@@ -368,7 +367,7 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.remove(&plugin_id).unwrap(),
+                plugins.shift_remove(&plugin_id).unwrap(),
                 self.order.len(),
             );
 
@@ -517,7 +516,7 @@ impl PluginGroupBuilder {
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.remove(ty)
+            if let Some(entry) = self.plugins.shift_remove(ty)
                 && entry.enabled
             {
                 debug!("added plugin: {}", entry.plugin.name());

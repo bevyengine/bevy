@@ -12,7 +12,6 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
@@ -162,6 +161,7 @@ mod sealed {
 /// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
 ///
 /// This type can be thought of as the `*const T` to [`NonNull<T>`]'s `*mut T`.
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
 
@@ -586,26 +586,56 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - The caller is required to ensure that `dst` must be valid for writes.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
 
     /// Writes the value pointed to by this pointer into `dst`.
     ///
     /// The value previously stored at `dst` will be dropped.
+    ///
+    /// This has the same semantics as a normal `*dst = ...` assignment.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
-        // SAFETY:
-        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `dst` is a mutable borrow, it must not alias any other access.
-        unsafe {
-            ptr::drop_in_place(dst);
+        // This code has the same semantics as the following:
+        // ```
+        // let src = self.0.as_ptr();
+        // mem::forget(self);
+        // *dst = unsafe { A::read(src) };
+        // ```
+        //
+        // However the above might codegen to multiple `memcpy`s, while the code below will avoid that.
+
+        struct DropGuard<'a, 'b, T, A: IsAligned> {
+            src: ManuallyDrop<MovingPtr<'a, T, A>>,
+            dst: &'b mut T,
         }
+
+        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
+            fn drop(&mut self) {
+                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
+                // in drop. No other code can observe the invalid `self.src` after this point.
+                let src = unsafe { ManuallyDrop::take(&mut self.src) };
+
+                // SAFETY:
+                // - `dst` is a mutable borrow, it must be valid for writes.
+                // - `dst` is a mutable borrow, it must always be aligned.
+                unsafe { src.write_to(self.dst) };
+            }
+        }
+
+        let guard = DropGuard {
+            src: ManuallyDrop::new(self),
+            dst,
+        };
+
         // SAFETY:
-        // - `dst` is a mutable borrow, it must be valid for writes.
-        // - `dst` is a mutable borrow, it must always be aligned.
+        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `guard.dst` is a mutable borrow, it must not alias any other access.
+        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
         unsafe {
-            self.write_to(dst);
+            ptr::drop_in_place(guard.dst);
         }
     }
 
@@ -1056,7 +1086,29 @@ impl<'a> OwningPtr<'a, Unaligned> {
     }
 }
 
-/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
+/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance
+/// reasons.
+///
+/// Because this type does not store the length of the slice, it is unable to do any sort of bounds
+/// checking. As such, only [`Self::get_unchecked()`] is available for indexing into the slice,
+/// where the user is responsible for checking the bounds.
+///
+/// When compiled in debug mode (`#[cfg(debug_assertion)]`), this type will store the length of the
+/// slice and perform bounds checking in [`Self::get_unchecked()`].
+///
+/// # Example
+///
+/// ```
+/// # use core::mem::size_of;
+/// # use bevy_ptr::ThinSlicePtr;
+/// #
+/// let slice: &[u32] = &[2, 4, 8];
+/// let thin_slice = ThinSlicePtr::from(slice);
+///
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(0) }, 2);
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(1) }, 4);
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(2) }, 8);
+/// ```
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -1065,18 +1117,80 @@ pub struct ThinSlicePtr<'a, T> {
 }
 
 impl<'a, T> ThinSlicePtr<'a, T> {
-    #[inline]
-    /// Indexes the slice without doing bounds checks
+    /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
+    ///
     /// `index` must be in-bounds.
-    pub unsafe fn get(self, index: usize) -> &'a T {
+    #[inline]
+    pub unsafe fn get_unchecked(&self, index: usize) -> &'a T {
+        // We cannot use `debug_assert!` here because `self.len` does not exist when not in debug
+        // mode.
         #[cfg(debug_assertions)]
-        debug_assert!(index < self.len);
+        assert!(index < self.len, "tried to index out-of-bounds of a slice");
 
-        let ptr = self.ptr.as_ptr();
-        // SAFETY: `index` is in-bounds so the resulting pointer is valid to dereference.
-        unsafe { &*ptr.add(index) }
+        // SAFETY: The caller guarantees `index` is in-bounds so that the resulting pointer is
+        // valid to dereference.
+        unsafe { &*self.ptr.add(index).as_ptr() }
+    }
+
+    /// Returns a slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// - There must be no mutable aliases for the lifetime `'a` to the slice. to the slice.
+    /// - `len` must be less than or equal to the length of the slice.
+    pub unsafe fn as_slice_unchecked(&self, len: usize) -> &'a [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY:
+        // - The caller guarantees `len` is not greater than the length of the slice.
+        // - The caller guarantees the aliasing rules.
+        // - `self.ptr` is a valid pointer for the type `T`.
+        // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
+    }
+
+    /// Indexes the slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `index` must be in-bounds.
+    #[deprecated(since = "0.18.0", note = "use get_unchecked() instead")]
+    pub unsafe fn get(self, index: usize) -> &'a T {
+        // SAFETY: The caller guarantees that `index` is in-bounds.
+        unsafe { self.get_unchecked(index) }
+    }
+}
+
+impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
+    /// Returns a mutable reference of the slice
+    ///
+    /// # Safety
+    ///
+    /// - There must not be any aliases for the lifetime `'a` to the slice.
+    /// - `len` must be less than or equal to the length of the slice.
+    pub unsafe fn as_mut_slice_unchecked(&self, len: usize) -> &'a mut [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY:
+        // - The caller ensures no aliases exist and `len` is in-bounds.
+        // - `self.ptr` is a valid pointer for the type `T`.
+        // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
+        unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
+    }
+
+    /// Returns a slice pointer to the underlying type `T`.
+    pub fn cast(&self) -> ThinSlicePtr<'a, T> {
+        ThinSlicePtr {
+            // SAFETY: `self.ptr` is non null hence `UnsafeCell::raw_get` always returns a non null pointer
+            ptr: unsafe { NonNull::new_unchecked(UnsafeCell::raw_get(self.ptr.as_ptr())) },
+            #[cfg(debug_assertions)]
+            len: self.len,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -1091,25 +1205,16 @@ impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
-        let ptr = slice.as_ptr().cast_mut();
+        let ptr = slice.as_ptr().cast_mut().debug_ensure_aligned();
+
         Self {
-            // SAFETY: a reference can never be null
-            ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },
+            // SAFETY: A reference can never be null.
+            ptr: unsafe { NonNull::new_unchecked(ptr) },
             #[cfg(debug_assertions)]
             len: slice.len(),
             _marker: PhantomData,
         }
     }
-}
-
-/// Creates a dangling pointer with specified alignment.
-/// See [`NonNull::dangling`].
-pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
-    debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
-    // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZero<usize>`.
-    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
-    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {
@@ -1198,7 +1303,7 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 #[macro_export]
 macro_rules! move_as_ptr {
     ($value: ident) => {
-        let mut $value = core::mem::MaybeUninit::new($value);
+        let mut $value = ::core::mem::MaybeUninit::new($value);
         // SAFETY:
         // - This macro shadows a MaybeUninit value that took ownership of the original value.
         //   it is impossible to refer to the original value, preventing further access after
@@ -1384,11 +1489,11 @@ macro_rules! deconstruct_moving_ptr {
             let value = &mut *ptr;
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index,)*));
+            ::core::hint::black_box(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
-                unreachable!()
+                ::core::unreachable!()
             }
             *value = ($(unreachable($field_index),)*);
         };
@@ -1398,21 +1503,21 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<::core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index,)*));
+            ::core::hint::black_box(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
-                unreachable!()
+                ::core::unreachable!()
             }
             *value = ($(unreachable($field_index),)*);
         };
@@ -1422,7 +1527,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
     ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
@@ -1433,7 +1538,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index),*));
+            ::core::hint::black_box(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1445,11 +1550,11 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<::core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
@@ -1457,7 +1562,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index),*));
+            ::core::hint::black_box(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1469,6 +1574,6 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
 }

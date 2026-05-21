@@ -14,10 +14,11 @@ use bevy::{
     camera::primitives::{Aabb, Sphere},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
-    gltf::GltfPlugin,
+    dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
+    gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::experimental::occlusion_culling::OcclusionCulling,
+    render::occlusion_culling::OcclusionCulling,
 };
 
 #[cfg(feature = "gltf_animation")]
@@ -49,17 +50,23 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
-    /// enable `GltfPlugin::use_model_forward_direction`
+    /// enable `GltfPlugin::convert_coordinates::scenes`
     #[argh(switch)]
-    use_model_forward_direction: Option<bool>,
+    convert_scene_coordinates: Option<bool>,
+    /// enable `GltfPlugin::convert_coordinates::meshes`
+    #[argh(switch)]
+    convert_mesh_coordinates: Option<bool>,
+    /// disables the infinite grid
+    #[argh(switch)]
+    no_infinite_grid: bool,
 }
 
 impl Args {
     fn rotation(&self) -> Quat {
-        if self.use_model_forward_direction == Some(true) {
+        if self.convert_scene_coordinates == Some(true) {
             // If the scene is converted then rotate everything else to match. This
             // makes comparisons easier - the scene will always face the same way
-            // relative to the camera.
+            // relative to the cameras and lights.
             Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
         } else {
             Quat::IDENTITY
@@ -92,12 +99,16 @@ fn main() {
                 ..default()
             })
             .set(GltfPlugin {
-                use_model_forward_direction: args.use_model_forward_direction.unwrap_or(false),
+                convert_coordinates: GltfConvertCoordinates {
+                    rotate_scene_entity: args.convert_scene_coordinates == Some(true),
+                    rotate_meshes: args.convert_mesh_coordinates == Some(true),
+                },
                 ..default()
             }),
         FreeCameraPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
+        InfiniteGridPlugin,
     ))
     .insert_resource(args)
     .add_systems(Startup, setup)
@@ -132,6 +143,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     let scene_path = &args.scene_path;
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene((*scene_path).clone());
+
+    if !args.no_infinite_grid {
+        commands.spawn(InfiniteGrid);
+    }
 
     commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
 }
@@ -180,7 +195,6 @@ fn setup_scene_after_load(
             run_speed: 3.0 * walk_speed,
             ..default()
         };
-
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
         info!("{}", *scene_handle);

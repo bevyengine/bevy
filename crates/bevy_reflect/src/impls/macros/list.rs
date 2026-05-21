@@ -126,6 +126,10 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::list::list_partial_eq(self, value)
                 }
 
+                fn reflect_partial_cmp(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<::core::cmp::Ordering> {
+                    $crate::list::list_partial_cmp(self, value)
+                }
+
                 fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
                     $crate::list::list_apply(self, value);
                 }
@@ -155,8 +159,8 @@ macro_rules! impl_reflect_for_veclike {
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<$ty>();
-                    registration.insert::<$crate::type_registry::ReflectFromPtr>($crate::type_registry::FromType::<$ty>::from_type());
-                    registration.insert::<$crate::from_reflect::ReflectFromReflect>($crate::type_registry::FromType::<$ty>::from_type());
+                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, $ty>();
+                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, $ty>();
                     registration
                 }
 

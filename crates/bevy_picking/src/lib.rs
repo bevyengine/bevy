@@ -152,9 +152,9 @@
 //! Because it is completely agnostic to the earlier stages of the pipeline, you can easily extend
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
-#![deny(missing_docs)]
-
 extern crate alloc;
+
+use core::time::Duration;
 
 pub mod backend;
 pub mod events;
@@ -193,7 +193,7 @@ pub mod prelude {
 /// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
 ///
 /// See the documentation on the fields for more details.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
@@ -301,12 +301,14 @@ impl PluginGroup for DefaultPickingPlugins {
 /// ```
 /// # use bevy_app::App;
 /// # use bevy_picking::{PickingSettings, PickingPlugin};
+/// # use core::time::Duration;
 /// App::new()
 ///     .insert_resource(PickingSettings {
 ///         is_enabled: true,
 ///         is_input_enabled: false,
 ///         is_hover_enabled: true,
 ///         is_window_picking_enabled: false,
+///         multi_click_interval: Duration::from_millis(450),
 ///     })
 ///     // or DefaultPlugins
 ///     .add_plugins(PickingPlugin);
@@ -320,6 +322,8 @@ pub struct PickingSettings {
     pub is_hover_enabled: bool,
     /// Enables or disables picking for window entities.
     pub is_window_picking_enabled: bool,
+    /// Maximum time between presses or clicks for them to count as consecutive.
+    pub multi_click_interval: Duration,
 }
 
 impl PickingSettings {
@@ -347,6 +351,7 @@ impl Default for PickingSettings {
             is_input_enabled: true,
             is_hover_enabled: true,
             is_window_picking_enabled: true,
+            multi_click_interval: Duration::from_millis(500),
         }
     }
 }
@@ -418,6 +423,7 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
+            .init_resource::<PickingSettings>()
             .init_resource::<PointerState>()
             .add_message::<Pointer<Cancel>>()
             .add_message::<Pointer<Click>>()
@@ -432,6 +438,8 @@ impl Plugin for InteractionPlugin {
             .add_message::<Pointer<Move>>()
             .add_message::<Pointer<Out>>()
             .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Leave>>()
+            .add_message::<Pointer<Enter>>()
             .add_message::<Pointer<Release>>()
             .add_message::<Pointer<Scroll>>()
             .add_systems(

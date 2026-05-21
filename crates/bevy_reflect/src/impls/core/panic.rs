@@ -5,7 +5,7 @@ use crate::{
     reflect::ApplyError,
     type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
-    type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
+    type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
 use bevy_platform::prelude::*;
@@ -88,6 +88,14 @@ impl PartialReflect for &'static Location<'static> {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
+        }
+    }
+
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
             self.clone_from(value);
@@ -142,8 +150,8 @@ impl Typed for &'static Location<'static> {
 impl GetTypeRegistration for &'static Location<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }

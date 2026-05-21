@@ -2,11 +2,13 @@ use crate::primitives::Frustum;
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig,
+    ClearColorConfig, MsaaWriteback,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
+};
 use bevy_image::Image;
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
@@ -22,6 +24,39 @@ use wgpu_types::{BlendState, TextureUsages};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
+///
+/// <div class="warning">
+///
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
+/// Please see the example code (which assumes a single camera and window)
+///
+/// ```no_run
+/// # use bevy_camera::{Camera, Projection, Viewport};
+/// # use bevy_transform::prelude::Transform;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_math::UVec2;
+/// # use bevy_window::Window;
+/// # use bevy_utils::default;
+///
+/// fn update_viewport(
+///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
+///    windows: Query<&Window>
+/// ) {
+///     let Ok((mut camera, _, _)) = camera_query.single_mut() else { return; };
+///
+///     let window = windows.single().expect("Window not found");
+///     let scale = window.resolution.scale_factor();
+///
+///     camera.viewport = Some(Viewport {
+///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(),
+///         physical_size: (UVec2::new(100, 100).as_vec2() * scale).as_uvec2(),
+///         ..default()
+///     });
+/// }
+/// ```
+///
+/// </div>
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Clone)]
 pub struct Viewport {
@@ -158,7 +193,7 @@ impl Default for SubCameraView {
 }
 
 /// Information about the current [`RenderTarget`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Reflect, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
@@ -179,7 +214,7 @@ impl Default for RenderTargetInfo {
 }
 
 /// Holds internally computed [`Camera`] values.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Reflect, Clone)]
 pub struct ComputedCameraValues {
     pub clip_from_view: Mat4,
     pub target_info: Option<RenderTargetInfo>,
@@ -343,7 +378,8 @@ pub enum ViewportConversionError {
     CameraMainTextureUsages,
     VisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+    RenderTarget
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -354,19 +390,24 @@ pub struct Camera {
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
-    #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
-    /// The "target" that this camera will render to.
-    pub target: RenderTarget,
+    // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
-    /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
-    /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
-    /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
-    pub msaa_writeback: bool,
+    /// Controls when MSAA writeback occurs for this camera.
+    /// See [`MsaaWriteback`] for available options.
+    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
 }
@@ -378,10 +419,10 @@ impl Default for Camera {
             order: 0,
             viewport: None,
             computed: Default::default(),
-            target: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: true,
+            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
+            invert_culling: false,
             sub_camera_view: None,
         }
     }
@@ -489,6 +530,42 @@ impl Camera {
         self.computed.clip_from_view
     }
 
+    /// Core conversion logic to compute viewport coordinates
+    ///
+    /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
+    /// to avoid code duplication.
+    ///
+    /// Returns a tuple `(viewport_position, depth)`.
+    fn world_to_viewport_core(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Result<(Vec2, f32), ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut ndc_space_coords = self
+            .world_to_ndc(camera_transform, world_position)
+            .ok_or(ViewportConversionError::InvalidData)?;
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        if ndc_space_coords.z < 0.0 {
+            return Err(ViewportConversionError::PastFarPlane);
+        }
+        if ndc_space_coords.z > 1.0 {
+            return Err(ViewportConversionError::PastNearPlane);
+        }
+
+        let depth = ndc_space_coords.z;
+
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        ndc_space_coords.y = -ndc_space_coords.y;
+
+        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
+        let viewport_position =
+            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
+        Ok((viewport_position, depth))
+    }
+
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
@@ -504,27 +581,9 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position)
+        Ok(self
+            .world_to_viewport_core(camera_transform, world_position)?
+            .0)
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
@@ -542,30 +601,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
+        let result = self.world_to_viewport_core(camera_transform, world_position)?;
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
-        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position.extend(depth))
+        let depth = -self.depth_ndc_to_view_z(result.1);
+        Ok(result.0.extend(depth))
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -772,6 +811,51 @@ impl Camera {
     }
 }
 
+/// The entity that Bevy uses to resolve visibility ranges when no specific
+/// camera is applicable.
+///
+/// For efficiency, Bevy currently renders point and spot light shadow maps only
+/// once per frame, regardless of the number of cameras in use, rather than
+/// rendering the shadow maps anew for each camera each frame. Most of the time,
+/// this optimization doesn't change the result relative to a rendering that
+/// rendered such shadow maps separately for each camera. However, there's one
+/// exception: visibility ranges. Visibility ranges cause meshes to be visible
+/// or invisible depending on the distance from the mesh to the camera. When
+/// rendering a shadow map for a point or spot light, Bevy must therefore select
+/// an entity to use as the reference point for the purposes of visibility
+/// ranges. This entity is called the *LOD origin*.
+///
+/// Placing this component on an entity makes that entity the origin from which
+/// LOD distances are computed for the purposes of shadow mapping of point and
+/// spot lights. Typically, you place this component on a camera, but you may
+/// place it on another entity if you wish.
+///
+/// The exact algorithm that Bevy uses to determine the LOD origin is as
+/// follows. Once the LOD origin is determined, all further steps are skipped.
+///
+/// 1. If an entity has this [`ShadowLodOrigin`] component, then it's the LOD
+///    origin. If there's more than one entity with the [`ShadowLodOrigin`]
+///    component, one is chosen arbitrarily in a manner that's stable from frame to
+///    frame.
+///
+/// 2. If a camera renders to a window (that is, the camera's [`RenderTarget`]
+///    is [`RenderTarget::Window`]), then that camera is the shadow LOD origin. If
+///    there's more than one such camera that renders to a window, then one is
+///    chosen arbitrarily in a manner that's stable from frame to frame.
+///
+/// 3. A camera is chosen to be the LOD origin arbitrarily from all cameras in
+///    the scene in a manner that's stable from frame to frame.
+///
+/// This algorithm means that, in most cases, you don't need to add this
+/// [`ShadowLodOrigin`] component explicitly to the scene; usually, Bevy chooses
+/// the right origin automatically. You only need to use this component
+/// explicitly if you have multiple cameras rendering to the window: e.g. in a
+/// split-screen game.
+#[derive(Clone, Copy, Default, Component, Debug, Reflect)]
+#[reflect(Clone, Default, Component)]
+#[require(Transform)]
+pub struct ShadowLodOrigin;
+
 /// Control how this [`Camera`] outputs once rendering is completed.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum CameraOutputMode {
@@ -803,8 +887,8 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, From)]
-#[reflect(Clone)]
+#[derive(Component, Debug, Clone, Reflect, From)]
+#[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -833,9 +917,7 @@ impl RenderTarget {
             None
         }
     }
-}
 
-impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
@@ -880,7 +962,20 @@ pub enum NormalizedRenderTarget {
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
 /// See `ManualTextureViews` in `bevy_camera` for more details.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromTemplate,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 

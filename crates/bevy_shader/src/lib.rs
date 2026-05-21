@@ -1,4 +1,4 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Provides [`Shader`] assets for Bevy.
 
 extern crate alloc;
 
@@ -34,6 +34,6 @@ macro_rules! load_shader_library {
                 $path
                 $(,$settings)?
             );
-        core::mem::forget(handle);
+        ::core::mem::forget(handle);
     }
 }

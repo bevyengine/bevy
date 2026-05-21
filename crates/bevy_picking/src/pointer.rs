@@ -8,10 +8,11 @@
 //! The purpose of this module is primarily to provide a common interface that can be
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
-use bevy_camera::Camera;
 use bevy_camera::NormalizedRenderTarget;
+use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::touch::TouchPhase;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
@@ -89,7 +90,8 @@ impl Deref for PointerInteraction {
 }
 
 /// A resource that maps each [`PointerId`] to their [`Entity`] for easy lookups.
-#[derive(Debug, Clone, Default, Resource)]
+#[derive(Debug, Clone, Default, Resource, Reflect)]
+#[reflect(Debug, Clone, Default, Resource)]
 pub struct PointerMap {
     inner: HashMap<PointerId, Entity>,
 }
@@ -223,10 +225,10 @@ impl Location {
     pub fn is_in_viewport(
         &self,
         camera: &Camera,
+        render_target: &RenderTarget,
         primary_window: &Query<Entity, With<PrimaryWindow>>,
     ) -> bool {
-        if camera
-            .target
+        if render_target
             .normalize(Some(match primary_window.single() {
                 Ok(w) => w,
                 Err(_) => return false,
@@ -264,6 +266,10 @@ pub enum PointerAction {
         x: f32,
         /// The vertical scroll value.
         y: f32,
+        /// Touch phase of the input.
+        ///
+        /// When using a mouse, this will always be [`TouchPhase::Moved`].
+        phase: TouchPhase,
     },
     /// Cancel the pointer. Often used for touch events.
     Cancel,

@@ -1,8 +1,9 @@
 use crate::{
-    utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
-    List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
-    Typed,
+    list::{List, ListInfo, ListIter},
+    utility::GenericTypeInfoCell,
+    ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
+    TypePath, TypeRegistration, Typed,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect::ReflectCloneError;
@@ -112,11 +113,11 @@ where
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list_apply(self, value);
+        crate::list::list_apply(self, value);
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list_try_apply(self, value)
+        crate::list::list_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -147,7 +148,11 @@ where
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::list_partial_eq(self, value)
+        crate::list::list_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        crate::list::list_partial_cmp(self, value)
     }
 }
 
@@ -225,7 +230,7 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
-        registration.insert::<ReflectFromPtr>(FromType::<SmallVec<T>>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
         registration
     }
 }

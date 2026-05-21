@@ -6,8 +6,7 @@ use crate::{
     type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
     type_registry::{
-        FromType, GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
-        TypeRegistration,
+        GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize, TypeRegistration,
     },
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
@@ -24,6 +23,7 @@ impl_reflect_opaque!(::std::path::PathBuf(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -94,6 +94,14 @@ impl PartialReflect for &'static Path {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
+        }
+    }
+
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
             self.clone_from(value);
@@ -148,8 +156,8 @@ impl Typed for &'static Path {
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }
@@ -225,6 +233,14 @@ impl PartialReflect for Cow<'static, Path> {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
+        }
+    }
+
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
     }
@@ -291,10 +307,10 @@ impl FromReflect for Cow<'static, Path> {
 impl GetTypeRegistration for Cow<'static, Path> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectDeserialize, Self>();
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectSerialize, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }

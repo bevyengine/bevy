@@ -1,3 +1,6 @@
+//! Traits and types used to power [map-like] operations via reflection.
+//!
+//! [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::HashTable;
@@ -8,7 +11,7 @@ use crate::{
     MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
     TypeInfo, TypePath,
 };
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -29,7 +32,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, Map};
+/// use bevy_reflect::{PartialReflect, Reflect, map::Map};
 /// use std::collections::HashMap;
 ///
 ///
@@ -195,16 +198,16 @@ macro_rules! hash_error {
     ( $key:expr ) => {{
         let type_path = (*$key).reflect_type_path();
         if !$key.is_dynamic() {
-            format!(
+            $crate::__macro_exports::alloc_utils::format!(
                 "the given key of type `{}` does not support hashing",
                 type_path
             )
         } else {
             match (*$key).get_represented_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
-                None => format!("the dynamic type `{}` does not support hashing", type_path),
+                ::core::option::Option::None => $crate::__macro_exports::alloc_utils::format!("the dynamic type `{}` does not support hashing", type_path),
                 // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
-                Some(s) => format!(
+                ::core::option::Option::Some(s) => $crate::__macro_exports::alloc_utils::format!(
                     "the dynamic type `{}` (representing `{}`) does not support hashing",
                     type_path,
                     s.type_path()
@@ -490,6 +493,50 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [`Map`] values according to their iteration order
+/// (suitable for ordered maps like `BTreeMap`).
+///
+/// For each entry pair `(a_k, a_v)` and `(b_k, b_v)` in the iteration order,
+/// compare `a_k` to `b_k` using `reflect_partial_cmp`, returning the first
+/// non-equal ordering. If keys are equal, compare values `a_v` and `b_v `similarly. If all
+/// compared entries are equal, the shorter map is `Less` and longer is `Greater`.
+///
+/// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
+/// an element comparison returns `None`).
+#[inline]
+pub fn map_partial_cmp<M: Map + ?Sized>(
+    a: &M,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Map(map) = b.reflect_ref() else {
+        return None;
+    };
+
+    let mut a_iter = a.iter();
+    let mut b_iter = map.iter();
+
+    loop {
+        match (a_iter.next(), b_iter.next()) {
+            (Some((a_k, a_v)), Some((b_k, b_v))) => {
+                match a_k.reflect_partial_cmp(b_k) {
+                    None => return None,
+                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(ord) => return Some(ord),
+                }
+
+                match a_v.reflect_partial_cmp(b_v) {
+                    None => return None,
+                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(ord) => return Some(ord),
+                }
+            }
+            (None, None) => return Some(::core::cmp::Ordering::Equal),
+            (None, Some(_)) => return Some(::core::cmp::Ordering::Less),
+            (Some(_), None) => return Some(::core::cmp::Ordering::Greater),
+        }
+    }
 }
 
 /// The default debug formatter for [`Map`] types.

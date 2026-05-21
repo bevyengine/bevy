@@ -8,7 +8,7 @@ use derive_more::derive::From;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
+use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -47,11 +47,7 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy-support",
-    derive(Component),
-    component(on_insert = validate_parent_has_component::<GlobalTransform>)
-)]
+#[cfg_attr(feature = "bevy-support", derive(Component))]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -285,7 +281,7 @@ impl GlobalTransform {
     /// # use bevy_math::prelude::Vec3;
     /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);
     /// let local_direction = Vec3::new(1., 2., 3.);
-    /// let global_direction = global_transform.affine().transform_vector3(local_direction);
+    /// let global_direction = global_transform.transform_vector(local_direction);
     /// assert_eq!(global_direction, Vec3::new(1., 2., 3.));
     /// let roundtripped_local_direction = global_transform.affine().inverse().transform_vector3(global_direction);
     /// assert_eq!(roundtripped_local_direction, local_direction);
@@ -293,6 +289,24 @@ impl GlobalTransform {
     #[inline]
     pub fn transform_point(&self, point: Vec3) -> Vec3 {
         self.0.transform_point3(point)
+    }
+
+    /// Transforms the given vector from local space to global space, applying
+    /// shear, scale, rotation but not translation.
+    ///
+    /// It can be used like this:
+    ///
+    /// ```
+    /// # use bevy_transform::prelude::{GlobalTransform};
+    /// # use bevy_math::prelude::Vec3;
+    /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);
+    /// let local_vector = Vec3::new(1., 2., 3.);
+    /// let global_vector = global_transform.transform_vector(local_vector);
+    /// assert_eq!(global_vector, Vec3::new(1., 2., 3.));
+    /// ```
+    #[inline]
+    pub fn transform_vector(&self, vector: Vec3) -> Vec3 {
+        self.0.transform_vector3(vector)
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
