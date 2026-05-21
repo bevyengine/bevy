@@ -300,9 +300,9 @@ impl GlobalTransform {
     /// # use bevy_transform::prelude::{GlobalTransform};
     /// # use bevy_math::prelude::Vec3;
     /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);
-    /// let local_point = Vec3::new(1., 2., 3.);
-    /// let global_point = global_transform.transform_vector(local_point);
-    /// assert_eq!(global_point, Vec3::new(1., 2., 3.));
+    /// let local_vector = Vec3::new(1., 2., 3.);
+    /// let global_vector = global_transform.transform_vector(local_vector);
+    /// assert_eq!(global_vector, Vec3::new(1., 2., 3.));
     /// ```
     #[inline]
     pub fn transform_vector(&self, vector: Vec3) -> Vec3 {

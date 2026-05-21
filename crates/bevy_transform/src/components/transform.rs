@@ -598,16 +598,16 @@ impl Transform {
         point
     }
 
-    /// Transforms the given `vector`, applying scale, rotation but not translation.
+    /// Transforms the given `vector`, applying scale and rotation only, not translation.
     ///
     /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
-    /// [`Transform::transform_vector`] will transform a point in local space into its
+    /// [`Transform::transform_vector`] will transform a vector in local space into its
     /// parent transform's space.
     ///
     /// If this [`Transform`] does not have a parent, [`Transform::transform_vector`] will
-    /// transform a point in local space into worldspace coordinates.
+    /// transform a vector in local space into worldspace coordinates.
     ///
-    /// If you always want to transform a point in local space to worldspace,
+    /// If you always want to transform a vector in local space to worldspace,
     /// see [`GlobalTransform::transform_vector()`].
     ///
     /// # Examples
