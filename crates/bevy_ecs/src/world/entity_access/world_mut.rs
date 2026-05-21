@@ -14,9 +14,9 @@ use crate::{
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
-    resource::Resource,
+    resource::{Resource, ResourceEntities},
     storage::{SparseSets, Table},
-    template::{EntityScopes, ScopedEntities, Template, TemplateContext},
+    template::{SceneEntityReferences, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -730,6 +730,21 @@ impl<'w> EntityWorldMut<'w> {
                 f(&mut this, res)
             })
         })
+    }
+
+    /// Retrieves this world's [`ResourceEntities`].
+    #[inline]
+    #[track_caller]
+    pub fn resource_entities(&self) -> &ResourceEntities {
+        self.world.resource_entities()
+    }
+
+    /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    #[inline]
+    #[track_caller]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let component_id = self.world.component_id::<R>()?;
+        self.world.resource_entities().get(component_id)
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1600,9 +1615,8 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         func: impl FnOnce(&mut TemplateContext) -> crate::error::Result<T>,
     ) -> crate::error::Result<T> {
-        let mut scoped_entities = ScopedEntities::new(0);
-        let entity_scopes = EntityScopes::default();
-        let mut context = TemplateContext::new(self, &mut scoped_entities, &entity_scopes);
+        let mut scene_entities = SceneEntityReferences::default();
+        let mut context = TemplateContext::new(self, &mut scene_entities);
         func(&mut context)
     }
 

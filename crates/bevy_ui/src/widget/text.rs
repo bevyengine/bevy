@@ -400,8 +400,6 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.scale_factor = node.inverse_scale_factor().recip();
-                    text_layout_info.size *= node.inverse_scale_factor();
                     text_flags.needs_recompute = false;
                 }
             }

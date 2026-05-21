@@ -472,7 +472,8 @@ pub struct Scroll {
 
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
 /// about pointer button presses.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Reflect)]
+#[reflect(Debug, Clone, Default)]
 pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
     pub pressing: EntityHashMap<(Location, Instant, HitData)>,
@@ -494,7 +495,8 @@ impl PointerButtonState {
 }
 
 /// A cache map containing the ancestry of hovered entities
-#[derive(Debug, Clone, Default, Deref, DerefMut)]
+#[derive(Debug, Clone, Default, Deref, DerefMut, Reflect)]
+#[reflect(Debug, Clone, Default)]
 pub struct HoveredEntityAncestors(EntityHashMap<EntityHashSet>);
 
 impl HoveredEntityAncestors {
@@ -547,7 +549,8 @@ impl HoveredEntityAncestors {
 }
 
 /// State for all pointers.
-#[derive(Debug, Clone, Default, Resource)]
+#[derive(Debug, Clone, Default, Resource, Reflect)]
+#[reflect(Debug, Clone, Default, Resource)]
 pub struct PointerState {
     /// Pressing and dragging state, organized by pointer and button.
     pub pointer_buttons: HashMap<(PointerId, PointerButton), PointerButtonState>,

@@ -178,7 +178,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
             libgl1-mesa-dri mesa-vulkan-drivers
           rm -rf ~/apt-cache; mkdir ~/apt-cache
-          for package in libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium mesa-vulkan-drivers; do
+          for package in libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium libdisplay-info1 mesa-vulkan-drivers; do
               echo $package
               dpkg -L $package | while IFS= read -r f; do if test -f "$f"; then echo "$f"; fi; done | xargs -d '\n' cp --parents --target-directory ~/apt-cache/
           done

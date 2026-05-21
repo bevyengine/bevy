@@ -152,6 +152,6 @@ fn fit_canvas(
     for window_resized in resize_messages.read() {
         let h_scale = window_resized.width / RES_WIDTH as f32;
         let v_scale = window_resized.height / RES_HEIGHT as f32;
-        projection.scale = 1. / h_scale.min(v_scale).round();
+        projection.scale = 1. / h_scale.min(v_scale).floor();
     }
 }
