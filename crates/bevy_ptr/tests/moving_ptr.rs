@@ -11,7 +11,7 @@ use core::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 
 #[test]
-fn moving_ptr_assign_drop() {
+fn moving_ptr_assign_drop_is_unwind_safe() {
     struct IncAndPanicOnDrop<'a>(&'a Cell<u32>);
     impl<'a> Drop for IncAndPanicOnDrop<'a> {
         fn drop(&mut self) {
