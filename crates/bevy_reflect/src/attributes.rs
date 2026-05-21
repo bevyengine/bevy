@@ -107,7 +107,7 @@ impl Debug for CustomAttributes {
         if let Some(attributes) = &self.attributes {
             f.debug_set().entries(attributes.values()).finish()
         } else {
-            self.attributes.fmt(f)
+            f.debug_set().finish()
         }
     }
 }
@@ -301,6 +301,12 @@ mod tests {
 
     #[test]
     fn should_debug_custom_attributes() {
+        let attributes = CustomAttributesBuilder::new().build();
+
+        let debug = format!("{attributes:?}");
+
+        assert_eq!(r#"{}"#, debug);
+
         let attributes = CustomAttributesBuilder::new()
             .attribute("My awesome custom attribute!")
             .build();
