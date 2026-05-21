@@ -41,12 +41,14 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
-    /// Emit a warning if a command is dropped before it is applied.
+    /// Always emit a warning if a command is dropped before it is applied.
     /// Defaults to `true`.
     ///
-    /// This setting can be turned off for commands that might be dropped in ordinary situations,
-    /// for example delayed commands that are still around when the application exits.
+    /// This setting can be turned off for commands that might be dropped (due to application exit) before those
+    /// commands are applied in ordinary situations, for example delayed commands.
     warn_on_unapplied: bool,
+    /// Tracks if the application is exiting.
+    /// Defaults to `false`.
     is_exiting: bool,
 }
 
