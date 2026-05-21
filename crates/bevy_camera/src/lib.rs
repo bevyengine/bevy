@@ -2,6 +2,7 @@
 mod camera;
 mod clear_color;
 mod components;
+mod multiview;
 pub mod primitives;
 mod projection;
 pub mod visibility;
@@ -10,6 +11,7 @@ use bevy_ecs::schedule::SystemSet;
 pub use camera::*;
 pub use clear_color::*;
 pub use components::*;
+pub use multiview::*;
 pub use projection::*;
 
 use bevy_app::{App, Plugin};

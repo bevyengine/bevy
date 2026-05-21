@@ -390,6 +390,30 @@ impl ExtractedView {
     }
 }
 
+/// Per-layer view data for a camera with a [`Multiview`](bevy_camera::Multiview)
+/// component, extracted to the render world.
+///
+/// Sits alongside [`ExtractedView`] on a multiview camera's render-world
+/// entity. The companion [`ExtractedView`] still holds the camera's "head"
+/// pose and is used for sort-distance, frustum culling, and other view-level
+/// decisions. Per-eye data is read from this component when packing the view
+/// uniform array.
+#[derive(Component, Clone, Debug)]
+pub struct ExtractedMultiview {
+    /// One entry per layer of the camera's render target texture array.
+    pub subviews: Vec<ExtractedSubview>,
+}
+
+/// Per-layer transform and projection for an [`ExtractedMultiview`].
+#[derive(Clone, Debug)]
+pub struct ExtractedSubview {
+    /// World-space transform of this view (camera's `world_from_view`
+    /// composed with the subview's per-eye `view_from_camera`).
+    pub world_from_view: GlobalTransform,
+    /// Per-eye projection (`clip <- view`).
+    pub clip_from_view: Mat4,
+}
+
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
