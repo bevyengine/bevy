@@ -63,7 +63,7 @@ pub struct TimePlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystems;
 
-/// A [`SystemSet`] for systems that should should run before app exit (but
+/// A [`SystemSet`] for systems that should run before app exit (but
 /// after an [`AppExit`] message has been sent).
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AppExitSystems;
