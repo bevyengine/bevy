@@ -103,9 +103,8 @@ use log::{debug, warn};
 ///         // must be after all other plugins.
 ///         #[doc(hidden)]
 ///         internal:::InternalPlugin,
-///         // The last thing within the block can be a "fn block", which allows using plugin functions
-///         // within function groups.
-///         fn {
+///         // Can end with a "fn block" for plugin function members of the group.
+///         @fn {
 ///             :bullet_time_plugin,
 ///             #[cfg(feature = "external_forces")]
 ///             features:::force_debug_plugin,
@@ -144,7 +143,7 @@ macro_rules! plugin_group {
                 ),+
             )?
             $(
-                $(,)? fn {
+                $(,)? @fn {
                     $(
                         $(#[cfg(feature = $fn_plugin_feature:literal)])?
                         $(#[custom($fn_plugin_meta:meta)])*
@@ -176,6 +175,10 @@ macro_rules! plugin_group {
             " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
         )])+)?
+        $($(#[doc = concat!(
+            " - [`", stringify!($fn_plugin_name), "`](" $(, stringify!($fn_plugin_path), "::")*, stringify!($fn_plugin_name), ")"
+            $(, " - with feature `", $fn_plugin_feature, "`")?
+        )])*)?
         $(
             ///
             $(#[doc = $post_doc])+
@@ -198,13 +201,6 @@ macro_rules! plugin_group {
                         group = group.add(<$($plugin_path::)*$plugin_name>::default());
                     }
                 )*
-                $($(
-                    $(#[cfg(feature = $fn_plugin_feature)])?
-                    $(#[$fn_plugin_meta])*
-                    {
-                        group = group.add($($fn_plugin_path::)*$fn_plugin_name);
-                    }
-                )*)?
                 $($(
                     $(#[cfg(feature = $plugin_group_feature)])?
                     $(#[$plugin_group_meta])*
@@ -229,6 +225,13 @@ macro_rules! plugin_group {
                         group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
                     }
                 )+)?
+                $($(
+                    $(#[cfg(feature = $fn_plugin_feature)])?
+                    $(#[$fn_plugin_meta])*
+                    {
+                        group = group.add($($fn_plugin_path::)*$fn_plugin_name);
+                    }
+                )*)?
                 $($($(
                     $(#[cfg(feature = $fn_hidden_plugin_feature)])?
                     $(#[$fn_hidden_plugin_meta])*
@@ -625,6 +628,9 @@ mod tests {
         fn build(&self, _: &mut App) {}
     }
 
+    fn plugin_d(_: &mut App) {}
+    fn plugin_e(_: &mut App) {}
+
     #[derive(PartialEq, Debug)]
     struct PluginWithData(u32);
     impl Plugin for PluginWithData {
@@ -947,5 +953,36 @@ mod tests {
     #[test]
     fn construct_nested_plugin_groups() {
         PluginGroupC {}.build();
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupD {
+            :PluginA
+            @fn {
+                #[doc(hidden)]
+                :plugin_d
+            }
+        }
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupE {
+            @fn {
+                :plugin_e
+            }
+        }
+    }
+    plugin_group! {
+        struct PluginGroupF {
+            :PluginB
+            #[plugin_group]
+            :PluginGroupD,
+            #[plugin_group]
+            :PluginGroupE,
+        }
+    }
+    #[test]
+    fn construct_nested_plugin_groups_with_plugin_functions() {
+        PluginGroupF {}.build();
     }
 }
