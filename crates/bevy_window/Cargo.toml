@@ -58,7 +58,6 @@ bevy_input = { path = "../bevy_input", version = "0.19.0-dev", default-features 
 ] }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false }
-bevy_time = { path = "../bevy_time/", version = "0.19.0-dev", default-features = false }
 
 # bevy optional
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev", default-features = false, optional = true }

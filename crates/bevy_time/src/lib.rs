@@ -38,7 +38,7 @@ pub mod prelude {
     pub use crate::{DelayedCommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
-use bevy_app::{prelude::*, RunFixedMainLoop};
+use bevy_app::{prelude::*, OnAppExitSystems, RunFixedMainLoop};
 use bevy_ecs::{
     message::{
         message_update_system, signal_message_update_system, MessageRegistry, ShouldUpdateMessages,
@@ -62,11 +62,6 @@ pub struct TimePlugin;
 /// this.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystems;
-
-/// A [`SystemSet`] for systems that should run before app exit (but
-/// after an [`AppExit`] message has been sent).
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AppExitSystems;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
@@ -98,7 +93,7 @@ impl Plugin for TimePlugin {
         .add_systems(
             Last,
             silence_delayed_command_queues_on_exit
-                .in_set(AppExitSystems)
+                .in_set(OnAppExitSystems)
                 .run_if(|messages: Res<Messages<AppExit>>| !messages.is_empty()),
         );
 

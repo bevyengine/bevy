@@ -26,7 +26,6 @@ mod window;
 
 pub use crate::raw_handle::*;
 
-use bevy_time::AppExitSystems;
 pub use cursor::*;
 pub use event::*;
 pub use monitor::*;
@@ -46,7 +45,7 @@ pub mod prelude {
 }
 
 use alloc::sync::Arc;
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, OnAppExitSystems};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_platform::sync::Mutex;
 
@@ -152,7 +151,7 @@ impl Plugin for WindowPlugin {
             app.add_systems(Last, close_when_requested.before(ExitSystems));
         }
 
-        app.configure_sets(Last, AppExitSystems.after(ExitSystems));
+        app.configure_sets(Last, OnAppExitSystems.after(ExitSystems));
     }
 }
 
