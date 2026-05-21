@@ -446,6 +446,15 @@ pub fn update_editable_text_layout(
                 .iter()
                 .map(|&b| bounding_box_to_rect(b.0))
                 .collect();
+
+            for i in 0..info.selection_rects.len().saturating_sub(1) {
+                let [a, b] = &mut info.selection_rects[i..i + 2] else {
+                    unreachable!();
+                };
+                if a.max.y < b.min.y {
+                    a.max.y = b.min.y;
+                }
+            }
         }
 
         if let Some(input_focus) = input_focus.as_ref()
