@@ -15,7 +15,9 @@ use crate::{
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
+    render_resource::{
+        DynamicArrayIndex, DynamicArrayUniformBuffer, ShaderType, Texture, TextureView,
+    },
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
@@ -694,15 +696,15 @@ pub struct ViewUniform {
 
 #[derive(Resource)]
 pub struct ViewUniforms {
-    pub uniforms: DynamicUniformBuffer<ViewUniform>,
+    pub uniforms: DynamicArrayUniformBuffer<ViewUniform>,
 }
 
 impl FromWorld for ViewUniforms {
     fn from_world(world: &mut World) -> Self {
-        let mut uniforms = DynamicUniformBuffer::default();
+        let render_device = world.resource::<RenderDevice>();
+        let mut uniforms = DynamicArrayUniformBuffer::new(&render_device.limits());
         uniforms.set_label(Some("view_uniforms_buffer"));
 
-        let render_device = world.resource::<RenderDevice>();
         if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
             uniforms.add_usages(BufferUsages::STORAGE);
         }
@@ -1028,6 +1030,7 @@ pub fn prepare_view_uniforms(
         Entity,
         Option<&ExtractedCamera>,
         &ExtractedView,
+        Option<&ExtractedMultiview>,
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
@@ -1036,19 +1039,20 @@ pub fn prepare_view_uniforms(
     frame_count: Res<FrameCount>,
     shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
 ) {
-    let view_iter = views.iter();
-    let view_count = view_iter.len();
-    let Some(mut writer) =
-        view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
-    else {
-        return;
-    };
+    view_uniforms.uniforms.clear();
+
+    // Pass 1: build each view's array of subview uniforms and stage them.
+    //
+    // `DynamicArrayUniformBuffer`'s offset alignment depends on the longest
+    // queued array, so we can't resolve `ViewUniformOffset`s until every
+    // view has been pushed and `finish_queuing` has run. We collect
+    // `(entity, array_index)` here and fix up offsets in pass 2.
+    let mut per_entity: Vec<(Entity, DynamicArrayIndex)> = Vec::with_capacity(views.iter().len());
     for (
         entity,
         extracted_camera,
         extracted_view,
+        extracted_multiview,
         frustum,
         temporal_jitter,
         mip_bias,
@@ -1062,60 +1066,45 @@ pub fn prepare_view_uniforms(
             main_pass_viewport.w = resolution_override.0.y as f32;
         }
 
-        let unjittered_projection = extracted_view.clip_from_view;
-        let mut clip_from_view = unjittered_projection;
-
-        if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
-        }
-
-        let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.to_matrix();
-        let view_from_world = world_from_view.inverse();
-
-        let clip_from_world = if temporal_jitter.is_some() {
-            clip_from_view * view_from_world
-        } else {
-            extracted_view
-                .clip_from_world
-                .unwrap_or_else(|| clip_from_view * view_from_world)
-        };
-
-        // Map Frustum type to shader array<vec4<f32>, 6>
+        // Map Frustum type to shader array<vec4<f32>, 6>.
         let frustum = frustum
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
         // Determine the position of the camera used for resolving visibility
-        // ranges (LODs).
+        // ranges (LODs). For multiview cameras this is intentionally the
+        // *head* position, not any individual eye, so LODs don't flicker
+        // between eyes.
         let lod_view_world_position = match (&extracted_camera, &shadow_lod_origin) {
             (Some(_), _) | (None, None) => {
                 // If we're rendering a camera directly (i.e. we're not
-                // rendering a shadow map), we use this camera's position as the
-                // LOD view position.
+                // rendering a shadow map), we use this camera's position as
+                // the LOD view position.
                 extracted_view.world_from_view.translation()
             }
             (None, Some(shadow_lod_origin))
                 if extracted_view.retained_view_entity.auxiliary_entity
                     == MainEntity::from(Entity::PLACEHOLDER) =>
             {
-                // If this is a shadow map not associated with a camera (a point
-                // light or spot light shadow map), use the shadow LOD origin.
+                // If this is a shadow map not associated with a camera (a
+                // point light or spot light shadow map), use the shadow LOD
+                // origin.
                 shadow_lod_origin.0
             }
             (None, Some(shadow_lod_origin)) => {
-                // Otherwise, if we're rendering a shadow map that is associated
-                // with a camera (i.e. a directional light shadow map, at
-                // present), we use the position of that camera as the LOD view
-                // position. This ensures that each rendered object has a shadow
-                // and that no invisible objects have shadows.
+                // Otherwise, if we're rendering a shadow map that is
+                // associated with a camera (i.e. a directional light shadow
+                // map, at present), we use the position of that camera as
+                // the LOD view position. This ensures that each rendered
+                // object has a shadow and that no invisible objects have
+                // shadows.
                 match views.get(
                     extracted_view
                         .retained_view_entity
                         .auxiliary_entity
                         .entity(),
                 ) {
-                    Ok((_, _, camera_view, _, _, _, _)) => {
+                    Ok((_, _, camera_view, _, _, _, _, _)) => {
                         camera_view.world_from_view.translation()
                     }
                     Err(_) => shadow_lod_origin.0,
@@ -1123,30 +1112,119 @@ pub fn prepare_view_uniforms(
             }
         };
 
-        let view_uniforms = ViewUniformOffset {
-            offset: writer.write(&ViewUniform {
-                clip_from_world,
-                unjittered_clip_from_world: unjittered_projection * view_from_world,
-                world_from_clip: world_from_view * view_from_clip,
-                world_from_view,
-                view_from_world,
-                clip_from_view,
-                view_from_clip,
-                world_position: extracted_view.world_from_view.translation(),
-                exposure: extracted_camera
-                    .map(|c| c.exposure)
-                    .unwrap_or_else(|| Exposure::default().exposure()),
+        // Per-subview uniforms. Non-multiview cameras produce a single-
+        // element array; multiview cameras produce one element per layer.
+        let array_uniforms: Vec<ViewUniform> = if let Some(multiview) = extracted_multiview {
+            multiview
+                .subviews
+                .iter()
+                .map(|s| {
+                    build_view_uniform(
+                        s.clip_from_view,
+                        s.world_from_view,
+                        extracted_view,
+                        extracted_camera,
+                        temporal_jitter,
+                        mip_bias,
+                        viewport,
+                        main_pass_viewport,
+                        frustum,
+                        lod_view_world_position,
+                        frame_count.0,
+                    )
+                })
+                .collect()
+        } else {
+            vec![build_view_uniform(
+                extracted_view.clip_from_view,
+                extracted_view.world_from_view,
+                extracted_view,
+                extracted_camera,
+                temporal_jitter,
+                mip_bias,
                 viewport,
                 main_pass_viewport,
                 frustum,
                 lod_view_world_position,
-                color_grading: extracted_view.color_grading.clone().into(),
-                mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                frame_count: frame_count.0,
-            }),
+                frame_count.0,
+            )]
         };
 
-        commands.entity(entity).insert(view_uniforms);
+        let array_index = view_uniforms.uniforms.push_array(array_uniforms);
+        per_entity.push((entity, array_index));
+    }
+
+    view_uniforms.uniforms.finish_queuing();
+    view_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
+
+    // Pass 2: attach the resolved offset to each entity.
+    for (entity, array_index) in per_entity {
+        let offset = view_uniforms.uniforms.get_array_offset(array_index);
+        commands
+            .entity(entity)
+            .insert(ViewUniformOffset { offset });
+    }
+}
+
+/// Builds the [`ViewUniform`] for a single view layer.
+///
+/// Pulled out of [`prepare_view_uniforms`] so multiview cameras can call it
+/// once per subview while sharing the camera-level computations
+/// (`viewport`, `frustum`, `lod_view_world_position`, etc.) between layers.
+fn build_view_uniform(
+    clip_from_view: Mat4,
+    world_from_view: GlobalTransform,
+    extracted_view: &ExtractedView,
+    extracted_camera: Option<&ExtractedCamera>,
+    temporal_jitter: Option<&TemporalJitter>,
+    mip_bias: Option<&MipBias>,
+    viewport: Vec4,
+    main_pass_viewport: Vec4,
+    frustum: [Vec4; 6],
+    lod_view_world_position: Vec3,
+    frame_count: u32,
+) -> ViewUniform {
+    let unjittered_projection = clip_from_view;
+    let mut clip_from_view = unjittered_projection;
+    if let Some(temporal_jitter) = temporal_jitter {
+        temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
+    }
+    let view_from_clip = clip_from_view.inverse();
+    let world_from_view_mat = world_from_view.to_matrix();
+    let view_from_world = world_from_view_mat.inverse();
+
+    // `clip_from_world` ignores `extracted_view.clip_from_world` for
+    // multiview subviews because that field is set against the head pose;
+    // recomputing per-eye is correct.
+    let clip_from_world = if temporal_jitter.is_some() {
+        clip_from_view * view_from_world
+    } else {
+        extracted_view
+            .clip_from_world
+            .unwrap_or_else(|| clip_from_view * view_from_world)
+    };
+
+    ViewUniform {
+        clip_from_world,
+        unjittered_clip_from_world: unjittered_projection * view_from_world,
+        world_from_clip: world_from_view_mat * view_from_clip,
+        world_from_view: world_from_view_mat,
+        view_from_world,
+        clip_from_view,
+        view_from_clip,
+        world_position: world_from_view.translation(),
+        exposure: extracted_camera
+            .map(|c| c.exposure)
+            .unwrap_or_else(|| Exposure::default().exposure()),
+        viewport,
+        main_pass_viewport,
+        frustum,
+        lod_view_world_position,
+        color_grading: extracted_view.color_grading.clone().into(),
+        mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+        frame_count,
     }
 }
 
