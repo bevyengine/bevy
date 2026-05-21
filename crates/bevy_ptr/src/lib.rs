@@ -586,6 +586,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - The caller is required to ensure that `dst` must be valid for writes.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
 
@@ -600,6 +601,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         *dst = unsafe { A::read_ptr(src) };
     }
 
