@@ -1,0 +1,36 @@
+---
+title: "Changes to `TextFont`'s `font_size` and `font` fields"
+pull_requests: [22156, 22614]
+---
+
+`TextFont`'s `font` field has been changed from a `Handle<Font>` to a `FontSource`, and its `font_size` field was changed from an `f32` to a `FontSize`.
+
+`FontSource` has two variants: `Handle`, which identifies a font by asset handle, and `Family`, which selects a font by its family name.
+
+`FontSource` implements `From<Handle<Font>>`. Migration of existing code should only require calling `into()` on the handle.
+
+Font texture atlases are no longer automatically cleared when the font asset they were generated from is removed. Even after the asset is removed, the font is still accessible using the family name with `FontSource::family`. Removing the text atlases naively could cause a panic as rendering expects them to be present.
+
+For `font_size`, wrap the `f32` value in a `FontSize::Px(...)`.
+
+Concretely:
+
+```rust
+// 0.18
+TextFont {
+    font: asset_server.load("FiraMono-medium.ttf"),
+    font_size: 35.,
+    ..default()
+}
+```
+
+becomes
+
+```rust
+// 0.19
+TextFont {
+    font: asset_server.load("FiraMono-medium.ttf").into(),
+    font_size: FontSize::Px(35.),
+    ..default()
+}
+```

@@ -1,10 +1,11 @@
 //! Representation for individual element accesses within a path.
 
 use alloc::borrow::Cow;
+use bevy_reflect_derive::Reflect;
 use core::fmt;
 
 use super::error::AccessErrorKind;
-use crate::{AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef, VariantType};
+use crate::{enums::VariantType, AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef};
 
 type InnerResult<T> = Result<T, AccessErrorKind>;
 
@@ -12,7 +13,8 @@ type InnerResult<T> = Result<T, AccessErrorKind>;
 /// Multiple accesses can be combined into a [`ParsedPath`](super::ParsedPath).
 ///
 /// Can be applied to a [`dyn Reflect`](crate::Reflect) to get a reference to the targeted element.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+#[reflect(Debug, Clone, PartialEq, PartialOrd, Hash)]
 pub enum Access<'a> {
     /// A name-based field access on a struct.
     Field(Cow<'a, str>),

@@ -34,12 +34,12 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::EvaluatorId,
+    prelude::{AnimatableProperty, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, world::EntityMutExcept};
+use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -353,6 +353,49 @@ impl AnimationClip {
         );
     }
 
+    /// Samples an [`AnimatableProperty`] of a specific [`AnimationTargetId`].
+    ///
+    /// See [`crate::morph::WeightsCurveSample`] if you want to sample [`crate::morph::WeightsCurve`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_animation::prelude::*;
+    /// # use bevy_animation::{animated_field, AnimationTargetId};
+    /// #
+    /// # use bevy_ecs::prelude::Name;
+    /// # use bevy_math::Vec3;
+    /// # use bevy_transform::components::Transform;
+    /// let mut clip = AnimationClip::default();
+    /// let animatable_curve = AnimatableCurve::new(
+    ///     animated_field!(Transform::translation),
+    ///     AnimatableKeyframeCurve::new([
+    ///         (0.0, Vec3::new(0., 0., 1.)),
+    ///         (1.0, Vec3::new(1., 0., 0.)),
+    ///     ])
+    ///     .expect("Failed to create power level curve"),
+    /// );
+    /// let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
+    /// clip.add_curve_to_target(target_1, animatable_curve);
+    /// let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
+    /// assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
+    /// ```
+    pub fn sample_clamped<P: AnimatableProperty>(
+        &self,
+        animatable_property: P,
+        target: AnimationTargetId,
+        time: f32,
+    ) -> Option<P::Property> {
+        let curves = self.curves_for_target(target)?;
+        for curve in curves {
+            if curve.0.evaluator_id() == animatable_property.evaluator_id()
+                && let Ok(sample) = curve.0.sample_clamped(time).downcast::<P::Property>()
+            {
+                return Some(*sample);
+            }
+        }
+        None
+    }
+
     /// Add an event function with no [`AnimationTargetId`] to this [`AnimationClip`].
     ///
     /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
@@ -630,6 +673,16 @@ impl ActiveAnimation {
         self.elapsed
     }
 
+    /// Returns the last seek time of the animation.
+    pub fn last_seek_time(&self) -> Option<f32> {
+        self.last_seek_time
+    }
+
+    /// Returns true if the animation was completed at least once this tick.
+    pub fn just_completed(&self) -> bool {
+        self.just_completed
+    }
+
     /// Returns the seek time of the animation.
     ///
     /// This is nonnegative and no more than the clip duration.
@@ -748,10 +801,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_platform::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_platform::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -781,7 +834,7 @@ impl CurrentEvaluators {
             (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
-        for (key, _) in self.type_ids.drain() {
+        for (key, _) in self.type_ids.drain(..) {
             (visit)(EvaluatorId::Type(key))?;
         }
 
@@ -1032,7 +1085,10 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut)>,
+    mut targets: Query<
+        (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
+        Without<IsResource>,
+    >,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
@@ -1241,11 +1297,6 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
-                    #[cfg(feature = "bevy_mesh")]
-                    animate_targets
-                        .before(bevy_mesh::InheritWeightSystems)
-                        .ambiguous_with_all(),
-                    #[cfg(not(feature = "bevy_mesh"))]
                     animate_targets.ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
@@ -1263,13 +1314,7 @@ impl AnimationTargetId {
     /// Typically, this will be the path from the animation root to the
     /// animation target (e.g. bone) that is to be animated.
     pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
-        let mut blake3 = blake3::Hasher::new();
-        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
-        for name in names {
-            blake3.update(name.as_bytes());
-        }
-        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
-        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+        AnimationTargetId::from_iter(names.map(Name::as_str))
     }
 
     /// Creates a new [`AnimationTargetId`] by hashing a single name.
@@ -1287,6 +1332,9 @@ impl<T: AsRef<str>> FromIterator<T> for AnimationTargetId {
         let mut blake3 = blake3::Hasher::new();
         blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
         for str in iter {
+            // Include the string's length in the hash. This avoids ["ab"] and
+            // ["a", "b"] returning the same id.
+            blake3.update(&str.as_ref().len().to_le_bytes());
             blake3.update(str.as_ref().as_bytes());
         }
         let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
@@ -1521,8 +1569,13 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_animation;
-    use bevy_reflect::{DynamicMap, Map};
+    use crate::{
+        self as bevy_animation,
+        prelude::{AnimatableCurve, AnimatableKeyframeCurve, AnimatedField},
+    };
+    use bevy_math::Vec3;
+    use bevy_reflect::map::{DynamicMap, Map};
+    use bevy_transform::components::Transform;
 
     use super::*;
 
@@ -1663,5 +1716,70 @@ mod tests {
             Box::new(AnimationNodeIndex::new(0)),
             Box::new(ActiveAnimation::default()),
         );
+    }
+
+    #[test]
+    fn test_animation_target_id() {
+        let paths = &[
+            vec![],
+            vec![""],
+            vec!["", ""],
+            vec!["a"],
+            vec!["a", "a"],
+            vec!["a", "b"],
+            vec!["b", "a"],
+            vec!["aa"],
+            vec!["ab"],
+            vec!["ba"],
+            vec!["abc"],
+            vec!["a", "b", "c"],
+            vec!["ab", "c"],
+            vec!["a", "bc"],
+        ];
+
+        // Test that different paths map to a different `AnimationTargetId`.
+        for (li, lp) in paths.iter().enumerate() {
+            for rp in paths.iter().skip(li + 1) {
+                let lt = AnimationTargetId::from_iter(lp.iter());
+                let rt = AnimationTargetId::from_iter(rp.iter());
+
+                assert!(lt != rt, "{:?} and {:?} collided. {:?} ", lp, rp, lt);
+            }
+        }
+
+        // Test that `from_iter` is equivalent to `from_names`.
+        for str_path in paths {
+            let name_path = str_path.iter().map(|&s| Name::from(s)).collect::<Vec<_>>();
+
+            assert_eq!(
+                AnimationTargetId::from_iter(str_path),
+                AnimationTargetId::from_names(name_path.iter()),
+                "{:?} {:?}",
+                str_path,
+                &name_path
+            );
+        }
+    }
+
+    #[test]
+    fn test_sample_at_time() {
+        let mut clip = AnimationClip::default();
+        let animatable_curve = AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 1.)),
+                (1.0, Vec3::new(1., 0., 0.)),
+            ])
+            .expect("Failed to create power level curve"),
+        );
+        let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
+        let target_2 = AnimationTargetId::from_name(&Name::new("Target 2"));
+        clip.add_curve_to_target(target_1, animatable_curve);
+        let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
+        assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
+        let value = clip.sample_clamped(animated_field!(Transform::scale), target_1, 1.0);
+        assert_eq!(value, None);
+        let value = clip.sample_clamped(animated_field!(Transform::translation), target_2, 1.0);
+        assert_eq!(value, None);
     }
 }

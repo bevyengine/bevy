@@ -1,12 +1,12 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -25,12 +25,8 @@ use tracing::warn;
 /// handle size without any delays.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(ComputedStackIndex)]
 pub struct ComputedNode {
-    /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-    pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
@@ -106,14 +102,6 @@ impl ComputedNode {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.size.x <= 0. || self.size.y <= 0.
-    }
-
-    /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated in [`UiSystems::Stack`](super::UiSystems::Stack).
-    pub const fn stack_index(&self) -> u32 {
-        self.stack_index
     }
 
     /// The calculated node size as width and height in physical pixels before rounding.
@@ -196,18 +184,13 @@ impl ComputedNode {
             let sm = s.x.min(s.y);
             r.min(sm)
         }
-        let b = vec4(
-            self.border.left,
-            self.border.top,
-            self.border.right,
-            self.border.bottom,
-        );
+        let b = Vec4::from((self.border.min_inset, self.border.max_inset));
         let s = self.size() - b.xy() - b.zw();
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
             top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
-            bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
-            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
+            bottom_right: clamp_corner(self.border_radius.bottom_right, s, b.xw()),
+            bottom_left: clamp_corner(self.border_radius.bottom_left, s, b.zw()),
         }
     }
 
@@ -222,7 +205,9 @@ impl ComputedNode {
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
-        self.border + self.padding
+        let mut content_inset = self.border + self.padding;
+        content_inset.max_inset += self.scrollbar_size;
+        content_inset
     }
 
     /// Returns the inverse of the scale factor for this node.
@@ -277,15 +262,16 @@ impl ComputedNode {
         let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
 
         let clip_inset = match overflow_clip_margin.visual_box {
-            OverflowClipBox::BorderBox => BorderRect::ZERO,
-            OverflowClipBox::ContentBox => self.content_inset(),
-            OverflowClipBox::PaddingBox => self.border(),
+            VisualBox::BorderBox => BorderRect::ZERO,
+            VisualBox::ContentBox => self.content_inset(),
+            VisualBox::PaddingBox => self.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect =
+            clip_rect.inflate(overflow_clip_margin.margin.max(0.) / self.inverse_scale_factor);
+
+        clip_rect.min += clip_inset.min_inset;
+        clip_rect.max -= clip_inset.max_inset;
 
         if overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
@@ -298,11 +284,106 @@ impl ComputedNode {
 
         clip_rect
     }
+
+    /// Returns the node's border-box in object-centered physical coordinates.
+    /// This is the full rectangle enclosing the node.
+    #[inline]
+    pub fn border_box(&self) -> Rect {
+        Rect::from_center_size(Vec2::ZERO, self.size)
+    }
+
+    /// Returns the node's padding-box in object-centered physical coordinates.
+    /// This is the region inside the border containing the node's padding and content areas.
+    #[inline]
+    pub fn padding_box(&self) -> Rect {
+        let mut out = self.border_box();
+        out.min += self.border.min_inset;
+        out.max -= self.border.max_inset;
+        out
+    }
+
+    /// Returns the node's content-box in object-centered physical coordinates.
+    /// This is the innermost region of the node, where its content is placed.
+    #[inline]
+    pub fn content_box(&self) -> Rect {
+        let mut out = self.border_box();
+        let content_inset = self.content_inset();
+        out.min += content_inset.min_inset;
+        out.max -= content_inset.max_inset;
+        out
+    }
+
+    const fn compute_thumb(
+        gutter_min: f32,
+        content_length: f32,
+        gutter_length: f32,
+        scroll_position: f32,
+    ) -> [f32; 2] {
+        if content_length <= gutter_length {
+            return [gutter_min, gutter_min + gutter_length];
+        }
+        let thumb_len = gutter_length * gutter_length / content_length;
+        let thumb_min = gutter_min + scroll_position * gutter_length / content_length;
+        [thumb_min, thumb_min + thumb_len]
+    }
+
+    /// Compute the bounds of the horizontal scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn horizontal_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
+        if self.scrollbar_size.y <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let min_x = -half_size.x + content_inset.min_inset.x;
+        let max_x = half_size.x - content_inset.max_inset.x;
+        let min_y = half_size.y - content_inset.max_inset.y;
+        let max_y = min_y + self.scrollbar_size.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.x,
+                self.content_size.x,
+                gutter.size().x,
+                self.scroll_position.x,
+            ),
+        ))
+    }
+
+    /// Compute the bounds of the vertical scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn vertical_scrollbar(&self) -> Option<(Rect, [f32; 2])> {
+        if self.scrollbar_size.x <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let min_x = half_size.x - content_inset.max_inset.x;
+        let max_x = min_x + self.scrollbar_size.x;
+        let min_y = -half_size.y + content_inset.min_inset.y;
+        let max_y = half_size.y - content_inset.max_inset.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        Some((
+            gutter,
+            Self::compute_thumb(
+                gutter.min.y,
+                self.content_size.y,
+                gutter.size().y,
+                self.scroll_position.y,
+            ),
+        ))
+    }
 }
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
-        stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
         scrollbar_size: Vec2::ZERO,
@@ -390,6 +471,8 @@ impl From<BVec2> for IgnoreScroll {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ComputedStackIndex,
+    ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,
@@ -556,6 +639,11 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
+
+    /// Sets the inline axis direction (LTR or RTL) used for layout.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/direction>
+    pub direction: InlineDirection,
 
     /// The amount of space around a node outside its border.
     ///
@@ -747,6 +835,7 @@ impl Node {
         justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
+        direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -780,6 +869,22 @@ impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Sets the inline axis direction (LTR or RTL) used for layout.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
+#[reflect(Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum InlineDirection {
+    /// Left-to-right
+    #[default]
+    Ltr,
+    /// Right-to-left
+    Rtl,
 }
 
 /// Used to control how each individual item is aligned by default within the space they're given.
@@ -1282,7 +1387,7 @@ impl Default for OverflowAxis {
 )]
 pub struct OverflowClipMargin {
     /// Visible unclipped area
-    pub visual_box: OverflowClipBox,
+    pub visual_box: VisualBox,
     /// Width of the margin on each edge of the visual box in logical pixels.
     /// The width of the margin will be zero if a negative value is set.
     pub margin: f32,
@@ -1290,14 +1395,14 @@ pub struct OverflowClipMargin {
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        visual_box: OverflowClipBox::PaddingBox,
+        visual_box: VisualBox::PaddingBox,
         margin: 0.,
     };
 
     /// Clip any content that overflows outside the content box
     pub const fn content_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::ContentBox,
+            visual_box: VisualBox::ContentBox,
             ..Self::DEFAULT
         }
     }
@@ -1305,7 +1410,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the padding box
     pub const fn padding_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::PaddingBox,
+            visual_box: VisualBox::PaddingBox,
             ..Self::DEFAULT
         }
     }
@@ -1313,7 +1418,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the border box
     pub const fn border_box() -> Self {
         Self {
-            visual_box: OverflowClipBox::BorderBox,
+            visual_box: VisualBox::BorderBox,
             ..Self::DEFAULT
         }
     }
@@ -1326,7 +1431,7 @@ impl OverflowClipMargin {
     }
 }
 
-/// Used to determine the bounds of the visible area when a UI node is clipped.
+/// Used to determine which region of a UI node is used for visual bounds.
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
@@ -1334,13 +1439,13 @@ impl OverflowClipMargin {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum OverflowClipBox {
-    /// Clip any content that overflows outside the content box
+pub enum VisualBox {
+    /// Use the content box.
     ContentBox,
-    /// Clip any content that overflows outside the padding box
+    /// Use the padding box.
     #[default]
     PaddingBox,
-    /// Clip any content that overflows outside the border box
+    /// Use the border box.
     BorderBox,
 }
 
@@ -2114,7 +2219,7 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2207,7 +2312,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2288,6 +2393,16 @@ impl Outline {
     }
 }
 
+impl Default for Outline {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            width: Val::Px(1.),
+            offset: Val::Px(0.),
+        }
+    }
+}
+
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -2298,7 +2413,7 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 pub struct OverrideClip;
 
 #[expect(
@@ -2332,6 +2447,36 @@ pub struct ZIndex(pub i32);
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
+
+/// Sets a color to fill the regions outside the Node's border created when a border radius is set.
+///
+/// This can be useful to create artistic "inner radius" effects when used with extra nodes beside existing nodes,
+/// such as when creating tab widgets.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OuterColor(pub Color);
+
+impl OuterColor {
+    /// Outer color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
+}
+
+impl Default for OuterColor {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl<T: Into<Color>> From<T> for OuterColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
 /// rounded corners or specify different radii for each corner. If a given radius exceeds half
@@ -2644,6 +2789,12 @@ impl BorderRadius {
     }
 }
 
+impl From<Val> for BorderRadius {
+    fn from(value: Val) -> Self {
+        Self::all(value)
+    }
+}
+
 /// Represents the resolved border radius values for a UI node.
 ///
 /// The values are in physical pixels.
@@ -2814,9 +2965,9 @@ impl UiTargetCamera {
 ///     commands.spawn((
 ///         Camera2d,
 ///         Camera {
-///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
+///         RenderTarget::Window(WindowRef::Entity(another_window)),
 ///         // We add the Marker here so all Ui will spawn in
 ///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
@@ -2828,7 +2979,7 @@ pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
-    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    cameras: Query<'w, 's, (Entity, &'static Camera, &'static RenderTarget)>,
     default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
@@ -2842,15 +2993,15 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
             }
             self.cameras
                 .iter()
-                .filter(|(_, c)| match c.target {
+                .filter(|(_, _, render_target)| match render_target {
                     RenderTarget::Window(WindowRef::Primary) => true,
                     RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(w).is_ok()
+                        self.primary_window.get(*w).is_ok()
                     }
                     _ => false,
                 })
-                .max_by_key(|(e, c)| (c.order, *e))
-                .map(|(e, _)| e)
+                .max_by_key(|(e, c, _)| (c.order, *e))
+                .map(|(e, _, _)| e)
         })
     }
 }
@@ -2916,7 +3067,13 @@ impl ComputedUiRenderTargetInfo {
 
 #[cfg(test)]
 mod tests {
+    use crate::ComputedNode;
     use crate::GridPlacement;
+    use crate::Overflow;
+    use crate::OverflowClipMargin;
+    use crate::VisualBox;
+    use bevy_math::{Rect, Vec2};
+    use bevy_sprite::BorderRect;
 
     #[test]
     fn invalid_grid_placement_values() {
@@ -2942,5 +3099,223 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+
+    #[test]
+    fn computed_node_both_scrollbars() {
+        let node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::splat(10.),
+            content_size: Vec2::splat(100.),
+            ..Default::default()
+        };
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(40., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 40.)
+            }
+        );
+        assert_eq!(thumb, [-50., 31.]);
+    }
+
+    #[test]
+    fn computed_node_single_horizontal_scrollbar() {
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(0., 10.),
+            content_size: Vec2::new(200., 100.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
+
+        assert_eq!(None, node.vertical_scrollbar());
+
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.x += 100.;
+        let (gutter, thumb) = node.horizontal_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(-50., 40.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn computed_node_single_vertical_scrollbar() {
+        let mut node = ComputedNode {
+            size: Vec2::splat(100.),
+            scrollbar_size: Vec2::new(10., 0.),
+            content_size: Vec2::new(100., 200.),
+            scroll_position: Vec2::new(0., 0.),
+            ..Default::default()
+        };
+
+        assert_eq!(None, node.horizontal_scrollbar());
+
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [-50., 0.]);
+
+        node.scroll_position.y += 100.;
+        let (gutter, thumb) = node.vertical_scrollbar().unwrap();
+        assert_eq!(
+            gutter,
+            Rect {
+                min: Vec2::new(40., -50.),
+                max: Vec2::new(50., 50.)
+            }
+        );
+        assert_eq!(thumb, [0., 50.]);
+    }
+
+    #[test]
+    fn border_box_is_centered_rect_of_node_size() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 50.0),
+            ..Default::default()
+        };
+        let border_box = node.border_box();
+
+        assert_eq!(border_box.min, Vec2::new(-50.0, -25.0));
+        assert_eq!(border_box.max, Vec2::new(50.0, 25.0));
+    }
+
+    #[test]
+    fn padding_box_subtracts_border_thickness() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 60.0),
+            border: BorderRect {
+                min_inset: Vec2::new(5.0, 3.0),
+                max_inset: Vec2::new(7.0, 9.0),
+            },
+            ..Default::default()
+        };
+        let padding_box = node.padding_box();
+
+        assert_eq!(padding_box.min, Vec2::new(-50.0 + 5.0, -30.0 + 3.0));
+        assert_eq!(padding_box.max, Vec2::new(50.0 - 7.0, 30.0 - 9.0));
+    }
+
+    #[test]
+    fn content_box_uses_content_inset() {
+        let node = ComputedNode {
+            size: Vec2::new(80.0, 40.0),
+            padding: BorderRect {
+                min_inset: Vec2::new(4.0, 2.0),
+                max_inset: Vec2::new(6.0, 8.0),
+            },
+            ..Default::default()
+        };
+        let content_box = node.content_box();
+
+        assert_eq!(content_box.min, Vec2::new(-40.0 + 4.0, -20.0 + 2.0));
+        assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
+    }
+
+    fn abs_diff_eq_rect(s: Rect, t: Rect) -> bool {
+        s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5)
+    }
+
+    #[test]
+    fn overflow_clip_margin_boxes() {
+        let size = 100.;
+        let b = 3.;
+        let p = 5.;
+        let m = 7.;
+        let computed_node = ComputedNode {
+            size: Vec2::splat(size),
+            border: BorderRect::all(b),
+            padding: BorderRect::all(p),
+            ..Default::default()
+        };
+
+        let r = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size));
+
+        assert!(abs_diff_eq_rect(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: VisualBox::BorderBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m),
+        ));
+
+        assert!(abs_diff_eq_rect(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: VisualBox::PaddingBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m - b),
+        ));
+
+        assert!(abs_diff_eq_rect(
+            computed_node.resolve_clip_rect(
+                Overflow::clip(),
+                OverflowClipMargin {
+                    visual_box: VisualBox::ContentBox,
+                    margin: m,
+                },
+            ),
+            r.inflate(m - b - p),
+        ));
+    }
+
+    #[test]
+    fn overflow_clip_margin_is_logical() {
+        let size = 100.;
+        let m = 10.;
+        let scale_factor = 2.;
+        let computed_node = ComputedNode {
+            size: Vec2::splat(size),
+            inverse_scale_factor: 1. / scale_factor,
+            ..Default::default()
+        };
+
+        let r = computed_node.resolve_clip_rect(
+            Overflow::clip(),
+            OverflowClipMargin {
+                visual_box: VisualBox::BorderBox,
+                margin: m,
+            },
+        );
+        let s = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size)).inflate(m * scale_factor);
+
+        assert!(abs_diff_eq_rect(r, s));
     }
 }

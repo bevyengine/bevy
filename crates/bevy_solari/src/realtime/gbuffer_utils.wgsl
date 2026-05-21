@@ -18,12 +18,11 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
 
     let base_rough = unpack4x8unorm(gpixel.r);
     let base_color = pow(base_rough.rgb, vec3(2.2));
-    // Clamp roughness to prevent NaNs
-    let perceptual_roughness = clamp(base_rough.a, 0.0316227766, 1.0); // Clamp roughness to 0.001
+    let perceptual_roughness = base_rough.a;
     let roughness = perceptual_roughness * perceptual_roughness;
     let props = unpack4x8unorm(gpixel.b);
-    let reflectance = vec3(props.r);
-    let metallic = saturate(props.g); // TODO: Not sure why saturate is needed here to prevent NaNs
+    let reflectance = props.r;
+    let metallic = props.g;
     let emissive = rgb9e5_to_vec3_(gpixel.g);
     let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic);
 
@@ -37,13 +36,13 @@ fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32, view_size: vec2<f
     return world_pos.xyz / world_pos.w;
 }
 
-// Reject if tangent plane differs more than 0.3% or angle between normals more than 25 degrees
+// Reject if tangent plane differs more than 0.3% or angle between normals more than 90 degrees
 fn pixel_dissimilar(depth: f32, world_position: vec3<f32>, other_world_position: vec3<f32>, normal: vec3<f32>, other_normal: vec3<f32>, view: View) -> bool {
     // https://developer.download.nvidia.com/video/gputechconf/gtc/2020/presentations/s22699-fast-denoising-with-self-stabilizing-recurrent-blurs.pdf#page=45
     let tangent_plane_distance = abs(dot(normal, other_world_position - world_position));
     let view_z = -depth_ndc_to_view_z(depth, view.clip_from_view, view.view_from_clip);
 
-    return tangent_plane_distance / view_z > 0.003 || dot(normal, other_normal) < 0.906;
+    return tangent_plane_distance / view_z > 0.003 || dot(normal, other_normal) < 0.0;
 }
 
 fn permute_pixel(pixel_id: vec2<u32>, frame_index: u32, view_size: vec2<f32>) -> vec2<u32> {
