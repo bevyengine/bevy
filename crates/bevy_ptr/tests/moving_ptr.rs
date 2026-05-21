@@ -6,6 +6,9 @@ use bevy_ptr::MovingPtr;
 
 use core::cell::Cell;
 use core::mem::MaybeUninit;
+use core::panic::AssertUnwindSafe;
+
+use std::panic::catch_unwind;
 
 #[test]
 fn moving_ptr_assign_drop() {
@@ -27,7 +30,7 @@ fn moving_ptr_assign_drop() {
     let mut value1 = MaybeUninit::new(IncAndPanicOnDrop(&drops1));
     let mut value2 = IncAndPanicOnDrop(&drops2);
 
-    _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    _ = catch_unwind(AssertUnwindSafe(|| {
         // SAFETY:
         // - value1 is initialized
         // - we're not using value1 after this point.
@@ -42,7 +45,7 @@ fn moving_ptr_assign_drop() {
     assert_eq!(drops2.get(), 1);
 
     // Now drop value2, which should now hold value1. We expect this to drop value1 and increase drops1.
-    _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(value2)));
+    _ = catch_unwind(AssertUnwindSafe(|| drop(value2)));
 
     assert_eq!(drops1.get(), 1);
     assert_eq!(drops2.get(), 1);
