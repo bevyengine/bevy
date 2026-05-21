@@ -1,14 +1,14 @@
 use core::num::NonZero;
 
 use encase::ShaderType;
-use wgpu::{BindingResource, Limits};
+use wgpu::{BindingResource, BufferUsages, Limits};
 
 use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
 
-use super::{batched_uniform_buffer::MaxCapacityArray, Buffer, GpuArrayBufferable};
+use super::{batched_uniform_buffer::MaxCapacityArray, Buffer, GpuArrayBufferable, IntoBinding};
 
 /// Similar to [`DynamicUniformBuffer`] but designed for storing multiple
 /// runtime-sized arrays of `T` in a single uniform buffer. Each array is
@@ -43,6 +43,17 @@ impl<T: GpuArrayBufferable> DynamicArrayUniformBuffer<T> {
         self.offsets.clear();
         self.is_queuing_finished = false;
         self.temp.clear();
+    }
+
+    /// Sets a debug label for the underlying GPU buffer.
+    pub fn set_label(&mut self, label: Option<&str>) {
+        self.uniforms.set_label(label);
+    }
+
+    /// Adds extra [`BufferUsages`] beyond the default `COPY_DST | UNIFORM`.
+    /// Useful when the same buffer should also be bound as a storage buffer.
+    pub fn add_usages(&mut self, usages: BufferUsages) {
+        self.uniforms.add_usages(usages);
     }
 
     pub fn is_queuing_finished(&self) -> bool {
@@ -154,6 +165,13 @@ impl<T: GpuArrayBufferable> DynamicArrayUniformBuffer<T> {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DynamicArrayIndex(usize);
+
+impl<'a, T: GpuArrayBufferable> IntoBinding<'a> for &'a DynamicArrayUniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
+    }
+}
 
 #[cfg(test)]
 mod tests {
