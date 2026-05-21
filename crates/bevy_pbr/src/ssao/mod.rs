@@ -464,9 +464,9 @@ impl SpecializedComputePipeline for SsaoPipelines {
         let (slice_count, samples_per_slice_side) = key.quality_level.sample_counts();
 
         let mut shader_defs = vec![
-            ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
+            ShaderDefVal::Int("SLICE_COUNT".into(), slice_count as i32),
             ShaderDefVal::Int(
-                "SAMPLES_PER_SLICE_SIDE".to_string(),
+                "SAMPLES_PER_SLICE_SIDE".into(),
                 samples_per_slice_side as i32,
             ),
         ];
