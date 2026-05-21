@@ -65,6 +65,7 @@ struct VolumetricFog {
     density_texture_offset: vec3<f32>,
     scattering_asymmetry: f32,
     light_intensity: f32,
+    boundary_fade: f32,
     jitter_strength: f32,
 }
 
@@ -121,6 +122,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let absorption = volumetric_fog.absorption;
     let scattering = volumetric_fog.scattering;
     let density_factor = volumetric_fog.density_factor;
+    let boundary_fade = volumetric_fog.boundary_fade;
     let density_texture_offset = volumetric_fog.density_texture_offset;
     let light_tint = volumetric_fog.light_tint;
     let light_intensity = volumetric_fog.light_intensity;
@@ -141,21 +143,31 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // faces of the AABB, this is the current fragment's depth.
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
+    // Calculate the ray direction in view space (needed for back-face intersection).
+    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
+    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
+
     // Calculate the end position of the ray. This requires us to raytrace the
     // three back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
+    var best_t = 1e30;
+    var found_backface_hit = false;
     for (var plane_index = 0; plane_index < 3; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
         let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
         let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
 
-        // Calculate the intersection of the ray and the plane. The ray must
-        // intersect in front of us (t > 0).
-        let t = -plane.w / dot(plane.xyz, view_start_pos.xyz);
+        // Calculate the intersection of the ray and the plane using the
+        // standard ray equation P(t) = Ro + Rd * t. Skip near-parallel rays.
+        let denom = dot(plane.xyz, Rd_view);
+        if (abs(denom) < 0.0001) {
+            continue;
+        }
+        let t = -(dot(plane.xyz, view_start_pos.xyz) + plane.w) / denom;
         if (t < 0.0) {
             continue;
         }
-        let hit_pos = view_start_pos.xyz * t;
+        let hit_pos = view_start_pos.xyz + Rd_view * t;
 
         // The intersection point must be in front of the other backfaces.
         let other_sides = vec2(
@@ -163,23 +175,33 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0
         );
 
-        // If those tests pass, we found our backface.
-        if (all(other_sides)) {
+        // Pick the nearest valid positive back-face hit.
+        if (all(other_sides) && t < best_t) {
+            best_t = t;
             end_depth_view = -hit_pos.z;
-            break;
+            found_backface_hit = true;
         }
     }
-
-    // Starting at the end depth, which we got above, figure out how long the
-    // ray we want to trace is and the length of each increment.
-    end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
 
+    // Starting at the end depth, which we got above, figure out how long the
+    // ray we want to trace is and the length of each increment.
+    if (found_backface_hit) {
+        end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
+    } else {
+        // Fallback for edge cases where numerical issues prevent selecting a
+        // back face. Clamp by a geometry-derived upper bound to avoid
+        // over-attenuating distant sky pixels.
+        let max_volume_thickness_view = 2.0 * bounding_radius;
+        end_depth_view = min(
+            view_end_depth_from_buffer,
+            start_depth_view + max_volume_thickness_view
+        );
+    }
+
     let ray_length_view = max(0.0, end_depth_view - start_depth_view);
-    // If the end is behind the start of the first opaque pixel, then we know it
-    // is occluded, and we don't need to render it
     if (ray_length_view == 0.0) {
         return vec4(0.0, 0.0, 0.0, 0.0);
     }
@@ -188,16 +210,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     let directional_light_count = lights.n_directional_lights;
 
-    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in NDC,
-    // view, and world coordinates.
-    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
-    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
+    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world
+    // coordinates.
     var Ro_world = position_view_to_world(view_start_pos.xyz);
     let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
 
     // Offset by jitter.
     let jitter = interleaved_gradient_noise(position.xy, globals.frame_count) * jitter_strength;
-    Ro_world += Rd_world * jitter;
+    Ro_world += Rd_world * jitter * step_size_world;
 
     // Use Beer's law [1] [2] to calculate the maximum amount of light that each
     // directional light could contribute, and modulate that value by the light
@@ -256,7 +276,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
             let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
-            var density = density_factor;
+            var density = density_factor * boundary_fade;
 #ifdef DENSITY_TEXTURE
             // Take the density texture into account, if there is one.
             //
@@ -350,7 +370,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
         let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
-        var density = density_factor;
+        var density = density_factor * boundary_fade;
         var sample_color = vec3(0.0);
 
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
@@ -386,7 +406,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                     spot_dir.y = -spot_dir.y;
                 }
 
-                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
+                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
                 // spot_scale and spot_offset have been precomputed
                 // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
                 let cd = dot(-spot_dir, normalize(light_to_frag));
