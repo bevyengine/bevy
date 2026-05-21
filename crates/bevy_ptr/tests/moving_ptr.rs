@@ -1,4 +1,4 @@
-//! Tests for [`bevy_ptr::MovingPtr`] with panic behaviour.
+//! Tests for [`bevy_ptr::MovingPtr`] with panic behavior.
 
 #![allow(unsafe_code, reason = "unsafe is needed to use bevy_ptr::MovingPtr")]
 
