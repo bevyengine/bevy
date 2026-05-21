@@ -23,6 +23,7 @@ use bevy_text::{
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
+use smallvec::SmallVec;
 use swash::FontRef;
 use taffy::MaybeMath;
 
@@ -105,10 +106,13 @@ pub fn update_editable_text_content_size(
 
             match &resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
                 parley::FontFamily::Source(source) => {
-                    let parsed_font_families = parley::FontFamilyName::parse_css_list(source)
-                        .map_while(Result::ok)
-                        .collect::<Vec<_>>();
-                    query.set_families(parsed_font_families.iter().map(query_family));
+                    query.set_families(
+                        parley::FontFamilyName::parse_css_list(source)
+                            .map_while(Result::ok)
+                            .collect::<SmallVec<[_; 4]>>()
+                            .iter()
+                            .map(query_family),
+                    );
                 }
                 parley::FontFamily::Single(family) => {
                     query.set_families([query_family(family)]);
