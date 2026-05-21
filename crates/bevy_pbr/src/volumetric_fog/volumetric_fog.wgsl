@@ -44,6 +44,7 @@
     position_ndc_to_world,
     position_view_to_world
 }
+#import bevy_render::maths::orthonormalize
 #import bevy_pbr::clustered_forward as clustering
 #import bevy_pbr::lighting::getDistanceAttenuation;
 
@@ -495,17 +496,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
         -surface_to_light
         + ((*light).shadow_depth_bias * normalize(surface_to_light));
 
-    // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
-    var sign = -1.0;
-    if (fwd.z >= 0.0) {
-        sign = 1.0;
-    }
-    let a = -1.0 / (fwd.z + sign);
-    let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+    let light_inv_rot = orthonormalize(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
