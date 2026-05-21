@@ -2,11 +2,12 @@
 //!
 //! This example arranges three text inputs in a 3x3 grid layout.  The first column of each row is an [`EditableText`] text input node, the second column is a `Text` node
 //! that is kept synchronized with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
-//! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Ctrl` + `Enter`.
+//! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Enter`.
 
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
-use bevy::input_focus::AutoFocus;
+use bevy::input_focus::tab_navigation::NavAction;
+use bevy::input_focus::{tab_navigation::TabNavigation, AutoFocus, FocusCause};
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
@@ -147,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }
 
             parent.spawn((
-                Text::new("Press Ctrl + Enter to submit"),
+                Text::new("Press Enter to submit"),
                 Node {
                     grid_column: GridPlacement::span(3),
                     justify_self: JustifySelf::Center,
@@ -185,15 +186,15 @@ fn synchronize_output_text(
     }
 }
 
-// Submit the focused input's text when Ctrl+Enter is pressed.
+// Submit the focused input's text when Enter is pressed.
 fn submit_text(
-    input_focus: Res<InputFocus>,
+    mut input_focus: ResMut<InputFocus>,
     keyboard_input: Res<ButtonInput<Key>>,
     mut text_input: Query<(&mut EditableText, &TextInputRow)>,
     mut text_output: Query<(&mut Text, &TextInputRow), With<SubmitOutput>>,
+    tab_navigation: TabNavigation,
 ) {
     if keyboard_input.just_pressed(Key::Enter)
-        && keyboard_input.pressed(Key::Control)
         && let Some(focused_entity) = input_focus.get()
         && let Ok((mut editable_text, input_row)) = text_input.get_mut(focused_entity)
     {
@@ -209,6 +210,10 @@ fn submit_text(
             }
         }
         editable_text.clear();
+
+        if let Ok(next) = tab_navigation.navigate(&input_focus, NavAction::Next) {
+            input_focus.set(next, FocusCause::Navigated);
+        }
     }
 }
 

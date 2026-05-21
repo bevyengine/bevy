@@ -1273,7 +1273,7 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 #[macro_export]
 macro_rules! move_as_ptr {
     ($value: ident) => {
-        let mut $value = core::mem::MaybeUninit::new($value);
+        let mut $value = ::core::mem::MaybeUninit::new($value);
         // SAFETY:
         // - This macro shadows a MaybeUninit value that took ownership of the original value.
         //   it is impossible to refer to the original value, preventing further access after
@@ -1459,11 +1459,11 @@ macro_rules! deconstruct_moving_ptr {
             let value = &mut *ptr;
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index,)*));
+            ::core::hint::black_box(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
-                unreachable!()
+                ::core::unreachable!()
             }
             *value = ($(unreachable($field_index),)*);
         };
@@ -1473,21 +1473,21 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<::core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index,)*));
+            ::core::hint::black_box(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
-                unreachable!()
+                ::core::unreachable!()
             }
             *value = ($(unreachable($field_index),)*);
         };
@@ -1497,7 +1497,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
     ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
@@ -1508,7 +1508,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index),*));
+            ::core::hint::black_box(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1520,11 +1520,11 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<::core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
@@ -1532,7 +1532,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index),*));
+            ::core::hint::black_box(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1544,6 +1544,6 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        ::core::mem::forget(ptr);
     };
 }
