@@ -44,7 +44,7 @@ use gltf::{
     accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
-    Material, Node, Semantic,
+    Document, Material, Node, Semantic,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_animation")]
@@ -72,7 +72,7 @@ use self::{
         },
         mesh::{primitive_name, primitive_topology},
         scene::{node_name, node_transform},
-        texture::{texture_sampler, texture_transform_to_affine2},
+        texture::{texture_sampler, texture_source, texture_transform_to_affine2},
     },
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
@@ -92,6 +92,9 @@ pub enum GltfError {
     /// Invalid glTF file.
     #[error("invalid glTF file: {0}")]
     Gltf(#[from] gltf::Error),
+    /// Unsupported required glTF extension.
+    #[error("unsupported required glTF extension: {0}")]
+    UnsupportedRequiredExtension(String),
     /// Binary blob is missing.
     #[error("binary blob is missing")]
     MissingBlob,
@@ -114,6 +117,17 @@ pub enum GltfError {
     /// The image URI was unable to be resolved with respect to the asset path.
     #[error("invalid image uri: {0}. asset path error={1}")]
     InvalidImageUri(String, ParseAssetPathError),
+    /// A texture did not have an image source.
+    #[error("texture {0} is missing an image source")]
+    MissingImageSource(usize),
+    /// A texture extension contained an invalid image source.
+    #[error("texture {texture} contains an invalid KHR_texture_basisu source: {value}")]
+    InvalidTextureBasisuSource {
+        /// The texture index.
+        texture: usize,
+        /// The invalid source value.
+        value: String,
+    },
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
     ReadAssetBytesError(#[from] ReadAssetBytesError),
@@ -248,6 +262,9 @@ impl GltfLoader {
         } else {
             gltf::Gltf::from_slice_without_validation(bytes)?
         };
+        if settings.validate {
+            reject_unsupported_empty_texture_extensions(&gltf.document)?;
+        }
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -619,6 +636,7 @@ impl GltfLoader {
             for texture in gltf.textures() {
                 let image = load_image(
                     texture.clone(),
+                    &gltf.document,
                     &buffer_data,
                     &linear_textures,
                     load_context.path(),
@@ -641,11 +659,13 @@ impl GltfLoader {
                 let textures = IoTaskPool::get().scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
                         let asset_path = load_context.path().clone();
+                        let gltf_document = &gltf.document;
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
                         scope.spawn(async move {
                             load_image(
                                 gltf_texture,
+                                gltf_document,
                                 buffer_data,
                                 linear_textures,
                                 &asset_path,
@@ -1180,9 +1200,22 @@ impl AssetLoader for GltfLoader {
     }
 }
 
+fn reject_unsupported_empty_texture_extensions(document: &Document) -> Result<(), GltfError> {
+    for extension in document.extensions_required() {
+        if matches!(extension, "EXT_texture_webp" | "MSFT_texture_dds") {
+            return Err(GltfError::UnsupportedRequiredExtension(
+                extension.to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
 async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
+    gltf_document: &'a Document,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
     gltf_path: &'b AssetPath<'b>,
@@ -1197,7 +1230,16 @@ async fn load_image<'a, 'b>(
         texture_sampler(&gltf_texture, default_sampler)
     };
 
-    match gltf_texture.source().source() {
+    let gltf_image = texture_source(&gltf_texture, gltf_document).map_err(|source| {
+        GltfError::InvalidTextureBasisuSource {
+            texture: gltf_texture.index(),
+            value: source,
+        }
+    })?;
+    let gltf_image =
+        gltf_image.ok_or_else(|| GltfError::MissingImageSource(gltf_texture.index()))?;
+
+    match gltf_image.source() {
         Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
@@ -2121,6 +2163,28 @@ mod test {
     use bevy_reflect::TypePath;
     use bevy_world_serialization::WorldSerializationPlugin;
 
+    #[derive(TypePath)]
+    struct FakeKtx2Loader;
+
+    impl AssetLoader for FakeKtx2Loader {
+        type Asset = Image;
+        type Error = std::io::Error;
+        type Settings = ImageLoaderSettings;
+
+        async fn load(
+            &self,
+            _reader: &mut dyn bevy_asset::io::Reader,
+            _settings: &Self::Settings,
+            _load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            Ok(Image::default())
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["ktx2"]
+        }
+    }
+
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
         let reader = MemoryAssetReader { root: dir };
@@ -2688,6 +2752,173 @@ mod test {
             asset_server
                 .is_loaded_with_dependencies(&handle)
                 .then_some(())
+        });
+    }
+
+    #[test]
+    fn reads_khr_texture_basisu_source() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        app.init_asset::<GltfMaterial>();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "extensionsUsed": [
+        "KHR_texture_basisu"
+    ],
+    "textures": [
+        {
+            "source": 0,
+            "extensions": {
+                "KHR_texture_basisu": {
+                    "source": 1
+                }
+            }
+        }
+    ],
+    "images": [
+        {
+            "uri": "abc.png"
+        },
+        {
+            "uri": "abc.ktx2"
+        }
+    ],
+    "materials": [
+        {
+            "pbrMetallicRoughness": {
+                "baseColorTexture": {
+                    "index": 0,
+                    "texCoord": 0
+                }
+            }
+        }
+    ]
+}
+"#,
+        );
+        dir.insert_asset_text(Path::new("abc.png"), "png");
+        dir.insert_asset_text(Path::new("abc.ktx2"), "ktx2");
+
+        app.init_asset::<Image>()
+            .register_asset_loader(FakeKtx2Loader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_world| {
+            asset_server
+                .is_loaded_with_dependencies(&handle)
+                .then_some(())
+        });
+    }
+
+    #[test]
+    fn reads_required_khr_texture_basisu_source() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        app.init_asset::<GltfMaterial>();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "extensionsUsed": [
+        "KHR_texture_basisu"
+    ],
+    "extensionsRequired": [
+        "KHR_texture_basisu"
+    ],
+    "textures": [
+        {
+            "extensions": {
+                "KHR_texture_basisu": {
+                    "source": 0
+                }
+            }
+        }
+    ],
+    "images": [
+        {
+            "uri": "abc.ktx2"
+        }
+    ],
+    "materials": [
+        {
+            "pbrMetallicRoughness": {
+                "baseColorTexture": {
+                    "index": 0,
+                    "texCoord": 0
+                }
+            }
+        }
+    ]
+}
+"#,
+        );
+        dir.insert_asset_text(Path::new("abc.ktx2"), "ktx2");
+
+        app.init_asset::<Image>()
+            .register_asset_loader(FakeKtx2Loader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_world| {
+            asset_server
+                .is_loaded_with_dependencies(&handle)
+                .then_some(())
+        });
+    }
+
+    #[test]
+    fn invalid_khr_texture_basisu_source_is_an_error() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "extensionsUsed": [
+        "KHR_texture_basisu"
+    ],
+    "textures": [
+        {
+            "extensions": {
+                "KHR_texture_basisu": {
+                    "source": 0
+                }
+            }
+        }
+    ]
+}
+"#,
+        );
+
+        app.init_asset::<Image>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+            LoadState::Failed(err) => {
+                let err = err.to_string();
+                assert!(
+                    err.contains("invalid KHR_texture_basisu source: 0"),
+                    "incorrect error message: {err}"
+                );
+                Some(())
+            }
+            LoadState::Loading => None,
+            state => panic!("Unexpected load state: {state:?}"),
         });
     }
 
