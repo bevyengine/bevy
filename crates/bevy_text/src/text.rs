@@ -264,11 +264,11 @@ impl From<Justify> for parley::Alignment {
     }
 }
 
-#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 /// Determines how the font face for a text sections is selected.
 ///
 /// A [`FontSource`] can be a handle to a font asset, a font family name,
-/// or a generic font category that is resolved using Parley's font database.
+/// a CSS font-family list, an ordered family list, or a generic font category
+/// that is resolved using Parley's font database.
 ///
 /// Font family fallback (selection of a font when the requested font is not found)
 /// is automatically handled by [`parley::fontique`].
@@ -279,6 +279,7 @@ impl From<Justify> for parley::Alignment {
 ///
 /// You can check which font family is used for a given [`FontSource`]
 /// by calling [`FontCx::get_family`](crate::FontCx::get_family).
+#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -291,10 +292,122 @@ pub enum FontSource {
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
+    /// Font family list in CSS format.
+    ///
+    /// For example: `"Arial, Noto Sans, sans-serif"`.
+    Css(SmolStr),
+    /// Ordered list of font families.
+    List(#[template(built_in)] Vec<FontFamilyEntry>),
+    /// Resolve the font using a generic font family.
+    Generic(GenericFontFamily),
+}
+
+impl FontSource {
+    /// Font family list in CSS format.
+    ///
+    /// For example: `"Arial, 'Noto Sans', sans-serif"`.
+    pub fn css(source: impl Into<SmolStr>) -> Self {
+        Self::Css(source.into())
+    }
+
+    /// Creates an ordered list of font families.
+    pub fn list<I, F>(list: I) -> Self
+    where
+        I: IntoIterator<Item = F>,
+        F: Into<FontFamilyEntry>,
+    {
+        Self::List(list.into_iter().map(Into::into).collect())
+    }
+}
+
+impl Default for FontSource {
+    fn default() -> Self {
+        Self::Handle(Handle::default())
+    }
+}
+
+impl From<Handle<Font>> for FontSource {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<&Handle<Font>> for FontSource {
+    fn from(handle: &Handle<Font>) -> Self {
+        Self::Handle(handle.clone())
+    }
+}
+
+impl From<SmolStr> for FontSource {
+    fn from(family: SmolStr) -> Self {
+        FontSource::Family(family)
+    }
+}
+
+impl From<&str> for FontSource {
+    fn from(family: &str) -> Self {
+        FontSource::Family(family.into())
+    }
+}
+
+impl From<FontFamilyEntry> for FontSource {
+    fn from(family: FontFamilyEntry) -> Self {
+        match family {
+            FontFamilyEntry::Named(family) => FontSource::Family(family),
+            FontFamilyEntry::Generic(generic) => FontSource::Generic(generic),
+        }
+    }
+}
+
+impl From<GenericFontFamily> for FontSource {
+    fn from(generic: GenericFontFamily) -> Self {
+        Self::Generic(generic)
+    }
+}
+
+impl From<Vec<FontFamilyEntry>> for FontSource {
+    fn from(list: Vec<FontFamilyEntry>) -> Self {
+        Self::List(list)
+    }
+}
+
+impl<const N: usize> From<[FontFamilyEntry; N]> for FontSource {
+    fn from(list: [FontFamilyEntry; N]) -> Self {
+        Self::List(list.into())
+    }
+}
+
+/// A single named or generic font family used in a [`FontSource::List`].
+#[derive(Clone, Debug, Reflect, PartialEq, Eq, FromTemplate)]
+pub enum FontFamilyEntry {
+    /// A named font family.
+    #[default]
+    Named(SmolStr),
+    /// A generic font family.
+    Generic(GenericFontFamily),
+}
+
+impl From<&str> for FontFamilyEntry {
+    fn from(family: &str) -> Self {
+        Self::Named(family.into())
+    }
+}
+
+impl From<GenericFontFamily> for FontFamilyEntry {
+    fn from(generic: GenericFontFamily) -> Self {
+        Self::Generic(generic)
+    }
+}
+
+/// Generic font families that are resolved through Parley's font database.
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash, FromTemplate)]
+#[repr(u8)]
+pub enum GenericFontFamily {
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
     ///
     /// Serif fonts are typically used for long passages of text and represent
     /// a more traditional or formal typographic style.
+    #[default]
     Serif,
     /// Fonts without serifs.
     ///
@@ -339,33 +452,23 @@ pub enum FontSource {
     FangSong,
 }
 
-impl Default for FontSource {
-    fn default() -> Self {
-        Self::Handle(Handle::default())
-    }
-}
-
-impl From<Handle<Font>> for FontSource {
-    fn from(handle: Handle<Font>) -> Self {
-        Self::Handle(handle)
-    }
-}
-
-impl From<&Handle<Font>> for FontSource {
-    fn from(handle: &Handle<Font>) -> Self {
-        Self::Handle(handle.clone())
-    }
-}
-
-impl From<SmolStr> for FontSource {
-    fn from(family: SmolStr) -> Self {
-        FontSource::Family(family)
-    }
-}
-
-impl From<&str> for FontSource {
-    fn from(family: &str) -> Self {
-        FontSource::Family(family.into())
+impl From<GenericFontFamily> for parley::GenericFamily {
+    fn from(generic: GenericFontFamily) -> Self {
+        match generic {
+            GenericFontFamily::Serif => Self::Serif,
+            GenericFontFamily::SansSerif => Self::SansSerif,
+            GenericFontFamily::Cursive => Self::Cursive,
+            GenericFontFamily::Fantasy => Self::Fantasy,
+            GenericFontFamily::Monospace => Self::Monospace,
+            GenericFontFamily::SystemUi => Self::SystemUi,
+            GenericFontFamily::UiSerif => Self::UiSerif,
+            GenericFontFamily::UiSansSerif => Self::UiSansSerif,
+            GenericFontFamily::UiMonospace => Self::UiMonospace,
+            GenericFontFamily::UiRounded => Self::UiRounded,
+            GenericFontFamily::Emoji => Self::Emoji,
+            GenericFontFamily::Math => Self::Math,
+            GenericFontFamily::FangSong => Self::FangSong,
+        }
     }
 }
 
@@ -377,7 +480,8 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Parley's
+    /// a CSS font-family list, an ordered family list, or a generic font category
+    /// that is resolved using Parley's
     /// [`FontContext`](`parley::FontContext`) which is accessible through the
     /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,

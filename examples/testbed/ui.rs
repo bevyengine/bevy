@@ -221,7 +221,7 @@ mod text {
             Text::new("Hello World."),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: FontSize::Px(200.),
+                font_size: FontSize::Px(100.),
                 ..default()
             },
         ));
@@ -249,6 +249,16 @@ mod text {
                             ..default()
                         },
                         hinting,
+                    ));
+
+                    content.with_child((
+                        Text::new("Font from css font list"),
+                        TextFont {
+                            font: FontSource::css(
+                                "'Comic Sans', Arial, 'Noto Sans', sans-serif, 'fonts/FiraSans-Bold.ttf'",
+                            ),
+                            ..Default::default()
+                        },
                     ));
 
                     content.with_child((
@@ -681,6 +691,8 @@ mod text {
         });
     }
 }
+
+mod fonts {}
 
 mod grid {
     use bevy::{color::palettes::css::*, prelude::*};

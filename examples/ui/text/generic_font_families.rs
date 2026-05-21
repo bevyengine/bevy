@@ -63,11 +63,26 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
             };
 
             for (source, description) in [
-                (FontSource::SansSerif, "generic sans serif font"),
-                (FontSource::Serif, "generic serif font"),
-                (FontSource::Fantasy, "generic fantasy font"),
-                (FontSource::Cursive, "generic cursive font"),
-                (FontSource::Monospace, "generic monospace font"),
+                (
+                    FontSource::Generic(GenericFontFamily::SansSerif),
+                    "generic sans serif font",
+                ),
+                (
+                    FontSource::Generic(GenericFontFamily::Serif),
+                    "generic serif font",
+                ),
+                (
+                    FontSource::Generic(GenericFontFamily::Fantasy),
+                    "generic fantasy font",
+                ),
+                (
+                    FontSource::Generic(GenericFontFamily::Cursive),
+                    "generic cursive font",
+                ),
+                (
+                    FontSource::Generic(GenericFontFamily::Monospace),
+                    "generic monospace font",
+                ),
             ] {
                 builder.spawn((
                     Text::new(description),

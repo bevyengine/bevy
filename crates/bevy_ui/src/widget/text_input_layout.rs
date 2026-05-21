@@ -91,15 +91,48 @@ pub fn update_editable_text_content_size(
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
-                parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
-                    query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
+
+            let font_family = resolve_font_source(&text_font.font, fonts.as_ref()).ok()?;
+            let mut parsed_font_families = Vec::new();
+            let mut query_families = Vec::new();
+            match &font_family {
+                parley::FontFamily::Source(source) => {
+                    parsed_font_families.extend(
+                        parley::FontFamilyName::parse_css_list(source.as_ref())
+                            .map_while(Result::ok),
+                    );
+                    for family in &parsed_font_families {
+                        match family {
+                            parley::FontFamilyName::Named(name) => query_families
+                                .push(parley::fontique::QueryFamily::Named(name.as_ref())),
+                            parley::FontFamilyName::Generic(generic) => query_families
+                                .push(parley::fontique::QueryFamily::Generic(*generic)),
+                        }
+                    }
                 }
-                parley::FontFamily::Single(parley::FontFamilyName::Generic(generic)) => {
-                    query.set_families([parley::fontique::QueryFamily::Generic(generic)]);
+                parley::FontFamily::Single(family) => match family {
+                    parley::FontFamilyName::Named(name) => {
+                        query_families.push(parley::fontique::QueryFamily::Named(name.as_ref()));
+                    }
+                    parley::FontFamilyName::Generic(generic) => {
+                        query_families.push(parley::fontique::QueryFamily::Generic(*generic));
+                    }
+                },
+                parley::FontFamily::List(families) => {
+                    for family in families.iter() {
+                        match family {
+                            parley::FontFamilyName::Named(name) => query_families
+                                .push(parley::fontique::QueryFamily::Named(name.as_ref())),
+                            parley::FontFamilyName::Generic(generic) => query_families
+                                .push(parley::fontique::QueryFamily::Generic(*generic)),
+                        }
+                    }
                 }
-                _ => return None,
             }
+            if query_families.is_empty() {
+                return None;
+            }
+            query.set_families(query_families);
             query.set_attributes(parley::fontique::Attributes::new(
                 text_font.width.into(),
                 text_font.style.into(),
