@@ -1,23 +1,24 @@
 ---
-title: "`custom_attributes` methods now return `Option`"
+title: "`CustomAttributes::with_attribute` has been replaced by a builder"
 pull_requests: [24171]
 ---
 
-Various `custom_attributes` methods now return `Option<&CustomAttributes>`.
-Previously they returned `&CustomAttributes`.
+Previously, `CustomAttributes` were created like this:
 
-This is a memory optimization for types that do not have have any custom
-attributes - they will return `None` instead of a reference to an empty
+```rust
+let custom_attributes = CustomAttributes::default()
+    .with_attribute("my attribute");
+    .with_attribute(123);
+```
+
+Now, `CustomAttributes` are created with `CustomAttributesBuilder`:
+
+```rust
+let custom_attributes = CustomAttributesBuilder::new()
+    .attribute("my attribute")
+    .attribute(123)
+    .build();
+```
+
+This change was a side effect of memory optimizations internal to
 `CustomAttributes`.
-
-The affected methods are:
-
-- `NamedField::custom_attributes`
-- `UnnamedField::custom_attributes`
-- `StructInfo::custom_attributes`
-- `TupleStructInfo::custom_attributes`
-- `EnumInfo::custom_attributes`
-- `VariantInfo::custom_attributes`
-- `StructVariantInfo::custom_attributes`
-- `TupleVariantInfo::custom_attributes`
-- `UnitVariantInfo::custom_attributes`
