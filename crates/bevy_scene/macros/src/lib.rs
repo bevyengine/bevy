@@ -312,7 +312,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// **Inheritance** uses the `:` prefix. The parent is *pre-resolved* first — its templates are
 /// fully flattened into a `ResolvedScene` — and the child's patches are applied on top.
 /// When the scene is parameterless, this will "cache" the scene and share it across all inheriting scenes.
-/// For larger scenes that are cached many times, this can be much faster than re-computing
+/// For larger scenes that are cached and spawned many times, this can be much faster than re-computing
 /// the scene each time.
 ///
 /// ```rust, ignore
