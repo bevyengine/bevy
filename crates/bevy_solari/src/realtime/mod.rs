@@ -36,6 +36,7 @@ impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "gbuffer_utils.wgsl");
         load_shader_library!(app, "realtime_bindings.wgsl");
+        load_shader_library!(app, "resolution_utils.wgsl");
         load_shader_library!(app, "presample_light_tiles.wgsl");
         embedded_asset!(app, "restir_di.wgsl");
         embedded_asset!(app, "restir_gi.wgsl");
@@ -93,6 +94,12 @@ impl Plugin for SolariLightingPlugin {
     DepthPrepassDoubleBuffer
 )]
 pub struct SolariLighting {
+    /// Set to true to greatly improve performance at the cost of quality.
+    ///
+    /// May force [`bevy_camera::ClearColor`] to black if not already.
+    pub quarter_resolution_direct_lighting: bool,
+    /// Set to true to greatly improve performance at the cost of quality.
+    pub quarter_resolution_indirect_lighting: bool,
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
@@ -106,6 +113,8 @@ pub struct SolariLighting {
 impl Default for SolariLighting {
     fn default() -> Self {
         Self {
+            quarter_resolution_direct_lighting: false,
+            quarter_resolution_indirect_lighting: false,
             reset: true, // No temporal history on the first frame
         }
     }

@@ -114,7 +114,9 @@ pub fn solari_lighting(
     #[cfg(not(all(feature = "dlss", not(feature = "force_disable_dlss"))))]
     let specular_gi_pipeline = pipelines.specular_gi_pipeline;
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let specular_gi_pipeline = if view_dlss_rr_textures.is_some() {
+    let specular_gi_pipeline = if view_dlss_rr_textures.is_some()
+        && !solari_lighting.quarter_resolution_indirect_lighting
+    {
         pipelines.specular_gi_with_psr_pipeline
     } else {
         pipelines.specular_gi_pipeline
@@ -177,7 +179,7 @@ pub fn solari_lighting(
         return;
     };
 
-    let view_target_attachment = view_target.get_unsampled_color_attachment();
+    let mut view_target_attachment = view_target.get_unsampled_color_attachment();
 
     let s = solari_lighting_resources;
     let bind_group = render_device.create_bind_group(
@@ -234,6 +236,13 @@ pub fn solari_lighting(
 
     // Choice of number here is arbitrary
     let frame_index = frame_count.0.wrapping_mul(5782582);
+    let immediates = [
+        frame_index,
+        solari_lighting.reset as u32,
+        solari_lighting.quarter_resolution_direct_lighting as u32,
+        solari_lighting.quarter_resolution_indirect_lighting as u32,
+    ];
+    let immediates = bytemuck::cast_slice(&immediates);
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -241,7 +250,14 @@ pub fn solari_lighting(
     let command_encoder = ctx.command_encoder();
 
     // Clear the view target if we're the first node to write to it
-    if matches!(view_target_attachment.ops.load, LoadOp::Clear(_)) {
+    if let LoadOp::Clear(ref mut clear_color) = view_target_attachment.ops.load {
+        if solari_lighting.quarter_resolution_direct_lighting {
+            clear_color.r = 0.0;
+            clear_color.g = 0.0;
+            clear_color.b = 0.0;
+            clear_color.a = 1.0;
+        }
+
         command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("solari_lighting_clear"),
             color_attachments: &[Some(view_target_attachment)],
@@ -259,6 +275,18 @@ pub fn solari_lighting(
 
     let dx = solari_lighting_resources.view_size.x.div_ceil(8);
     let dy = solari_lighting_resources.view_size.y.div_ceil(8);
+    let mut di_dx = dx;
+    let mut di_dy = dy;
+    if solari_lighting.quarter_resolution_direct_lighting {
+        di_dx = di_dx.div_ceil(2);
+        di_dy = di_dy.div_ceil(2);
+    }
+    let mut gi_dx = dx;
+    let mut gi_dy = dy;
+    if solari_lighting.quarter_resolution_indirect_lighting {
+        gi_dx = gi_dx.div_ceil(2);
+        gi_dy = gi_dy.div_ceil(2);
+    }
 
     pass.set_bind_group(0, scene_bind_group, &[]);
     pass.set_bind_group(
@@ -279,10 +307,7 @@ pub fn solari_lighting(
 
     let d = diagnostics.time_span(&mut pass, "solari_lighting/presample_light_tiles");
     pass.set_pipeline(presample_light_tiles_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
+    pass.set_immediates(0, immediates);
     pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
     d.end(&mut pass);
 
@@ -305,20 +330,14 @@ pub fn solari_lighting(
     pass.set_bind_group(2, None, &[]);
 
     pass.set_pipeline(sample_di_for_world_cache_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
+    pass.set_immediates(0, immediates);
     pass.dispatch_workgroups_indirect(
         &solari_lighting_resources.world_cache_active_cells_dispatch,
         0,
     );
 
     pass.set_pipeline(sample_gi_for_world_cache_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
+    pass.set_immediates(0, immediates);
     pass.dispatch_workgroups_indirect(
         &solari_lighting_resources.world_cache_active_cells_dispatch,
         0,
@@ -335,50 +354,37 @@ pub fn solari_lighting(
     let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
 
     pass.set_pipeline(di_initial_and_temporal_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.set_immediates(0, immediates);
+    pass.dispatch_workgroups(di_dx, di_dy, 1);
 
     pass.set_pipeline(di_spatial_and_shade_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.set_immediates(0, immediates);
+    pass.dispatch_workgroups(di_dx, di_dy, 1);
 
     d.end(&mut pass);
 
     let d = diagnostics.time_span(&mut pass, "solari_lighting/diffuse_indirect_lighting");
 
     pass.set_pipeline(gi_initial_and_temporal_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.set_immediates(0, immediates);
+    pass.dispatch_workgroups(gi_dx, gi_dy, 1);
 
     pass.set_pipeline(gi_spatial_and_shade_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.set_immediates(0, immediates);
+    pass.dispatch_workgroups(gi_dx, gi_dy, 1);
 
     d.end(&mut pass);
 
     let d = diagnostics.time_span(&mut pass, "solari_lighting/specular_indirect_lighting");
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    if let Some(bind_group_resolve_dlss_rr_textures) = &bind_group_resolve_dlss_rr_textures {
+    if let Some(bind_group_resolve_dlss_rr_textures) = &bind_group_resolve_dlss_rr_textures
+        && !solari_lighting.quarter_resolution_indirect_lighting
+    {
         pass.set_bind_group(2, bind_group_resolve_dlss_rr_textures, &[]);
     }
     pass.set_pipeline(specular_gi_pipeline);
-    pass.set_immediates(
-        0,
-        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-    );
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.set_immediates(0, immediates);
+    pass.dispatch_workgroups(gi_dx, gi_dy, 1);
     d.end(&mut pass);
 
     drop(pass);
@@ -471,7 +477,7 @@ pub fn init_solari_lighting_pipelines(
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some(label.into()),
             layout,
-            immediate_size: 8,
+            immediate_size: 16,
             shader,
             shader_defs,
             entry_point: Some(entry_point.into()),

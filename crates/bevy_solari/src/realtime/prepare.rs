@@ -9,7 +9,6 @@ use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
     system::{Commands, Query, Res},
 };
 use bevy_image::ToExtents;
@@ -61,37 +60,42 @@ pub struct SolariLightingResources {
     pub world_cache_active_cells_count: Buffer,
     pub world_cache_active_cells_dispatch: Buffer,
     pub view_size: UVec2,
+    pub quarter_resolution_direct_lighting: bool,
+    pub quarter_resolution_indirect_lighting: bool,
 }
 
 pub fn prepare_solari_lighting_resources(
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            Option<&SolariLightingResources>,
-            Option<&MainPassResolutionOverride>,
-        ),
-        With<SolariLighting>,
-    >,
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            Option<&SolariLightingResources>,
-            Option<&MainPassResolutionOverride>,
-            Has<Dlss<DlssRayReconstructionFeature>>,
-        ),
-        With<SolariLighting>,
-    >,
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<(
+        Entity,
+        &SolariLighting,
+        &ExtractedCamera,
+        Option<&SolariLightingResources>,
+        Option<&MainPassResolutionOverride>,
+    )>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<(
+        Entity,
+        &SolariLighting,
+        &ExtractedCamera,
+        Option<&SolariLightingResources>,
+        Option<&MainPassResolutionOverride>,
+        Has<Dlss<DlssRayReconstructionFeature>>,
+    )>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
     for query_item in &query {
         #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-        let (entity, camera, solari_lighting_resources, resolution_override) = query_item;
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let (entity, camera, solari_lighting_resources, resolution_override, has_dlss_rr) =
+        let (entity, solari_lighting, camera, solari_lighting_resources, resolution_override) =
             query_item;
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        let (
+            entity,
+            solari_lighting,
+            camera,
+            solari_lighting_resources,
+            resolution_override,
+            has_dlss_rr,
+        ) = query_item;
 
         let Some(mut view_size) = camera.physical_viewport_size else {
             continue;
@@ -100,7 +104,17 @@ pub fn prepare_solari_lighting_resources(
             view_size = *resolution_override;
         }
 
-        if solari_lighting_resources.map(|r| r.view_size) == Some(view_size) {
+        if solari_lighting_resources.map(|r| {
+            (
+                r.view_size,
+                r.quarter_resolution_direct_lighting,
+                r.quarter_resolution_indirect_lighting,
+            )
+        }) == Some((
+            view_size,
+            solari_lighting.quarter_resolution_direct_lighting,
+            solari_lighting.quarter_resolution_indirect_lighting,
+        )) {
             continue;
         }
 
@@ -121,6 +135,11 @@ pub fn prepare_solari_lighting_resources(
         });
 
         let di_reservoirs = |name| {
+            let mut view_size = view_size;
+            if solari_lighting.quarter_resolution_direct_lighting {
+                view_size.x = view_size.x.div_ceil(2);
+                view_size.y = view_size.y.div_ceil(2);
+            }
             render_device
                 .create_texture(&TextureDescriptor {
                     label: Some(name),
@@ -138,6 +157,12 @@ pub fn prepare_solari_lighting_resources(
         let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
 
         let gi_reservoirs = |name| {
+            let mut view_size = view_size;
+            if solari_lighting.quarter_resolution_indirect_lighting {
+                view_size.x = view_size.x.div_ceil(2);
+                view_size.y = view_size.y.div_ceil(2);
+            }
+
             render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
                 size: (view_size.x * view_size.y) as u64 * GI_RESERVOIR_STRUCT_SIZE,
@@ -244,6 +269,9 @@ pub fn prepare_solari_lighting_resources(
             world_cache_active_cells_count,
             world_cache_active_cells_dispatch,
             view_size,
+            quarter_resolution_direct_lighting: solari_lighting.quarter_resolution_direct_lighting,
+            quarter_resolution_indirect_lighting: solari_lighting
+                .quarter_resolution_indirect_lighting,
         });
 
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
