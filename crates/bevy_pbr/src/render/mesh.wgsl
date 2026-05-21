@@ -14,19 +14,20 @@ fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
+    let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
 
-    let weight_count = bevy_pbr::morph::layer_count(instance_index);
+    let weight_count = bevy_pbr::morph::layer_count(morph_descriptor_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = bevy_pbr::morph::weight_at(i, instance_index);
+        let weight = bevy_pbr::morph::weight_at(i, morph_descriptor_index);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph_position(vertex_index, i, instance_index);
+        vertex.position += weight * morph_position(vertex_index, i, morph_descriptor_index);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph_normal(vertex_index, i, instance_index);
+        vertex.normal += weight * morph_normal(vertex_index, i, morph_descriptor_index);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, instance_index), 0.0);
+        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, morph_descriptor_index), 0.0);
 #endif
     }
     return vertex;

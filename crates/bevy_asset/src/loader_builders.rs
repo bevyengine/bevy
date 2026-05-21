@@ -330,9 +330,12 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
 
     /// Same as [`Self::load_value_internal`], but with a generic to ensure the returned handle type
     /// is correct.
-    #[expect(
-        clippy::result_large_err,
-        reason = "we need to give the user the correct error type"
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(
+            clippy::result_large_err,
+            reason = "we need to give the user the correct error type"
+        )
     )]
     async fn load_typed_value_internal<A: Asset>(
         self,

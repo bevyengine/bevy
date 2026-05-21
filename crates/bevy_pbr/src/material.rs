@@ -336,9 +336,11 @@ impl Plugin for MaterialsPlugin {
                 .add_systems(
                     Render,
                     (
-                        check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
+                        check_views_lights_need_specialization
+                            .in_set(RenderSystems::Specialize)
+                            .before(specialize_shadows),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since PrepareViews is after PrepareAssets
+                        // which is fine since Specialize is after PrepareAssets
                         specialize_shadows
                             .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),
@@ -421,14 +423,6 @@ fn add_material_bind_group_allocator<M: Material>(
         ),
     );
 }
-
-/// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
-/// have a material.
-///
-/// See the comments in [`RenderMaterialInstances::mesh_material`] for more
-/// information.
-pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
-    AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -577,17 +571,16 @@ pub struct RenderMaterialInstances {
 }
 
 impl RenderMaterialInstances {
-    /// Returns the mesh material ID for the entity with the given mesh, or a
-    /// dummy mesh material ID if the mesh has no material ID.
+    /// Returns the mesh material ID for the entity with the given mesh, or
+    /// `None` if the mesh has no material ID.
     ///
     /// Meshes almost always have materials, but in very specific circumstances
     /// involving custom pipelines they won't. (See the
     /// `specialized_mesh_pipelines` example.)
-    pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
-        match self.instances.get(&entity) {
-            Some(render_instance) => render_instance.asset_id,
-            None => DUMMY_MESH_MATERIAL.into(),
-        }
+    pub(crate) fn mesh_material(&self, entity: MainEntity) -> Option<UntypedAssetId> {
+        self.instances
+            .get(&entity)
+            .map(|instance| instance.asset_id)
     }
 }
 

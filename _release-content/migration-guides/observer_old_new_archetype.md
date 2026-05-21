@@ -11,6 +11,7 @@ If you were pattern matching the `components` field on `EntityComponentsTrigger`
 ```rust
 // 18.0
 let EntityComponentsTrigger { components } = e.trigger();
+
 // 19.0
 let EntityComponentsTrigger { components, .. } = e.trigger();
 ```
@@ -25,6 +26,7 @@ world.trigger_with(
         components: &[component_a],
     },
 );
+
 // 19.0
 world.trigger_with(
     event,

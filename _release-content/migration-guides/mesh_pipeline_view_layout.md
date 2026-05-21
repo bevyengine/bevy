@@ -8,10 +8,10 @@ by value instead of by reference.
 
 `generate_view_layouts` is removed and `layout_entries` is private now. Please use `MeshPipelineViewLayouts::get_view_layout`.
 
-Mesh view bind group layout has more variants now and some dynamic uniforms such as distance fog, ssr, contact shadows,
+Mesh view bind group layout has more variants now and some dynamic uniforms such as distance fog, ssr, contact shadows, and
 environment map are not guaranteed to exist. Please use `MeshViewBindGroup::main_offsets` to get the dynamic offsets.
 
-Before:
+In 0.18:
 
 ```rust
     let mut offsets: SmallVec<[u32; 8]> = smallvec![
@@ -29,7 +29,7 @@ Before:
     pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
 ```
 
-After:
+In 0.19:
 
 ```rust
     pass.set_bind_group(

@@ -237,25 +237,25 @@ impl Access {
     }
 
     /// Returns `true` if this can access the resource given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_component_read")]
+    #[deprecated(since = "0.19.0", note = "use Access::has_read")]
     pub fn has_resource_read(&self, index: ComponentId) -> bool {
         self.has_read(index)
     }
 
     /// Returns `true` if this can access any resource.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_component_read")]
+    #[deprecated(since = "0.19.0", note = "use Access::has_any_read")]
     pub fn has_any_resource_read(&self) -> bool {
         self.has_any_read()
     }
 
     /// Returns `true` if this can exclusively access the resource given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_component_write")]
+    #[deprecated(since = "0.19.0", note = "use Access::has_write")]
     pub fn has_resource_write(&self, index: ComponentId) -> bool {
         self.has_write(index)
     }
 
     /// Returns `true` if this accesses any resource mutably.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_component_write")]
+    #[deprecated(since = "0.19.0", note = "use Access::has_any_write")]
     pub fn has_any_resource_write(&self) -> bool {
         self.has_any_write()
     }

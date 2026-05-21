@@ -5,7 +5,7 @@ pull_requests: [22569]
 
 Previously, `bevy_gltf` depended on `bevy_pbr`. This meant scene definition was tightly coupled to rendering. This dependency has been inverted, to allow `bevy_gltf` to function without any of the rendering stack present.
 
-`bevy_gltf` is also an optional dependency.
+`bevy_gltf` is now also an optional dependency.
 
 In 0.18, loading a material sub-asset would return a `Handle<StandardMaterial>`.
 
@@ -21,7 +21,7 @@ let handle: Handle<GltfMaterial> = asset_server.load("models/animated/Fox.glb#Ma
 let handle_std: Handle<StandardMaterial> = asset_server.load("models/animated/Fox.glb#Material0/std");
 ```
 
-You can disable PBR rendering by initializing `PbrPlugin` as so:
+You can disable PBR rendering by initializing `PbrPlugin` as follows:
 
 ```rs
 PbrPlugin {

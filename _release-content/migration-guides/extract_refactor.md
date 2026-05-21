@@ -3,7 +3,7 @@ title: "`ExtractComponent` refactor"
 pull_requests: [22766, 23334]
 ---
 
-Previously, `SyncComponentPlugin`/`ExtractComponentPlugin` would despawn the render entity thus removing all the derived components if the component was removed. Now the render entity is no longer despawned and only the `Target` components of `SyncComponent` trait are removed.
+Previously, `SyncComponentPlugin`/`ExtractComponentPlugin` would despawn the render entity if the synced component was removed. This removes all the derived components too. In 0.19, the render entity is no longer despawned and only the `Target` components of `SyncComponent` trait are removed.
 
 `SyncComponent` is a subtrait of `ExtractComponent` and you must implement it to clean up extracted and derived components.
 

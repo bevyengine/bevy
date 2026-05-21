@@ -1,7 +1,6 @@
 //! Simple widgets for example UI.
 //!
 //! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
-
 use bevy::prelude::*;
 
 /// An event that's sent whenever the user changes one of the settings by
@@ -141,7 +140,8 @@ where
             Spawn((
                 ui_text(title, Color::WHITE),
                 Node {
-                    width: px(150),
+                    width: px(200),
+                    padding: UiRect::right(px(10)),
                     ..default()
                 },
             )),
