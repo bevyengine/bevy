@@ -318,6 +318,90 @@ impl FontSource {
     {
         Self::List(list.into_iter().map(Into::into).collect())
     }
+
+    /// Fonts with serifs — small decorative strokes at the ends of letterforms.
+    ///
+    /// Serif fonts are typically used for long passages of text and represent
+    /// a more traditional or formal typographic style.
+    pub const fn serif() -> Self {
+        Self::Generic(GenericFontFamily::Serif)
+    }
+    /// Fonts without serifs.
+    ///
+    /// Sans-serif fonts generally have low stroke contrast and plain stroke
+    /// endings, making them common for UI text and on-screen reading.
+    pub const fn sans_serif() -> Self {
+        Self::Generic(GenericFontFamily::SansSerif)
+    }
+
+    /// Fonts that use a cursive or handwritten style.
+    ///
+    /// Glyphs often resemble connected or flowing pen or brush strokes rather
+    /// than printed letterforms.
+    pub const fn cursive() -> Self {
+        Self::Generic(GenericFontFamily::Cursive)
+    }
+
+    /// Decorative or expressive fonts.
+    ///
+    /// Fantasy fonts are primarily intended for display purposes and may
+    /// prioritize visual style over readability.
+    pub const fn fantasy() -> Self {
+        Self::Generic(GenericFontFamily::Fantasy)
+    }
+
+    /// Fonts in which all glyphs have the same fixed advance width.
+    ///
+    /// Monospace fonts are commonly used for code, tabular data, and text
+    /// where vertical alignment is important.
+    pub const fn monospace() -> Self {
+        Self::Generic(GenericFontFamily::Monospace)
+    }
+
+    /// The default user interface system font.
+    pub const fn system_ui() -> Self {
+        Self::Generic(GenericFontFamily::SystemUi)
+    }
+
+    /// Alternative serif font for user interfaces.
+    pub const fn ui_serif() -> Self {
+        Self::Generic(GenericFontFamily::UiSerif)
+    }
+
+    /// Alternative sans-serif font for user interfaces.
+    pub const fn ui_sans_serif() -> Self {
+        Self::Generic(GenericFontFamily::UiSansSerif)
+    }
+
+    /// Alternative monospace font for user interfaces.
+    pub const fn ui_monospace() -> Self {
+        Self::Generic(GenericFontFamily::UiMonospace)
+    }
+
+    /// Fonts that have rounded features.
+    pub const fn ui_rounded() -> Self {
+        Self::Generic(GenericFontFamily::UiRounded)
+    }
+
+    /// Fonts that are specifically designed to render emoji.
+    pub const fn emoji() -> Self {
+        Self::Generic(GenericFontFamily::Emoji)
+    }
+
+    /// This is for the particular stylistic concerns of representing
+    /// mathematics: superscript and subscript, brackets that cross several
+    /// lines, nesting expressions, and double struck glyphs with distinct
+    /// meanings.
+    pub const fn math() -> Self {
+        Self::Generic(GenericFontFamily::Math)
+    }
+
+    /// A particular style of Chinese characters that are between serif-style
+    /// Song and cursive-style Kai forms. This style is often used for
+    /// government documents.
+    pub const fn fang_song() -> Self {
+        Self::Generic(GenericFontFamily::FangSong)
+    }
 }
 
 impl Default for FontSource {
@@ -433,7 +517,7 @@ pub enum GenericFontFamily {
     SystemUi,
     /// Alternative serif font for user interfaces.
     UiSerif,
-    /// Alternative sans-erif font for user interfaces.
+    /// Alternative sans-serif font for user interfaces.
     UiSansSerif,
     /// Alternative monospace font for user interfaces.
     UiMonospace,
