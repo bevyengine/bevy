@@ -594,18 +594,36 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// The value previously stored at `dst` will be dropped.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
-        // SAFETY:
-        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `dst` is a mutable borrow, it must not alias any other access.
-        unsafe {
-            ptr::drop_in_place(dst);
+        struct DropGuard<'a, 'b, T, A: IsAligned> {
+            src: ManuallyDrop<MovingPtr<'a, T, A>>,
+            dst: &'b mut T,
         }
+
+        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
+            fn drop(&mut self) {
+                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
+                // in drop. No other code can observe the invalid `self.src` after this point.
+                let src = unsafe { ManuallyDrop::take(&mut self.src) };
+
+                // SAFETY:
+                // - `dst` is a mutable borrow, it must be valid for writes.
+                // - `dst` is a mutable borrow, it must always be aligned.
+                unsafe { src.write_to(self.dst) };
+            }
+        }
+
+        let guard = DropGuard {
+            src: ManuallyDrop::new(self),
+            dst,
+        };
+
         // SAFETY:
-        // - `dst` is a mutable borrow, it must be valid for writes.
-        // - `dst` is a mutable borrow, it must always be aligned.
+        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `guard.dst` is a mutable borrow, it must not alias any other access.
+        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
         unsafe {
-            self.write_to(dst);
+            ptr::drop_in_place(guard.dst);
         }
     }
 
