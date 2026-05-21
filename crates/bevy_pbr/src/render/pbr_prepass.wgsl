@@ -50,7 +50,7 @@ fn fragment(
     pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
 #endif  // VISIBILITY_RANGE_DITHER
 
-    pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
     var out: prepass_io::FragmentOutput;
@@ -146,6 +146,6 @@ fn fragment(
 #else
 @fragment
 fn fragment(in: prepass_io::VertexOutput) {
-    pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT
