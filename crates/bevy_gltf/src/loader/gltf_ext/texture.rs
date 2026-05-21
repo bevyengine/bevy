@@ -1,7 +1,12 @@
 use bevy_image::{ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor};
 use bevy_math::Affine2;
 
-use gltf::texture::{MagFilter, MinFilter, Texture, TextureTransform, WrappingMode};
+use gltf::{
+    image::Image,
+    texture::{MagFilter, MinFilter, Texture, TextureTransform, WrappingMode},
+    Document,
+};
+use serde_json::Value;
 
 /// Extracts the texture sampler data from the glTF [`Texture`].
 pub(crate) fn texture_sampler(
@@ -46,6 +51,27 @@ pub(crate) fn texture_sampler(
         }
     }
     sampler
+}
+
+pub(crate) fn texture_source<'a>(
+    texture: &Texture<'a>,
+    document: &'a Document,
+) -> Result<Option<Image<'a>>, String> {
+    if let Some(extension) = texture.extension_value("KHR_texture_basisu") {
+        let source = extension
+            .get("source")
+            .and_then(Value::as_u64)
+            .and_then(|source| usize::try_from(source).ok())
+            .ok_or_else(|| extension.to_string())?;
+
+        return document
+            .images()
+            .nth(source)
+            .ok_or_else(|| source.to_string())
+            .map(Some);
+    }
+
+    Ok(texture.source())
 }
 
 pub(crate) fn address_mode(wrapping_mode: &WrappingMode) -> ImageAddressMode {
