@@ -158,7 +158,7 @@ impl Default for FeathersMenuButtonProps {
 impl FeathersMenuButton {
     fn scene(props: FeathersMenuButtonProps) -> impl Scene {
         bsn! {
-            :FeathersButton {
+            @FeathersButton {
                 @caption: {props.caption},
                 @variant: ButtonVariant::Normal,
                 @corners: {props.corners},
@@ -174,7 +174,7 @@ impl FeathersMenuButton {
                             Node {
                                 flex_grow: 1.0,
                             },
-                            :icon(icons::CHEVRON_DOWN),
+                            icon(icons::CHEVRON_DOWN),
                         )) as Box<dyn SceneList>
                     } else {
                         Box::new(bsn_list!()) as Box<dyn SceneList>
