@@ -24,6 +24,9 @@ struct VisibleLinesInput;
 #[derive(Component)]
 struct FontSizeInput;
 
+#[derive(Component)]
+struct SelectionRadiusInput;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
@@ -262,6 +265,86 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                                 multiline_input_font.font_size =
                                     FontSize::Px(font_size.clamp(5., 50.));
+                            },
+                        );
+
+                    parent
+                        .spawn((
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                column_gap: px(10.),
+                                ..default()
+                            },
+                            children![
+                                (
+                                    Text::new("corner radius:"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                        font_size: FontSize::Px(30.),
+                                        ..default()
+                                    },
+                                ),
+                                (
+                                    Node {
+                                        width: px(100.),
+                                        border: px(2.).all(),
+                                        ..default()
+                                    },
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                        font_size: FontSize::Px(30.),
+                                        ..default()
+                                    },
+                                    TextLayout {
+                                        justify: Justify::End,
+                                        ..default()
+                                    },
+                                    BackgroundColor(DARK_SLATE_GRAY.into()),
+                                    BorderColor::all(SLATE_300),
+                                    EditableText::new("0"),
+                                    EditableTextFilter::new(|c| c.is_ascii_digit() || c == '.'),
+                                    TextCursorStyle {
+                                        color: Color::WHITE,
+                                        selected_text_color: Some(Color::BLACK),
+                                        ..default()
+                                    },
+                                    SelectionRadiusInput,
+                                    TabIndex(2),
+                                )
+                            ],
+                        ))
+                        .observe(
+                            |on: On<FocusedInput<KeyboardInput>>,
+                             radius_input_query: Query<
+                                &EditableText,
+                                With<SelectionRadiusInput>,
+                            >,
+                             mut cursor_style: Single<
+                                &mut TextCursorStyle,
+                                With<MultilineInput>,
+                            >| {
+                                if !(on.input.state.is_pressed()
+                                    && on.input.logical_key == Key::Enter)
+                                {
+                                    return;
+                                }
+
+                                let Ok(input) = radius_input_query.get(on.original_event_target())
+                                else {
+                                    return;
+                                };
+
+                                let mut output = String::new();
+                                output.reserve(input.value().into_iter().map(str::len).sum());
+                                for sub_str in input.value() {
+                                    output.push_str(sub_str);
+                                }
+
+                                let Ok(radius) = output.parse::<f32>() else {
+                                    return;
+                                };
+
+                                cursor_style.selection_radius = radius.clamp(0., 0.5);
                             },
                         );
                 });
