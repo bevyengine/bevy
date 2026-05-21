@@ -593,8 +593,19 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// Writes the value pointed to by this pointer into `dst`.
     ///
     /// The value previously stored at `dst` will be dropped.
+    ///
+    /// This has the same semantics as a normal `*dst = ...` assignment.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
+        // This code has the same semantics as the following:
+        // ```
+        // let src = self.0.as_ptr();
+        // mem::forget(self);
+        // *dst = unsafe { A::read(src) };
+        // ```
+        //
+        // However the above might codegen to multiple `memcpy`s, while the code below will avoid that.
+
         struct DropGuard<'a, 'b, T, A: IsAligned> {
             src: ManuallyDrop<MovingPtr<'a, T, A>>,
             dst: &'b mut T,
