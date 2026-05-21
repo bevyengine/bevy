@@ -47,9 +47,6 @@ pub struct CommandQueue {
     /// This setting can be turned off for commands that might be dropped (due to application exit) before those
     /// commands are applied in ordinary situations, for example delayed commands.
     warn_on_unapplied: bool,
-    /// Tracks if the application is exiting.
-    /// Defaults to `false`.
-    is_exiting: bool,
 }
 
 impl Default for CommandQueue {
@@ -61,7 +58,6 @@ impl Default for CommandQueue {
             panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: true,
-            is_exiting: false,
         }
     }
 }
@@ -107,7 +103,6 @@ impl CommandQueue {
             panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: false,
-            is_exiting: false,
         }
     }
 
@@ -159,7 +154,7 @@ impl CommandQueue {
     /// Notify a queue that the application is about to exit.
     #[doc(hidden)]
     pub fn mark_app_exit(&mut self) {
-        self.is_exiting = true;
+        self.warn_on_unapplied = false;
     }
 }
 
@@ -354,7 +349,7 @@ impl RawCommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        if !self.bytes.is_empty() && (self.warn_on_unapplied || !self.is_exiting) {
+        if !self.bytes.is_empty() && self.warn_on_unapplied {
             if let Some(caller) = self.caller.into_option() {
                 warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{caller:?}");
             } else {
