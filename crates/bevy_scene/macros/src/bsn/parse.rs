@@ -239,7 +239,7 @@ impl BsnScene {
             None
         };
 
-        let err_cached = |msg: &str| {
+        let err_if_cached = |msg: &str| {
             if let Some(colon) = cached {
                 Err(syn::Error::new(colon.span(), msg))
             } else {
@@ -248,7 +248,7 @@ impl BsnScene {
         };
 
         if found_cached_scene {
-            err_cached("Cannot cache scenes more than once")?;
+            err_if_cached("Cannot cache scenes more than once")?;
         }
 
         Ok(if input.peek(LitStr) {
@@ -256,18 +256,18 @@ impl BsnScene {
             if cached.is_none() {
                 return Err(syn::Error::new(
                     path.span(),
-                    "Cannot use scene from asset path without caching, please add : prefix.",
+                    "Cannot use scenes from asset path without caching, please add the ':' prefix.",
                 ));
             }
             BsnScene::Asset(path)
         } else if input.peek(Brace) {
-            err_cached("Cannot cache scene expressions")?;
+            err_if_cached("Cannot cache scene expressions")?;
             BsnScene::Expression(braced_tokens(input)?)
         } else if input.peek(At) {
             input.parse::<At>()?;
             let sc = input.parse::<BsnType>()?;
             if sc.fields.len() > 0 {
-                err_cached("Cannot cache Scene Components with props/fields")?;
+                err_if_cached("Cannot cache Scene Components with props/fields")?;
             }
             BsnScene::SceneComponent(sc)
         } else {
@@ -280,7 +280,7 @@ impl BsnScene {
                     return Err(syn::Error::new(
                         path.span(),
                         format!(
-                            "Scene component {} needs to be prefixed by @",
+                            "Scene component {} needs to be prefixed by '@'",
                             path_to_string(&path),
                         ),
                     ));
@@ -292,7 +292,7 @@ impl BsnScene {
                         args: input.parse()?,
                     };
                     if func.args.0.is_some() {
-                        err_cached("Cannot cache Scene function with arguments")?;
+                        err_if_cached("Cannot cache Scene function with arguments")?;
                     }
                     BsnScene::Fn(func)
                 }
