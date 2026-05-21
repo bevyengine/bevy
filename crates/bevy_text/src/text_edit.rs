@@ -221,7 +221,10 @@ impl TextEdit {
         clipboard: &mut bevy_clipboard::Clipboard,
         max_characters: Option<usize>,
         char_filter: impl Fn(char) -> bool,
+        needs_scroll: &mut bool,
     ) {
+        *needs_scroll = *needs_scroll || self.needs_scroll();
+
         match self {
             TextEdit::Copy => {
                 if let Some(text) = driver.editor.selected_text()
@@ -313,6 +316,43 @@ impl TextEdit {
                     driver.insert_or_replace_selection(text.as_str());
                 }
             }
+        }
+    }
+
+    /// True if the text editor view should scroll after the given edit.
+    pub fn needs_scroll(&self) -> bool {
+        match self {
+            TextEdit::Copy
+            | TextEdit::SelectAllIfCollapsed
+            | TextEdit::SelectAll
+            | TextEdit::SelectWordAtPoint(_)
+            | TextEdit::SelectLineAtPoint(_)
+            | TextEdit::SelectedHardLineAtPoint(_)
+            | TextEdit::MoveToPoint(_)
+            | TextEdit::ExtendSelectionToPoint(_)
+            | TextEdit::ShiftClickExtension(_) => false,
+            TextEdit::Cut
+            | TextEdit::Paste
+            | TextEdit::Insert(_)
+            | TextEdit::Backspace
+            | TextEdit::BackspaceWord
+            | TextEdit::Delete
+            | TextEdit::DeleteWord
+            | TextEdit::Left(_)
+            | TextEdit::Right(_)
+            | TextEdit::WordLeft(_)
+            | TextEdit::WordRight(_)
+            | TextEdit::Up(_)
+            | TextEdit::Down(_)
+            | TextEdit::TextStart(_)
+            | TextEdit::TextEnd(_)
+            | TextEdit::HardLineStart(_)
+            | TextEdit::HardLineEnd(_)
+            | TextEdit::LineStart(_)
+            | TextEdit::LineEnd(_)
+            | TextEdit::CollapseSelection
+            | TextEdit::ImeSetCompose { .. }
+            | TextEdit::ImeCommit { .. } => true,
         }
     }
 }

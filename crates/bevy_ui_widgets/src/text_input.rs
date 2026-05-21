@@ -15,9 +15,12 @@ use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
-use bevy_picking::events::{Click, Drag, Pointer, Press, Release};
+use bevy_picking::events::{Click, Drag, Pointer, PointerState, Press, Release};
 use bevy_picking::pointer::PointerButton;
-use bevy_text::{EditableText, PreeditCursor, TextEdit};
+use bevy_text::{
+    EditableText, LineHeight, PreeditCursor, RemSize, TextEdit, TextFont, TextLayoutInfo,
+};
+use bevy_time::{Real, Time};
 use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
 use bevy_ui::UiSystems;
 use bevy_ui::{
@@ -44,6 +47,29 @@ const SHIFT_SUPER: u8 = SHIFT | SUPER;
 const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
 #[cfg(not(target_os = "macos"))]
 const SHIFT_ALT: u8 = SHIFT | ALT;
+
+/// Controls the text input scroll speed when dragging outside the input bounds.
+///
+/// Values are relative to the text's line height.
+#[derive(Resource)]
+pub struct TextInputScrollSpeed {
+    /// Scroll speed when the pointer is just outside the input, in lines per second.
+    pub base_lines_per_second: f32,
+    /// Maximum scroll speed, in lines per second.
+    pub max_lines_per_second: f32,
+    /// Distance from the input where maximum scroll speed is reached, in lines.
+    pub max_speed_distance_lines: f32,
+}
+
+impl Default for TextInputScrollSpeed {
+    fn default() -> Self {
+        Self {
+            base_lines_per_second: 4.,
+            max_lines_per_second: 30.,
+            max_speed_distance_lines: 4.,
+        }
+    }
+}
 
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
@@ -285,20 +311,138 @@ fn on_pointer_drag(
         return;
     }
 
-    let Some(current_local_pos) = transform.try_inverse().map(|inverse| {
+    let Some(pointer_pos) = transform.try_inverse().map(|inverse| {
         inverse
             .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
-            - node.content_box().min
-            + text_scroll.0
     }) else {
         return;
     };
 
+    let content_box = node.content_box();
     editable_text
         .pending_edits
-        .push(TextEdit::ExtendSelectionToPoint(current_local_pos));
+        .push(TextEdit::ExtendSelectionToPoint(
+            pointer_pos.clamp(content_box.min, content_box.max) - content_box.min + text_scroll.0,
+        ));
 
     drag.propagate(false);
+}
+
+fn drag_scroll_text_inputs(
+    time: Res<Time<Real>>,
+    scroll_speed: Res<TextInputScrollSpeed>,
+    input_focus: Res<InputFocus>,
+    pointer_state: Res<PointerState>,
+    ui_scale: Res<UiScale>,
+    mut y_remainder: Local<Option<(Entity, f32)>>,
+    mut text_input_query: Query<(
+        &mut EditableText,
+        &ComputedNode,
+        &ComputedUiRenderTargetInfo,
+        &UiGlobalTransform,
+        &TextFont,
+        &LineHeight,
+        &TextLayoutInfo,
+        &mut TextScroll,
+    )>,
+    rem_size: Res<RemSize>,
+) {
+    let previous_y_remainder = y_remainder.take();
+
+    let Some(entity) = input_focus.get() else {
+        return;
+    };
+
+    let Ok((
+        mut editable_text,
+        node,
+        target,
+        transform,
+        text_font,
+        line_height,
+        info,
+        mut text_scroll,
+    )) = text_input_query.get_mut(entity)
+    else {
+        return;
+    };
+
+    if editable_text.is_composing() {
+        return;
+    }
+
+    let content_box = node.content_box();
+    let view_size = content_box.size();
+    if view_size.cmple(Vec2::ZERO).any() {
+        return;
+    }
+
+    let Some(point) = pointer_state
+        .pointer_buttons
+        .iter()
+        .find_map(|((_, button), state)| {
+            if *button == PointerButton::Primary {
+                state.dragging.get(&entity).map(|drag| drag.latest_pos)
+            } else {
+                None
+            }
+        })
+        .and_then(|position| {
+            transform.try_inverse().map(|inverse| {
+                inverse.transform_point2(position * target.scale_factor() / ui_scale.0)
+            })
+        })
+    else {
+        return;
+    };
+
+    let clamped_point = point.clamp(content_box.min, content_box.max);
+    let signed_distance = point - clamped_point;
+
+    if signed_distance == Vec2::ZERO {
+        return;
+    }
+
+    let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+    let line_height = match *line_height {
+        LineHeight::Px(px) => px,
+        LineHeight::RelativeToFont(scale) => scale * font_size,
+    } * target.scale_factor();
+    if line_height <= 0. {
+        return;
+    }
+
+    let ramp = (signed_distance.abs() / (line_height * scroll_speed.max_speed_distance_lines))
+        .clamp(Vec2::ZERO, Vec2::ONE);
+
+    let velocity = line_height
+        * (scroll_speed.base_lines_per_second
+            + (scroll_speed.max_lines_per_second - scroll_speed.base_lines_per_second) * ramp);
+
+    let mut scroll_delta = signed_distance.signum() * time.delta_secs() * velocity;
+    if scroll_delta.y != 0. {
+        let y_rem = match previous_y_remainder {
+            Some((previous_entity, y_rem)) if previous_entity == entity => y_rem,
+            _ => 0.,
+        };
+
+        let acc = y_rem + scroll_delta.y;
+        scroll_delta.y = (acc / line_height).trunc() * line_height;
+        *y_remainder = Some((entity, acc - scroll_delta.y));
+    }
+
+    let mut new_scroll =
+        (text_scroll.0 + scroll_delta).clamp(Vec2::ZERO, (info.size - view_size).max(Vec2::ZERO));
+    new_scroll.y = new_scroll.y.floor();
+    if signed_distance.x == 0. {
+        new_scroll.x = text_scroll.0.x;
+    }
+
+    if text_scroll.set_if_neq(TextScroll(new_scroll)) {
+        editable_text.queue_edit(TextEdit::ExtendSelectionToPoint(
+            clamped_point - content_box.min + new_scroll,
+        ));
+    }
 }
 
 /// System that processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`] widget.
@@ -530,6 +674,7 @@ pub struct EditableTextInputPlugin;
 impl Plugin for EditableTextInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedSelectAll>()
+            .init_resource::<TextInputScrollSpeed>()
             .add_observer(on_focused_keyboard_input)
             .add_observer(on_pointer_drag)
             .add_observer(on_pointer_press)
@@ -558,6 +703,12 @@ impl Plugin for EditableTextInputPlugin {
                     // FocusChangeEvents does not mutate the actual InputFocus;
                     // this is a false positive that can be ignored
                     .ambiguous_with(InputFocusSystems::FocusChangeEvents),
+            )
+            .add_systems(
+                PostUpdate,
+                drag_scroll_text_inputs
+                    .in_set(UiSystems::Content)
+                    .before(bevy_text::EditableTextSystems),
             )
             .add_systems(
                 PostUpdate,

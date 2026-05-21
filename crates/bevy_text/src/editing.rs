@@ -80,6 +80,7 @@ use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_math::Vec2;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
@@ -101,7 +102,8 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
     TextColor,
     LineHeight,
     FontHinting,
-    EditableTextGeneration
+    EditableTextGeneration,
+    EditableTextNeedsScroll
 )]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -144,6 +146,8 @@ pub struct EditableText {
     pub visible_width: Option<f32>,
     /// Allow new lines
     pub allow_newlines: bool,
+    /// Fraction of the visible input size to keep between the cursor and the view edge when scrolling.
+    pub scroll_inset: Vec2,
 }
 
 impl Default for EditableText {
@@ -159,6 +163,7 @@ impl Default for EditableText {
             visible_lines: Some(1.),
             visible_width: None,
             allow_newlines: false,
+            scroll_inset: Vec2::new(0.1, 0.25),
         }
     }
 }
@@ -211,6 +216,7 @@ impl EditableText {
         layout_context: &mut LayoutContext<TextBrush>,
         clipboard: &mut bevy_clipboard::Clipboard,
         char_filter: impl Fn(char) -> bool,
+        needs_scroll: &mut bool,
     ) {
         let Self {
             editor,
@@ -225,11 +231,13 @@ impl EditableText {
         // First: resolve any paste carried over from a previous frame. If it's still
         // pending, hold the remaining edits (untouched in `pending_edits`) for next frame
         // so ordering relative to the paste is preserved.
-        if let Some(mut read) = pending_paste.take()
-            && !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-        {
-            *pending_paste = Some(read);
-            return;
+        if let Some(mut read) = pending_paste.take() {
+            if poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+                *needs_scroll = true;
+            } else {
+                *pending_paste = Some(read);
+                return;
+            }
         }
 
         // Drain edits one at a time. A paste that resolves synchronously (always the case
@@ -240,14 +248,21 @@ impl EditableText {
             match edit {
                 TextEdit::Paste => {
                     let mut read = clipboard.fetch_text();
-                    if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-                    {
+                    if poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+                        *needs_scroll = true;
+                    } else {
                         *pending_paste = Some(read);
                         pending_edits.extend(edits);
                         return;
                     }
                 }
-                other => other.apply(&mut driver, clipboard, *max_characters, &char_filter),
+                other => other.apply(
+                    &mut driver,
+                    clipboard,
+                    *max_characters,
+                    &char_filter,
+                    needs_scroll,
+                ),
             }
         }
     }
@@ -297,13 +312,14 @@ pub fn apply_text_edits(
         &mut EditableText,
         Option<&EditableTextFilter>,
         &EditableTextGeneration,
+        &mut EditableTextNeedsScroll,
     )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard: ResMut<bevy_clipboard::Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text, filter, generation) in query.iter_mut() {
+    for (entity, mut editable_text, filter, generation, mut needs_scroll) in query.iter_mut() {
         // `pending_paste` can hold a cross-frame paste even when no new edits are queued,
         // so check for either before doing work.
         if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
@@ -315,6 +331,7 @@ pub fn apply_text_edits(
                     Some(EditableTextFilter(Some(filter))) => filter.as_ref(),
                     _ => &|_| true,
                 },
+                &mut needs_scroll.0,
             );
         }
 
@@ -331,3 +348,7 @@ pub fn apply_text_edits(
 pub struct TextEditChange {
     entity: Entity,
 }
+
+/// If true, scrolling needs to be updated.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Default)]
+pub struct EditableTextNeedsScroll(pub bool);
