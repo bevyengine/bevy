@@ -142,7 +142,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
     // Calculate the end position of the ray. This requires us to raytrace the
-    // three back faces of the AABB to find the one that our ray intersects.
+    // back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
     for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
