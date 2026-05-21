@@ -478,6 +478,9 @@ debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
 screenrecording = ["bevy_dev_tools/screenrecording"]
 schedule_data = ["bevy_dev_tools/schedule_data"]
 
+# Keep feature for bevy-settings as bevy_settings
+bevy_settings = ["bevy-settings"]
+
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.19.0-rc.1", default-features = false, features = [
