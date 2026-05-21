@@ -1,7 +1,8 @@
 //! Types and functions for creating, manipulating and querying [`CustomAttributes`].
 
 use crate::Reflect;
-use alloc::{boxed::Box, sync::Arc};
+use alloc::boxed::Box;
+use bevy_platform::sync::Arc;
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
