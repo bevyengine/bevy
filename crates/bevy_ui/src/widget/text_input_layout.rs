@@ -58,6 +58,17 @@ impl crate::Measure for TextInputMeasure {
     }
 }
 
+fn query_family<'a, 'b>(
+    family: &'a parley::FontFamilyName<'b>,
+) -> parley::fontique::QueryFamily<'a> {
+    match family {
+        parley::FontFamilyName::Named(name) => parley::fontique::QueryFamily::Named(name.as_ref()),
+        parley::FontFamilyName::Generic(generic) => {
+            parley::fontique::QueryFamily::Generic(*generic)
+        }
+    }
+}
+
 /// If `visible_lines` or `visible_width` are `Some`, sets a `ContentSize` that determines:
 /// - node height as `line_height * visible_lines`, using the resolved font line height.
 /// - node width as `advance('0') * visible_width`, where `advance('0')` is looked up from font metrics.
@@ -92,47 +103,20 @@ pub fn update_editable_text_content_size(
                 .collection
                 .query(&mut font_context.source_cache);
 
-            let font_family = resolve_font_source(&text_font.font, fonts.as_ref()).ok()?;
-            let mut parsed_font_families = Vec::new();
-            let mut query_families = Vec::new();
-            match &font_family {
+            match &resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
                 parley::FontFamily::Source(source) => {
-                    parsed_font_families.extend(
-                        parley::FontFamilyName::parse_css_list(source.as_ref())
-                            .map_while(Result::ok),
-                    );
-                    for family in &parsed_font_families {
-                        match family {
-                            parley::FontFamilyName::Named(name) => query_families
-                                .push(parley::fontique::QueryFamily::Named(name.as_ref())),
-                            parley::FontFamilyName::Generic(generic) => query_families
-                                .push(parley::fontique::QueryFamily::Generic(*generic)),
-                        }
-                    }
+                    let parsed_font_families = parley::FontFamilyName::parse_css_list(source)
+                        .map_while(Result::ok)
+                        .collect::<Vec<_>>();
+                    query.set_families(parsed_font_families.iter().map(query_family));
                 }
-                parley::FontFamily::Single(family) => match family {
-                    parley::FontFamilyName::Named(name) => {
-                        query_families.push(parley::fontique::QueryFamily::Named(name.as_ref()));
-                    }
-                    parley::FontFamilyName::Generic(generic) => {
-                        query_families.push(parley::fontique::QueryFamily::Generic(*generic));
-                    }
-                },
+                parley::FontFamily::Single(family) => {
+                    query.set_families([query_family(family)]);
+                }
                 parley::FontFamily::List(families) => {
-                    for family in families.iter() {
-                        match family {
-                            parley::FontFamilyName::Named(name) => query_families
-                                .push(parley::fontique::QueryFamily::Named(name.as_ref())),
-                            parley::FontFamilyName::Generic(generic) => query_families
-                                .push(parley::fontique::QueryFamily::Generic(*generic)),
-                        }
-                    }
+                    query.set_families(families.iter().map(query_family));
                 }
             }
-            if query_families.is_empty() {
-                return None;
-            }
-            query.set_families(query_families);
             query.set_attributes(parley::fontique::Attributes::new(
                 text_font.width.into(),
                 text_font.style.into(),
