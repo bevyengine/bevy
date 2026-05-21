@@ -68,11 +68,10 @@ fn setup(
 
     let n = args.grid_size;
     let spacing = 2.0;
-    let offset = (n as f32 * spacing) / 2.0;
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, offset, offset * 1.5).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(0.0, n as f32, n as f32 * 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         Msaa::Off,
     ));
 
@@ -110,9 +109,9 @@ fn setup(
                 MeshletMesh3d(meshlet_handle.clone()),
                 MeshMaterial3d(material),
                 Transform::from_xyz(
-                    x as f32 * spacing - offset,
+                    x as f32 * spacing - n as f32,
                     0.0,
-                    z as f32 * spacing - offset,
+                    z as f32 * spacing - n as f32,
                 ),
             ));
         }
