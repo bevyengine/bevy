@@ -48,7 +48,16 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                    ..default()
+                }),
+                ..default()
+            }),
+            FrameTimeDiagnosticsPlugin::default(),
+            LogDiagnosticsPlugin::default(),
             MeshletPlugin {
                 cluster_buffer_slots: 8192,
             },
