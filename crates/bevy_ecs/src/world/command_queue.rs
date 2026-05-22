@@ -92,9 +92,7 @@ unsafe impl Send for CommandQueue {}
 unsafe impl Sync for CommandQueue {}
 
 impl CommandQueue {
-    /// Create a queue that does not warn when dropped if unapplied while the application is exiting.
-    ///
-    /// This is useful for *automatic* systems that might leave queues unapplied (like delayed commands).
+    /// Create a queue that does not warn when dropped.
     #[track_caller]
     pub fn silent() -> Self {
         CommandQueue {
