@@ -30,12 +30,17 @@ pub fn fxaa(
     let post_process = target.post_process_write();
     let source = post_process.source;
     let destination = post_process.destination;
+    let layout = if target.multiview_count().is_some() {
+        &fxaa_pipeline.texture_bind_group_multiview
+    } else {
+        &fxaa_pipeline.texture_bind_group
+    };
     let bind_group = match &mut *cached_bind_group {
         Some((id, bind_group)) if source.id() == *id => bind_group,
         cached => {
             let bind_group = ctx.render_device().create_bind_group(
                 None,
-                &pipeline_cache.get_bind_group_layout(&fxaa_pipeline.texture_bind_group),
+                &pipeline_cache.get_bind_group_layout(layout),
                 &BindGroupEntries::sequential((source, &fxaa_pipeline.sampler)),
             );
 

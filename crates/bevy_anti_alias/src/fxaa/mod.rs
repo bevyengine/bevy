@@ -12,14 +12,14 @@ use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
-        binding_types::{sampler, texture_2d},
+        binding_types::{sampler, texture_2d, texture_2d_array},
         *,
     },
     renderer::RenderDevice,
-    view::ExtractedView,
+    view::{ExtractedMultiview, ExtractedView},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 mod node;
@@ -112,7 +112,10 @@ impl Plugin for FxaaPlugin {
 
 #[derive(Resource)]
 pub struct FxaaPipeline {
-    texture_bind_group: BindGroupLayoutDescriptor,
+    pub texture_bind_group: BindGroupLayoutDescriptor,
+    /// Multiview bind-group layout — the texture binding is a
+    /// `texture_2d_array` whose layer is picked from `@builtin(view_index)`.
+    pub texture_bind_group_multiview: BindGroupLayoutDescriptor,
     sampler: Sampler,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -135,6 +138,17 @@ pub fn init_fxaa_pipeline(
         ),
     );
 
+    let texture_bind_group_multiview = BindGroupLayoutDescriptor::new(
+        "fxaa_texture_bind_group_layout_multiview",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+            ),
+        ),
+    );
+
     let sampler = render_device.create_sampler(&SamplerDescriptor {
         mipmap_filter: MipmapFilterMode::Linear,
         mag_filter: FilterMode::Linear,
@@ -144,6 +158,7 @@ pub fn init_fxaa_pipeline(
 
     commands.insert_resource(FxaaPipeline {
         texture_bind_group,
+        texture_bind_group_multiview,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "fxaa.wgsl"),
@@ -160,22 +175,38 @@ pub struct FxaaPipelineKey {
     edge_threshold: Sensitivity,
     edge_threshold_min: Sensitivity,
     target_format: TextureFormat,
+    /// Source texture layer count. `> 1` picks the `texture_2d_array`
+    /// layout and emits `MULTIVIEW` + `MAX_VIEW_COUNT` shader-defs.
+    multiview_view_count: u32,
 }
 
 impl SpecializedRenderPipeline for FxaaPipeline {
     type Key = FxaaPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = vec![
+            format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
+            format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
+        ];
+
+        let layout = if key.multiview_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+            self.texture_bind_group_multiview.clone()
+        } else {
+            self.texture_bind_group.clone()
+        };
+
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
-            layout: vec![self.texture_bind_group.clone()],
+            layout: vec![layout],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs: vec![
-                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
-                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
-                ],
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: None,
@@ -193,12 +224,16 @@ pub fn prepare_fxaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
-    cameras: Query<(Entity, &ExtractedView, &Fxaa), With<ExtractedCamera>>,
+    cameras: Query<
+        (Entity, &ExtractedView, &Fxaa, Option<&ExtractedMultiview>),
+        With<ExtractedCamera>,
+    >,
 ) {
-    for (entity, view, fxaa) in &cameras {
+    for (entity, view, fxaa, multiview) in &cameras {
         if !fxaa.enabled {
             continue;
         }
+        let multiview_view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &fxaa_pipeline,
@@ -206,6 +241,7 @@ pub fn prepare_fxaa_pipelines(
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
                 target_format: view.target_format,
+                multiview_view_count,
             },
         );
 
