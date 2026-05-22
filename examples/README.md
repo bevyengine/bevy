@@ -603,6 +603,7 @@ Example | Description
 [Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Lists](../examples/ui/text/font_lists.rs) | Demonstrates how to select fonts using CSS font-family lists
 [Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
 [Font Variations](../examples/ui/text/font_variations.rs) | Demonstrates how to use OpenType font variations.
 [Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.

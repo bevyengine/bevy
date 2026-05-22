@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 const FONT_ASSETS: &[&str] = &[
+    "Gabriola",
     "fonts/FiraSans-Bold.ttf",
     "fonts/FiraMono-Medium.ttf",
     "fonts/MonaSans-VariableFont.ttf",
@@ -39,14 +40,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         children![
             (
-                Text::new("CSS Font Lists"),
+                Text::new("Font Lists"),
                 TextFont::from_font_size(FontSize::Px(32.)),
                 Underline,
             ),
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: px(20),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: px(30),
+                    row_gap: px(30),
                     padding: px(16).left(),
                     ..default()
                 },

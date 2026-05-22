@@ -3941,12 +3941,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "css_font_list"
-path = "examples/ui/text/css_font_list.rs"
+name = "font_lists"
+path = "examples/ui/text/font_lists.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.css_font_list]
-name = "CSS Font List"
+[package.metadata.example.font_lists]
+name = "Font Lists"
 description = "Demonstrates how to select fonts using CSS font-family lists"
 category = "UI (User Interface)"
 wasm = true
