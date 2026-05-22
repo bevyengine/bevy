@@ -6,13 +6,13 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath};
+use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
-use {crate::serde::DynamicWorldSerializer, bevy_reflect::TypeRegistry, serde::Serialize};
+use {crate::serde::DynamicWorldSerializer, serde::Serialize};
 
 /// A collection of serializable resources and dynamic entities.
 ///
@@ -184,7 +184,7 @@ impl DynamicWorld {
 
             // check if the resource already exists, if not spawn it, otherwise override the value
             let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
-                *entity
+                entity
             } else {
                 world.spawn_empty().id()
             };

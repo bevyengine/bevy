@@ -5,8 +5,12 @@ pull_requests: [23090]
 ---
 
 Scheduling things to happen some time in the future is a common and useful tool in game development
-for everything from gameplay logic to VFX. To support common use-cases, Bevy now has a general mechanism
-for delaying commands to be executed after a specified duration.
+for everything from gameplay logic to audio cues to VFX.
+
+While this was previously possible through careful use of timers,
+getting the details right was surprisingly tricky and naive solutions were heavy on boilerplate.
+
+Now, you can simply delay arbitrary commands to be executed later.
 
 ```rust
 fn delayed_spawn(mut commands: Commands) {
@@ -20,9 +24,5 @@ fn delayed_spawn_then_insert(mut commands: Commands) {
 }
 ```
 
-Our goal for this mechanism is to provide a "good-enough" system for simple use-cases. As a result,
-there are certain limitations - for example, delayed commands are currently always ticked by the default
-clock during `PreUpdate` (typically `Time<Virtual>`).
-
-If you need something more sophisticated, you can always roll your own version of delayed commands using
-the new helpers added for this feature.
+Note that this does not have a built-in, blessed cancellation mechanism yet.
+We recommend embedding the originating `Entity` into the command if you want to cancel the action if that entity dies or is despawned.

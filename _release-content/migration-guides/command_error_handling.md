@@ -4,17 +4,17 @@ pull_requests: [23432, 23477]
 ---
 
 The `Command` trait now takes `Out` as an associated type rather than as a generic
-parameter. For function-style commands that return a `Result`, the following change must be made:
+parameter. For function-style commands that return a `Result`, the code changes as follows:
 
 ```rust
-// Before
+// 0.18
 fn my_command() -> impl Command<Result> {
     move |world: &mut World| -> Result {
         // ...
     }
 }
 
-// After
+// 0.19
 fn my_command() -> impl Command {
     move |world: &mut World| -> Result {
         // ...
@@ -25,14 +25,14 @@ fn my_command() -> impl Command {
 Implementors of the `Command` trait must now fill in the `Out` associated type:
 
 ```rust
-// Before
+// 0.18
 impl Command for Foo {
     fn apply(self, world: &mut World) {
         // ...
     }
 }
 
-// After
+// 0.19
 impl Command for Foo {
     type Out = ();
 
@@ -45,14 +45,14 @@ impl Command for Foo {
 For commands that return `Result`:
 
 ```rust
-// Before
+// 0.18
 impl Command<Result> for Foo {
     fn apply(self, world: &mut World) -> Result {
         // ...
     }
 }
 
-// After
+// 0.19
 impl Command for Foo {
     type Out = Result;
 
@@ -64,4 +64,4 @@ impl Command for Foo {
 
 The functionality of the `HandleError` and `CommandWithEntity` traits have been
 folded into `Command` and `EntityCommand`, respectively. Use the latter traits as
-the sole trait bound, as needed.
+the sole trait bound, if needed.

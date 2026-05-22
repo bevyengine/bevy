@@ -21,6 +21,8 @@ experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
 pbr_clustered_decals = []
 pbr_light_textures = []
 bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
+dfg_lut = ["bevy_image/ktx2", "bevy_image/zstd"]
+area_light_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
 shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
@@ -72,7 +74,7 @@ fixedbitset = "0.5"
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 # meshlet
-lz4_flex = { version = "0.12", default-features = false, features = [
+lz4_flex = { version = "0.13", default-features = false, features = [
   "frame",
 ], optional = true }
 range-alloc = { version = "0.1", optional = true }
@@ -89,7 +91,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 offset-allocator = "0.2"
 arrayvec = { version = "0.7", default-features = false }
 indexmap = { version = "2" }
-wgpu-types = "29.0.1"
+wgpu-types = "29.0.3"
 
 [lints]
 workspace = true

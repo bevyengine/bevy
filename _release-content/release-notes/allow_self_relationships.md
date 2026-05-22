@@ -4,13 +4,10 @@ authors: ["@mrchantey"]
 pull_requests: [22269]
 ---
 
-Relationships can now optionally point to their own entity by setting the `allow_self_referential` attribute on the `#[relationship]` macro.
+By default, Bevy rejects relationship components that point to the entity they live on. If you insert one, Bevy will log a warning and remove it.
+This default exists for good reason: structural relationships like `ChildOf` form hierarchies that Bevy traverses recursively — a self-referential `ChildOf` would produce an infinite loop.
 
-By default pointing a relationship to its own entity will log a warning and remove the component. However, self-referential relationships are semantically valid in many cases: `Likes(self)`, `EmployedBy(self)`, `TalkingTo(self)`, `Healing(self)`, and many more.
-
-## Usage
-
-To allow a relationship to point to its own entity, add the `allow_self_referential` attribute:
+But many relationships are purely semantic. `Likes(self)`, `EmployedBy(self)`, `Healing(self)` — these don't imply any traversal, and self-reference is perfectly valid. You can now opt in with `allow_self_referential`:
 
 ```rust
 #[derive(Component)]
@@ -22,13 +19,4 @@ pub struct LikedBy(pub Entity);
 pub struct PeopleILike(Vec<Entity>);
 ```
 
-Now entities can have relationships that point to themselves:
-
-```rust
-let entity = world.spawn_empty().id();
-world.entity_mut(entity).insert(LikedBy(entity));
-
-// The relationship is preserved
-assert!(world.entity(entity).contains::<LikedBy>());
-assert!(world.entity(entity).contains::<PeopleILike>());
-```
+With the attribute set, inserting a self-referential relationship is accepted without warning.

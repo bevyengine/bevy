@@ -2,7 +2,9 @@ enable wgpu_ray_query;
 
 #define_import_path bevy_solari::specular_gi
 
-#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
+#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
@@ -81,10 +83,10 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
 
-    var ray_origin = primary_surface.world_position;
+    var ray_origin = primary_surface.world_position + (primary_surface.world_normal * RAY_T_MIN);
     var wi = initial_wi;
     var p_bounce = initial_p_bounce;
-    var path_spread = path_spread_heuristic(initial_ray_t, primary_surface.material.roughness);
+    var path_roughness = primary_surface.material.roughness;
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
     var mirror_rotations = reflection_matrix(primary_surface.world_normal);
@@ -98,7 +100,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+        let TBN = orthonormalize(ray_hit.world_normal);
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
@@ -127,11 +129,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 #endif
 
         // Terminate path in the world cache if the ray is long enough and the path spread is large enough
-        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position);
+        var rng_copy = *rng;
+        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position, &rng_copy);
         let ray_longer_than_cell = ray.t > sqrt(3.0) * world_cache_cell_size;
-        let path_spread_large_enough = path_spread > world_cache_cell_size * world_cache_cell_size;
 
-        if ray_longer_than_cell && path_spread_large_enough {
+        if i == 2u || (ray_longer_than_cell && path_roughness > DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD) {
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
@@ -147,7 +149,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
         if ggx_vndf_sample_invalid(wi_tangent) { break; }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
-        ray_origin = ray_hit.world_position;
+        ray_origin = ray_hit.world_position + (ray_hit.geometric_world_normal * RAY_T_MIN);
 
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
@@ -155,9 +157,12 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
             throughput /= p_bounce;
         }
+        path_roughness += ray_hit.material.roughness;
 
-        // Path spread increase
-        path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);
+        // Russian roulette for early termination
+        let p = luminance(throughput);
+        if rand_f(rng) > p { break; }
+        throughput /= p;
     }
 
     return radiance;
@@ -192,12 +197,6 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
     return power_heuristic(p_light, p_bounce);
 }
 
-fn path_spread_heuristic(ray_t: f32, roughness: f32) -> f32 {
-    let alpha_squared = min(roughness * roughness, 0.99);
-    let distance_squared = ray_t * ray_t;
-    return distance_squared * 0.5 * (alpha_squared / (1.0 - alpha_squared));
-}
-
 #ifdef DLSS_RR_GUIDE_BUFFERS
 // https://en.wikipedia.org/wiki/Householder_transformation
 fn reflection_matrix(plane_normal: vec3f) -> mat3x3<f32> {
@@ -223,7 +222,7 @@ fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mir
 
     textureStore(specular_motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0), 0.0));
-    textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, ray_hit.material.roughness, ray_hit.world_normal, wo), 0.0));
+    textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, ray_hit.material.roughness, virtual_normal, wo), 0.0));
     textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
 }
 
