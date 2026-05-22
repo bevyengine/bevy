@@ -20,11 +20,16 @@ impl Image {
 
         match dyn_img {
             DynamicImage::ImageLuma8(image) => {
-                width = image.width();
-                height = image.height();
-                format = TextureFormat::R8Unorm;
+                let i = DynamicImage::ImageLuma8(image).into_rgba8();
+                width = i.width();
+                height = i.height();
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
 
-                data = image.into_raw();
+                data = i.into_raw();
             }
             DynamicImage::ImageLumaA8(image) => {
                 let i = DynamicImage::ImageLumaA8(image).into_rgba8();
