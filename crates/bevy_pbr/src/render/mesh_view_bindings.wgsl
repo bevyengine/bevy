@@ -82,7 +82,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #endif
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#ifdef MULTIVIEW
+@group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+#endif
 #endif
 
 #ifdef TONEMAP_IN_SHADER
