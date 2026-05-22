@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use bevy::{
     camera::visibility::NoCpuCulling,
     camera_controller::free_camera::FreeCameraState,
@@ -11,12 +12,15 @@ use bevy::{
     ui::Checked,
     ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
-use rand::RngExt;
 
+#[allow(unused_imports)]
 use crate::assets::CityAssets;
+#[allow(unused_imports)]
 use crate::generate_city::{spawn_city, CityRoot, TrafficLight};
 #[allow(unused_imports)]
 use crate::CitySpawned;
+#[allow(unused_imports)]
+use rand::RngExt;
 
 #[derive(Resource)]
 pub struct Settings {
@@ -95,8 +99,8 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
             (
-            :FeathersCheckbox {
-                @caption: {bsn! { Text("Traffic lights") ThemedText }}
+                :FeathersCheckbox {
+                    @caption: {bsn! { Text("Traffic lights") ThemedText }}
             }
             Checked
             on(checkbox_self_update)
