@@ -1,0 +1,18 @@
+diff --git a/crates/bevy_winit/src/state.rs b/crates/bevy_winit/src/state.rs
+index d4933d7d3..259f8236e 100644
+--- a/crates/bevy_winit/src/state.rs
++++ b/crates/bevy_winit/src/state.rs
+@@ -244,6 +244,13 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
+                     adapter.process_event(winit_window, &event);
+                 }
+ 
++                self.bevy_window_events
++                    .push(BevyWindowEvent::WindowResized(WindowResized {
++                        window,
++                        width: win.width(),
++                        height: win.height(),
++                    }));
++
+                 match event {
+                     WindowEvent::Resized(size) => self
+                         .bevy_window_events

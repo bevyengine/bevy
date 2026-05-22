@@ -1,37 +1,257 @@
 use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale, UiTextureAtlasImage,
+    ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ResolvedAxis,
+    VisualBox,
 };
-use bevy_asset::{Assets, Handle};
-
-use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::query::Without;
-use bevy_ecs::{
-    prelude::Component,
-    query::With,
-    reflect::ReflectComponent,
-    system::{Local, Query, Res},
-};
-use bevy_math::Vec2;
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
+use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
-use bevy_window::{PrimaryWindow, Window};
+use bevy_sprite::TextureSlicer;
+use taffy::{MaybeMath, ResolveOrZero};
+
+/// A UI Node that renders an image.
+#[derive(Component, Clone, Debug, Reflect, FromTemplate)]
+#[reflect(Component, Default, Debug, Clone)]
+#[require(Node, ImageNodeSize)]
+pub struct ImageNode {
+    /// The tint color used to draw the image.
+    ///
+    /// This is multiplied by the color of each pixel in the image.
+    /// The field value defaults to solid white, which will pass the image through unmodified.
+    pub color: Color,
+    /// Handle to the texture.
+    ///
+    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
+    pub image: Handle<Image>,
+    /// The (optional) texture atlas used to render the image.
+    #[template(built_in)]
+    pub texture_atlas: Option<TextureAtlas>,
+    /// Whether the image should be flipped along its x-axis.
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis.
+    pub flip_y: bool,
+    /// An optional rectangle representing the region of the image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
+    ///
+    /// When used with a [`TextureAtlas`], the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
+    pub rect: Option<Rect>,
+    /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
+    pub image_mode: NodeImageMode,
+    /// Which region of the UI node the image should be drawn within.
+    pub visual_box: VisualBox,
+}
+
+impl Default for ImageNode {
+    /// A transparent 1x1 image with a solid white tint.
+    ///
+    /// # Warning
+    ///
+    /// This will be invisible by default.
+    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`ImageNode::solid_color`]).
+    fn default() -> Self {
+        ImageNode {
+            // This should be white because the tint is multiplied with the image,
+            // so if you set an actual image with default tint you'd want its original colors
+            color: Color::WHITE,
+            texture_atlas: None,
+            // This texture needs to be transparent by default, to avoid covering the background color
+            image: TRANSPARENT_IMAGE_HANDLE,
+            flip_x: false,
+            flip_y: false,
+            rect: None,
+            image_mode: NodeImageMode::Auto,
+            visual_box: VisualBox::ContentBox,
+        }
+    }
+}
+
+impl ImageNode {
+    /// Create a new [`ImageNode`] with the given texture.
+    pub fn new(texture: Handle<Image>) -> Self {
+        Self {
+            image: texture,
+            color: Color::WHITE,
+            ..Default::default()
+        }
+    }
+
+    /// Create a solid color [`ImageNode`].
+    ///
+    /// This is primarily useful for debugging / mocking the extents of your image.
+    pub fn solid_color(color: Color) -> Self {
+        Self {
+            image: Handle::default(),
+            color,
+            flip_x: false,
+            flip_y: false,
+            texture_atlas: None,
+            rect: None,
+            image_mode: NodeImageMode::Auto,
+            visual_box: VisualBox::ContentBox,
+        }
+    }
+
+    /// Create a [`ImageNode`] from an image, with an associated texture atlas
+    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
+        Self {
+            image,
+            texture_atlas: Some(atlas),
+            ..Default::default()
+        }
+    }
+
+    /// Set the color tint
+    #[must_use]
+    pub const fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Flip the image along its x-axis
+    #[must_use]
+    pub const fn with_flip_x(mut self) -> Self {
+        self.flip_x = true;
+        self
+    }
+
+    /// Flip the image along its y-axis
+    #[must_use]
+    pub const fn with_flip_y(mut self) -> Self {
+        self.flip_y = true;
+        self
+    }
+
+    /// Crops an `ImageNode` to the portion described by
+    /// the provided `Rect`, measured from the top-left corner. This can be applied to `ImageNode`s created from
+    /// texture atlases.
+    /// The following example setup function demonstrates this use.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_asset::{Assets,AssetServer};
+    /// use bevy_ecs::prelude::{Commands,Res,ResMut};
+    /// use bevy_image::{TextureAtlas,TextureAtlasLayout};
+    /// use bevy_math::{UVec2,Rect};
+    /// use bevy_ui::Node;
+    /// use bevy_ui::prelude::{Display,ImageNode};
+    /// use std::default::Default;
+    ///
+    /// fn setup(
+    ///   mut commands: Commands,
+    ///   asset_server: Res<AssetServer>,
+    ///   mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    /// ) {
+    ///   let texture = asset_server.load("textures/array_texture.png");
+    ///   let layout = TextureAtlasLayout::from_grid(UVec2::splat(250), 1, 3, None, None);
+    ///   let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    ///
+    ///   commands.spawn(Node {
+    ///     display: Display::Flex,
+    ///     ..Default::default()
+    ///   })
+    ///   .with_children(|parent| {
+    /// // this example node shows a texture constrained by a rect
+    ///     parent.spawn(
+    ///       ImageNode::new(texture.clone())
+    ///         .with_rect(
+    ///           Rect::new(0., 200., 250., 450.)
+    ///         ));
+    /// // this example node displays an index within a texture atlas
+    /// // constrained by a rect
+    ///     parent.spawn(ImageNode::from_atlas_image(
+    ///       texture.clone(),
+    ///       TextureAtlas {
+    ///         layout: texture_atlas_layout.clone(),
+    ///         index: 1,
+    ///       },
+    ///     ).with_rect(
+    ///        Rect::new(0., 0., 150., 150.)
+    ///      ));
+    ///   });
+    /// }
+    ///````
+    #[must_use]
+    pub const fn with_rect(mut self, rect: Rect) -> Self {
+        self.rect = Some(rect);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
+        self.image_mode = mode;
+        self
+    }
+}
+
+impl From<Handle<Image>> for ImageNode {
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
+    }
+}
+
+impl AsAssetId for ImageNode {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
+/// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Clone, Default, PartialEq)]
+pub enum NodeImageMode {
+    /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
+    #[default]
+    Auto,
+    /// The image will be resized to match the size of the node. The image's original size and aspect ratio will be ignored.
+    Stretch,
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value.
+        stretch_value: f32,
+    },
+}
+
+impl NodeImageMode {
+    /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
+    #[inline]
+    pub const fn uses_slices(&self) -> bool {
+        matches!(
+            self,
+            NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
+        )
+    }
+}
 
 /// The size of the image's texture
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct UiImageSize {
+#[reflect(Component, Default, Debug, Clone)]
+pub struct ImageNodeSize {
     /// The size of the image's texture
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
-    size: Vec2,
+    size: UVec2,
 }
 
-impl UiImageSize {
+impl ImageNodeSize {
     /// The size of the image's texture
-    pub fn size(&self) -> Vec2 {
+    #[inline]
+    pub const fn size(&self) -> UVec2 {
         self.size
     }
 }
@@ -41,116 +261,157 @@ impl UiImageSize {
 pub struct ImageMeasure {
     /// The size of the image's texture
     pub size: Vec2,
+    /// The region of the UI node containing the image
+    pub visual_box: VisualBox,
 }
 
 impl Measure for ImageMeasure {
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        _: AvailableSpace,
-        _: AvailableSpace,
-    ) -> Vec2 {
-        let mut size = self.size;
-        match (width, height) {
-            (None, None) => {}
-            (Some(width), None) => {
-                size.y = width * size.y / size.x;
-                size.x = width;
+    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+        let mut width = measure_args.resolve_width();
+        let mut height = measure_args.resolve_height();
+
+        let calc = |_, _| 0.;
+        let padding = measure_args.style.padding.resolve_or_zero(
+            taffy::Size {
+                width: width.effective,
+                height: height.effective,
+            },
+            calc,
+        );
+        let border = measure_args.style.border.resolve_or_zero(
+            taffy::Size {
+                width: width.effective,
+                height: height.effective,
+            },
+            calc,
+        );
+        let content_inset = Vec2::new(
+            padding.left + padding.right + border.left + border.right,
+            padding.top + padding.bottom + border.top + border.bottom,
+        );
+
+        if measure_args.style.box_sizing == taffy::style::BoxSizing::BorderBox {
+            if measure_args.known_width.is_none() {
+                width.min = width.min.map(|min| (min - content_inset.x).max(0.));
+                width.preferred = width
+                    .preferred
+                    .map(|preferred| (preferred - content_inset.x).max(0.));
+                width.max = width.max.map(|max| (max - content_inset.x).max(0.));
+                width.effective = width
+                    .effective
+                    .map(|effective| (effective - content_inset.x).max(0.));
             }
-            (None, Some(height)) => {
-                size.x = height * size.x / size.y;
-                size.y = height;
-            }
-            (Some(width), Some(height)) => {
-                size.x = width;
-                size.y = height;
+
+            if measure_args.known_height.is_none() {
+                height.min = height.min.map(|min| (min - content_inset.y).max(0.));
+                height.preferred = height
+                    .preferred
+                    .map(|preferred| (preferred - content_inset.y).max(0.));
+                height.max = height.max.map(|max| (max - content_inset.y).max(0.));
+                height.effective = height
+                    .effective
+                    .map(|effective| (effective - content_inset.y).max(0.));
             }
         }
-        size
+
+        let inset = match self.visual_box {
+            VisualBox::ContentBox => Vec2::ZERO,
+            VisualBox::PaddingBox => {
+                Vec2::new(padding.left + padding.right, padding.top + padding.bottom)
+            }
+            VisualBox::BorderBox => Vec2::new(content_inset.x, content_inset.y),
+        };
+
+        let width = ResolvedAxis {
+            min: width.min.map(|min| min + inset.x),
+            preferred: width.preferred.map(|preferred| preferred + inset.x),
+            max: width.max.map(|max| max + inset.x),
+            effective: width.effective.map(|effective| effective + inset.x),
+        };
+        let height = ResolvedAxis {
+            min: height.min.map(|min| min + inset.y),
+            preferred: height.preferred.map(|preferred| preferred + inset.y),
+            max: height.max.map(|max| max + inset.y),
+            effective: height.effective.map(|effective| effective + inset.y),
+        };
+
+        // Use aspect_ratio from style, fall back to inherent aspect ratio
+        let aspect_ratio = measure_args
+            .style
+            .aspect_ratio
+            .unwrap_or_else(|| self.size.x / self.size.y);
+
+        // Apply aspect ratio
+        // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
+        let taffy_size = taffy::Size {
+            width: width.effective,
+            height: height.effective,
+        }
+        .maybe_apply_aspect_ratio(Some(aspect_ratio));
+
+        (Vec2::new(
+            taffy_size
+                .width
+                .unwrap_or(self.size.x)
+                .maybe_clamp(width.min, width.max),
+            taffy_size
+                .height
+                .unwrap_or(self.size.y)
+                .maybe_clamp(height.min, height.max),
+        ) - inset)
+            .max(Vec2::ZERO)
     }
 }
 
-#[cfg(feature = "bevy_text")]
-type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
-#[cfg(not(feature = "bevy_text"))]
-type UpdateImageFilter = With<Node>;
+type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_combined_scale_factor: Local<f64>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
-) {
-    let combined_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.)
-        * ui_scale.0;
-
-    for (mut content_size, image, mut image_size) in &mut query {
-        if let Some(texture) = textures.get(&image.texture) {
-            let size = Vec2::new(
-                texture.texture_descriptor.size.width as f32,
-                texture.texture_descriptor.size.height as f32,
-            );
-            // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size
-                || combined_scale_factor != *previous_combined_scale_factor
-                || content_size.is_added()
-            {
-                image_size.size = size;
-                content_size.set(ImageMeasure {
-                    // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
-                });
-            }
-        }
-    }
-
-    *previous_combined_scale_factor = combined_scale_factor;
-}
-
-/// Updates content size of the node based on the texture atlas sprite
-pub fn update_atlas_content_size_system(
-    mut previous_combined_scale_factor: Local<f64>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
-    atlases: Res<Assets<TextureAtlas>>,
-    mut atlas_query: Query<
+    atlases: Res<Assets<TextureAtlasLayout>>,
+    mut query: Query<
         (
             &mut ContentSize,
-            &Handle<TextureAtlas>,
-            &UiTextureAtlasImage,
-            &mut UiImageSize,
+            Ref<ImageNode>,
+            &mut ImageNodeSize,
+            Ref<ComputedUiRenderTargetInfo>,
         ),
-        (UpdateImageFilter, Without<UiImage>),
+        UpdateImageFilter,
     >,
 ) {
-    let combined_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.)
-        * ui_scale.0;
+    for (mut content_size, image, mut image_size, computed_target) in &mut query {
+        if !matches!(image.image_mode, NodeImageMode::Auto)
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
+            if image.is_changed() {
+                // Remove any existing measure.
+                content_size.clear();
+            }
+            continue;
+        }
 
-    for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
-        if let Some(atlas) = atlases.get(atlas) {
-            let size = atlas.textures[atlas_image.index].size();
+        if let Some(size) =
+            image
+                .rect
+                .map(|rect| rect.size().as_uvec2())
+                .or_else(|| match &image.texture_atlas {
+                    Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
+                    None => textures.get(&image.image).map(Image::size),
+                })
+        {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size
-                || combined_scale_factor != *previous_combined_scale_factor
+                || computed_target.is_changed()
                 || content_size.is_added()
+                || image.is_changed()
             {
                 image_size.size = size;
-                content_size.set(ImageMeasure {
+                content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
-                });
+                    size: size.as_vec2() * computed_target.scale_factor(),
+                    visual_box: image.visual_box,
+                }));
             }
         }
     }
-
-    *previous_combined_scale_factor = combined_scale_factor;
 }

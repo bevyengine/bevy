@@ -1,4 +1,10 @@
-# bevy_tasks
+# Bevy Tasks
+
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy_tasks)
+[![Downloads](https://img.shields.io/crates/d/bevy_tasks.svg)](https://crates.io/crates/bevy_tasks)
+[![Docs](https://docs.rs/bevy_tasks/badge.svg)](https://docs.rs/bevy_tasks/latest/bevy_tasks/)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 A refreshingly simple task executor for bevy. :)
 
@@ -16,7 +22,7 @@ It is based on [`async-executor`][async-executor], a lightweight executor that a
 In order to be able to optimize task execution in multi-threaded environments,
 bevy provides three different thread pools via which tasks of different kinds can be spawned.
 (The same API is used in single-threaded environments, even if execution is limited to a single thread.
-This currently applies to WASM targets.)
+This currently applies to Wasm targets.)
 The determining factor for what kind of work should go in each pool is latency requirements:
 
 * For CPU-intensive work (tasks that generally spin until completion) we have a standard
@@ -28,6 +34,10 @@ The determining factor for what kind of work should go in each pool is latency r
   await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
   for consumption. (likely via channels)
 
-[bevy]: https://bevyengine.org
+## `no_std` Support
+
+To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features.
+
+[bevy]: https://bevy.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor

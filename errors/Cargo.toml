@@ -1,10 +1,12 @@
 [package]
 name = "errors"
-version = "0.1.0"
-edition = "2021"
-description = "Bevy's error codes"
+edition = "2024"
+description = "Documentation and tests for Bevy's error codes"
 publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy = { path = ".." }
+
+[lints]
+workspace = true

@@ -1,24 +1,48 @@
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entities;
 
-use crate::{Diagnostic, DiagnosticId, Diagnostics, RegisterDiagnostic};
+use crate::{
+    Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic, DEFAULT_MAX_HISTORY_LENGTH,
+};
 
-/// Adds "entity count" diagnostic to an App
-#[derive(Default)]
-pub struct EntityCountDiagnosticsPlugin;
+/// Adds "entity count" diagnostic to an App.
+///
+/// # See also
+///
+/// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
+pub struct EntityCountDiagnosticsPlugin {
+    /// The total number of values to keep.
+    pub max_history_length: usize,
+}
 
-impl Plugin for EntityCountDiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_diagnostic(Diagnostic::new(Self::ENTITY_COUNT, "entity_count", 20))
-            .add_systems(Update, Self::diagnostic_system);
+impl Default for EntityCountDiagnosticsPlugin {
+    fn default() -> Self {
+        Self::new(DEFAULT_MAX_HISTORY_LENGTH)
     }
 }
 
 impl EntityCountDiagnosticsPlugin {
-    pub const ENTITY_COUNT: DiagnosticId =
-        DiagnosticId::from_u128(187513512115068938494459732780662867798);
+    /// Creates a new `EntityCountDiagnosticsPlugin` with the specified `max_history_length`.
+    pub fn new(max_history_length: usize) -> Self {
+        Self { max_history_length }
+    }
+}
 
+impl Plugin for EntityCountDiagnosticsPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_diagnostic(
+            Diagnostic::new(Self::ENTITY_COUNT).with_max_history_length(self.max_history_length),
+        )
+        .add_systems(Update, Self::diagnostic_system);
+    }
+}
+
+impl EntityCountDiagnosticsPlugin {
+    /// Number of currently allocated entities.
+    pub const ENTITY_COUNT: DiagnosticPath = DiagnosticPath::const_new("entity_count");
+
+    /// Updates entity count measurement.
     pub fn diagnostic_system(mut diagnostics: Diagnostics, entities: &Entities) {
-        diagnostics.add_measurement(Self::ENTITY_COUNT, || entities.len() as f64);
+        diagnostics.add_measurement(&Self::ENTITY_COUNT, || entities.count_spawned() as f64);
     }
 }

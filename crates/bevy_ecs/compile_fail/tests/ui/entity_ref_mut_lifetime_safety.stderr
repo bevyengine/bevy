@@ -1,0 +1,84 @@
+error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as immutable
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:17:26
+   |
+16 |         let gotten: &A = e_mut.get::<A>().unwrap();
+   |                          ----- immutable borrow occurs here
+17 |         let gotten2: A = e_mut.take::<A>().unwrap();
+   |                          ^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+18 |
+19 |         assert_eq!(gotten, &gotten2); // oops UB
+   |         ---------------------------- immutable borrow later used here
+
+error[E0499]: cannot borrow `e_mut` as mutable more than once at a time
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:26:30
+   |
+25 |         let mut gotten: Mut<A> = e_mut.get_mut::<A>().unwrap();
+   |                                  ----- first mutable borrow occurs here
+26 |         let mut gotten2: A = e_mut.take::<A>().unwrap();
+   |                              ^^^^^ second mutable borrow occurs here
+27 |
+28 |         assert_eq!(&mut *gotten, &mut gotten2); // oops UB
+   |                          ------ first borrow later used here
+
+error[E0505]: cannot move out of `e_mut` because it is borrowed
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:35:9
+   |
+13 |     let mut e_mut = world.entity_mut(e);
+   |         --------- binding `e_mut` declared here
+...
+34 |         let gotten: &A = e_mut.get::<A>().unwrap();
+   |                          ----- borrow of `e_mut` occurs here
+35 |         e_mut.despawn();
+   |         ^^^^^ move out of `e_mut` occurs here
+36 |
+37 |         assert_eq!(gotten, &A(Box::new(14_usize))); // oops UB
+   |         ------------------------------------------ borrow later used here
+
+error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as immutable
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:45:34
+   |
+44 |         let gotten: &A = e_mut.get::<A>().unwrap();
+   |                          ----- immutable borrow occurs here
+45 |         let gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+   |                                  ^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+46 |
+47 |         assert_eq!(gotten, &*gotten_mut); // oops UB
+   |         -------------------------------- immutable borrow later used here
+
+error[E0502]: cannot borrow `e_mut` as immutable because it is also borrowed as mutable
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:52:26
+   |
+51 |         let gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+   |                                  ----- mutable borrow occurs here
+52 |         let gotten: &A = e_mut.get::<A>().unwrap();
+   |                          ^^^^^ immutable borrow occurs here
+53 |
+54 |         assert_eq!(gotten, &*gotten_mut); // oops UB
+   |                              ---------- mutable borrow later used here
+
+error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as immutable
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:59:9
+   |
+58 |         let gotten: &A = e_mut.get::<A>().unwrap();
+   |                          ----- immutable borrow occurs here
+59 |         e_mut.insert::<B>(B);
+   |         ^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+60 |
+61 |         assert_eq!(gotten, &A(Box::new(16_usize))); // oops UB
+   |         ------------------------------------------ immutable borrow later used here
+
+error[E0499]: cannot borrow `e_mut` as mutable more than once at a time
+  --> tests/ui/entity_ref_mut_lifetime_safety.rs:67:9
+   |
+66 |         let mut gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+   |                                      ----- first mutable borrow occurs here
+67 |         e_mut.insert::<B>(B);
+   |         ^^^^^ second mutable borrow occurs here
+68 |
+69 |         assert_eq!(&mut *gotten_mut, &mut A(Box::new(16_usize))); // oops UB
+   |                          ---------- first borrow later used here
+
+error: aborting due to 7 previous errors
+
+Some errors have detailed explanations: E0499, E0502, E0505.
+For more information about an error, try `rustc --explain E0499`.

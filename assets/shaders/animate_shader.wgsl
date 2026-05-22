@@ -1,6 +1,8 @@
 // The time since startup data is in the globals binding which is part of the mesh_view_bindings import
-#import bevy_pbr::mesh_view_bindings globals
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::{
+    mesh_view_bindings::globals,
+    forward_io::VertexOutput,
+}
 
 fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
     let L = c.x;
@@ -23,7 +25,7 @@ fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn fragment(in: MeshVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let speed = 2.0;
     // The globals binding contains various global values like time
     // which is the time since startup in seconds

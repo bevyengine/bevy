@@ -4,14 +4,12 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
-    scene::InstanceId,
+    camera_controller::free_camera::FreeCamera,
+    gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup, gltf::Gltf,
+    input::common_conditions::input_just_pressed, prelude::*, world_serialization::InstanceId,
 };
 
-use std::f32::consts::*;
-use std::fmt;
-
-use super::camera_controller_plugin::*;
+use std::{f32::consts::*, fmt};
 
 #[derive(Resource)]
 pub struct SceneHandle {
@@ -34,22 +32,25 @@ impl SceneHandle {
     }
 }
 
-#[cfg(not(feature = "animation"))]
+#[cfg(not(feature = "gltf_animation"))]
 const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     compile with "--features animation" for animation controls.
 "#;
 
-#[cfg(feature = "animation")]
+#[cfg(feature = "gltf_animation")]
 const INSTRUCTIONS: &str = "
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
+    F           - toggle camera frusta
+    J           - toggle skinned mesh joint bounding boxes
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     Space       - Play/Pause animation
@@ -73,26 +74,45 @@ impl Plugin for SceneViewerPlugin {
                 (
                     update_lights,
                     camera_tracker,
-                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::B)),
+                    (
+                        toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                        toggle_camera_frusta.run_if(input_just_pressed(KeyCode::KeyF)),
+                        toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
+                    )
+                        .chain(),
                 ),
             );
     }
 }
 
-fn toggle_bounding_boxes(mut config: ResMut<GizmoConfig>) {
-    config.aabb.draw_all ^= true;
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_camera_frusta(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
+    config
+        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
+        .1
+        .draw_all ^= true;
 }
 
 fn scene_load_check(
     asset_server: Res<AssetServer>,
-    mut scenes: ResMut<Assets<Scene>>,
+    mut scenes: ResMut<Assets<WorldAsset>>,
     gltf_assets: Res<Assets<Gltf>>,
     mut scene_handle: ResMut<SceneHandle>,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<WorldInstanceSpawner>,
 ) {
     match scene_handle.instance_id {
         None => {
-            if asset_server.load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
+            if asset_server
+                .load_state(&scene_handle.gltf_handle)
+                .is_loaded()
+            {
                 let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
                 if gltf.scenes.len() > 1 {
                     info!(
@@ -112,7 +132,7 @@ fn scene_load_check(
                                 scene_handle.scene_index
                             )
                         });
-                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+                let mut scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
                 let mut query = scene
                     .world
@@ -124,8 +144,7 @@ fn scene_load_check(
                             maybe_directional_light.is_some() || maybe_point_light.is_some()
                         });
 
-                scene_handle.instance_id =
-                    Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
+                scene_handle.instance_id = Some(scene_spawner.spawn(gltf_scene_handle.clone()));
 
                 info!("Spawning scene...");
             }
@@ -139,19 +158,20 @@ fn scene_load_check(
         Some(_) => {}
     }
 }
+
 fn update_lights(
-    key_input: Res<Input<KeyCode>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut DirectionalLight)>,
     mut animate_directional_light: Local<bool>,
 ) {
     for (_, mut light) in &mut query {
-        if key_input.just_pressed(KeyCode::U) {
-            light.shadows_enabled = !light.shadows_enabled;
+        if key_input.just_pressed(KeyCode::KeyU) {
+            light.shadow_maps_enabled = !light.shadow_maps_enabled;
         }
     }
 
-    if key_input.just_pressed(KeyCode::L) {
+    if key_input.just_pressed(KeyCode::KeyL) {
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
@@ -159,7 +179,7 @@ fn update_lights(
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.elapsed_seconds() * PI / 15.0,
+                time.elapsed_secs() * PI / 15.0,
                 -FRAC_PI_4,
             );
         }
@@ -197,10 +217,10 @@ impl CameraTracker {
 
 fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
-        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<FreeCamera>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<FreeCamera>)>,
         Query<&mut Camera>,
     )>,
 ) {
@@ -215,19 +235,19 @@ fn camera_tracker(
         camera.is_active = camera_tracker.track_camera(entity);
     }
 
-    if keyboard_input.just_pressed(KeyCode::C) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
-        if let Some(e) = camera_tracker.active_camera() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = false;
-            }
+        if let Some(e) = camera_tracker.active_camera()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = false;
         }
 
         // enable next active camera
-        if let Some(e) = camera_tracker.set_next_active() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = true;
-            }
+        if let Some(e) = camera_tracker.set_next_active()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = true;
         }
     }
 }

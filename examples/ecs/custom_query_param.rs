@@ -1,4 +1,4 @@
-//! This example illustrates the usage of the [`WorldQuery`] derive macro, which allows
+//! This example illustrates the usage of the [`QueryData`] derive macro, which allows
 //! defining custom query and filter types.
 //!
 //! While regular tuple queries work great in most of simple scenarios, using custom queries
@@ -10,9 +10,12 @@
 //! - Named structs enable the composition pattern, that makes query types easier to re-use.
 //! - You can bypass the limit of 15 components that exists for query tuples.
 //!
-//! For more details on the `WorldQuery` derive macro, see the trait documentation.
+//! For more details on the [`QueryData`] derive macro, see the trait documentation.
 
-use bevy::{ecs::query::WorldQuery, prelude::*};
+use bevy::{
+    ecs::query::{QueryData, QueryFilter},
+    prelude::*,
+};
 use std::fmt::Debug;
 
 fn main() {
@@ -25,6 +28,7 @@ fn main() {
                 print_components_iter_mut,
                 print_components_iter,
                 print_components_tuple,
+                print_components_contiguous_iter,
             )
                 .chain(),
         )
@@ -42,8 +46,8 @@ struct ComponentD;
 #[derive(Component, Debug)]
 struct ComponentZ;
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static ComponentA,
@@ -56,11 +60,14 @@ struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 fn print_components_read_only(
-    query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    query: Query<
+        ReadOnlyCustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (read_only):");
     for e in &query {
-        println!("Entity: {:?}", e.entity);
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
@@ -71,13 +78,14 @@ fn print_components_read_only(
     println!();
 }
 
-// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
-// The `WorldQuery` derive macro will still create a read-only version, which will be have `ReadOnly`
-// suffix.
-// Note: if you want to use derive macros with read-only query variants, you need to pass them with
-// using the `derive` attribute.
-#[derive(WorldQuery)]
-#[world_query(mutable, derive(Debug))]
+/// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
+///
+/// The [`QueryData`] derive macro will still create a read-only version, which will be have `ReadOnly`
+/// suffix.
+/// Note: if you want to use derive macros with read-only query variants, you need to pass them with
+/// using the `derive` attribute.
+#[derive(QueryData)]
+#[query_data(mutable, derive(Debug))]
 struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static mut ComponentA,
@@ -90,27 +98,27 @@ struct CustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct EmptyQuery {
     empty: (),
 }
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct NestedQuery {
     c: &'static ComponentC,
     d: Option<&'static ComponentD>,
 }
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug), contiguous(mutable))]
 struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
 
-#[derive(WorldQuery)]
-struct QueryFilter<T: Component, P: Component> {
+#[derive(QueryFilter)]
+struct CustomQueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
@@ -122,13 +130,16 @@ fn spawn(mut commands: Commands) {
 }
 
 fn print_components_iter_mut(
-    mut query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    mut query: Query<
+        CustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (iter_mut):");
     for e in &mut query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryItem<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
+        let e: CustomQueryItem<'_, '_, _, _> = e;
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Optional nested: {:?}", e.optional_nested);
@@ -140,13 +151,13 @@ fn print_components_iter_mut(
 }
 
 fn print_components_iter(
-    query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    query: Query<CustomQuery<ComponentC, ComponentD>, CustomQueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter):");
     for e in &query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryReadOnlyItem<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
+        let e: CustomQueryReadOnlyItem<'_, '_, _, _> = e;
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
@@ -176,10 +187,41 @@ fn print_components_tuple(
 ) {
     println!("Print components (tuple):");
     for (entity, a, b, nested, (generic_c, generic_d)) in &query {
-        println!("Entity: {entity:?}");
+        println!("Entity: {entity}");
         println!("A: {a:?}");
         println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);
         println!("Generic: {generic_c:?} {generic_d:?}");
+    }
+    println!();
+}
+
+/// If you are going to contiguously iterate the data in a query, you must mark it with the `contiguous` attribute,
+/// which accepts one of 3 targets (`all`, `immutable` and `mutable`)
+///
+/// - `all` will make read only query as well as mutable query both be able to be iterated contiguosly
+/// - `mutable` will only make the original query (i.e., in that case [`CustomContiguousQuery`]) be able to be iterated contiguously
+/// - `immutable` will only make the read only query (which is only useful when you mark the original query as `mutable`)
+///   be able to be iterated contiguously
+#[derive(QueryData)]
+#[query_data(derive(Debug), contiguous(all))]
+struct CustomContiguousQuery<T: Component + Debug, P: Component + Debug> {
+    entity: Entity,
+    a: Ref<'static, ComponentA>,
+    b: Option<&'static ComponentB>,
+    generic: GenericQuery<T, P>,
+}
+
+fn print_components_contiguous_iter(query: Query<CustomContiguousQuery<ComponentC, ComponentD>>) {
+    println!("Print components (contiguous_iter):");
+    for e in query.contiguous_iter().unwrap() {
+        let e: CustomContiguousQueryContiguousItem<'_, '_, _, _> = e;
+        println!("Entity: {:?}", e.entity);
+        println!("A: {:?}", e.a);
+        println!("B: {:?}", e.b);
+        println!(
+            "Generic: {:?} {:?}",
+            e.generic.generic.0, e.generic.generic.1
+        );
     }
 }

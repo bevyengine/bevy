@@ -1,0 +1,39 @@
+diff --git a/crates/bevy_audio/src/audio_output.rs b/crates/bevy_audio/src/audio_output.rs
+index 1b23ccee8..4de2412fa 100644
+--- a/crates/bevy_audio/src/audio_output.rs
++++ b/crates/bevy_audio/src/audio_output.rs
+@@ -6,32 +6,17 @@ use bevy_asset::{Asset, Assets};
+ use bevy_ecs::{prelude::*, system::SystemParam};
+ use bevy_math::Vec3;
+ use bevy_transform::prelude::GlobalTransform;
+-use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player, Source, SpatialPlayer};
++use rodio::{MixerDeviceSink, Player, Source, SpatialPlayer};
+ use tracing::warn;
+ 
+ use crate::{AudioSink, AudioSinkPlayback};
+ 
+ /// Used internally to play audio on the current "audio device"
+-#[derive(Resource)]
++#[derive(Resource, Default)]
+ pub(crate) struct AudioOutput {
+     stream: Option<MixerDeviceSink>,
+ }
+ 
+-impl Default for AudioOutput {
+-    fn default() -> Self {
+-        let stream = DeviceSinkBuilder::open_default_sink()
+-            .inspect_err(|_err| {
+-                warn!("No audio device found.");
+-            })
+-            .map(|mut s| {
+-                s.log_on_drop(false);
+-                s
+-            })
+-            .ok();
+-        Self { stream }
+-    }
+-}
+-
+ /// Marker for internal use, to despawn entities when playback finishes.
+ #[derive(Component, Default)]
+ pub struct PlaybackDespawnMarker;
