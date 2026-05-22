@@ -68,7 +68,7 @@ impl<P: VectorSpace> CubicBezier<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBezier<P> {
     type Error = CubicBezierError;
 
     #[inline]
@@ -176,16 +176,15 @@ impl<P: VectorSpace> CubicHermite<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
     #[inline]
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
-            .windows(2)
-            .map(|p| {
-                let (p0, v0, p1, v1) = (p[0].0, p[0].1, p[1].0, p[1].1);
+            .array_windows()
+            .map(|&[(p0, v0), (p1, v1)]| {
                 CubicSegment::coefficients([p0, v0, p1, v1], self.char_matrix())
             })
             .collect_vec();
@@ -202,7 +201,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -313,7 +312,7 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -351,7 +350,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -471,15 +470,15 @@ impl<P: VectorSpace> CubicBSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
-            .windows(4)
-            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], self.char_matrix()))
+            .array_windows()
+            .map(|&p| CubicSegment::coefficients(p, self.char_matrix()))
             .collect_vec();
 
         if segments.is_empty() {
@@ -494,7 +493,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -620,7 +619,7 @@ pub struct CubicNurbs<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicNurbs<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights must be the same length as the control points. Defaults to equal weights.
@@ -665,12 +664,12 @@ impl<P: VectorSpace> CubicNurbs<P> {
 
         // Ensure the knots are non-descending (previous element is less than or equal
         // to the next)
-        if knots.windows(2).any(|win| win[0] > win[1]) {
+        if knots.array_windows().any(|[a, b]| a > b) {
             return Err(CubicNurbsError::DescendingKnots);
         }
 
         // Ensure the knots are non-constant
-        if knots.windows(2).all(|win| win[0] == win[1]) {
+        if knots.array_windows().all(|[a, b]| a == b) {
             return Err(CubicNurbsError::ConstantKnots);
         }
 
@@ -743,7 +742,7 @@ impl<P: VectorSpace> CubicNurbs<P> {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     const fn knots_len(control_points_len: usize) -> usize {
         control_points_len + 4
     }
@@ -781,31 +780,25 @@ impl<P: VectorSpace> CubicNurbs<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalGenerator<P> for CubicNurbs<P> {
     type Error = InsufficientDataError;
 
     #[inline]
     fn to_curve(&self) -> Result<RationalCurve<P>, Self::Error> {
         let segments = self
             .control_points
-            .windows(4)
-            .zip(self.weights.windows(4))
-            .zip(self.knots.windows(8))
+            .array_windows()
+            .zip(self.weights.array_windows())
+            .zip(self.knots.array_windows())
             .filter(|(_, knots)| knots[4] - knots[3] > 0.0)
-            .map(|((points, weights), knots)| {
+            .map(|((&points, &weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
                 // and i+4) and its characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
-                let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");
-                let matrix = Self::generate_matrix(coefficient_knots);
-                RationalSegment::coefficients(
-                    points.try_into().expect("Point windows are of length 4"),
-                    weights.try_into().expect("Weight windows are of length 4"),
-                    span,
-                    matrix,
-                )
+                let matrix = Self::generate_matrix(knots);
+                RationalSegment::coefficients(points, weights, span, matrix)
             })
             .collect_vec();
         if segments.is_empty() {
@@ -865,13 +858,9 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .points
-            .windows(2)
-            .map(|points| {
-                let a = points[0];
-                let b = points[1];
-                CubicSegment {
-                    coeff: [a, b - a, P::default(), P::default()],
-                }
+            .array_windows()
+            .map(|&[a, b]| CubicSegment {
+                coeff: [a, b - a, P::default(), P::default()],
             })
             .collect_vec();
 
@@ -962,7 +951,7 @@ pub struct CubicSegment<P: VectorSpace> {
     pub coeff: [P; 4],
 }
 
-impl<P: VectorSpace> CubicSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1036,7 +1025,7 @@ impl<P: VectorSpace> CubicSegment<P> {
 
     /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
-    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
+    pub fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
         let step = 1.0 / subdivisions as f32;
         (0..=subdivisions).map(move |i| i as f32 * step)
     }
@@ -1184,7 +1173,7 @@ pub struct CubicCurve<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
     pub fn from_segments(segments: impl IntoIterator<Item = CubicSegment<P>>) -> Option<Self> {
@@ -1347,7 +1336,8 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
-impl<P: VectorSpace> RationalSegment<P> {
+
+impl<P: VectorSpace<Scalar = f32>> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1484,7 +1474,7 @@ pub struct RationalCurve<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> RationalCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
     pub fn from_segments(segments: impl IntoIterator<Item = RationalSegment<P>>) -> Option<Self> {
@@ -1604,7 +1594,7 @@ impl<P: VectorSpace> RationalCurve<P> {
                 }
                 t -= segment.knot_span;
             }
-            return (self.segments.last().unwrap(), 1.0);
+            (self.segments.last().unwrap(), 1.0)
         }
     }
 
@@ -1788,9 +1778,7 @@ mod tests {
             for (i, (a, b)) in cubic_curve.iter().zip(rational_curve.iter()).enumerate() {
                 assert!(
                     a.distance(*b) < EPSILON,
-                    "Mismatch at {name} value {i}. CubicCurve: {} Converted RationalCurve: {}",
-                    a,
-                    b
+                    "Mismatch at {name} value {i}. CubicCurve: {a} Converted RationalCurve: {b}",
                 );
             }
         }

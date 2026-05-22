@@ -1,53 +1,102 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
-use bevy_ecs::reflect::{ReflectComponent, ReflectResource};
+use alloc::borrow::Cow;
+use bevy_ecs::component::{Components, StorageType};
+use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-    prelude::ReflectDefault, NamedField, OpaqueInfo, ReflectDeserialize, ReflectSerialize,
-    TypeInfo, TypeRegistration, VariantInfo,
+    enums::VariantInfo, GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration,
+    TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-/// Exports schema info for a given type
-pub fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
-    (reg.type_info().type_path().to_owned(), reg.into())
-}
+use crate::schemas::SchemaTypesMetadata;
 
-fn get_registered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
-    // Vec could be moved to allow registering more types by game maker.
-    let registered_reflect_types: [(TypeId, &str); 5] = [
-        { (TypeId::of::<ReflectComponent>(), "Component") },
-        { (TypeId::of::<ReflectResource>(), "Resource") },
-        { (TypeId::of::<ReflectDefault>(), "Default") },
-        { (TypeId::of::<ReflectSerialize>(), "Serialize") },
-        { (TypeId::of::<ReflectDeserialize>(), "Deserialize") },
-    ];
-    let mut result = Vec::new();
-    for (id, name) in registered_reflect_types {
-        if reg.data_by_id(id).is_some() {
-            result.push(name.to_owned());
-        }
+/// Helper trait for converting `TypeRegistration` to `JsonSchemaBevyType`
+pub trait TypeRegistrySchemaReader {
+    /// Export type JSON Schema.
+    fn export_type_json_schema<T: GetTypeRegistration + 'static>(
+        &self,
+        extra_info: &SchemaTypesMetadata,
+        components: &Components,
+    ) -> Option<JsonSchemaBevyType> {
+        self.export_type_json_schema_for_id(extra_info, TypeId::of::<T>(), components)
     }
-    result
+    /// Export type JSON Schema.
+    fn export_type_json_schema_for_id(
+        &self,
+        extra_info: &SchemaTypesMetadata,
+        type_id: TypeId,
+        components: &Components,
+    ) -> Option<JsonSchemaBevyType>;
 }
 
-impl From<&TypeRegistration> for JsonSchemaBevyType {
-    fn from(reg: &TypeRegistration) -> Self {
+impl TypeRegistrySchemaReader for TypeRegistry {
+    fn export_type_json_schema_for_id(
+        &self,
+        extra_info: &SchemaTypesMetadata,
+        type_id: TypeId,
+        components: &Components,
+    ) -> Option<JsonSchemaBevyType> {
+        let type_reg = self.get(type_id)?;
+        Some((type_reg, extra_info, components).into())
+    }
+}
+
+/// Exports schema info for a given type
+pub fn export_type(
+    reg: &TypeRegistration,
+    metadata: &SchemaTypesMetadata,
+    components: &Components,
+) -> (Cow<'static, str>, JsonSchemaBevyType) {
+    (
+        reg.type_info().type_path().into(),
+        (reg, metadata, components).into(),
+    )
+}
+
+impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchemaBevyType {
+    fn from(value: (&TypeRegistration, &SchemaTypesMetadata, &Components)) -> Self {
+        let (reg, metadata, components) = value;
         let t = reg.type_info();
         let binding = t.type_path_table();
 
         let short_path = binding.short_path();
         let type_path = binding.path();
         let mut typed_schema = JsonSchemaBevyType {
-            reflect_types: get_registered_reflect_types(reg),
+            reflect_types: metadata.get_registered_reflect_types(reg),
             short_path: short_path.to_owned(),
             type_path: type_path.to_owned(),
             crate_name: binding.crate_name().map(str::to_owned),
             module_path: binding.module_path().map(str::to_owned),
             ..Default::default()
         };
+        let component_info: Option<&ComponentInfo> = components
+            .get_valid_id(t.type_id())
+            .and_then(|component_id| components.get_info(component_id));
+        typed_schema.component_info = component_info.map(|info| {
+            let mutable = info.mutable();
+            let storage_type = info.storage_type().into();
+            let is_send_and_sync = info.is_send_and_sync();
+            let required_component_types = info
+                .required_components()
+                .iter_ids()
+                .flat_map(|component_id| components.get_info(component_id))
+                .map(|info: &ComponentInfo| info.name().to_string())
+                .collect::<Vec<_>>();
+            let relationship_kind = info
+                .relationship_accessor()
+                .map(|&relationship| relationship.into());
+            ComponentMetadata {
+                mutable,
+                storage_type,
+                is_send_and_sync,
+                required_component_types,
+                relationship_kind,
+            }
+        });
         match t {
             TypeInfo::Struct(info) => {
                 typed_schema.properties = info
@@ -166,7 +215,7 @@ impl From<&TypeRegistration> for JsonSchemaBevyType {
     }
 }
 
-/// JSON Schema type for Bevy Registry Types
+/// JSON Schema type for Bevy Registry Types.
 /// It tries to follow this standard: <https://json-schema.org/specification>
 ///
 /// To take the full advantage from info provided by Bevy registry it provides extra fields
@@ -207,6 +256,9 @@ pub struct JsonSchemaBevyType {
     /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub additional_properties: Option<bool>,
+    /// Additional metadata if this schema represents a component.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub component_info: Option<ComponentMetadata>,
     /// Validation succeeds if, for each name that appears in both the instance and as a name
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
@@ -296,6 +348,61 @@ pub enum SchemaType {
     Null,
 }
 
+/// Component-specific metadata. Related to [`ComponentInfo`].
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComponentMetadata {
+    /// Whether component is mutable or not.
+    pub mutable: bool,
+    /// The storage used for this component.
+    pub storage_type: StorageKind,
+    /// Whether component is `Send + Sync`.
+    pub is_send_and_sync: bool,
+    /// Type path of [required components](`bevy_ecs::component::RequiredComponent`).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub required_component_types: Vec<String>,
+    /// Kind of relationship, if the component has one of the [relationship traits](`bevy_ecs::relationship::Relationship`).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub relationship_kind: Option<RelationshipKind>,
+}
+
+/// The storage used for a specific component type.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub enum StorageKind {
+    /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
+    #[default]
+    Table,
+    /// Provides fast addition and removal of components, but slower iteration.
+    SparseSet,
+}
+
+impl From<StorageType> for StorageKind {
+    fn from(value: StorageType) -> Self {
+        match value {
+            StorageType::Table => StorageKind::Table,
+            StorageType::SparseSet => StorageKind::SparseSet,
+        }
+    }
+}
+
+/// Kind of relationship.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum RelationshipKind {
+    /// The child kind of relationship.
+    Relationship,
+    /// The parent kind of relationship.
+    RelationshipTarget,
+}
+
+impl From<RelationshipAccessor> for RelationshipKind {
+    fn from(value: RelationshipAccessor) -> Self {
+        match value {
+            RelationshipAccessor::Relationship { .. } => RelationshipKind::Relationship,
+            RelationshipAccessor::RelationshipTarget { .. } => RelationshipKind::RelationshipTarget,
+        }
+    }
+}
+
 /// Helper trait for generating json schema reference
 trait SchemaJsonReference {
     /// Reference to another type in schema.
@@ -351,8 +458,12 @@ impl SchemaJsonReference for &NamedField {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::prelude::ReflectComponent;
+    use bevy_ecs::prelude::ReflectResource;
+
     use bevy_ecs::{component::Component, reflect::AppTypeRegistry, resource::Resource};
-    use bevy_reflect::Reflect;
+    use bevy_reflect::prelude::ReflectDefault;
+    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 
     #[test]
     fn reflect_export_struct() {
@@ -373,12 +484,12 @@ mod tests {
             .get(TypeId::of::<Foo>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration);
-
-        assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
-            "Should not be a component"
+        let (_, schema) = export_type(
+            &foo_registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
         );
+
         assert!(
             schema.reflect_types.contains(&"Resource".to_owned()),
             "Should be a resource"
@@ -418,7 +529,11 @@ mod tests {
             .get(TypeId::of::<EnumComponent>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration);
+        let (_, schema) = export_type(
+            &foo_registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+        );
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
             "Should be a component"
@@ -453,7 +568,11 @@ mod tests {
             .get(TypeId::of::<EnumComponent>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration);
+        let (_, schema) = export_type(
+            &foo_registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+        );
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
             "Should not be a component"
@@ -461,6 +580,62 @@ mod tests {
         assert!(
             !schema.reflect_types.contains(&"Resource".to_owned()),
             "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
+    }
+
+    #[test]
+    fn reflect_struct_with_custom_type_data() {
+        #[derive(Reflect, Default, Deserialize, Serialize)]
+        #[reflect(Default)]
+        enum EnumComponent {
+            ValueOne(i32),
+            ValueTwo {
+                test: i32,
+            },
+            #[default]
+            NoValue,
+        }
+
+        #[derive(Clone)]
+        pub struct ReflectCustomData;
+
+        impl<T: Reflect> bevy_reflect::CreateTypeData<T> for ReflectCustomData {
+            fn create_type_data(_input: ()) -> Self {
+                ReflectCustomData
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EnumComponent>();
+            register.register_type_data::<EnumComponent, ReflectCustomData>();
+        }
+        let mut metadata = SchemaTypesMetadata::default();
+        metadata.map_type_data::<ReflectCustomData>("CustomData");
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<EnumComponent>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration, &metadata, &Components::default());
+        assert!(
+            !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
+            "Should not be a component"
+        );
+        assert!(
+            !metadata.has_type_data::<ReflectResource>(&schema.reflect_types),
+            "Should not be a resource"
+        );
+        assert!(
+            metadata.has_type_data::<ReflectDefault>(&schema.reflect_types),
+            "Should have default"
+        );
+        assert!(
+            metadata.has_type_data::<ReflectCustomData>(&schema.reflect_types),
+            "Should have CustomData"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
         assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
@@ -482,7 +657,11 @@ mod tests {
             .get(TypeId::of::<TupleStructType>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration);
+        let (_, schema) = export_type(
+            &foo_registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+        );
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
             "Should be a component"
@@ -513,7 +692,11 @@ mod tests {
             .get(TypeId::of::<Foo>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration);
+        let (_, schema) = export_type(
+            &foo_registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+        );
         let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
         let value = json!({
           "shortPath": "Foo",
@@ -521,6 +704,7 @@ mod tests {
           "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
           "reflectTypes": [
+            "Component",
             "Resource",
             "Default",
           ],
@@ -538,6 +722,31 @@ mod tests {
             "a"
           ]
         });
-        assert_eq!(schema_as_value, value);
+        assert_normalized_values(schema_as_value, value);
+    }
+
+    /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
+    fn assert_normalized_values(mut one: Value, mut two: Value) {
+        normalize_json(&mut one);
+        normalize_json(&mut two);
+        assert_eq!(one, two);
+
+        /// Recursively sorts arrays in a `serde_json::Value`
+        fn normalize_json(value: &mut Value) {
+            match value {
+                Value::Array(arr) => {
+                    for v in arr.iter_mut() {
+                        normalize_json(v);
+                    }
+                    arr.sort_by_key(ToString::to_string); // Sort by stringified version
+                }
+                Value::Object(map) => {
+                    for (_k, v) in map.iter_mut() {
+                        normalize_json(v);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }

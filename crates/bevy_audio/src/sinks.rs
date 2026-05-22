@@ -1,9 +1,10 @@
+use crate::Volume;
 use bevy_ecs::component::Component;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
-use rodio::{Sink, SpatialSink};
-
-use crate::Volume;
+use core::time::Duration;
+pub use rodio::source::SeekError;
+use rodio::{Player, SpatialPlayer};
 
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
@@ -40,6 +41,34 @@ pub trait AudioSinkPlayback {
     ///
     /// No effect if not paused.
     fn play(&self);
+
+    /// Returns the position of the sound that's being played.
+    ///
+    /// This takes into account any speedup or delay applied.
+    ///
+    /// Example: if you [`set_speed(2.0)`](Self::set_speed) and [`position()`](Self::position) returns *5s*,
+    /// then the position in the recording is *10s* from its start.
+    fn position(&self) -> Duration;
+
+    /// Attempts to seek to a given position in the current source.
+    ///
+    /// This blocks between 0 and ~5 milliseconds.
+    ///
+    /// As long as the duration of the source is known, seek is guaranteed to saturate
+    /// at the end of the source. For example given a source that reports a total duration
+    /// of 42 seconds calling `try_seek()` with 60 seconds as argument will seek to
+    /// 42 seconds.
+    ///
+    /// # Errors
+    /// This function will return [`SeekError::NotSupported`] if one of the underlying
+    /// sources does not support seeking.
+    ///
+    /// It will return an error if an implementation ran
+    /// into one during the seek.
+    ///
+    /// When seeking beyond the end of a source, this
+    /// function might return an error if the duration of the source is not known.
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError>;
 
     /// Pauses playback of this sink.
     ///
@@ -108,7 +137,7 @@ pub trait AudioSinkPlayback {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct AudioSink {
-    pub(crate) sink: Sink,
+    pub(crate) sink: Player,
 
     /// Managed volume allows the sink to be muted without losing the user's
     /// intended volume setting.
@@ -126,7 +155,7 @@ pub struct AudioSink {
 
 impl AudioSink {
     /// Create a new audio sink.
-    pub fn new(sink: Sink) -> Self {
+    pub fn new(sink: Player) -> Self {
         Self {
             sink,
             managed_volume: None,
@@ -158,6 +187,14 @@ impl AudioSinkPlayback for AudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn position(&self) -> Duration {
+        self.sink.get_pos()
+    }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
     }
 
     fn pause(&self) {
@@ -204,7 +241,7 @@ impl AudioSinkPlayback for AudioSink {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct SpatialAudioSink {
-    pub(crate) sink: SpatialSink,
+    pub(crate) sink: SpatialPlayer,
 
     /// Managed volume allows the sink to be muted without losing the user's
     /// intended volume setting.
@@ -222,7 +259,7 @@ pub struct SpatialAudioSink {
 
 impl SpatialAudioSink {
     /// Create a new spatial audio sink.
-    pub fn new(sink: SpatialSink) -> Self {
+    pub fn new(sink: SpatialPlayer) -> Self {
         Self {
             sink,
             managed_volume: None,
@@ -254,6 +291,14 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn position(&self) -> Duration {
+        self.sink.get_pos()
+    }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
     }
 
     fn pause(&self) {
@@ -311,7 +356,7 @@ impl SpatialAudioSink {
 
 #[cfg(test)]
 mod tests {
-    use rodio::Sink;
+    use rodio::Player;
 
     use super::*;
 
@@ -367,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_audio_sink() {
-        let (sink, _queue_rx) = Sink::new_idle();
+        let (sink, _queue_rx) = Player::new();
         let audio_sink = AudioSink::new(sink);
         test_audio_sink_playback(audio_sink);
     }

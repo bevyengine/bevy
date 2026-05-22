@@ -1,4 +1,7 @@
 use crate::{
+    enums::{
+        DynamicEnum, DynamicVariant, EnumInfo, StructVariantInfo, TupleVariantInfo, VariantInfo,
+    },
     serde::{
         de::{
             error_utils::make_custom_error,
@@ -9,8 +12,9 @@ use crate::{
         },
         TypedReflectDeserializer,
     },
-    DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo, StructVariantInfo,
-    TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    structs::DynamicStruct,
+    tuple::DynamicTuple,
+    TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
@@ -19,7 +23,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Enum`] values.
 ///
-/// [`Enum`]: crate::Enum
+/// [`Enum`]: crate::enums::Enum
 pub(super) struct EnumVisitor<'a, P> {
     pub enum_info: &'static EnumInfo,
     pub registration: &'a TypeRegistration,

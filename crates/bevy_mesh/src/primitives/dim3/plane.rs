@@ -9,16 +9,27 @@ use bevy_reflect::prelude::*;
 pub struct PlaneMeshBuilder {
     /// The [`Plane3d`] shape.
     pub plane: Plane3d,
-    /// The number of subdivisions in the mesh.
+    /// The number of subdivisions along the X axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
     ///
-    /// 1 - is split by 1 line in the middle of the plane on both the X axis and the Z axis, resulting in a plane with 4 quads / 8 triangles.
+    /// 1 - adds a vertex in the middle of the X axis, resulting in a plane with 2 quads / 4 triangles, and a new edge along the Z axis.
     ///
-    /// 2 - is a plane split by 2 lines on both the X and Z axes, subdividing the plane into 3 equal sections along each axis, resulting in a plane with 9 quads / 18 triangles.
+    /// 2 - adds 2 vertices along the X axis, resulting in a plane with 3 quads / 6 triangles.
     ///
     /// and so on...
-    pub subdivisions: u32,
+    pub subdivisions_x: u32,
+
+    /// The number of subdivisions along the Z axis.
+    ///
+    /// 0 - is the original plane geometry, the 4 points in the XZ plane.
+    ///
+    /// 1 - adds a vertex in the middle of the Z axis, resulting in a plane with 2 quads / 4 triangles, and a new edge along the X axis.
+    ///
+    /// 2 - adds 2 vertices along the Z axis, resulting in a plane with 3 quads / 6 triangles.
+    ///
+    /// and so on...
+    pub subdivisions_z: u32,
 }
 
 impl PlaneMeshBuilder {
@@ -30,7 +41,8 @@ impl PlaneMeshBuilder {
                 normal,
                 half_size: size / 2.0,
             },
-            subdivisions: 0,
+            subdivisions_x: 0,
+            subdivisions_z: 0,
         }
     }
 
@@ -42,7 +54,8 @@ impl PlaneMeshBuilder {
                 half_size: size / 2.0,
                 ..Default::default()
             },
-            subdivisions: 0,
+            subdivisions_x: 0,
+            subdivisions_z: 0,
         }
     }
 
@@ -55,7 +68,8 @@ impl PlaneMeshBuilder {
                 half_size: Vec2::splat(length) / 2.0,
                 ..Default::default()
             },
-            subdivisions: 0,
+            subdivisions_x: 0,
+            subdivisions_z: 0,
         }
     }
 
@@ -88,15 +102,46 @@ impl PlaneMeshBuilder {
     ///     equal sections along each axis, resulting in a plane with 9 quads / 18 triangles.
     #[inline]
     pub fn subdivisions(mut self, subdivisions: u32) -> Self {
-        self.subdivisions = subdivisions;
+        self.subdivisions_x = subdivisions;
+        self.subdivisions_z = subdivisions;
+        self
+    }
+
+    #[inline]
+    /// The number of subdivisions along the X axis.
+    ///
+    /// 0 - is the original plane geometry, the 4 points in the XZ plane.
+    ///
+    /// 1 - adds a vertex in the middle of the X axis, resulting in a plane with 2 quads / 4 triangles, and a new edge along the Z axis.
+    ///
+    /// 2 - adds 2 vertices along the X axis, resulting in a plane with 3 quads / 6 triangles.
+    ///
+    /// and so on...
+    pub fn subdivisions_x(mut self, subdivisions: u32) -> Self {
+        self.subdivisions_x = subdivisions;
+        self
+    }
+
+    #[inline]
+    /// The number of subdivisions along the Z axis.
+    ///
+    /// 0 - is the original plane geometry, the 4 points in the XZ plane.
+    ///
+    /// 1 - adds a vertex in the middle of the Z axis, resulting in a plane with 2 quads / 4 triangles, and a new edge along the X axis.
+    ///
+    /// 2 - adds 2 vertices along the Z axis, resulting in a plane with 3 quads / 6 triangles.
+    ///
+    /// and so on...
+    pub fn subdivisions_z(mut self, subdivisions: u32) -> Self {
+        self.subdivisions_z = subdivisions;
         self
     }
 }
 
 impl MeshBuilder for PlaneMeshBuilder {
     fn build(&self) -> Mesh {
-        let z_vertex_count = self.subdivisions + 2;
-        let x_vertex_count = self.subdivisions + 2;
+        let z_vertex_count = self.subdivisions_z + 2;
+        let x_vertex_count = self.subdivisions_x + 2;
         let num_vertices = (z_vertex_count * x_vertex_count) as usize;
         let num_indices = ((z_vertex_count - 1) * (x_vertex_count - 1) * 6) as usize;
 
@@ -148,7 +193,8 @@ impl Meshable for Plane3d {
     fn mesh(&self) -> Self::Output {
         PlaneMeshBuilder {
             plane: *self,
-            subdivisions: 0,
+            subdivisions_x: 0,
+            subdivisions_z: 0,
         }
     }
 }

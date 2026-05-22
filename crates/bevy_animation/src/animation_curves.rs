@@ -84,11 +84,13 @@
 //! [`animated_field`]: crate::animated_field
 
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
 };
 
+#[cfg(feature = "bevy_mesh")]
+pub use crate::morph::*;
 use crate::{
     graph::AnimationNodeIndex,
     prelude::{Animatable, BlendInput},
@@ -97,10 +99,8 @@ use crate::{
 use bevy_ecs::component::{Component, Mutable};
 use bevy_math::curve::{
     cores::{UnevenCore, UnevenCoreError},
-    iterable::IterableCurve,
     Curve, Interval,
 };
-use bevy_mesh::morph::MorphWeights;
 use bevy_platform::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use downcast_rs::{impl_downcast, Downcast};
@@ -199,7 +199,7 @@ pub trait AnimatableProperty: Send + Sync + 'static {
 
     /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
     /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
-    fn evaluator_id(&self) -> EvaluatorId;
+    fn evaluator_id(&self) -> EvaluatorId<'_>;
 }
 
 /// A [`Component`] field that can be animated, defined by a function that reads the component and returns
@@ -236,7 +236,7 @@ where
         Ok((self.func)(c.into_inner()))
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::ComponentField(&self.evaluator_id)
     }
 }
@@ -357,7 +357,7 @@ where
         self.curve.domain()
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         self.property.evaluator_id()
     }
 
@@ -389,6 +389,11 @@ where
             });
         Ok(())
     }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.curve.sample_clamped(t);
+        Box::new(value)
+    }
 }
 
 impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
@@ -408,10 +413,7 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit<'a>(
-        &mut self,
-        mut entity: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
+    fn commit(&mut self, mut entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
         let property = self.property.get_mut(&mut entity)?;
         *property = self
             .evaluator
@@ -419,209 +421,7 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
             .pop()
             .ok_or_else(inconsistent::<AnimatableCurveEvaluator<A>>)?
             .value;
-        Ok(())
-    }
-}
-
-/// This type allows an [`IterableCurve`] valued in `f32` to be used as an [`AnimationCurve`]
-/// that animates [morph weights].
-///
-/// [morph weights]: MorphWeights
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
-pub struct WeightsCurve<C>(pub C);
-
-#[derive(Reflect)]
-struct WeightsCurveEvaluator {
-    /// The values of the stack, in which each element is a list of morph target
-    /// weights.
-    ///
-    /// The stack elements are concatenated and tightly packed together.
-    ///
-    /// The number of elements in this stack will always be a multiple of
-    /// [`Self::morph_target_count`].
-    stack_morph_target_weights: Vec<f32>,
-
-    /// The blend weights and graph node indices for each element of the stack.
-    ///
-    /// This should have as many elements as there are stack nodes. In other
-    /// words, `Self::stack_morph_target_weights.len() *
-    /// Self::morph_target_counts as usize ==
-    /// Self::stack_blend_weights_and_graph_nodes`.
-    stack_blend_weights_and_graph_nodes: Vec<(f32, AnimationNodeIndex)>,
-
-    /// The morph target weights in the blend register, if any.
-    ///
-    /// This field should be ignored if [`Self::blend_register_blend_weight`] is
-    /// `None`. If non-empty, it will always have [`Self::morph_target_count`]
-    /// elements in it.
-    blend_register_morph_target_weights: Vec<f32>,
-
-    /// The weight in the blend register.
-    ///
-    /// This will be `None` if the blend register is empty. In that case,
-    /// [`Self::blend_register_morph_target_weights`] will be empty.
-    blend_register_blend_weight: Option<f32>,
-
-    /// The number of morph targets that are to be animated.
-    morph_target_count: Option<u32>,
-}
-
-impl<C> AnimationCurve for WeightsCurve<C>
-where
-    C: IterableCurve<f32> + Debug + Clone + Reflectable,
-{
-    fn clone_value(&self) -> Box<dyn AnimationCurve> {
-        Box::new(self.clone())
-    }
-
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn evaluator_id(&self) -> EvaluatorId {
-        EvaluatorId::Type(TypeId::of::<WeightsCurveEvaluator>())
-    }
-
-    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(WeightsCurveEvaluator {
-            stack_morph_target_weights: vec![],
-            stack_blend_weights_and_graph_nodes: vec![],
-            blend_register_morph_target_weights: vec![],
-            blend_register_blend_weight: None,
-            morph_target_count: None,
-        })
-    }
-
-    fn apply(
-        &self,
-        curve_evaluator: &mut dyn AnimationCurveEvaluator,
-        t: f32,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = curve_evaluator
-            .downcast_mut::<WeightsCurveEvaluator>()
-            .unwrap();
-
-        let prev_morph_target_weights_len = curve_evaluator.stack_morph_target_weights.len();
-        curve_evaluator
-            .stack_morph_target_weights
-            .extend(self.0.sample_iter_clamped(t));
-        curve_evaluator.morph_target_count = Some(
-            (curve_evaluator.stack_morph_target_weights.len() - prev_morph_target_weights_len)
-                as u32,
-        );
-
-        curve_evaluator
-            .stack_blend_weights_and_graph_nodes
-            .push((weight, graph_node));
-        Ok(())
-    }
-}
-
-impl WeightsCurveEvaluator {
-    fn combine(
-        &mut self,
-        graph_node: AnimationNodeIndex,
-        additive: bool,
-    ) -> Result<(), AnimationEvaluationError> {
-        let Some(&(_, top_graph_node)) = self.stack_blend_weights_and_graph_nodes.last() else {
-            return Ok(());
-        };
-        if top_graph_node != graph_node {
-            return Ok(());
-        }
-
-        let (weight_to_blend, _) = self.stack_blend_weights_and_graph_nodes.pop().unwrap();
-        let stack_iter = self.stack_morph_target_weights.drain(
-            (self.stack_morph_target_weights.len() - self.morph_target_count.unwrap() as usize)..,
-        );
-
-        match self.blend_register_blend_weight {
-            None => {
-                self.blend_register_blend_weight = Some(weight_to_blend);
-                self.blend_register_morph_target_weights.clear();
-
-                // In the additive case, the values pushed onto the blend register need
-                // to be scaled by the weight.
-                if additive {
-                    self.blend_register_morph_target_weights
-                        .extend(stack_iter.map(|m| m * weight_to_blend));
-                } else {
-                    self.blend_register_morph_target_weights.extend(stack_iter);
-                }
-            }
-
-            Some(ref mut current_weight) => {
-                *current_weight += weight_to_blend;
-                for (dest, src) in self
-                    .blend_register_morph_target_weights
-                    .iter_mut()
-                    .zip(stack_iter)
-                {
-                    if additive {
-                        *dest += src * weight_to_blend;
-                    } else {
-                        *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl AnimationCurveEvaluator for WeightsCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.combine(graph_node, /*additive=*/ false)
-    }
-
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.combine(graph_node, /*additive=*/ true)
-    }
-
-    fn push_blend_register(
-        &mut self,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        if self.blend_register_blend_weight.take().is_some() {
-            self.stack_morph_target_weights
-                .append(&mut self.blend_register_morph_target_weights);
-            self.stack_blend_weights_and_graph_nodes
-                .push((weight, graph_node));
-        }
-        Ok(())
-    }
-
-    fn commit<'a>(
-        &mut self,
-        mut entity: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
-        if self.stack_morph_target_weights.is_empty() {
-            return Ok(());
-        }
-
-        // Compute the index of the first morph target in the last element of
-        // the stack.
-        let index_of_first_morph_target =
-            self.stack_morph_target_weights.len() - self.morph_target_count.unwrap() as usize;
-
-        for (dest, src) in entity
-            .get_mut::<MorphWeights>()
-            .ok_or_else(|| {
-                AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
-            })?
-            .weights_mut()
-            .iter_mut()
-            .zip(self.stack_morph_target_weights[index_of_first_morph_target..].iter())
-        {
-            *dest = *src;
-        }
-        self.stack_morph_target_weights.clear();
-        self.stack_blend_weights_and_graph_nodes.clear();
+        self.evaluator.stack.clear();
         Ok(())
     }
 }
@@ -774,7 +574,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     ///
     /// This must match the type returned by [`Self::create_evaluator`]. It must
     /// be a single type that doesn't depend on the type of the curve.
-    fn evaluator_id(&self) -> EvaluatorId;
+    fn evaluator_id(&self) -> EvaluatorId<'_>;
 
     /// Returns a newly-instantiated [`AnimationCurveEvaluator`] for use with
     /// this curve.
@@ -805,11 +605,14 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
+
+    /// Samples the curve at the given time `t` and returns a Boxed value.
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any>;
 }
 
 /// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`AnimatableProperty`].
 /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum EvaluatorId<'a> {
     /// Corresponds to a specific field on a specific component type.
     /// The `TypeId` should correspond to the component type, and the `usize`
@@ -823,11 +626,11 @@ pub enum EvaluatorId<'a> {
     Type(TypeId),
 }
 
-/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
+/// A low-level trait for use in [`VariableCurve`](`crate::VariableCurve`) that provides fine
 /// control over how animations are evaluated.
 ///
 /// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
-/// isn't sufficiently-expressive for your needs. For example, [`MorphWeights`]
+/// isn't sufficiently-expressive for your needs. For example, `MorphWeights`
 /// implements this trait instead of using [`AnimatableCurveEvaluator`] because
 /// it needs to animate arbitrarily many weights at once, which can't be done
 /// with [`Animatable`] as that works on fixed-size values only.
@@ -840,7 +643,7 @@ pub enum EvaluatorId<'a> {
 /// either a (value, weight) pair or empty. *Value* here refers to an instance
 /// of the value being animated: for example, [`Vec3`] in the case of
 /// translation keyframes.  The stack stores intermediate values generated while
-/// evaluating the [`crate::graph::AnimationGraph`], while the blend register
+/// evaluating the [`AnimationGraph`](`crate::graph::AnimationGraph`), while the blend register
 /// stores the result of a blend operation.
 ///
 /// [`Vec3`]: bevy_math::Vec3
@@ -905,10 +708,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///
     /// The property on the component must be overwritten with the value from
     /// the stack, not blended with it.
-    fn commit<'a>(
-        &mut self,
-        entity: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError>;
+    fn commit(&mut self, entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
 }
 
 impl_downcast!(AnimationCurveEvaluator);
@@ -973,7 +773,7 @@ where
 /// This can be used in the following way:
 ///
 /// ```
-/// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
+/// # use bevy_animation::animated_field;
 /// # use bevy_color::Srgba;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_math::Vec3;
@@ -993,15 +793,19 @@ where
 #[macro_export]
 macro_rules! animated_field {
     ($component:ident::$field:tt) => {
-        AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
-            &mut component.$field
-        })
+        $crate::animation_curves::AnimatedField::new_unchecked(
+            ::core::stringify!($field),
+            |component: &mut $component| &mut component.$field,
+        )
     };
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::VariableCurve;
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
 
     #[test]
     fn test_animated_field_tuple_struct_simple_uses() {
@@ -1014,5 +818,29 @@ mod tests {
         let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
         let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
         let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
+
+    #[test]
+    fn test_sample_animation_curve() {
+        let variable_curve = VariableCurve::new(AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 1.)),
+                (1.0, Vec3::new(1., 0., 0.)),
+            ])
+            .expect("Failed to create power level curve"),
+        ));
+        let value = variable_curve
+            .0
+            .sample_clamped(0.)
+            .downcast::<Vec3>()
+            .unwrap();
+        assert_eq!(*value, Vec3::new(0., 0., 1.));
+        let value = variable_curve
+            .0
+            .sample_clamped(1.)
+            .downcast::<Vec3>()
+            .unwrap();
+        assert_eq!(*value, Vec3::new(1., 0., 0.));
     }
 }

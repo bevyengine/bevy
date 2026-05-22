@@ -5,11 +5,12 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]`.
 
-use crate::{
-    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
-    derive_data::ReflectTraitToImpl,
+use crate::type_data::TypeDataRegistration;
+use crate::{custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl};
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQClone, FQOption, FQResult},
+    terminated_parser,
 };
-use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::{
@@ -22,17 +23,13 @@ mod kw {
     syn::custom_keyword!(type_path);
     syn::custom_keyword!(Debug);
     syn::custom_keyword!(PartialEq);
+    syn::custom_keyword!(PartialOrd);
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(Clone);
     syn::custom_keyword!(no_field_bounds);
+    syn::custom_keyword!(no_auto_register);
     syn::custom_keyword!(opaque);
 }
-
-// The "special" trait idents that are used internally for reflection.
-// Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
-const DEBUG_ATTR: &str = "Debug";
-const PARTIAL_EQ_ATTR: &str = "PartialEq";
-const HASH_ATTR: &str = "Hash";
 
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
@@ -179,14 +176,16 @@ pub(crate) struct ContainerAttributes {
     clone: TraitImpl,
     debug: TraitImpl,
     hash: TraitImpl,
+    partial_ord: TraitImpl,
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
+    no_auto_register: bool,
     custom_attributes: CustomAttributes,
     is_opaque: bool,
-    idents: Vec<Ident>,
+    type_data: Vec<TypeDataRegistration>,
 }
 
 impl ContainerAttributes {
@@ -240,40 +239,43 @@ impl ContainerAttributes {
             self.parse_no_field_bounds(input)
         } else if lookahead.peek(kw::Clone) {
             self.parse_clone(input)
+        } else if lookahead.peek(kw::no_auto_register) {
+            self.parse_no_auto_register(input)
         } else if lookahead.peek(kw::Debug) {
             self.parse_debug(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
+        } else if lookahead.peek(kw::PartialOrd) {
+            self.parse_partial_ord(input)
         } else if lookahead.peek(kw::PartialEq) {
             self.parse_partial_eq(input)
         } else if lookahead.peek(Ident::peek_any) {
-            self.parse_ident(input)
+            self.parse_type_data(input)
         } else {
             Err(lookahead.error())
         }
     }
 
-    /// Parse an ident (for registration).
+    /// Parse a type data registration.
     ///
     /// Examples:
-    /// - `#[reflect(MyTrait)]` (registers `ReflectMyTrait`)
-    fn parse_ident(&mut self, input: ParseStream) -> syn::Result<()> {
-        let ident = input.parse::<Ident>()?;
+    /// - `#[reflect(Default)]`
+    /// - `#[reflect(Hash(custom_hash_fn))]`
+    fn parse_type_data(&mut self, input: ParseStream) -> syn::Result<()> {
+        let type_data = input.parse::<TypeDataRegistration>()?;
 
-        if input.peek(token::Paren) {
-            return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
-            )));
+        if self
+            .type_data
+            .iter()
+            .any(|existing| existing.ident() == type_data.ident())
+        {
+            return Err(syn::Error::new(
+                type_data.ident().span(),
+                CONFLICTING_TYPE_DATA_MESSAGE,
+            ));
         }
 
-        let ident_name = ident.to_string();
-
-        // Create the reflect ident
-        let mut reflect_ident = crate::ident::get_reflect_ident(&ident_name);
-        // We set the span to the old ident so any compile errors point to that ident instead
-        reflect_ident.set_span(ident.span());
-
-        add_unique_ident(&mut self.idents, reflect_ident)?;
+        self.type_data.push(type_data);
 
         Ok(())
     }
@@ -338,6 +340,27 @@ impl ContainerAttributes {
         Ok(())
     }
 
+    /// Parse special `PartialOrd` registration.
+    ///
+    /// Examples:
+    /// - `#[reflect(PartialOrd)]`
+    /// - `#[reflect(PartialOrd(custom_partial_cmp_fn))]`
+    fn parse_partial_ord(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::PartialOrd>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.partial_ord
+                .merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.partial_ord = TraitImpl::Implemented(ident.span);
+        }
+
+        Ok(())
+    }
+
     /// Parse special `Hash` registration.
     ///
     /// Examples:
@@ -375,6 +398,16 @@ impl ContainerAttributes {
     fn parse_no_field_bounds(&mut self, input: ParseStream) -> syn::Result<()> {
         input.parse::<kw::no_field_bounds>()?;
         self.no_field_bounds = true;
+        Ok(())
+    }
+
+    /// Parse `no_auto_register` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(no_auto_register)]`
+    fn parse_no_auto_register(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::no_auto_register>()?;
+        self.no_auto_register = true;
         Ok(())
     }
 
@@ -460,12 +493,14 @@ impl ContainerAttributes {
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
     /// is registered for this type.
     pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
+        self.type_data
+            .iter()
+            .any(|data| data.reflect_ident() == name)
     }
 
-    /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
-    pub fn idents(&self) -> &[Ident] {
-        &self.idents
+    /// The list of type data registrations.
+    pub fn type_data(&self) -> &[TypeDataRegistration] {
+        &self.type_data
     }
 
     /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
@@ -532,6 +567,33 @@ impl ContainerAttributes {
         }
     }
 
+    /// Returns the implementation of `PartialReflect::reflect_partial_cmp` as a `TokenStream`.
+    ///
+    /// If `PartialOrd` was not registered, returns `None`.
+    pub fn get_partial_ord_impl(
+        &self,
+        bevy_reflect_path: &Path,
+    ) -> Option<proc_macro2::TokenStream> {
+        match &self.partial_ord {
+            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                    if let #FQOption::Some(value) = value {
+                        ::core::cmp::PartialOrd::partial_cmp(self, value)
+                    } else {
+                        #FQOption::None
+                    }
+                }
+            }),
+            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                    #impl_fn(self, value)
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
     /// Returns the implementation of `PartialReflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
@@ -583,23 +645,16 @@ impl ContainerAttributes {
         self.no_field_bounds
     }
 
+    /// Returns true if the `no_auto_register` attribute was found on this type.
+    #[cfg(feature = "auto_register")]
+    pub fn no_auto_register(&self) -> bool {
+        self.no_auto_register
+    }
+
     /// Returns true if the `opaque` attribute was found on this type.
     pub fn is_opaque(&self) -> bool {
         self.is_opaque
     }
-}
-
-/// Adds an identifier to a vector of identifiers if it is not already present.
-///
-/// Returns an error if the identifier already exists in the list.
-fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Error> {
-    let ident_name = ident.to_string();
-    if idents.iter().any(|i| i == ident_name.as_str()) {
-        return Err(syn::Error::new(ident.span(), CONFLICTING_TYPE_DATA_MESSAGE));
-    }
-
-    idents.push(ident);
-    Ok(())
 }
 
 /// Extract a boolean value from an expression.

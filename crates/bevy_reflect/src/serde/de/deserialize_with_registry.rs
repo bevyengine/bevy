@@ -1,5 +1,5 @@
 use crate::serde::de::error_utils::make_custom_error;
-use crate::{FromType, PartialReflect, TypeRegistry};
+use crate::{CreateTypeData, PartialReflect, TypeRegistry};
 use alloc::boxed::Box;
 use serde::Deserializer;
 
@@ -42,6 +42,9 @@ use serde::Deserializer;
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [via the registry]: TypeRegistry::register_type_data
 pub trait DeserializeWithRegistry<'de>: Sized {
+    /// Deserialize this value using the given [Deserializer] and [`TypeRegistry`].
+    ///
+    /// [`Deserializer`]: ::serde::Deserializer
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>;
@@ -71,10 +74,10 @@ impl ReflectDeserializeWithRegistry {
     }
 }
 
-impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> FromType<T>
+impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> CreateTypeData<T>
     for ReflectDeserializeWithRegistry
 {
-    fn from_type() -> Self {
+    fn create_type_data(_input: ()) -> Self {
         Self {
             deserialize: |deserializer, registry| {
                 Ok(Box::new(T::deserialize(deserializer, registry)?))

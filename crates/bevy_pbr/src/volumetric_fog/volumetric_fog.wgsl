@@ -14,17 +14,23 @@
 // [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+#import bevy_pbr::atmosphere::{
+    functions::{calculate_visible_sun_ratio, clamp_to_surface},
+    bruneton_functions::transmittance_lut_r_mu_to_uv,
+}
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
-#import bevy_pbr::mesh_view_bindings::{globals, lights, view, clusterable_objects}
+#import bevy_pbr::mesh_view_bindings::{
+    globals, lights, view, clustered_lights,
+    atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+}
 #import bevy_pbr::mesh_view_types::{
-    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT, 
-    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT, 
+    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
+    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
-    ClusterableObject
 }
 #import bevy_pbr::shadow_sampling::{
-    sample_shadow_map_hardware, 
+    sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
@@ -38,6 +44,7 @@
     position_ndc_to_world,
     position_view_to_world
 }
+#import bevy_render::maths::orthonormalize
 #import bevy_pbr::clustered_forward as clustering
 #import bevy_pbr::lighting::getDistanceAttenuation;
 
@@ -46,7 +53,7 @@
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
-    far_planes: array<vec4<f32>, 3>,
+    far_planes: array<vec4<f32>, 6>,
     fog_color: vec3<f32>,
     light_tint: vec3<f32>,
     ambient_color: vec3<f32>,
@@ -136,12 +143,15 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
     // Calculate the end position of the ray. This requires us to raytrace the
-    // three back faces of the AABB to find the one that our ray intersects.
+    // back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
-    for (var plane_index = 0; plane_index < 3; plane_index += 1) {
+    for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
-        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
+        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 6];
+        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 6];
+        let other_plane_c = volumetric_fog.far_planes[(plane_index + 3) % 6];
+        let other_plane_d = volumetric_fog.far_planes[(plane_index + 4) % 6];
+        let other_plane_e = volumetric_fog.far_planes[(plane_index + 5) % 6];
 
         // Calculate the intersection of the ray and the plane. The ray must
         // intersect in front of us (t > 0).
@@ -152,13 +162,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let hit_pos = view_start_pos.xyz * t;
 
         // The intersection point must be in front of the other backfaces.
-        let other_sides = vec2(
-            dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0,
-            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0
-        );
-
         // If those tests pass, we found our backface.
-        if (all(other_sides)) {
+        if (dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_c) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_d) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_e) >= 0.0)
+        {
             end_depth_view = -hit_pos.z;
             break;
         }
@@ -170,7 +180,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
-    let ray_length_view = abs(end_depth_view - start_depth_view);
+
+    let ray_length_view = max(0.0, end_depth_view - start_depth_view);
+    // If the end is behind the start of the first opaque pixel, then we know it
+    // is occluded, and we don't need to render it
+    if (ray_length_view == 0.0) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
 
@@ -220,12 +236,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             break;
         }
 
+        let L = (*light).direction_to_light.xyz;
+
         // Offset the depth value by the bias.
-        let depth_offset = (*light).shadow_depth_bias * (*light).direction_to_light.xyz;
+        let depth_offset = (*light).shadow_depth_bias * L;
 
         // Compute phase, which determines the fraction of light that's
         // scattered toward the camera instead of away from it.
-        let neg_LdotV = dot(normalize((*light).direction_to_light.xyz), Rd_world);
+        let neg_LdotV = dot(normalize(L), Rd_world);
         let phase = henyey_greenstein(neg_LdotV);
 
         // Reset `background_alpha` for a new raymarch.
@@ -240,7 +258,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             // Calculate where we are in the ray.
             let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-            let P_view = Rd_view * f32(step) * step_size_world;
+            let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
             var density = density_factor;
 #ifdef DENSITY_TEXTURE
@@ -251,7 +269,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             // case.
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
-                density *= textureSample(density_texture, density_sampler, P_uvw + density_texture_offset).r;
+                density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
             } else {
                 density = 0.0;
             }
@@ -291,8 +309,22 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             if (local_light_attenuation != 0.0) {
                 let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
-                let light_factors_per_step = fog_color * light_tint * light_attenuation *
+                var light_factors_per_step = fog_color * light_tint * light_attenuation *
                     scattering * density * step_size_world * light_intensity * exposure;
+
+#ifdef ATMOSPHERE
+                // attenuate by atmospheric scattering
+                let P = P_world + depth_offset;
+                let P_as = (atmosphere.world_to_atmosphere * vec4(P, 1.0)).xyz;
+                let P_clamped = clamp_to_surface(atmosphere, P_as);
+                let r = length(P_clamped);
+                let local_up = normalize(P_clamped);
+                let mu_light = dot(L, local_up);
+
+                let transmittance = sample_transmittance_lut(r, mu_light);
+                let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+                light_factors_per_step *= transmittance * sun_visibility;
+#endif
 
                 // Modulate the factor we calculated above by the phase, fog color,
                 // light color, light tint.
@@ -306,35 +338,50 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     }
 
     // Point lights and Spot lights
-    let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
-    let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
-    var clusterable_object_index_ranges =
-        clustering::unpack_clusterable_object_index_ranges(cluster_index);
-    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
-            i = i + 1u) {
-        let light_id = clustering::get_clusterable_object_id(i);
-        let light = &clusterable_objects.data[light_id];
-        if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
-            continue;
+
+    // Reset `background_alpha` for a new raymarch.
+    background_alpha = 1.0;
+
+    // Start raymarching.
+    for (var step = 0u; step < step_count; step += 1u) {
+        // As an optimization, break if we've gotten too dark.
+        if (background_alpha < 0.001) {
+            break;
         }
 
-        // Reset `background_alpha` for a new raymarch.
-        background_alpha = 1.0;
+        // Calculate where we are in the ray.
+        let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
+        let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
-        // Start raymarching.
-        for (var step = 0u; step < step_count; step += 1u) {
-            // As an optimization, break if we've gotten too dark.
-            if (background_alpha < 0.001) {
-                break;
+        var density = density_factor;
+#ifdef DENSITY_TEXTURE
+            // Take the density texture into account, if there is one.
+            //
+            // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
+            // but sometimes due to floating point error they can. Handle this
+            // case.
+            let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
+            if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
+                density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
+            } else {
+                density = 0.0;
             }
+#endif  // DENSITY_TEXTURE
 
-            // Calculate where we are in the ray.
-            let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-            let P_view = Rd_view * f32(step) * step_size_world;
+        var sample_color = vec3(0.0);
 
-            var density = density_factor;
+        let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
+        var clusterable_object_index_ranges = clustering::unpack_clusterable_object_index_ranges(cluster_index);
+        for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u)
+        {
+            let light_id = clustering::get_clusterable_object_id(i);
+            let light = &clustered_lights.data[light_id];
+            if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
+                continue;
+            }
 
             let light_to_frag = (*light).position_radius.xyz - P_world;
             let V = Rd_world;
@@ -345,7 +392,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= shadow;
             } else {
@@ -356,9 +403,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
                     spot_dir.y = -spot_dir.y;
                 }
-                let light_to_frag = (*light).position_radius.xyz - P_world;
 
-                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
                 // spot_scale and spot_offset have been precomputed
                 // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
                 let cd = dot(-spot_dir, normalize(light_to_frag));
@@ -367,30 +413,30 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
-            
-            // Calculate absorption (amount of light absorbed by the fog) and
-            // out-scattering (amount of light the fog scattered away).
-            let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
-
-            // Process absorption and out-scattering.
-            background_alpha *= sample_attenuation;
 
             let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
             let light_factors_per_step = fog_color * light_tint * light_attenuation *
-                scattering * density * step_size_world * light_intensity * 0.1;
+                scattering * density * step_size_world * light_intensity * exposure;
 
             // Modulate the factor we calculated above by the phase, fog color,
             // light color, light tint.
             let light_color_per_step = (*light).color_inverse_square_range.rgb * light_factors_per_step;
 
             // Accumulate the light.
-            accumulated_color += light_color_per_step * local_light_attenuation *
-                background_alpha;
+            sample_color += light_color_per_step * local_light_attenuation;
         }
+
+        // Calculate absorption (amount of light absorbed by the fog) and
+        // out-scattering (amount of light the fog scattered away).
+        let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
+
+        // Process absorption and out-scattering.
+        background_alpha *= sample_attenuation;
+        accumulated_color += sample_color * background_alpha;
     }
 
     // We're done! Return the color with alpha so it can be blended onto the
@@ -398,8 +444,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4(accumulated_color, 1.0 - background_alpha);
 }
 
-fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
-    let light = &clusterable_objects.data[light_id];
+fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+    let light = &clustered_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -414,7 +460,7 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) ->
     let offset_position = frag_position.xyz + depth_offset;
 
     // similar largest-absolute-axis trick as above, but now with the offset fragment position
-    let frag_ls = offset_position.xyz - (*light).position_radius.xyz ;
+    let frag_ls = offset_position.xyz - (*light).position_radius.xyz;
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
@@ -428,11 +474,11 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) ->
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     let flip_z = vec3(1.0, 1.0, -1.0);
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
 }
 
-fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
-    let light = &clusterable_objects.data[light_id];
+fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+    let light = &clustered_lights.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
 
@@ -450,17 +496,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
         -surface_to_light
         + ((*light).shadow_depth_bias * normalize(surface_to_light));
 
-    // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
-    var sign = -1.0;
-    if (fwd.z >= 0.0) {
-        sign = 1.0;
-    }
-    let a = -1.0 / (fwd.z + sign);
-    let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+    let light_inv_rot = orthonormalize(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
@@ -481,6 +517,16 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
         shadow_uv,
         depth,
         i32(light_id) + lights.spot_light_shadowmap_offset,
+        frag_coord_xy,
         SPOT_SHADOW_TEXEL_SIZE
     );
 }
+
+#ifdef ATMOSPHERE
+fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
+    return textureSampleLevel(
+        atmosphere_transmittance_texture,
+        atmosphere_transmittance_sampler, uv, 0.0).rgb;
+}
+#endif  // ATMOSPHERE

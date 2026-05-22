@@ -5,8 +5,8 @@ use super::helpers::*;
 use bevy_color::Color;
 use bevy_math::{
     primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-        Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d,
+        Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
     },
     Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
 };
@@ -235,7 +235,7 @@ where
 
 // polyline 3d
 
-impl<const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Polyline3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -247,34 +247,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: &Polyline3d<N>,
-        isometry: impl Into<Isometry3d>,
-        color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        let isometry = isometry.into();
-        self.linestrip(primitive.vertices.map(|vec3| isometry * vec3), color);
-    }
-}
-
-// boxed polyline 3d
-
-impl<Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for GizmoBuffer<Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    type Output<'a>
-        = ()
-    where
-        Self: 'a;
-
-    fn primitive_3d(
-        &mut self,
-        primitive: &BoxedPolyline3d,
+        primitive: &Polyline3d,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
@@ -284,11 +257,7 @@ where
 
         let isometry = isometry.into();
         self.linestrip(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .map(|vec3| isometry * vec3),
+            primitive.vertices.iter().map(|vec3| isometry * *vec3),
             color,
         );
     }
@@ -318,7 +287,7 @@ where
 
         let isometry = isometry.into();
         let [a, b, c] = primitive.vertices;
-        self.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
+        self.lineloop([a, b, c].map(|vec3| isometry * vec3), color);
     }
 }
 
@@ -701,12 +670,9 @@ where
             });
 
         // base circle
-        circle_coords
-            .windows(2)
-            .map(|win| (win[0], win[1]))
-            .for_each(|(start, end)| {
-                self.gizmos.line(start, end, self.color);
-            });
+        circle_coords.array_windows().for_each(|&[start, end]| {
+            self.gizmos.line(start, end, self.color);
+        });
     }
 }
 
@@ -795,9 +761,9 @@ where
                     .collect::<Vec<_>>()
             });
 
-        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-        upper_lines.chain(lower_lines).for_each(|(start, end)| {
+        let upper_lines = upper_points.array_windows();
+        let lower_lines = lower_points.array_windows();
+        upper_lines.chain(lower_lines).for_each(|&[start, end]| {
             self.gizmos.line(start, end, self.color);
         });
 
@@ -906,8 +872,8 @@ where
 
         [&inner, &outer, &top, &bottom]
             .iter()
-            .flat_map(|points| points.windows(2).map(|win| (win[0], win[1])))
-            .for_each(|(start, end)| {
+            .flat_map(|points| points.array_windows())
+            .for_each(|&[start, end]| {
                 self.gizmos.line(start, end, self.color);
             });
 

@@ -3,8 +3,9 @@
 //!
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
-//! Same as [`super::component`], but for bundles.
+//! Same as [`component`](`super::component`), but for bundles.
 use alloc::boxed::Box;
+use bevy_utils::prelude::DebugName;
 use core::any::{Any, TypeId};
 
 use crate::{
@@ -15,7 +16,7 @@ use crate::{
     world::{EntityMut, EntityWorldMut},
 };
 use bevy_reflect::{
-    FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
 };
 
 use super::{from_reflect_with_fallback, ReflectComponent};
@@ -29,7 +30,7 @@ pub struct ReflectBundle(ReflectBundleFns);
 
 /// The raw function pointers needed to make up a [`ReflectBundle`].
 ///
-/// The also [`super::component::ReflectComponentFns`].
+/// The also [`ReflectComponentFns`](`super::component::ReflectComponentFns`).
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert`].
@@ -52,12 +53,12 @@ pub struct ReflectBundleFns {
 
 impl ReflectBundleFns {
     /// Get the default set of [`ReflectBundleFns`] for a specific bundle type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Bundle + FromReflect + TypePath + BundleFromComponents>() -> Self {
-        <ReflectBundle as FromType<T>>::from_type().0
+        <ReflectBundle as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -147,8 +148,8 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for ReflectBundle {
-    fn from_type() -> Self {
+impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> for ReflectBundle {
+    fn create_type_data(_input: ()) -> Self {
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
                 let bundle = entity.world_scope(|world| {
@@ -165,14 +166,14 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                     match reflected_bundle.reflect_ref() {
                         ReflectRef::Struct(bundle) => bundle
                             .iter_fields()
-                            .for_each(|field| apply_field(&mut entity, field, registry)),
+                            .for_each(|(_, field)| apply_field(&mut entity, field, registry)),
                         ReflectRef::Tuple(bundle) => bundle
                             .iter_fields()
                             .for_each(|field| apply_field(&mut entity, field, registry)),
                         _ => panic!(
                             "expected bundle `{}` to be named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
-                            core::any::type_name::<B>(),
+                            DebugName::type_name::<B>(),
                         ),
                     }
                 }
@@ -194,15 +195,17 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                     );
                 } else {
                     match reflected_bundle.reflect_ref() {
-                        ReflectRef::Struct(bundle) => bundle.iter_fields().for_each(|field| {
-                            apply_or_insert_field_mapped(
-                                entity,
-                                field,
-                                registry,
-                                mapper,
-                                relationship_hook_mode,
-                            );
-                        }),
+                        ReflectRef::Struct(bundle) => {
+                            bundle.iter_fields().for_each(|(_, field)| {
+                                apply_or_insert_field_mapped(
+                                    entity,
+                                    field,
+                                    registry,
+                                    mapper,
+                                    relationship_hook_mode,
+                                );
+                            });
+                        }
                         ReflectRef::Tuple(bundle) => bundle.iter_fields().for_each(|field| {
                             apply_or_insert_field_mapped(
                                 entity,
@@ -215,7 +218,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                         _ => panic!(
                             "expected bundle `{}` to be a named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
-                            core::any::type_name::<B>(),
+                            DebugName::type_name::<B>(),
                         ),
                     }
                 }

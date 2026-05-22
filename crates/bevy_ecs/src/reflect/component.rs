@@ -16,14 +16,14 @@
 //! [`get_type_registration`] method (see the relevant code[^1]).
 //!
 //! ```
-//! # use bevy_reflect::{FromType, Reflect};
+//! # use bevy_reflect::{CreateTypeData, Reflect};
 //! # use bevy_ecs::prelude::{ReflectComponent, Component};
 //! # #[derive(Default, Reflect, Component)]
 //! # struct A;
 //! # impl A {
 //! #   fn foo() {
 //! # let mut registration = bevy_reflect::TypeRegistration::of::<A>();
-//! registration.insert::<ReflectComponent>(FromType::<Self>::from_type());
+//! registration.insert::<ReflectComponent>(CreateTypeData::<Self>::create_type_data(()));
 //! #   }
 //! # }
 //! ```
@@ -32,10 +32,10 @@
 //! The user can access the `ReflectComponent` for type `T` through the type registry,
 //! as per the `trait_reflection.rs` example.
 //!
-//! The `FromType::<Self>::from_type()` in the previous line calls the `FromType<C>`
-//! implementation of `ReflectComponent`.
+//! The `CreateTypeData::<Self>::create_type_data(())` in the previous line calls the
+//! `CreateTypeData<C>` implementation of `ReflectComponent`.
 //!
-//! The `FromType<C>` impl creates a function per field of [`ReflectComponentFns`].
+//! The `CreateTypeData<C>` impl creates a function per field of [`ReflectComponentFns`].
 //! In those functions, we call generic methods on [`World`] and [`EntityWorldMut`].
 //!
 //! The result is a `ReflectComponent` completely independent of `C`, yet capable
@@ -69,8 +69,9 @@ use crate::{
         FilteredEntityRef, World,
     },
 };
-use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
-use disqualified::ShortName;
+use alloc::boxed::Box;
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -115,12 +116,14 @@ pub struct ReflectComponentFns {
     ),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
+    /// Function pointer implementing [`ReflectComponent::take()`].
+    pub take: fn(&mut EntityWorldMut) -> Option<Box<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(FilteredEntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
+    pub reflect: for<'w> fn(FilteredEntityRef<'w, '_>) -> Option<&'w dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    pub reflect_mut: for<'w> fn(FilteredEntityMut<'w, '_>) -> Option<Mut<'w, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::map_entities()`].
     pub map_entities: fn(&mut dyn Reflect, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
@@ -136,12 +139,12 @@ pub struct ReflectComponentFns {
 
 impl ReflectComponentFns {
     /// Get the default set of [`ReflectComponentFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Component + FromReflect + TypePath>() -> Self {
-        <ReflectComponent as FromType<T>>::from_type().0
+        <ReflectComponent as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -188,13 +191,21 @@ impl ReflectComponent {
         (self.0.remove)(entity);
     }
 
+    /// Removes this [`Component`] from the entity and returns its previous value.
+    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect>> {
+        (self.0.take)(entity)
+    }
+
     /// Returns whether entity contains this [`Component`]
-    pub fn contains<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> bool {
+    pub fn contains<'w, 's>(&self, entity: impl Into<FilteredEntityRef<'w, 's>>) -> bool {
         (self.0.contains)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'w, 's>(
+        &self,
+        entity: impl Into<FilteredEntityRef<'w, 's>>,
+    ) -> Option<&'w dyn Reflect> {
         (self.0.reflect)(entity.into())
     }
 
@@ -203,10 +214,10 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub fn reflect_mut<'a>(
+    pub fn reflect_mut<'w, 's>(
         &self,
-        entity: impl Into<FilteredEntityMut<'a>>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+        entity: impl Into<FilteredEntityMut<'w, 's>>,
+    ) -> Option<Mut<'w, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
 
@@ -295,8 +306,8 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
-    fn from_type() -> Self {
+impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
+    fn create_type_data(_input: ()) -> Self {
         // TODO: Currently we panic if a component is immutable and you use
         // reflection to mutate it. Perhaps the mutation methods should be fallible?
         ReflectComponent(ReflectComponentFns {
@@ -308,7 +319,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply: |mut entity, reflected_component| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -345,6 +357,11 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             remove: |entity| {
                 entity.remove::<C>();
             },
+            take: |entity| {
+                entity
+                    .take::<C>()
+                    .map(|component| Box::new(component).into_reflect())
+            },
             contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity, registry| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
@@ -357,7 +374,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -370,7 +388,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 

@@ -17,9 +17,15 @@
 
 struct MyExtendedMaterial {
     quantize_steps: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    // Web examples WebGL2 support: structs must be 16 byte aligned.
+    _webgl2_padding_8b: u32,
+    _webgl2_padding_12b: u32,
+    _webgl2_padding_16b: u32,
+#endif
 }
 
-@group(2) @binding(100)
+@group(#{MATERIAL_BIND_GROUP}) @binding(100)
 var<uniform> my_extended_material: MyExtendedMaterial;
 
 @fragment
@@ -34,7 +40,11 @@ fn fragment(
     pbr_input.material.base_color.b = pbr_input.material.base_color.r;
 
     // alpha discard
-    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+    pbr_input.material.base_color = alpha_discard(
+        pbr_input.material.flags,
+        pbr_input.material.alpha_cutoff,
+        pbr_input.material.base_color
+    );
 
 #ifdef PREPASS_PIPELINE
     // in deferred mode we can't modify anything after that, as lighting is run in a separate fullscreen shader.

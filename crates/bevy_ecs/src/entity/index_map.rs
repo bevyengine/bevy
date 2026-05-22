@@ -17,7 +17,12 @@ use core::{
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use indexmap::map::{self, IndexMap, IntoValues, ValuesMut};
+pub use indexmap::map::Entry;
+use indexmap::{
+    self,
+    map::{self, IntoValues, ValuesMut},
+    IndexMap,
+};
 
 use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
@@ -27,14 +32,14 @@ use bevy_platform::prelude::Box;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone)]
-pub struct EntityIndexMap<V>(pub(crate) IndexMap<Entity, V, EntityHash>);
+pub struct EntityIndexMap<V>(IndexMap<Entity, V, EntityHash>);
 
 impl<V> EntityIndexMap<V> {
     /// Creates an empty `EntityIndexMap`.
     ///
     /// Equivalent to [`IndexMap::with_hasher(EntityHash)`].
     ///
-    /// [`IndexMap::with_hasher(EntityHash)`]: IndexMap::with_hasher
+    /// [`IndexMap::with_hasher(EntityHash)`]: indexmap::IndexMap::with_hasher
     pub const fn new() -> Self {
         Self(IndexMap::with_hasher(EntityHash))
     }
@@ -43,9 +48,14 @@ impl<V> EntityIndexMap<V> {
     ///
     /// Equivalent to [`IndexMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
-    /// [`IndexMap:with_capacity_and_hasher(n, EntityHash)`]: IndexMap::with_capacity_and_hasher
+    /// [`IndexMap::with_capacity_and_hasher(n, EntityHash)`]: indexmap::IndexMap::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(IndexMap::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Constructs an `EntityIndexMap` from an [`IndexMap`].
+    pub const fn from_index_map(set: IndexMap<Entity, V, EntityHash>) -> Self {
+        Self(set)
     }
 
     /// Returns the inner [`IndexMap`].
@@ -178,6 +188,7 @@ impl<V> FromIterator<(Entity, V)> for EntityIndexMap<V> {
 
 impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityIndexMap<V> {
     type Output = V;
+
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())
     }
@@ -185,6 +196,7 @@ impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityIndexMap<V> {
 
 impl<V> Index<(Bound<usize>, Bound<usize>)> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -193,6 +205,7 @@ impl<V> Index<(Bound<usize>, Bound<usize>)> for EntityIndexMap<V> {
 
 impl<V> Index<Range<usize>> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: Range<usize>) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -201,6 +214,7 @@ impl<V> Index<Range<usize>> for EntityIndexMap<V> {
 
 impl<V> Index<RangeFrom<usize>> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: RangeFrom<usize>) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -209,6 +223,7 @@ impl<V> Index<RangeFrom<usize>> for EntityIndexMap<V> {
 
 impl<V> Index<RangeFull> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: RangeFull) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -217,6 +232,7 @@ impl<V> Index<RangeFull> for EntityIndexMap<V> {
 
 impl<V> Index<RangeInclusive<usize>> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: RangeInclusive<usize>) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -225,6 +241,7 @@ impl<V> Index<RangeInclusive<usize>> for EntityIndexMap<V> {
 
 impl<V> Index<RangeTo<usize>> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: RangeTo<usize>) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -233,6 +250,7 @@ impl<V> Index<RangeTo<usize>> for EntityIndexMap<V> {
 
 impl<V> Index<RangeToInclusive<usize>> for EntityIndexMap<V> {
     type Output = Slice<V>;
+
     fn index(&self, key: RangeToInclusive<usize>) -> &Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -241,6 +259,7 @@ impl<V> Index<RangeToInclusive<usize>> for EntityIndexMap<V> {
 
 impl<V> Index<usize> for EntityIndexMap<V> {
     type Output = V;
+
     fn index(&self, key: usize) -> &V {
         self.0.index(key)
     }
@@ -425,7 +444,7 @@ impl<V> Slice<V> {
         clippy::borrowed_box,
         reason = "We wish to access the Box API of the inner type, without consuming it."
     )]
-    pub fn as_boxed_inner(self: &Box<Self>) -> &Box<map::Slice<Entity, V>> {
+    pub const fn as_boxed_inner(self: &Box<Self>) -> &Box<map::Slice<Entity, V>> {
         // SAFETY: Slice is a transparent wrapper around indexmap::map::Slice.
         unsafe { &*(ptr::from_ref(self).cast::<Box<map::Slice<Entity, V>>>()) }
     }
@@ -587,7 +606,7 @@ impl<V> Slice<V> {
         IntoKeys(self.into_boxed_inner().into_keys(), PhantomData)
     }
 
-    /// Return an iterator over mutable references to the the values of the map slice.
+    /// Return an iterator over mutable references to the values of the map slice.
     ///
     /// Equivalent to [`map::Slice::values_mut`].
     pub fn values_mut(&mut self) -> ValuesMut<'_, Entity, V> {
@@ -709,6 +728,7 @@ impl<V: Eq> Eq for Slice<V> {}
 
 impl<V> Index<(Bound<usize>, Bound<usize>)> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -717,6 +737,7 @@ impl<V> Index<(Bound<usize>, Bound<usize>)> for Slice<V> {
 
 impl<V> Index<Range<usize>> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: Range<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -725,6 +746,7 @@ impl<V> Index<Range<usize>> for Slice<V> {
 
 impl<V> Index<RangeFrom<usize>> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: RangeFrom<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -733,6 +755,7 @@ impl<V> Index<RangeFrom<usize>> for Slice<V> {
 
 impl<V> Index<RangeFull> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: RangeFull) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -741,6 +764,7 @@ impl<V> Index<RangeFull> for Slice<V> {
 
 impl<V> Index<RangeInclusive<usize>> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: RangeInclusive<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -749,6 +773,7 @@ impl<V> Index<RangeInclusive<usize>> for Slice<V> {
 
 impl<V> Index<RangeTo<usize>> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: RangeTo<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -757,6 +782,7 @@ impl<V> Index<RangeTo<usize>> for Slice<V> {
 
 impl<V> Index<RangeToInclusive<usize>> for Slice<V> {
     type Output = Self;
+
     fn index(&self, key: RangeToInclusive<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -765,6 +791,7 @@ impl<V> Index<RangeToInclusive<usize>> for Slice<V> {
 
 impl<V> Index<usize> for Slice<V> {
     type Output = V;
+
     fn index(&self, key: usize) -> &V {
         self.1.index(key)
     }
@@ -832,8 +859,18 @@ impl<V> IndexMut<usize> for Slice<V> {
 pub struct Iter<'a, V, S = EntityHash>(map::Iter<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Iter<'a, V> {
+    /// Constructs a [`Iter<'a, V, S>`] from a [`map::Iter<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub const unsafe fn from_iter_unchecked<S>(iter: map::Iter<'a, Entity, V>) -> Iter<'a, V, S> {
+        Iter(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](map::Iter).
-    pub fn into_inner(self) -> map::Iter<'a, Entity, V> {
+    pub const fn into_inner(self) -> map::Iter<'a, Entity, V> {
         self.0
     }
 
@@ -860,6 +897,10 @@ impl<'a, V> Iterator for Iter<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for Iter<'_, V> {
@@ -874,7 +915,8 @@ impl<V> FusedIterator for Iter<'_, V> {}
 
 impl<V> Clone for Iter<'_, V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Iter`.
+        unsafe { Self::from_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -886,7 +928,8 @@ impl<V: Debug> Debug for Iter<'_, V> {
 
 impl<V> Default for Iter<'_, V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Iter` is empty.
+        unsafe { Self::from_iter_unchecked(Default::default()) }
     }
 }
 
@@ -897,8 +940,20 @@ impl<V> Default for Iter<'_, V> {
 pub struct IterMut<'a, V, S = EntityHash>(map::IterMut<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> IterMut<'a, V> {
+    /// Constructs a [`IterMut<'a, V, S>`] from a [`map::IterMut<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter_mut` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub const unsafe fn from_iter_mut_unchecked<S>(
+        iter_mut: map::IterMut<'a, Entity, V>,
+    ) -> IterMut<'a, V, S> {
+        IterMut(iter_mut, PhantomData)
+    }
+
     /// Returns the inner [`IterMut`](map::IterMut).
-    pub fn into_inner(self) -> map::IterMut<'a, Entity, V> {
+    pub const fn into_inner(self) -> map::IterMut<'a, Entity, V> {
         self.0
     }
 
@@ -933,6 +988,10 @@ impl<'a, V> Iterator for IterMut<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for IterMut<'_, V> {
@@ -956,7 +1015,8 @@ impl<V: Debug> Debug for IterMut<'_, V> {
 
 impl<V> Default for IterMut<'_, V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IterMut` is empty.
+        unsafe { Self::from_iter_mut_unchecked(Default::default()) }
     }
 }
 
@@ -967,6 +1027,18 @@ impl<V> Default for IterMut<'_, V> {
 pub struct IntoIter<V, S = EntityHash>(map::IntoIter<Entity, V>, PhantomData<S>);
 
 impl<V> IntoIter<V> {
+    /// Constructs a [`IntoIter<V, S>`] from a [`map::IntoIter<V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub const unsafe fn from_into_iter_unchecked<S>(
+        into_iter: map::IntoIter<Entity, V>,
+    ) -> IntoIter<V, S> {
+        IntoIter(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](map::IntoIter).
     pub fn into_inner(self) -> map::IntoIter<Entity, V> {
         self.0
@@ -1003,6 +1075,10 @@ impl<V> Iterator for IntoIter<V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for IntoIter<V> {
@@ -1017,7 +1093,8 @@ impl<V> FusedIterator for IntoIter<V> {}
 
 impl<V: Clone> Clone for IntoIter<V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `IntoIter`.
+        unsafe { Self::from_into_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -1032,7 +1109,8 @@ impl<V: Debug> Debug for IntoIter<V> {
 
 impl<V> Default for IntoIter<V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoIter` is empty.
+        unsafe { Self::from_into_iter_unchecked(Default::default()) }
     }
 }
 
@@ -1043,14 +1121,26 @@ impl<V> Default for IntoIter<V> {
 pub struct Drain<'a, V, S = EntityHash>(map::Drain<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Drain<'a, V> {
-    /// Returns the inner [`Drain`](map::Drain).
+    /// Constructs a [`Drain<'a, V, S>`] from a [`map::Drain<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub const unsafe fn from_drain_unchecked<S>(
+        drain: map::Drain<'a, Entity, V>,
+    ) -> Drain<'a, V, S> {
+        Drain(drain, PhantomData)
+    }
+
+    /// Returns the inner [`Drain`](indexmap::map::Drain).
     pub fn into_inner(self) -> map::Drain<'a, Entity, V> {
         self.0
     }
 
     /// Returns a slice of the remaining entries in the iterator.
     ///
-    /// Equivalent to [`map::Drain::as_slice`].
+    /// Equivalent to [`map::Drain::as_slice`](`indexmap::map::Drain::as_slice`).
     pub fn as_slice(&self) -> &Slice<V> {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.as_slice()) }
@@ -1070,6 +1160,10 @@ impl<V> Iterator for Drain<'_, V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -1099,8 +1193,18 @@ impl<V: Debug> Debug for Drain<'_, V> {
 pub struct Keys<'a, V, S = EntityHash>(map::Keys<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Keys<'a, V> {
+    /// Constructs a [`Keys<'a, V, S>`] from a [`map::Keys<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `keys` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub const unsafe fn from_keys_unchecked<S>(keys: map::Keys<'a, Entity, V>) -> Keys<'a, V, S> {
+        Keys(keys, PhantomData)
+    }
+
     /// Returns the inner [`Keys`](map::Keys).
-    pub fn into_inner(self) -> map::Keys<'a, Entity, V> {
+    pub const fn into_inner(self) -> map::Keys<'a, Entity, V> {
         self.0
     }
 }
@@ -1118,6 +1222,10 @@ impl<'a, V> Iterator for Keys<'a, V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -1141,7 +1249,8 @@ impl<V> Index<usize> for Keys<'_, V> {
 
 impl<V> Clone for Keys<'_, V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Keys`.
+        unsafe { Self::from_keys_unchecked(self.0.clone()) }
     }
 }
 
@@ -1153,7 +1262,8 @@ impl<V: Debug> Debug for Keys<'_, V> {
 
 impl<V> Default for Keys<'_, V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Keys` is empty.
+        unsafe { Self::from_keys_unchecked(Default::default()) }
     }
 }
 
@@ -1167,6 +1277,18 @@ unsafe impl<V> EntitySetIterator for Keys<'_, V> {}
 pub struct IntoKeys<V, S = EntityHash>(map::IntoKeys<Entity, V>, PhantomData<S>);
 
 impl<V> IntoKeys<V> {
+    /// Constructs a [`IntoKeys<V, S>`] from a [`map::IntoKeys<V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_keys` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub const unsafe fn from_into_keys_unchecked<S>(
+        into_keys: map::IntoKeys<Entity, V>,
+    ) -> IntoKeys<V, S> {
+        IntoKeys(into_keys, PhantomData)
+    }
+
     /// Returns the inner [`IntoKeys`](map::IntoKeys).
     pub fn into_inner(self) -> map::IntoKeys<Entity, V> {
         self.0
@@ -1186,6 +1308,10 @@ impl<V> Iterator for IntoKeys<V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -1210,7 +1336,8 @@ impl<V: Debug> Debug for IntoKeys<V> {
 
 impl<V> Default for IntoKeys<V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoKeys` is empty.
+        unsafe { Self::from_into_keys_unchecked(Default::default()) }
     }
 }
 
