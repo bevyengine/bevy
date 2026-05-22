@@ -26,10 +26,7 @@ impl<'w, 's> DelayedCommands<'w, 's> {
     #[must_use = "The returned Commands must be used to submit commands with this delay."]
     pub fn duration(&mut self, duration: Duration) -> Commands<'w, '_> {
         // Fetch a queue with the given duration or create one
-        let queue = self
-            .queues
-            .entry(duration)
-            .or_insert(CommandQueue::silent());
+        let queue = self.queues.entry(duration).or_default();
         // Return a new `Commands` to write commands to the queue
         self.commands.rebound_to(queue)
     }
@@ -165,7 +162,7 @@ pub fn check_delayed_command_queues(
 /// when the application is exiting.
 pub fn silence_delayed_command_queues_on_exit(queues: Query<&mut DelayedCommandQueue>) {
     for mut queue in queues {
-        queue.queue.mark_app_exit();
+        queue.queue.silence_drop_warning();
     }
 }
 

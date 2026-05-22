@@ -149,9 +149,8 @@ impl CommandQueue {
         }
     }
 
-    /// Notify a queue that the application is about to exit.
-    #[doc(hidden)]
-    pub fn mark_app_exit(&mut self) {
+    /// Silences drop warning if commands are unapplied.
+    pub fn silence_drop_warning(&mut self) {
         self.warn_on_unapplied = false;
     }
 }
