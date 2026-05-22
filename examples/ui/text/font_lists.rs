@@ -3,11 +3,18 @@
 use bevy::prelude::*;
 
 const FONT_ASSETS: &[&str] = &[
-    "Gabriola",
     "fonts/FiraSans-Bold.ttf",
     "fonts/FiraMono-Medium.ttf",
     "fonts/MonaSans-VariableFont.ttf",
     "fonts/EBGaramond12-Regular.otf",
+];
+
+const FONT_NAMES: &[&str] = &[
+    "Gabriola",
+    "Fira Sans Bold",
+    "Fira Mono",
+    "Mona Sans ExtraLight",
+    "EB Garamond 12",
 ];
 
 #[derive(Resource)]
@@ -54,13 +61,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 Children::spawn(SpawnIter(
-                    (0..FONT_ASSETS.len())
+                    (0..FONT_NAMES.len())
                         .map(|start| {
-                            FONT_ASSETS
+                            FONT_NAMES
                                 .iter()
                                 .cycle()
                                 .skip(start)
-                                .take(FONT_ASSETS.len())
+                                .take(FONT_NAMES.len())
                                 .map(|font_asset| format!("{font_asset}"))
                                 .collect::<Vec<_>>()
                                 .join(", ")
