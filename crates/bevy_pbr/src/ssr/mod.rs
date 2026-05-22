@@ -508,6 +508,13 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("ATMOSPHERE".into());
         }
 
+        if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::MULTIVIEW)
+        {
+            shader_defs.push("MULTIVIEW".into());
+        }
+
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
