@@ -26,7 +26,7 @@ struct DebugBufferConfig {
 
 @fragment
 fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
-    let uv = frag_coord.xy / view.viewport.zw;
+    let uv = frag_coord.xy / view().viewport.zw;
     let background = textureSampleLevel(background_texture, background_sampler, uv, 0.0);
     var output_color: vec4<f32> = vec4(0.0);
 
