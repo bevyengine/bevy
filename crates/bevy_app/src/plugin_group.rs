@@ -983,6 +983,20 @@ mod tests {
     }
     #[test]
     fn construct_nested_plugin_groups_with_plugin_functions() {
-        PluginGroupF {}.build();
+        fn type_id_of<T: Plugin>(_: T) -> TypeId {
+            TypeId::of::<T>()
+        }
+
+        let group = PluginGroupF {}.build();
+
+        assert_eq!(
+            group.order,
+            vec![
+                TypeId::of::<PluginB>(),
+                TypeId::of::<PluginA>(),
+                type_id_of(plugin_d),
+                type_id_of(plugin_e),
+            ]
+        );
     }
 }
