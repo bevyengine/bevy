@@ -365,7 +365,7 @@ impl BlobArray {
         }
         if src_index != src_last_element_index {
             // SAFETY:
-            // - indices disjointness
+            // - indices disjoint
             // - in bounds per precondition
             unsafe {
                 core::ptr::copy_nonoverlapping(

@@ -218,6 +218,7 @@ impl Column {
     ///  - `dst_row` must be in bounds for `self`
     ///  - `src[src_row]` must be initialized to a valid value.
     ///  - `self[dst_row]` must not be initialized yet.
+    ///  - `src_last_element_index` must be the last element in `src`
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
@@ -227,34 +228,38 @@ impl Column {
         dst_row: TableRow,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
-        self.data.initialize_from_swap_remove_unchecked(
-            &mut src.data,
-            src_last_element_index,
-            src_row.index(),
-            dst_row.index(),
-        );
-        self.added_ticks.initialize_from_swap_remove_unchecked(
-            &mut src.added_ticks,
-            src_last_element_index,
-            src_row.index(),
-            dst_row.index(),
-        );
-        self.changed_ticks.initialize_from_swap_remove_unchecked(
-            &mut src.changed_ticks,
-            src_last_element_index,
-            src_row.index(),
-            dst_row.index(),
-        );
-        self.changed_by.as_mut().zip(src.changed_by.as_mut()).map(
-            |(self_changed_by, src_changed_by)| {
-                self_changed_by.initialize_from_swap_remove_unchecked(
-                    src_changed_by,
-                    src_last_element_index,
-                    src_row.index(),
-                    dst_row.index(),
-                );
-            },
-        );
+        // SAFETY
+        // In bounds, same layout & correct last element index as per preconditions
+        unsafe {
+            self.data.initialize_from_swap_remove_unchecked(
+                &mut src.data,
+                src_last_element_index,
+                src_row.index(),
+                dst_row.index(),
+            );
+            self.added_ticks.initialize_from_swap_remove_unchecked(
+                &mut src.added_ticks,
+                src_last_element_index,
+                src_row.index(),
+                dst_row.index(),
+            );
+            self.changed_ticks.initialize_from_swap_remove_unchecked(
+                &mut src.changed_ticks,
+                src_last_element_index,
+                src_row.index(),
+                dst_row.index(),
+            );
+            self.changed_by.as_mut().zip(src.changed_by.as_mut()).map(
+                |(self_changed_by, src_changed_by)| {
+                    self_changed_by.initialize_from_swap_remove_unchecked(
+                        src_changed_by,
+                        src_last_element_index,
+                        src_row.index(),
+                        dst_row.index(),
+                    );
+                },
+            );
+        }
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks stored in this column.

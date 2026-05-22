@@ -147,17 +147,27 @@ impl<T> ThinArrayPtr<T> {
             debug_assert!(src.capacity > src_index);
             debug_assert!(self.capacity > dst_index);
         }
-        ptr::copy_nonoverlapping(
-            src.data.as_ptr().add(src_index),
-            self.data.as_ptr().add(dst_index),
-            1,
-        );
-        if src_index != src_last_element_index {
+        // SAFETY:
+        // - exclusive references guarantee disjointness
+        // - in bounds per precondition
+        unsafe {
             ptr::copy_nonoverlapping(
-                src.data.as_ptr().add(src_last_element_index),
                 src.data.as_ptr().add(src_index),
+                self.data.as_ptr().add(dst_index),
                 1,
             );
+        }
+        if src_index != src_last_element_index {
+            // SAFETY:
+            // - indices disjoint
+            // - in bounds per precondition
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    src.data.as_ptr().add(src_last_element_index),
+                    src.data.as_ptr().add(src_index),
+                    1,
+                );
+            }
         }
     }
 
