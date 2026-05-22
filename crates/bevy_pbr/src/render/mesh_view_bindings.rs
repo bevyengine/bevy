@@ -423,11 +423,16 @@ fn layout_entries(
     }
 
     // View Transmission Texture
+    //
+    // Switches to `texture_2d_array` under multiview so per-eye reads can
+    // index the right layer via `current_view_index`. Sampler is unchanged.
+    let view_transmission_entry = if layout_key.contains(MeshPipelineViewLayoutKey::MULTIVIEW) {
+        texture_2d_array(TextureSampleType::Float { filterable: true })
+    } else {
+        texture_2d(TextureSampleType::Float { filterable: true })
+    };
     entries = entries.extend_with_indices((
-        (
-            24,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
+        (24, view_transmission_entry),
         (25, sampler(SamplerBindingType::Filtering)),
     ));
 
@@ -889,9 +894,28 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
+            // Under multiview the transmission binding is a `D2Array` view of
+            // the single-layer transmission texture (or fallback). Per-eye
+            // layer growth is deferred to L7b-write.
+            let transmission_array_view = if is_multiview {
+                let source_texture = transmission_texture
+                    .map(|transmission| &transmission.texture)
+                    .unwrap_or(&fallback_image_zero.texture);
+                Some(source_texture.create_view(&TextureViewDescriptor {
+                    label: Some("view_transmission_array_view"),
+                    dimension: Some(TextureViewDimension::D2Array),
+                    ..Default::default()
+                }))
+            } else {
+                None
+            };
+            let transmission_view: &TextureView = transmission_array_view.as_ref().unwrap_or_else(
+                || {
+                    transmission_texture
+                        .map(|transmission| &transmission.view)
+                        .unwrap_or(&fallback_image_zero.texture_view)
+                },
+            );
 
             let transmission_sampler = transmission_texture
                 .map(|transmission| &transmission.sampler)

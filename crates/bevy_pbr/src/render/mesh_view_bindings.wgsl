@@ -148,7 +148,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #endif
 #endif // DEFERRED_PREPASS
 
+#ifdef MULTIVIEW
+@group(0) @binding(24) var view_transmission_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
+#endif
 @group(0) @binding(25) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
