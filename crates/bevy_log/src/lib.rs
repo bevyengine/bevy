@@ -293,13 +293,15 @@ impl Default for LogPlugin {
 }
 
 impl Plugin for LogPlugin {
-    #[expect(clippy::print_stderr, reason = "Allowed during logger setup")]
     fn build(&self, app: &mut App) {
         #[cfg(feature = "trace")]
         {
             let old_handler = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |infos| {
-                eprintln!("{}", tracing_error::SpanTrace::capture());
+                #[expect(clippy::print_stderr, reason = "Allowed during logger setup")]
+                {
+                    eprintln!("{}", tracing_error::SpanTrace::capture());
+                }
                 old_handler(infos);
             }));
         }

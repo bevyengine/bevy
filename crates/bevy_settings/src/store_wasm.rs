@@ -33,7 +33,7 @@ impl PreferencesStore {
         if let Ok(Some(storage)) = window().unwrap().local_storage() {
             let toml_str = contents.to_string();
             storage
-                .set_item(&self.storage_key(filename).as_str(), &toml_str)
+                .set_item(self.storage_key(filename).as_str(), &toml_str)
                 .unwrap();
         }
     }
@@ -49,7 +49,7 @@ impl PreferencesStore {
                 if let Ok(Some(storage)) = window().unwrap().local_storage() {
                     let toml_str = contents.to_string();
                     storage
-                        .set_item(&self.storage_key(filename).as_str(), &toml_str)
+                        .set_item(self.storage_key(filename).as_str(), &toml_str)
                         .unwrap();
                 }
             });

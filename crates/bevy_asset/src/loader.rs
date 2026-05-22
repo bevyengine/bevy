@@ -292,9 +292,12 @@ impl ErasedLoadedAsset {
 
     /// Cast this loaded asset as the given type. If the type does not match,
     /// the original type-erased asset is returned.
-    #[expect(
-        clippy::result_large_err,
-        reason = "Returning the passed in ErasedLoadedAsset"
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(
+            clippy::result_large_err,
+            reason = "Returning the passed in ErasedLoadedAsset"
+        )
     )]
     pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
         match self.value.downcast::<A>() {

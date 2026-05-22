@@ -553,6 +553,7 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Meshlet Materials](../examples/stress_tests/many_meshlet_materials.rs) | Benchmark to test rendering many meshlet materials (experimental)
 [Many Morph Targets](../examples/stress_tests/many_morph_targets.rs) | Simple benchmark to test rendering many meshes with animated morph targets.
 [Many Sprite Meshes](../examples/stress_tests/many_sprite_meshes.rs) | Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
@@ -601,9 +602,11 @@ Example | Description
 [Editable Text Filter](../examples/ui/text/editable_text_filter.rs) | Demonstrates an 8-character hex input using EditableTextFilter
 [Feathers Counter](../examples/ui/widgets/feathers_counter.rs) | Simple counter using feathers
 [Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
+[Fixed Node](../examples/ui/layout/fixed_node.rs) | Demonstrates how to use FixedNode to lay out a UI node as a root node
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
+[Font Variations](../examples/ui/text/font_variations.rs) | Demonstrates how to use OpenType font variations.
 [Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy

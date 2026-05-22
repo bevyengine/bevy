@@ -2205,6 +2205,18 @@ impl Mesh {
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
+        fn indices_to_triangle<T: TryInto<usize> + Copy>(
+            vertices: &[[f32; 3]],
+            indices: &[T; 3],
+        ) -> Option<Triangle3d> {
+            let vert0 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
+            let vert1 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
+            let vert2 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
+            Some(Triangle3d {
+                vertices: [vert0, vert1, vert2],
+            })
+        }
+
         let position_data = self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
 
         let Some(vertices) = position_data.as_float3() else {
@@ -2219,75 +2231,53 @@ impl Mesh {
                 // This implicitly truncates the indices to a multiple of 3.
                 let iterator = match indices {
                     Indices::U16(vec) => FourIterators::First(
-                        vec.as_chunks::<3>()
+                        vec.as_chunks()
                             .0
                             .iter()
                             .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                     Indices::U32(vec) => FourIterators::Second(
-                        vec.as_chunks::<3>()
+                        vec.as_chunks()
                             .0
                             .iter()
                             .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                 };
 
-                return Ok(iterator);
+                Ok(iterator)
             }
-
             PrimitiveTopology::TriangleStrip => {
                 // When indices reference out-of-bounds vertex data, the triangle is omitted.
                 // If there aren't enough indices to make a triangle, then an empty vector will be
                 // returned.
                 let iterator = match indices {
                     Indices::U16(vec) => {
-                        FourIterators::Third(vec.as_slice().windows(3).enumerate().flat_map(
-                            move |(i, indices)| {
+                        FourIterators::Third(vec.array_windows().enumerate().flat_map(
+                            |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
-                                    indices_to_triangle(
-                                        vertices,
-                                        &[indices[1], indices[0], indices[2]],
-                                    )
+                                    indices_to_triangle(vertices, &[idx1, idx0, idx2])
                                 }
                             },
                         ))
                     }
                     Indices::U32(vec) => {
-                        FourIterators::Fourth(vec.as_slice().windows(3).enumerate().flat_map(
-                            move |(i, indices)| {
+                        FourIterators::Fourth(vec.array_windows().enumerate().flat_map(
+                            |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
-                                    indices_to_triangle(
-                                        vertices,
-                                        &[indices[1], indices[0], indices[2]],
-                                    )
+                                    indices_to_triangle(vertices, &[idx1, idx0, idx2])
                                 }
                             },
                         ))
                     }
                 };
 
-                return Ok(iterator);
+                Ok(iterator)
             }
-
-            _ => {
-                return Err(MeshTrianglesError::WrongTopology);
-            }
-        };
-
-        fn indices_to_triangle<T: TryInto<usize> + Copy>(
-            vertices: &[[f32; 3]],
-            indices: &[T],
-        ) -> Option<Triangle3d> {
-            let vert0: Vec3 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
-            let vert1: Vec3 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
-            let vert2: Vec3 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
-            Some(Triangle3d {
-                vertices: [vert0, vert1, vert2],
-            })
+            _ => Err(MeshTrianglesError::WrongTopology),
         }
     }
 

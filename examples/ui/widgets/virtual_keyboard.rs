@@ -59,7 +59,7 @@ fn keyboard() -> impl Scene {
             Children [
                 Text("virtual keyboard"),
                 (
-                    :VirtualKeyboard::<&str> { @keys: keys }
+                    @VirtualKeyboard::<&str> { @keys: keys }
                     on(on_virtual_key_pressed)
                 )
             ]

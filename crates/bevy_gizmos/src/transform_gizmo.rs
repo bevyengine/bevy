@@ -253,27 +253,29 @@ impl Plugin for TransformGizmoPlugin {
 macro_rules! resolve_gizmo_camera {
     ($marked:expr, $all:expr) => {{
         let mut marked_iter = $marked.iter();
-        if let Some(first) = marked_iter.next() {
+        if let ::core::option::Option::Some(first) = marked_iter.next() {
             if marked_iter.next().is_some() {
                 bevy_log::warn_once!(
                     "Multiple cameras have the TransformGizmoCamera component; \
                      using the first one found."
                 );
             }
-            Some(first)
+            ::core::option::Option::Some(first)
         } else {
             let mut all_iter = $all.iter();
             match (all_iter.next(), all_iter.next()) {
-                (Some(cam), None) => Some(cam),
-                (Some(_), Some(_)) => {
+                (::core::option::Option::Some(cam), ::core::option::Option::None) => {
+                    ::core::option::Option::Some(cam)
+                }
+                (::core::option::Option::Some(_), ::core::option::Option::Some(_)) => {
                     bevy_log::warn_once!(
                         "Multiple cameras exist but none has the TransformGizmoCamera \
                          component. Add TransformGizmoCamera to the camera the gizmo \
                          should use."
                     );
-                    None
+                    ::core::option::Option::None
                 }
-                _ => None,
+                _ => ::core::option::Option::None,
             }
         }
     }};
