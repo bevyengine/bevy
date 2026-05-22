@@ -1163,7 +1163,7 @@ impl<'w> EntityWorldMut<'w> {
             &self.world.components,
             component_id,
         );
-        let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        let storage_type = unsafe { self.world.bundles.get_storage_unchecked(bundle_id) };
 
         let bundle_inserter =
             BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);

@@ -245,7 +245,9 @@ impl BlobArray {
         debug_assert!(self.capacity > last_element_index);
         if let Some(drop) = self.drop {
             // SAFETY:
-            let item = self.get_unchecked_mut(last_element_index).promote();
+            // - index in bounds per precondition
+            // - element is being removed
+            let item = unsafe { self.get_unchecked_mut(last_element_index).promote() };
             // SAFETY: Drop function belongs to this component
             unsafe { drop(item) };
         }
@@ -352,7 +354,7 @@ impl BlobArray {
         let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
         let source = value.as_ptr();
 
-        let on_drop = OnDrop::new(|| {
+        let _finally = OnDrop::new(|| {
             // Copy the new value into the vector, overwriting the previous value.
             // This needs tp happen even if the drop function panics.
             // SAFETY:
@@ -382,8 +384,6 @@ impl BlobArray {
 
             drop(old_value);
         }
-
-        drop(on_drop);
     }
 
     /// This method will swap two elements in the array, and return the one at `index_to_remove`.
