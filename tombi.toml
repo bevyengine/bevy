@@ -12,7 +12,6 @@ enabled = true
 strict = false                                           # allow additional properties
 catalog = {
   paths = [
-    "tombi://www.schemastore.org/api/json/catalog.json",
     "https://www.schemastore.org/api/json/catalog.json",
   ],
 }
