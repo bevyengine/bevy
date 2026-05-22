@@ -702,14 +702,18 @@ impl SparseSetIndex for Entity {
 ///
 /// Conceptually, this is a collection of [`Entity`] ids who's [`EntityIndex`] is despawned and who's [`EntityGeneration`] is the most recent.
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct EntityAllocator {
     pub(crate) inner: remote_allocator::Allocator,
 }
 
 impl EntityAllocator {
     /// Creates a new `EntityAllocator` with a given range
-    pub fn new(range: Range<u32>) -> Self {
+    ///
+    /// # Warning
+    /// - Any two entity allocators must not have overlapping ranges, otherwise an entity can be allocated twice by different allocators.
+    /// - Do not free entities with an [`EntityIndex`] outside of the given range. This ensures that the allocator won't allocate out-of-range entities.
+    pub(crate) fn new(range: Range<u32>) -> Self {
         Self {
             inner: remote_allocator::Allocator::new(range),
         }
@@ -737,6 +741,10 @@ impl EntityAllocator {
     /// Freeing an [`Entity`] such that one [`EntityIndex`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
+    ///
+    /// # Warning
+    /// Freeing an [`Entity`] does not check that its [`EntityIndex`] is in range. If an out-of-range entity is freed, it may be handed out again.
+    /// If you rely on entities being in range, do not free out-of-range entities.
     pub fn free(&mut self, freed: Entity) {
         self.inner.free(freed);
     }
@@ -1513,7 +1521,7 @@ mod tests {
 
     #[test]
     fn allocator() {
-        let mut allocator = EntityAllocator::default();
+        let mut allocator = EntityAllocator::new(0..u32::MAX);
         let mut entities = allocator.alloc_many(2048).collect::<Vec<_>>();
         for _ in 0..2048 {
             entities.push(allocator.alloc());

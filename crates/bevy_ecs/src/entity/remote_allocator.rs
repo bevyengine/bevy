@@ -905,12 +905,6 @@ pub(crate) struct Allocator {
     range: Range<u32>,
 }
 
-impl Default for Allocator {
-    fn default() -> Self {
-        Self::new(0..u32::MAX)
-    }
-}
-
 impl Allocator {
     /// Constructs a new [`Allocator`]
     pub(super) fn new(range: Range<u32>) -> Self {
@@ -922,7 +916,7 @@ impl Allocator {
     }
 
     /// Returns the range this allocator operates on
-    pub fn range(&self) -> &Range<u32> {
+    pub(super) fn range(&self) -> &Range<u32> {
         &self.range
     }
 
@@ -1074,7 +1068,7 @@ impl RemoteAllocator {
         Arc::ptr_eq(&self.shared, &source.shared)
     }
 
-    /// Allocates an entity remotely.
+    /// Allocates an entity remotely, panicking if no more entities are available.
     ///
     /// This comes with a major downside:
     /// Because this does not hold reference to the world, the world may be cleared or destroyed before you get a chance to use the result.
@@ -1082,7 +1076,19 @@ impl RemoteAllocator {
     /// They will not be unique in the world anymore and you should not spawn them!
     /// Before using the returned values in the world, first check that it is ok with [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
     #[inline]
-    pub fn alloc(&self) -> Option<Entity> {
+    pub fn alloc(&self) -> Entity {
+        self.shared.try_remote_alloc().expect("out of entities")
+    }
+
+    /// Allocates an entity remotely, returning `None` if no more entities are available.
+    ///
+    /// This comes with a major downside:
+    /// Because this does not hold reference to the world, the world may be cleared or destroyed before you get a chance to use the result.
+    /// If that happens, these entities will be garbage!
+    /// They will not be unique in the world anymore and you should not spawn them!
+    /// Before using the returned values in the world, first check that it is ok with [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
+    #[inline]
+    pub fn try_alloc(&self) -> Option<Entity> {
         self.shared.try_remote_alloc()
     }
 
@@ -1158,7 +1164,7 @@ mod tests {
     #[test]
     fn uniqueness() {
         let mut entities = Vec::with_capacity(2000);
-        let mut allocator = Allocator::default();
+        let mut allocator = Allocator::new(0..u32::MAX);
         entities.extend(allocator.alloc_many(1000));
 
         let pre_len = entities.len();
@@ -1184,7 +1190,7 @@ mod tests {
     /// This test just exists to make sure allocations don't step on each other's toes.
     #[test]
     fn allocation_order_correctness() {
-        let mut allocator = Allocator::default();
+        let mut allocator = Allocator::new(0..u32::MAX);
         let e0 = allocator.alloc();
         let e1 = allocator.alloc();
         let e2 = allocator.alloc();
