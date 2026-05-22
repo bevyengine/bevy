@@ -1,6 +1,6 @@
 ---
 title: "`AssetId::invalid()` and `AssetId::INVALID_UUID` have been removed"
-pull_requests: [TODO]
+pull_requests: [24392]
 ---
 
 `AssetId::invalid()` and `AssetId::INVALID_UUID` have been removed. This is part
