@@ -95,6 +95,14 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(19) var dt_lut_sampler: sampler;
 #endif
 
+// Prepass textures.
+//
+// Under MULTIVIEW we switch to `_array` variants so per-eye reads can index
+// the right layer via `current_view_index`. WGSL has no multisampled-array
+// texture types, so multisampled prepass bindings keep their single-layer
+// shape even under multiview — the MSAA + multiview combination is left
+// unsupported at the texture-binding level (rare in practice; VR doesn't
+// pair with MSAA). The host-side layout/entry-resolution must mirror this.
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
 @group(0) @binding(20) var depth_prepass_texture: texture_depth_multisampled_2d;
@@ -109,19 +117,35 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(20) var depth_prepass_texture: texture_depth_2d_array;
+#else
 @group(0) @binding(20) var depth_prepass_texture: texture_depth_2d;
+#endif
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(21) var normal_prepass_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(21) var normal_prepass_texture: texture_2d<f32>;
+#endif
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(22) var motion_vector_prepass_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(22) var motion_vector_prepass_texture: texture_2d<f32>;
+#endif
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(23) var deferred_prepass_texture: texture_2d_array<u32>;
+#else
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
+#endif
 #endif // DEFERRED_PREPASS
 
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;

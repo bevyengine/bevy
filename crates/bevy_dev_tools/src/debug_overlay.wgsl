@@ -25,14 +25,26 @@ struct DebugBufferConfig {
 #endif
 
 @fragment
-fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
+fn fragment(
+    @builtin(position) frag_coord: vec4<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
     let uv = frag_coord.xy / view().viewport.zw;
     let background = textureSampleLevel(background_texture, background_sampler, uv, 0.0);
     var output_color: vec4<f32> = vec4(0.0);
 
 #ifdef DEBUG_DEPTH
     #ifdef DEPTH_PREPASS
-        let depth = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #ifdef MULTIVIEW
+            let depth = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+        #else
+            let depth = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #endif
         output_color = vec4(vec3(depth), 1.0);
     #else
         output_color = vec4(1.0, 0.0, 1.0, 1.0);
@@ -41,11 +53,19 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 #ifdef DEBUG_NORMAL
     #ifdef NORMAL_PREPASS
-        let normal_sample = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #ifdef MULTIVIEW
+            let normal_sample = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+        #else
+            let normal_sample = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #endif
         output_color = vec4(normal_sample.xyz, 1.0);
     #else
         #ifdef DEFERRED_PREPASS
-            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+            #ifdef MULTIVIEW
+                let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+            #else
+                let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+            #endif
             let normal = octahedral_decode(unpack_24bit_normal(deferred.a));
             output_color = vec4(normal * 0.5 + 0.5, 1.0);
         #else
@@ -56,7 +76,11 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 #ifdef DEBUG_MOTION_VECTORS
     #ifdef MOTION_VECTOR_PREPASS
-        let motion_vector = textureLoad(motion_vector_prepass_texture, vec2<i32>(frag_coord.xy), 0).rg;
+        #ifdef MULTIVIEW
+            let motion_vector = textureLoad(motion_vector_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0).rg;
+        #else
+            let motion_vector = textureLoad(motion_vector_prepass_texture, vec2<i32>(frag_coord.xy), 0).rg;
+        #endif
         // These motion vectors are stored in a format where 1.0 represents full-screen movement.
         // We use a power curve to amplify small movements while keeping them centered.
         let mapped_motion = sign(motion_vector) * pow(abs(motion_vector), vec2(0.2)) * 0.5 + 0.5;
@@ -68,7 +92,11 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 #ifdef DEBUG_DEFERRED
     #ifdef DEFERRED_PREPASS
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #ifdef MULTIVIEW
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+        #else
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #endif
         output_color = vec4(vec3(f32(deferred.x) / 255.0, f32(deferred.y) / 255.0, f32(deferred.z) / 255.0), 1.0);
     #else
         output_color = vec4(1.0, 0.0, 1.0, 1.0);
@@ -77,7 +105,11 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 #ifdef DEBUG_DEFERRED_BASE_COLOR
     #ifdef DEFERRED_PREPASS
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #ifdef MULTIVIEW
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+        #else
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #endif
         let base_rough = unpack_unorm4x8_(deferred.x);
         output_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
     #else
@@ -87,7 +119,11 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 #ifdef DEBUG_DEFERRED_EMISSIVE
     #ifdef DEFERRED_PREPASS
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #ifdef MULTIVIEW
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+        #else
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #endif
         let emissive = rgb9e5_to_vec3_(deferred.y);
         output_color = vec4(emissive, 1.0);
     #else
@@ -97,7 +133,11 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 #ifdef DEBUG_DEFERRED_METALLIC_ROUGHNESS
     #ifdef DEFERRED_PREPASS
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #ifdef MULTIVIEW
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+        #else
+            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        #endif
         let base_rough = unpack_unorm4x8_(deferred.x);
         let props = unpack_unorm4x8_(deferred.z);
         // R: Reflectance, G: Metallic, B: Occlusion, A: Perceptual Roughness

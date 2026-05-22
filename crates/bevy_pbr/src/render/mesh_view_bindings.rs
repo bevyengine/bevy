@@ -904,7 +904,13 @@ pub fn prepare_mesh_view_bind_groups(
             // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
             if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
-                prepass_bindings = prepass::get_bindings(prepass_textures);
+                // Bindings 20-22 only switch to D2Array views when multiview is
+                // active AND MSAA is off (no multisampled-array textures in
+                // WGSL). Binding 23 (deferred) is never multisampled so the
+                // multiview switch is unconditional.
+                let multiview_array = is_multiview && msaa.samples() == 1;
+                prepass_bindings =
+                    prepass::get_bindings(prepass_textures, multiview_array, is_multiview);
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
