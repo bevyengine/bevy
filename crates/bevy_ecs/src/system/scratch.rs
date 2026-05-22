@@ -110,7 +110,7 @@ where
     }
 }
 
-/// A collection that can be `cleared` and there fore makes sense in a [`Scratch`].
+/// A clearable collection that can be used as a [`Scratch`] type.
 pub trait ClearableCollection {
     /// The current capacity.
     fn capacity(&self) -> usize;
