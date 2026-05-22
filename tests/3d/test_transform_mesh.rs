@@ -1,7 +1,7 @@
 //! Test that transforming a mesh correctly updates normals and tangents.
 
+use bevy::camera::ScalingMode;
 use bevy::prelude::*;
-use bevy::render::camera::ScalingMode;
 
 fn main() {
     App::new()
@@ -47,7 +47,7 @@ fn setup_environment(
     commands.spawn((
         Transform::from_xyz(1.0, 1.0, 0.5).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
     ));
