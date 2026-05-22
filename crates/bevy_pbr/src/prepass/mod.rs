@@ -34,12 +34,15 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::{binding_types::uniform_buffer, *},
+    render_resource::{
+        binding_types::{uniform_buffer, uniform_buffer_sized},
+        *,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
         ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
-        ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
     RenderStartup, RenderSystems,
@@ -279,8 +282,10 @@ pub fn init_prepass_pipeline(
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
             (
-                // View
-                (0, uniform_buffer::<ViewUniform>(true)),
+                // View. Untyped binding so the WGSL can declare it as
+                // `array<View, MAX_VIEW_COUNT>` (multiview) or `array<View, 1>`
+                // (non-multiview); see `mesh_view_bindings::view`.
+                (0, uniform_buffer_sized(true, None)),
                 // Globals
                 (1, uniform_buffer::<GlobalsUniform>(false)),
                 // PreviousViewUniforms
@@ -304,8 +309,10 @@ pub fn init_prepass_pipeline(
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
             (
-                // View
-                (0, uniform_buffer::<ViewUniform>(true)),
+                // View. Untyped binding so the WGSL can declare it as
+                // `array<View, MAX_VIEW_COUNT>` (multiview) or `array<View, 1>`
+                // (non-multiview); see `mesh_view_bindings::view`.
+                (0, uniform_buffer_sized(true, None)),
                 // Globals
                 (1, uniform_buffer::<GlobalsUniform>(false)),
                 // VisibilityRanges

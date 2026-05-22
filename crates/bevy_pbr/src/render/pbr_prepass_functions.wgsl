@@ -79,7 +79,7 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
             pbr_bindings::base_color_sampler,
 #endif  // BINDLESS
             uv,
-            view.mip_bias
+            view().mip_bias
         );
     }
 #endif // VERTEX_UVS
@@ -90,7 +90,7 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 #ifdef MOTION_VECTOR_PREPASS
 fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
-    let clip_position_t = view.unjittered_clip_from_world * world_position;
+    let clip_position_t = view().unjittered_clip_from_world * world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_uniforms.clip_from_world * previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;

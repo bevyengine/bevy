@@ -89,7 +89,7 @@ fn fragment(
         bias.ddx_uv = in.ddx_uv;
         bias.ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-        bias.mip_bias = view.mip_bias;
+        bias.mip_bias = view().mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
         let Nt =

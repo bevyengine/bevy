@@ -74,7 +74,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         specular_transmission,
         diffuse_transmission
     );
-    emissive += in.lightmap_light * diffuse_color * view.exposure;
+    emissive += in.lightmap_light * diffuse_color * view().exposure;
 
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
@@ -121,7 +121,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let N = octahedral_decode(octahedral_normal);
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
-    let is_orthographic = view.clip_from_view[3].w == 1.0;
+    let is_orthographic = view().clip_from_view[3].w == 1.0;
     let V = pbr_functions::calculate_view(world_position, is_orthographic);
 
     pbr.frag_coord = frag_coord;

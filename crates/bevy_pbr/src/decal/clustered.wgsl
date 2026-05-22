@@ -154,17 +154,17 @@ fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>
 // Returns the view-space Z coordinate for the given world position.
 fn get_view_z(world_position: vec3<f32>) -> f32 {
     return dot(vec4<f32>(
-        mesh_view_bindings::view.view_from_world[0].z,
-        mesh_view_bindings::view.view_from_world[1].z,
-        mesh_view_bindings::view.view_from_world[2].z,
-        mesh_view_bindings::view.view_from_world[3].z
+        mesh_view_bindings::view().view_from_world[0].z,
+        mesh_view_bindings::view().view_from_world[1].z,
+        mesh_view_bindings::view().view_from_world[2].z,
+        mesh_view_bindings::view().view_from_world[3].z
     ), vec4(world_position, 1.0));
 }
 
 // Returns true if the current view describes an orthographic projection or
 // false otherwise.
 fn view_is_orthographic() -> bool {
-    return mesh_view_bindings::view.clip_from_view[3].w == 1.0;
+    return mesh_view_bindings::view().clip_from_view[3].w == 1.0;
 }
 
 fn apply_decals(pbr_input: ptr<function, PbrInput>) {

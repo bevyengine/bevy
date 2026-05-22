@@ -82,7 +82,7 @@ fn vertex(
     let clip1 = position_world_to_clip((world_from_local * vec4(p1, 1.0)).xyz);
     let clip2 = position_world_to_clip((world_from_local * vec4(p2, 1.0)).xyz);
 
-    let viewport_size = view.viewport.zw;
+    let viewport_size = view().viewport.zw;
     let screen0 = (clip0.xy / clip0.w) * viewport_size * 0.5;
     let screen1 = (clip1.xy / clip1.w) * viewport_size * 0.5;
     let screen2 = (clip2.xy / clip2.w) * viewport_size * 0.5;

@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
+        Msaa, RenderVisibilityRanges, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
@@ -252,9 +252,14 @@ fn layout_entries(
         ShaderStages::FRAGMENT,
         (
             // View
+            //
+            // Declared as `uniform_buffer_sized(true, None)` so the WGSL is free to size
+            // the binding as `array<View, MAX_VIEW_COUNT>` (multiview) or `array<View, 1>`
+            // (non-multiview). Backing storage is `DynamicArrayUniformBuffer<ViewUniform>`;
+            // the dynamic offset selects the per-camera array slot.
             (
                 0,
-                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer_sized(true, None).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Lights
             (1, uniform_buffer::<GpuLights>(true)),

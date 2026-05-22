@@ -310,7 +310,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Accumulate the environment map light.
     // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
     // environment map if SSR hits.
-    indirect_light += (view.exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
+    indirect_light += (view().exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
 #endif
 
     // Write the results.
