@@ -189,7 +189,7 @@ impl<I: SystemInput, O> PartialEq<SystemId<I, O>> for SystemHandle<I, O> {
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters,
-// and so that the handle can be hashed based on its entity not its handle type.
+// and so that the handle can be hashed based on its entity instead of its handle type.
 impl<I: SystemInput, O> core::hash::Hash for SystemHandle<I, O> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
