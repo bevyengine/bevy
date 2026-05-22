@@ -10,12 +10,13 @@ use bevy_ecs::{
 use bevy_math::{Vec2, Vec4};
 use bevy_render::{
     render_resource::{
-        binding_types::{sampler, texture_2d, uniform_buffer},
+        binding_types::{sampler, texture_2d, texture_2d_array, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
+    view::ExtractedMultiview,
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 #[derive(Component)]
@@ -26,8 +27,13 @@ pub struct BloomDownsamplingPipelineIds {
 
 #[derive(Resource)]
 pub struct BloomDownsamplingPipeline {
-    /// Layout with a texture, a sampler, and uniforms
+    /// Layout for the regular downsample passes (read bloom's own single-layer
+    /// mip levels).
     pub bind_group_layout: BindGroupLayoutDescriptor,
+    /// Layout for the *first* downsample pass when the camera is multiview —
+    /// reads the camera's `texture_2d_array` main texture; the layer is picked
+    /// via `@builtin(view_index)` in the fragment.
+    pub bind_group_layout_multiview: BindGroupLayoutDescriptor,
     pub sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
@@ -40,6 +46,11 @@ pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
     uniform_scale: bool,
+    /// Number of layers in the source texture, used only for the
+    /// `first_downsample` specialization (subsequent passes read bloom's own
+    /// single-layer mips). `> 1` emits the MULTIVIEW shader-defs and picks
+    /// the array bind-group layout.
+    multiview_view_count: u32,
 }
 
 /// The uniform struct extracted from [`Bloom`] attached to a Camera.
@@ -75,6 +86,18 @@ pub fn init_bloom_downsampling_pipeline(
         ),
     );
 
+    let bind_group_layout_multiview = BindGroupLayoutDescriptor::new(
+        "bloom_downsampling_bind_group_layout_with_settings_multiview",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                uniform_buffer::<BloomUniforms>(true),
+            ),
+        ),
+    );
+
     // Sampler
     let sampler = render_device.create_sampler(&SamplerDescriptor {
         min_filter: FilterMode::Linear,
@@ -86,6 +109,7 @@ pub fn init_bloom_downsampling_pipeline(
 
     commands.insert_resource(BloomDownsamplingPipeline {
         bind_group_layout,
+        bind_group_layout_multiview,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
@@ -96,8 +120,6 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let layout = vec![self.bind_group_layout.clone()];
-
         let entry_point = if key.first_downsample {
             "downsample_first".into()
         } else {
@@ -118,6 +140,20 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             shader_defs.push("UNIFORM_SCALE".into());
         }
 
+        // Multiview only applies to the first downsample pass — subsequent
+        // passes read bloom's own single-layer mip pyramid. Pick the array
+        // layout + emit MULTIVIEW defs only when both conditions hold.
+        let layout = if key.first_downsample && key.multiview_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+            self.bind_group_layout_multiview.clone()
+        } else {
+            self.bind_group_layout.clone()
+        };
+
         RenderPipelineDescriptor {
             label: Some(
                 if key.first_downsample {
@@ -127,7 +163,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
                 }
                 .into(),
             ),
-            layout,
+            layout: vec![layout],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
@@ -149,10 +185,11 @@ pub fn prepare_downsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
     pipeline: Res<BloomDownsamplingPipeline>,
-    views: Query<(Entity, &Bloom)>,
+    views: Query<(Entity, &Bloom, Option<&ExtractedMultiview>)>,
 ) {
-    for (entity, bloom) in &views {
+    for (entity, bloom, multiview) in &views {
         let prefilter = bloom.prefilter.threshold > 0.0;
+        let multiview_view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
 
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -161,6 +198,7 @@ pub fn prepare_downsampling_pipeline(
                 prefilter,
                 first_downsample: false,
                 uniform_scale: bloom.scale == Vec2::ONE,
+                multiview_view_count: 1,
             },
         );
 
@@ -171,6 +209,7 @@ pub fn prepare_downsampling_pipeline(
                 prefilter,
                 first_downsample: true,
                 uniform_scale: bloom.scale == Vec2::ONE,
+                multiview_view_count,
             },
         );
 
