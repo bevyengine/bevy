@@ -165,8 +165,8 @@ macro_rules! impl_reflect_for_hashset {
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<Self>();
-                    registration.insert::<$crate::type_registry::ReflectFromPtr>($crate::type_registry::FromType::<Self>::from_type());
-                    registration.insert::<$crate::from_reflect::ReflectFromReflect>($crate::type_registry::FromType::<Self>::from_type());
+                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, Self>();
+                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, Self>();
                     registration
                 }
 

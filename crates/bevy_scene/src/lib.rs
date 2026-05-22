@@ -188,8 +188,8 @@
 //! ### Scope rules
 //!
 //! Each [`bsn!`] invocation creates its own name scope. A name is visible to the root
-//! entity, its children, and any deeper descendants, as long as the reference is written
-//! in the same [`bsn!`] call. Composed or inherited scenes (via `my_scene()` or `:my_scene`)
+//! entity, its children, and any deeper descendants — as long as the reference is written
+//! in the same [`bsn!`] call. Composed or cached scenes (via `my_scene()` or `:my_scene`)
 //! each bring their own separate scope, so names do not leak across scene boundaries.
 //! However, the results of a named entity reference, a [`EntityTemplate`], can be passed to
 //! composed or inherited scenes, since it represents a sort of global identifier for the name.
@@ -549,7 +549,7 @@
 //! # }
 //! # let mut world = World::new();
 //! world.spawn_scene(bsn! {
-//!  :Player { score: 0 }
+//!  @Player { score: 0 }
 //! });
 //! ```
 //!
@@ -631,7 +631,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :Player { image: "player.png" }
+//!    @Player { image: "player.png" }
 //! });
 //! ```
 //!
@@ -673,7 +673,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :HelloRepeater {
+//!    @HelloRepeater {
 //!        @repeat: 5
 //!    }
 //! });
@@ -703,7 +703,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :Widget {
+//!    @Widget {
 //!        @border: true,
 //!        value: 10,
 //!    }
@@ -1011,7 +1011,7 @@ mod tests {
     }
 
     #[test]
-    fn inheritance_patching() {
+    fn cached_patching() {
         let mut app = test_app();
         let world = app.world_mut();
 
@@ -1058,7 +1058,7 @@ mod tests {
     }
 
     #[test]
-    fn loaded_asset_inheritance_patching() {
+    fn loaded_asset_cached_patching() {
         #[derive(Component, FromTemplate)]
         struct Position {
             x: f32,
@@ -1162,7 +1162,7 @@ mod tests {
 
         // "a.bsn" as AWidget's "component scene"
         let id = world
-            .spawn_scene(bsn! {:AWidget { value: 2 }})
+            .spawn_scene(bsn! {@AWidget { value: 2 }})
             .unwrap()
             .id();
         let root = world.entity(id);
@@ -2246,14 +2246,14 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<Widget>());
 
         #[derive(SceneComponent, Default, Clone)]
         #[scene(Widget::scene)]
         struct OtherWidget;
-        let entity = world.spawn_scene(bsn! {:OtherWidget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@OtherWidget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<OtherWidget>());
         assert!(
@@ -2295,7 +2295,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entity = world
-            .spawn_scene(bsn! {:Widget {
+            .spawn_scene(bsn! {@Widget {
                 @children: 2,
                 value: 10,
             }})
@@ -2310,7 +2310,7 @@ mod tests {
         }
 
         let entity = world
-            .spawn_scene(bsn! {:OtherWidget {
+            .spawn_scene(bsn! {@OtherWidget {
                 @children: 2,
                 value: 10,
             }})
@@ -2332,12 +2332,12 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
         assert!(entity.contains::<Widget>());
     }
 
     #[test]
-    fn scene_component_name_reference() {
+    fn tuple_scene_component_name_reference() {
         #[derive(SceneComponent, FromTemplate)]
         struct Widget(pub Entity);
 
@@ -2348,10 +2348,10 @@ mod tests {
         }
 
         let scene = bsn! {
-          #Name
-          Children [
-              :Widget(#Name)
-          ]
+            #Name
+            Children [
+                @Widget(#Name)
+            ]
         };
 
         let mut app = test_app();
@@ -2360,6 +2360,127 @@ mod tests {
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Widget>().unwrap();
+        assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn named_scene_component_name_reference() {
+        #[derive(SceneComponent, FromTemplate)]
+        struct Widget {
+            entity: Entity,
+        }
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        let scene = bsn! {
+            #Name
+            Children [
+                @Widget{
+                    entity: #Name
+                }
+            ]
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(scene).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Widget>().unwrap();
+        assert_eq!(child_widget.entity, entity);
+    }
+
+    #[test]
+    fn scene_function_name_reference() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, FromTemplate)]
+        struct Reference(Entity);
+        fn widget(entity: EntityTemplate) -> impl Scene {
+            bsn! {
+                Reference(entity)
+            }
+        }
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let pass_expr = bsn! {
+            #Name
+            Children [
+                widget(#{Entity::PLACEHOLDER})
+            ]
+        };
+        let entity = world.spawn_scene(pass_expr).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+
+        let pass_name = bsn! {
+            #Name
+            Children [
+                widget(#Name)
+            ]
+        };
+        let entity = world.spawn_scene(pass_name).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn scene_component_prop_name_reference() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, FromTemplate)]
+        struct Reference(Entity);
+
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(WidgetProps)]
+        struct Widget;
+
+        #[derive(Default)]
+        struct WidgetProps {
+            entity: EntityTemplate,
+        }
+
+        impl Widget {
+            fn scene(props: WidgetProps) -> impl Scene {
+                bsn! {
+                    Reference(#{props.entity})
+                }
+            }
+        }
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let prop_expr = bsn! {
+            Children [
+                @Widget {
+                    @entity: Entity::PLACEHOLDER
+                }
+            ]
+        };
+        let entity = world.spawn_scene(prop_expr).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        let scene_prop = bsn! {
+            #Name
+            Children [
+                @Widget {
+                    @entity: #Name
+                }
+            ]
+        };
+        let entity = world.spawn_scene(scene_prop).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
     }
 
@@ -2414,7 +2535,7 @@ mod tests {
     }
 
     #[test]
-    fn inheritance_with_generics() {
+    fn caching_with_generics() {
         #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
             value: T,
@@ -2443,6 +2564,26 @@ mod tests {
         }
 
         b();
+    }
+
+    #[test]
+    fn scene_with_blocks() {
+        #[derive(Component, Clone, Default)]
+        struct Holder {
+            const_block: i32,
+            unsafe_block: i32,
+        }
+
+        fn func() -> impl Scene {
+            bsn! {
+                Holder {
+                    const_block: const {0},
+                    unsafe_block: unsafe {0},
+                }
+            }
+        }
+
+        func();
     }
     #[test]
     fn macro_doc_test() {

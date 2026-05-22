@@ -78,7 +78,7 @@ pub fn extract_text2d_sprite(
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.section_index].entity;
+            let section_entity = computed_block.entities()[run.section_index as usize].entity;
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
@@ -151,7 +151,7 @@ pub fn extract_text2d_sprite(
             }
 
             for run in text_layout_info.run_geometry.iter() {
-                let section_entity = computed_block.entities()[run.section_index].entity;
+                let section_entity = computed_block.entities()[run.section_index as usize].entity;
                 let Ok((_, has_strikethrough, has_underline, _, _)) =
                     decoration_query.get(section_entity)
                 else {
@@ -207,7 +207,7 @@ pub fn extract_text2d_sprite(
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
-        let mut current_section = usize::MAX;
+        let mut current_section = u32::MAX;
 
         for (
             i,
@@ -224,7 +224,7 @@ pub fn extract_text2d_sprite(
                     .get(
                         computed_block
                             .entities()
-                            .get(*section_index)
+                            .get(*section_index as usize)
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
@@ -262,7 +262,7 @@ pub fn extract_text2d_sprite(
         }
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.section_index].entity;
+            let section_entity = computed_block.entities()[run.section_index as usize].entity;
             let Ok((
                 text_color,
                 has_strike_through,

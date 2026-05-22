@@ -23,7 +23,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -687,9 +687,7 @@ impl App {
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(
-        &mut self,
-    ) -> &mut Self {
+    pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
         self
     }
