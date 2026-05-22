@@ -1,11 +1,6 @@
 use core::hint::black_box;
 
-use bevy_ecs::{
-    component::Component,
-    prelude::*,
-    schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
-    world::World,
-};
+use bevy_ecs::{component::Component, prelude::*, world::World};
 use criterion::{criterion_group, BenchmarkId, Criterion};
 
 criterion_group!(benches, empty_archetypes);
