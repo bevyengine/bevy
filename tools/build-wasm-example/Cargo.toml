@@ -5,7 +5,6 @@ description = "Tool for building example for Wasm"
 publish = false
 license = "MIT OR Apache-2.0"
 
-
 [dependencies]
 xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }

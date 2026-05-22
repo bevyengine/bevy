@@ -28,15 +28,23 @@ bevy_scene = { path = "../crates/bevy_scene" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_transform = { path = "../crates/bevy_transform" }
 bevy_ui = { path = "../crates/bevy_ui" }
-bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
-  "std",
-] }
+bevy_platform = {
+  path = "../crates/bevy_platform",
+  default-features = false,
+  features = [
+    "std",
+  ]
+}
 
 # Other crates
-glam = { version = "0.32.0", default-features = false, features = [
-  "std",
-  "rand",
-] }
+glam = {
+  version = "0.32.0",
+  default-features = false,
+  features = [
+    "std",
+    "rand",
+  ]
+}
 rand = "0.10"
 chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 nonmax = { version = "0.5", default-features = false }
@@ -66,7 +74,7 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs_dep)"] }
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 

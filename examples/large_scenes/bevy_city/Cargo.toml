@@ -6,12 +6,15 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-bevy = { path = "../../../", features = [
-  "https",
-  "free_camera",
-  "bevy_feathers",
-  "web_asset_cache",
-] }
+bevy = {
+  path = "../../../",
+  features = [
+    "https",
+    "free_camera",
+    "bevy_feathers",
+    "web_asset_cache",
+  ]
+}
 
 argh = "0.1"
 noise = "0.9.0"

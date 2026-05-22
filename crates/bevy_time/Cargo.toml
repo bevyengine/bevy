@@ -48,18 +48,45 @@ critical-section = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false, optional = true }
-bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false }
+bevy_app = {
+  path = "../bevy_app",
+  version = "0.19.0-dev",
+  default-features = false
+}
+bevy_ecs = {
+  path = "../bevy_ecs",
+  version = "0.19.0-dev",
+  default-features = false
+}
+bevy_reflect = {
+  path = "../bevy_reflect",
+  version = "0.19.0-dev",
+  default-features = false,
+  optional = true
+}
+bevy_platform = {
+  path = "../bevy_platform",
+  version = "0.19.0-dev",
+  default-features = false
+}
 
 # other
-crossbeam-channel = { version = "0.5.0", default-features = false, features = [
-  "std",
-], optional = true }
-serde = { version = "1", features = [
-  "derive",
-], default-features = false, optional = true }
+crossbeam-channel = {
+  version = "0.5.0",
+  default-features = false,
+  features = [
+    "std",
+  ],
+  optional = true
+}
+serde = {
+  version = "1",
+  features = [
+    "derive",
+  ],
+  default-features = false,
+  optional = true
+}
 log = { version = "0.4", default-features = false }
 
 [lints]

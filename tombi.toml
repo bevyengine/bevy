@@ -1,7 +1,6 @@
 toml-version = "v1.1.0"
 
 [format.rules]
-line-width = 254
 trailing-comment-alignment = true
 trailing-comment-space-width = 1
 
@@ -22,4 +21,7 @@ catalog = {
 toml-version = "v1.1.0"
 path = "https://www.schemastore.org/cargo.json"
 include = ["Cargo.toml"]
-format.rules = { array-values-order.enabled = false, table-keys-order.enabled = false }
+format.rules = {
+  array-values-order.enabled = false,
+  table-keys-order.enabled = false
+}

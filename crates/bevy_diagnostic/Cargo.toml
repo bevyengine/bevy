@@ -51,35 +51,71 @@ critical-section = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false }
-bevy_time = { path = "../bevy_time", version = "0.19.0-dev", default-features = false }
-bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_app = {
+  path = "../bevy_app",
+  version = "0.19.0-dev",
+  default-features = false
+}
+bevy_ecs = {
+  path = "../bevy_ecs",
+  version = "0.19.0-dev",
+  default-features = false
+}
+bevy_time = {
+  path = "../bevy_time",
+  version = "0.19.0-dev",
+  default-features = false
+}
+bevy_tasks = {
+  path = "../bevy_tasks",
+  version = "0.19.0-dev",
+  default-features = false
+}
+bevy_platform = {
+  path = "../bevy_platform",
+  version = "0.19.0-dev",
+  default-features = false,
+  features = [
+    "alloc",
+  ]
+}
 
 # other
 atomic-waker = { version = "1", default-features = false }
 const-fnv1a-hash = "1.1.0"
-serde = { version = "1.0", default-features = false, features = [
-  "alloc",
-], optional = true }
+serde = {
+  version = "1.0",
+  default-features = false,
+  features = [
+    "alloc",
+  ],
+  optional = true
+}
 log = { version = "0.4", default-features = false }
 
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.38.4", optional = true, default-features = false, features = [
-  "apple-app-store",
-  "system",
-] }
+sysinfo = {
+  version = "0.38.4",
+  optional = true,
+  default-features = false,
+  features = [
+    "apple-app-store",
+    "system",
+  ]
+}
 
 # Only include when on linux/windows/android/freebsd/netbsd
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android", target_os = "freebsd", target_os = "netbsd"))'.dependencies]
-sysinfo = { version = "0.38.4", optional = true, default-features = false, features = [
-  "system",
-] }
+sysinfo = {
+  version = "0.38.4",
+  optional = true,
+  default-features = false,
+  features = [
+    "system",
+  ]
+}
 
 [dev-dependencies]
 serde_test = "1.0"
