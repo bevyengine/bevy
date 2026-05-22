@@ -2,6 +2,7 @@
 
 use bevy::camera::ScalingMode;
 use bevy::core_pipeline::prepass::NormalPrepass;
+use bevy::mesh::{SphereKind, SphereMeshBuilder};
 use bevy::prelude::*;
 
 fn main() {
@@ -85,10 +86,16 @@ fn setup_meshes(
         Quat::from_axis_angle(Vec3::splat(1.0).normalize(), 135.0_f32.to_radians()),
     );
 
-    let original_mesh = Mesh::from(Sphere::new(1.0))
-        .with_computed_normals()
-        .with_generated_tangents()
-        .unwrap();
+    let original_mesh = Mesh::from(SphereMeshBuilder::new(
+        1.0,
+        SphereKind::Uv {
+            sectors: 128,
+            stacks: 64,
+        },
+    ))
+    .with_computed_normals()
+    .with_generated_tangents()
+    .unwrap();
 
     let transformed_mesh = original_mesh.clone().transformed_by(transform);
 
