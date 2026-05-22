@@ -25,13 +25,24 @@ use core::num::NonZeroU32;
 /// view-level decisions still use the head pose, so per-eye disagreements
 /// (which only matter for objects nearer than the inter-pupillary distance)
 /// share the head's ordering.
+///
+/// `views` must contain between 1 and [`MAX_VIEW_COUNT`] entries (inclusive).
+/// A camera with an empty `views` is treated as if it had no `Multiview`
+/// component at all; a camera with more than [`MAX_VIEW_COUNT`] entries is
+/// reported as a warning and falls back to non-multiview rendering.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Clone, Debug)]
 pub struct Multiview {
-    /// One entry per view layer. Must contain at least one element; the
-    /// length determines how many array layers the render target needs.
+    /// One entry per view layer. See [`Multiview`] for the length contract.
     pub views: Vec<MultiviewSubview>,
 }
+
+/// Maximum number of layers supported in a single multiview pass.
+///
+/// `wgpu`'s `multiview_mask` is a `u32` bitmask with one bit per layer, so
+/// the platform ceiling is 32. Hardware limits may be lower (e.g. Vulkan
+/// `maxMultiviewViewCount` is at least 6 on conformant devices).
+pub const MAX_VIEW_COUNT: usize = 32;
 
 impl Multiview {
     /// Returns the number of view layers as a `NonZeroU32`, or `None` if
@@ -43,20 +54,63 @@ impl Multiview {
     /// Returns the multiview mask covering all layers (bits `0..view_count`).
     /// Suitable for passing as `multiview_mask` on a `RenderPipelineDescriptor`
     /// or a `RenderPassDescriptor` for this camera. Returns `None` if `views`
-    /// is empty.
+    /// is empty or longer than [`MAX_VIEW_COUNT`].
     pub fn view_mask(&self) -> Option<NonZeroU32> {
         let count = self.views.len();
-        if count == 0 {
+        if count == 0 || count > MAX_VIEW_COUNT {
             return None;
         }
-        // `count <= 32` is enforced at extraction time; here we just compute
-        // the mask. For count == 32 we set every bit.
-        let mask = if count >= 32 {
+        // count == 32 sets every bit; smaller counts mask the low N bits.
+        let mask = if count == 32 {
             u32::MAX
         } else {
             (1u32 << count) - 1
         };
         NonZeroU32::new(mask)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_math::Mat4;
+
+    fn dummy_subview() -> MultiviewSubview {
+        MultiviewSubview {
+            view_from_camera: Transform::IDENTITY,
+            clip_from_view: Mat4::IDENTITY,
+        }
+    }
+
+    #[test]
+    fn view_mask_empty_is_none() {
+        let m = Multiview { views: vec![] };
+        assert!(m.view_mask().is_none());
+        assert!(m.view_count().is_none());
+    }
+
+    #[test]
+    fn view_mask_two_eyes_sets_low_bits() {
+        let m = Multiview {
+            views: vec![dummy_subview(), dummy_subview()],
+        };
+        assert_eq!(m.view_mask().unwrap().get(), 0b11);
+    }
+
+    #[test]
+    fn view_mask_at_max_sets_all_bits() {
+        let m = Multiview {
+            views: vec![dummy_subview(); MAX_VIEW_COUNT],
+        };
+        assert_eq!(m.view_mask().unwrap().get(), u32::MAX);
+    }
+
+    #[test]
+    fn view_mask_above_max_is_none() {
+        let m = Multiview {
+            views: vec![dummy_subview(); MAX_VIEW_COUNT + 1],
+        };
+        assert!(m.view_mask().is_none());
     }
 }
 

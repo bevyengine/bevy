@@ -26,7 +26,7 @@ use bevy_camera::{
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
     MsaaWriteback, Multiview, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
-    Viewport,
+    Viewport, MAX_VIEW_COUNT,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -664,16 +664,27 @@ pub fn extract_cameras(
                 *frustum,
             ));
 
+            let multiview = multiview.filter(|m| !m.views.is_empty());
             if let Some(multiview) = multiview {
-                let subviews = multiview
-                    .views
-                    .iter()
-                    .map(|s| ExtractedSubview {
-                        world_from_view: transform.mul_transform(s.view_from_camera),
-                        clip_from_view: s.clip_from_view,
-                    })
-                    .collect();
-                commands.insert(ExtractedMultiview { subviews });
+                if multiview.views.len() > MAX_VIEW_COUNT {
+                    warn_once!(
+                        "Camera with {} multiview subviews exceeds MAX_VIEW_COUNT ({}); \
+                         rendering as non-multiview. This warning fires once per process.",
+                        multiview.views.len(),
+                        MAX_VIEW_COUNT,
+                    );
+                    commands.remove::<ExtractedMultiview>();
+                } else {
+                    let subviews = multiview
+                        .views
+                        .iter()
+                        .map(|s| ExtractedSubview {
+                            world_from_view: transform.mul_transform(s.view_from_camera),
+                            clip_from_view: s.clip_from_view,
+                        })
+                        .collect();
+                    commands.insert(ExtractedMultiview { subviews });
+                }
             } else {
                 commands.remove::<ExtractedMultiview>();
             }
