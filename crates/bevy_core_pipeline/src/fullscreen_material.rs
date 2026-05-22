@@ -28,15 +28,17 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         encase::internal::WriteInto,
-        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FragmentState,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
         ShaderType, Specializer, SpecializerKey, TextureFormat, TextureSampleType, TextureView,
-        TextureViewId, Variants,
+        Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::{ExtractedView, ViewTarget},
+    view::{
+        ExtractedView, PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget,
+    },
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
@@ -214,7 +216,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
 /// We can't know ahead of time which one is the source or destination so we create a bind group
 /// for both
 #[derive(Component)]
-struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
+pub struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
     cache: PostProcessBindGroupCache,
     // This is in case someone wants multiple `FullscreenMaterial` per camera
     _marker: PhantomData<T>,
