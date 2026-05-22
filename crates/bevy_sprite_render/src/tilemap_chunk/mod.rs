@@ -127,6 +127,8 @@ impl Default for TileData {
 
 /// Component storing the data of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
+///
+/// Data is interpreted in Y-up format. Use [`TilemapChunkTileData::from_y_down_tiles`] to convert from Y-down formatted data.
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
@@ -255,5 +257,19 @@ impl TilemapChunkTileData {
         self.0
             .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
             .and_then(|opt| opt.as_ref())
+    }
+
+    /// Creates a [`TilemapChunkTileData`] by converting tile data from Y-down format to Y-up format.
+    pub fn from_y_down_tiles(chunk_size: UVec2, mut data: Vec<Option<TileData>>) -> Self {
+        for y in 0..chunk_size.y / 2 {
+            let upper_start = y * chunk_size.x;
+            let lower_start = (chunk_size.y - 1 - y) * chunk_size.x;
+
+            let (up, down) = data.split_at_mut(lower_start as usize);
+            up[upper_start as usize..(upper_start + chunk_size.x) as usize]
+                .swap_with_slice(&mut down[..chunk_size.x as usize]);
+        }
+
+        Self(data)
     }
 }
