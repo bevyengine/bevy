@@ -34,7 +34,9 @@ pub fn merge_all_mesh_3d(
             Some(mesh) => {
                 let _ = mesh.merge(&transformed);
             }
-            None => merged = Some(transformed),
+            None => {
+                merged = Some(transformed);
+            }
         }
     }
     merged
