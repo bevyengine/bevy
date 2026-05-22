@@ -41,8 +41,8 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
-        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ExtractedMultiview, ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities,
+        RetainedViewEntity, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
     RenderStartup, RenderSystems,
@@ -412,6 +412,12 @@ impl PrepassPipeline {
         // (PBR code will use this to detect that it's running in deferred mode,
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
+
+        let max_view_count = mesh_key.max_view_count();
+        if max_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
+        }
 
         shader_defs.push(ShaderDefVal::UInt(
             "MATERIAL_BIND_GROUP".into(),
@@ -809,9 +815,12 @@ pub fn check_prepass_views_need_specialization(
         Option<&DepthPrepass>,
         Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
+        Option<&ExtractedMultiview>,
     )>,
 ) {
-    for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass) in views.iter_mut() {
+    for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass, multiview) in
+        views.iter_mut()
+    {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
@@ -821,6 +830,9 @@ pub fn check_prepass_views_need_specialization(
         }
         if motion_vector_prepass.is_some() {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+        if let Some(multiview) = multiview {
+            view_key |= MeshPipelineKey::from_max_view_count(multiview.subviews.len() as u32);
         }
 
         if let Some(current_key) = view_key_cache.get_mut(&view.retained_view_entity) {

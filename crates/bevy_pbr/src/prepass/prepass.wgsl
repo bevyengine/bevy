@@ -67,7 +67,16 @@ fn morph_prev_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 #endif  // MORPH_TARGETS
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
+fn vertex(
+    vertex_no_morph: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
@@ -194,7 +203,16 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 @fragment
-fn fragment(in: VertexOutput) -> FragmentOutput {
+fn fragment(
+    in: VertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> FragmentOutput {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     var out: FragmentOutput;
 
 #ifdef NORMAL_PREPASS
