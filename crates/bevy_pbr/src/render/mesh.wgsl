@@ -35,7 +35,16 @@ fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 #endif
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
+fn vertex(
+    vertex_no_morph: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
