@@ -7,7 +7,28 @@
     globals::Globals,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+// View uniform.
+//
+// Backed by a runtime-sized `array<View, N>` so multiview cameras can pack
+// N per-eye records into a single dynamic-offset slot. `MAX_VIEW_COUNT` is
+// the shader-def that names N; when undefined (non-multiview pipelines) the
+// fallback is a 1-element array, which matches the single ViewUniform pushed
+// by `DynamicArrayUniformBuffer` for non-multiview cameras.
+//
+// All shader code reads `view()` (not `view_array` directly). The helper
+// returns the current view via `view_array[current_view_index]`, where
+// `current_view_index` defaults to 0 and is overwritten from
+// `@builtin(view_index)` at the top of multiview entry-point bodies.
+#ifdef MAX_VIEW_COUNT
+@group(0) @binding(0) var<uniform> view_array: array<View, #{MAX_VIEW_COUNT}>;
+#else
+@group(0) @binding(0) var<uniform> view_array: array<View, 1>;
+#endif
+var<private> current_view_index: i32 = 0;
+
+fn view() -> View {
+    return view_array[current_view_index];
+}
 @group(0) @binding(1) var<uniform> lights: types::Lights;
 #ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube;

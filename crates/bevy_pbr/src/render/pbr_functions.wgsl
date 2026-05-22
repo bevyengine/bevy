@@ -263,10 +263,10 @@ fn calculate_view(
     var V: vec3<f32>;
     if is_orthographic {
         // Orthographic view vector
-        V = normalize(vec3<f32>(view_bindings::view.clip_from_world[0].z, view_bindings::view.clip_from_world[1].z, view_bindings::view.clip_from_world[2].z));
+        V = normalize(vec3<f32>(view_bindings::view().clip_from_world[0].z, view_bindings::view().clip_from_world[1].z, view_bindings::view().clip_from_world[2].z));
     } else {
         // Only valid for a perspective projection
-        V = normalize(view_bindings::view.world_position.xyz - world_position.xyz);
+        V = normalize(view_bindings::view().world_position.xyz - world_position.xyz);
     }
     return V;
 }
@@ -450,10 +450,10 @@ fn apply_pbr_lighting(
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
     let view_z = dot(vec4<f32>(
-        view_bindings::view.view_from_world[0].z,
-        view_bindings::view.view_from_world[1].z,
-        view_bindings::view.view_from_world[2].z,
-        view_bindings::view.view_from_world[3].z
+        view_bindings::view().view_from_world[0].z,
+        view_bindings::view().view_from_world[1].z,
+        view_bindings::view().view_from_world[2].z,
+        view_bindings::view().view_from_world[3].z
     ), in.world_position);
     let cluster_index = clustering::view_fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     var clusterable_object_index_ranges =
@@ -837,7 +837,7 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
 #endif
 
-    emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
+    emissive_light = emissive_light * mix(1.0, view_bindings::view().exposure, emissive.a);
 
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
     transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
@@ -860,7 +860,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
+        (view_bindings::view().exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
         output_color.a
     );
 
@@ -912,7 +912,7 @@ fn apply_fog(
                     0.0
                 ),
                 fog_params.directional_light_exponent
-            ) * light.color.rgb * view_bindings::view.exposure;
+            ) * light.color.rgb * view_bindings::view().exposure;
 
             // Sample shadow map to attenuate inscattering in shadowed areas
             var shadow: f32 = 1.0;
@@ -1004,14 +1004,14 @@ fn main_pass_post_lighting_processing(
             view_bindings::fog,
             output_color,
             pbr_input.world_position.xyz,
-            view_bindings::view.world_position.xyz,
+            view_bindings::view().world_position.xyz,
             pbr_input.frag_coord.xy,
         );
     }
 #endif  // DISTANCE_FOG
 
 #ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color, view_bindings::view.color_grading);
+    output_color = tone_mapping(output_color, view_bindings::view().color_grading);
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = powsafe(output_rgb, 1.0 / 2.2);

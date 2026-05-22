@@ -24,7 +24,7 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let scale = (world_from_local * vec4(1.0, 1.0, 1.0, 0.0)).xyz;
     let scaled_tangent = vec4(in.world_tangent.xyz / scale, in.world_tangent.w);
 
-    let V = normalize(view.world_position - in.world_position.xyz);
+    let V = normalize(view().world_position - in.world_position.xyz);
 
     // Transform V from fragment to camera in world space to tangent space.
     let TBN = calculate_tbn_mikktspace(in.world_normal, scaled_tangent);

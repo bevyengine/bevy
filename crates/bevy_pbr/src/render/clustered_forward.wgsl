@@ -54,7 +54,7 @@ fn view_z_to_z_slice(
 }
 
 fn view_fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
-    let xy = vec2<u32>(floor((frag_coord - bindings::view.viewport.xy) * bindings::lights.cluster_factors.xy));
+    let xy = vec2<u32>(floor((frag_coord - bindings::view().viewport.xy) * bindings::lights.cluster_factors.xy));
     let z_slice = view_z_to_z_slice(
         bindings::lights.cluster_factors.zw,
         bindings::lights.cluster_dimensions.z,
