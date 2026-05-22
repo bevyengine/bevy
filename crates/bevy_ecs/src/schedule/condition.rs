@@ -830,29 +830,36 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, PartialEq)]
     /// # struct Counter(i16);
+    /// # #[derive(Resource)]
+    /// # struct ShouldRun(String);
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and` will only return true
     ///     // if the given resource exists and satisfies the given condition
-    ///     my_system.run_if(resource_exists_and(|counter: &Counter| counter.0.is_negative())),
+    ///     increment.run_if(resource_exists_and(|should_run: &ShouldRun| should_run.0.is_ascii())),
     /// );
-    ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 = -counter.0;
+    /// 
+    /// fn increment(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
     /// }
-    ///
-    /// // `Counter` hasn't been added so `my_system` can't run
+    /// 
+    /// world.insert_resource(Counter(0));
+    /// 
+    /// // `ShouldRun` hasn't been added, so `increment` can't run
     /// app.run(&mut world);
-    /// world.insert_resource(Counter(-7));
-    ///
-    /// // `Counter` is `-7`, satisfying is_negative(), so `my_system` can run
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// world.insert_resource(ShouldRun(String::from("bevy")));
+    /// 
+    /// // `ShouldRun` exists and satisfies the run conditions, so `increment` can run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 7);
-    ///
-    /// // `Counter` is `7`, not satisfying is_negative(), so `my_system` won't run
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// world.get_resource_mut::<ShouldRun>().unwrap().0 = String::from("bevy ❤");
+    /// 
+    /// // `ShouldRun` exists but has non-ASCII characters and thus 
+    /// // does not satisfy the run conditions, so `increment` won't run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 7);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_exists_and<T>(
         condition: impl Fn(&T) -> bool,
