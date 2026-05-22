@@ -11,10 +11,10 @@ const FONT_ASSETS: &[&str] = &[
 
 const FONT_NAMES: &[&str] = &[
     "Gabriola",
-    "Fira Sans Bold",
+    "Fira Sans",
     "Fira Mono",
-    "Mona Sans ExtraLight",
-    "EB Garamond 12",
+    "Mona Sans",
+    "EB Garamond",
 ];
 
 #[derive(Resource)]
