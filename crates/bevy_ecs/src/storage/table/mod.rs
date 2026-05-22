@@ -9,13 +9,12 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
-#[cfg(feature = "std")]
-use core::panic::AssertUnwindSafe;
 use core::{
     any::Any,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
+    panic::AssertUnwindSafe,
     panic::Location,
 };
 use nonmax::NonMaxU32;

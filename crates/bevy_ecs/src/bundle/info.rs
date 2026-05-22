@@ -5,10 +5,9 @@ use bevy_platform::{
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
 use bevy_utils::TypeIdMap;
-#[cfg(feature = "std")]
-use core::panic::AssertUnwindSafe;
 use core::{
     any::{Any, TypeId},
+    panic::AssertUnwindSafe,
     ptr::NonNull,
 };
 use indexmap::{IndexMap, IndexSet};

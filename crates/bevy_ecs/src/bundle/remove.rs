@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 use bevy_ptr::ConstNonNull;
-#[cfg(feature = "std")]
 use core::panic::AssertUnwindSafe;
 use core::ptr::NonNull;
 
