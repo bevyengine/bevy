@@ -602,6 +602,11 @@ impl ColorGrading {
     }
 }
 
+/// A resource, part of the render world, that stores the resolved origin for
+/// LOD selection for shadow maps of point and spot lights.
+#[derive(Default, Resource, Debug)]
+pub struct RenderShadowLodOrigin(pub Vec3);
+
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     pub clip_from_world: Mat4,
@@ -651,6 +656,13 @@ pub struct ViewUniform {
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     pub frustum: [Vec4; 6],
+    /// The world-space position of the camera used to resolve visibility
+    /// ranges.
+    ///
+    /// This is the position of the camera itself, unless this view isn't
+    /// associated with a camera, in which case it's the position of the primary
+    /// camera.
+    pub lod_view_world_position: Vec3,
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
@@ -998,6 +1010,7 @@ pub fn prepare_view_uniforms(
         Option<&MainPassResolutionOverride>,
     )>,
     frame_count: Res<FrameCount>,
+    shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -1049,6 +1062,43 @@ pub fn prepare_view_uniforms(
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
+        // Determine the position of the camera used for resolving visibility
+        // ranges (LODs).
+        let lod_view_world_position = match (&extracted_camera, &shadow_lod_origin) {
+            (Some(_), _) | (None, None) => {
+                // If we're rendering a camera directly (i.e. we're not
+                // rendering a shadow map), we use this camera's position as the
+                // LOD view position.
+                extracted_view.world_from_view.translation()
+            }
+            (None, Some(shadow_lod_origin))
+                if extracted_view.retained_view_entity.auxiliary_entity
+                    == MainEntity::from(Entity::PLACEHOLDER) =>
+            {
+                // If this is a shadow map not associated with a camera (a point
+                // light or spot light shadow map), use the shadow LOD origin.
+                shadow_lod_origin.0
+            }
+            (None, Some(shadow_lod_origin)) => {
+                // Otherwise, if we're rendering a shadow map that is associated
+                // with a camera (i.e. a directional light shadow map, at
+                // present), we use the position of that camera as the LOD view
+                // position. This ensures that each rendered object has a shadow
+                // and that no invisible objects have shadows.
+                match views.get(
+                    extracted_view
+                        .retained_view_entity
+                        .auxiliary_entity
+                        .entity(),
+                ) {
+                    Ok((_, _, camera_view, _, _, _, _)) => {
+                        camera_view.world_from_view.translation()
+                    }
+                    Err(_) => shadow_lod_origin.0,
+                }
+            }
+        };
+
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
                 clip_from_world,
@@ -1065,6 +1115,7 @@ pub fn prepare_view_uniforms(
                 viewport,
                 main_pass_viewport,
                 frustum,
+                lod_view_world_position,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,

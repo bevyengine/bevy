@@ -40,7 +40,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
             let key_row = Vec::from_iter(row.into_iter().map(move |key| {
                 let key_clone = key.clone();
                 bsn! {
-                    :FeathersButton
+                    :@FeathersButton
                     Node {
                         flex_grow: 1.0,
                     }
