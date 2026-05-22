@@ -60,20 +60,33 @@ web = [
 ]
 
 [dependencies]
-critical-section = { version = "1.2.0", default-features = false, optional = true }
-spin = { version = "0.10.0", default-features = false, features = [
-  "mutex",
-  "spin_mutex",
-  "rwlock",
-  "once",
-  "lazy",
-  "barrier",
-] }
+critical-section = {
+  version = "1.2.0",
+  default-features = false,
+  optional = true
+}
+spin = {
+  version = "0.10.0",
+  default-features = false,
+  features = [
+    "mutex",
+    "spin_mutex",
+    "rwlock",
+    "once",
+    "lazy",
+    "barrier",
+  ]
+}
 foldhash = { version = "0.2.0", default-features = false }
-hashbrown = { version = "0.16.1", features = [
-  "equivalent",
-  "raw-entry",
-], optional = true, default-features = false }
+hashbrown = {
+  version = "0.16.1",
+  features = [
+    "equivalent",
+    "raw-entry",
+  ],
+  optional = true,
+  default-features = false
+}
 serde = { version = "1", default-features = false, optional = true }
 rayon = { version = "1", default-features = false, optional = true }
 futures-lite = { version = "2.0.1", default-features = false, optional = true }
@@ -81,29 +94,44 @@ async-io = { version = "2.0.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
-wasm-bindgen-futures = { version = "0.4.46", default-features = false, optional = true }
+wasm-bindgen-futures = {
+  version = "0.4.46",
+  default-features = false,
+  optional = true
+}
 futures-channel = { version = "0.3", default-features = false }
 js-sys = { version = "0.3", default-features = false, optional = true }
 wasm-bindgen = { version = "0.2", default-features = false, optional = true }
 
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
-portable-atomic = { version = "1", default-features = false, features = [
-  "fallback",
-] }
-spin = { version = "0.10.0", default-features = false, features = [
-  "portable-atomic",
-] }
+portable-atomic = {
+  version = "1",
+  default-features = false,
+  features = [
+    "fallback",
+  ]
+}
+spin = {
+  version = "0.10.0",
+  default-features = false,
+  features = [
+    "portable-atomic",
+  ]
+}
 
 [target.'cfg(not(target_has_atomic = "ptr"))'.dependencies]
 portable-atomic-util = { version = "0.2.4", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = ">= 0.59.0", features = [
-  "Win32_UI_Shell",
-  "Win32_Foundation",
-  "Win32_Globalization",
-  "Win32_System_Com",
-] }
+windows-sys = {
+  version = ">= 0.59.0",
+  features = [
+    "Win32_UI_Shell",
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_System_Com",
+  ]
+}
 
 [lints]
 workspace = true

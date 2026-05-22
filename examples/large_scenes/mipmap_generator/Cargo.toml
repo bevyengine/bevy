@@ -9,14 +9,18 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-bevy = { path = "../../../", default-features = false, features = [
-  "bevy_asset",
-  "bevy_world_serialization",
-  "bevy_pbr",
-  "ktx2",
-  "jpeg",
-  "multi_threaded",
-] }
+bevy = {
+  path = "../../../",
+  default-features = false,
+  features = [
+    "bevy_asset",
+    "bevy_world_serialization",
+    "bevy_pbr",
+    "ktx2",
+    "jpeg",
+    "multi_threaded",
+  ]
+}
 image = { version = "0.25.2", default-features = false }
 fast_image_resize = { version = "6.0", features = ["image"] }
 futures-lite = "2.0.1"

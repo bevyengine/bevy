@@ -9,11 +9,31 @@ gamesActivity = "4.4.0" # Note: This must be compatible with `android-activity` 
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-games-activity = { group = "androidx.games", name = "games-activity", version.ref = "gamesActivity" }
+ext-junit = {
+  group = "androidx.test.ext",
+  name = "junit",
+  version.ref = "junitVersion"
+}
+espresso-core = {
+  group = "androidx.test.espresso",
+  name = "espresso-core",
+  version.ref = "espressoCore"
+}
+appcompat = {
+  group = "androidx.appcompat",
+  name = "appcompat",
+  version.ref = "appcompat"
+}
+material = {
+  group = "com.google.android.material",
+  name = "material",
+  version.ref = "material"
+}
+games-activity = {
+  group = "androidx.games",
+  name = "games-activity",
+  version.ref = "gamesActivity"
+}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

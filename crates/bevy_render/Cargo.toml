@@ -59,10 +59,14 @@ reflect_functions = ["bevy_app/reflect_functions"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.19.0-dev", features = [
-  "serialize",
-  "wgpu-types",
-] }
+bevy_color = {
+  path = "../bevy_color",
+  version = "0.19.0-dev",
+  features = [
+    "serialize",
+    "wgpu-types",
+  ]
+}
 bevy_derive = { path = "../bevy_derive", version = "0.19.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.19.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
@@ -71,7 +75,10 @@ bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
-bevy_material_macros = { path = "../bevy_material/macros", version = "0.19.0-dev" }
+bevy_material_macros = {
+  path = "../bevy_material/macros",
+  version = "0.19.0-dev"
+}
 bevy_render_macros = { path = "../bevy_render/macros", version = "0.19.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
@@ -82,10 +89,15 @@ bevy_image = { path = "../bevy_image", version = "0.19.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.19.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
-  "std",
-  "serialize",
-] }
+bevy_platform = {
+  path = "../bevy_platform",
+  version = "0.19.0-dev",
+  default-features = false,
+  features = [
+    "std",
+    "serialize",
+  ]
+}
 
 # rendering
 image = { version = "0.25.2", default-features = false }
@@ -95,14 +107,18 @@ image = { version = "0.25.2", default-features = false }
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "29.0.3", default-features = false, features = [
-  "wgsl",
-  "dx12",
-  "metal",
-  "vulkan",
-  "naga-ir",
-  "fragile-send-sync-non-atomic-wasm",
-] }
+wgpu = {
+  version = "29.0.3",
+  default-features = false,
+  features = [
+    "wgsl",
+    "dx12",
+    "metal",
+    "vulkan",
+    "naga-ir",
+    "fragile-send-sync-non-atomic-wasm",
+  ]
+}
 wgpu-types = { version = "29.0.3", default-features = false }
 naga = { version = "29.0.3", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
@@ -110,14 +126,22 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
-glam = { version = "0.32.0", default-features = false, features = [
-  "std",
-  "encase",
-] }
+glam = {
+  version = "0.32.0",
+  default-features = false,
+  features = [
+    "std",
+    "encase",
+  ]
+}
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
-profiling = { version = "1", features = [
-  "profile-with-tracing",
-], optional = true }
+profiling = {
+  version = "1",
+  features = [
+    "profile-with-tracing",
+  ],
+  optional = true
+}
 async-channel = "2.3.0"
 nonmax = "0.5"
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
@@ -138,26 +162,44 @@ send_wrapper = { version = "0.6.0" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3.83"
-web-sys = { version = "0.3.67", features = [
-  'Blob',
-  'Document',
-  'Element',
-  'HtmlElement',
-  'Node',
-  'Url',
-  'Window',
-] }
+web-sys = {
+  version = "0.3.67",
+  features = [
+    "Blob",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "Node",
+    "Url",
+    "Window",
+  ]
+}
 wasm-bindgen = "0.2"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false, features = [
-  "web",
-] }
+bevy_app = {
+  path = "../bevy_app",
+  version = "0.19.0-dev",
+  default-features = false,
+  features = [
+    "web",
+  ]
+}
+bevy_platform = {
+  path = "../bevy_platform",
+  version = "0.19.0-dev",
+  default-features = false,
+  features = [
+    "web",
+  ]
+}
+bevy_reflect = {
+  path = "../bevy_reflect",
+  version = "0.19.0-dev",
+  default-features = false,
+  features = [
+    "web",
+  ]
+}
 
 [lints]
 workspace = true
