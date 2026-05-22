@@ -11,7 +11,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_resource::*,
     renderer::{RenderContext, ViewQuery},
-    view::{Msaa, ViewTarget},
+    view::{ExtractedMultiview, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
 
@@ -76,8 +76,12 @@ pub(crate) fn msaa_writeback(
         multiview_mask: None,
     };
 
-    let bind_group =
-        blit_pipeline.create_bind_group(ctx.render_device(), post_process.source, &pipeline_cache);
+    let bind_group = blit_pipeline.create_bind_group(
+        ctx.render_device(),
+        post_process.source,
+        &pipeline_cache,
+        target.multiview_count().map_or(1, |n| n.get()),
+    );
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -102,9 +106,15 @@ fn prepare_msaa_writeback_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    view_targets: Query<(
+        Entity,
+        &ViewTarget,
+        &ExtractedCamera,
+        &Msaa,
+        Option<&ExtractedMultiview>,
+    )>,
 ) {
-    for (entity, view_target, camera, msaa) in view_targets.iter() {
+    for (entity, view_target, camera, msaa, multiview) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
@@ -121,11 +131,14 @@ fn prepare_msaa_writeback_pipelines(
         };
 
         if msaa.samples() > 1 && should_writeback {
+            let multiview_view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
+
             let key = BlitPipelineKey {
                 target_format: view_target.main_texture_format(),
                 samples: msaa.samples(),
                 blend_state: None,
                 source_space: None,
+                multiview_view_count,
             };
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
