@@ -839,24 +839,24 @@ pub mod common_conditions {
     ///     // if the given resource exists and satisfies the given condition
     ///     increment.run_if(resource_exists_and(|should_run: &ShouldRun| should_run.0.is_ascii())),
     /// );
-    /// 
+    ///
     /// fn increment(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
-    /// 
+    ///
     /// world.insert_resource(Counter(0));
-    /// 
+    ///
     /// // `ShouldRun` hasn't been added, so `increment` can't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// world.insert_resource(ShouldRun(String::from("bevy")));
-    /// 
+    ///
     /// // `ShouldRun` exists and satisfies the run conditions, so `increment` can run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// world.get_resource_mut::<ShouldRun>().unwrap().0 = String::from("bevy ❤");
-    /// 
-    /// // `ShouldRun` exists but has non-ASCII characters and thus 
+    ///
+    /// // `ShouldRun` exists but has non-ASCII characters and thus
     /// // does not satisfy the run conditions, so `increment` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
