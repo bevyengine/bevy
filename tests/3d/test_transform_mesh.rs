@@ -1,6 +1,7 @@
 //! Test that transforming a mesh correctly updates normals and tangents.
 
 use bevy::camera::ScalingMode;
+use bevy::core_pipeline::prepass::NormalPrepass;
 use bevy::prelude::*;
 
 fn main() {
@@ -16,11 +17,14 @@ fn setup_environment(
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
 ) {
-    let description = "(left to right)\n\
-        0: Original mesh.\n\
-        1: Transformed via mesh attributes.\n\
-        2: Transformed via mesh attributes, normals and tangents recalculated.\n\
-        3: Transformed via entity.";
+    let description = r#"(left to right)
+  0: Original mesh.
+  1: Transformed via mesh attributes.
+  2: Transformed via mesh attributes + normals and tangents recalculated.
+  3: Transformed via entity.
+
+Controls:
+  F1: Cycle render debug overlay"#;
 
     commands.spawn((
         Text::new(description),
@@ -42,6 +46,7 @@ fn setup_environment(
             },
             ..OrthographicProjection::default_3d()
         }),
+        NormalPrepass,
     ));
 
     commands.spawn((
