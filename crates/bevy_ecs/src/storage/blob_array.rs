@@ -353,17 +353,27 @@ impl BlobArray {
             debug_assert!(src.capacity > src_index);
             debug_assert!(self.capacity > dst_index);
         }
-        core::ptr::copy_nonoverlapping(
-            src.get_unchecked(src_index).as_ptr(),
-            self.get_unchecked_mut(dst_index).as_ptr(),
-            self.item_layout.size(),
-        );
-        if src_index != src_last_element_index {
+        // SAFETY:
+        // - exclusive references guarantee disjointness
+        // - in bounds per precondition
+        unsafe {
             core::ptr::copy_nonoverlapping(
-                src.get_unchecked(src_last_element_index).as_ptr(),
-                src.get_unchecked_mut(src_index).as_ptr(),
+                src.get_unchecked(src_index).as_ptr(),
+                self.get_unchecked_mut(dst_index).as_ptr(),
                 self.item_layout.size(),
             );
+        }
+        if src_index != src_last_element_index {
+            // SAFETY:
+            // - indices disjointness
+            // - in bounds per precondition
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    src.get_unchecked(src_last_element_index).as_ptr(),
+                    src.get_unchecked_mut(src_index).as_ptr(),
+                    self.item_layout.size(),
+                );
+            }
         }
     }
 
