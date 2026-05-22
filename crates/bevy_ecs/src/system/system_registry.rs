@@ -1015,7 +1015,7 @@ mod tests {
         let result = world.run_system(id);
 
         assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
-        let expected = "Resource does not exist";
+        let expected = "does not exist";
         let actual = result.unwrap_err().to_string();
 
         assert!(

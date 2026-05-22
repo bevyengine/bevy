@@ -94,7 +94,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity},
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-    MainWorld, Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, MainWorld, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -147,14 +147,14 @@ impl Plugin for GpuClusteringPlugin {
         }
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<ClusteringRasterPipeline>>()
-            .init_resource::<SpecializedComputePipelines<ClusteringZSlicingPipeline>>()
-            .init_resource::<SpecializedComputePipelines<ClusteringAllocationPipeline>>()
-            .init_resource::<RenderViewClusteringReadbackData>()
-            .init_resource::<GpuClusteringMeshBuffers>()
-            .init_resource::<ClusteringRasterPipeline>()
-            .init_resource::<ClusteringZSlicingPipeline>()
-            .init_resource::<ClusteringAllocationPipeline>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ClusteringRasterPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<ClusteringZSlicingPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<ClusteringAllocationPipeline>>()
+            .init_gpu_resource::<RenderViewClusteringReadbackData>()
+            .init_gpu_resource::<GpuClusteringMeshBuffers>()
+            .init_gpu_resource::<ClusteringRasterPipeline>()
+            .init_gpu_resource::<ClusteringZSlicingPipeline>()
+            .init_gpu_resource::<ClusteringAllocationPipeline>()
             .add_systems(
                 Render,
                 (prepare_clustering_pipelines, prepare_cluster_dummy_textures)
@@ -511,7 +511,7 @@ impl FromWorld for ClusteringRasterPipeline {
             // @group(0) @binding(1) var<storage, read_write> index_lists:
             // ClusterableObjectIndexLists;
             binding_types::storage_buffer::<GpuClusterableObjectIndexListsStorage>(false)
-                .build(1, ShaderStages::VERTEX_FRAGMENT),
+                .build(1, ShaderStages::FRAGMENT),
             // @group(0) @binding(2) var<storage> clustered_lights:
             // ClusteredLights;
             binding_types::storage_buffer_read_only::<GpuClusteredLight>(false)
@@ -538,20 +538,20 @@ impl FromWorld for ClusteringRasterPipeline {
         // ClusterOffsetsAndCountsAtomic;
         bind_group_layout_entries_count_pass.push(
             binding_types::storage_buffer::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(7, ShaderStages::VERTEX_FRAGMENT),
+                .build(7, ShaderStages::FRAGMENT),
         );
 
         // @group(0) @binding(7) var<storage> offsets_and_counts:
         // ClusterOffsetsAndCounts;
         bind_group_layout_entries_populate_pass.push(
             binding_types::storage_buffer_read_only::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(7, ShaderStages::VERTEX_FRAGMENT),
+                .build(7, ShaderStages::FRAGMENT),
         );
         // @group(0) @binding(8) var<storage, read_write>
         // scratchpad_offsets_and_counts: ClusterOffsetsAndCountsAtomic;
         bind_group_layout_entries_populate_pass.push(
             binding_types::storage_buffer::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(8, ShaderStages::VERTEX_FRAGMENT),
+                .build(8, ShaderStages::FRAGMENT),
         );
 
         let bind_group_layout_count_pass = BindGroupLayoutDescriptor::new(
@@ -577,12 +577,15 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
     type Key = ClusteringRasterPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![];
+        let mut fragment_shader_defs = vec![];
         if key.populate_pass {
-            shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
+            fragment_shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
         } else {
-            shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
+            fragment_shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
         }
+
+        let mut vertex_shader_defs = fragment_shader_defs.clone();
+        vertex_shader_defs.push(ShaderDefVal::from("VERTEX_SHADER"));
 
         RenderPipelineDescriptor {
             label: if key.populate_pass {
@@ -598,7 +601,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             immediate_size: 0,
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: vertex_shader_defs,
                 entry_point: Some("vertex_main".into()),
                 buffers: vec![VertexBufferLayout {
                     array_stride: size_of::<Vec2>() as u64,
@@ -612,7 +615,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: fragment_shader_defs,
                 entry_point: Some("fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::R8Unorm,
@@ -869,10 +872,13 @@ fn cluster_on_gpu(
     let time_span = diagnostics.time_span(render_context.command_encoder(), "clustering");
 
     // Fetch a staging buffer for us to perform readback with.
-    let staging_buffer = view_clustering_readback_data
+    let Ok(staging_buffer) = view_clustering_readback_data
         .lock()
-        .unwrap()
-        .get_or_create_staging_buffer(render_context.render_device());
+        .map(|mut data| data.get_or_create_staging_buffer(render_context.render_device()))
+    else {
+        error!("Failed to fetch staging buffer; not clustering.");
+        return;
+    };
 
     let command_encoder = render_context.command_encoder();
     command_encoder.push_debug_group("clustering");
@@ -1638,7 +1644,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         all_view_main_entities.insert(*view_main_entity);
 
         // Create the readback data.
-        let view_clustering_buffer_size_data = render_view_clustering_index_list_sizes
+        let Ok(view_clustering_buffer_size_data) = render_view_clustering_index_list_sizes
             .views
             .entry(*view_main_entity)
             .or_insert_with(|| {
@@ -1647,7 +1653,10 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
                 )))
             })
             .lock()
-            .unwrap();
+        else {
+            warn!("Failed to acquire lock for view clustering buffer size data; skipping buffer creation for view: {}", view_entity.to_bits());
+            continue;
+        };
 
         let mut view_gpu_clustering_buffers = ViewGpuClusteringBuffers::new();
 

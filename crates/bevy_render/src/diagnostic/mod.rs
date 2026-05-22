@@ -13,6 +13,7 @@ use alloc::{borrow::Cow, sync::Arc};
 use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Res, ResMut},
+    world::{FromWorld, World},
 };
 use core::marker::PhantomData;
 use wgpu::{BufferSlice, CommandEncoder};
@@ -20,8 +21,8 @@ use wgpu::{BufferSlice, CommandEncoder};
 use bevy_app::{App, Plugin, PreUpdate};
 
 use crate::{
-    renderer::{PendingCommandBuffers, RenderAdapterInfo, RenderGraph, RenderGraphSystems},
-    RenderApp,
+    renderer::{PendingCommandBuffers, RenderGraph, RenderGraphSystems},
+    GpuResourceAppExt, RenderApp,
 };
 
 use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
@@ -31,7 +32,7 @@ pub use self::{
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::renderer::RenderDevice;
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
@@ -78,10 +79,7 @@ impl Plugin for RenderDiagnosticsPlugin {
             return;
         };
 
-        let adapter_info = render_app.world().resource::<RenderAdapterInfo>();
-        let device = render_app.world().resource::<RenderDevice>();
-        let queue = render_app.world().resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(adapter_info, device, queue));
+        render_app.init_gpu_resource::<DiagnosticsRecorder>();
 
         render_app.add_systems(
             RenderGraph,
@@ -93,6 +91,12 @@ impl Plugin for RenderDiagnosticsPlugin {
                 finish_diagnostics_frame.in_set(RenderGraphSystems::Finish),
             ),
         );
+    }
+}
+
+impl FromWorld for DiagnosticsRecorder {
+    fn from_world(world: &mut World) -> Self {
+        DiagnosticsRecorder::new(world.resource(), world.resource(), world.resource())
     }
 }
 
@@ -205,7 +209,7 @@ impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
 
 impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
     fn drop(&mut self) {
-        panic!("TimeSpanScope::end was never called")
+        bevy_log::error!("TimeSpanScope::end was never called");
     }
 }
 

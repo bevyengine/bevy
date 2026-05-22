@@ -1,9 +1,38 @@
-use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
-use bevy_ecs::prelude::*;
+use crate::{
+    components::{GlobalTransform, Transform, TransformTreeChanged},
+    helper::TransformHelper,
+};
 
-#[cfg(feature = "std")]
+use bevy_ecs::{prelude::*, query::QueryFilter};
+
+/// Generic system that propagates transforms,
+/// using [`TransformHelper`] for any entity matching the filter `F`.
+/// Useful for moving and rendering in the same frame.
+pub fn propagate_transforms_for<F: QueryFilter + 'static>(
+    tf_helper: TransformHelper,
+    mut query: Query<(Entity, &mut GlobalTransform), F>,
+) {
+    for (entity, mut gtf) in query.iter_mut() {
+        let result = tf_helper
+            .compute_global_transform(entity)
+            .inspect_err(|_err| {
+                #[cfg(feature = "trace")]
+                bevy_utils::once!(tracing::warn!(
+                    "Failed to compute GlobalTransform for entity {:?}: {:?}",
+                    entity,
+                    _err
+                ));
+            });
+
+        if let Ok(computed) = result {
+            *gtf = computed;
+        }
+    }
+}
+
+#[cfg(feature = "multi_threaded")]
 pub use parallel::propagate_parent_transforms;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 pub use serial::propagate_parent_transforms;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -25,9 +54,17 @@ pub fn sync_simple_transforms(
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
     // Update changed entities.
+    #[cfg(feature = "multi_threaded")]
     query
         .p0()
         .par_iter_mut()
+        .for_each(|(transform, mut global_transform)| {
+            *global_transform = GlobalTransform::from(*transform);
+        });
+    #[cfg(not(feature = "multi_threaded"))]
+    query
+        .p0()
+        .iter_mut()
         .for_each(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
@@ -72,20 +109,32 @@ impl StaticTransformOptimizations {
 ///
 /// Configure behavior with [`StaticTransformOptimizations`].
 pub fn mark_dirty_trees(
-    changed_transforms: Query<
-        Entity,
-        Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
-    >,
+    changed: Query<Entity, Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>>,
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     static_optimizations: Res<StaticTransformOptimizations>,
+    // Cached allocations for multi-threaded parallel implementation
+    #[cfg(feature = "multi_threaded")] mut shared_bitset: Local<
+        alloc::vec::Vec<core::sync::atomic::AtomicU64>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut local_bitset: Local<
+        bevy_utils::Parallel<alloc::vec::Vec<u64>>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut consumer_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut traversal_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
 ) {
     if !static_optimizations.is_enabled() {
         return;
     }
 
-    for entity in changed_transforms.iter().chain(orphaned.read()) {
+    // Simple serial implementation that iterates changed entities and traverses the tree.
+    #[cfg(not(feature = "multi_threaded"))]
+    for entity in changed.iter().chain(orphaned.read()) {
         let mut next = entity;
         while let Ok(mut tree) = transforms.get_mut(next) {
             if tree.is_changed() && !tree.is_added() {
@@ -99,6 +148,159 @@ pub fn mark_dirty_trees(
             } else {
                 break;
             };
+        }
+    }
+
+    // Concurrent and parallel implementation with three sets of asynchronous workers:
+    //
+    // - producer: (single) finds all changed or orphaned entities and sends a message in a channel
+    // - traversal: (many) read incoming messages from producer, traverse hierarchy using atomics to
+    //      cooperatively early exit across threads, send newly changed entities to consumer.
+    // - consumer: (single) read incoming messages from traversal
+    //
+    // These workers are all running both parallelly and concurrently. They are spawned at the start
+    // of the scope and asynchronously await incoming batches of work. This allows the entire
+    // pipeline to start working as soon as there is available work to process, instead of running
+    // each stage serially with inner parallelism.
+    #[cfg(feature = "multi_threaded")]
+    {
+        use bevy_tasks::ComputeTaskPool;
+        use core::sync::atomic::Ordering;
+        #[cfg(feature = "trace")]
+        use tracing::{info_span, Instrument};
+
+        ComputeTaskPool::get().scope(|scope| {
+            traversal_channels.chunk_size = 1024;
+            consumer_channels.chunk_size = 1024;
+            let (traversal_rx, mut traversal_tx) = traversal_channels.unbounded();
+            let (consumer_rx, mut consumer_tx) = consumer_channels.unbounded();
+            let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
+            let local_bitset = &*local_bitset;
+            let parents_ref = &parents;
+
+            // Consumer: drain the channel of moved entities and call set_changed() on the marker.
+            scope.spawn({
+                let fut = async move {
+                    while let Ok(mut chunk) = consumer_rx.recv().await {
+                        for entity in chunk.drain() {
+                            if let Ok(mut tree) = transforms.get_mut(entity) {
+                                tree.set_changed();
+                            }
+                        }
+                    }
+                };
+                #[cfg(feature = "trace")]
+                let fut = fut.instrument(info_span!("consumer_mark_dirty"));
+                fut
+            });
+
+            // Traversal: each task loops until the producer channel is exhausted, walking each
+            // entity's ancestor chain and forwarding newly marked entities to the consumer task.
+            for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
+                let traversal_rx = traversal_rx.clone();
+                let mut consumer_tx = consumer_tx.clone();
+                scope.spawn({
+                    let fut = async move {
+                        while let Ok(mut chunk) = traversal_rx.recv().await {
+                            for mut entity in chunk.drain() {
+                                let mut first_iteration = true;
+                                'traverse_hierarchy: loop {
+                                    let idx = entity.index().index() as usize;
+                                    let word = idx / 64;
+                                    let bit = 1u64 << (idx % 64);
+
+                                    #[expect(
+                                        clippy::redundant_else,
+                                        reason = "Without the else, fails to compile due to async"
+                                    )]
+                                    if word < shared_bitset.len()
+                                        && shared_bitset[word].fetch_or(bit, Ordering::Relaxed)
+                                            & bit
+                                            != 0
+                                    {
+                                        // Common path: atomic OR into the shared bitset.
+                                        // If the entity was already visited, we can stop climbing.
+                                        break 'traverse_hierarchy;
+                                    } else {
+                                        // Overflow: entity index exceeds shared bitset capacity.
+                                        // Use a per-task local bitset for intra-task early exit.
+                                        let overflow = &mut *local_bitset.borrow_local_mut();
+                                        if word < overflow.len() && overflow[word] & bit != 0 {
+                                            break 'traverse_hierarchy;
+                                        }
+                                        if word >= overflow.len() {
+                                            overflow.resize(word + 1, 0u64);
+                                        }
+                                        overflow[word] |= bit;
+                                    }
+
+                                    // If we have not hit a break yet, it's the first time we've
+                                    // seen this entity, so it should be sent to the consumer.
+                                    if first_iteration {
+                                        first_iteration = false;
+                                    } else {
+                                        // The first iteration (leaf) has already been sent to the
+                                        // consumer by the producer; we don't need to send it again.
+                                        consumer_tx.send(entity).await.ok();
+                                    }
+
+                                    match parents_ref.get(entity).ok().map(ChildOf::parent) {
+                                        Some(parent) => entity = parent,
+                                        None => break 'traverse_hierarchy,
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    #[cfg(feature = "trace")]
+                    let fut = fut.instrument(info_span!("par_traversal_mark_dirty"));
+                    fut
+                });
+            }
+
+            // Producer: Feed changed entities and orphans into producer tasks. The senders are
+            // dropped at the end of this closure, closing the channel and allowing the other tasks
+            // to exit.
+            //
+            // Note that we send the entity directly to the consumer as well, we do this to start
+            // feeding it work as soon as possible. The traversal worker should skip sending these
+            // leaves to the consumer because it has already been sent here.
+            let mut producer = move || {
+                for entity in orphaned.read() {
+                    let _ = traversal_tx.send_blocking(entity);
+                    let _ = consumer_tx.send_blocking(entity);
+                }
+                // Changed<> table scans are slow, so we parallelize them to improve performance.
+                changed.par_iter().for_each_init(
+                    || (traversal_tx.clone(), consumer_tx.clone()),
+                    |(traversal_tx, consumer_tx), entity| {
+                        let _ = traversal_tx.send_blocking(entity);
+                        let _ = consumer_tx.send_blocking(entity);
+                    },
+                );
+            };
+            #[cfg(feature = "trace")]
+            info_span!("producer_mark_dirty").in_scope(&mut producer);
+            #[cfg(not(feature = "trace"))]
+            producer();
+        });
+
+        // Merge thread-local bitsets into the shared bitset, growing it to accommodate the largest
+        // entity index we have encountered so far. At steady-state, these local bitsets stay empty.
+        for local_bitset in local_bitset.iter_mut() {
+            if local_bitset.is_empty() {
+                continue;
+            }
+            if local_bitset.len() > shared_bitset.len() {
+                shared_bitset.resize_with(local_bitset.len(), Default::default);
+            }
+            local_bitset.clear();
+        }
+
+        // Reset the bitset for the next frame while preserving the `Vec` length. Using `clear()`
+        // would shrink the length to 0 and force every entity through the overflow path next frame.
+        for w in shared_bitset.iter() {
+            w.store(0, Ordering::Relaxed);
         }
     }
 }
@@ -118,7 +320,7 @@ pub fn mark_dirty_trees(
 // module, and make the multithreaded module no_std compatible.
 //
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 mod serial {
     use crate::prelude::*;
     use alloc::vec::Vec;
@@ -280,13 +482,13 @@ mod serial {
 //
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
-#[cfg(feature = "std")]
+#[cfg(feature = "multi_threaded")]
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -386,8 +588,8 @@ mod parallel {
         nodes: &NodeQuery,
         static_optimizations: &StaticTransformOptimizations,
     ) {
-        #[cfg(feature = "std")]
-        let _span = bevy_log::info_span!("transform propagation worker").entered();
+        #[cfg(feature = "trace")]
+        let _span = tracing::info_span!("transform propagation worker").entered();
 
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
@@ -496,9 +698,7 @@ mod parallel {
             // visiting disjoint entities in parallel, which is safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             let children_iter = unsafe {
-                nodes.iter_many_unique_unsafe(UniqueEntityIter::from_iterator_unchecked(
-                    p_children.iter(),
-                ))
+                nodes.iter_many_unique_unsafe(UniqueEntitySlice::from_slice_unchecked(p_children))
             };
 
             let mut last_child = None;

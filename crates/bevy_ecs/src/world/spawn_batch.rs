@@ -57,6 +57,10 @@ where
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
         for _ in &mut *self {}
+        // Free all the over allocated entities.
+        for e in self.allocator.by_ref() {
+            self.spawner.allocator().free(e);
+        }
         // Apply any commands from those operations.
         // SAFETY: `self.spawner` will be dropped immediately after this call.
         unsafe { self.spawner.flush_commands() };
@@ -85,6 +89,7 @@ where
         })
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -113,4 +118,25 @@ where
     I: FusedIterator<Item = T>,
     T: Bundle<Effect: NoBundleEffect>,
 {
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs_macros::Component;
+
+    use super::*;
+
+    #[derive(Clone, Copy, Component)]
+    struct ComponentA;
+
+    #[test]
+    fn spawn_batch_does_not_leak_entities() {
+        let mut world = World::new();
+        world.spawn_batch((0u32..50).filter(|&i| i & 1 > 0).map(|_| ComponentA));
+        let total_allocated = world.entity_allocator().inner.total_entity_indices();
+        world.entity_allocator_mut().inner.flush_freed();
+        world.entity_allocator_mut().alloc();
+        let reused = world.entity_allocator().inner.total_entity_indices() == total_allocated;
+        assert!(reused);
+    }
 }

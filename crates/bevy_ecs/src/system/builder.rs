@@ -421,24 +421,6 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        match &mut self.inner {
-            // SAFETY: requirements upheld by the caller.
-            BuilderSystemInner::Initialized { system, .. } => unsafe {
-                system.validate_param_unsafe(world)
-            },
-            BuilderSystemInner::Uninitialized { .. } => panic!(
-                "BuilderSystem {} was not initialized before calling validate_param_unsafe.",
-                self.name()
-            ),
-            BuilderSystemInner::Invalid => unreachable!(),
-        }
-    }
-
-    #[inline]
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let inner = mem::replace(&mut self.inner, BuilderSystemInner::Invalid);
         match inner {

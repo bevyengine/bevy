@@ -71,7 +71,7 @@ fn clear_messages_on_exit<S: States>(
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(exited) = transition.exited.clone() else {
@@ -92,7 +92,7 @@ fn clear_messages_on_enter<S: States>(
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(entered) = transition.entered.clone() else {
