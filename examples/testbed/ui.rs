@@ -147,14 +147,59 @@ fn switch_scene(
 }
 
 mod image {
+    use bevy::color::palettes::css::DARK_GREY;
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Image)));
-        commands.spawn((
-            ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            DespawnOnExit(super::Scene::Image),
-        ));
+        commands
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceAround,
+                align_items: AlignItems::Stretch,
+                ..default()
+            })
+            .with_children(|parent| {
+                for [b, p] in [[0, 0], [10, 0], [0, 10], [10, 10]] {
+                    for image_path in ["branding/icon.png", "branding/bevy_logo_dark.png"] {
+                        parent
+                            .spawn(Node {
+                                justify_content: JustifyContent::SpaceAround,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                for visual_box in [
+                                    VisualBox::BorderBox,
+                                    VisualBox::PaddingBox,
+                                    VisualBox::ContentBox,
+                                ] {
+                                    parent.spawn((
+                                        ImageNode {
+                                            image: asset_server.load(image_path),
+                                            visual_box,
+                                            ..default()
+                                        },
+                                        Node {
+                                            border: px(b).all(),
+                                            padding: px(p).all(),
+                                            width: px(100.),
+                                            ..default()
+                                        },
+                                        DespawnOnExit(super::Scene::Image),
+                                        Outline {
+                                            color: DARK_GREY.into(),
+                                            width: px(2.),
+                                            ..default()
+                                        },
+                                    ));
+                                }
+                            });
+                    }
+                }
+            });
     }
 }
 
@@ -997,48 +1042,77 @@ mod slice {
                 Node {
                     width: percent(100),
                     height: percent(100),
-                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::SpaceAround,
+                    align_content: AlignContent::Center,
                     ..default()
                 },
                 DespawnOnExit(super::Scene::Slice),
             ))
             .with_children(|parent| {
-                for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
-                    parent.spawn((
-                        Button,
-                        ImageNode {
-                            image: image.clone(),
-                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                for visual_box in [
+                    VisualBox::BorderBox,
+                    VisualBox::PaddingBox,
+                    VisualBox::ContentBox,
+                ] {
+                    parent
+                        .spawn(Node {
+                            justify_content: JustifyContent::SpaceAround,
                             ..default()
-                        },
-                        Node {
-                            width: px(w),
-                            height: px(h),
-                            ..default()
-                        },
-                    ));
-                }
+                        })
+                        .with_children(|parent| {
+                            for [w, h] in [[200.0, 200.0], [300.0, 200.0], [150., 200.0]] {
+                                parent.spawn((
+                                    Button,
+                                    ImageNode {
+                                        image: image.clone(),
+                                        image_mode: NodeImageMode::Sliced(slicer.clone()),
+                                        visual_box,
+                                        ..default()
+                                    },
+                                    Node {
+                                        width: px(w),
+                                        height: px(h),
+                                        border: px(20.).all(),
+                                        padding: px(20.).all(),
+                                        ..default()
+                                    },
+                                    Outline {
+                                        width: px(2.),
+                                        ..default()
+                                    },
+                                ));
+                            }
 
-                parent.spawn((
-                    ImageNode {
-                        image: asset_server
-                            .load("textures/fantasy_ui_borders/panel-border-010.png"),
-                        image_mode: NodeImageMode::Sliced(TextureSlicer {
-                            border: BorderRect::all(22.0),
-                            center_scale_mode: SliceScaleMode::Stretch,
-                            sides_scale_mode: SliceScaleMode::Stretch,
-                            max_corner_scale: 1.0,
-                        }),
-                        ..Default::default()
-                    },
-                    Node {
-                        width: px(100),
-                        height: px(100),
-                        ..default()
-                    },
-                    BackgroundColor(bevy::color::palettes::css::NAVY.into()),
-                ));
+                            parent.spawn((
+                                ImageNode {
+                                    image: asset_server
+                                        .load("textures/fantasy_ui_borders/panel-border-010.png"),
+                                    image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                        border: BorderRect::all(22.0),
+                                        center_scale_mode: SliceScaleMode::Stretch,
+                                        sides_scale_mode: SliceScaleMode::Stretch,
+                                        max_corner_scale: 1.0,
+                                    }),
+                                    visual_box,
+                                    ..Default::default()
+                                },
+                                Node {
+                                    width: px(200),
+                                    height: px(200),
+                                    border: px(20.).all(),
+                                    padding: px(20.).all(),
+                                    ..default()
+                                },
+                                Outline {
+                                    color: bevy::color::palettes::css::DARK_CYAN.into(),
+                                    width: px(2.),
+                                    ..default()
+                                },
+                                BackgroundColor(bevy::color::palettes::css::NAVY.into()),
+                            ));
+                        });
+                }
             });
     }
 }

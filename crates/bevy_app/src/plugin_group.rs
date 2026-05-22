@@ -135,12 +135,12 @@ macro_rules! plugin_group {
     } => {
         $(#[$group_meta])*
         ///
-        $(#[doc = concat!(
-            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+        $(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_name), "`](" $(, ::core::stringify!($plugin_path), "::")*, ::core::stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
-       $($(#[doc = concat!(
-            " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
+       $($(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_group_name), "`](" $(, ::core::stringify!($plugin_group_path), "::")*, ::core::stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
         )])+)?
         $(
@@ -158,7 +158,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_path::)*$plugin_name>();
                         };
 
@@ -170,7 +170,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_group_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_group_path::)*$plugin_group_name>();
                         };
 
@@ -182,7 +182,7 @@ macro_rules! plugin_group {
                     $(#[$hidden_plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
                         };
 

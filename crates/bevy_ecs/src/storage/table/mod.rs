@@ -427,9 +427,9 @@ impl Table {
 
     /// Allocate memory for the columns in the [`Table`]
     ///
-    /// # Panics
-    /// - Panics if any of the new capacity overflows `isize::MAX` bytes.
-    /// - Panics if any of the new allocations causes an out-of-memory error.
+    /// # Aborts
+    /// - Aborts if any of the new capacity overflows `isize::MAX` bytes.
+    /// - Aborts if any of the new allocations causes an out-of-memory error.
     ///
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
     ///
@@ -450,9 +450,9 @@ impl Table {
 
     /// Reallocate memory for the columns in the [`Table`]
     ///
-    /// # Panics
-    /// - Panics if any of the new capacities overflows `isize::MAX` bytes.
-    /// - Panics if any of the new reallocations causes an out-of-memory error.
+    /// # Aborts
+    /// - Aborts if any of the new capacities overflows `isize::MAX` bytes.
+    /// - Aborts if any of the new reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// - `current_column_capacity` is indeed the capacity of the columns
@@ -482,9 +482,9 @@ impl Table {
 
     /// Allocates space for a new entity
     ///
-    /// # Panics
-    /// - Panics if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
-    /// - Panics if the allocation forces a reallocation and causes an out-of-memory error.
+    /// # Aborts
+    /// - Aborts if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
+    /// - Aborts if the allocation forces a reallocation and causes an out-of-memory error.
     ///
     /// # Safety
     ///
