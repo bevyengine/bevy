@@ -44,6 +44,7 @@
     position_ndc_to_world,
     position_view_to_world
 }
+#import bevy_render::maths::orthonormalize
 #import bevy_pbr::clustered_forward as clustering
 #import bevy_pbr::lighting::getDistanceAttenuation;
 
@@ -52,7 +53,7 @@
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
-    far_planes: array<vec4<f32>, 3>,
+    far_planes: array<vec4<f32>, 6>,
     fog_color: vec3<f32>,
     light_tint: vec3<f32>,
     ambient_color: vec3<f32>,
@@ -142,12 +143,15 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
     // Calculate the end position of the ray. This requires us to raytrace the
-    // three back faces of the AABB to find the one that our ray intersects.
+    // back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
-    for (var plane_index = 0; plane_index < 3; plane_index += 1) {
+    for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
-        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
+        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 6];
+        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 6];
+        let other_plane_c = volumetric_fog.far_planes[(plane_index + 3) % 6];
+        let other_plane_d = volumetric_fog.far_planes[(plane_index + 4) % 6];
+        let other_plane_e = volumetric_fog.far_planes[(plane_index + 5) % 6];
 
         // Calculate the intersection of the ray and the plane. The ray must
         // intersect in front of us (t > 0).
@@ -158,13 +162,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let hit_pos = view_start_pos.xyz * t;
 
         // The intersection point must be in front of the other backfaces.
-        let other_sides = vec2(
-            dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0,
-            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0
-        );
-
         // If those tests pass, we found our backface.
-        if (all(other_sides)) {
+        if (dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_c) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_d) >= 0.0 &&
+            dot(vec4(hit_pos, 1.0), other_plane_e) >= 0.0)
+        {
             end_depth_view = -hit_pos.z;
             break;
         }
@@ -492,17 +496,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
         -surface_to_light
         + ((*light).shadow_depth_bias * normalize(surface_to_light));
 
-    // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
-    var sign = -1.0;
-    if (fwd.z >= 0.0) {
-        sign = 1.0;
-    }
-    let a = -1.0 / (fwd.z + sign);
-    let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+    let light_inv_rot = orthonormalize(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.

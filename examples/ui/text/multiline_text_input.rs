@@ -7,6 +7,7 @@ use bevy::input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin}
 use bevy::input_focus::{AutoFocus, FocusedInput};
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle};
+use bevy::ui_widgets::SelectAllOnFocus;
 
 fn main() {
     App::new()
@@ -145,8 +146,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     TextCursorStyle {
                                         color: Color::WHITE,
                                         selected_text_color: Some(Color::BLACK),
+                                        unfocused_selection_color: Color::NONE,
                                         ..default()
                                     },
+                                    SelectAllOnFocus,
                                     VisibleLinesInput,
                                     TabIndex(1),
                                 )
@@ -227,8 +230,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     TextCursorStyle {
                                         color: Color::WHITE,
                                         selected_text_color: Some(Color::BLACK),
+                                        unfocused_selection_color: Color::NONE,
                                         ..default()
                                     },
+                                    SelectAllOnFocus,
                                     FontSizeInput,
                                     TabIndex(2),
                                 )

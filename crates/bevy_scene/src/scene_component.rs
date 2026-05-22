@@ -50,7 +50,7 @@ impl SceneComponentInfo {
                 "Entity {} was spawned with the \"scene component\" {}, but without its scene. \
                 Scene components should not be spawned directly as components. Instead, they \
                 should be spawned as \"scenes\" using world.spawn_scene or commands.spawn_scene. \
-                Scene components should be inherited using `:{}` syntax in BSN.",
+                Scene components should be included using `@{}` syntax in BSN.",
                 context.entity,
                 component.component_name,
                 component.component_name
