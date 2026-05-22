@@ -1195,9 +1195,10 @@ fn build_view_uniform(
     let world_from_view_mat = world_from_view.to_matrix();
     let view_from_world = world_from_view_mat.inverse();
 
-    // `clip_from_world` ignores `extracted_view.clip_from_world` for
-    // multiview subviews because that field is set against the head pose;
-    // recomputing per-eye is correct.
+    // The `extracted_view.clip_from_world` override is honored when set
+    // (e.g. for mirror cameras). For multiview subviews it represents the
+    // head pose, not this eye, so combining the override with multiview is
+    // undefined; non-multiview is the normal case and works as before.
     let clip_from_world = if temporal_jitter.is_some() {
         clip_from_view * view_from_world
     } else {
