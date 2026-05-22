@@ -22,7 +22,7 @@ fn oit_draw(position: vec4f, color: vec4f) {
         return;
     }
     // get the index of the current fragment relative to the screen size
-    let screen_index = u32(floor(position.x) + floor(position.y) * view.viewport.z);
+    let screen_index = u32(floor(position.x) + floor(position.y) * view().viewport.z);
 
     var new_node_index = atomicAdd(&oit_atomic_counter, 1u);
     // exit early if we've reached the maximum amount of fragments nodes
