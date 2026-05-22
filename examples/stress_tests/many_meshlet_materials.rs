@@ -29,6 +29,7 @@ const ASSET_URL: &str =
 fn main() {
     let args: Args = argh::from_env();
 
+    warn!(include_str!("warning_string.txt"));
     println!("Meshlet Stress Test");
     println!(
         "Grid size: {}x{} ({} instances)",
