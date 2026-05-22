@@ -8,7 +8,7 @@ use crate::{
     archetype::Archetypes,
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
-    component::{ComponentId, Components},
+    component::{ComponentId, Components, Mutable},
     entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
@@ -725,7 +725,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
+unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 

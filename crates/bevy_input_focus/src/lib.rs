@@ -49,7 +49,6 @@ use bevy_input::gamepad::GamepadButtonChangedEvent;
 use bevy_input::keyboard::KeyboardInput;
 #[cfg(feature = "mouse")]
 use bevy_input::mouse::MouseWheel;
-use bevy_input::InputSystems;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -280,6 +279,8 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(not(any(feature = "keyboard", feature = "gamepad", feature = "mouse")))]
+        let _ = app;
         #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
         app.add_systems(
             PreUpdate,
@@ -293,7 +294,7 @@ impl Plugin for InputDispatchPlugin {
             )
                 .chain()
                 .in_set(InputFocusSystems::Dispatch)
-                .after(InputSystems),
+                .after(bevy_input::InputSystems),
         );
     }
 }
@@ -305,7 +306,7 @@ impl Plugin for InputDispatchPlugin {
 pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     ///
-    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`].
+    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`](bevy_input::InputSystems).
     Dispatch,
     /// System which processes recorded focus changes and sends the appropriate [`FocusGained`] and [`FocusLost`] events.
     ///
@@ -492,10 +493,10 @@ mod tests {
         event: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(event.focused_entity) {
-            if let Key::Character(c) = &event.input.logical_key {
-                gather.0.push_str(c.as_str());
-            }
+        if let Ok(mut gather) = query.get_mut(event.focused_entity)
+            && let Key::Character(c) = &event.input.logical_key
+        {
+            gather.0.push_str(c.as_str());
         }
     }
 
