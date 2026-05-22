@@ -55,7 +55,11 @@ fn fragment(
 
     var frag_coord = vec4(in.position.xy, 0.0, 0.0);
 
+#ifdef MULTIVIEW
+    let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+#else
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
 
 #ifdef WEBGL2
     frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;

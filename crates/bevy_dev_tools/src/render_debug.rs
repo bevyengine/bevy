@@ -496,6 +496,13 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
             shader_defs.push("MULTISAMPLED".into());
         }
 
+        if key
+            .view_layout_key
+            .contains(MeshPipelineViewLayoutKey::MULTIVIEW)
+        {
+            shader_defs.push("MULTIVIEW".into());
+        }
+
         let mesh_view_layout_descriptor = self
             .mesh_view_layouts
             .get_view_layout(key.view_layout_key)
