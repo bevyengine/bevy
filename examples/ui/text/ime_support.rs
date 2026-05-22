@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
             // includes support for Chinese, Japanese, and Korean characters.
             // Note that using system fonts requires the "bevy/system-fonts" feature to be enabled.
             TextFont {
-                font: FontSource::Generic(GenericFontFamily::SansSerif),
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
