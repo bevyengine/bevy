@@ -39,6 +39,7 @@ use bevy_render_macros::ExtractComponent;
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
+    num::NonZeroU32,
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -725,6 +726,11 @@ pub struct ViewTarget {
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
+    /// Number of layers in the main texture's underlying array. Always at
+    /// least 1; greater than 1 only for cameras with a
+    /// [`Multiview`](bevy_camera::Multiview) component (one layer per
+    /// subview). Used by [`Self::multiview_count`].
+    main_texture_array_layers: u32,
     /// The final output attachment this view will present to, if available.
     out_texture: Option<OutputColorAttachment>,
     /// Color space of values stored in the main texture (for blit conversion to output)
@@ -937,6 +943,19 @@ impl ViewTarget {
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
+    }
+
+    /// Number of subviews packed into the main texture's array layers when
+    /// this view targets a multiview camera, or `None` for a regular
+    /// single-view camera (1 layer).
+    ///
+    /// Useful as a render-side, frame-stable source for the multiview view
+    /// count when allocating downstream resources (e.g. the
+    /// `MAX_VIEW_COUNT` shader def) before the view-uniform buffer's
+    /// capacity has been resolved.
+    #[inline]
+    pub fn multiview_count(&self) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.main_texture_array_layers).filter(|n| n.get() > 1)
     }
 
     /// The final texture this view will render to.
@@ -1297,6 +1316,10 @@ type MainTextureKey = (
     TextureUsages,
     TextureFormat,
     Msaa,
+    // Layer count. Multiview cameras need a multi-layer texture array;
+    // non-multiview cameras get 1. Keyed so cameras with different layer
+    // counts don't share a cache slot.
+    u32,
 );
 
 pub fn prepare_view_targets(
@@ -1308,6 +1331,7 @@ pub fn prepare_view_targets(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
+        Option<&ExtractedMultiview>,
         &CameraMainTextureUsages,
         &Msaa,
     )>,
@@ -1317,7 +1341,7 @@ pub fn prepare_view_targets(
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
+    for (entity, camera, view, multiview, texture_usage, msaa) in cameras.iter() {
         let Some(target_size) = camera.physical_target_size else {
             // If we don't have a target size, we can't create the main texture and have to bail
             commands.entity(entity).try_remove::<ViewTarget>();
@@ -1353,18 +1377,31 @@ pub fn prepare_view_targets(
                 Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
             });
 
+        // For multiview cameras, allocate the main texture as a texture array
+        // with one layer per subview. Non-multiview cameras stay 1-layer.
+        // Extraction (in `extract_cameras`) clamps subview count to
+        // `MAX_VIEW_COUNT` (32) and skips inserting `ExtractedMultiview` for
+        // empty view sets, so casting `len()` to `u32` here is always safe.
+        let view_count: u32 = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+        let mut texture_size = target_size.to_extents();
+        texture_size.depth_or_array_layers = view_count;
+
         let key: MainTextureKey = (
             camera.target.clone(),
             texture_usage.0,
             main_texture_format,
             *msaa,
+            view_count,
         );
         let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
             let descriptor = TextureDescriptor {
                 label: None,
-                size: target_size.to_extents(),
+                size: texture_size,
                 mip_level_count: 1,
                 sample_count: 1,
+                // Keep D2 even for multi-layer arrays; `TextureDimension` is
+                // texture-storage-side. The view-side `D2Array` binding is a
+                // later concern (shader infrastructure layer).
                 dimension: TextureDimension::D2,
                 format: main_texture_format,
                 usage: texture_usage.0,
@@ -1393,7 +1430,7 @@ pub fn prepare_view_targets(
                     &render_device,
                     TextureDescriptor {
                         label: Some("main_texture_sampled"),
-                        size: target_size.to_extents(),
+                        size: texture_size,
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
@@ -1432,6 +1469,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
+            main_texture_array_layers: view_count,
             out_texture: out_attachment.cloned(),
             compositing_space: camera.compositing_space,
         });
