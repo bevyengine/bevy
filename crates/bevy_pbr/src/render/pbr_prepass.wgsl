@@ -29,7 +29,14 @@ fn fragment(
     in: prepass_io::VertexOutput,
     @builtin(front_facing) is_front: bool,
 #endif
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
 ) -> prepass_io::FragmentOutput {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let in = resolve_vertex_output(frag_coord);
     let is_front = true;
@@ -145,7 +152,16 @@ fn fragment(
 }
 #else
 @fragment
-fn fragment(in: prepass_io::VertexOutput) {
+fn fragment(
+    in: prepass_io::VertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT

@@ -61,7 +61,14 @@ fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
 fn vertex(
     @builtin(vertex_index) vertex_index: u32,
     @builtin(instance_index) instance_index: u32,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
 ) -> WireframeVertexOutput {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     var out: WireframeVertexOutput;
 
     let first_vertex = mesh[instance_index].first_vertex_index;
