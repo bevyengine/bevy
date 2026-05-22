@@ -352,19 +352,21 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Install taplo
-        run: curl -fsSL https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
-      - name: Run Taplo
-        id: taplo
-        run: taplo fmt --check --diff
-      - name: Taplo info
+      - uses: tombi-toml/setup-tombi@9880d1d3ba5e745d410c697366c513b337704388 # v1.0.11
+        with:
+          version: '0.11.6'
+          checksum: '9880d1d3ba5e745d410c697366c513b337704388'
+      - name: Run Tombi
+        id: tombi
+        run: tombi format --check --diff
+      - name: Tombi info
         if: failure()
         run: |
-          echo 'To fix toml fmt, please run `taplo fmt`.'
-          echo 'To check for a diff, run `taplo fmt --check --diff`.'
-          echo 'You can find taplo here: https://taplo.tamasfe.dev/'
-          echo 'Or if you use VSCode, use the `Even Better Toml` extension.'
-          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
+          echo 'To fix toml formatting, please run `tombi format`.'
+          echo 'To check for a diff, run `tombi format --check --diff`.'
+          echo 'You can find Tombi here: https://tombi-toml.github.io/tombi/'
+          echo 'Or if you use VS Code, use the `Tombi` extension.'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tombi-toml.tombi'
 
   typos:
     runs-on: ubuntu-latest
