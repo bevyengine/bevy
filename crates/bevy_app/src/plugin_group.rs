@@ -175,8 +175,8 @@ macro_rules! plugin_group {
             " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
         )])+)?
-        $($(#[doc = concat!(
-            " - [`", stringify!($fn_plugin_name), "`](" $(, stringify!($fn_plugin_path), "::")*, stringify!($fn_plugin_name), ")"
+        $($(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($fn_plugin_name), "`](" $(, ::core::stringify!($fn_plugin_path), "::")*, ::core::stringify!($fn_plugin_name), ")"
             $(, " - with feature `", $fn_plugin_feature, "`")?
         )])*)?
         $(
