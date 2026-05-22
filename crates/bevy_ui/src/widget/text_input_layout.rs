@@ -188,7 +188,7 @@ pub fn update_editable_text_styles(
             ));
         }
 
-        if text_font.is_changed() || fonts.is_changed() {
+        if text_font.is_changed() {
             let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
                 continue;
             };
