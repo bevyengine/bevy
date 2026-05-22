@@ -448,7 +448,7 @@ pub fn resolve_font_source<'a>(
                 feature is not enabled. Text may not render. Enable the feature to allow Bevy \
                 to discover system fonts.");
             FontFamily::Single(parley::FontFamilyName::Generic(
-                generic_family.clone().into(),
+                (*generic_family).into(),
             ))
         }
     })
