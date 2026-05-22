@@ -148,8 +148,10 @@ impl<T: GpuArrayBufferable> DynamicArrayUniformBuffer<T> {
     }
 
     /// Returns a binding sized to the current max array capacity. Returns
-    /// `None` if [`finish_queuing`](Self::finish_queuing) has not yet been
-    /// called for this frame.
+    /// `None` if [`finish_queuing`](Self::finish_queuing) has not been called,
+    /// or if [`write_buffer`](Self::write_buffer) has not yet uploaded the
+    /// staged data (the latter is when the underlying GPU buffer is
+    /// allocated).
     pub fn binding(&self) -> Option<BindingResource<'_>> {
         if !self.is_queuing_finished {
             return None;
@@ -211,8 +213,16 @@ mod tests {
         assert!(buf.is_queuing_finished());
         // Distinct arrays produce distinct offsets.
         assert_ne!(buf.get_array_offset(a), buf.get_array_offset(b));
-        // Binding is sized for the max-capacity stride.
-        assert!(buf.binding().is_none() || buf.binding().is_some());
+        // `write_buffer` is the GPU-side upload; we don't have a device in
+        // tests, so the binding stays `None` even though queueing is done.
+        assert!(buf.binding().is_none());
+    }
+
+    #[test]
+    fn binding_is_none_before_finish_queuing() {
+        let mut buf = buffer();
+        buf.push_array(vec![Item { a: 0, b: 0 }; 2]);
+        assert!(buf.binding().is_none());
     }
 
     #[test]
