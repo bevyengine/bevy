@@ -5,8 +5,10 @@
 
 use argh::FromArgs;
 use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
     prelude::*,
+    window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
 
