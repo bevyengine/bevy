@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .cycle()
                                 .skip(start)
                                 .take(FONT_NAMES.len())
-                                .map(|font_asset| format!("{font_asset}"))
+                                .map(|font_name| format!("{font_name}"))
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         })
