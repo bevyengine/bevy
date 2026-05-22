@@ -53,6 +53,7 @@ pub fn upscaling(
                 ctx.render_device(),
                 main_texture_view,
                 &pipeline_cache,
+                target.multiview_count().map_or(1, |n| n.get()),
             );
 
             let (_, bind_group) = cached.insert((main_texture_view.id(), bind_group));
