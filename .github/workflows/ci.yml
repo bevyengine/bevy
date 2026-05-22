@@ -355,7 +355,7 @@ jobs:
       - uses: tombi-toml/setup-tombi@9880d1d3ba5e745d410c697366c513b337704388 # v1.0.11
         with:
           version: '0.11.6'
-          checksum: '9880d1d3ba5e745d410c697366c513b337704388'
+          checksum: 'c08823c7be08c3a30454035432ab8614bfe560f9d80123325cf0d4909c58c9b5'
       - name: Run Tombi
         id: tombi
         run: tombi format --check --diff
