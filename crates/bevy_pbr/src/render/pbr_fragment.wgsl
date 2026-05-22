@@ -656,7 +656,11 @@ pbr_input.material.uv_transform = uv_transform;
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#ifdef MULTIVIEW
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0i).r;
+#else
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+#endif
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
         // Use SSAO to estimate the specular occlusion.

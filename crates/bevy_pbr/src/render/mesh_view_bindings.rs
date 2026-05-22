@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniformOffset, ViewUniforms,
+        Msaa, RenderVisibilityRanges, ViewTarget, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
@@ -99,6 +99,7 @@ bitflags::bitflags! {
         const CONTACT_SHADOWS                  = 1 << 13;
         const DISTANCE_FOG                     = 1 << 14;
         const AREA_LIGHT_LUTS                  = 1 << 15;
+        const MULTIVIEW                        = 1 << 16;
     }
 }
 
@@ -178,6 +179,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::DISTANCE_FOG) {
             result |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
+        }
+        if value.max_view_count() > 1 {
+            result |= MeshPipelineViewLayoutKey::MULTIVIEW;
         }
 
         result
@@ -377,13 +381,16 @@ fn layout_entries(
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        entries = entries.extend_with_indices((
-            // Screen space ambient occlusion texture
-            (
-                17,
-                texture_2d(TextureSampleType::Float { filterable: false }),
-            ),
-        ));
+        // Screen space ambient occlusion texture
+        //
+        // Under multiview the binding is an array texture with one layer per eye;
+        // non-multiview keeps the original `texture_2d` shape.
+        let entry = if layout_key.contains(MeshPipelineViewLayoutKey::MULTIVIEW) {
+            texture_2d_array(TextureSampleType::Float { filterable: false })
+        } else {
+            texture_2d(TextureSampleType::Float { filterable: false })
+        };
+        entries = entries.extend_with_indices(((17, entry),));
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER) {
@@ -649,6 +656,7 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         &Msaa,
+        &ViewTarget,
         Option<&ScreenSpaceAmbientOcclusionResources>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
@@ -722,6 +730,7 @@ pub fn prepare_mesh_view_bind_groups(
             shadow_bindings,
             cluster_bindings,
             msaa,
+            view_target,
             ssao_resources,
             prepass_textures,
             transmission_texture,
@@ -758,8 +767,12 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
+            let is_multiview = view_target.multiview_count().is_some();
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
+            if is_multiview {
+                layout_key |= MeshPipelineViewLayoutKey::MULTIVIEW;
+            }
             let mut offsets = ArrayVec::from_iter([
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -855,11 +868,24 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
+            // The SSAO texture is single-layer; under multiview we still bind it
+            // with a `D2Array` view so it matches the array-typed WGSL binding.
+            // Per-eye writes will come with L7b-write; until then every eye reads
+            // layer 0.
+            let ssao_array_view = ssao_resources.filter(|_| is_multiview).map(|res| {
+                res.screen_space_ambient_occlusion_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("ssao_texture_array_view"),
+                        dimension: Some(TextureViewDimension::D2Array),
+                        ..Default::default()
+                    })
+            });
             if let Some(ssao_resources) = ssao_resources {
                 layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-                let ssao_view = &ssao_resources
-                    .screen_space_ambient_occlusion_texture
-                    .default_view;
+                let ssao_view = ssao_array_view.as_ref().unwrap_or(
+                    &ssao_resources.screen_space_ambient_occlusion_texture.default_view,
+                );
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
