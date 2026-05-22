@@ -6,11 +6,16 @@ use bevy::mesh::{SphereKind, SphereMeshBuilder};
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_environment, setup_meshes))
-        .add_systems(Update, animate_light)
-        .run();
+        .add_systems(Update, animate_light);
+
+    #[cfg(feature = "bevy_ci_testing")]
+    app.add_systems(Startup, ci::setup);
+
+    app.run();
 }
 
 fn setup_environment(
@@ -122,9 +127,34 @@ fn setup_meshes(
     }
 }
 
-fn animate_light(mut lights: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+fn animate_light(mut lights: Query<&mut Transform, With<DirectionalLight>>, _time: Res<Time>) {
+    #[cfg(feature = "bevy_ci_testing")]
+    let x = 0.0;
+
+    #[cfg(not(feature = "bevy_ci_testing"))]
+    let x = ops::cos(_time.elapsed_secs());
+
     for mut transform in lights.iter_mut() {
-        transform.translation = vec3(ops::cos(time.elapsed_secs()), 1.0, 1.0);
+        transform.translation = vec3(x, 1.0, 1.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
+    }
+}
+
+#[cfg(feature = "bevy_ci_testing")]
+mod ci {
+    use super::*;
+    use bevy::dev_tools::ci_testing::{CiTestingConfig, CiTestingEvent, CiTestingEventOnFrame};
+
+    pub fn setup(mut ci_config: ResMut<CiTestingConfig>) {
+        const DELAY: u32 = 100;
+
+        ci_config.events.push(CiTestingEventOnFrame(
+            DELAY,
+            CiTestingEvent::NamedScreenshot("test_transform_mesh".into()),
+        ));
+
+        ci_config
+            .events
+            .push(CiTestingEventOnFrame(DELAY * 2, CiTestingEvent::AppExit));
     }
 }
