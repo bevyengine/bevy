@@ -228,7 +228,7 @@ impl Column {
         dst_row: TableRow,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
-        // SAFETY
+        // SAFETY:
         // In bounds, same layout & correct last element index as per preconditions
         unsafe {
             self.data.initialize_from_swap_remove_unchecked(
