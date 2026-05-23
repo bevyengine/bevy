@@ -60,6 +60,13 @@ impl Default for Name {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct HashedStr(Hashed<Cow<'static, str>>);
 
+impl HashedStr {
+    /// required to skip hashing entity names twice in bsn
+    pub(crate) fn hash(&self) -> u64 {
+        self.0.hash()
+    }
+}
+
 impl From<&'static str> for HashedStr {
     fn from(value: &'static str) -> Self {
         Self(Hashed::new(Cow::Borrowed(value)))
@@ -283,6 +290,7 @@ mod tests {
     use super::*;
     use crate::world::World;
     use alloc::string::ToString;
+    use bevy_platform::hash::fixed_hash_one;
 
     #[test]
     fn test_display_of_debug_name() {
@@ -297,6 +305,11 @@ mod tests {
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
+    }
+    #[test]
+    fn test_hashed_str_hash_is_fixed() {
+        let str = "foobar";
+        assert_eq!(HashedStr::from(str).hash(), fixed_hash_one(str));
     }
 }
 

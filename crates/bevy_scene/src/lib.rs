@@ -1947,7 +1947,7 @@ mod tests {
         let pass_expr = bsn! {
             #Name
             Children [
-                widget(#{Entity::PLACEHOLDER})
+                widget(Entity::PLACEHOLDER.into())
             ]
         };
         let entity = world.spawn_scene(pass_expr).unwrap().id();
@@ -1963,6 +1963,19 @@ mod tests {
             ]
         };
         let entity = world.spawn_scene(pass_name).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, entity);
+
+        let namee = "Foo".to_string();
+        let pass_name_expr = bsn! {
+            #{namee}
+            Children [
+                widget(#{namee})
+            ]
+        };
+        let entity = world.spawn_scene(pass_name_expr).unwrap().id();
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
@@ -1987,7 +2000,7 @@ mod tests {
         impl Widget {
             fn scene(props: WidgetProps) -> impl Scene {
                 bsn! {
-                    Reference(#{props.entity})
+                    Reference({props.entity})
                 }
             }
         }
@@ -2019,6 +2032,18 @@ mod tests {
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn repated_call_entity_reference() {
+        let scenes = (0..6).map(|_: u32| bsn! { #Name }).collect::<Vec<_>>();
+        let scenes_len = scenes.len();
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene_list(scenes).unwrap();
+        assert_eq!(world.query::<&Name>().query(world).count(), scenes_len);
+        // let mut query = world.query::<(Entity, &Name)>();
+        // let all: Vec<_> = query.iter(world).map(|(e, n)| (e, n.clone())).collect();
     }
 
     #[test]

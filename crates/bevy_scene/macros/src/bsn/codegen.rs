@@ -5,9 +5,12 @@ use crate::bsn::types::{
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{parse::Parse, punctuated::Punctuated, ExprTuple, Ident, Index, Lit, Member, Path};
+use syn::{
+    parse::Parse, punctuated::Punctuated, spanned::Spanned, ExprTuple, Ident, Index, Lit, Member,
+    Path,
+};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -36,14 +39,15 @@ impl EntityRefs {
 #[derive(Default)]
 pub(crate) struct HoistedExpressions {
     expressions: Vec<TokenStream>,
-    index: usize,
+    dedup_name_exprs: HashMap<String, Ident>,
+    next: usize,
 }
 
 impl HoistedExpressions {
     fn next_ident(&mut self) -> Ident {
-        let index = self.index;
+        let index = self.next;
         let ident = format_ident!("_expr{index}");
-        self.index += 1;
+        self.next += 1;
         ident
     }
 
@@ -52,6 +56,44 @@ impl HoistedExpressions {
         self.expressions.push(quote! {let #ident = #value;});
         ident
     }
+
+    pub fn hoist_name_expr(&mut self, value: &TokenStream) -> Ident {
+        let raw = value.to_string();
+        // This sets the span of __Name::from to a 0 width span at the start of the expr
+        //
+        // why?
+        //   not doing any quote_spanned! causes trait errors (and probably others too)
+        //   to highlight the entire macro invocation.
+        //   doing just `let span = value.span()` works for error messages,
+        //   but causes hover docs to show a concantenated version of the docs for *all* items.
+        //   yes, that means hovering the expression showed docs for Name and Name::from
+        //
+        // why is it __Name and not #bevy_ecs::name::Name?
+        //   because quote_spanned! does not overwrite spans for interpolated tokens like #bevy_ecs
+        //   which means theres now a Span::call_site in there (because thats what #bevy_ecs brings with it).
+        //   And any call_site in the function call which causes the trait error will make the error show for
+        //   the entire macro.
+        //
+        let span = proc_macro2::Span::from(value.span().unwrap().start());
+        let name_expr = quote_spanned! {span=>
+            __Name::from(#value)
+        };
+
+        match self.dedup_name_exprs.entry(raw) {
+            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Vacant(entry) => {
+                let ident = format_ident!("_expr{}", self.next);
+                let owned_ident = format_ident!("_owned{}", ident);
+                self.expressions.push(quote! {
+                    let #owned_ident = #name_expr;
+                    let #ident = &#owned_ident;
+                });
+                entry.insert(ident.clone());
+                self.next += 1;
+                ident
+            }
+        }
+    }
 }
 
 /// Context used in the [`Bsn`] code generation pipeline.
@@ -59,11 +101,25 @@ impl HoistedExpressions {
 pub(crate) struct BsnCodegenCtx<'a> {
     pub bevy_scene: &'a Path,
     pub bevy_ecs: &'a Path,
+    pub bevy_platform: &'a Path,
     pub invocation_index: ExprTuple,
     pub entity_refs: &'a mut EntityRefs,
     pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
     pub errors: Vec<syn::Error>,
+    /// Separeate bool as its also set to true for #{expr} which won't increase EntityRefs counter
+    pub has_entity_refs: bool,
+}
+impl<'a> BsnCodegenCtx<'a> {
+    fn get_entity_ref(&mut self, name: String) -> TokenStream {
+        let bevy_ecs = self.bevy_ecs;
+        let val = self.entity_refs.get(name);
+        quote! {#bevy_ecs::template::ScopedNameId::Fixed(#val)}
+    }
+
+    fn hoist_name_expr(&mut self, value: &TokenStream) -> Ident {
+        self.hoisted_expressions.hoist_name_expr(value)
+    }
 }
 
 /// Represents the target path and whether it is a reference, e.g.,
@@ -87,7 +143,18 @@ impl BsnTokenStream for BsnRoot {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
+        let bevy_platform = ctx.bevy_platform;
+        let bevy_ecs = ctx.bevy_ecs;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
+        let for_refs = if ctx.has_entity_refs {
+            quote! {
+                static _CALL_ID: #bevy_platform::sync::atomic::AtomicU64 = #bevy_platform::sync::atomic::AtomicU64::new(0);
+                let _call_id = _CALL_ID.fetch_add(1, #bevy_platform::sync::atomic::Ordering::Relaxed);
+                type __Name = #bevy_ecs::name::Name;
+            }
+        } else {
+            quote! {}
+        };
 
         // NOTE: Assigning the result to a variable first so that the LSP's
         // type inference can see assignments before it encounters
@@ -95,6 +162,7 @@ impl BsnTokenStream for BsnRoot {
         // e.g. when typing the name of a field but no value yet.
         quote! {
             #bevy_scene::SceneScope({
+                #for_refs
                 #(#hoisted_exprs)*
                 let _res = #tokens;
                 #(#errors)*
@@ -109,7 +177,16 @@ impl BsnTokenStream for BsnListRoot {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
+        let bevy_platform = ctx.bevy_platform;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
+        let call_id = if ctx.has_entity_refs {
+            quote! {
+                static _CALL_ID: #bevy_platform::sync::atomic::AtomicU64 = #bevy_platform::sync::atomic::AtomicU64::new(0);
+                let _call_id = _CALL_ID.fetch_add(1, #bevy_platform::sync::atomic::Ordering::Relaxed);
+            }
+        } else {
+            quote! {}
+        };
 
         // NOTE: Assigning the result to a variable first so that the LSP's
         // type inference can see assignments before it encounters
@@ -117,6 +194,7 @@ impl BsnTokenStream for BsnListRoot {
         // e.g. when typing the name of a field but no value yet.
         quote! {
             {
+                #call_id
                 #(#hoisted_exprs)*
                 let _res = #bevy_scene::SceneListScope(#tokens);
                 #(#errors)*
@@ -263,16 +341,22 @@ impl BsnEntry {
             BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::Name(ident) => {
-                let (name, index) = (ident.to_string(), ctx.entity_refs.get(ident.to_string()));
+                ctx.has_entity_refs = true;
+                let (name, index) = (ident.to_string(), ctx.get_entity_ref(ident.to_string()));
                 let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index) }.resolve_inline(_context, _scene);
+                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, _call_id, #index) }.resolve_inline(_context, _scene);
                 })
             }
-            BsnEntry::NameExpression(expr) => EntryResult::CombinedSceneFunction(quote! {
-                let value = _scene.get_or_insert_template::<<#bevy_ecs::name::Name as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                *value = #bevy_ecs::name::Name({#expr}.into());
-            }),
+            BsnEntry::NameExpression(tokens) => {
+                ctx.has_entity_refs = true;
+                let ident = ctx.hoist_name_expr(tokens);
+                let invocation = ctx.invocation_index.clone();
+                // Cannot be CombinedSceneFunction due to the name not living long enough if its moved into the closure
+                EntryResult::NewSceneImpl(quote! {
+                    #bevy_scene::NameEntityReference { name: #ident.clone(), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, _call_id, #bevy_ecs::template::ScopedNameId::from_name(#ident)) }
+                })
+            }
         })
     }
 }
@@ -545,16 +629,21 @@ impl BsnType {
                 assignments.push(quote! { #(#base_path.)*#member = #value; });
             }
             Some(BsnValue::Name(ident)) => {
-                let index = ctx.entity_refs.get(ident.to_string());
+                ctx.has_entity_refs = true;
+                let index = ctx.get_entity_ref(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
                 let invocation = ctx.invocation_index.clone();
                 assignments.push(quote! {
-                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::SceneEntityReference(#bevy_ecs::template::SceneEntityReference::new(#invocation, #index));
+                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::SceneEntityReference(#bevy_ecs::template::SceneEntityReference::new(#invocation, _call_id, #index));
                 });
             }
             Some(BsnValue::NameExpression(tokens)) => {
+                ctx.has_entity_refs = true;
+                let ident = ctx.hoist_name_expr(tokens);
+                let bevy_ecs = ctx.bevy_ecs;
+                let invocation = ctx.invocation_index.clone();
                 assignments.push(quote! {
-                    #(#base_path.)*#member = #tokens.into();
+                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::SceneEntityReference(#bevy_ecs::template::SceneEntityReference::new(#invocation, _call_id, #bevy_ecs::template::ScopedNameId::from_name(#ident))).into();
                 });
             }
             Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
@@ -639,14 +728,17 @@ impl BsnTokenStream for BsnSceneFnArg {
         match self {
             BsnSceneFnArg::Expr(expr) => quote! {#expr},
             BsnSceneFnArg::NameExpression(tokens) => {
-                quote! {#bevy_ecs::template::EntityTemplate::Entity(#tokens)}
+                ctx.has_entity_refs = true;
+                let ident = ctx.hoist_name_expr(tokens);
+                let invocation = ctx.invocation_index.clone();
+                quote! {#bevy_ecs::template::EntityTemplate::SceneEntityReference(#bevy_ecs::template::SceneEntityReference::new(#invocation, _call_id, #bevy_ecs::template::ScopedNameId::from_name(#ident)))}
             }
             BsnSceneFnArg::Name(ident) => {
-                let index = ctx.entity_refs.get(ident.to_string());
+                let index = ctx.get_entity_ref(ident.to_string());
                 let invocation = ctx.invocation_index.clone();
                 quote! {
                     #bevy_ecs::template::EntityTemplate::SceneEntityReference(
-                        #bevy_ecs::template::SceneEntityReference::new(#invocation, #index)
+                        #bevy_ecs::template::SceneEntityReference::new(#invocation, _call_id, #index)
                     )
                 }
             }
@@ -732,6 +824,7 @@ mod tests {
     struct TestPaths {
         bevy_scene: Path,
         bevy_ecs: Path,
+        bevy_platform: Path,
     }
 
     impl TestPaths {
@@ -739,6 +832,7 @@ mod tests {
             Self {
                 bevy_scene: parse_quote!(bevy_scene),
                 bevy_ecs: parse_quote!(bevy_ecs),
+                bevy_platform: parse_quote!(bevy_platform),
             }
         }
 
@@ -750,10 +844,12 @@ mod tests {
             BsnCodegenCtx {
                 bevy_scene: &self.bevy_scene,
                 bevy_ecs: &self.bevy_ecs,
+                bevy_platform: &self.bevy_platform,
                 entity_refs: refs,
                 invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
                 errors: Vec::new(),
+                has_entity_refs: false,
             }
         }
     }

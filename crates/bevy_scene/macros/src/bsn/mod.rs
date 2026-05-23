@@ -20,10 +20,11 @@ pub fn bsn_list(input: TokenStream) -> TokenStream {
 fn bsn_token_stream<T: BsnTokenStream>(input: TokenStream) -> TokenStream {
     let scene = parse_macro_input!(input as T);
 
-    let (bevy_scene, bevy_ecs) = BevyManifest::shared(|manifest| {
+    let (bevy_scene, bevy_ecs, bevy_platform) = BevyManifest::shared(|manifest| {
         (
             manifest.get_path("bevy_scene"),
             manifest.get_path("bevy_ecs"),
+            manifest.get_path("bevy_platform"),
         )
     });
     let mut entity_refs = EntityRefs::default();
@@ -35,10 +36,12 @@ fn bsn_token_stream<T: BsnTokenStream>(input: TokenStream) -> TokenStream {
     let mut ctx = BsnCodegenCtx {
         bevy_scene: &bevy_scene,
         bevy_ecs: &bevy_ecs,
+        bevy_platform: &bevy_platform,
         entity_refs: &mut entity_refs,
         invocation_index: parse_quote!((#file, #line, #column)),
         hoisted_expressions: &mut hoisted_expressions,
         errors: Vec::new(),
+        has_entity_refs: false,
     };
 
     TokenStream::from(scene.to_tokens(&mut ctx))
