@@ -205,8 +205,15 @@ fn listbox_on_row_click(
             }
         };
 
+        // Clicking sets the active descendant, even if disabled
+        commands
+            .entity(ev.entity)
+            .insert(ActiveDescendant(Some(row_id)));
+
         // List row is disabled.
-        if q_listitems.get(row_id).unwrap().1 {
+        if let (_, disabled) = q_listitems.get(row_id).unwrap()
+            && disabled
+        {
             return;
         }
 
@@ -234,11 +241,6 @@ fn listbox_on_row_click(
             // If they clicked the currently checked list row, do nothing
             return;
         }
-
-        // Clicking sets the active descendant
-        commands
-            .entity(ev.entity)
-            .insert(ActiveDescendant(Some(row_id)));
 
         // Trigger the on_change event for the newly checked list row
         commands.trigger(ValueChange::<Entity> {
