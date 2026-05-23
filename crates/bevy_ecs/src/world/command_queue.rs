@@ -305,6 +305,9 @@ impl RawCommandQueue {
                     std::panic::resume_unwind(payload);
                 }
             }
+
+            #[cfg(not(feature = "std"))]
+            (f)();
         }
 
         // Reset the buffer: all commands past the original `start` cursor have been applied.
