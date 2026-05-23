@@ -48,6 +48,7 @@ struct WorldCacheGeometryData {
     world_normal: Vec3,
     padding_b: u32,
 }
+
 #[derive(ShaderType)]
 struct WorldCache {
     geometry_data: WorldCacheGeometryData,

@@ -422,7 +422,7 @@ struct PackedTransform {
 
 impl PackedTransform {
     #[inline(always)]
-    fn affine_linear(matrix: Mat4) -> Mat3 {
+    fn affine_linear(matrix: &Mat4) -> Mat3 {
         Mat3::from_cols_array_2d(&[
             [matrix.x_axis.x, matrix.x_axis.y, matrix.x_axis.z],
             [matrix.y_axis.x, matrix.y_axis.y, matrix.y_axis.z],
@@ -431,16 +431,16 @@ impl PackedTransform {
     }
 
     #[inline(always)]
-    fn affine_translate(matrix: Mat4) -> Vec3 {
+    fn affine_translate(matrix: &Mat4) -> Vec3 {
         Vec3::new(matrix.w_axis.x, matrix.w_axis.y, matrix.w_axis.z)
     }
 
     fn from_mat4(current: Mat4, previous: Mat4) -> Self {
         Self {
-            current_linear: Self::affine_linear(current),
-            current_translate: Self::affine_translate(current),
-            previous_linear: Self::affine_linear(previous),
-            previous_translate: Self::affine_translate(previous),
+            current_linear: Self::affine_linear(&current),
+            current_translate: Self::affine_translate(&current),
+            previous_linear: Self::affine_linear(&previous),
+            previous_translate: Self::affine_translate(&previous),
         }
     }
 }

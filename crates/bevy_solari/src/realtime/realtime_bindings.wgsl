@@ -34,7 +34,7 @@ enable wgpu_ray_query;
 
 struct PushConstants {
     frame_index: u32,
-    reset: u32
+    reset: u32,
 }
 
 var<immediate> constants: PushConstants;
