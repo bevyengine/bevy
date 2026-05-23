@@ -119,7 +119,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn my_system() { unreachable!() }
     /// schedule.add_systems(
@@ -167,7 +167,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # use std::sync::atomic::Ordering;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn my_system() { unreachable!() }
     /// # static CONDITION_A_RAN: AtomicBool = AtomicBool::new(false);
@@ -259,7 +259,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # #[derive(Resource)]
     /// # struct RanGameOver(bool);
     /// # fn game_over_credits(mut commands: Commands) { commands.insert_resource(RanGameOver(true)); }
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.insert_resource(PlayerState::Dead);
     /// schedule.add_systems(
@@ -305,7 +305,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// #   move |current_state| state == *current_state
     /// # }
     /// # fn game_over_credits() { unreachable!() }
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.insert_resource(PlayerState::Alive);
     /// # world.insert_resource(EnemyState::Alive);
@@ -391,7 +391,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     NotFertilized,
     /// }
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn slow_plant_growth() {}
     /// app.add_systems(
@@ -563,7 +563,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     Inactive,
     /// }
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn take_drink_orders() {}
     /// app.add_systems(
@@ -618,7 +618,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     Inactive,
     /// }
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # fn prepare_beverage() {}
     /// app.add_systems(
@@ -1256,7 +1256,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -1307,7 +1307,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedule::single_threaded();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -2051,14 +2051,14 @@ mod tests {
         fn system_a() {}
         fn system_b() {}
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(system_a.run_if(condition));
         schedule.run(&mut world);
 
         #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
         struct Set;
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule
             .add_systems((system_b,).in_set(Set))
             .configure_sets(Set.run_if(condition));

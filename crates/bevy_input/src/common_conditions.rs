@@ -111,7 +111,7 @@ mod tests {
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems(
+        Schedule::single_threaded().add_systems(
             (test_system, test_system)
                 .distributive_run_if(input_toggle_active(false, KeyCode::Escape))
                 .distributive_run_if(input_pressed(KeyCode::Escape))

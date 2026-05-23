@@ -1168,7 +1168,7 @@ mod test {
         let mut world = World::new();
 
         // Create transform propagation schedule
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(
             (
                 mark_dirty_trees,

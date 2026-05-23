@@ -240,7 +240,7 @@ mod tests {
 
         queue.apply(&mut world);
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
@@ -317,7 +317,7 @@ mod tests {
 
         queue.apply(&mut world);
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 

@@ -1190,7 +1190,7 @@ mod test {
     #[test]
     fn visibility_propagation_change_detection() {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(visibility_propagate_system);
 
         // Set up an entity hierarchy.
@@ -1266,7 +1266,7 @@ mod test {
     #[test]
     fn visibility_propagation_with_invalid_parent() {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(visibility_propagate_system);
 
         let parent = world.spawn(()).id();

@@ -4315,7 +4315,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(system);
         world.spawn(C);
 

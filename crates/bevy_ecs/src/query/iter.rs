@@ -569,7 +569,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///     }
     /// }
     /// #
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
@@ -637,7 +637,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///     let part_values: Vec<&Flying> = query.iter().sort_unstable::<&Flying>().collect();
     /// }
     /// #
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
@@ -712,7 +712,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///         .collect();
     /// }
     /// #
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
@@ -858,7 +858,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///         .rev()
     ///         .collect();
     /// }
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
@@ -1683,7 +1683,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///     }
     /// }
     /// #
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
@@ -1745,7 +1745,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///     let part_values: Vec<&Flying> = query.iter_many(entity_list).sort_unstable::<&Flying>().collect();
     /// }
     /// #
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
@@ -1814,7 +1814,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///         .collect();
     /// }
     /// #
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
@@ -1947,7 +1947,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///         .rev()
     ///         .collect();
     /// }
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```

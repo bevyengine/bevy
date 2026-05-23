@@ -188,7 +188,7 @@ mod tests {
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems(
+        Schedule::single_threaded().add_systems(
             (test_system, test_system)
                 .distributive_run_if(state_exists::<TestState>)
                 .distributive_run_if(in_state(TestState::A).or_eager(in_state(TestState::B)))

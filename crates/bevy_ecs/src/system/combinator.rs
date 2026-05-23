@@ -493,7 +493,7 @@ mod tests {
         // `system` should not conflict with itself by mutably accessing the error handler resource.
         assert_system_does_not_conflict(system.clone());
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems((my_system, system.pipe(asdf)));
         schedule.initialize(&mut world).unwrap();
 
@@ -515,7 +515,7 @@ mod tests {
 
         let mut world = World::new();
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(my_exclusive_system.pipe(out_pipe));
 
         schedule.run(&mut world);

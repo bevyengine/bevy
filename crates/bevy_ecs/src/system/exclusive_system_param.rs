@@ -170,7 +170,7 @@ mod tests {
             world.resource_mut::<Res>().test_value += 1;
         }
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(my_system);
 
         let mut world = World::default();

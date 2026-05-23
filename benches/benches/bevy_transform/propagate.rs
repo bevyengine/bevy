@@ -81,7 +81,7 @@ impl WorldBench {
             )
         }));
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::multi_threaded();
         configure_schedule(&mut schedule);
 
         // Warm steady-state caches / archetype paths once.
@@ -230,7 +230,7 @@ impl ReparentBench {
             children.push(child);
         }
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::multi_threaded();
         schedule.add_systems(
             (
                 mark_dirty_trees,

@@ -71,7 +71,7 @@ impl<'w, 's, M: Message> MessageReader<'w, 's, M> {
     /// world.init_resource::<Messages<MyMessage>>();
     /// world.insert_resource(Counter::default());
     ///
-    /// let mut schedule = Schedule::default();
+    /// let mut schedule = Schedule::single_threaded();
     /// schedule.add_systems(|mut messages: MessageReader<MyMessage>, counter: Res<Counter>| {
     ///     messages.par_read().for_each(|MyMessage { value }| {
     ///         counter.0.fetch_add(*value, Ordering::Relaxed);
@@ -206,7 +206,7 @@ mod tests {
         let mut world = World::new();
         MessageRegistry::register_message::<TheMessage>(&mut world);
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems({
             let system_ran = system_ran.clone();
             move |mut _reader: PopulatedMessageReader<TheMessage>| {

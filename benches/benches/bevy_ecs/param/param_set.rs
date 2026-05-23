@@ -13,7 +13,7 @@ pub fn param_set(criterion: &mut Criterion) {
 
     world.insert_resource(R);
 
-    let mut schedule = Schedule::default();
+    let mut schedule = Schedule::multi_threaded();
     schedule.add_systems(
         |_: ParamSet<(
             ResMut<R>,

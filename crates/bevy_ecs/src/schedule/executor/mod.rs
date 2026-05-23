@@ -317,7 +317,6 @@ mod __rust_begin_short_backtrace {
 mod tests {
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
-        schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{Populated, Res, ResMut, Single},
         world::World,
     };
@@ -347,15 +346,13 @@ mod tests {
 
     #[test]
     fn single_and_populated_skipped_and_run_singlethreaded() {
-        let mut schedule = Schedule::default();
-        schedule.set_executor(SingleThreadedExecutor::new());
+        let schedule = Schedule::single_threaded();
         single_and_populated_skipped_and_run("SingleThreaded", schedule);
     }
 
     #[test]
     fn single_and_populated_skipped_and_run_multithreaded() {
-        let mut schedule = Schedule::default();
-        schedule.set_executor(MultiThreadedExecutor::new());
+        let schedule = Schedule::multi_threaded();
         single_and_populated_skipped_and_run("MultiThreaded", schedule);
     }
 
@@ -387,9 +384,7 @@ mod tests {
     #[should_panic]
     fn missing_resource_panics_single_threaded() {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
-
-        schedule.set_executor(SingleThreadedExecutor::new());
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
     }
@@ -398,9 +393,7 @@ mod tests {
     #[should_panic]
     fn missing_resource_panics_multi_threaded() {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
-
-        schedule.set_executor(MultiThreadedExecutor::new());
+        let mut schedule = Schedule::multi_threaded();
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
     }

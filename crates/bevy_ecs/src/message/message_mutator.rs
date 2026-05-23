@@ -94,7 +94,7 @@ impl<'w, 's, M: Message> MessageMutator<'w, 's, M> {
     /// world.init_resource::<Messages<MyMessage>>();
     /// world.insert_resource(Counter::default());
     ///
-    /// let mut schedule = Schedule::default();
+    /// let mut schedule = Schedule::single_threaded();
     /// schedule.add_systems(|mut messages: MessageMutator<MyMessage>, counter: Res<Counter>| {
     ///     messages.par_read().for_each(|MyMessage { value }| {
     ///         counter.0.fetch_add(*value, Ordering::Relaxed);

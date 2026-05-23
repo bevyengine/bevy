@@ -245,7 +245,7 @@ mod tests {
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems(
+        Schedule::single_threaded().add_systems(
             (test_system, test_system)
                 .distributive_run_if(on_timer(Duration::new(1, 0)))
                 .distributive_run_if(paused),

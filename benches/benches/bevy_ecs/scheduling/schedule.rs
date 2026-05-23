@@ -124,14 +124,12 @@ pub fn empty_schedule_run(criterion: &mut Criterion) {
 
     let mut group = criterion.benchmark_group("run_empty_schedule");
 
-    let mut schedule = Schedule::default();
-    schedule.set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
+    let mut schedule = Schedule::single_threaded();
     group.bench_function("SingleThreaded", |bencher| {
         bencher.iter(|| schedule.run(app.world_mut()));
     });
 
-    let mut schedule = Schedule::default();
-    schedule.set_executor(bevy_ecs::schedule::MultiThreadedExecutor::new());
+    let mut schedule = Schedule::multi_threaded();
     group.bench_function("MultiThreaded", |bencher| {
         bencher.iter(|| schedule.run(app.world_mut()));
     });

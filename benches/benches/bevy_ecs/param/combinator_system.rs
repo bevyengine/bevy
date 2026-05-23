@@ -8,7 +8,7 @@ pub fn combinator_system(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
 
-    let mut schedule = Schedule::default();
+    let mut schedule = Schedule::multi_threaded();
     schedule.add_systems(
         (|| {})
             .pipe(|| {})

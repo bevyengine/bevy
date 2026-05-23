@@ -144,7 +144,7 @@ mod tests {
 
         let mut world = World::default();
         world.add_observer(system);
-        Schedule::default().run(&mut world);
+        Schedule::single_threaded().run(&mut world);
         world.trigger(TriggerEvent);
     }
 

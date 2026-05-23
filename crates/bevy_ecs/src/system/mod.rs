@@ -55,7 +55,7 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut schedule = Schedule::default();
+//! # let mut schedule = Schedule::single_threaded();
 //! # let mut world = World::new();
 //! // Configure these systems to run in order using `chain()`.
 //! schedule.add_systems((print_first, print_last).chain());
@@ -246,7 +246,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///     }
     /// }
     ///
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// schedule.add_systems(my_system.with_input(0));
     /// # bevy_ecs::system::assert_is_system(my_system.with_input(0));
     /// ```
@@ -287,7 +287,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///         println!("Value is greater than 10!");
     ///     }
     /// }
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// schedule.add_systems(my_system.with_input_from::<MyData>());
     /// # bevy_ecs::system::assert_is_system(my_system.with_input_from::<MyData>());
     /// ```
@@ -1957,7 +1957,7 @@ mod tests {
         // It is simply intended to check that the correct traits are implemented
         // when todo! or similar nondiverging panics are used.
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         fn sys(_query: Query<&Name>) {
             todo!()

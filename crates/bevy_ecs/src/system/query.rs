@@ -2380,7 +2380,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     reusable_function(&mut lens);
     /// }
     ///
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
@@ -2509,7 +2509,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     reusable_function(lens);
     /// }
     ///
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
@@ -2627,7 +2627,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     }
     /// }
     ///
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::single_threaded();
     /// # schedule.add_systems(system);
     /// # schedule.run(&mut world);
     /// ```

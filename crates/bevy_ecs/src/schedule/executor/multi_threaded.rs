@@ -861,7 +861,7 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
+        schedule::{IntoScheduleConfigs, Schedule},
         system::Commands,
         world::World,
     };
@@ -872,8 +872,7 @@ mod tests {
     #[test]
     fn skipped_systems_notify_dependents() {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
-        schedule.set_executor(MultiThreadedExecutor::new());
+        let mut schedule = Schedule::multi_threaded();
         schedule.add_systems(
             (
                 (|| {}).run_if(|| false),
@@ -894,8 +893,7 @@ mod tests {
     #[test]
     fn check_spawn_exclusive_system_task_miri() {
         let mut world = World::new();
-        let mut schedule = Schedule::default();
-        schedule.set_executor(MultiThreadedExecutor::new());
+        let mut schedule = Schedule::multi_threaded();
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
     }

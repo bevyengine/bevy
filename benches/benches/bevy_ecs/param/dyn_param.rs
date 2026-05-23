@@ -16,7 +16,7 @@ pub fn dyn_param(criterion: &mut Criterion) {
 
     world.insert_resource(R);
 
-    let mut schedule = Schedule::default();
+    let mut schedule = Schedule::multi_threaded();
     let system = (
         DynParamBuilder::new::<Res<R>>(ParamBuilder),
         DynParamBuilder::new::<Res<R>>(ParamBuilder),

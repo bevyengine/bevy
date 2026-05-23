@@ -568,7 +568,7 @@ mod tests {
             things.iter_many_unique_mut(thing_entities.iter_mut());
         }
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(system);
         schedule.run(&mut world);
     }
