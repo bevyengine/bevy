@@ -1809,7 +1809,7 @@ where
 {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
-    pub fn add(&mut self, item: I) {
+    pub fn add_retained(&mut self, item: I) {
         self.items.insert((item.entity(), item.main_entity()), item);
     }
 
