@@ -710,20 +710,20 @@ fn demo_column_2() -> impl Scene {
                     (Text("List") ThemedText),
                 ],
                 :subpane_body Children [
-                    :FeathersListView {
+                    @FeathersListView {
                         @rows: {bsn_list![
-                            :FeathersListRow Children [(Text("First World") ThemedText)],
-                            :FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
-                            :FeathersListRow Children [(Text("Third Degree") ThemedText)],
-                            :FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
-                            :FeathersListRow Children [(Text("Fifth Column") ThemedText)],
-                            :FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
-                            :FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
-                            :FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
-                            :FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
-                            :FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
-                            :FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
-                            :FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
+                            @FeathersListRow Children [(Text("First World") ThemedText)],
+                            @FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
+                            @FeathersListRow Children [(Text("Third Degree") ThemedText)],
+                            @FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
+                            @FeathersListRow Children [(Text("Fifth Column") ThemedText)],
+                            @FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
+                            @FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
+                            @FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
+                            @FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
+                            @FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
+                            @FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
+                            @FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
                         ]}
                     }
                     Node {
