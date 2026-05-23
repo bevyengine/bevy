@@ -147,10 +147,10 @@ pub fn catch_unwind_if_available<T>(
 }
 
 /// Tries to rethrow a panic, if `std` is enabled and the payload is present.
-pub fn resume_caught_unwind(panic: Option<Box<dyn Any + Send>>) {
+pub fn resume_caught_unwind(panic: Result<(), Box<dyn Any + Send>>) {
     cfg::switch! {
         cfg::std => {
-            if let Some(payload) = panic {
+            if let Err(payload) = panic {
                 std::panic::resume_unwind(payload)
             }
         }

@@ -338,7 +338,7 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-    ) -> (EntityLocation, Option<Box<dyn Any + Send>>) {
+    ) -> (EntityLocation, Result<(), Box<dyn Any + Send>>) {
         let archetype_after_insert = self.archetype_after_insert.as_ref();
 
         let (new_archetype, new_location, maybe_panic) = {

@@ -231,13 +231,13 @@ impl Table {
     pub(crate) unsafe fn swap_remove_unchecked(
         &mut self,
         row: TableRow,
-    ) -> (Option<Entity>, Option<Box<dyn Any + Send>>) {
+    ) -> (Option<Entity>, Result<(), Box<dyn Any + Send>>) {
         debug_assert!(row.index_u32() < self.entity_count());
         self.entities.swap_remove(row.index());
         let last_element_index = self.entity_count();
         let is_last = row.index_u32() == last_element_index;
 
-        let mut panic = None;
+        let mut panic = Ok(());
 
         if row.index_u32() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
@@ -255,7 +255,7 @@ impl Table {
                             row,
                         );
                     }));
-                panic = panic.or(maybe_panic.err());
+                panic = panic.or(maybe_panic);
             }
         } else {
             // If `row.as_usize()` == `last_element_index` then there's no point in removing the component
@@ -267,7 +267,7 @@ impl Table {
                     bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| unsafe {
                         col.drop_last_component(last_element_index as usize);
                     }));
-                panic = panic.or(maybe_panic.err());
+                panic = panic.or(maybe_panic);
             }
         }
         let swapped = if is_last {
@@ -656,7 +656,7 @@ pub(crate) struct TableMoveResult<'a> {
     pub new_table: &'a mut Table,
     pub new_row: TableRow,
     /// Records if a component drop function has panicked
-    pub panic: Option<Box<dyn Any + Send>>,
+    pub panic: Result<(), Box<dyn Any + Send>>,
 }
 
 impl Tables {
@@ -794,7 +794,7 @@ impl Tables {
 
         let mut dst_iter = dst_table.columns.iter_mut().peekable();
 
-        let mut panic = None;
+        let mut panic = Ok(());
 
         for (src_component_id, src_column) in src_table.columns.iter_mut() {
             // Skip past any destination columns that don't exist in the source table.
@@ -829,7 +829,7 @@ impl Tables {
                     unsafe {
                         src_column.swap_remove_unchecked::<DROP>(last_index, row);
                     }));
-                panic = panic.or(maybe_panic.err());
+                panic = panic.or(maybe_panic);
             }
         }
 

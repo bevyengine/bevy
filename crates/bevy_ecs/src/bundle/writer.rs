@@ -147,7 +147,7 @@ impl<'a> BundleWriter<'a> {
             }));
             self.0.component_ids.clear();
             self.0.alloc.reset();
-            bevy_utils::resume_caught_unwind(maybe_panic.err());
+            bevy_utils::resume_caught_unwind(maybe_panic);
         }
     }
 

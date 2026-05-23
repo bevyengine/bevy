@@ -1,7 +1,8 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bevy_ptr::ConstNonNull;
-use core::panic::AssertUnwindSafe;
 use core::ptr::NonNull;
+use core::{any::Any, panic::AssertUnwindSafe};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
@@ -30,7 +31,7 @@ pub(crate) struct BundleRemover<'w> {
 pub(crate) struct BundleRemoveResult<T> {
     pub new_location: EntityLocation,
     pub data: T,
-    pub panic_payload: Option<alloc::boxed::Box<dyn core::any::Any + Send>>,
+    pub panic_payload: Result<(), Box<dyn Any + Send>>,
 }
 
 impl<'w> BundleRemover<'w> {
@@ -212,7 +213,7 @@ impl<'w> BundleRemover<'w> {
         // Component's drop functions may panic.
         // We mustn't leave the world in an inconsistent state if that happens.
         // Catch any such panics, finish the removal, and rethrow the first one.
-        let mut panic_payload = None;
+        let mut panic_payload = Ok(());
 
         // Handle sparse set removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
@@ -233,9 +234,8 @@ impl<'w> BundleRemover<'w> {
 
                     let maybe_panic =
                         bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
-                            sparse_set.remove(entity)
-                        }))
-                        .err();
+                            sparse_set.remove(entity);
+                        }));
 
                     panic_payload = panic_payload.or(maybe_panic);
                 }
@@ -296,11 +296,7 @@ impl<'w> BundleRemover<'w> {
                 }
             };
 
-            if let Some(payload) = move_result.panic
-                && panic_payload.is_none()
-            {
-                panic_payload = Some(payload);
-            }
+            panic_payload = panic_payload.or(move_result.panic);
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
             let new_location = unsafe {

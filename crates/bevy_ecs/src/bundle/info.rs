@@ -254,8 +254,8 @@ impl BundleInfo {
         bundle: MovingPtr<'_, T>,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-    ) -> Option<Box<dyn Any + Send>> {
-        let mut panic = None;
+    ) -> Result<(), Box<dyn Any + Send>> {
+        let mut panic = Ok(());
 
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -304,8 +304,8 @@ impl BundleInfo {
                 }
             };
 
-            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(f)).err();
-            if panic.is_none() {
+            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(f));
+            if panic.is_ok() {
                 panic = maybe_panic;
             }
 

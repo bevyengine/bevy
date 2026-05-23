@@ -1765,7 +1765,7 @@ impl<'w> EntityWorldMut<'w> {
         // the despawn is effectively cancelled.
         // Now that we're editing metadata and moving data around in tables, we need to make
         // sure that we complete these changes even if dropping a component panicks.
-        let mut panic = None;
+        let mut panic = Ok(());
 
         let table_row;
         let moved_entity = {
@@ -1798,9 +1798,8 @@ impl<'w> EntityWorldMut<'w> {
                     .get_mut(component_id)
                     .unwrap();
                 let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
-                    sparse_set.remove(self.entity)
-                }))
-                .err();
+                    sparse_set.remove(self.entity);
+                }));
                 panic = panic.or(maybe_panic);
             }
 
@@ -2426,7 +2425,7 @@ unsafe fn insert_dynamic_bundle<
     mode: InsertMode,
     caller: MaybeLocation,
     relationship_hook_insert_mode: RelationshipHookMode,
-) -> (EntityLocation, Option<Box<dyn Any + Send>>) {
+) -> (EntityLocation, Result<(), Box<dyn Any + Send>>) {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
     }
