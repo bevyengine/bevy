@@ -59,7 +59,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     ///
     /// It is highly suggested that you `take` data from the [`RenderAsset::SourceAsset`] if you no longer
     /// need access in the MAIN_WORLD to avoid copy overhead. [`bevy_asset::RenderAssetUsages`] can be used
-    /// to easily impliment this using the [`bevy_asset::RenderAssetUsages::extract`] method.
+    /// to easily implement this using the [`bevy_asset::RenderAssetUsages::extract`] method.
     fn extract(
         source_asset: &mut Self::SourceAsset,
         previous_gpu_asset: Option<&Self>,
