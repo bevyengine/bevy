@@ -45,7 +45,7 @@ impl FeathersDisclosureToggle {
             FocusIndicator
             TabIndex(0)
             Children [
-                :icon(icons::CHEVRON_RIGHT)
+                icon(icons::CHEVRON_RIGHT)
             ]
         )
     }

@@ -126,7 +126,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// References can point in any direction within the scene: a parent can reference a descendant,
 /// a child can reference a parent, and siblings within the same `Children [...]` block can
 /// reference each other.
-/// All names in a single `bsn!` call share one scope; names from composed or inherited scenes
+/// All names in a single `bsn!` call share one scope; names from composed or cached scenes
 /// (`my_scene()`, `:my_scene`) live in their own separate scopes and are not visible here.
 /// If two scopes both define the same name (e.g. both use `#Player`), each `#Player` resolves
 /// to its own entity — there is no conflict or shadowing.
@@ -188,6 +188,20 @@ use syn::{parse_macro_input, DeriveInput};
 ///     bsn! {
 ///         {unit_base}
 ///         Armor(50)
+///     }
+/// }
+/// ```
+///
+/// `{...}` blocks can also be `unsafe` or `const` (but not both at once without nesting):
+///
+/// ```rust, ignore
+/// fn friendly(people: &[&'static str]) -> impl Scene {
+///     bsn! {
+///         Friend {
+///             name: const {"John"}
+///             /// SAFETY: Jesus take the wheel
+///             father: unsafe {people.get_unchecked(0)}
+///         }
 ///     }
 /// }
 /// ```
@@ -312,7 +326,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// **Inheritance** uses the `:` prefix. The parent is *pre-resolved* first — its templates are
 /// fully flattened into a `ResolvedScene` — and the child's patches are applied on top.
 /// When the scene is parameterless, this will "cache" the scene and share it across all inheriting scenes.
-/// For larger scenes that are inherited many times, this can be much faster than re-computing
+/// For larger scenes that are cached and spawned many times, this can be much faster than re-computing
 /// the scene each time.
 ///
 /// ```rust, ignore

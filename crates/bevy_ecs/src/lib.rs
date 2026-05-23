@@ -132,6 +132,7 @@ pub mod __macro_exports {
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
     pub use crate::query::DebugCheckedUnwrap;
+    pub use alloc::format;
     pub use alloc::vec::Vec;
 }
 

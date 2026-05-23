@@ -77,7 +77,7 @@ impl Default for FeathersNumberInputProps {
 impl FeathersNumberInput {
     fn scene(props: FeathersNumberInputProps) -> impl Scene {
         bsn! {
-            :FeathersTextInputContainer
+            :@FeathersTextInputContainer
             ThemeBorderColor({props.sigil_color})
             FeathersNumberInput
             template_value(props.number_format)
@@ -108,7 +108,7 @@ impl FeathersNumberInput {
                         None => Box::new(bsn_list!()) as Box<dyn SceneList>
                     }
                 }
-                :FeathersTextInput {
+                @FeathersTextInput {
                     @max_characters: 20usize,
                 }
                 SelectAllOnFocus
