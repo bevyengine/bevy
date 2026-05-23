@@ -713,7 +713,6 @@ impl EntityAllocator {
     /// # Warning
     /// - Any two entity allocators must not have overlapping ranges, otherwise an entity can be allocated twice by different allocators.
     /// - Do not free entities with an [`EntityIndex`] outside of the given range. This ensures that the allocator won't allocate out-of-range entities.
-    #[expect(dead_code, reason = "will be used in components as entities")]
     pub(crate) fn new(range: Range<u32>) -> Self {
         Self {
             inner: remote_allocator::Allocator::new(range),
