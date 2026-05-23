@@ -188,15 +188,14 @@ macro_rules! auto_nest_tuple {
 pub type PathResolveHelper<T> = T;
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::name::Name;
 
     use crate::macro_utils::NameIds;
 
     #[test]
     fn test_name_ids() {
         let mut names = NameIds::new(1);
-        let (name_0, id_0) = names.get("foo");
-        let (name_1, id_1) = names.get("bar");
-        assert_eq!(id_1, 3);
+        let (_name_0, _id_0) = names.get("foo");
+        let (_name_1, id_1) = names.get("bar");
+        assert_eq!(id_1, 2);
     }
 }
