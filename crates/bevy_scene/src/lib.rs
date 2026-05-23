@@ -1972,6 +1972,7 @@ mod tests {
         let pass_name_expr = bsn! {
             #{namee}
             Children [
+                #Name
                 widget(#{namee})
             ]
         };
@@ -2035,7 +2036,7 @@ mod tests {
     }
 
     #[test]
-    fn repated_call_entity_reference() {
+    fn repeated_call_entity_reference() {
         let scenes = (0..6).map(|_: u32| bsn! { #Name }).collect::<Vec<_>>();
         let scenes_len = scenes.len();
         let mut app = test_app();
