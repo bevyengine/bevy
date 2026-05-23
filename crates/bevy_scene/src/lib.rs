@@ -1968,12 +1968,12 @@ mod tests {
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
 
-        let namee = "Foo".to_string();
+        let name = "Foo".to_string();
         let pass_name_expr = bsn! {
-            #{namee}
+            #{name}
             Children [
                 #Name
-                widget(#{namee})
+                widget(#{name})
             ]
         };
         let entity = world.spawn_scene(pass_name_expr).unwrap().id();
