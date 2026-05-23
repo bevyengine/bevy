@@ -189,6 +189,12 @@ pbr_specular_textures = [
   "bevy_gltf?/pbr_specular_textures",
 ]
 
+# Spectral colors (monochromatic light) in lights:
+spectral_lighting = [
+    "bevy_pbr?/spectral_lighting",
+    "bevy_light?/spectral_lighting"
+]
+
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",

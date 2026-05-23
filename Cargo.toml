@@ -623,6 +623,9 @@ pbr_multi_layer_material_textures = [
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
+# Enable support for spectral colors (monochromatic light) in lights
+spectral_lighting = ["bevy_internal/spectral_lighting"]
+
 # Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
 experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
 
@@ -1357,6 +1360,18 @@ description = "A scene showcasing screen space ambient occlusion"
 category = "3D Rendering"
 # Requires compute shaders, which are not supported by WebGL.
 wasm = false
+
+[[example]]
+name = "spectral_lighting"
+path = "examples/3d/spectral_lighting.rs"
+doc-scrape-examples = true
+required-features = ["spectral_lighting"]
+
+[package.metadata.example.spectral_lighting]
+name = "Spectral Lighting"
+description = "Showcases support for spectral color (monochromatic) lights in a 3D scene"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "spotlight"

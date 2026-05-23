@@ -127,6 +127,12 @@ pub struct SpotLight {
     /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
     /// `inner_angle` should be <= `outer_angle`
     pub inner_angle: f32,
+
+    /// Whether this spot light is a source of [monochromatic light]
+    ///
+    /// [monochromatic light]:https://en.wikipedia.org/wiki/Monochromatic_radiation
+    #[cfg(feature = "spectral_lighting")]
+    pub monochromatic: bool,
 }
 
 impl SpotLight {
@@ -159,6 +165,8 @@ impl Default for SpotLight {
             outer_angle: core::f32::consts::FRAC_PI_4,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: false,
+            #[cfg(feature = "spectral_lighting")]
+            monochromatic: false,
         }
     }
 }

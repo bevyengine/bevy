@@ -35,6 +35,7 @@ smallvec = { version = "1", default-features = false }
 [features]
 default = []
 experimental_pbr_pcss = []
+spectral_lighting = []
 webgl = []
 webgpu = []
 

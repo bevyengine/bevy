@@ -427,6 +427,8 @@ impl PrepassPipeline {
         }
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
+        #[cfg(feature = "spectral_lighting")]
+        shader_defs.push("SPECTRAL_LIGHTING".into());
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
         let view_projection = mesh_key.intersection(MeshPipelineKey::VIEW_PROJECTION_RESERVED_BITS);
         if view_projection == MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD {

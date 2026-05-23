@@ -1,8 +1,9 @@
 #define_import_path bevy_pbr::ambient
 
 #import bevy_pbr::{
-    lighting::{EnvBRDFApprox, F_AB},
+    lighting::{EnvBRDFApprox, F_AB, monochromatic_response},
     mesh_view_bindings::lights,
+    mesh_view_types::AMBIENT_LIGHT_FLAGS_MONOCHROMATIC_BIT,
 }
 
 // A precomputed `NdotV` is provided because it is computed regardless,
@@ -24,6 +25,15 @@ fn ambient_light(
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
     // See: https://google.github.io/filament/Filament.md.html#specularocclusion
     let specular_occlusion = saturate(dot(specular_color, vec3(50.0 * 0.33)));
+
+    #ifdef SPECTRAL_LIGHTING
+        if (lights.ambient_flags & AMBIENT_LIGHT_FLAGS_MONOCHROMATIC_BIT) != 0u {
+            let base_color = (diffuse_ambient + specular_ambient * specular_occlusion);
+            let light_color = lights.ambient_color.rgb * occlusion;
+            let response = monochromatic_response(base_color, light_color);
+            return response * light_color;
+        }
+    #endif
 
     return (diffuse_ambient + specular_ambient * specular_occlusion) * lights.ambient_color.rgb * occlusion;
 }

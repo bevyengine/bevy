@@ -123,6 +123,12 @@ pub struct PointLight {
     ///
     /// This only has an effect if shadows are enabled.
     pub shadow_map_near_z: f32,
+
+    /// Whether this point light is a source of [monochromatic light]
+    ///
+    /// [monochromatic light]:https://en.wikipedia.org/wiki/Monochromatic_radiation
+    #[cfg(feature = "spectral_lighting")]
+    pub monochromatic: bool,
 }
 
 impl Default for PointLight {
@@ -140,6 +146,8 @@ impl Default for PointLight {
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: false,
+            #[cfg(feature = "spectral_lighting")]
+            monochromatic: false,
         }
     }
 }

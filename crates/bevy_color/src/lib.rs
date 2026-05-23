@@ -112,6 +112,7 @@ mod linear_rgba;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
+mod spectral;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
@@ -125,7 +126,7 @@ mod xyza;
 pub mod prelude {
     pub use crate::{
         color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
-        oklaba::*, oklcha::*, srgba::*, xyza::*,
+        oklaba::*, oklcha::*, spectral::*, srgba::*, xyza::*,
     };
 }
 
@@ -142,6 +143,7 @@ pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
 pub use oklcha::*;
+pub use spectral::*;
 pub use srgba::*;
 pub use xyza::*;
 

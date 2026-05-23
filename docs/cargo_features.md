@@ -177,6 +177,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
 |shader_format_wesl|Enable support for shaders in WESL|
+|spectral_lighting|Enable support for spectral colors (monochromatic light) in lights|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |sprite_picking|Provides an implementation for picking sprites|

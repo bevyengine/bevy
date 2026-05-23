@@ -23,6 +23,7 @@ const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
+const POINT_LIGHT_FLAGS_MONOCHROMATIC_BIT: u32                      = 1u << 6u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -51,6 +52,7 @@ const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 
 const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 1u << 1u;
 const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 1u << 2u;
 const DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32           = 1u << 3u;
+const DIRECTIONAL_LIGHT_FLAGS_MONOCHROMATIC_BIT: u32                    = 1u << 4u;
 
 struct RectLight {
     color: vec4<f32>,
@@ -61,6 +63,8 @@ struct RectLight {
     up: vec3<f32>,
     range: f32,
 };
+
+const AMBIENT_LIGHT_FLAGS_MONOCHROMATIC_BIT: u32                    = 1u << 0u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -83,6 +87,7 @@ struct Lights {
     spot_light_shadowmap_offset: i32,
     ambient_light_affects_lightmapped_meshes: u32,
     n_rect_lights: u32,
+    ambient_flags: u32,
     rect_lights: array<RectLight, #{MAX_RECT_LIGHTS}u>,
 };
 

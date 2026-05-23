@@ -3468,6 +3468,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
+        #[cfg(feature = "spectral_lighting")]
+        shader_defs.push("SPECTRAL_LIGHTING".into());
+
         #[cfg(feature = "experimental_pbr_pcss")]
         shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
 

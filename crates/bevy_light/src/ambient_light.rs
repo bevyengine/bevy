@@ -27,6 +27,12 @@ pub struct AmbientLight {
     ///
     /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
+
+    /// Whether this ambient light is a source of [monochromatic light]
+    ///
+    /// [monochromatic light]:https://en.wikipedia.org/wiki/Monochromatic_radiation
+    #[cfg(feature = "spectral_lighting")]
+    pub monochromatic: bool,
 }
 
 impl Default for AmbientLight {
@@ -35,6 +41,8 @@ impl Default for AmbientLight {
             color: Color::WHITE,
             brightness: 80.0,
             affects_lightmapped_meshes: true,
+            #[cfg(feature = "spectral_lighting")]
+            monochromatic: false,
         }
     }
 }
@@ -77,6 +85,12 @@ pub struct GlobalAmbientLight {
     ///
     /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
+
+    /// Whether this ambient light is a source of [monochromatic light]
+    ///
+    /// [monochromatic light]:https://en.wikipedia.org/wiki/Monochromatic_radiation
+    #[cfg(feature = "spectral_lighting")]
+    pub monochromatic: bool,
 }
 
 impl Default for GlobalAmbientLight {
@@ -85,6 +99,8 @@ impl Default for GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 80.0,
             affects_lightmapped_meshes: true,
+            #[cfg(feature = "spectral_lighting")]
+            monochromatic: false,
         }
     }
 }
@@ -95,5 +111,7 @@ impl GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
         affects_lightmapped_meshes: true,
+        #[cfg(feature = "spectral_lighting")]
+        monochromatic: false,
     };
 }
