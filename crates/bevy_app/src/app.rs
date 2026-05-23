@@ -23,7 +23,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -129,6 +129,10 @@ impl Default for App {
             message_update_system
                 .in_set(bevy_ecs::message::MessageUpdateSystems)
                 .run_if(bevy_ecs::message::message_update_condition),
+        );
+        app.add_systems(
+            crate::Last,
+            bevy_ecs::system::despawn_unused_registered_systems,
         );
         app.add_message::<AppExit>();
 
@@ -380,6 +384,24 @@ impl App {
         O: 'static,
     {
         self.main_mut().register_system(system)
+    }
+
+    /// Registers a system and returns a tracked [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`]. The system entity will be automatically
+    /// queued for despawn when the last clone of the returned handle is dropped.
+    ///
+    /// See [`World::register_tracked_system`] for more details.
+    ///
+    /// [`SystemHandle`]: bevy_ecs::system::SystemHandle
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> bevy_ecs::system::SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.main_mut().register_tracked_system(system)
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
@@ -687,9 +709,7 @@ impl App {
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(
-        &mut self,
-    ) -> &mut Self {
+    pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
         self
     }
@@ -2085,5 +2105,22 @@ mod tests {
         let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_messages().count(), 0);
+    }
+
+    #[test]
+    fn auto_despawn_unused_registered_systems() {
+        let mut app = App::new();
+
+        fn my_system() {}
+
+        let handle = app.register_tracked_system(my_system);
+        let entity = handle.entity();
+
+        app.update();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        drop(handle);
+        app.update();
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

@@ -146,7 +146,7 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
     }
 
     let lod_range = visibility_ranges[visibility_buffer_index];
-    let camera_distance = length(view.world_position.xyz - world_position.xyz);
+    let camera_distance = length(view.lod_view_world_position.xyz - world_position.xyz);
 
     // This encodes the following mapping:
     //

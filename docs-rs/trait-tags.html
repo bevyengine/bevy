@@ -24,6 +24,28 @@
     // Find all traits that are implemented by the current type.
     const implementedBevyTraits = findImplementedBevyTraits(document);
 
+    // Resource already implies component
+    if (implementedBevyTraits.has("Resource")) {
+        implementedBevyTraits.delete("Component");
+    }
+
+    // Check if an implemented trait has a `type Mutability = Immutable` associated type.
+    // This is used to determine if a `Component` is immutable or not.
+    // TODO: Ideally we should just check the associated types of the `Component` trait,
+    //       but the docs.rs layout makes it tricky to do so in a robust way.
+    const associatedTypeHeader = document.querySelectorAll(".trait-impl.associatedtype .code-header");
+    const isImmutable = [...associatedTypeHeader].some(el => el.innerText.includes('type Mutability = Immutable'));
+
+    if (isImmutable & implementedBevyTraits.has("Component")) {
+        implementedBevyTraits.set("Immutable Component", implementedBevyTraits.get("Component"));
+        implementedBevyTraits.delete("Component");
+    }
+
+    if (isImmutable & implementedBevyTraits.has("Resource")) {
+        implementedBevyTraits.set("Immutable Resource", implementedBevyTraits.get("Resource"));
+        implementedBevyTraits.delete("Resource");
+    }
+
     // If we found any implemented traits, add them as tags to the top of the page.
     if (implementedBevyTraits.size > 0) {
         // Create a container for the tags.
@@ -32,19 +54,8 @@
         tagContainer.className = 'bevy-tag-container';
         heading.appendChild(tagContainer);
 
-        // Check if an implemented trait has a `type Mutability = Immutable` associated type.
-        // This is used to determine if a `Component` is immutable or not.
-        // TODO: Ideally we should just check the associated types of the `Component` trait,
-        //       but the docs.rs layout makes it tricky to do so in a robust way.
-        const associatedTypeHeader = document.querySelectorAll(".trait-impl.associatedtype .code-header");
-        const isImmutable = [...associatedTypeHeader].some(el => el.innerText.includes('type Mutability = Immutable'));
-
         // Create a tag for each implemented trait.
         for (let [tagName, href] of implementedBevyTraits) {
-            if (tagName == 'Component' & isImmutable) {
-                tagName = 'Immutable Component';
-            }
-
             // Create the tag and append it to the container.
             tagContainer.appendChild(createBevyTag(tagName, href));
         }
@@ -140,7 +151,8 @@
         --tag-color: oklch(50% 27% 80);
     }
 
-    .resource-tag {
+    .resource-tag,
+    .immutable-resource-tag {
         --tag-color: oklch(50% 27% 110);
     }
 
