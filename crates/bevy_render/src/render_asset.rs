@@ -62,6 +62,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// to easily impliment this using the [`bevy_asset::RenderAssetUsages::extract`] method.
     fn extract(
         source_asset: &mut Self::SourceAsset,
+        previous_gpu_asset: Option<&Self>,
     ) -> Option<Result<Self::Extracted, AlreadyTaken>>;
 
     /// Size of the data the asset will upload to the gpu. Specifying a return value
@@ -237,6 +238,7 @@ struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
+        Option<Res<'static, RenderAssets<A>>>,
     )>,
 }
 
@@ -289,7 +291,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world).unwrap();
+            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world).unwrap();
 
             if let Some(reextract_ids) = reextract_ids {
                 needs_extracting.extend(reextract_ids);
@@ -324,7 +326,8 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             }
 
             for id in needs_extracting.drain() {
-                if let Some(asset) = assets.get_mut_untracked(id) && let Some(extracted) = A::extract(asset) {
+                let previous_gpu_asset = maybe_render_assets.as_ref().and_then(|r| r.get(id));
+                if let Some(asset) = assets.get_mut_untracked(id) && let Some(extracted) = A::extract(asset, previous_gpu_asset) {
                     match extracted {
                         Ok(extracted) => {
                             extracted_assets.extracted.push((id, extracted));

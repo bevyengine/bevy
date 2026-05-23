@@ -142,6 +142,7 @@ impl RenderAsset for RenderMesh {
 
     fn extract(
         source_asset: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
     ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
         source_asset
             .asset_usage

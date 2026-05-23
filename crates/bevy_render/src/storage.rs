@@ -140,6 +140,7 @@ impl RenderAsset for GpuShaderBuffer {
 
     fn extract(
         source_asset: &mut Self::SourceAsset,
+        previous_gpu_asset: Option<&Self>,
     ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
         source_asset.asset_usage.extract(
             source_asset,
@@ -154,11 +155,10 @@ impl RenderAsset for GpuShaderBuffer {
                     .ok_or(AlreadyTaken)
             },
             |source_asset| {
-                source_asset
-                    .data
-                    .is_some()
-                    .then(|| source_asset.clone())
-                    .ok_or(AlreadyTaken)
+                (source_asset.data.is_some()
+                    || previous_gpu_asset.is_none_or(|gpu_asset| !gpu_asset.had_data))
+                .then(|| source_asset.clone())
+                .ok_or(AlreadyTaken)
             },
         )
     }

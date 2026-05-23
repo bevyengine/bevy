@@ -953,6 +953,7 @@ impl RenderAsset for RenderWireframeMaterial {
 
     fn extract(
         source_asset: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
     ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
         Some(Ok(source_asset.clone()))
     }
