@@ -60,7 +60,7 @@ fn setup(
 
     // A plane that we can sit on top of
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(100.0, 100.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Transform::from_xyz(0., -2., 0.),
     ));

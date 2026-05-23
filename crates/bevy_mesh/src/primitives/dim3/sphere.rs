@@ -242,7 +242,7 @@ impl MeshBuilder for SphereMeshBuilder {
     ///
     /// Panics if the sphere is a [`SphereKind::Ico`] with a subdivision count
     /// that is greater than or equal to `80` because there will be too many vertices.
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         match self.kind {
             SphereKind::Ico { subdivisions } => self.ico(subdivisions).unwrap(),
             SphereKind::Uv { sectors, stacks } => self.uv(sectors, stacks),
@@ -251,18 +251,12 @@ impl MeshBuilder for SphereMeshBuilder {
 }
 
 impl Meshable for Sphere {
-    type Output = SphereMeshBuilder;
+    type Builder = SphereMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         SphereMeshBuilder {
             sphere: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Sphere> for Mesh {
-    fn from(sphere: Sphere) -> Self {
-        sphere.mesh().build()
     }
 }

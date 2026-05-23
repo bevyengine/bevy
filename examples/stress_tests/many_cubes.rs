@@ -495,7 +495,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                         normal: Dir3::NEG_Z,
                         half_size: Vec2::splat(0.5),
                     }
-                    .mesh()
+                    .mesh_builder()
                     .size(radius, radius),
                 ),
                 Transform::IDENTITY,

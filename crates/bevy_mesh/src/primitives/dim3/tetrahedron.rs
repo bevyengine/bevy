@@ -12,7 +12,7 @@ pub struct TetrahedronMeshBuilder {
 }
 
 impl MeshBuilder for TetrahedronMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         let mut faces: Vec<_> = self.tetrahedron.faces().into();
 
         // If the tetrahedron has negative orientation, reverse all the triangles so that
@@ -52,15 +52,9 @@ impl MeshBuilder for TetrahedronMeshBuilder {
 }
 
 impl Meshable for Tetrahedron {
-    type Output = TetrahedronMeshBuilder;
+    type Builder = TetrahedronMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         TetrahedronMeshBuilder { tetrahedron: *self }
-    }
-}
-
-impl From<Tetrahedron> for Mesh {
-    fn from(tetrahedron: Tetrahedron) -> Self {
-        tetrahedron.mesh().build()
     }
 }

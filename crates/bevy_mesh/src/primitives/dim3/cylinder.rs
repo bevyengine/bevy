@@ -94,7 +94,7 @@ impl CylinderMeshBuilder {
 }
 
 impl MeshBuilder for CylinderMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         let resolution = self.resolution;
         let segments = self.segments;
 
@@ -205,18 +205,12 @@ impl MeshBuilder for CylinderMeshBuilder {
 }
 
 impl Meshable for Cylinder {
-    type Output = CylinderMeshBuilder;
+    type Builder = CylinderMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         CylinderMeshBuilder {
             cylinder: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Cylinder> for Mesh {
-    fn from(cylinder: Cylinder) -> Self {
-        cylinder.mesh().build()
     }
 }

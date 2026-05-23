@@ -137,7 +137,7 @@ fn spawn_sphere(
     app_status: &AppStatus,
 ) {
     // Create a sphere mesh.
-    let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
+    let sphere_mesh = meshes.add(Sphere::new(1.0).mesh_builder().ico(7).unwrap());
 
     // Create a sphere.
     commands.spawn((
