@@ -702,7 +702,7 @@ impl SparseSetIndex for Entity {
 ///
 /// Conceptually, this is a collection of [`Entity`] ids who's [`EntityIndex`] is despawned and who's [`EntityGeneration`] is the most recent.
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct EntityAllocator {
     pub(crate) inner: remote_allocator::Allocator,
 }

@@ -905,6 +905,12 @@ pub(crate) struct Allocator {
     range: Range<u32>,
 }
 
+impl Default for Allocator {
+    fn default() -> Self {
+        Self::new(0..u32::MAX)
+    }
+}
+
 impl Allocator {
     /// Constructs a new [`Allocator`]
     pub(super) fn new(range: Range<u32>) -> Self {
@@ -1164,7 +1170,7 @@ mod tests {
     #[test]
     fn uniqueness() {
         let mut entities = Vec::with_capacity(2000);
-        let mut allocator = Allocator::new(0..u32::MAX);
+        let mut allocator = Allocator::default();
         entities.extend(allocator.alloc_many(1000));
 
         let pre_len = entities.len();
@@ -1190,7 +1196,7 @@ mod tests {
     /// This test just exists to make sure allocations don't step on each other's toes.
     #[test]
     fn allocation_order_correctness() {
-        let mut allocator = Allocator::new(0..u32::MAX);
+        let mut allocator = Allocator::default();
         let e0 = allocator.alloc();
         let e1 = allocator.alloc();
         let e2 = allocator.alloc();
