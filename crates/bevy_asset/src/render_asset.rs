@@ -50,3 +50,28 @@ impl Default for RenderAssetUsages {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 }
+
+impl RenderAssetUsages {
+    /// Function that conditionally extracts data from an asset based on the render asset usage flags.
+    ///
+    /// If the asset is not intended for the render world, `None` is returned.
+    ///
+    /// If it's only intended for the render world `take` is used. Otherwise `clone` is used.
+    pub fn extract<I, O>(
+        self,
+        input: &mut I,
+        take: impl FnOnce(&mut I) -> O,
+        clone: impl FnOnce(&mut I) -> O,
+    ) -> Option<O> {
+        if self.contains(RenderAssetUsages::RENDER_WORLD) {
+            let res = if self == Self::RENDER_WORLD {
+                take(input)
+            } else {
+                clone(input)
+            };
+            Some(res)
+        } else {
+            None
+        }
+    }
+}

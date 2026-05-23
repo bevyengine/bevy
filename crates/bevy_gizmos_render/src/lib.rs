@@ -70,6 +70,7 @@ use {
 
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_asset::AlreadyTaken,
     render_resource::{BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode},
 };
 
@@ -255,12 +256,20 @@ impl RenderAsset for GpuLineGizmo {
     type SourceAsset = GizmoAsset;
     type Param = SRes<RenderDevice>;
 
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        Some(Ok(source_asset.clone()))
+    }
+
     fn prepare_asset(
-        gizmo: Self::SourceAsset,
+        gizmo: Self::Extracted,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         let list_position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),

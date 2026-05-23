@@ -1,9 +1,9 @@
 use crate::{
-    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset},
+    render_asset::{AlreadyTaken, PrepareAssetError, RenderAsset},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::AssetId;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_log::warn;
@@ -31,41 +31,45 @@ impl RenderAsset for GpuImage {
         SRes<DefaultImageSampler>,
     );
 
-    #[inline]
-    fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
-        image.asset_usage
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        source_asset.asset_usage.extract(
+            source_asset,
+            |source_asset| {
+                let data = source_asset.data.take();
+
+                data.is_some()
+                    .then(|| Self::SourceAsset {
+                        data,
+                        ..source_asset.clone()
+                    })
+                    .ok_or(AlreadyTaken)
+            },
+            |source_asset| {
+                source_asset
+                    .data
+                    .is_some()
+                    .then(|| source_asset.clone())
+                    .ok_or(AlreadyTaken)
+            },
+        )
     }
 
-    fn take_gpu_data(
-        source: &mut Self::SourceAsset,
-        previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        let data = source.data.take();
-
-        // check if this image originally had data and no longer does, that implies it
-        // has already been extracted
-        let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
-
-        valid_upload
-            .then(|| Self::SourceAsset {
-                data,
-                ..source.clone()
-            })
-            .ok_or(AssetExtractionError::AlreadyExtracted)
-    }
-
     #[inline]
-    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
+    fn byte_len(image: &Self::Extracted) -> Option<usize> {
         image.data.as_ref().map(Vec::len)
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::SourceAsset,
+        image: Self::Extracted,
         _: AssetId<Self::SourceAsset>,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         let had_data = image.data.is_some();
         let texture = if let Some(prev) = previous_asset
             && prev.texture_descriptor == image.texture_descriptor

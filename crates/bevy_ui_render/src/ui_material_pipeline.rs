@@ -11,6 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
+use bevy_render::render_asset::AlreadyTaken;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -563,14 +564,22 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         M::Param,
     );
 
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        Some(Ok(source_asset.clone()))
+    }
+
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Self::Extracted,
         _: AssetId<Self::SourceAsset>,
         (render_device, pipeline_cache, pipeline, material_param): &mut SystemParamItem<
             Self::Param,
         >,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         let bind_group_data = material.bind_group_data();
         match material.as_bind_group(
             &pipeline.ui_layout.clone(),

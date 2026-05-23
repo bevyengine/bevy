@@ -28,6 +28,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
+use bevy_render::render_asset::AlreadyTaken;
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
@@ -1111,8 +1112,16 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         M::Param,
     );
 
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        Some(Ok(source_asset.clone()))
+    }
+
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Self::Extracted,
         material_id: AssetId<Self::SourceAsset>,
         (
             render_device,
@@ -1125,7 +1134,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             material_param,
         ): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         let bind_group_data = material.bind_group_data();
         match material.as_bind_group(
             &pipeline.material2d_layout,

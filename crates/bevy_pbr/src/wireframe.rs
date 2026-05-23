@@ -40,7 +40,8 @@ use bevy_render::{
     },
     prelude::*,
     render_asset::{
-        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+        prepare_assets, AlreadyTaken, PrepareAssetError, RenderAsset, RenderAssetPlugin,
+        RenderAssets,
     },
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
@@ -948,13 +949,20 @@ impl AsAssetId for Mesh3dWireframe {
 impl RenderAsset for RenderWireframeMaterial {
     type SourceAsset = WireframeMaterial;
     type Param = ();
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        Some(Ok(source_asset.clone()))
+    }
 
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: Self::Extracted,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
         _previous_asset: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
             line_width: source_asset.line_width,

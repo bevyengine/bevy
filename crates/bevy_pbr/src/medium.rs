@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, Vec4};
 use bevy_render::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_asset::{AlreadyTaken, PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{
         Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture, TextureDataOrder,
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
@@ -66,12 +66,20 @@ impl RenderAsset for GpuScatteringMedium {
 
     type Param = (Res<'static, RenderDevice>, Res<'static, RenderQueue>);
 
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        Some(Ok(source_asset.clone()))
+    }
+
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: Self::Extracted,
         _asset_id: AssetId<Self::SourceAsset>,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
         _previous_asset: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         let mut density: Vec<Vec4> =
             Vec::with_capacity(2 * source_asset.falloff_resolution as usize);
 

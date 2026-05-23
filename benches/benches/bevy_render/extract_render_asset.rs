@@ -1,10 +1,10 @@
 use bevy_app::{App, AppLabel};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, Assets, RenderAssetUsages};
+use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, Assets};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_plugin::ExtractPlugin,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_asset::{AlreadyTaken, PrepareAssetError, RenderAsset, RenderAssetPlugin},
     RenderApp,
 };
 use criterion::{criterion_group, BenchmarkId, Criterion, Throughput};
@@ -19,8 +19,12 @@ impl RenderAsset for DummyRenderAsset {
     type SourceAsset = DummyAsset;
     type Param = ();
 
-    fn asset_usage(_: &Self::SourceAsset) -> RenderAssetUsages {
-        RenderAssetUsages::RENDER_WORLD
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        Some(Ok(source_asset.clone()))
     }
 
     fn prepare_asset(

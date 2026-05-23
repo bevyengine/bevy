@@ -5,14 +5,14 @@ pub mod morph;
 #[cfg(feature = "morph")]
 use crate::GpuResourceAppExt;
 use crate::{
-    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_asset::{AlreadyTaken, PrepareAssetError, RenderAsset, RenderAssetPlugin},
     renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::AssetId;
 use bevy_camera::primitives::MeshAabb;
 use bevy_ecs::{
     prelude::*,
@@ -138,21 +138,22 @@ impl RenderAsset for RenderMesh {
         SResMut<RenderMorphTargetAllocator>,
     );
 
-    #[inline]
-    fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
-        mesh.asset_usage
+    type Extracted = Self::SourceAsset;
+
+    fn extract(
+        source_asset: &mut Self::SourceAsset,
+    ) -> Option<Result<Self::Extracted, AlreadyTaken>> {
+        source_asset
+            .asset_usage
+            .extract(
+                source_asset,
+                |source_asset| source_asset.take_gpu_data(),
+                |source_asset| source_asset.clone().take_gpu_data(), // This could be done more idiomatically.
+            )
+            .map(|result| result.map_err(|_| AlreadyTaken))
     }
 
-    fn take_gpu_data(
-        source: &mut Self::SourceAsset,
-        _previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        source
-            .take_gpu_data()
-            .map_err(|_| AssetExtractionError::AlreadyExtracted)
-    }
-
-    fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
+    fn byte_len(mesh: &Self::Extracted) -> Option<usize> {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
@@ -166,7 +167,7 @@ impl RenderAsset for RenderMesh {
 
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
-        mesh: Self::SourceAsset,
+        mesh: Self::Extracted,
         _mesh_id: AssetId<Self::SourceAsset>,
         (
             _render_device,
@@ -175,7 +176,7 @@ impl RenderAsset for RenderMesh {
             _render_morph_targets_allocator,
         ): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::Extracted>> {
         let (buffer_info, index_format) = match mesh.indices() {
             Some(indices) => (
                 RenderMeshBufferInfo::Indexed {
