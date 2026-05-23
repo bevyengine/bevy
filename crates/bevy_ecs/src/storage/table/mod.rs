@@ -255,7 +255,9 @@ impl Table {
                             row,
                         );
                     }));
-                panic = panic.or(maybe_panic);
+                if panic.is_ok() & maybe_panic.is_err() {
+                    panic = maybe_panic;
+                }
             }
         } else {
             // If `row.as_usize()` == `last_element_index` then there's no point in removing the component
@@ -267,7 +269,9 @@ impl Table {
                     bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| unsafe {
                         col.drop_last_component(last_element_index as usize);
                     }));
-                panic = panic.or(maybe_panic);
+                if panic.is_ok() & maybe_panic.is_err() {
+                    panic = maybe_panic;
+                }
             }
         }
         let swapped = if is_last {
@@ -829,7 +833,9 @@ impl Tables {
                     unsafe {
                         src_column.swap_remove_unchecked::<DROP>(last_index, row);
                     }));
-                panic = panic.or(maybe_panic);
+                if panic.is_ok() & maybe_panic.is_err() {
+                    panic = maybe_panic;
+                }
             }
         }
 

@@ -237,7 +237,9 @@ impl<'w> BundleRemover<'w> {
                             sparse_set.remove(entity);
                         }));
 
-                    panic_payload = panic_payload.or(maybe_panic);
+                    if panic_payload.is_ok() & maybe_panic.is_err() {
+                        panic_payload = maybe_panic;
+                    }
                 }
             }
         }
@@ -296,7 +298,9 @@ impl<'w> BundleRemover<'w> {
                 }
             };
 
-            panic_payload = panic_payload.or(move_result.panic);
+            if panic_payload.is_ok() & move_result.panic.is_err() {
+                panic_payload = move_result.panic;
+            }
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
             let new_location = unsafe {

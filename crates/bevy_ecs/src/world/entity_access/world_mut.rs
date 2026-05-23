@@ -1800,14 +1800,18 @@ impl<'w> EntityWorldMut<'w> {
                 let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
                     sparse_set.remove(self.entity);
                 }));
-                panic = panic.or(maybe_panic);
+                if panic.is_ok() & maybe_panic.is_err() {
+                    panic = maybe_panic;
+                }
             }
 
             // SAFETY: table rows stored in archetypes always exist
             let (moved_entity, maybe_panic) = unsafe {
                 self.world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
             };
-            panic = panic.or(maybe_panic);
+            if panic.is_ok() & maybe_panic.is_err() {
+                panic = maybe_panic;
+            }
 
             moved_entity
         };
