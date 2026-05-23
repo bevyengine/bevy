@@ -159,6 +159,25 @@ impl<S: Scene> SceneList for Vec<S> {
     }
 }
 
+impl SceneList for Vec<Box<dyn SceneList>> {
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        for scene_list in self {
+            scene_list.resolve_list(context, scenes)?;
+        }
+        Ok(())
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        for scene_list in self {
+            scene_list.register_dependencies(dependencies);
+        }
+    }
+}
+
 impl<S: Scene> SceneList for SceneScope<S> {
     fn resolve_list(
         self,
