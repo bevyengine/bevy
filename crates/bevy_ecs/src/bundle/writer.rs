@@ -127,7 +127,12 @@ impl<'a> BundleWriter<'a> {
     ///
     /// `entity` must be from the same world that all [`Self::push_component`] calls since the last
     /// [`Self::write`] were called with.
-    pub unsafe fn write(self, entity: &mut EntityWorldMut) {
+    #[track_caller]
+    pub unsafe fn write(
+        self,
+        entity: &mut EntityWorldMut,
+        relationship_hook_insert_mode: RelationshipHookMode,
+    ) {
         // SAFETY:
         // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
@@ -138,7 +143,7 @@ impl<'a> BundleWriter<'a> {
                     .component_ptrs
                     .drain(..)
                     .map(|ptr| OwningPtr::new(ptr)),
-                RelationshipHookMode::Run,
+                relationship_hook_insert_mode,
             );
         }
         self.0.component_ids.clear();
@@ -154,7 +159,10 @@ impl<'a> BundleWriter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bundle::BundleScratch, component::Component, name::Name, world::World};
+    use crate::{
+        bundle::BundleScratch, component::Component, name::Name,
+        relationship::RelationshipHookMode, world::World,
+    };
 
     #[test]
     fn write_component() {
@@ -170,7 +178,7 @@ mod tests {
             bundle_writer.push_component(&mut components, X);
             bundle_writer.push_component(&mut components, Name::new("Hi"));
             let mut entity = world.spawn_empty();
-            bundle_writer.write(&mut entity);
+            bundle_writer.write(&mut entity, RelationshipHookMode::Run);
 
             assert_eq!(entity.get::<Name>().unwrap().as_str(), "Hi");
             assert!(entity.contains::<X>());

@@ -5,7 +5,7 @@ use bevy_ecs::{
     component::{Component, ComponentsRegistrator},
     entity::Entity,
     error::{BevyError, Result},
-    relationship::{Relationship, RelationshipTarget},
+    relationship::{Relationship, RelationshipHookMode, RelationshipTarget},
     template::{SceneEntityReference, SceneEntityReferences, Template, TemplateContext},
     world::{EntityWorldMut, World},
 };
@@ -279,7 +279,7 @@ impl ResolvedScene {
 
                 (writer_ops)(context, &mut bundle_writer);
 
-                bundle_writer.write(context.entity);
+                bundle_writer.write(context.entity, RelationshipHookMode::Run);
 
                 resolved_cached
                     .scene
@@ -303,7 +303,7 @@ impl ResolvedScene {
                     );
                 }
                 (writer_ops)(context, &mut bundle_writer);
-                bundle_writer.write(context.entity);
+                bundle_writer.write(context.entity, RelationshipHookMode::Run);
                 self.apply_related(context, bundle_scratch)?;
             }
         };
