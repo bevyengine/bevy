@@ -318,11 +318,12 @@ impl TextPipeline {
 
         let layout = &mut computed.layout;
         layout_with_bounds(layout, bounds, justify);
+        layout_info.scale_factor = layout.scale();
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
-                    let section_index = glyph_run.style().brush.section_index as usize;
+                    let section_index = glyph_run.style().brush.section_index;
                     let font_smoothing = glyph_run.style().brush.font_smoothing;
                     let run = glyph_run.run();
                     let font = run.font();
@@ -385,7 +386,7 @@ impl TextPipeline {
                                 + atlas_info.offset,
                             atlas_info,
                             section_index,
-                            line_index,
+                            line_index: line_index as u32,
                         });
                     }
 
@@ -469,7 +470,7 @@ pub struct TextLayoutInfo {
     ///
     /// The coordinates are unscaled and relative to the top left corner of the text layout.
     pub run_geometry: Vec<RunGeometry>,
-    /// The glyphs resulting size
+    /// The size of the text layout in physical pixels
     pub size: Vec2,
     /// Cursor visibility, size and position for editing
     pub cursor: Option<(bool, Rect)>,
@@ -499,7 +500,7 @@ impl TextLayoutInfo {
 #[derive(Default, Debug, Clone, Reflect)]
 pub struct RunGeometry {
     /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
-    pub section_index: usize,
+    pub section_index: u32,
     /// Bounding box around the text run.
     pub bounds: Rect,
     /// Y position of the strikethrough in the text layout.

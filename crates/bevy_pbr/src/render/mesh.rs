@@ -1,6 +1,7 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
-    material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
+    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    resources::prepare_atmosphere_buffers,
     skin::skin_uniforms_from_world,
 };
 use alloc::sync::Arc;
@@ -72,7 +73,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::iter;
-use core::mem::{offset_of, size_of};
+use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
@@ -215,7 +216,7 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers)
-                            .after(write_atmosphere_buffer),
+                            .after(prepare_atmosphere_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSystems::Cleanup)
                             .after(RenderSystems::Render),
@@ -707,6 +708,12 @@ bitflags::bitflags! {
         ///
         /// This will be `u16::MAX` if this mesh has no LOD.
         const LOD_INDEX_MASK              = (1 << 16) - 1;
+        /// Whether visibility ranges use the center of the AABB to compute
+        /// distance from the camera.
+        ///
+        /// If false, this uses distance from the world-space translation of the
+        /// mesh instead.
+        const AABB_BASED_VISIBILITY_RANGE = 1 << 27;
         /// Disables frustum culling for this mesh.
         ///
         /// This corresponds to the
@@ -726,6 +733,7 @@ impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
         lod_index: Option<NonMaxU16>,
+        visibility_range: Option<&VisibilityRange>,
         no_frustum_culling: bool,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
@@ -735,6 +743,9 @@ impl MeshFlags {
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
+        if visibility_range.is_some_and(|visibility_range| visibility_range.use_aabb) {
+            mesh_flags |= MeshFlags::AABB_BASED_VISIBILITY_RANGE;
+        }
         if no_frustum_culling {
             mesh_flags |= MeshFlags::NO_FRUSTUM_CULLING;
         }
@@ -1425,7 +1436,7 @@ impl RenderMeshInstanceGpuBuilder {
         // `collect_meshes_for_gpu_building` will add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
+        let mesh_material_binding_id = if let Some(mesh_material) = mesh_material {
             render_material_bindings.get(&mesh_material).copied()?
         } else {
             // Use a dummy material binding ID.
@@ -1764,7 +1775,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
-            Has<VisibilityRange>,
+            Option<&VisibilityRange>,
             Option<&RenderLayers>,
         )>,
     >,
@@ -1792,13 +1803,14 @@ pub fn extract_meshes_for_cpu_building(
             }
 
             let mut lod_index = None;
-            if visibility_range {
+            if visibility_range.is_some() {
                 lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
             }
 
             let mesh_flags = MeshFlags::from_components(
                 transform,
                 lod_index,
+                visibility_range,
                 no_frustum_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
@@ -1806,9 +1818,8 @@ pub fn extract_meshes_for_cpu_building(
 
             let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
 
-            let material_bindings_index = render_material_bindings
-                .get(&mesh_material)
-                .copied()
+            let material_bindings_index = mesh_material
+                .and_then(|mesh_material| render_material_bindings.get(&mesh_material).copied())
                 .unwrap_or_default();
 
             let shared = RenderMeshInstanceSharedFlat::for_cpu_building(
@@ -1875,7 +1886,7 @@ type GpuMeshExtractionQuery = (
         Has<NoAutomaticBatching>,
         Has<NoCpuCulling>,
     ),
-    Has<VisibilityRange>,
+    Option<Read<VisibilityRange>>,
     Option<Read<RenderLayers>>,
 );
 
@@ -2104,7 +2115,7 @@ fn extract_mesh_for_gpu_building(
 
     // If the entity has a visibility range, determine its LOD index.
     let mut lod_index = None;
-    if visibility_range {
+    if visibility_range.is_some() {
         lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
     }
 
@@ -2112,6 +2123,7 @@ fn extract_mesh_for_gpu_building(
     let mesh_flags = MeshFlags::from_components(
         transform,
         lod_index,
+        visibility_range,
         no_frustum_culling,
         not_shadow_receiver,
         transmitted_receiver,
@@ -3369,7 +3381,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
+        if key.contains(MeshPipelineKey::OIT_ENABLED)
+            && matches!(
+                pass,
+                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+            )
+        {
             label = "oit_mesh_pipeline".into();
             // TODO tail blending would need alpha blending
             blend = None;
