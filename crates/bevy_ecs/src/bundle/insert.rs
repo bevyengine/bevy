@@ -138,7 +138,6 @@ impl<'w> BundleInserter<'w> {
         EntityLocation,
         &'a mut SparseSets,
         &'a mut Table,
-        Option<Box<dyn Any + Send>>,
     ) {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
@@ -193,7 +192,7 @@ impl<'w> BundleInserter<'w> {
                     )
                 };
 
-                (&*archetype, location, sparse_sets, table, None)
+                (&*archetype, location, sparse_sets, table)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -226,7 +225,7 @@ impl<'w> BundleInserter<'w> {
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
-                (&*new_archetype, new_location, sparse_sets, table, None)
+                (&*new_archetype, new_location, sparse_sets, table)
             }
             ArchetypeMoveType::NewArchetypeNewTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -274,6 +273,7 @@ impl<'w> BundleInserter<'w> {
                         result.table_row,
                     )
                 };
+                // No components have been dropped, so we don't need to check for a panic.
 
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
@@ -312,7 +312,6 @@ impl<'w> BundleInserter<'w> {
                     new_location,
                     sparse_sets,
                     move_result.new_table,
-                    move_result.panic,
                 )
             }
         }
@@ -342,22 +341,19 @@ impl<'w> BundleInserter<'w> {
     ) -> (EntityLocation, Option<Box<dyn Any + Send>>) {
         let archetype_after_insert = self.archetype_after_insert.as_ref();
 
-        let panic_payload;
-
-        let (new_archetype, new_location) = {
+        let (new_archetype, new_location, maybe_panic) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
-            let (new_archetype, new_location, sparse_sets, table, archetype_move_panic_payload) =
-                Self::before_insert(
-                    entity,
-                    location,
-                    insert_mode,
-                    caller,
-                    relationship_hook_mode,
-                    self.archetype,
-                    archetype_after_insert,
-                    &self.world,
-                    &mut self.archetype_move_type,
-                );
+            let (new_archetype, new_location, sparse_sets, table) = Self::before_insert(
+                entity,
+                location,
+                insert_mode,
+                caller,
+                relationship_hook_mode,
+                self.archetype,
+                archetype_after_insert,
+                &self.world,
+                &mut self.archetype_move_type,
+            );
 
             let maybe_panic = self.bundle_info.as_ref().write_components(
                 table,
@@ -372,9 +368,7 @@ impl<'w> BundleInserter<'w> {
                 caller,
             );
 
-            panic_payload = archetype_move_panic_payload.or(maybe_panic);
-
-            (new_archetype, new_location)
+            (new_archetype, new_location, maybe_panic)
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
@@ -392,7 +386,7 @@ impl<'w> BundleInserter<'w> {
             deferred_world,
         );
 
-        (new_location, panic_payload)
+        (new_location, maybe_panic)
     }
 
     // A non-generic postlude to insert used to minimize duplicated monomorphized code.
