@@ -60,13 +60,6 @@ impl Default for Name {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct HashedStr(Hashed<Cow<'static, str>>);
 
-impl HashedStr {
-    /// required to skip hashing entity names twice in bsn
-    pub(crate) fn hash(&self) -> u64 {
-        self.0.hash()
-    }
-}
-
 impl From<&'static str> for HashedStr {
     fn from(value: &'static str) -> Self {
         Self(Hashed::new(Cow::Borrowed(value)))
@@ -117,6 +110,11 @@ impl Name {
     #[inline(always)]
     pub fn as_str(&self) -> &str {
         &self.0 .0
+    }
+    /// Get the precomputed hash of this names string, useful for raw entry operations on [`PreHashMap`](bevy_utils::map::PreHashMap)
+    #[inline(always)]
+    pub fn pre_hash(&self) -> u64 {
+        self.0 .0.hash()
     }
 }
 
@@ -307,9 +305,9 @@ mod tests {
         assert_eq!(d2.to_string(), "MyName");
     }
     #[test]
-    fn test_hashed_str_hash_is_fixed() {
+    fn test_name_hash_is_fixed() {
         let str = "foobar";
-        assert_eq!(HashedStr::from(str).hash(), fixed_hash_one(str));
+        assert_eq!(Name::from(str).pre_hash(), fixed_hash_one(str));
     }
 }
 

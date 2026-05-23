@@ -6,16 +6,12 @@ use crate::{
     component::Mutable,
     entity::Entity,
     error::{BevyError, Result},
-    name::Name,
     resource::Resource,
     world::{EntityWorldMut, Mut, World},
 };
 use alloc::vec::Vec;
 pub use bevy_ecs_macros::FromTemplate;
-use bevy_platform::{
-    collections::hash_map::RawEntryMut,
-    hash::{fixed_hash_one, Hashed},
-};
+use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
 use bevy_utils::PreHashMap;
 use indexmap::Equivalent;
 use variadics_please::all_tuples;
@@ -140,43 +136,10 @@ impl SceneEntityReferences {
 ///
 /// The uniqueness of this is ensured by the following factors:
 /// - macro invocation location: filename, line and column
-/// - the `scope_id` should uniquely identify an entity in the individual macros scope
+/// - the `name_id` should uniquely identify a name in the individual macros scope
 /// - runtime, per-scope counter for each runtime call (usually from a static `AtomicU64`)
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SceneEntityReference(Hashed<InnerSceneEntityReference>);
-
-/// id of a name reference in a scope
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub enum ScopedNameId {
-    /// A fixed name reference, one where the name is known at compile time
-    /// usually used by `#Name` in bsn
-    Fixed(usize),
-    /// A hashed name reference, where the name is not known at compile time
-    Hashed(u64),
-}
-impl ScopedNameId {
-    /// Create a [`ScopedNameId::Hashed`] using a [`Name`] reference
-    pub fn from_name(n: &Name) -> Self {
-        Self::Hashed(n.0.hash())
-    }
-}
-impl core::fmt::Display for ScopedNameId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ScopedNameId::Fixed(v) => f.write_fmt(format_args!("fixed={}", v)),
-            ScopedNameId::Hashed(v) => f.write_fmt(format_args!("hash={}", v)),
-        }
-    }
-}
-
-impl<T> From<T> for ScopedNameId
-where
-    T: AsRef<str>,
-{
-    fn from(value: T) -> Self {
-        Self::Hashed(fixed_hash_one(value.as_ref()))
-    }
-}
 
 /// The inner struct actually storing the unique index
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -184,21 +147,21 @@ pub struct InnerSceneEntityReference {
     file: &'static str,
     line: usize,
     column: usize,
-    scope_id: ScopedNameId,
+    name_id: usize,
     runtime: u64,
 }
 impl SceneEntityReference {
     /// Create a new [`SceneEntityReference`] from the invocation location, runtime time, and a local (per-macro) counter for names
     pub fn new(
         (file, line, column): (&'static str, usize, usize),
+        name_id: usize,
         runtime: u64,
-        scope_id: impl Into<ScopedNameId>,
     ) -> Self {
         Self(Hashed::new(InnerSceneEntityReference {
             file,
             line,
             column,
-            scope_id: scope_id.into(),
+            name_id,
             runtime,
         }))
     }
@@ -207,8 +170,8 @@ impl SceneEntityReference {
 impl core::fmt::Display for SceneEntityReference {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
-            "global={}:{}:{} local={} runtime={:?}",
-            self.file, self.line, self.column, self.scope_id, self.runtime
+            "global={}:{}:{} name_id={} runtime={:?}",
+            self.file, self.line, self.column, self.name_id, self.runtime
         ))
     }
 }
@@ -464,6 +427,17 @@ pub enum EntityTemplate {
     None,
 }
 impl Unpin for EntityTemplate where for<'a> [()]: SpecializeFromTemplate {}
+
+impl EntityTemplate {
+    /// Create a [`EntityTemplate::SceneEntityReference`] from the data needed for [`SceneEntityReference`]
+    pub fn from_reference(
+        invocation: (&'static str, usize, usize),
+        name_id: usize,
+        runtime: u64,
+    ) -> Self {
+        Self::SceneEntityReference(SceneEntityReference::new(invocation, name_id, runtime))
+    }
+}
 
 impl From<Entity> for EntityTemplate {
     fn from(entity: Entity) -> Self {
