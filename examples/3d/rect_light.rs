@@ -40,7 +40,7 @@ fn setup(
     });
     commands.insert_resource(FloorMaterial(floor_material.clone()));
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(20.0, 20.0).mesh())),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(20.0, 20.0))),
         MeshMaterial3d(floor_material),
     ));
 

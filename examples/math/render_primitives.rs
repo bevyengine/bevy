@@ -523,26 +523,26 @@ fn spawn_primitive_2d(
     };
     let convex_polygon = ConvexPolygon::new(CONVEX_POLYGON_VERTICES).unwrap();
     [
-        Some(RECTANGLE.mesh_builder().mesh()),
-        Some(CIRCLE.mesh_builder().mesh()),
-        Some(ELLIPSE.mesh_builder().mesh()),
-        Some(TRIANGLE_2D.mesh_builder().mesh()),
+        Some(RECTANGLE.mesh()),
+        Some(CIRCLE.mesh()),
+        Some(ELLIPSE.mesh()),
+        Some(TRIANGLE_2D.mesh()),
         None, // plane
         None, // line
-        Some(SEGMENT_2D.mesh_builder().mesh()),
-        Some(polyline_2d.mesh_builder().mesh()),
+        Some(SEGMENT_2D.mesh()),
+        Some(polyline_2d.mesh()),
         None, // polygon
-        Some(convex_polygon.mesh_builder().mesh()),
-        Some(REGULAR_POLYGON.mesh_builder().mesh()),
-        Some(CAPSULE_2D.mesh_builder().mesh()),
+        Some(convex_polygon.mesh()),
+        Some(REGULAR_POLYGON.mesh()),
+        Some(CAPSULE_2D.mesh()),
         None, // cylinder
         None, // cone
         None, // conical frustum
-        Some(ANNULUS.mesh_builder().mesh()),
+        Some(ANNULUS.mesh()),
         None, // tetrahedron
         None, // arc
-        Some(CIRCULAR_SECTOR.mesh_builder().mesh()),
-        Some(CIRCULAR_SEGMENT.mesh_builder().mesh()),
+        Some(CIRCULAR_SECTOR.mesh()),
+        Some(CIRCULAR_SEGMENT.mesh()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
@@ -574,23 +574,23 @@ fn spawn_primitive_3d(
         vertices: POLYLINE_3D_VERTICES.to_vec(),
     };
     [
-        Some(CUBOID.mesh_builder().mesh()),
-        Some(SPHERE.mesh_builder().mesh()),
+        Some(CUBOID.mesh()),
+        Some(SPHERE.mesh()),
         None, // ellipse
-        Some(TRIANGLE_3D.mesh_builder().mesh()),
-        Some(PLANE_3D.mesh_builder().mesh()),
+        Some(TRIANGLE_3D.mesh()),
+        Some(PLANE_3D.mesh()),
         None, // line
-        Some(SEGMENT_3D.mesh_builder().mesh()),
-        Some(polyline_3d.mesh_builder().mesh()),
+        Some(SEGMENT_3D.mesh()),
+        Some(polyline_3d.mesh()),
         None, // polygon
         None, // convex polygon
         None, // regular polygon
-        Some(CAPSULE_3D.mesh_builder().mesh()),
-        Some(CYLINDER.mesh_builder().mesh()),
-        Some(CONE.mesh_builder().mesh()),
-        Some(CONICAL_FRUSTUM.mesh_builder().mesh()),
-        Some(TORUS.mesh_builder().mesh()),
-        Some(TETRAHEDRON.mesh_builder().mesh()),
+        Some(CAPSULE_3D.mesh()),
+        Some(CYLINDER.mesh()),
+        Some(CONE.mesh()),
+        Some(CONICAL_FRUSTUM.mesh()),
+        Some(TORUS.mesh()),
+        Some(TETRAHEDRON.mesh()),
         None, // arc
         None, // circular sector
         None, // circular segment

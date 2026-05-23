@@ -19,7 +19,7 @@ fn setup(
 ) {
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(6.0, 6.0).mesh())),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(6.0, 6.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 

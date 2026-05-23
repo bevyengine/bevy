@@ -42,7 +42,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(100.0, 100.0).mesh())),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(100.0, 100.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Movable,
     ));

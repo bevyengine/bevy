@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn segment3d_mesh_builder() {
         let segment = Segment3d::new(Vec3::ZERO, Vec3::X);
-        let mesh = segment.mesh_builder().mesh();
+        let mesh = segment.mesh();
         assert_eq!(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len(), 2);
         assert_eq!(mesh.indices().unwrap().len(), 2);
     }
