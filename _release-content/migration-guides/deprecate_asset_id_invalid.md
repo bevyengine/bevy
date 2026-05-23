@@ -1,10 +1,10 @@
 ---
-title: "`AssetId::invalid()` and `AssetId::INVALID_UUID` have been removed"
+title: "`AssetId::invalid()` and `AssetId::INVALID_UUID` have been deprecated"
 pull_requests: [24392]
 ---
 
-`AssetId::invalid()` and `AssetId::INVALID_UUID` have been removed. This is part
-of an effort to reduce special cases and optimize asset lookups,
+`AssetId::invalid()` and `AssetId::INVALID_UUID` have been deprecated. This is
+part of an effort to reduce special cases and optimize asset lookups.
 
 If you were using `AssetId::invalid()` as a null value, the recommended solution
 is to change your variable to be `Option<AssetId>` and use `None` instead of
