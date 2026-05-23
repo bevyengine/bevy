@@ -32,6 +32,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use super::Populated;
@@ -1922,6 +1923,91 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
 }
 
 impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+    /// Accesses the parameter at the given index.
+    /// No other parameters may be accessed while this one is active.
+    pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
+        // SAFETY:
+        // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
+        //   We have mutable access to the ParamSet, so no other params in the set are active.
+        // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
+        unsafe {
+            T::get_param(
+                &mut self.param_states[index],
+                &self.system_meta,
+                self.world,
+                self.change_tick,
+            )
+            .unwrap()
+        }
+    }
+
+    /// Calls a closure for each parameter in the set.
+    pub fn for_each(&mut self, mut f: impl FnMut(T::Item<'_, '_>)) {
+        self.param_states.iter_mut().for_each(|state| {
+            f(
+                // SAFETY:
+                // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
+                //   We have mutable access to the ParamSet, so no other params in the set are active.
+                // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
+                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) }
+                    .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}")),
+            );
+        });
+    }
+}
+
+// SAFETY: Registers access for each element of `state`.
+// If any one conflicts, it will panic.
+unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
+    type State = SmallVec<[T::State; N]>;
+
+    type Item<'world, 'state> = SmallVec<[T::Item<'world, 'state>; N]>;
+
+    fn init_state(_world: &mut World) -> Self::State {
+        SmallVec::new()
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        for state in state {
+            T::init_access(state, system_meta, component_access_set, world);
+        }
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        state
+            .iter_mut()
+            // SAFETY:
+            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
+            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
+            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
+            .collect()
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        for state in state {
+            T::apply(state, system_meta, world);
+        }
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        for state in state {
+            T::queue(state, system_meta, world.reborrow());
+        }
+    }
+}
+
+impl<T: SystemParam, const N: usize> ParamSet<'_, '_, SmallVec<[T; N]>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
     pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
