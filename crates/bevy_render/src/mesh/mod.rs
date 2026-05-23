@@ -148,7 +148,7 @@ impl RenderAsset for RenderMesh {
             .asset_usage
             .extract(
                 source_asset,
-                |source_asset| source_asset.take_gpu_data(),
+                Self::SourceAsset::take_gpu_data,
                 |source_asset| source_asset.clone().take_gpu_data(), // This could be done more idiomatically.
             )
             .map(|result| result.map_err(|_| AlreadyTaken))

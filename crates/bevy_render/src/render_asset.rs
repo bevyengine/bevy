@@ -58,7 +58,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// Return `None` if the asset should not be extracted and `Some(Err(AlreadyTaken))` if the asset is already extracted.
     ///
     /// It is highly suggested that you `take` data from the [`RenderAsset::SourceAsset`] if you no longer
-    /// need access in the MAIN_WORLD to avoid copy overhead. [`bevy_asset::RenderAssetUsages`] can be used
+    /// need access in the Main World to avoid copy overhead. [`bevy_asset::RenderAssetUsages`] can be used
     /// to easily implement this using the [`bevy_asset::RenderAssetUsages::extract`] method.
     fn extract(
         source_asset: &mut Self::SourceAsset,
