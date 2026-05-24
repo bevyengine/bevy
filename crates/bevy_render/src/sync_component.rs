@@ -40,7 +40,7 @@ impl<C: SyncComponent<RenderApp, F>, F> Default for SyncComponentPlugin<C, F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`SyncComponentPlugin`].
-pub trait SyncComponent<L: AppLabel = RenderApp, F = ()>: Component {
+pub trait SyncComponent<L: AppLabel, F = ()>: Component {
     /// Describes what components should be removed from the render world if the
     /// implementing component is removed.
     type Target: Bundle<Effect: NoBundleEffect>;

@@ -27,7 +27,7 @@ pub use bevy_render_macros::ExtractComponent;
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractComponent<L: AppLabel = RenderApp, F = ()>: SyncComponent<L, F> {
+pub trait ExtractComponent<L: AppLabel, F = ()>: SyncComponent<L, F> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
