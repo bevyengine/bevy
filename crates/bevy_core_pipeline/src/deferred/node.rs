@@ -5,7 +5,7 @@ use bevy_render::occlusion_culling::OcclusionCulling;
 use bevy_log::error;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
-use bevy_render::view::{ExtractedView, NoIndirectDrawing};
+use bevy_render::view::{ExtractedMultiview, ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -26,6 +26,7 @@ type DeferredPrepassViewQueryData = (
     &'static ViewDepthTexture,
     &'static ViewPrepassTextures,
     Option<&'static MainPassResolutionOverride>,
+    Option<&'static ExtractedMultiview>,
     Has<OcclusionCulling>,
     Has<NoIndirectDrawing>,
 );
@@ -44,6 +45,7 @@ pub(crate) fn early_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         _,
         _,
     ) = view.into_inner();
@@ -56,6 +58,7 @@ pub(crate) fn early_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         false,
         &opaque_deferred_phases,
         &alpha_mask_deferred_phases,
@@ -78,6 +81,7 @@ pub fn late_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         occlusion_culling,
         no_indirect_drawing,
     ) = view.into_inner();
@@ -94,6 +98,7 @@ pub fn late_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         true,
         &opaque_deferred_phases,
         &alpha_mask_deferred_phases,
@@ -114,6 +119,7 @@ fn run_deferred_prepass_system(
     view_depth_texture: &ViewDepthTexture,
     view_prepass_textures: &ViewPrepassTextures,
     resolution_override: Option<&MainPassResolutionOverride>,
+    multiview: Option<&ExtractedMultiview>,
     is_late: bool,
     opaque_deferred_phases: &ViewBinnedRenderPhases<Opaque3dDeferred>,
     alpha_mask_deferred_phases: &ViewBinnedRenderPhases<AlphaMask3dDeferred>,
@@ -133,25 +139,13 @@ fn run_deferred_prepass_system(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
-    let mut color_attachments = vec![];
-    color_attachments.push(
-        view_prepass_textures
-            .normal
-            .as_ref()
-            .map(|normals_texture| normals_texture.get_attachment()),
-    );
-    color_attachments.push(
-        view_prepass_textures
-            .motion_vectors
-            .as_ref()
-            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
-    );
-
     // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
     // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
     // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
     // Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
-    // For webgl2 we fallback to manually clearing
+    // For webgl2 we fallback to manually clearing.
+    // Stays outside the per-eye loop: `clear_texture` with the default subresource
+    // range clears every layer of the multi-layer texture in one call.
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     if !is_late {
         if let Some(deferred_texture) = &view_prepass_textures.deferred {
@@ -162,89 +156,123 @@ fn run_deferred_prepass_system(
         }
     }
 
-    color_attachments.push(
-        view_prepass_textures
-            .deferred
-            .as_ref()
-            .map(|deferred_texture| {
-                if is_late {
-                    deferred_texture.get_attachment()
-                } else {
-                    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                    {
-                        bevy_render::render_resource::RenderPassColorAttachment {
-                            view: &deferred_texture.texture.default_view,
-                            resolve_target: None,
-                            ops: bevy_render::render_resource::Operations {
-                                load: bevy_render::render_resource::LoadOp::Load,
-                                store: StoreOp::Store,
-                            },
-                            depth_slice: None,
+    // Per-eye dispatch: one render pass per layer of the multiview target.
+    // Non-multiview cameras have view_count = 1, exercising the same per-layer
+    // path against the single-layer prepass + depth textures.
+    let view_count = multiview
+        .map(|m| m.subviews.len() as u32)
+        .unwrap_or(1);
+
+    for eye in 0..view_count {
+        let mut color_attachments = vec![];
+        color_attachments.push(
+            view_prepass_textures
+                .normal
+                .as_ref()
+                .map(|normals_texture| normals_texture.get_attachment_for_layer(eye)),
+        );
+        color_attachments.push(
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment_for_layer(eye)),
+        );
+
+        color_attachments.push(
+            view_prepass_textures
+                .deferred
+                .as_ref()
+                .map(|deferred_texture| {
+                    if is_late {
+                        deferred_texture.get_attachment_for_layer(eye)
+                    } else {
+                        #[cfg(all(
+                            feature = "webgl",
+                            target_arch = "wasm32",
+                            not(feature = "webgpu")
+                        ))]
+                        {
+                            bevy_render::render_resource::RenderPassColorAttachment {
+                                view: &deferred_texture.texture.default_view,
+                                resolve_target: None,
+                                ops: bevy_render::render_resource::Operations {
+                                    load: bevy_render::render_resource::LoadOp::Load,
+                                    store: StoreOp::Store,
+                                },
+                                depth_slice: None,
+                            }
                         }
+                        #[cfg(any(
+                            not(feature = "webgl"),
+                            not(target_arch = "wasm32"),
+                            feature = "webgpu"
+                        ))]
+                        deferred_texture.get_attachment_for_layer(eye)
                     }
-                    #[cfg(any(
-                        not(feature = "webgl"),
-                        not(target_arch = "wasm32"),
-                        feature = "webgpu"
-                    ))]
-                    deferred_texture.get_attachment()
-                }
-            }),
-    );
+                }),
+        );
 
-    color_attachments.push(
-        view_prepass_textures
-            .deferred_lighting_pass_id
-            .as_ref()
-            .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
-    );
+        color_attachments.push(
+            view_prepass_textures
+                .deferred_lighting_pass_id
+                .as_ref()
+                .map(|deferred_lighting_pass_id| {
+                    deferred_lighting_pass_id.get_attachment_for_layer(eye)
+                }),
+        );
 
-    // If all color attachments are none: clear the color attachment list so that no fragment shader is required
-    if color_attachments.iter().all(Option::is_none) {
-        color_attachments.clear();
-    }
-
-    let depth_stencil_attachment = Some(view_depth_texture.get_attachment(StoreOp::Store));
-
-    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
-        label: Some(label),
-        color_attachments: &color_attachments,
-        depth_stencil_attachment,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-        multiview_mask: None,
-    });
-    let pass_span = diagnostics.pass_span(&mut render_pass, label);
-
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
-        render_pass.set_camera_viewport(&viewport);
-    }
-
-    if !opaque_deferred_phase.multidrawable_meshes.is_empty()
-        || !opaque_deferred_phase.batchable_meshes.is_empty()
-        || !opaque_deferred_phase.unbatchable_meshes.is_empty()
-    {
-        #[cfg(feature = "trace")]
-        let _opaque_prepass_span = info_span!("opaque_deferred_prepass").entered();
-        if let Err(err) = opaque_deferred_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the opaque deferred phase {err:?}");
+        // If all color attachments are none: clear the color attachment list so that no fragment shader is required
+        if color_attachments.iter().all(Option::is_none) {
+            color_attachments.clear();
         }
-    }
 
-    if !alpha_mask_deferred_phase.is_empty() {
-        #[cfg(feature = "trace")]
-        let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred_prepass").entered();
-        if let Err(err) = alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the alpha mask deferred phase {err:?}");
+        let depth_stencil_attachment =
+            Some(view_depth_texture.get_attachment_for_layer(eye, StoreOp::Store));
+
+        let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some(label),
+            color_attachments: &color_attachments,
+            depth_stencil_attachment,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        let pass_span = diagnostics.pass_span(&mut render_pass, label);
+
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
+
+        if !opaque_deferred_phase.multidrawable_meshes.is_empty()
+            || !opaque_deferred_phase.batchable_meshes.is_empty()
+            || !opaque_deferred_phase.unbatchable_meshes.is_empty()
+        {
+            #[cfg(feature = "trace")]
+            let _opaque_prepass_span = info_span!("opaque_deferred_prepass").entered();
+            if let Err(err) = opaque_deferred_phase.render(&mut render_pass, world, view_entity) {
+                error!("Error encountered while rendering the opaque deferred phase {err:?}");
+            }
+        }
+
+        if !alpha_mask_deferred_phase.is_empty() {
+            #[cfg(feature = "trace")]
+            let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred_prepass").entered();
+            if let Err(err) =
+                alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity)
+            {
+                error!("Error encountered while rendering the alpha mask deferred phase {err:?}");
+            }
+        }
+
+        pass_span.end(&mut render_pass);
+        drop(render_pass);
     }
 
-    pass_span.end(&mut render_pass);
-    drop(render_pass);
-
-    // After rendering to the view depth texture, copy it to the prepass depth texture
+    // After rendering to the view depth texture, copy it to the prepass depth texture.
+    // Source + dest extents both carry `depth_or_array_layers = view_count` post-C2
+    // sub-A, so this single call copies every layer.
     if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
         ctx.command_encoder().copy_texture_to_texture(
             view_depth_texture.texture.as_image_copy(),

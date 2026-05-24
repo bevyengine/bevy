@@ -1025,14 +1025,30 @@ pub struct ViewDepthTexture {
 
 impl ViewDepthTexture {
     pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
+        let attachment = DepthAttachment::new_multi_layer(
+            texture.texture.clone(),
+            texture.default_view.clone(),
+            clear_value,
+        );
         Self {
             texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
+            attachment,
         }
     }
 
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
+    }
+
+    /// Per-eye depth attachment targeting a single layer of the underlying
+    /// multi-layer texture. Used by per-eye dispatch in the prepass and
+    /// deferred render-graph nodes under multiview.
+    pub fn get_attachment_for_layer(
+        &self,
+        layer: u32,
+        store: StoreOp,
+    ) -> RenderPassDepthStencilAttachment<'_> {
+        self.attachment.get_attachment_for_layer(layer, store)
     }
 
     pub fn view(&self) -> &TextureView {
