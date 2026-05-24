@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [target.'cfg(target_os = "android")'.dependencies]
-android-activity = "0.6"
+android-activity = "0.6.1"
 
 [features]
 default = []
