@@ -115,7 +115,7 @@
 //! - [`FilteredResourcesMut`](crate::world::FilteredResourcesMut)
 //! - [`DynSystemParam`]
 //! - [`Vec<P>`] and [`SmallVec<[P, N]>`](smallvec::SmallVec) where `P: SystemParam`
-//! - [`ParamSet<Vec<P>>`] and [`ParamSet<SmallVec<[P, N]>>`](ParamSet) where `P: SystemParam`
+//! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
 //!
 //! [`Vec<P>`]: alloc::vec::Vec
 
