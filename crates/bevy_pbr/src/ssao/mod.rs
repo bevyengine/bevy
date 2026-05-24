@@ -724,6 +724,24 @@ fn prepare_ssao_bind_groups(
             .depth_or_array_layers();
         let is_multiview = view_count > 1;
 
+        // The prepass attachment textures grow to `view_count` layers in
+        // L7b-write C2. Until that lands they're 1-layer even when SSAO is
+        // multi-layer; building `base_array_layer: layer >= 1` views of them
+        // would error wgpu validation. Gate the per-layer prepass view
+        // creation on each texture's actual layer count — once C2 grows
+        // them this auto-upgrades. Until then, all eyes fall back to the
+        // single-layer `prepass_textures.{depth,normal}_view()` helpers
+        // (SSAO output for eye >= 1 is then computed against eye-0 prepass
+        // data, matching the still-eye-0 read of `view: View`).
+        let prepass_depth_multilayer = prepass_textures
+            .depth
+            .as_ref()
+            .is_some_and(|d| d.texture.texture.depth_or_array_layers() > 1);
+        let prepass_normal_multilayer = prepass_textures
+            .normal
+            .as_ref()
+            .is_some_and(|n| n.texture.texture.depth_or_array_layers() > 1);
+
         // Per-eye, single-layer `D2` view of a specific `mip_level` of the
         // 5-mip preprocessed depth texture.
         let preprocessed_depth_mip_view = |mip_level: u32, layer: u32| {
@@ -774,14 +792,14 @@ fn prepare_ssao_bind_groups(
             // through `create_bind_group`. For non-multiview cameras the
             // existing `default_view` / prepass `*_view()` helpers are still
             // used (bit-identical).
-            let prepass_depth_view = is_multiview.then(|| {
+            let prepass_depth_view = prepass_depth_multilayer.then(|| {
                 prepass_layer_view(
                     &prepass_textures.depth.as_ref().unwrap().texture.texture,
                     layer,
                     "ssao_prepass_depth_layer_view",
                 )
             });
-            let prepass_normal_view = is_multiview.then(|| {
+            let prepass_normal_view = prepass_normal_multilayer.then(|| {
                 prepass_layer_view(
                     &prepass_textures.normal.as_ref().unwrap().texture.texture,
                     layer,
