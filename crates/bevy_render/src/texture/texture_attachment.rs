@@ -160,11 +160,18 @@ impl ColorAttachment {
     /// latch as touched so any subsequent legacy `get_attachment` /
     /// `get_unsampled_attachment` call loads instead of re-clearing the
     /// already-per-layer-cleared texture.
+    ///
+    /// The per-layer slots are seeded from the CURRENT value of the global
+    /// latch on first access — a consumer that runs after an earlier-in-the
+    /// -frame pass already flipped the global to false (e.g. the transmissive
+    /// pass running after the main opaque pass) sees `false` on its first
+    /// per-layer access and loads instead of re-clearing the already-rendered
+    /// attachment.
     fn first_call_for_layer(&self, layer: u32) -> bool {
-        let _ = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        let initial = self.is_first_call.fetch_and(false, Ordering::SeqCst);
         let per_layer_first = self
             .per_layer_first_call
-            .get_or_init(|| init_per_layer_first_call(&self.texture.texture, true));
+            .get_or_init(|| init_per_layer_first_call(&self.texture.texture, initial));
         per_layer_first[layer as usize].fetch_and(false, Ordering::SeqCst)
     }
 
@@ -300,12 +307,15 @@ impl DepthAttachment {
         // Mark the global latch as touched so any subsequent legacy
         // `get_attachment` call (e.g., main opaque/transparent pass after the
         // prepass per-eye loop) loads instead of re-clearing the depth that
-        // was just written per layer.
-        let _ = self
+        // was just written per layer. Seed the per-layer slots from the
+        // CURRENT global state so a consumer running after an earlier pass
+        // already flipped the global (e.g. a main-pass consumer after the
+        // prepass per-eye loop) sees `false` on its first per-layer access.
+        let initial = self
             .is_first_call
             .fetch_and(store != StoreOp::Store, Ordering::Relaxed);
         let per_layer_first = self.per_layer_first_call.get_or_init(|| {
-            init_per_layer_first_call(texture, self.clear_value.is_some())
+            init_per_layer_first_call(texture, initial && self.clear_value.is_some())
         });
         let first_call = per_layer_first[layer as usize]
             .fetch_and(store != StoreOp::Store, Ordering::Relaxed);
