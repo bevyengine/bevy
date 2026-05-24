@@ -70,7 +70,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
-    view::{ExtractedView, ViewDepthTexture},
+    view::{ExtractedMultiview, ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
@@ -669,10 +669,11 @@ pub fn prepare_core_3d_depth_textures(
         Option<&DepthPrepass>,
         &Camera3d,
         &Msaa,
+        Option<&ExtractedMultiview>,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, depth_prepass, camera_3d, _msaa, _multiview) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -686,22 +687,35 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, camera_3d, msaa) in &views_3d {
+    for (entity, camera, _, camera_3d, msaa, multiview) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
+        // Grow the depth texture to per-eye layer count under multiview so the
+        // end-of-prepass depth copy and forward-pass depth read have matching
+        // shape with the prepass depth attachment (see C2 plan). Non-multiview
+        // cameras get `view_count = 1` → single-layer texture, bit-identical
+        // to the pre-C2 shape.
+        let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+
         let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
+            // Key includes view_count so a multiview and a non-multiview camera
+            // sharing the same render target don't collide on a cached texture
+            // of the wrong layer count.
+            .entry((camera.target.clone(), msaa, view_count))
             .or_insert_with(|| {
                 let usage = *render_target_usage
                     .get(&camera.target.clone())
                     .expect("The depth texture usage should already exist for this target");
 
+                let mut size = physical_target_size.to_extents();
+                size.depth_or_array_layers = view_count;
+
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size,
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -779,6 +793,7 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepass>,
         Has<DepthPrepassDoubleBuffer>,
         Has<DeferredPrepassDoubleBuffer>,
+        Option<&ExtractedMultiview>,
     )>,
 ) {
     let mut depth_textures1 = <HashMap<_, _>>::default();
@@ -799,6 +814,7 @@ pub fn prepare_prepass_textures(
         deferred_prepass,
         depth_prepass_double_buffer,
         deferred_prepass_double_buffer,
+        multiview,
     ) in &views_3d
     {
         if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
@@ -814,11 +830,21 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let size = physical_target_size.to_extents();
+        // Grow each prepass attachment to `view_count` layers under multiview
+        // so the per-eye prepass/deferred nodes (session 17) can attach a
+        // single layer per render pass via
+        // `ColorAttachment::get_attachment_for_layer`. Non-multiview cameras
+        // get `view_count = 1` → single-layer textures, bit-identical to the
+        // pre-C2 shape. Also append `view_count` to each cache key so a
+        // multiview camera and a non-multiview camera sharing a render target
+        // don't collide on a cached texture of the wrong layer count.
+        let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+        let mut size = physical_target_size.to_extents();
+        size.depth_or_array_layers = view_count;
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_1"),
@@ -839,7 +865,7 @@ pub fn prepare_prepass_textures(
 
         let cached_depth_texture2 = depth_prepass_double_buffer.then(|| {
             depth_textures2
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_2"),
@@ -860,7 +886,7 @@ pub fn prepare_prepass_textures(
 
         let cached_normals_texture = normal_prepass.then(|| {
             normal_textures
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -882,7 +908,7 @@ pub fn prepare_prepass_textures(
 
         let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
             motion_vectors_textures
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -904,7 +930,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture1 = deferred_prepass.then(|| {
             deferred_textures1
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -926,7 +952,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture2 = deferred_prepass_double_buffer.then(|| {
             deferred_textures2
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -948,7 +974,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
-                .entry(camera.target.clone())
+                .entry((camera.target.clone(), view_count))
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
