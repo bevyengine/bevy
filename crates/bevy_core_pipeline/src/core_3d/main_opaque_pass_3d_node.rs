@@ -13,8 +13,9 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedMultiview, ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
+use core::num::NonZeroU32;
 
 use super::AlphaMask3d;
 
@@ -29,6 +30,7 @@ pub fn main_opaque_pass_3d(
         Option<&SkyboxBindGroup>,
         &ViewUniformOffset,
         Option<&MainPassResolutionOverride>,
+        Option<&ExtractedMultiview>,
     )>,
     opaque_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
     alpha_mask_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
@@ -46,6 +48,7 @@ pub fn main_opaque_pass_3d(
         skybox_bind_group,
         view_uniform_offset,
         resolution_override,
+        multiview,
     ) = view.into_inner();
 
     let (Some(opaque_phase), Some(alpha_mask_phase)) = (
@@ -96,18 +99,61 @@ pub fn main_opaque_pass_3d(
         }
     }
 
+    pass_span.end(&mut render_pass);
+    drop(render_pass);
+
+    // L7d: skybox runs in its own broadcast pass after the opaque + alpha-mask
+    // draws. The skybox cubemap is shared across eyes; per-eye view matrices
+    // (sampled via `view()` from `@builtin(view_index)`) give each eye the
+    // correct ray direction, so one broadcast draw fills every layer of the
+    // multi-layer color + depth attachments. Re-deriving the attachments
+    // through `target.get_color_attachment()` / `depth.get_attachment(...)`
+    // hits the second-call `is_first_call` latch and returns `LoadOp::Load`,
+    // preserving the opaque + alpha-mask output. Surrounding main_opaque_pass
+    // draws stay in their existing single-pass shape (Shape A1 extract,
+    // parallel to session 23's bg-motion-vectors broadcast extract).
+    //
+    // The mask is `(1 << view_count) - 1` (one bit per eye); computed via
+    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
     if let (Some(skybox_pipeline), Some(SkyboxBindGroup(skybox_bind_group))) =
         (skybox_pipeline, skybox_bind_group)
         && let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0)
     {
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(
+        let view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
+        let multiview_mask = if view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - view_count))
+        } else {
+            None
+        };
+
+        let skybox_color_attachments = [Some(target.get_color_attachment())];
+        let skybox_depth_attachment = Some(depth.get_attachment(StoreOp::Store));
+
+        let mut skybox_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("skybox_broadcast"),
+            color_attachments: &skybox_color_attachments,
+            depth_stencil_attachment: skybox_depth_attachment,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask,
+        });
+        let skybox_span = diagnostics.pass_span(&mut skybox_pass, "skybox_broadcast");
+
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            skybox_pass.set_camera_viewport(&viewport);
+        }
+
+        skybox_pass.set_render_pipeline(pipeline);
+        skybox_pass.set_bind_group(
             0,
             &skybox_bind_group.0,
             &[view_uniform_offset.offset, skybox_bind_group.1],
         );
-        render_pass.draw(0..3, 0..1);
-    }
+        skybox_pass.draw(0..3, 0..1);
 
-    pass_span.end(&mut render_pass);
+        skybox_span.end(&mut skybox_pass);
+    }
 }
