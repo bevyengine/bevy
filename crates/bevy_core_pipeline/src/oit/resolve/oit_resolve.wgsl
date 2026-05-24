@@ -4,7 +4,24 @@
 #import bevy_render::view::View
 #import bevy_pbr::mesh_view_types::OitFragmentNode
 
-@group(0) @binding(0) var<uniform> view: View;
+// View uniform, shaped the same as `bevy_pbr::mesh_view_bindings::view_array`
+// so the OIT resolve pipeline can share the packed
+// `DynamicArrayUniformBuffer` behind `ViewUniforms`. The shader reads through
+// `view()`, which indexes the array at `current_view_index` (set from
+// `@builtin(view_index)` at the top of the fragment under MULTIVIEW). For
+// non-multiview pipelines, `MAX_VIEW_COUNT` is undefined and the fallback
+// `array<View, 1>` matches the single `ViewUniform` packed per camera.
+#ifdef MAX_VIEW_COUNT
+@group(0) @binding(0) var<uniform> view_array: array<View, #{MAX_VIEW_COUNT}>;
+#else
+@group(0) @binding(0) var<uniform> view_array: array<View, 1>;
+#endif
+var<private> current_view_index: i32 = 0;
+
+fn view() -> View {
+    return view_array[current_view_index];
+}
+
 @group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
 @group(0) @binding(2) var<storage, read_write> heads: array<u32>; // No need to be atomic
 @group(0) @binding(3) var<storage, read_write> atomic_counter: u32; // No need to be atomic
@@ -27,9 +44,17 @@ const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
 const SORTED_FRAGMENT_MAX_COUNT: u32 = #{SORTED_FRAGMENT_MAX_COUNT};
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    current_view_index = view_index;
+#endif
     atomic_counter = 0u;
-    let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
+    let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view().viewport.z);
 
     let head = heads[screen_index] - 1u;
     if head == LINKED_LIST_END_SENTINEL {

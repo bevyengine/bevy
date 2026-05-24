@@ -14,7 +14,8 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
         binding_types::{
-            storage_buffer_read_only_sized, storage_buffer_sized, texture_depth_2d, uniform_buffer,
+            storage_buffer_read_only_sized, storage_buffer_sized, texture_depth_2d,
+            uniform_buffer_sized,
         },
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         BlendComponent, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
@@ -22,7 +23,7 @@ use bevy_render::{
         TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ExtractedView, ViewUniform, ViewUniforms},
+    view::{ExtractedMultiview, ExtractedView, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::ShaderDefVal;
@@ -114,7 +115,15 @@ impl OitResolvePipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    uniform_buffer::<ViewUniform>(true),
+                    // View
+                    //
+                    // Sized `None` (unbounded) so the WGSL is free to declare
+                    // the binding as `array<View, MAX_VIEW_COUNT>` for
+                    // multiview pipelines and `array<View, 1>` for the
+                    // non-multiview fallback. Backing storage is the packed
+                    // `DynamicArrayUniformBuffer<ViewUniform>` and the dynamic
+                    // offset selects the per-camera array slot.
+                    uniform_buffer_sized(true, None),
                     // nodes
                     storage_buffer_read_only_sized(false, None),
                     // heads
@@ -145,6 +154,10 @@ pub struct OitResolvePipelineKey {
     target_format: TextureFormat,
     sorted_fragment_max_count: u32,
     depth_prepass: bool,
+    /// Per-camera multiview layer count. `1` is the non-multiview case;
+    /// `>1` flips the WGSL `view_array` to `array<View, MAX_VIEW_COUNT>`
+    /// and reads `current_view_index` from `@builtin(view_index)`.
+    multiview_view_count: u32,
 }
 
 pub fn queue_oit_resolve_pipeline(
@@ -157,6 +170,7 @@ pub fn queue_oit_resolve_pipeline(
             &ExtractedView,
             &OrderIndependentTransparencySettings,
             Has<DepthPrepass>,
+            Option<&ExtractedMultiview>,
         ),
         (
             With<OrderIndependentTransparencySettings>,
@@ -170,12 +184,16 @@ pub fn queue_oit_resolve_pipeline(
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, view, oit_settings, depth_prepass) in &cameras {
+    for (e, view, oit_settings, depth_prepass, multiview) in &cameras {
         current_view_entities.insert(e);
+        let multiview_view_count = multiview
+            .map(|m| m.subviews.len() as u32)
+            .unwrap_or(1);
         let key = OitResolvePipelineKey {
             target_format: view.target_format,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
             depth_prepass,
+            multiview_view_count,
         };
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
@@ -220,6 +238,13 @@ fn specialize_oit_resolve_pipeline(
         shader_defs.push(ShaderDefVal::Bool("DEPTH_PREPASS".into(), true));
     } else {
         layout.push(resolve_pipeline.oit_depth_bind_group_layout.clone());
+    }
+    if key.multiview_view_count > 1 {
+        shader_defs.push("MULTIVIEW".into());
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_VIEW_COUNT".into(),
+            key.multiview_view_count,
+        ));
     }
 
     RenderPipelineDescriptor {
