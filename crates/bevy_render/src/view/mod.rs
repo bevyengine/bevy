@@ -862,12 +862,37 @@ impl ViewTarget {
         }
     }
 
+    /// Per-eye color attachment targeting a single layer of the underlying
+    /// multi-layer main texture. Used by per-eye dispatch under multiview;
+    /// for single-layer cameras pass `layer = 0` (byte-identical to
+    /// [`Self::get_color_attachment`]).
+    pub fn get_color_attachment_for_layer(&self, layer: u32) -> RenderPassColorAttachment<'_> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_attachment_for_layer(layer)
+        } else {
+            self.main_textures.b.get_attachment_for_layer(layer)
+        }
+    }
+
     /// Retrieve this target's "unsampled" main texture's color attachment.
     pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
             self.main_textures.b.get_unsampled_attachment()
+        }
+    }
+
+    /// Per-eye counterpart to [`Self::get_unsampled_color_attachment`]. See
+    /// [`Self::get_color_attachment_for_layer`].
+    pub fn get_unsampled_color_attachment_for_layer(
+        &self,
+        layer: u32,
+    ) -> RenderPassColorAttachment<'_> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_unsampled_attachment_for_layer(layer)
+        } else {
+            self.main_textures.b.get_unsampled_attachment_for_layer(layer)
         }
     }
 
