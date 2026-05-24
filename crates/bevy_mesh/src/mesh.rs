@@ -2425,9 +2425,8 @@ impl Mesh {
                     if let Some(pos) = attrs_slice[1..].iter().position(Option::is_none) {
                         attrs_slice.swap(0, pos + 1);
                     } else {
-                        unimplemented!(
-                            "Attribute list must have enough `None`s to be able to sort."
-                        );
+                        // attrs_slice will always have a least the same length as ks
+                        unreachable!("Attribute list must have enough `None`s to be able to sort.");
                     }
                 }
             }
