@@ -1,7 +1,7 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
-    BsnRoot, BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneListItem, BsnSceneListItems,
-    BsnType, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnListRoot, BsnRelatedSceneList, BsnRoot, BsnScene,
+    BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneListItem, BsnSceneListItems, BsnType,
+    BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
@@ -228,7 +228,6 @@ impl BsnEntry {
                 let value = _scene.get_or_insert_template::<#type_path>(_context);
                 *value = #type_path::#const_ident;
             }),
-            BsnEntry::SceneExpression(block) => EntryResult::NewSceneImpl(quote! {{#block}}),
             BsnEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
@@ -258,54 +257,11 @@ impl BsnEntry {
                 let scenes = scene_list.0.to_tokens(ctx);
                 EntryResult::NewSceneImpl(quote! {
                     #bevy_scene::RelatedScenes::<<#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
-                        ::Relationship, _>::new(#scenes)
+                    ::Relationship, _>::new(#scenes)
                 })
             }
-            BsnEntry::SceneFn(func) => EntryResult::NewSceneImpl(func.to_tokens(ctx)),
-            BsnEntry::InheritedScene(s) => EntryResult::NewSceneImpl(match s {
-                BsnInheritedScene::Asset(lit) => quote! {
-                    #bevy_scene::InheritSceneAsset::from(#lit)
-                },
-                BsnInheritedScene::Fn(func) => func.to_tokens(ctx),
-                BsnInheritedScene::Type(bsn_type) => {
-                    // TODO: this can and should use a simpler codegen path than BsnType::to_patch_tokens,
-                    // which imposes constraints like requiring the type to impl FromTemplate, and requiring
-                    // enums to have VariantDefault.
-                    let mut assignments = Vec::new();
-                    let props = format_ident!("props");
-                    let props_ref = format_ident!("props_ref");
-                    let target = PatchTarget {
-                        path: &[Member::Named(props_ref.clone())],
-                        is_ref: true,
-                    };
-                    bsn_type.to_patch_tokens(ctx, &mut assignments, false, true, true, target)?;
-                    let mut assigns = Vec::new();
-                    let target = PatchTarget {
-                        path: &[Member::Named(Ident::new(
-                            "value",
-                            proc_macro2::Span::call_site(),
-                        ))],
-                        is_ref: true,
-                    };
-                    bsn_type.to_patch_tokens(ctx, &mut assigns, true, false, true, target)?;
-                    let path = &bsn_type.path;
-                    let bevy_scene = ctx.bevy_scene;
-                    let from_template_patch = quote! {
-                        <#path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
-                            #(#assigns)*
-                        })
-                    };
-                    quote! {{
-                        let mut #props = <<#path as #bevy_scene::SceneComponent>::Props as #FQDefault>::default();
-                        let #props_ref = &mut #props;
-                        #(#assignments)*
-                        (<#path as #bevy_scene::SceneComponent>::scene(#props), #from_template_patch)
-                    }}
-                }
-                BsnInheritedScene::Expression(tokens) => quote! {
-                    #tokens
-                },
-            }),
+            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
+            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::Name(ident) => {
                 let (name, index) = (ident.to_string(), ctx.entity_refs.get(ident.to_string()));
                 let invocation = ctx.invocation_index.clone();
@@ -318,6 +274,56 @@ impl BsnEntry {
                 *value = #bevy_ecs::name::Name({#expr}.into());
             }),
         })
+    }
+}
+
+impl BsnScene {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        let bevy_scene = ctx.bevy_scene;
+        match self {
+            BsnScene::Asset(lit) => Ok(quote! {
+                #bevy_scene::CachedSceneAsset::from(#lit)
+            }),
+            BsnScene::Fn(func) => Ok(func.to_tokens(ctx)),
+            BsnScene::SceneComponent(bsn_type) => {
+                // TODO: this can and should use a simpler codegen path than BsnType::to_patch_tokens,
+                // which imposes constraints like requiring the type to impl FromTemplate, and requiring
+                // enums to have VariantDefault.
+                let mut assignments = Vec::new();
+                let props = format_ident!("props");
+                let props_ref = format_ident!("props_ref");
+                let target = PatchTarget {
+                    path: &[Member::Named(props_ref.clone())],
+                    is_ref: true,
+                };
+                bsn_type.to_patch_tokens(ctx, &mut assignments, false, true, true, target)?;
+                let mut assigns = Vec::new();
+                let target = PatchTarget {
+                    path: &[Member::Named(Ident::new(
+                        "value",
+                        proc_macro2::Span::call_site(),
+                    ))],
+                    is_ref: true,
+                };
+                bsn_type.to_patch_tokens(ctx, &mut assigns, true, false, true, target)?;
+                let path = &bsn_type.path;
+                let bevy_scene = ctx.bevy_scene;
+                let from_template_patch = quote! {
+                    <#path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
+                        #(#assigns)*
+                    })
+                };
+                Ok(quote! {{
+                    let mut #props = <<#path as #bevy_scene::SceneComponent>::Props as #FQDefault>::default();
+                    let #props_ref = &mut #props;
+                    #(#assignments)*
+                    (<#path as #bevy_scene::SceneComponent>::scene(#props), #from_template_patch)
+                }})
+            }
+            BsnScene::Expression(tokens) => Ok(quote! {
+                #tokens
+            }),
+        }
     }
 }
 
@@ -447,8 +453,8 @@ impl BsnType {
                                 format!(
                                     "Scene prop fields are not supported in normal component patches\
                                      . If you would like to set a component scene's prop field, it \
-                                     should be set using \"scene inheritance\": \
-                                     bsn! {{ :{} {{ @{field_name}: VALUE }} }}",
+                                     should be set using \"scene component\" syntax: \
+                                     bsn! {{ @{} {{ @{field_name}: VALUE }} }}",
                                      path_to_string(type_path)
                                 ),
                             ));

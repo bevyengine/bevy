@@ -184,7 +184,7 @@
 //!
 //! Each [`bsn!`] invocation creates its own name scope. A name is visible to the root
 //! entity, its children, and any deeper descendants — as long as the reference is written
-//! in the same [`bsn!`] call. Composed or inherited scenes (via `my_scene()` or `:my_scene`)
+//! in the same [`bsn!`] call. Composed or cached scenes (via `my_scene()` or `:my_scene`)
 //! each bring their own separate scope, so names do not leak across scene boundaries.
 //!
 //! If both a parent and a composed child define the same name (e.g. both use `#X`),
@@ -527,7 +527,7 @@
 //! # }
 //! # let mut world = World::new();
 //! world.spawn_scene(bsn! {
-//!  :Player { score: 0 }
+//!  @Player { score: 0 }
 //! });
 //! ```
 //!
@@ -545,7 +545,7 @@
 //! - Scene inheritance syntax: constructs the full scene and inherits from it
 //! - Component patch syntax: _Just_ patches the component directly and creates it if it doesn't exist.
 //!   This will not do any scene inheritance. You can still patch scene components this way as long
-//!   as the scene component is inherited somewhere "earlier" in the inheritance hierarchy.
+//!   as the scene component is cached somewhere "earlier" in the inheritance hierarchy.
 //!
 //! ### Custom Scene Functions
 //!
@@ -617,7 +617,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :Player { image: "player.png" }
+//!    @Player { image: "player.png" }
 //! });
 //! ```
 //!
@@ -659,7 +659,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :HelloRepeater {
+//!    @HelloRepeater {
 //!        @repeat: 5
 //!    }
 //! });
@@ -689,7 +689,7 @@
 //! }
 //!
 //! world.spawn_scene(bsn! {
-//!    :Widget {
+//!    @Widget {
 //!        @border: true,
 //!        value: 10,
 //!    }
@@ -876,7 +876,7 @@ mod tests {
     }
 
     #[test]
-    fn inheritance_patching() {
+    fn cached_patching() {
         let mut app = test_app();
         let world = app.world_mut();
 
@@ -923,7 +923,7 @@ mod tests {
     }
 
     #[test]
-    fn loaded_asset_inheritance_patching() {
+    fn loaded_asset_cached_patching() {
         #[derive(Component, FromTemplate)]
         struct Position {
             x: f32,
@@ -1027,7 +1027,7 @@ mod tests {
 
         // "a.bsn" as AWidget's "component scene"
         let id = world
-            .spawn_scene(bsn! {:AWidget { value: 2 }})
+            .spawn_scene(bsn! {@AWidget { value: 2 }})
             .unwrap()
             .id();
         let root = world.entity(id);
@@ -1783,14 +1783,14 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<Widget>());
 
         #[derive(SceneComponent, Default, Clone)]
         #[scene(Widget::scene)]
         struct OtherWidget;
-        let entity = world.spawn_scene(bsn! {:OtherWidget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@OtherWidget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<OtherWidget>());
         assert!(
@@ -1832,7 +1832,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entity = world
-            .spawn_scene(bsn! {:Widget {
+            .spawn_scene(bsn! {@Widget {
                 @children: 2,
                 value: 10,
             }})
@@ -1847,7 +1847,7 @@ mod tests {
         }
 
         let entity = world
-            .spawn_scene(bsn! {:OtherWidget {
+            .spawn_scene(bsn! {@OtherWidget {
                 @children: 2,
                 value: 10,
             }})
@@ -1869,7 +1869,7 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
         assert!(entity.contains::<Widget>());
     }
 
@@ -1887,7 +1887,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                :Widget(#Name)
+                @Widget(#Name)
             ]
         };
 
@@ -1916,7 +1916,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                :Widget{
+                @Widget{
                     entity: #Name
                 }
             ]
@@ -1944,46 +1944,25 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        let inherit_pass_expr = bsn! {
-            #Name
-            Children [
-                :widget(#{Entity::PLACEHOLDER})
-            ]
-        };
-        let entity = world.spawn_scene(inherit_pass_expr).unwrap().id();
-        let root = world.entity(entity);
-        let children = root.get::<Children>().unwrap();
-        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
-        let noninherit_pass_expr = bsn! {
+        let pass_expr = bsn! {
             #Name
             Children [
                 widget(#{Entity::PLACEHOLDER})
             ]
         };
-        let entity = world.spawn_scene(noninherit_pass_expr).unwrap().id();
+        let entity = world.spawn_scene(pass_expr).unwrap().id();
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, Entity::PLACEHOLDER);
-        let inherit_pass_name = bsn! {
-            #Name
-            Children [
-                :widget(#Name)
-            ]
-        };
-        let entity = world.spawn_scene(inherit_pass_name).unwrap().id();
-        let root = world.entity(entity);
-        let children = root.get::<Children>().unwrap();
-        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, entity);
-        let noninherit_pass_name = bsn! {
+
+        let pass_name = bsn! {
             #Name
             Children [
                 widget(#Name)
             ]
         };
-        let entity = world.spawn_scene(noninherit_pass_name).unwrap().id();
+        let entity = world.spawn_scene(pass_name).unwrap().id();
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
@@ -2017,7 +1996,7 @@ mod tests {
 
         let prop_expr = bsn! {
             Children [
-                :Widget {
+                @Widget {
                     @entity: Entity::PLACEHOLDER
                 }
             ]
@@ -2030,7 +2009,7 @@ mod tests {
         let scene_prop = bsn! {
             #Name
             Children [
-                :Widget {
+                @Widget {
                     @entity: #Name
                 }
             ]
@@ -2093,7 +2072,7 @@ mod tests {
     }
 
     #[test]
-    fn inheritance_with_generics() {
+    fn caching_with_generics() {
         #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
             value: T,
@@ -2122,5 +2101,25 @@ mod tests {
         }
 
         b();
+    }
+
+    #[test]
+    fn scene_with_blocks() {
+        #[derive(Component, Clone, Default)]
+        struct Holder {
+            const_block: i32,
+            unsafe_block: i32,
+        }
+
+        fn func() -> impl Scene {
+            bsn! {
+                Holder {
+                    const_block: const {0},
+                    unsafe_block: unsafe {0},
+                }
+            }
+        }
+
+        func();
     }
 }

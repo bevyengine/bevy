@@ -58,7 +58,7 @@ fn demo_root() -> impl Scene {
             }
             Children [
                 (
-                    :FeathersButton
+                    @FeathersButton
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 -= 1;
                     })
@@ -71,7 +71,7 @@ fn demo_root() -> impl Scene {
                     Text("0") ThemedText CounterText
                 ),
                 (
-                    :FeathersButton
+                    @FeathersButton
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 += 1;
                     })

@@ -16,7 +16,7 @@ use crate::{
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
-    storage::{SparseSets, Storages, Table, TableRow},
+    storage::{SparseSets, Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -137,7 +137,6 @@ impl<'w> BundleInserter<'w> {
         EntityLocation,
         &'a mut SparseSets,
         &'a mut Table,
-        TableRow,
     ) {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
@@ -192,13 +191,7 @@ impl<'w> BundleInserter<'w> {
                     )
                 };
 
-                (
-                    &*archetype,
-                    location,
-                    sparse_sets,
-                    table,
-                    location.table_row,
-                )
+                (&*archetype, location, sparse_sets, table)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -231,13 +224,7 @@ impl<'w> BundleInserter<'w> {
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
-                (
-                    &*new_archetype,
-                    new_location,
-                    sparse_sets,
-                    table,
-                    result.table_row,
-                )
+                (&*new_archetype, new_location, sparse_sets, table)
             }
             ArchetypeMoveType::NewArchetypeNewTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -323,7 +310,6 @@ impl<'w> BundleInserter<'w> {
                     new_location,
                     sparse_sets,
                     move_result.new_table,
-                    move_result.new_row,
                 )
             }
         }
@@ -353,7 +339,7 @@ impl<'w> BundleInserter<'w> {
 
         let (new_archetype, new_location) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
-            let (new_archetype, new_location, sparse_sets, table, table_row) = Self::before_insert(
+            let (new_archetype, new_location, sparse_sets, table) = Self::before_insert(
                 entity,
                 location,
                 insert_mode,
@@ -371,7 +357,7 @@ impl<'w> BundleInserter<'w> {
                 archetype_after_insert,
                 archetype_after_insert.required_components.iter(),
                 entity,
-                table_row,
+                new_location.table_row,
                 self.change_tick,
                 bundle,
                 insert_mode,
