@@ -1,3 +1,5 @@
+use core::num::NonZeroU32;
+
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
 use bevy_log::error;
@@ -237,28 +239,74 @@ fn run_prepass_system(
             }
         }
 
-        if let (
-            Some(background_motion_vectors_pipeline),
-            Some(background_motion_vectors_bind_group),
-            Some(view_prev_uniform_offset),
-        ) = (
-            background_motion_vectors_pipeline,
-            background_motion_vectors_bind_group,
-            view_prev_uniform_offset,
-        ) && let Some(pipeline) =
-            pipeline_cache.get_render_pipeline(background_motion_vectors_pipeline.0)
-        {
-            render_pass.set_render_pipeline(pipeline);
-            render_pass.set_bind_group(
-                0,
-                &background_motion_vectors_bind_group.0,
-                &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
-            );
-            render_pass.draw(0..3, 0..1);
-        }
-
         pass_span.end(&mut render_pass);
         drop(render_pass);
+    }
+
+    // L7d: dispatch background motion vectors as a single broadcast pass after
+    // the per-eye prepass loop. Under multiview the hardware fans the
+    // fullscreen triangle out to every eye layer via `@builtin(view_index)`;
+    // the matching pipeline descriptor sets the same `multiview_mask`. Class
+    // (a) per the L7d hazard inventory — the fragment writes only to the
+    // motion-vectors color attachment with no shared storage. Legacy
+    // `get_attachment(StoreOp::Store)` after the per-eye loop already flipped
+    // the per-layer slots loads the prior per-eye writes (F2 seeds the
+    // per-layer first-call slots from the global latch, so the global is
+    // false on this re-entry).
+    if let (
+        Some(background_motion_vectors_pipeline),
+        Some(background_motion_vectors_bind_group),
+        Some(view_prev_uniform_offset),
+    ) = (
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
+        view_prev_uniform_offset,
+    ) && let Some(pipeline) =
+        pipeline_cache.get_render_pipeline(background_motion_vectors_pipeline.0)
+    {
+        let color_attachments = [
+            view_prepass_textures
+                .normal
+                .as_ref()
+                .map(|normals_texture| normals_texture.get_attachment()),
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+            None,
+            None,
+        ];
+
+        let depth_stencil_attachment = Some(view_depth_texture.get_attachment(StoreOp::Store));
+
+        let multiview_mask = if view_count > 1 {
+            NonZeroU32::new((1u32 << view_count) - 1)
+        } else {
+            None
+        };
+
+        let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("background_motion_vectors"),
+            color_attachments: &color_attachments,
+            depth_stencil_attachment,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask,
+        });
+
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
+        }
+
+        render_pass.set_render_pipeline(pipeline);
+        render_pass.set_bind_group(
+            0,
+            &background_motion_vectors_bind_group.0,
+            &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
+        );
+        render_pass.draw(0..3, 0..1);
     }
 
     if deferred_prepass.is_none()
