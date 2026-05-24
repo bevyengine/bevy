@@ -262,7 +262,6 @@ impl GltfLoader {
         } else {
             gltf::Gltf::from_slice_without_validation(bytes)?
         };
-        reject_unsupported_empty_texture_extensions(&gltf.document)?;
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -1196,22 +1195,6 @@ impl AssetLoader for GltfLoader {
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
     }
-}
-
-#[expect(
-    clippy::result_large_err,
-    reason = "Temporary: remove after https://github.com/bevyengine/bevy/pull/24206 fixes large `GltfError`."
-)]
-fn reject_unsupported_empty_texture_extensions(document: &Document) -> Result<(), GltfError> {
-    for extension in document.extensions_required() {
-        if matches!(extension, "EXT_texture_webp" | "MSFT_texture_dds") {
-            return Err(GltfError::UnsupportedRequiredExtension(
-                extension.to_string(),
-            ));
-        }
-    }
-
-    Ok(())
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
