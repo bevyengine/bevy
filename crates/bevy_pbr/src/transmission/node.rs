@@ -71,8 +71,8 @@ pub fn main_transmissive_pass_3d(
             // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
             for range in split_range(0..transmissive_phase.items.len(), steps) {
                 // Copy the main texture to the transmission texture. Both
-                // textures carry `depth_or_array_layers = view_count` post
-                // L7b-write, so a single copy spans every eye's layer.
+                // textures carry `depth_or_array_layers = view_count`, so a
+                // single copy spans every eye's layer.
                 let mut copy_extents = physical_target_size.to_extents();
                 copy_extents.depth_or_array_layers = view_count;
                 ctx.command_encoder().copy_texture_to_texture(

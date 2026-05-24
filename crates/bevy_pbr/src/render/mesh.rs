@@ -3335,16 +3335,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
         }
 
-        // L7d (Shape D): pipeline-side `multiview_mask` for `Opaque3d` /
-        // `AlphaMask3d` main-pass dispatches that flow through
-        // `DrawMaterial`. The pass-side mask in `main_opaque_pass_3d` uses
-        // the same `max_view_count > 1` predicate, so wgpu's required
-        // pipeline-vs-pass agreement holds. The prepass + deferred prepass
-        // dispatches (`Opaque3dPrepass` / `AlphaMask3dPrepass` /
-        // `Opaque3dDeferred` / `AlphaMask3dDeferred`) flow through
-        // `DrawPrepass` and the separate `PrepassPipelineSpecializer` type
-        // and are NOT covered by this field-set; their conversion is
-        // tracked separately. Formula is the shift-safe equivalent of
+        // Broadcast every `Opaque3d` / `AlphaMask3d` main-pass dispatch
+        // that flows through `DrawMaterial` under multiview. The pass-side
+        // mask in `main_opaque_pass_3d` uses the same `max_view_count > 1`
+        // predicate, so wgpu's required pipeline-vs-pass multiview-mask
+        // agreement holds. The prepass + deferred prepass dispatches
+        // (`Opaque3dPrepass` / `AlphaMask3dPrepass` / `Opaque3dDeferred` /
+        // `AlphaMask3dDeferred`) flow through `DrawPrepass` and the
+        // separate `PrepassPipelineSpecializer` type and set their own
+        // pipeline-side mask. Formula is the shift-safe equivalent of
         // `(1u32 << max_view_count) - 1`; the latter is UB at
         // `MAX_VIEW_COUNT = 32`.
         let multiview_mask = if max_view_count > 1 {

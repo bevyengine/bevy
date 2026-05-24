@@ -873,10 +873,11 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
-            // The SSAO texture is single-layer; under multiview we still bind it
-            // with a `D2Array` view so it matches the array-typed WGSL binding.
-            // Per-eye writes will come with L7b-write; until then every eye reads
-            // layer 0.
+            // Under multiview the SSAO output texture carries `view_count`
+            // layers; bind it via an explicit `D2Array` view so it matches the
+            // array-typed WGSL binding, and the consumer reads its eye's slice
+            // via `current_view_index`. Non-multiview keeps the single-layer
+            // `default_view`.
             let ssao_array_view = ssao_resources.filter(|_| is_multiview).map(|res| {
                 res.screen_space_ambient_occlusion_texture
                     .texture
@@ -895,8 +896,8 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             // Under multiview the transmission binding is a `D2Array` view of
-            // the single-layer transmission texture (or fallback). Per-eye
-            // layer growth is deferred to L7b-write.
+            // the multi-layer transmission texture (or single-layer fallback,
+            // which `D2Array` accepts at `array_layer_count = 1`).
             let transmission_array_view = if is_multiview {
                 let source_texture = transmission_texture
                     .map(|transmission| &transmission.texture)

@@ -79,8 +79,9 @@ pub fn get_bind_group_layout_entries(
 
 /// Returns texture views for the four prepass texture slots, picking
 /// `D2Array` views under `multiview_array` so they line up with the array-
-/// typed WGSL bindings. The underlying textures are still single-layer this
-/// session; per-eye layers will come with L7b-write.
+/// typed WGSL bindings. Under multiview each texture carries `view_count`
+/// layers; the `D2Array` view wraps the full array and the consumer reads
+/// its eye's slice via `current_view_index`.
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     multiview_array: bool,

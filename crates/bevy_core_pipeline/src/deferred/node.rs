@@ -159,28 +159,28 @@ fn run_deferred_prepass_system(
         }
     }
 
-    // L7d (Shape D): dispatch the deferred prepass items as a single broadcast
-    // pass. Under multiview the hardware fans each draw out to every eye layer
-    // via `@builtin(view_index)`; the matching `PrepassPipelineSpecializer`
+    // Dispatch the deferred prepass items as a single broadcast pass under
+    // multiview: the hardware fans each draw out to every eye layer via
+    // `@builtin(view_index)`, and the matching `PrepassPipelineSpecializer`
     // pipeline-side mask uses the same `view_count > 1` predicate so wgpu's
     // required pipeline-vs-pass agreement holds. At view_count = 1 the gate
-    // collapses to `multiview_mask: None`, matching the pre-Shape-D shape on
-    // the single-eye path. `(1 << view_count) - 1` is computed as
-    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
-    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    // collapses to `multiview_mask: None`. `(1 << view_count) - 1` is
+    // computed as `u32::MAX >> (32 - view_count)` to avoid the shift
+    // overflow that `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
     //
-    // F2 lifecycle on entry: when a forward prepass is also present, it runs
-    // before this node and flips the global `is_first_call` latches on
-    // `view_depth_texture` (and on the shared `Normal` / `MotionVectors`
-    // ColorAttachments). Legacy `get_attachment(StoreOp::Store)` here therefore
-    // returns `LoadOp::Load` and preserves the forward-prepass depth + Normal +
-    // MotionVectors output. The deferred-only configuration leaves those
-    // latches untouched, so the first call on this node lands `LoadOp::Clear`
-    // and writes a fresh depth + Normal + MV pass. The deferred-specific
-    // `Deferred` and `DeferredLightingPassId` color attachments have
-    // independent latches (not shared with forward prepass) — `early` lands
-    // `LoadOp::Clear`, and `late` (when occlusion culling is on) lands
-    // `LoadOp::Load` against early's output via the second-call latch.
+    // Attachment lifecycle on entry: when a forward prepass is also present,
+    // it runs before this node and flips the global `is_first_call` latches
+    // on `view_depth_texture` (and on the shared `Normal` / `MotionVectors`
+    // ColorAttachments). Legacy `get_attachment(StoreOp::Store)` here
+    // therefore returns `LoadOp::Load` and preserves the forward-prepass
+    // depth + Normal + MotionVectors output. The deferred-only configuration
+    // leaves those latches untouched, so the first call on this node lands
+    // `LoadOp::Clear` and writes a fresh depth + Normal + MV pass. The
+    // deferred-specific `Deferred` and `DeferredLightingPassId` color
+    // attachments have independent latches (not shared with forward prepass)
+    // — `early` lands `LoadOp::Clear`, and `late` (when occlusion culling
+    // is on) lands `LoadOp::Load` against early's output via the second-call
+    // latch.
     let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
     let multiview_mask = if view_count > 1 {
         NonZeroU32::new(u32::MAX >> (32 - view_count))

@@ -217,7 +217,7 @@ fn ssao(
 
     // Each pipeline runs once per eye against per-layer bind groups. For
     // non-multiview cameras `per_view` has one entry and this loops once,
-    // matching the pre-L7b-write behavior.
+    // matching the non-multiview single-pass dispatch shape.
     for per_view in &bind_groups.per_view {
         {
             let mut preprocess_depth_pass =
@@ -716,23 +716,23 @@ fn prepare_ssao_bind_groups(
         // Under multiview, each SSAO texture has `view_count` layers and each
         // eye is dispatched separately with single-layer `D2` views into its
         // own layer. For non-multiview cameras `view_count == 1` and we use
-        // the textures' default views (bit-identical to the pre-L7b-write
-        // path).
+        // the textures' default views (bit-identical to the non-multiview
+        // single-pass path).
         let view_count = ssao_resources
             .preprocessed_depth_texture
             .texture
             .depth_or_array_layers();
         let is_multiview = view_count > 1;
 
-        // The prepass attachment textures grow to `view_count` layers in
-        // L7b-write C2. Until that lands they're 1-layer even when SSAO is
-        // multi-layer; building `base_array_layer: layer >= 1` views of them
-        // would error wgpu validation. Gate the per-layer prepass view
-        // creation on each texture's actual layer count — once C2 grows
-        // them this auto-upgrades. Until then, all eyes fall back to the
-        // single-layer `prepass_textures.{depth,normal}_view()` helpers
-        // (SSAO output for eye >= 1 is then computed against eye-0 prepass
-        // data, matching the still-eye-0 read of `view: View`).
+        // Prepass attachment textures may be 1-layer at runtime even when
+        // SSAO is multi-layer (e.g., when the camera has SSAO but the
+        // prepass component itself is not configured for per-eye storage).
+        // Building `base_array_layer: layer >= 1` views of a 1-layer texture
+        // would error wgpu validation, so gate per-layer view creation on
+        // each texture's actual layer count. When the prepass textures are
+        // multi-layer, build per-eye views; otherwise fall back to the
+        // single-layer `prepass_textures.{depth,normal}_view()` helpers and
+        // all eyes read the shared layer.
         let prepass_depth_multilayer = prepass_textures
             .depth
             .as_ref()
@@ -773,9 +773,9 @@ fn prepare_ssao_bind_groups(
         };
         // Per-eye `D2` view of one of the prepass attachment textures.
         // The host-side prepass `*_view()` helpers return the texture's
-        // `default_view`, which after L7b-write C2 lands becomes a `D2Array`
-        // view of the full array. SSAO needs to read its eye's slice, so
-        // when multiview is active we build a fresh per-layer view here.
+        // `default_view`, which under multiview is a `D2Array` view of the
+        // full array. SSAO needs to read its eye's slice, so when multiview
+        // is active we build a fresh per-layer view here.
         let prepass_layer_view = |texture: &Texture, layer: u32, label: &'static str| {
             texture.create_view(&TextureViewDescriptor {
                 label: Some(label),
