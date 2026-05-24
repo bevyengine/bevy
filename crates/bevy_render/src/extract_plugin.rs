@@ -145,6 +145,7 @@ mod test {
     struct RenderComponentExtra;
 
     #[derive(Component, Clone, Debug, ExtractComponent)]
+    #[extract_app(RenderApp)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]

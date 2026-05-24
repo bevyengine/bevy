@@ -10,13 +10,21 @@ Extraction used to be specific of Main World to Render World, but will now be ge
 Before:
 
 ```rust,ignore
-impl SyncComponent for TemporalAntiAliasing {
+impl SyncComponent for TemporalAntiAliasing { ... }
+
+#[derive(Component, ExtractComponent)]
+#[extract_app(RenderApp)]
+pub struct Foo { ... }
 ```
 
 After:
 
 ```rust,ignore
-impl SyncComponent<RenderApp> for TemporalAntiAliasing {
+impl SyncComponent<RenderApp> for TemporalAntiAliasing { ... }
+
+#[derive(Component, ExtractComponent)]
+#[extract_app(RenderApp)]
+pub struct Foo { ... }
 ```
 
 NOTE: more to come
