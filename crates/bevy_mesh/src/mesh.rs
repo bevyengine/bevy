@@ -2388,14 +2388,17 @@ impl Mesh {
     /// ```
     pub fn get_attributes_mut<'a, const N: usize>(
         &'a mut self,
-        ks: [&MeshVertexAttributeId; N],
+        mesh_vertex_attribute_ids: [&MeshVertexAttributeId; N],
     ) -> Option<[Option<(&'a MeshVertexAttribute, &'a mut VertexAttributeValues)>; N]> {
         let MeshExtractableData::Data(ref mut attrs) = self.attributes else {
             return None;
         };
         let mut attrs = attrs
             .iter_mut()
-            .map(|(k, v)| Some((&v.attribute, &mut v.values)).filter(|(_, _)| ks.contains(&k)))
+            .map(|(key, value)| {
+                Some((&value.attribute, &mut value.values))
+                    .filter(|(_, _)| mesh_vertex_attribute_ids.contains(&key))
+            })
             .collect::<Vec<_>>();
 
         // Extending the size of the attributes list to match N
@@ -2405,18 +2408,19 @@ impl Mesh {
         }
 
         let mut attrs_slice = attrs.as_mut_slice();
-        for k in ks {
+        for mesh_vertex_attribute_id in mesh_vertex_attribute_ids {
             // If current key is different from top of attributes slice,
             // swap is needed
             if attrs_slice[0]
                 .as_ref()
-                .filter(|(attr, _)| &attr.id != k)
+                .filter(|(attr, _)| &attr.id != mesh_vertex_attribute_id)
                 .is_some()
             {
-                if let Some(pos) = attrs_slice
-                    .iter()
-                    .position(|attr| attr.as_ref().filter(|(attr, _)| &attr.id == k).is_some())
-                {
+                if let Some(pos) = attrs_slice.iter().position(|attr| {
+                    attr.as_ref()
+                        .filter(|(attr, _)| &attr.id == mesh_vertex_attribute_id)
+                        .is_some()
+                }) {
                     // Swap for the attribute with the correct id
                     attrs_slice.swap(0, pos);
                 } else if attrs_slice[0].is_some() {
