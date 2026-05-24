@@ -50,7 +50,7 @@ pub fn fxaa(
         }
     };
 
-    // L7d: broadcast across every eye layer in a single pass. The matching
+    // Broadcast across every eye layer in a single pass. The matching
     // pipeline descriptor in `mod.rs` sets the same mask. The mask is
     // `(1 << view_count) - 1` (one bit per eye); computed via
     // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that

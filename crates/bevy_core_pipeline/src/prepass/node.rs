@@ -176,15 +176,14 @@ fn run_prepass_system(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
-    // L7d (Shape D): dispatch the prepass items as a single broadcast pass.
-    // Under multiview the hardware fans each draw out to every eye layer via
-    // `@builtin(view_index)`; the matching `PrepassPipelineSpecializer`
+    // Dispatch the prepass items as a single broadcast pass under
+    // multiview: the hardware fans each draw out to every eye layer via
+    // `@builtin(view_index)`, and the matching `PrepassPipelineSpecializer`
     // pipeline-side mask uses the same `view_count > 1` predicate so wgpu's
     // required pipeline-vs-pass agreement holds. At view_count = 1 the gate
-    // collapses to `multiview_mask: None`, matching the pre-Shape-D shape on
-    // the single-eye path. `(1 << view_count) - 1` is computed as
-    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
-    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    // collapses to `multiview_mask: None`. `(1 << view_count) - 1` is
+    // computed as `u32::MAX >> (32 - view_count)` to avoid the shift
+    // overflow that `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
     let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
     let multiview_mask = if view_count > 1 {
         NonZeroU32::new(u32::MAX >> (32 - view_count))
@@ -248,8 +247,8 @@ fn run_prepass_system(
     pass_span.end(&mut render_pass);
     drop(render_pass);
 
-    // L7d: dispatch background motion vectors as a separate broadcast pass
-    // after the prepass-items broadcast pass. The legacy `get_attachment` /
+    // Dispatch background motion vectors as a separate broadcast pass after
+    // the prepass-items broadcast pass. The legacy `get_attachment` /
     // `get_attachment(StoreOp::Store)` calls below are the SECOND legacy
     // calls in this node — the global latch was already flipped to false by
     // the prepass-items pass above, so this pass gets `LoadOp::Load` and

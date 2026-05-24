@@ -64,14 +64,14 @@ pub fn main_opaque_pass_3d(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
-    // L7d (Shape D): the main_opaque_pass_3d broadcasts every Opaque3d /
-    // AlphaMask3d draw across all eyes via `multiview_mask`. PBR
-    // `MeshPipeline::specialize` sets the matching pipeline-side mask under
-    // the same `view_count > 1` predicate, so wgpu's required
-    // pipeline-vs-pass multiview-mask agreement holds for every in-tree
-    // Material dispatch through `DrawMaterial`. The skybox broadcast pass
-    // below reuses the same mask, so both passes in this node broadcast
-    // under multiview and degrade to `None` at view_count == 1.
+    // The main_opaque_pass_3d broadcasts every Opaque3d / AlphaMask3d draw
+    // across all eyes via `multiview_mask`. PBR `MeshPipeline::specialize`
+    // sets the matching pipeline-side mask under the same `view_count > 1`
+    // predicate, so wgpu's required pipeline-vs-pass multiview-mask
+    // agreement holds for every in-tree Material dispatch through
+    // `DrawMaterial`. The skybox broadcast pass below reuses the same mask,
+    // so both passes in this node broadcast under multiview and degrade to
+    // `None` at view_count == 1.
     //
     // Custom material authors who ship their own fragment WGSL entry must
     // declare `@builtin(view_index)` and assign
