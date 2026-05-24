@@ -20,6 +20,7 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::num::NonZeroU32;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
@@ -208,8 +209,17 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             ));
         }
 
+        // L7d: broadcast across every eye layer in a single pass. The matching
+        // render-pass descriptor in `prepass/node.rs` sets the same mask.
+        let multiview_mask = if key.multiview_view_count > 1 {
+            NonZeroU32::new((1u32 << key.multiview_view_count) - 1)
+        } else {
+            None
+        };
+
         RenderPipelineDescriptor {
             label: Some("background_motion_vectors_pipeline".into()),
+            multiview_mask,
             layout: vec![self.bind_group_layout.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
