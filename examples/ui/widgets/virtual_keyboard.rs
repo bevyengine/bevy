@@ -3,7 +3,7 @@
 use bevy::{
     color::palettes::css::NAVY,
     feathers::{
-        controls::{virtual_keyboard, VirtualKeyPressed},
+        controls::{VirtualKeyPressed, VirtualKeyboard},
         dark_theme::create_dark_theme,
         theme::UiTheme,
         FeathersPlugins,
@@ -28,7 +28,7 @@ fn scene() -> impl SceneList {
 }
 
 fn keyboard() -> impl Scene {
-    let layout = [
+    let keys = [
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", ","],
         vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
         vec!["A", "S", "D", "F", "G", "H", "J", "K", "L", "'"],
@@ -59,7 +59,7 @@ fn keyboard() -> impl Scene {
             Children [
                 Text("virtual keyboard"),
                 (
-                    virtual_keyboard(layout.into_iter())
+                    :VirtualKeyboard::<&str> { @keys: keys }
                     on(on_virtual_key_pressed)
                 )
             ]

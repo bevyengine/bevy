@@ -4,7 +4,11 @@ authors: ["@jonas-meyer"]
 pull_requests: [22602]
 ---
 
-Observers can now use run conditions with `.run_if()`, the same pattern systems use for conditional execution.
+Run conditions are a convenient, reusable pattern for skipping systems when certain conditions are met.
+Previously, run conditions only worked for ordinary systems.
+Observers couldn't use them.
+
+Now, they can!
 
 ```rust
 #[derive(Resource)]

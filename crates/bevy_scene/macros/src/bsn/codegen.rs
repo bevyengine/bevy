@@ -2,6 +2,7 @@ use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
     BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
 };
+use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
@@ -128,16 +129,34 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
-        let entries: Vec<_> = self
-            .entries
-            .iter()
-            .map(|entry| {
-                entry
-                    .try_to_tokens(ctx)
-                    .unwrap_or_else(|e| e.to_compile_error())
-            })
-            .collect();
-        Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#entries),*) })
+        let mut combined_patches = Vec::new();
+        let mut scene_impls = Vec::new();
+        for entry in &self.entries {
+            match entry.try_to_tokens(ctx) {
+                Ok(EntryResult::CombinedSceneFunction(patch)) => combined_patches.push(patch),
+                Ok(EntryResult::NewSceneImpl(scene_impl)) => {
+                    if !combined_patches.is_empty() {
+                        let patches = combined_patches.drain(..);
+                        scene_impls.push(quote! {
+                            #bevy_scene::SceneFunction(move |_context, _scene| {
+                                #(#patches)*
+                            })
+                        });
+                    }
+                    scene_impls.push(scene_impl)
+                }
+                Err(err) => scene_impls.push(err.to_compile_error()),
+            }
+        }
+        if !combined_patches.is_empty() {
+            let patches = combined_patches.drain(..);
+            scene_impls.push(quote! {
+                #bevy_scene::SceneFunction(move |_context, _scene| {
+                    #(#patches)*
+                })
+            });
+        }
+        Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#scene_impls),*) })
     }
 
     pub fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
@@ -146,11 +165,16 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     }
 }
 
+enum EntryResult {
+    CombinedSceneFunction(TokenStream),
+    NewSceneImpl(TokenStream),
+}
+
 impl BsnEntry {
-    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<EntryResult> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
 
-        match self {
+        Ok(match self {
             BsnEntry::TemplatePatch(ty) => {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
@@ -160,12 +184,17 @@ impl BsnEntry {
                     ))],
                     is_ref: true,
                 };
-                ty.to_patch_tokens(ctx, &mut assigns, true, target)?;
+                ty.to_patch_tokens(ctx, &mut assigns, true, false, true, target)?;
                 let path = &ty.path;
-                Ok(quote! {
-                    <#path as #bevy_scene::PatchTemplate>::patch_template(move |value, _context| {
+                EntryResult::CombinedSceneFunction(if assigns.is_empty() {
+                    quote! {
+                        let _ = _scene.get_or_insert_template::<#path>(_context);
+                    }
+                } else {
+                    quote! {
+                        let value = _scene.get_or_insert_template::<#path>(_context);
                         #(#assigns)*
-                    })
+                    }
                 })
             }
             BsnEntry::FromTemplatePatch(ty) => {
@@ -177,71 +206,110 @@ impl BsnEntry {
                     ))],
                     is_ref: true,
                 };
-                ty.to_patch_tokens(ctx, &mut assigns, true, target)?;
+                ty.to_patch_tokens(ctx, &mut assigns, true, false, false, target)?;
                 let path = &ty.path;
-                Ok(quote! {
-                    <#path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
+                EntryResult::CombinedSceneFunction(if assigns.is_empty() {
+                    quote! {
+                        let _ = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                    }
+                } else {
+                    quote! {
+                        let value = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
                         #(#assigns)*
-                    })
+                    }
                 })
             }
             BsnEntry::TemplateConst {
                 type_path,
                 const_ident,
-            } => Ok(quote! {
-                <#type_path as #bevy_scene::PatchTemplate>::patch_template(move |value, _context| {
-                    *value = #type_path::#const_ident;
-                })
+            } => EntryResult::CombinedSceneFunction(quote! {
+                let value = _scene.get_or_insert_template::<#type_path>(_context);
+                *value = #type_path::#const_ident;
             }),
-            BsnEntry::SceneExpression(block) => Ok(quote! {{#block}}),
+            BsnEntry::SceneExpression(block) => EntryResult::NewSceneImpl(quote! {{#block}}),
             BsnEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => Ok(quote! {
-                <#type_path as #bevy_scene::PatchTemplate>::patch_template(move |value, _context| {
-                    *value = #type_path::#function(#args);
-                })
+            }) => EntryResult::CombinedSceneFunction(quote! {
+                let value = _scene.get_or_insert_template::<#type_path>(_context);
+                *value = #type_path::#function(#args);
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => Ok(quote! {
-                <#type_path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
-                    *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function(#args);
-                })
+            }) => EntryResult::CombinedSceneFunction(quote! {
+                let value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function(#args);
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
                 scene_list,
                 relationship_path,
             }) => {
                 let scenes = scene_list.0.to_tokens(ctx);
-                Ok(quote! {
+                EntryResult::NewSceneImpl(quote! {
                     #bevy_scene::RelatedScenes::<<#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
                         ::Relationship, _>::new(#scenes)
                 })
             }
-            BsnEntry::InheritedScene(s) => match s {
-                BsnInheritedScene::Asset(lit) => Ok(quote! {
+            BsnEntry::InheritedScene(s) => EntryResult::NewSceneImpl(match s {
+                BsnInheritedScene::Asset(lit) => quote! {
                     #bevy_scene::InheritSceneAsset::from(#lit)
-                }),
-                BsnInheritedScene::Fn { function, args } => Ok(quote! {
-                    #bevy_scene::SceneScope(#function(#args))
-                }),
-            },
+                },
+                BsnInheritedScene::Fn { path, args } => quote! {
+                    #bevy_scene::SceneScope(#path(#args))
+                },
+                BsnInheritedScene::Type(bsn_type) => {
+                    // TODO: this can and should use a simpler codegen path than BsnType::to_patch_tokens,
+                    // which imposes constraints like requiring the type to impl FromTemplate, and requiring
+                    // enums to have VariantDefault.
+                    let mut assignments = Vec::new();
+                    let props = format_ident!("props");
+                    let props_ref = format_ident!("props_ref");
+                    let target = PatchTarget {
+                        path: &[Member::Named(props_ref.clone())],
+                        is_ref: true,
+                    };
+                    bsn_type.to_patch_tokens(ctx, &mut assignments, false, true, true, target)?;
+                    let mut assigns = Vec::new();
+                    let target = PatchTarget {
+                        path: &[Member::Named(Ident::new(
+                            "value",
+                            proc_macro2::Span::call_site(),
+                        ))],
+                        is_ref: true,
+                    };
+                    bsn_type.to_patch_tokens(ctx, &mut assigns, true, false, true, target)?;
+                    let path = &bsn_type.path;
+                    let bevy_scene = ctx.bevy_scene;
+                    let from_template_patch = quote! {
+                        <#path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
+                            #(#assigns)*
+                        })
+                    };
+                    quote! {{
+                        let mut #props = <<#path as #bevy_scene::SceneComponent>::Props as #FQDefault>::default();
+                        let #props_ref = &mut #props;
+                        #(#assignments)*
+                        (<#path as #bevy_scene::SceneComponent>::scene(#props), #from_template_patch)
+                    }}
+                }
+                BsnInheritedScene::Expression(tokens) => quote! {
+                    #tokens
+                },
+            }),
             BsnEntry::Name(ident) => {
                 let (name, index) = (ident.to_string(), ctx.entity_refs.get(ident.to_string()));
-                Ok(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), index: #index }
+                EntryResult::CombinedSceneFunction(quote! {
+                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), index: #index }.resolve_inline(_context, _scene);
                 })
             }
-            BsnEntry::NameExpression(expr) => Ok(quote! {
-                <#bevy_ecs::name::Name as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
-                    *value = #bevy_ecs::Name({#expr}.into());
-                })
+            BsnEntry::NameExpression(expr) => EntryResult::CombinedSceneFunction(quote! {
+                let value = _scene.get_or_insert_template::<<#bevy_ecs::name::Name as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                *value = #bevy_ecs::name::Name({#expr}.into());
             }),
-        }
+        })
     }
 }
 
@@ -252,6 +320,8 @@ impl BsnType {
         ctx: &mut BsnCodegenCtx,
         assignments: &mut Vec<TokenStream>,
         is_root: bool,
+        is_props: bool,
+        is_scene_component: bool,
         target: PatchTarget,
     ) -> syn::Result<()> {
         if !is_root {
@@ -260,9 +330,13 @@ impl BsnType {
         }
 
         if let Some(variant) = &self.enum_variant {
-            self.push_enum_patch(ctx, variant, assignments, target)?;
+            if is_props {
+                self.push_struct_patch(ctx, assignments, true, is_scene_component, target)?;
+            } else {
+                self.push_enum_patch(ctx, variant, assignments, target)?;
+            }
         } else {
-            self.push_struct_patch(ctx, assignments, target)?;
+            self.push_struct_patch(ctx, assignments, is_props, is_scene_component, target)?;
         }
 
         Ok(())
@@ -332,7 +406,7 @@ impl BsnType {
         assignments.push(quote! {
             {
                 let _node = #maybe_borrow_mut #(#field_path).*;
-                if !matches!(_node, #template_path::#check_pattern) {
+                if !::core::matches!(_node, #template_path::#check_pattern) {
                     #maybe_deref _node = #template_path::#variant_default();
                 }
                 if let #template_path::#binding_pattern = _node {
@@ -347,6 +421,8 @@ impl BsnType {
         &self,
         ctx: &mut BsnCodegenCtx,
         assignments: &mut Vec<TokenStream>,
+        is_props: bool,
+        is_scene_component: bool,
         target: PatchTarget,
     ) -> syn::Result<()> {
         match &self.fields {
@@ -355,6 +431,22 @@ impl BsnType {
 
                 for field in fields {
                     let field_name = &field.name;
+                    if is_props != field.is_prop {
+                        if !is_scene_component && field.is_prop {
+                            let type_path = &self.path;
+                            ctx.errors.push(syn::Error::new_spanned(
+                                field_name,
+                                format!(
+                                    "Scene prop fields are not supported in normal component patches\
+                                     . If you would like to set a component scene's prop field, it \
+                                     should be set using \"scene inheritance\": \
+                                     bsn! {{ :{} {{ @{field_name}: VALUE }} }}",
+                                     path_to_string(type_path)
+                                ),
+                            ));
+                        }
+                        continue;
+                    }
                     if !seen.insert(field_name.to_string()) {
                         ctx.errors.push(syn::Error::new_spanned(
                             field_name,
@@ -370,16 +462,26 @@ impl BsnType {
                         ));
                     }
 
+                    let path = if field.is_prop {
+                        &[Member::Named(format_ident!("props"))]
+                    } else {
+                        target.path
+                    };
+
                     self.process_field(
                         ctx,
                         assignments,
-                        target.path,
+                        path,
                         Member::Named(field_name.clone()),
                         field.value.as_ref(),
                     )?;
                 }
             }
             BsnFields::Tuple(fields) => {
+                // Tuple fields can't be props
+                if is_props {
+                    return Ok(());
+                }
                 for (i, field) in fields.iter().enumerate() {
                     if let Err(err) = self.process_field(
                         ctx,
@@ -449,6 +551,8 @@ impl BsnType {
                     ctx,
                     assignments,
                     false,
+                    false,
+                    false,
                     PatchTarget {
                         path: &new_path,
                         is_ref: false,
@@ -479,6 +583,8 @@ impl BsnType {
             ty.to_patch_tokens(
                 ctx,
                 &mut type_assigns,
+                false,
+                false,
                 false,
                 PatchTarget {
                     path: &[Member::Named(bind_name.clone())],
@@ -541,7 +647,13 @@ impl ToTokens for BsnValue {
             BsnValue::Closure(c) => quote! {(#c).into()}.to_tokens(tokens),
             BsnValue::Ident(i) => quote! {(#i).into()}.to_tokens(tokens),
             BsnValue::Lit(Lit::Str(s)) => quote! {#s.into()}.to_tokens(tokens),
-            BsnValue::Lit(l) => l.to_tokens(tokens),
+            BsnValue::Lit(l) => {
+                if l.suffix().is_empty() {
+                    l.to_tokens(tokens)
+                } else {
+                    quote! {(#l).into()}.to_tokens(tokens)
+                }
+            }
             BsnValue::Tuple(t) => {
                 let inner = t.0.iter();
                 quote! {(#(#inner),*)}.to_tokens(tokens);
@@ -603,10 +715,12 @@ mod tests {
                 BsnNamedField {
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!({}))),
+                    is_prop: false,
                 },
                 BsnNamedField {
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!({}))),
+                    is_prop: false,
                 },
             ]),
         };
@@ -614,6 +728,8 @@ mod tests {
         let res = duplicate.push_struct_patch(
             &mut ctx,
             &mut assignments,
+            false,
+            false,
             PatchTarget {
                 path: &[],
                 is_ref: false,
@@ -638,6 +754,7 @@ mod tests {
             path: parse_quote!(Parent),
             enum_variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
+                is_prop: false,
                 name: parse_quote!(child_field),
                 value: Some(BsnValue::Type(BsnType {
                     path: parse_quote!(Child),
@@ -646,10 +763,12 @@ mod tests {
                         BsnNamedField {
                             name: parse_quote!(x),
                             value: Some(BsnValue::Expr(quote!({}))),
+                            is_prop: false,
                         },
                         BsnNamedField {
                             name: parse_quote!(x),
                             value: Some(BsnValue::Expr(quote!({}))),
+                            is_prop: false,
                         },
                     ]),
                 })),
@@ -660,6 +779,8 @@ mod tests {
             &mut ctx,
             &mut assignments,
             true,
+            false,
+            false,
             PatchTarget {
                 path: &[],
                 is_ref: false,
@@ -684,6 +805,7 @@ mod tests {
             path: parse_quote!(Transform),
             enum_variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
+                is_prop: false,
                 name: parse_quote!(x),
                 value: None,
             }]),
@@ -692,6 +814,8 @@ mod tests {
         let res = missing.push_struct_patch(
             &mut ctx,
             &mut assignments,
+            false,
+            false,
             PatchTarget {
                 path: &[Member::Named(parse_quote!(value))],
                 is_ref: false,
@@ -718,10 +842,12 @@ mod tests {
             enum_variant: Some(parse_quote!(Variant)),
             fields: BsnFields::Named(vec![
                 BsnNamedField {
+                    is_prop: false,
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!(1))),
                 },
                 BsnNamedField {
+                    is_prop: false,
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!(2))),
                 },

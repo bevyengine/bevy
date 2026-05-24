@@ -224,6 +224,10 @@ impl TextPipeline {
                 );
                 builder.push(
                     StyleProperty::FontFeatures((&section.text_font.font_features).into()),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::FontVariations((&section.text_font.font_variations).into()),
                     range,
                 );
             }
@@ -469,8 +473,8 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
-    /// Cursor size and position for editing
-    pub cursor: Option<Rect>,
+    /// Cursor visibility, size and position for editing
+    pub cursor: Option<(bool, Rect)>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
     /// Underline rects for the active IME preedit/compose region.

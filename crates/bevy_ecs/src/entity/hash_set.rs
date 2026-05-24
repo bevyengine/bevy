@@ -25,7 +25,7 @@ use super::{
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntityEquivalentHashSet<K: EntityEquivalent + Hash>(pub(crate) HashSet<K, EntityHash>);
+pub struct EntityEquivalentHashSet<K: EntityEquivalent + Hash>(HashSet<K, EntityHash>);
 
 /// An [`HashSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityHashSet = EntityEquivalentHashSet<Entity>;
@@ -49,14 +49,14 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentHashSet<K> {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
     }
 
-    /// Returns the number of elements in the set.
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
     /// Returns `true` if the set contains no elements.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Constructs an `EntityHashSet` from an [`HashSet`].
+    pub const fn from_hash_set(set: HashSet<K, EntityHash>) -> Self {
+        Self(set)
     }
 
     /// Returns the inner [`HashSet`].
@@ -230,6 +230,12 @@ impl<K: EntityEquivalent + Hash> FromEntitySetIterator<K> for EntityEquivalentHa
     }
 }
 
+impl From<HashSet<K, EntityHash>> for EntityHashSet {
+    fn from(value: HashSet<K, EntityHash>) -> Self {
+        Self(value)
+    }
+}
+
 /// An iterator over the items of an [`EntityEquivalentHashSet`].
 ///
 /// This struct is created by the [`iter`] method on [`EntityEquivalentHashSet`]. See its documentation for more.
@@ -241,8 +247,18 @@ pub struct Iter<'a, K: EntityEquivalent + Hash, S = EntityHash>(
 );
 
 impl<'a, K: EntityEquivalent + Hash> Iter<'a, K> {
+    /// Constructs a [`Iter<'a, K, S>`] from a [`hash_set::Iter<'a, K>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_iter_unchecked<S>(iter: hash_set::Iter<'a, K>) -> Iter<'a, K, S> {
+        Iter(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](hash_set::Iter).
-    pub fn into_inner(self) -> hash_set::Iter<'a, K> {
+    pub const fn into_inner(self) -> hash_set::Iter<'a, K> {
         self.0
     }
 }
@@ -273,7 +289,8 @@ impl<K: EntityEquivalent + Hash> FusedIterator for Iter<'_, K> {}
 
 impl<K: EntityEquivalent + Hash> Clone for Iter<'_, K> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Iter`.
+        unsafe { Self::from_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -285,7 +302,8 @@ impl<K: EntityEquivalent + Hash + Debug> Debug for Iter<'_, K> {
 
 impl<K: EntityEquivalent + Hash> Default for Iter<'_, K> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Iter` is empty.
+        unsafe { Self::from_iter_unchecked(Default::default()) }
     }
 }
 
@@ -303,6 +321,18 @@ pub struct IntoIter<K: EntityEquivalent + Hash, S = EntityHash>(
 );
 
 impl<K: EntityEquivalent + Hash> IntoIter<K> {
+    /// Constructs a [`IntoIter<K, S>`] from a [`hash_set::IntoIter<K>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_into_iter_unchecked<S>(
+        into_iter: hash_set::IntoIter<K>,
+    ) -> IntoIter<K, S> {
+        IntoIter(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](hash_set::IntoIter).
     pub fn into_inner(self) -> hash_set::IntoIter<K> {
         self.0
@@ -344,7 +374,8 @@ impl<K: EntityEquivalent + Hash + Debug> Debug for IntoIter<K> {
 
 impl<K: EntityEquivalent + Hash> Default for IntoIter<K> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoIter` is empty.
+        unsafe { Self::from_into_iter_unchecked(Default::default()) }
     }
 }
 
@@ -362,6 +393,18 @@ pub struct Drain<'a, K: EntityEquivalent + Hash, S = EntityHash>(
 );
 
 impl<'a, K: EntityEquivalent + Hash> Drain<'a, K> {
+    /// Constructs a [`Drain<'a, K, S>`] from a [`hash_set::Drain<'a, K>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_drain_unchecked<S>(
+        drain: hash_set::Drain<'a, K>,
+    ) -> Drain<'a, K, S> {
+        Drain(drain, PhantomData)
+    }
+
     /// Returns the inner [`Drain`](hash_set::Drain).
     pub fn into_inner(self) -> hash_set::Drain<'a, K> {
         self.0
@@ -415,6 +458,18 @@ pub struct ExtractIf<'a, K: EntityEquivalent + Hash, F: FnMut(&K) -> bool, S = E
 );
 
 impl<'a, K: EntityEquivalent + Hash, F: FnMut(&K) -> bool> ExtractIf<'a, K, F> {
+    /// Constructs a [`ExtractIf<'a, K, F, S>`] from a [`hash_set::ExtractIf<'a, K, F>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `extract_if` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub const unsafe fn from_extract_if_unchecked<S>(
+        extract_if: hash_set::ExtractIf<'a, K, F>,
+    ) -> ExtractIf<'a, K, F, S> {
+        ExtractIf(extract_if, PhantomData)
+    }
+
     /// Returns the inner [`ExtractIf`](hash_set::ExtractIf).
     pub fn into_inner(self) -> hash_set::ExtractIf<'a, K, F> {
         self.0

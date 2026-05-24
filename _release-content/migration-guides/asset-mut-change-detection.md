@@ -4,11 +4,11 @@ pull_requests: [22460]
 ---
 
 `Assets::get_mut` will now return `AssetMut<A: Asset>` instead of `&mut Asset`.
-Similar to `Mut`/`ResMut`, new implementation will trigger `AssetEvent::Modified`
+Similar to `Mut`/`ResMut`, the new implementation will trigger an `AssetEvent::Modified`
 event only when the asset is actually mutated.
 
-In some cases (like materials), triggering `AssetEvent::Modified` event might lead to
-measurable performance costs. To avoid this, it is now possible to check if the `Asset`
+In some cases (like materials), triggering the `AssetEvent::Modified` event might lead to
+measurable performance costs. To avoid this, you can check if the `Asset`
 will change before mutating it:
 
 ```rust

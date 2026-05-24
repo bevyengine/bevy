@@ -5,20 +5,20 @@ pull_requests: [23126]
 
 Our `default` features used to be
 
-- 2d
-- 3d
-- ui
+- `2d`
+- `3d`
+- `ui`
 
 where each of these features enabled the `audio` feature among others.
 
-Since Cargo doesn't allow selectively disabling features, if you wished to disable `bevy_audio`, either because you don't need audio or because you use an alternative such as bevy_seedling, you had a problem with that.
+Since Cargo doesn't allow selectively disabling features, if you wished to disable `bevy_audio`, either because you don't need audio or because you use an alternative such as [`bevy_seedling`](https://github.com/CorvusPrudens/bevy_seedling), you had a problem.
 You needed to essentially enable all features enabled by the above *except* `audio`, leading to a big `features` soup. To avoid this,
 `audio` is now no longer enabled by the above features, but instead enabled by default, bumping our default features to:
 
-- 2d
-- 3d
-- ui
-- audio
+- `2d`
+- `3d`
+- `ui`
+- `audio`
 
 Now what does this mean for you?
 

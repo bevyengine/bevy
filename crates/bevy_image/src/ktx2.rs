@@ -10,8 +10,8 @@ use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "zstd_rust", feature = "zstd_c"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
-    ChannelTypeQualifiers, ColorModel, DfdBlockBasic, DfdBlockHeaderBasic, DfdHeader, Header,
-    SampleInformation,
+    dfd::{Basic, Block, ChannelTypeQualifiers, SampleInformation},
+    ColorModel, Header,
 };
 use wgpu_types::{
     AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
@@ -402,17 +402,8 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     }
 
     for data_format_descriptor in ktx2.dfd_blocks() {
-        if data_format_descriptor.header == DfdHeader::BASIC {
-            let basic_data_format_descriptor = DfdBlockBasic::parse(data_format_descriptor.data)
-                .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
-            let sample_information = basic_data_format_descriptor
-                .sample_information()
-                .collect::<Vec<_>>();
-            return ktx2_dfd_header_to_texture_format(
-                &basic_data_format_descriptor.header,
-                &sample_information,
-                is_srgb,
-            );
+        if let Block::Basic(basic_data_format_descriptor) = data_format_descriptor {
+            return ktx2_dfd_header_to_texture_format(basic_data_format_descriptor, is_srgb);
         }
     }
 
@@ -485,11 +476,11 @@ fn sample_information_to_data_type(
 /// Returns an error for invalid or unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_dfd_header_to_texture_format(
-    data_format_descriptor: &DfdBlockHeaderBasic,
-    sample_information: &[SampleInformation],
+    basic_data_format_descriptor: &Basic,
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {
-    Ok(match data_format_descriptor.color_model {
+    let sample_information = &basic_data_format_descriptor.sample_information;
+    Ok(match basic_data_format_descriptor.color_model {
         Some(ColorModel::RGBSDA) => {
             match sample_information.len() {
                 1 => {
@@ -898,13 +889,13 @@ pub fn ktx2_dfd_header_to_texture_format(
         | Some(ColorModel::CIEXYY) => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{:?}",
-                data_format_descriptor.color_model
+                basic_data_format_descriptor.color_model
             )));
         }
         Some(ColorModel::XYZW) => {
             // Same number of channels in both texel block dimensions and sample info descriptions
             assert_eq!(
-                data_format_descriptor.texel_block_dimensions[0].get() as usize,
+                basic_data_format_descriptor.texel_block_dimensions[0].get() as usize,
                 sample_information.len()
             );
             match sample_information.len() {
@@ -1132,8 +1123,8 @@ pub fn ktx2_dfd_header_to_texture_format(
         },
         Some(ColorModel::ASTC) => TextureFormat::Astc {
             block: match (
-                data_format_descriptor.texel_block_dimensions[0].get(),
-                data_format_descriptor.texel_block_dimensions[1].get(),
+                basic_data_format_descriptor.texel_block_dimensions[0].get(),
+                basic_data_format_descriptor.texel_block_dimensions[1].get(),
             ) {
                 (4, 4) => AstcBlock::B4x4,
                 (5, 4) => AstcBlock::B5x4,
@@ -1199,7 +1190,7 @@ pub fn ktx2_dfd_header_to_texture_format(
         _ => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "Unknown KTX2 color model: {:?}",
-                data_format_descriptor.color_model
+                basic_data_format_descriptor.color_model
             )));
         }
     })

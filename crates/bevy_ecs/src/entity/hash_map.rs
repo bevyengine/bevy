@@ -21,7 +21,7 @@ use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityEquivalentHashMap<K: EntityEquivalent + Hash, V>(
-    pub(crate) HashMap<K, V, EntityHash>,
+    HashMap<K, V, EntityHash>,
 );
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
@@ -41,9 +41,14 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentHashMap<K, V> {
     ///
     /// Equivalent to [`HashMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
-    /// [`HashMap:with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
+    /// [`HashMap::with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(HashMap::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Constructs an `EntityEquivalentHashMap` from an [`HashMap`].
+    pub const fn from_index_map(set: HashMap<K, V, EntityHash>) -> Self {
+        Self(set)
     }
 
     /// Returns the inner [`HashMap`].
@@ -125,10 +130,17 @@ impl<K: EntityEquivalent + Hash, V> FromIterator<(K, V)> for EntityEquivalentHas
     }
 }
 
+impl<K: EntityEquivalent + Hash, V> From<HashMap<K, V, EntityHash>> for EntityEquivalentHashMap<K, V> {
+    fn from(value: HashMap<K, V, EntityHash>) -> Self {
+        Self(value)
+    }
+}
+
 // `EntityEquivalent` does not guarantee maintained equality on conversions from one implementor to another,
 // so we restrict this impl to only keys of type `Entity`.
 impl<V, Q: EntityEquivalent + Hash + ?Sized> Index<&Q> for EntityHashMap<V> {
     type Output = V;
+
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())
     }
@@ -173,8 +185,20 @@ pub struct Keys<'a, K: EntityEquivalent + Hash, V, S = EntityHash>(
 );
 
 impl<'a, K: EntityEquivalent + Hash, V> Keys<'a, K, V> {
+    /// Constructs a [`Keys<'a, K, V, S>`] from a [`hash_map::Keys<'a, K, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `keys` must either be empty, or have been obtained from a
+    /// [`hash_map::HashMap`] using the `S` hasher.
+    pub const unsafe fn from_keys_unchecked<S>(
+        keys: hash_map::Keys<'a, K, V>,
+    ) -> Keys<'a, K, V, S> {
+        Keys(keys, PhantomData)
+    }
+
     /// Returns the inner [`Keys`](hash_map::Keys).
-    pub fn into_inner(self) -> hash_map::Keys<'a, K, V> {
+    pub const fn into_inner(self) -> hash_map::Keys<'a, K, V> {
         self.0
     }
 }
@@ -205,7 +229,8 @@ impl<K: EntityEquivalent + Hash, V> FusedIterator for Keys<'_, K, V> {}
 
 impl<K: EntityEquivalent + Hash, V> Clone for Keys<'_, K, V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Keys`.
+        unsafe { Self::from_keys_unchecked(self.0.clone()) }
     }
 }
 
@@ -217,7 +242,8 @@ impl<K: EntityEquivalent + Hash + Debug, V: Debug> Debug for Keys<'_, K, V> {
 
 impl<K: EntityEquivalent + Hash, V> Default for Keys<'_, K, V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Keys` is empty.
+        unsafe { Self::from_keys_unchecked(Default::default()) }
     }
 }
 
@@ -238,6 +264,18 @@ pub struct IntoKeys<K: EntityEquivalent + Hash, V, S = EntityHash>(
 );
 
 impl<K: EntityEquivalent + Hash, V> IntoKeys<K, V> {
+    /// Constructs a [`IntoKeys<K, V, S>`] from a [`hash_map::IntoKeys<K, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_keys` must either be empty, or have been obtained from a
+    /// [`hash_map::HashMap`] using the `S` hasher.
+    pub const unsafe fn from_into_keys_unchecked<S>(
+        into_keys: hash_map::IntoKeys<K, V>,
+    ) -> IntoKeys<K, V, S> {
+        IntoKeys(into_keys, PhantomData)
+    }
+
     /// Returns the inner [`IntoKeys`](hash_map::IntoKeys).
     pub fn into_inner(self) -> hash_map::IntoKeys<K, V> {
         self.0
@@ -279,7 +317,8 @@ impl<K: EntityEquivalent + Hash + Debug, V: Debug> Debug for IntoKeys<K, V> {
 
 impl<K: EntityEquivalent + Hash, V> Default for IntoKeys<K, V> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoKeys` is empty.
+        unsafe { Self::from_into_keys_unchecked(Default::default()) }
     }
 }
 
