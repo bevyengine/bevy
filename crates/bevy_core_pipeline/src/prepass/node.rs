@@ -176,83 +176,85 @@ fn run_prepass_system(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
-    // Per-eye dispatch: one render pass per layer of the multiview target.
-    // Non-multiview cameras have view_count = 1, exercising the same per-layer
-    // path against the single-layer prepass + depth textures.
-    let view_count = multiview
-        .map(|m| m.subviews.len() as u32)
-        .unwrap_or(1);
+    // L7d (Shape D): dispatch the prepass items as a single broadcast pass.
+    // Under multiview the hardware fans each draw out to every eye layer via
+    // `@builtin(view_index)`; the matching `PrepassPipelineSpecializer`
+    // pipeline-side mask uses the same `view_count > 1` predicate so wgpu's
+    // required pipeline-vs-pass agreement holds. At view_count = 1 the gate
+    // collapses to `multiview_mask: None`, matching the pre-Shape-D shape on
+    // the single-eye path. `(1 << view_count) - 1` is computed as
+    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+    let multiview_mask = if view_count > 1 {
+        NonZeroU32::new(u32::MAX >> (32 - view_count))
+    } else {
+        None
+    };
 
-    for eye in 0..view_count {
-        let mut color_attachments = vec![
-            view_prepass_textures
-                .normal
-                .as_ref()
-                .map(|normals_texture| normals_texture.get_attachment_for_layer(eye)),
-            view_prepass_textures
-                .motion_vectors
-                .as_ref()
-                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment_for_layer(eye)),
-            // Use None in place of deferred attachments
-            None,
-            None,
-        ];
+    let mut color_attachments = vec![
+        view_prepass_textures
+            .normal
+            .as_ref()
+            .map(|normals_texture| normals_texture.get_attachment()),
+        view_prepass_textures
+            .motion_vectors
+            .as_ref()
+            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+        // Use None in place of deferred attachments
+        None,
+        None,
+    ];
 
-        // If all color attachments are none: clear the color attachment list so that no fragment shader is required
-        if color_attachments.iter().all(Option::is_none) {
-            color_attachments.clear();
-        }
-
-        let depth_stencil_attachment =
-            Some(view_depth_texture.get_attachment_for_layer(eye, StoreOp::Store));
-
-        let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(label),
-            color_attachments: &color_attachments,
-            depth_stencil_attachment,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut render_pass, label);
-
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
-            render_pass.set_camera_viewport(&viewport);
-        }
-
-        if !opaque_prepass_phase.is_empty() {
-            #[cfg(feature = "trace")]
-            let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-            if let Err(err) = opaque_prepass_phase.render(&mut render_pass, world, view_entity) {
-                error!("Error encountered while rendering the opaque prepass phase {err:?}");
-            }
-        }
-
-        if !alpha_mask_prepass_phase.is_empty() {
-            #[cfg(feature = "trace")]
-            let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-            if let Err(err) = alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity)
-            {
-                error!("Error encountered while rendering the alpha mask prepass phase {err:?}");
-            }
-        }
-
-        pass_span.end(&mut render_pass);
-        drop(render_pass);
+    // If all color attachments are none: clear the color attachment list so that no fragment shader is required
+    if color_attachments.iter().all(Option::is_none) {
+        color_attachments.clear();
     }
 
-    // L7d: dispatch background motion vectors as a single broadcast pass after
-    // the per-eye prepass loop. Under multiview the hardware fans the
-    // fullscreen triangle out to every eye layer via `@builtin(view_index)`;
-    // the matching pipeline descriptor sets the same `multiview_mask`. Class
-    // (a) per the L7d hazard inventory — the fragment writes only to the
-    // motion-vectors color attachment with no shared storage. Legacy
-    // `get_attachment(StoreOp::Store)` after the per-eye loop already flipped
-    // the per-layer slots loads the prior per-eye writes (F2 seeds the
-    // per-layer first-call slots from the global latch, so the global is
-    // false on this re-entry).
+    let depth_stencil_attachment = Some(view_depth_texture.get_attachment(StoreOp::Store));
+
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some(label),
+        color_attachments: &color_attachments,
+        depth_stencil_attachment,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask,
+    });
+    let pass_span = diagnostics.pass_span(&mut render_pass, label);
+
+    if let Some(viewport) =
+        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+    {
+        render_pass.set_camera_viewport(&viewport);
+    }
+
+    if !opaque_prepass_phase.is_empty() {
+        #[cfg(feature = "trace")]
+        let _opaque_prepass_span = info_span!("opaque_prepass").entered();
+        if let Err(err) = opaque_prepass_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the opaque prepass phase {err:?}");
+        }
+    }
+
+    if !alpha_mask_prepass_phase.is_empty() {
+        #[cfg(feature = "trace")]
+        let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
+        if let Err(err) = alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the alpha mask prepass phase {err:?}");
+        }
+    }
+
+    pass_span.end(&mut render_pass);
+    drop(render_pass);
+
+    // L7d: dispatch background motion vectors as a separate broadcast pass
+    // after the prepass-items broadcast pass. The legacy `get_attachment` /
+    // `get_attachment(StoreOp::Store)` calls below are the SECOND legacy
+    // calls in this node — the global latch was already flipped to false by
+    // the prepass-items pass above, so this pass gets `LoadOp::Load` and
+    // preserves the prepass-items output rather than re-clearing it. Reuses
+    // `multiview_mask` computed at function top.
     if let (
         Some(background_motion_vectors_pipeline),
         Some(background_motion_vectors_bind_group),
@@ -278,15 +280,6 @@ fn run_prepass_system(
         ];
 
         let depth_stencil_attachment = Some(view_depth_texture.get_attachment(StoreOp::Store));
-
-        // `(1 << view_count) - 1` computed via `u32::MAX >> (32 - view_count)`
-        // to avoid the shift overflow that `1 << 32` would hit at the
-        // `MAX_VIEW_COUNT` cap.
-        let multiview_mask = if view_count > 1 {
-            NonZeroU32::new(u32::MAX >> (32 - view_count))
-        } else {
-            None
-        };
 
         let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("background_motion_vectors"),
