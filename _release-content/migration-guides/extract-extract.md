@@ -1,6 +1,6 @@
 ---
 title: Extract Extract
-pull_requests: [24419, 24420, 24423]
+pull_requests: [24419, 24420, 24423, 22852]
 ---
 
 Extraction used to be specific of Main World to Render World, but will now be generic
@@ -35,3 +35,7 @@ You can now extract a component from the main subapp to multiple subapps. To ext
 #[extract_app(RenderApp, AudioApp)]
 struct SomeComponent;
 ```
+
+All above has moved to new crate `bevy_extract`.
+
+Most extraction parts are re-exported by `bevy_render` , but some migrations are needed
