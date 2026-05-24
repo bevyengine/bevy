@@ -1,11 +1,12 @@
 use super::CachedTexture;
-use crate::render_resource::{TextureFormat, TextureView};
+use crate::render_resource::{Texture, TextureFormat, TextureView};
 use alloc::sync::Arc;
 use bevy_color::LinearRgba;
+use bevy_platform::sync::OnceLock;
 use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
     Color as WgpuColor, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, StoreOp,
+    RenderPassDepthStencilAttachment, StoreOp, TextureViewDescriptor, TextureViewDimension,
 };
 
 /// A wrapper for a [`CachedTexture`] that is used as a [`RenderPassColorAttachment`].
@@ -16,6 +17,13 @@ pub struct ColorAttachment {
     pub previous_frame_texture: Option<CachedTexture>,
     clear_color: Option<WgpuColor>,
     is_first_call: Arc<AtomicBool>,
+    /// Lazily-populated per-layer `D2` views of [`Self::texture`], for use by
+    /// [`Self::get_attachment_for_layer`] / [`Self::get_unsampled_attachment_for_layer`]
+    /// when the underlying texture is multi-layer (e.g., post-C2 multiview
+    /// prepass). Populated all-at-once on first per-layer access.
+    per_layer_views: Arc<OnceLock<Vec<TextureView>>>,
+    /// Lazily-populated per-layer `D2` views of [`Self::resolve_target`].
+    per_layer_resolve_views: Arc<OnceLock<Vec<TextureView>>>,
 }
 
 impl ColorAttachment {
@@ -31,6 +39,8 @@ impl ColorAttachment {
             previous_frame_texture,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
+            per_layer_views: Arc::new(OnceLock::new()),
+            per_layer_resolve_views: Arc::new(OnceLock::new()),
         }
     }
 
@@ -80,25 +90,128 @@ impl ColorAttachment {
         }
     }
 
+    /// Get this texture view as an attachment targeting a single layer of the
+    /// underlying texture (and resolve target, if any). For single-layer
+    /// textures, pass `layer = 0` — the synthesized view is bit-identical to
+    /// what [`Self::get_attachment`] returns.
+    ///
+    /// Used by per-eye dispatch in the prepass / deferred render-graph nodes
+    /// under multiview, where each eye is rendered to its own layer in a
+    /// separate render pass.
+    pub fn get_attachment_for_layer(&self, layer: u32) -> RenderPassColorAttachment<'_> {
+        if let Some(resolve_target) = self.resolve_target.as_ref() {
+            let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+            let resolve_views = self.per_layer_resolve_views.get_or_init(|| {
+                build_per_layer_d2_views(
+                    &resolve_target.texture,
+                    "color_attachment_resolve_layer_view",
+                )
+            });
+            let target_views = self.per_layer_views.get_or_init(|| {
+                build_per_layer_d2_views(&self.texture.texture, "color_attachment_layer_view")
+            });
+
+            RenderPassColorAttachment {
+                view: &resolve_views[layer as usize],
+                depth_slice: None,
+                resolve_target: Some(&target_views[layer as usize]),
+                ops: Operations {
+                    load: match (self.clear_color, first_call) {
+                        (Some(clear_color), true) => LoadOp::Clear(clear_color),
+                        (None, _) | (Some(_), false) => LoadOp::Load,
+                    },
+                    store: StoreOp::Store,
+                },
+            }
+        } else {
+            self.get_unsampled_attachment_for_layer(layer)
+        }
+    }
+
+    /// Per-layer counterpart to [`Self::get_unsampled_attachment`]. See
+    /// [`Self::get_attachment_for_layer`].
+    pub fn get_unsampled_attachment_for_layer(&self, layer: u32) -> RenderPassColorAttachment<'_> {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        let target_views = self.per_layer_views.get_or_init(|| {
+            build_per_layer_d2_views(&self.texture.texture, "color_attachment_layer_view")
+        });
+
+        RenderPassColorAttachment {
+            view: &target_views[layer as usize],
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations {
+                load: match (self.clear_color, first_call) {
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color),
+                    (None, _) | (Some(_), false) => LoadOp::Load,
+                },
+                store: StoreOp::Store,
+            },
+        }
+    }
+
     pub(crate) fn mark_as_cleared(&self) {
         self.is_first_call.store(false, Ordering::SeqCst);
     }
+}
+
+/// Synthesizes a single-layer `D2` `TextureView` of each layer of a (possibly
+/// multi-layer) texture. Used to back per-layer attachment access in
+/// [`ColorAttachment`] and [`DepthAttachment`].
+fn build_per_layer_d2_views(texture: &Texture, label: &'static str) -> Vec<TextureView> {
+    let layer_count = texture.depth_or_array_layers();
+    (0..layer_count)
+        .map(|layer| {
+            texture.create_view(&TextureViewDescriptor {
+                label: Some(label),
+                base_array_layer: layer,
+                array_layer_count: Some(1),
+                dimension: Some(TextureViewDimension::D2),
+                ..Default::default()
+            })
+        })
+        .collect()
 }
 
 /// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
 pub struct DepthAttachment {
     pub view: TextureView,
+    /// Underlying multi-layer texture handle, populated only when constructed
+    /// via [`Self::new_multi_layer`]. Required by
+    /// [`Self::get_attachment_for_layer`] to synthesize per-layer `D2` views.
+    multi_layer_texture: Option<Texture>,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
+    per_layer_views: Arc<OnceLock<Vec<TextureView>>>,
 }
 
 impl DepthAttachment {
     pub fn new(view: TextureView, clear_value: Option<f32>) -> Self {
         Self {
             view,
+            multi_layer_texture: None,
             clear_value,
             is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
+            per_layer_views: Arc::new(OnceLock::new()),
+        }
+    }
+
+    /// Construct a depth attachment backed by a multi-layer texture, enabling
+    /// per-layer access via [`Self::get_attachment_for_layer`]. `view` is the
+    /// default (multi-layer) view used by [`Self::get_attachment`] — typically
+    /// `texture.default_view`.
+    pub fn new_multi_layer(
+        texture: Texture,
+        view: TextureView,
+        clear_value: Option<f32>,
+    ) -> Self {
+        Self {
+            view,
+            multi_layer_texture: Some(texture),
+            clear_value,
+            is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
+            per_layer_views: Arc::new(OnceLock::new()),
         }
     }
 
@@ -115,6 +228,44 @@ impl DepthAttachment {
             depth_ops: Some(Operations {
                 load: if first_call {
                     // If first_call is true, then a clear value will always have been provided in the constructor
+                    LoadOp::Clear(self.clear_value.unwrap())
+                } else {
+                    LoadOp::Load
+                },
+                store,
+            }),
+            stencil_ops: None,
+        }
+    }
+
+    /// Get an attachment targeting a single layer of the underlying multi-layer
+    /// depth texture. Used by per-eye dispatch in the prepass / deferred
+    /// render-graph nodes under multiview.
+    ///
+    /// Panics if this attachment was not constructed via
+    /// [`Self::new_multi_layer`].
+    pub fn get_attachment_for_layer(
+        &self,
+        layer: u32,
+        store: StoreOp,
+    ) -> RenderPassDepthStencilAttachment<'_> {
+        let texture = self.multi_layer_texture.as_ref().expect(
+            "DepthAttachment::get_attachment_for_layer requires the attachment \
+             to be constructed with DepthAttachment::new_multi_layer so the \
+             underlying multi-layer texture handle is available",
+        );
+        let per_layer = self
+            .per_layer_views
+            .get_or_init(|| build_per_layer_d2_views(texture, "depth_attachment_layer_view"));
+
+        let first_call = self
+            .is_first_call
+            .fetch_and(store != StoreOp::Store, Ordering::Relaxed);
+
+        RenderPassDepthStencilAttachment {
+            view: &per_layer[layer as usize],
+            depth_ops: Some(Operations {
+                load: if first_call {
                     LoadOp::Clear(self.clear_value.unwrap())
                 } else {
                     LoadOp::Load
