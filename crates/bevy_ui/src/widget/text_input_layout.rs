@@ -376,8 +376,8 @@ pub fn update_editable_text_layout(
                                         + atlas_info.rect.size() / 2.
                                         + atlas_info.offset,
                                     atlas_info,
-                                    section_index: brush.section_index as usize,
-                                    line_index,
+                                    section_index: brush.section_index,
+                                    line_index: line_index as u32,
                                 });
                             }
 
@@ -415,16 +415,14 @@ pub fn update_editable_text_layout(
                             }
 
                             info.run_geometry.push(RunGeometry {
-                                section_index: brush.section_index as usize,
+                                section_index: brush.section_index,
                                 bounds: Rect {
                                     min: Vec2::new(
-                                        line.metrics().inline_min_coord + glyph_run.offset(),
+                                        glyph_run.offset(),
                                         line.metrics().block_min_coord,
                                     ),
                                     max: Vec2::new(
-                                        line.metrics().inline_min_coord
-                                            + glyph_run.offset()
-                                            + glyph_run.advance(),
+                                        glyph_run.offset() + glyph_run.advance(),
                                         line.metrics().block_max_coord,
                                     ),
                                 },
@@ -448,6 +446,15 @@ pub fn update_editable_text_layout(
                 .iter()
                 .map(|&b| bounding_box_to_rect(b.0))
                 .collect();
+
+            for i in 0..info.selection_rects.len().saturating_sub(1) {
+                let [a, b] = &mut info.selection_rects[i..i + 2] else {
+                    unreachable!();
+                };
+                if a.max.y < b.min.y {
+                    a.max.y = b.min.y;
+                }
+            }
         }
 
         if let Some(input_focus) = input_focus.as_ref()
