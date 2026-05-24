@@ -26,6 +26,35 @@
 #endif
 var<private> current_view_index: i32 = 0;
 
+// Custom WGSL entries (vertex or fragment) used by user `Material`
+// implementors must thread `@builtin(view_index)` and assign it to
+// `current_view_index` under `#ifdef MULTIVIEW`, otherwise `view()` (and any
+// helper that reads through it, e.g. `mesh_view_bindings::*`,
+// `view_transformations::*`) resolves to eye 0 on every layer under a
+// multiview camera. The default `mesh.wgsl` vertex entry and `pbr.wgsl`
+// fragment entry already follow this pattern, so a material that overrides
+// only one of the two and keeps the default for the other still gets
+// correct per-eye behavior from the default side. Paste-ready snippet for a
+// custom fragment entry:
+//
+//     struct FragmentInput {
+//         @builtin(position) frag_coord: vec4<f32>,
+//     #ifdef MULTIVIEW
+//         @builtin(view_index) view_index: i32,
+//     #endif
+//         // ... other fields ...
+//     }
+//
+//     @fragment
+//     fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+//     #ifdef MULTIVIEW
+//         bevy_pbr::mesh_view_bindings::current_view_index = in.view_index;
+//     #endif
+//         // ... rest of fragment body ...
+//     }
+//
+// The default PBR fragment entry in `pbr.wgsl` follows this pattern.
+
 fn view() -> View {
     return view_array[current_view_index];
 }

@@ -74,6 +74,7 @@ use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
+use core::num::NonZeroU32;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
@@ -3334,6 +3335,24 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
         }
 
+        // L7d (Shape D): pipeline-side `multiview_mask` for `Opaque3d` /
+        // `AlphaMask3d` main-pass dispatches that flow through
+        // `DrawMaterial`. The pass-side mask in `main_opaque_pass_3d` uses
+        // the same `max_view_count > 1` predicate, so wgpu's required
+        // pipeline-vs-pass agreement holds. The prepass + deferred prepass
+        // dispatches (`Opaque3dPrepass` / `AlphaMask3dPrepass` /
+        // `Opaque3dDeferred` / `AlphaMask3dDeferred`) flow through
+        // `DrawPrepass` and the separate `PrepassPipelineSpecializer` type
+        // and are NOT covered by this field-set; their conversion is
+        // tracked separately. Formula is the shift-safe equivalent of
+        // `(1u32 << max_view_count) - 1`; the latter is UB at
+        // `MAX_VIEW_COUNT = 32`.
+        let multiview_mask = if max_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - max_view_count))
+        } else {
+            None
+        };
+
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
@@ -3701,6 +3720,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
+            multiview_mask,
             ..default()
         })
     }

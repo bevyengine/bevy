@@ -64,6 +64,31 @@ pub fn main_opaque_pass_3d(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
+    // L7d (Shape D): the main_opaque_pass_3d broadcasts every Opaque3d /
+    // AlphaMask3d draw across all eyes via `multiview_mask`. PBR
+    // `MeshPipeline::specialize` sets the matching pipeline-side mask under
+    // the same `view_count > 1` predicate, so wgpu's required
+    // pipeline-vs-pass multiview-mask agreement holds for every in-tree
+    // Material dispatch through `DrawMaterial`. The skybox broadcast pass
+    // below reuses the same mask, so both passes in this node broadcast
+    // under multiview and degrade to `None` at view_count == 1.
+    //
+    // Custom material authors who ship their own fragment WGSL entry must
+    // declare `@builtin(view_index)` and assign
+    // `bevy_pbr::mesh_view_bindings::current_view_index = view_index;`
+    // under `#ifdef MULTIVIEW` to avoid silent eye-0-broadcast on lighting
+    // and camera-relative effects — see the `Material` trait docstring.
+    //
+    // Mask formula `u32::MAX >> (32 - view_count)` is the shift-safe
+    // equivalent of `(1u32 << view_count) - 1`; the latter is UB at the
+    // `MAX_VIEW_COUNT = 32` cap.
+    let view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
+    let multiview_mask = if view_count > 1 {
+        NonZeroU32::new(u32::MAX >> (32 - view_count))
+    } else {
+        None
+    };
+
     let color_attachments = [Some(target.get_color_attachment())];
     let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
@@ -73,7 +98,7 @@ pub fn main_opaque_pass_3d(
         depth_stencil_attachment,
         timestamp_writes: None,
         occlusion_query_set: None,
-        multiview_mask: None,
+        multiview_mask,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
@@ -102,31 +127,19 @@ pub fn main_opaque_pass_3d(
     pass_span.end(&mut render_pass);
     drop(render_pass);
 
-    // L7d: skybox runs in its own broadcast pass after the opaque + alpha-mask
-    // draws. The skybox cubemap is shared across eyes; per-eye view matrices
-    // (sampled via `view()` from `@builtin(view_index)`) give each eye the
-    // correct ray direction, so one broadcast draw fills every layer of the
-    // multi-layer color + depth attachments. Re-deriving the attachments
-    // through `target.get_color_attachment()` / `depth.get_attachment(...)`
-    // hits the second-call `is_first_call` latch and returns `LoadOp::Load`,
-    // preserving the opaque + alpha-mask output. Surrounding main_opaque_pass
-    // draws stay in their existing single-pass shape (Shape A1 extract,
-    // parallel to session 23's bg-motion-vectors broadcast extract).
-    //
-    // The mask is `(1 << view_count) - 1` (one bit per eye); computed via
-    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
-    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    // Skybox broadcast pass. The cubemap is shared across eyes; per-eye view
+    // matrices (sampled via `view()` from `@builtin(view_index)`) give each
+    // eye the correct ray direction, so one broadcast draw fills every layer
+    // of the multi-layer color + depth attachments. Re-deriving the
+    // attachments through `target.get_color_attachment()` /
+    // `depth.get_attachment(...)` hits the second-call `is_first_call` latch
+    // and returns `LoadOp::Load`, preserving the opaque + alpha-mask output
+    // from the main_opaque_pass_3d above. Reuses the same `multiview_mask`
+    // computed at the top of this function.
     if let (Some(skybox_pipeline), Some(SkyboxBindGroup(skybox_bind_group))) =
         (skybox_pipeline, skybox_bind_group)
         && let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0)
     {
-        let view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
-        let multiview_mask = if view_count > 1 {
-            NonZeroU32::new(u32::MAX >> (32 - view_count))
-        } else {
-            None
-        };
-
         let skybox_color_attachments = [Some(target.get_color_attachment())];
         let skybox_depth_attachment = Some(depth.get_attachment(StoreOp::Store));
 
