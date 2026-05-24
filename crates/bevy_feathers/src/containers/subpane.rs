@@ -1,6 +1,6 @@
 use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
-use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect, Val};
+use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect};
 
 use crate::{
     constants::{fonts, size},
@@ -30,14 +30,13 @@ pub fn subpane_header() -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
             border: UiRect {
-                left: Val::Px(1.0),
-                top: Val::Px(1.0),
-                right: Val::Px(1.0),
-                bottom: Val::Px(0.0),
+                left: px(1),
+                top: px(1),
+                right: px(1),
             },
-            padding: UiRect::axes(Val::Px(10.0), Val::Px(0.0)),
+            padding: UiRect::horizontal(px(10)),
             min_height: size::HEADER_HEIGHT,
-            column_gap: Val::Px(4.0),
+            column_gap: px(4),
             border_radius: {RoundedCorners::Top.to_border_radius(4.0)}
         }
         ThemeBackgroundColor(tokens::SUBPANE_HEADER_BG)
@@ -58,13 +57,12 @@ pub fn subpane_body() -> impl Scene {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             border: UiRect {
-                left: Val::Px(1.0),
-                top: Val::Px(0.0),
-                right: Val::Px(1.0),
-                bottom: Val::Px(1.0),
+                left: px(1),
+                right: px(1),
+                bottom: px(1),
             },
-            row_gap: px(4.0),
-            padding: UiRect::axes(Val::Px(6.0), Val::Px(6.0)),
+            row_gap: px(4),
+            padding: px(6),
             border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
         ThemeBackgroundColor(tokens::SUBPANE_BODY_BG)

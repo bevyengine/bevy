@@ -1,6 +1,7 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
-    material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
+    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    resources::prepare_atmosphere_buffers,
     skin::skin_uniforms_from_world,
 };
 use alloc::sync::Arc;
@@ -15,7 +16,7 @@ use bevy_camera::{
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -64,9 +65,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
-    view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
-    },
+    view::{self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -74,13 +73,15 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::iter;
-use core::mem::{offset_of, size_of};
+use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
-use tracing::{error, info_span, warn};
+#[cfg(feature = "trace")]
+use tracing::info_span;
+use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -108,7 +109,6 @@ use bevy_tasks::ComputeTaskPool;
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -216,7 +216,7 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers)
-                            .after(write_atmosphere_buffer),
+                            .after(prepare_atmosphere_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSystems::Cleanup)
                             .after(RenderSystems::Render),
@@ -380,9 +380,12 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
-        Has<OrderIndependentTransparencySettings>,
-        Has<ExtractedAtmosphere>,
-        Has<ScreenSpaceReflectionsUniform>,
+        (
+            Has<OrderIndependentTransparencySettings>,
+            Has<ExtractedAtmosphere>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<ViewContactShadowsUniformOffset>,
+        ),
     )>,
 ) {
     for (
@@ -398,9 +401,7 @@ pub fn check_views_need_specialization(
         projection,
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
-        has_oit,
-        has_atmosphere,
-        has_ssr,
+        (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -444,6 +445,10 @@ pub fn check_views_need_specialization(
 
         if has_atmosphere {
             view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if has_contact_shadows {
+            view_key |= MeshPipelineKey::CONTACT_SHADOWS;
         }
 
         if view.invert_culling {
@@ -1431,7 +1436,7 @@ impl RenderMeshInstanceGpuBuilder {
         // `collect_meshes_for_gpu_building` will add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
+        let mesh_material_binding_id = if let Some(mesh_material) = mesh_material {
             render_material_bindings.get(&mesh_material).copied()?
         } else {
             // Use a dummy material binding ID.
@@ -1813,9 +1818,8 @@ pub fn extract_meshes_for_cpu_building(
 
             let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
 
-            let material_bindings_index = render_material_bindings
-                .get(&mesh_material)
-                .copied()
+            let material_bindings_index = mesh_material
+                .and_then(|mesh_material| render_material_bindings.get(&mesh_material).copied())
                 .unwrap_or_default();
 
             let shared = RenderMeshInstanceSharedFlat::for_cpu_building(
@@ -2482,6 +2486,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             changed
                                 .drain(..)
@@ -2520,6 +2525,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             for (entity, mesh_instance_builder, mesh_culling_builder) in
                                 changed_cpu_culling
@@ -2723,10 +2729,7 @@ fn init_mesh_pipeline(
 }
 
 impl MeshPipeline {
-    pub fn get_view_layout(
-        &self,
-        layout_key: MeshPipelineViewLayoutKey,
-    ) -> &MeshPipelineViewLayout {
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -3018,7 +3021,8 @@ bitflags::bitflags! {
         const ATMOSPHERE                        = 1 << 21;
         const INVERT_CULLING                    = 1 << 22;
         const PREPASS_READS_MATERIAL            = 1 << 23;
-        const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
+        const CONTACT_SHADOWS                   = 1 << 24;
+        const LAST_FLAG                         = Self::CONTACT_SHADOWS.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
                                                 | Self::NORMAL_PREPASS.bits()
@@ -3340,6 +3344,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "dfg_lut") {
             shader_defs.push("DFG_LUT".into());
         }
+        if cfg!(feature = "area_light_luts") {
+            shader_defs.push("AREA_LIGHT_LUTS".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![
@@ -3365,12 +3372,21 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
+        if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
+            shader_defs.push("CONTACT_SHADOWS".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
+        if key.contains(MeshPipelineKey::OIT_ENABLED)
+            && matches!(
+                pass,
+                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+            )
+        {
             label = "oit_mesh_pipeline".into();
             // TODO tail blending would need alpha blending
             blend = None;
@@ -4174,50 +4190,22 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewContactShadowsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
-        Read<MeshViewBindGroup>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
-    );
+    type ViewQuery = (Read<MeshViewBindGroup>,);
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (
-            view_uniform,
-            view_lights,
-            view_fog,
-            view_light_probes,
-            view_ssr,
-            view_contact_shadows,
-            view_environment_map,
-            mesh_view_bind_group,
-            maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, '_, Self::ViewQuery>,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform.offset,
-            view_lights.offset,
-            view_fog.offset,
-            **view_light_probes,
-            **view_ssr,
-            **view_contact_shadows,
-            **view_environment_map,
-        ];
-        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
-            offsets.push(layers_count_offset.offset);
-        }
-        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+        pass.set_bind_group(
+            I,
+            &mesh_view_bind_group.main,
+            &mesh_view_bind_group.main_offsets,
+        );
 
         RenderCommandResult::Success
     }

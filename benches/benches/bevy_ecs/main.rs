@@ -30,6 +30,7 @@ criterion_main!(
     iteration::benches,
     fragmentation::benches,
     observers::benches,
+    resources::benches,
     scheduling::benches,
     world::benches,
     param::benches,

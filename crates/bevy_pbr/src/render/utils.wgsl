@@ -99,10 +99,10 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
     let cos_theta = 1.0 - 2.0 * rand_f(rng);
     let phi = PI_2 * rand_f(rng);
     let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
-    let x = normal.x + sin_theta * cos(phi);
-    let y = normal.y + sin_theta * sin(phi);
-    let z = normal.z + cos_theta;
-    return vec3(x, y, z);
+    let direction = normal + vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
+    let len_sq = dot(direction, direction);
+    if len_sq < 1e-8 { return normal; }
+    return direction * inverseSqrt(len_sq);
 }
 
 // https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere

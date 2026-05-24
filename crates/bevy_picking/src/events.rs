@@ -61,6 +61,7 @@ use crate::{
     backend::{prelude::PointerLocation, HitData},
     hover::{get_hovered_entities, is_directly_hovered, HoverMap, PreviousHoverMap},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap},
+    PickingSettings,
 };
 
 /// Stores the common data needed for all pointer events.
@@ -289,6 +290,8 @@ pub struct Press {
     pub button: PointerButton,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Number of consecutive presses, starting at `1`.
+    pub count: u8,
 }
 
 /// Fires when a pointer button is released over the [target entity](EntityEvent::event_target).
@@ -312,6 +315,8 @@ pub struct Click {
     pub hit: HitData,
     /// Duration between the pointer pressed and lifted for this click
     pub duration: Duration,
+    /// Number of consecutive clicks, starting at `1`.
+    pub count: u8,
 }
 
 /// Fires while a pointer is moving over the [target entity](EntityEvent::event_target).
@@ -466,10 +471,13 @@ pub struct Scroll {
 
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
 /// about pointer button presses.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Reflect)]
+#[reflect(Debug, Clone, Default)]
 pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
     pub pressing: EntityHashMap<(Location, Instant, HitData)>,
+    /// Stores the latest click time and count for each clicked entity.
+    pub clicking: EntityHashMap<(Instant, u8)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: EntityHashMap<DragEntry>,
     /// Stores the hit data for each entity currently being dragged over by the pointer.
@@ -486,7 +494,8 @@ impl PointerButtonState {
 }
 
 /// A cache map containing the ancestry of hovered entities
-#[derive(Debug, Clone, Default, Deref, DerefMut)]
+#[derive(Debug, Clone, Default, Deref, DerefMut, Reflect)]
+#[reflect(Debug, Clone, Default)]
 pub struct HoveredEntityAncestors(EntityHashMap<EntityHashSet>);
 
 impl HoveredEntityAncestors {
@@ -539,7 +548,8 @@ impl HoveredEntityAncestors {
 }
 
 /// State for all pointers.
-#[derive(Debug, Clone, Default, Resource)]
+#[derive(Debug, Clone, Default, Resource, Reflect)]
+#[reflect(Debug, Clone, Default, Resource)]
 pub struct PointerState {
     /// Pressing and dragging state, organized by pointer and button.
     pub pointer_buttons: HashMap<(PointerId, PointerButton), PointerButtonState>,
@@ -666,6 +676,7 @@ pub fn pointer_events(
     pointer_map: Res<PointerMap>,
     hover_map: Res<HoverMap>,
     previous_hover_map: Res<PreviousHoverMap>,
+    picking_settings: Res<PickingSettings>,
     mut pointer_state: ResMut<PointerState>,
     mut hovered_entity_ancestors: Local<HoveredEntityAncestors>,
     mut sent_leave: Local<HashSet<(PointerId, Entity)>>,
@@ -912,6 +923,9 @@ pub fn pointer_events(
         match action {
             PointerAction::Press(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
+                state.clicking.retain(|_, (last_click, _)| {
+                    now - *last_click <= picking_settings.multi_click_interval
+                });
 
                 // If it's a press, emit a Pressed event and mark the hovered entities as pressed
                 for (hovered_entity, hit) in hover_map
@@ -919,12 +933,18 @@ pub fn pointer_events(
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                 {
+                    let count = state
+                        .clicking
+                        .get(&hovered_entity)
+                        .map_or(1, |(_, count)| count.saturating_add(1));
+                    state.clicking.insert(hovered_entity, (now, count));
                     let pressed_event = Pointer::new(
                         pointer_id,
                         location.clone(),
                         Press {
                             button,
                             hit: hit.clone(),
+                            count,
                         },
                         hovered_entity,
                     );
@@ -938,6 +958,9 @@ pub fn pointer_events(
             }
             PointerAction::Release(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
+                state.clicking.retain(|_, (last_click, _)| {
+                    now - *last_click <= picking_settings.multi_click_interval
+                });
 
                 // Emit Click and Release events on all the previously hovered entities.
                 for (hovered_entity, hit) in previous_hover_map
@@ -947,6 +970,11 @@ pub fn pointer_events(
                 {
                     // If this pointer previously pressed the hovered entity, emit a Click event
                     if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity) {
+                        let count = state
+                            .clicking
+                            .get(&hovered_entity)
+                            .map_or(1, |(_, count)| *count);
+                        state.clicking.insert(hovered_entity, (now, count));
                         let click_event = Pointer::new(
                             pointer_id,
                             location.clone(),
@@ -954,6 +982,7 @@ pub fn pointer_events(
                                 button,
                                 hit: hit.clone(),
                                 duration: now - *press_instant,
+                                count,
                             },
                             hovered_entity,
                         );
@@ -1207,6 +1236,7 @@ mod tests {
         // Init all the resources and messages necessary to run `pointer_events`
         app.init_resource::<HoverMap>()
             .init_resource::<PreviousHoverMap>()
+            .init_resource::<PickingSettings>()
             .init_resource::<PointerState>()
             .add_message::<PointerInput>()
             .add_message::<Pointer<Cancel>>()

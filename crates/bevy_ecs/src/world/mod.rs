@@ -54,7 +54,7 @@ use crate::{
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, DetectChangesMut, Discard, Insert, Remove},
+    prelude::{Add, Despawn, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, IS_RESOURCE},
@@ -314,6 +314,7 @@ impl World {
     /// # Usage Notes
     /// In most cases, you don't need to call this method directly since component registration
     /// happens automatically during system initialization.
+    #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components_registrator().register_component::<T>()
     }
@@ -640,6 +641,7 @@ impl World {
     /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
     /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
     /// [`World::insert_resource`] instead.
+    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components_registrator().register_component::<R>()
     }
@@ -1848,7 +1850,7 @@ impl World {
         func: impl FnOnce(&mut World) -> R,
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
-        let resource_id: ComponentId = self.register_resource::<R>();
+        let resource_id = self.register_component::<R>();
         let entity = resource_id.id();
 
         if let Ok(entity_ref) = self.get_entity(entity) {
@@ -2179,7 +2181,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -2212,7 +2214,7 @@ impl World {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
@@ -2236,7 +2238,7 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn get_resource_or_insert_with<R: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
@@ -2283,7 +2285,9 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+    pub fn get_resource_or_init<R: Resource<Mutability = Mutable> + FromWorld>(
+        &mut self,
+    ) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(R::from_world, caller);
@@ -2771,7 +2775,7 @@ impl World {
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
-        let mut changed_by = entity_mut.get_changed_by::<R>()?;
+        let changed_by = entity_mut.get_changed_by::<R>()?;
         let value = entity_mut.take::<R>()?;
 
         // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
@@ -2783,7 +2787,6 @@ impl World {
             entity: Entity,
             component_id: ComponentId,
             value: ManuallyDrop<R>,
-            ticks: ComponentTicks,
             caller: MaybeLocation,
         }
         impl<R: Resource> Drop for ReinsertGuard<'_, R> {
@@ -2841,11 +2844,11 @@ impl World {
                     // SAFETY:
                     // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
                     let world = unsafe { entity_mut.world_mut() };
+                    let tick = world.change_tick();
                     // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
-                    let mut bundle_inserter = unsafe {
-                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
-                    };
+                    let mut bundle_inserter =
+                        unsafe { BundleInserter::new::<R>(world, location.archetype_id, tick) };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -2866,12 +2869,6 @@ impl World {
                     });
                     entity_mut.update_location();
 
-                    // Set the added tick to the original.
-                    entity_mut
-                        .get_mut::<R>()
-                        .unwrap()
-                        .set_last_added(self.ticks.added);
-
                     // SAFETY: We update the entity location afterwards.
                     unsafe { entity_mut.world_mut() }.flush();
 
@@ -2889,7 +2886,6 @@ impl World {
             entity,
             component_id,
             value: ManuallyDrop::new(value),
-            ticks,
             caller: changed_by,
         };
 
@@ -2898,7 +2894,7 @@ impl World {
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                changed_by: changed_by.as_mut(),
+                changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
@@ -3393,7 +3389,7 @@ impl World {
         }
     }
 
-    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists and is mutable.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
@@ -3920,7 +3916,7 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
-        prelude::{Event, Mut, On, Res},
+        prelude::{DetectChanges, Event, Mut, On, Res},
         ptr::OwningPtr,
         resource::Resource,
         world::{error::EntityMutableFetchError, DeferredWorld},
@@ -4625,5 +4621,24 @@ mod tests {
         world.flush();
 
         assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn resource_scope_ticks() {
+        #[derive(Resource)]
+        struct R;
+
+        let mut world = World::new();
+        world.insert_resource(R);
+        world.resource_scope(|world, r: Mut<R>| {
+            assert_eq!(world.change_tick(), r.added());
+            assert_eq!(world.change_tick(), r.last_changed());
+            world.increment_change_tick();
+        });
+        assert_eq!(world.change_tick(), world.resource_ref::<R>().added());
+        assert_eq!(
+            world.change_tick(),
+            world.resource_ref::<R>().last_changed()
+        );
     }
 }

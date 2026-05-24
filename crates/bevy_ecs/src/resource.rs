@@ -3,7 +3,7 @@
 use log::warn;
 
 use crate::{
-    component::{Component, ComponentId, Mutable},
+    component::{Component, ComponentId},
     lifecycle::HookContext,
     world::DeferredWorld,
 };
@@ -81,7 +81,7 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component<Mutability = Mutable> {}
+pub trait Resource: Component {}
 
 /// A marker component for entities that have a Resource component.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
@@ -165,14 +165,18 @@ pub const IS_RESOURCE: ComponentId = ComponentId::from_u32(crate::component::IS_
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+
     use crate::{
         change_detection::MaybeLocation,
         entity::Entity,
+        lifecycle::HookContext,
         ptr::OwningPtr,
         resource::{IsResource, Resource},
-        world::World,
+        world::{DeferredWorld, World},
     };
     use alloc::vec::Vec;
+    use bevy_ecs_macros::Component;
     use bevy_platform::prelude::String;
 
     #[test]
@@ -196,7 +200,7 @@ mod tests {
         assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
-        let id3 = world.register_resource::<TestResource3>();
+        let id3 = world.register_component::<TestResource3>();
         assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.
@@ -280,5 +284,46 @@ mod tests {
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_component_features() {
+        static ON_ADD_CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Resource)]
+        #[component(immutable, on_add)]
+        struct TestResource;
+        impl TestResource {
+            fn on_add(_: DeferredWorld, _: HookContext) {
+                ON_ADD_CALLED.store(true, Relaxed);
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert!(ON_ADD_CALLED.load(Relaxed));
+        assert!(world.get_resource::<TestResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_require_features() {
+        #[derive(Component, Default)]
+        struct RequiredComponent;
+
+        #[derive(Resource)]
+        #[require(RequiredComponent)]
+        struct TestResource;
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert_eq!(
+            world
+                .query::<(&TestResource, &RequiredComponent)>()
+                .iter(&world)
+                .count(),
+            1
+        );
     }
 }

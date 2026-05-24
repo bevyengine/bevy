@@ -1,8 +1,9 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnTuple,
-    BsnType, BsnUnnamedField, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnListRoot, BsnNamedField, BsnRelatedSceneList,
+    BsnRoot, BsnScene, BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneList, BsnSceneListItem,
+    BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
+use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use quote::quote;
 use syn::{
@@ -11,7 +12,7 @@ use syn::{
     parenthesized,
     parse::{Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
-    token::{At, Brace, Bracket, Colon, Comma, Paren},
+    token::{At, Brace, Bracket, Colon, Comma, Paren, Tilde},
     Block, Expr, Ident, Lit, LitStr, Path, Result, Token,
 };
 
@@ -58,22 +59,22 @@ impl Parse for BsnListRoot {
 impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
-        let mut found_inherited_scene = false;
+        let mut found_cached_scene = false;
         if input.peek(Paren) {
             let content;
             parenthesized![content in input];
             while !content.is_empty() {
-                let entry = BsnEntry::parse(&content, found_inherited_scene)?;
-                if matches!(entry, BsnEntry::InheritedScene(_)) {
-                    found_inherited_scene = true;
+                let entry = BsnEntry::parse(&content, found_cached_scene)?;
+                if matches!(entry, BsnEntry::CachedScene(_)) {
+                    found_cached_scene = true;
                 }
                 entries.push(entry);
             }
         } else if ALLOW_FLAT {
             while !input.is_empty() {
-                let entry = BsnEntry::parse(input, found_inherited_scene)?;
-                if matches!(entry, BsnEntry::InheritedScene(_)) {
-                    found_inherited_scene = true;
+                let entry = BsnEntry::parse(input, found_cached_scene)?;
+                if matches!(entry, BsnEntry::CachedScene(_)) {
+                    found_cached_scene = true;
                 }
                 entries.push(entry);
                 if input.peek(Comma) {
@@ -83,7 +84,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                 }
             }
         } else {
-            entries.push(BsnEntry::parse(input, found_inherited_scene)?);
+            entries.push(BsnEntry::parse(input, found_cached_scene)?);
         }
 
         Ok(Self { entries })
@@ -91,9 +92,9 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 }
 
 impl BsnEntry {
-    fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
+    fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
         Ok(if input.peek(Token![:]) {
-            BsnEntry::InheritedScene(BsnInheritedScene::parse(input, found_inherited_scene)?)
+            BsnEntry::CachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
             if input.peek(Brace) {
@@ -101,12 +102,12 @@ impl BsnEntry {
             } else {
                 BsnEntry::Name(input.parse::<Ident>()?)
             }
-        } else if input.peek(Brace) {
-            BsnEntry::SceneExpression(braced_tokens(input)?)
+        } else if input.peek(Brace) || input.peek(At) {
+            BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else {
-            let is_template = input.peek(At);
+            let is_template = input.peek(Tilde);
             if is_template {
-                input.parse::<At>()?;
+                input.parse::<Tilde>()?;
             }
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
@@ -152,18 +153,11 @@ impl BsnEntry {
                 }
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
-                    let args = if input.peek(Paren) {
-                        let content;
-                        parenthesized!(content in input);
-                        Some(content.parse_terminated(Expr::parse, Token![,])?)
-                    } else {
-                        None
-                    };
 
                     let bsn_constructor = BsnConstructor {
                         type_path: path,
                         function,
-                        args,
+                        args: input.parse()?,
                     };
                     if is_template {
                         BsnEntry::TemplateConstructor(bsn_constructor)
@@ -173,17 +167,16 @@ impl BsnEntry {
                 }
                 PathType::Function => {
                     if input.peek(Paren) {
-                        let tokens = parenthesized_tokens(input)?;
-                        BsnEntry::SceneExpression(quote! {#path(#tokens)})
+                        let args = input.parse()?;
+                        BsnEntry::UncachedScene(BsnScene::Fn(BsnSceneFn { path, args }))
                     } else {
-                        BsnEntry::SceneExpression(quote! {#path})
+                        BsnEntry::UncachedScene(BsnScene::Expression(quote! {#path}))
                     }
                 }
             }
         })
     }
 }
-
 impl Parse for BsnSceneList {
     fn parse(input: ParseStream) -> Result<Self> {
         let content;
@@ -211,28 +204,109 @@ impl Parse for BsnSceneListItem {
     }
 }
 
-impl BsnInheritedScene {
-    fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
-        let colon = input.parse::<Token![:]>()?;
-        if found_inherited_scene {
-            return Err(syn::Error::new(
-                colon.span(),
-                "Cannot inherit scenes more than once",
-            ));
+impl Parse for BsnSceneFnArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let args = if input.peek(Paren) {
+            let content;
+            parenthesized!(content in input);
+            Some(content.parse_terminated(BsnSceneFnArg::parse, Token![,])?)
+        } else {
+            None
+        };
+        Ok(Self(args))
+    }
+}
+
+impl Parse for BsnSceneFnArg {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![#]) {
+            input.parse::<Token![#]>()?;
+            if input.peek(Brace) {
+                Ok(Self::NameExpression(braced_tokens(input)?))
+            } else {
+                Ok(Self::Name(input.parse::<Ident>()?))
+            }
+        } else {
+            Ok(Self::Expr(Expr::parse(input)?))
         }
+    }
+}
+impl BsnScene {
+    fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
+        let cached = if input.peek(Token![:]) {
+            Some(input.parse::<Token![:]>()?)
+        } else {
+            None
+        };
+
+        let err_if_cached = |msg: &str| {
+            if let Some(colon) = cached {
+                Err(syn::Error::new(colon.span(), msg))
+            } else {
+                Ok(())
+            }
+        };
+
+        if found_cached_scene {
+            err_if_cached("Cannot cache scenes more than once")?;
+        }
+
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
-            BsnInheritedScene::Asset(path)
+            if cached.is_none() {
+                return Err(syn::Error::new(
+                    path.span(),
+                    "Cannot use scenes from asset path without caching, please add the ':' prefix.",
+                ));
+            }
+            BsnScene::Asset(path)
+        } else if input.peek(Brace) {
+            err_if_cached("Cannot cache scene expressions")?;
+            BsnScene::Expression(braced_tokens(input)?)
+        } else if input.peek(At) {
+            input.parse::<At>()?;
+            let sc = input.parse::<BsnType>()?;
+            if sc.fields.len() > 0 {
+                err_if_cached("Cannot cache Scene Components with props/fields")?;
+            }
+            BsnScene::SceneComponent(sc)
         } else {
-            let function = input.parse::<Path>()?;
-            let args = if input.peek(Paren) {
-                let content;
-                parenthesized!(content in input);
-                Some(content.parse_terminated(Expr::parse, Token![,])?)
-            } else {
-                None
-            };
-            BsnInheritedScene::Fn { function, args }
+            // PERF: do we really need this fork here?
+            let path = input.fork().parse::<Path>()?;
+            match PathType::new(&path) {
+                PathType::Type | PathType::Enum => {
+                    // Scene components are parsed before this if an @ is found.
+                    // If this path is hit, that means it wasn't prefixed by @
+                    return Err(syn::Error::new(
+                        path.span(),
+                        format!(
+                            "Scene component {} needs to be prefixed by '@'",
+                            path_to_string(&path),
+                        ),
+                    ));
+                }
+                PathType::Function | PathType::TypeFunction => {
+                    let path = input.parse::<Path>()?;
+                    let func = BsnSceneFn {
+                        path,
+                        args: input.parse()?,
+                    };
+                    if func.args.0.is_some() {
+                        err_if_cached("Cannot cache Scene function with arguments")?;
+                    }
+                    BsnScene::Fn(func)
+                }
+                path_type => {
+                    return Err(syn::Error::new(
+                        path.span(),
+                        format!(
+                            "Cannot cache path {} of type {:?}",
+                            path_to_string(&path),
+                            path_type,
+                        ),
+                    ))
+                }
+            }
         })
     }
 }
@@ -301,6 +375,12 @@ impl Parse for BsnFields {
 
 impl Parse for BsnNamedField {
     fn parse(input: ParseStream) -> Result<Self> {
+        let is_prop = if input.peek(At) {
+            input.parse::<At>()?;
+            true
+        } else {
+            false
+        };
         let name = input.parse::<Ident>()?;
         let value = if input.peek(Colon) {
             input.parse::<Colon>()?;
@@ -313,7 +393,11 @@ impl Parse for BsnNamedField {
         } else {
             None
         };
-        Ok(BsnNamedField { name, value })
+        Ok(BsnNamedField {
+            name,
+            value,
+            is_prop,
+        })
     }
 }
 
@@ -379,6 +463,16 @@ impl Parse for BsnValue {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Brace) {
             BsnValue::Expr(braced_tokens(input)?)
+        } else if input.peek(Token![const]) && input.peek2(Brace) {
+            let const_token = input.parse::<Token![const]>()?;
+            let braced = braced_tokens(input)?;
+
+            BsnValue::Expr(quote! {#const_token {#braced}})
+        } else if input.peek(Token![unsafe]) && input.peek2(Brace) {
+            let unsafe_token = input.parse::<Token![unsafe]>()?;
+            let braced = braced_tokens(input)?;
+
+            BsnValue::Expr(quote! {#unsafe_token {#braced}})
         } else if input.peek(Token![|]) {
             let tokens = parse_closure_loose(input)?;
             BsnValue::Closure(tokens)
@@ -406,200 +500,19 @@ impl Parse for BsnValue {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            BsnValue::Name(input.parse::<Ident>()?)
+            if input.peek(Brace) {
+                BsnValue::NameExpression(braced_tokens(input)?)
+            } else {
+                BsnValue::Name(input.parse::<Ident>()?)
+            }
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
-enum PathType {
-    Type,
-    Enum,
-    Const,
-    TypeConst,
-    TypeFunction,
-    Function,
-}
-
-impl PathType {
-    fn new(path: &Path) -> PathType {
-        let mut iter = path.segments.iter().rev();
-        if let Some(last_segment) = iter.next() {
-            let last_string = last_segment.ident.to_string();
-            let mut last_string_chars = last_string.chars();
-            let last_ident_first_char = last_string_chars.next().unwrap();
-            if last_ident_first_char.is_uppercase() {
-                let is_const = is_const(&last_string);
-                if let Some(second_to_last_segment) = iter.next() {
-                    // PERF: is there some way to avoid this string allocation?
-                    let second_to_last_string = second_to_last_segment.ident.to_string();
-                    let first_char = second_to_last_string.chars().next().unwrap();
-                    if first_char.is_uppercase() {
-                        if is_const {
-                            PathType::TypeConst
-                        } else {
-                            PathType::Enum
-                        }
-                    } else if is_const {
-                        PathType::Const
-                    } else {
-                        PathType::Type
-                    }
-                } else if is_const {
-                    PathType::Const
-                } else {
-                    PathType::Type
-                }
-            } else if let Some(second_to_last) = iter.next() {
-                // PERF: is there some way to avoid this string allocation?
-                let second_to_last_string = second_to_last.ident.to_string();
-                let first_char = second_to_last_string.chars().next().unwrap();
-                if first_char.is_uppercase() {
-                    PathType::TypeFunction
-                } else {
-                    PathType::Function
-                }
-            } else {
-                PathType::Function
-            }
-        } else {
-            // This won't be hit so just pick one to make it easy on consumers
-            PathType::Type
-        }
-    }
-}
-
-fn is_const(path: &str) -> bool {
-    // Paths of length 1 are ambiguous, we give the tie to Types,
-    // as that is more useful for scenes
-    if path.len() == 1 {
-        return false;
-    }
-
-    // All characters are uppercase ... this is a Const
-    !path.chars().any(|c| c.is_lowercase())
-}
-
 fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
     let ident = path.segments.pop().map(|s| s.into_value().ident);
     path.segments.pop_punct();
     ident
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_const;
-    use crate::bsn::parse::PathType;
-    use syn::{parse_str, Path};
-
-    macro_rules! test_path_type {
-        ($test_name:ident, $input:expr, $expected:expr) => {
-            #[test]
-            fn $test_name() {
-                // Arrange
-                let path = parse_str::<Path>($input).unwrap();
-                let expected = $expected;
-
-                // Act
-                let result = PathType::new(&path);
-
-                // Assert
-                assert_eq!(result, expected, "Failed on path: '{}'", $input);
-            }
-        };
-    }
-
-    // Types
-    test_path_type!(path_type_standard_root, "XType", PathType::Type);
-    test_path_type!(path_type_standard_namespace, "foo::XType", PathType::Type);
-
-    // These cases are ambiguous. We parse it as a Type as that works better in the scene patching context.
-    test_path_type!(path_type_ambiguous_single_char_root, "X", PathType::Type);
-    test_path_type!(
-        path_type_ambiguous_single_char_namespace,
-        "foo::X",
-        PathType::Type
-    );
-
-    // Constants
-    test_path_type!(path_type_const_root, "X_AXIS", PathType::Const);
-    test_path_type!(path_type_const_namespace, "foo::X_AXIS", PathType::Const);
-    test_path_type!(path_type_const_no_underscore_root, "XAXIS", PathType::Const);
-    test_path_type!(
-        path_type_const_no_underscore_namespace,
-        "foo::XAXIS",
-        PathType::Const
-    );
-
-    // Enums
-    test_path_type!(path_type_enum_standard, "Foo::Bar", PathType::Enum);
-    test_path_type!(path_type_enum_namespace, "foo::Foo::Bar", PathType::Enum);
-
-    // This is ambiguous with TypeConst ... we give the tie to Enum as that works better in a scene context.
-    test_path_type!(
-        path_type_enum_ambiguous_single_char,
-        "Foo::B",
-        PathType::Enum
-    );
-
-    // Type Functions
-    test_path_type!(
-        path_type_type_function_standard,
-        "Foo::bar",
-        PathType::TypeFunction
-    );
-    test_path_type!(
-        path_type_type_function_namespace,
-        "foo::Foo::bar",
-        PathType::TypeFunction
-    );
-
-    // Type Constants
-    test_path_type!(
-        path_type_type_const_standard,
-        "Foo::BAR",
-        PathType::TypeConst
-    );
-
-    // Functions
-    test_path_type!(path_type_function_root, "foo", PathType::Function);
-    test_path_type!(path_type_function_namespace, "foo::foo", PathType::Function);
-    test_path_type!(path_type_function_single_char, "f", PathType::Function);
-
-    macro_rules! test_is_const {
-        ($test_name:ident, $input:expr, $expected:expr) => {
-            #[test]
-            fn $test_name() {
-                // Arrange
-                let input = $input;
-                let expected = $expected;
-
-                // Act
-                let result = is_const(input);
-
-                // Assert
-                assert_eq!(result, expected, "Failed on input: '{}'", input);
-            }
-        };
-    }
-
-    // Length == 1
-    test_is_const!(single_upper_is_not_const, "X", false);
-    test_is_const!(single_lower_is_not_const, "a", false);
-
-    // Valid
-    test_is_const!(standard_const_with_underscore, "X_AXIS", true);
-    test_is_const!(standard_const_max_value, "MAX_VALUE", true);
-    test_is_const!(multiple_upper_no_underscore, "PI", true);
-
-    // Mixed casing
-    test_is_const!(mixed_case_with_underscore_fails, "FOO_bar", false);
-    test_is_const!(short_mixed_case_with_underscore_fails, "A_b", false);
-
-    // Types & Functions
-    test_is_const!(pascal_case_is_not_const, "Transform", false);
-    test_is_const!(snake_case_is_not_const, "my_function", false);
-    test_is_const!(camel_case_is_not_const, "camelCase", false);
 }
