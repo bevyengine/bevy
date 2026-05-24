@@ -49,7 +49,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
-use core::any::TypeId;
+use core::{any::TypeId, num::NonZeroU32};
 pub use prepass_bindings::*;
 use tracing::{error, warn};
 
@@ -419,6 +419,22 @@ impl PrepassPipeline {
             shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
         }
 
+        // L7d (Shape D): pipeline-side `multiview_mask` for the prepass +
+        // deferred prepass dispatches that flow through `DrawPrepass`
+        // (`Opaque3dPrepass` / `AlphaMask3dPrepass` / `Opaque3dDeferred` /
+        // `AlphaMask3dDeferred`). The pass-side mask in `prepass/node.rs` uses
+        // the same `view_count > 1` predicate, so wgpu's required
+        // pipeline-vs-pass agreement holds. `Opaque3d` / `AlphaMask3d`
+        // main-pass dispatches flow through the separate `MeshPipeline` type
+        // and set their own pipeline-side mask. Formula is the shift-safe
+        // equivalent of `(1u32 << max_view_count) - 1`; the latter is UB at
+        // `MAX_VIEW_COUNT = 32`.
+        let multiview_mask = if max_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - max_view_count))
+        } else {
+            None
+        };
+
         shader_defs.push(ShaderDefVal::UInt(
             "MATERIAL_BIND_GROUP".into(),
             crate::MATERIAL_BIND_GROUP_INDEX as u32,
@@ -652,6 +668,7 @@ impl PrepassPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("prepass_pipeline".into()),
+            multiview_mask,
             ..default()
         };
         Ok(descriptor)
