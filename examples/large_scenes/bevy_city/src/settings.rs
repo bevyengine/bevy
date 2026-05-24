@@ -71,7 +71,7 @@ pub fn settings_ui() -> impl Scene {
             Children [
                 Text("Settings"),
                 (
-                    :FeathersCheckbox {
+                    @FeathersCheckbox {
                         @caption: {bsn! { Text("Simulate Cars") ThemedText }}
                     }
                     Checked
@@ -81,7 +81,7 @@ pub fn settings_ui() -> impl Scene {
                     })
                 ),
                 (
-                    :FeathersCheckbox {
+                    @FeathersCheckbox {
                         @caption: {bsn! { Text("Shadow maps enabled") ThemedText }}
                     }
                     Checked
@@ -140,7 +140,7 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    :FeathersCheckbox {
+                    @FeathersCheckbox {
                         @caption: {bsn! { Text("Wireframe Enabled") ThemedText }}
                     }
                     on(checkbox_self_update)
@@ -154,7 +154,7 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    :FeathersCheckbox {
+                    @FeathersCheckbox {
                         @caption: {bsn! { Text("CPU culling") ThemedText }}
                     }
                     Checked
@@ -177,7 +177,7 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    :FeathersButton {
+                    @FeathersButton {
                         @caption: {bsn! { Text("Regenerate City") ThemedText }}
                     }
                     on(

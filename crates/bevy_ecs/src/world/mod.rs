@@ -2789,7 +2789,7 @@ impl World {
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
-        let mut changed_by = entity_mut.get_changed_by::<R>()?;
+        let changed_by = entity_mut.get_changed_by::<R>()?;
         let value = entity_mut.take::<R>()?;
 
         // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
@@ -2908,7 +2908,7 @@ impl World {
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                changed_by: changed_by.as_mut(),
+                changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },

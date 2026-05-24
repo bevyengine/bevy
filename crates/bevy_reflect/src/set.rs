@@ -1,7 +1,7 @@
 //! A trait used to power [set-like] operations via reflection.
 //!
 //! [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
