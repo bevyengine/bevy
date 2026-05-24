@@ -40,6 +40,12 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`](crate::io::AssetSource). `value` is the bytes that will be returned for the asset. This can be
     /// _either_ a `&'static [u8]` or a [`Vec<u8>`](alloc::vec::Vec).
+    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+        self.insert_asset_internal(full_path, asset_path, value.into());
+    }
+
+    // Implements `insert_asset`, but with a non-generic `value` parameter. This
+    // stops the function from being duplicated many times by monomorphization.
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -47,7 +53,7 @@ impl EmbeddedAssetRegistry {
             reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
         )
     )]
-    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+    fn insert_asset_internal(&self, full_path: PathBuf, asset_path: &Path, value: Value) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
@@ -217,11 +223,11 @@ macro_rules! embedded_path {
     }};
 
     ($source_path: expr, $path_str: expr) => {{
-        let crate_name = module_path!().split(':').next().unwrap();
+        let crate_name = ::core::module_path!().split(':').next().unwrap();
         $crate::io::embedded::_embedded_asset_path(
             crate_name,
             $source_path.as_ref(),
-            file!().as_ref(),
+            ::core::file!().as_ref(),
             $path_str.as_ref(),
         )
     }};
@@ -345,8 +351,8 @@ macro_rules! embedded_asset {
             .world_mut()
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
-        let watched_path = $crate::io::embedded::watched_path(file!(), $path);
-        embedded.insert_asset(watched_path, &path, include_bytes!($path));
+        let watched_path = $crate::io::embedded::watched_path(::core::file!(), $path);
+        embedded.insert_asset(watched_path, &path, ::core::include_bytes!($path));
     }};
 }
 
@@ -373,8 +379,8 @@ macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
-            include_str!($path_str),
-            std::path::Path::new(file!())
+            ::core::include_str!($path_str),
+            ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
@@ -385,8 +391,8 @@ macro_rules! load_internal_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
-            include_str!($path_str),
-            std::path::Path::new(file!())
+            ::core::include_str!($path_str),
+            ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
@@ -405,8 +411,8 @@ macro_rules! load_internal_binary_asset {
             .insert(
                 $handle.id(),
                 ($loader)(
-                    include_bytes!($path_str).as_ref(),
-                    std::path::Path::new(file!())
+                    ::core::include_bytes!($path_str).as_ref(),
+                    ::std::path::Path::new(::core::file!())
                         .parent()
                         .unwrap()
                         .join($path_str)

@@ -520,6 +520,7 @@ pub fn extract_cameras(
         NoIndirectDrawing,
         ViewUniformOffset,
     );
+
     for (
         main_entity,
         render_entity,
@@ -719,6 +720,7 @@ pub struct SortedCamera {
     pub order: isize,
     pub target: Option<NormalizedRenderTarget>,
     pub hdr: bool,
+    pub output_mode: CameraOutputMode,
 }
 
 pub fn sort_cameras(
@@ -732,6 +734,7 @@ pub fn sort_cameras(
             order: camera.order,
             target: camera.target.clone(),
             hdr: camera.hdr,
+            output_mode: camera.output_mode,
         });
     }
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
