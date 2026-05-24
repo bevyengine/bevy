@@ -15,7 +15,7 @@ use crate::{Extract, ExtractSchedule, RenderApp};
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub trait ExtractResource<L: AppLabel = RenderApp, F = ()>: Resource {
+pub trait ExtractResource<L: AppLabel, F = ()>: Resource {
     type Source: Resource;
 
     /// Defines how the resource is transferred into the "render world".
