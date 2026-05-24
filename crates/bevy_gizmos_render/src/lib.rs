@@ -621,6 +621,7 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
 /// can be added and therefore three potential entities.
 #[derive(Clone, Reflect, Resource, ExtractResource)]
 #[reflect(Clone, Resource)]
+#[extract_app(RenderApp)]
 pub struct LineGizmoEntities {
     /// An entity that regular line phase items are associated with.
     pub line_gizmo_renderer: MainEntity,
