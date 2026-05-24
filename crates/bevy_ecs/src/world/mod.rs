@@ -1503,7 +1503,7 @@ impl World {
     ///     bar.0 = true;
     /// });
     /// #
-    /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
+    /// # assert_eq!(world.get_resource::<Bar>(), Some(&Bar(true)));
     /// ```
     #[inline]
     #[track_caller]
