@@ -93,7 +93,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedMultiview, ExtractedView, ViewUniformOffset, ViewUniforms},
     GpuResourceAppExt, MainWorld, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -488,6 +488,18 @@ pub struct ClusteringRasterPipelineKey {
     /// True if this is the populate (second) pass; false if it's the count
     /// (first) one.
     populate_pass: bool,
+    /// Per-camera multiview layer count. `1` is the non-multiview case;
+    /// `>1` flips the WGSL `view_array` to `array<View, MAX_VIEW_COUNT>`.
+    multiview_view_count: u32,
+}
+
+/// The pipeline key that identifies specializations of the
+/// `cluster_z_slice.wgsl` shader.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct ClusteringZSlicingPipelineKey {
+    /// Per-camera multiview layer count. `1` is the non-multiview case;
+    /// `>1` flips the WGSL `view_array` to `array<View, MAX_VIEW_COUNT>`.
+    multiview_view_count: u32,
 }
 
 /// The pipeline key that identifies specializations of the
@@ -526,8 +538,14 @@ impl FromWorld for ClusteringRasterPipeline {
             // @group(0) @binding(5) var<uniform> lights: Lights;
             binding_types::uniform_buffer::<GpuLights>(true)
                 .build(5, ShaderStages::VERTEX_FRAGMENT),
-            // @group(0) @binding(6) var<uniform> view: View;
-            binding_types::uniform_buffer::<ViewUniform>(true)
+            // @group(0) @binding(6) var<uniform> view_array: array<View, N>;
+            //
+            // Sized `None` (unbounded) so the WGSL is free to declare the
+            // binding as `array<View, MAX_VIEW_COUNT>` for multiview pipelines
+            // and `array<View, 1>` for the non-multiview fallback. Backing
+            // storage is the packed `DynamicArrayUniformBuffer<ViewUniform>`
+            // and the dynamic offset selects the per-camera array slot.
+            binding_types::uniform_buffer_sized(true, None)
                 .build(6, ShaderStages::VERTEX_FRAGMENT),
         ];
 
@@ -582,6 +600,12 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             fragment_shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
         } else {
             fragment_shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
+        }
+        if key.multiview_view_count > 1 {
+            fragment_shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
         }
 
         let mut vertex_shader_defs = fragment_shader_defs.clone();
@@ -655,8 +679,14 @@ impl FromWorld for ClusteringZSlicingPipeline {
                     binding_types::storage_buffer_read_only::<RenderClusteredDecal>(false),
                     // @group(0) @binding(5) var<uniform> lights: Lights;
                     binding_types::uniform_buffer::<GpuLights>(true),
-                    // @group(0) @binding(6) var<uniform> view: View;
-                    binding_types::uniform_buffer::<ViewUniform>(true),
+                    // @group(0) @binding(6) var<uniform> view_array: array<View, N>;
+                    //
+                    // Sized `None` (unbounded) so the WGSL declares
+                    // `array<View, MAX_VIEW_COUNT>` for multiview pipelines and
+                    // `array<View, 1>` for the fallback. Dynamic-offset selects
+                    // the per-camera array slot in the packed view-uniform
+                    // buffer.
+                    binding_types::uniform_buffer_sized(true, None),
                 ),
             ),
         );
@@ -671,14 +701,22 @@ impl FromWorld for ClusteringZSlicingPipeline {
 }
 
 impl SpecializedComputePipeline for ClusteringZSlicingPipeline {
-    type Key = ();
+    type Key = ClusteringZSlicingPipelineKey;
 
-    fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
+        let mut shader_defs = vec![];
+        if key.multiview_view_count > 1 {
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+        }
+
         ComputePipelineDescriptor {
             label: Some("clustering Z slicing pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             shader: self.shader.clone(),
-            shader_defs: vec![],
+            shader_defs,
             entry_point: Some("z_slice_main".into()),
             zero_initialize_workgroup_memory: true,
             ..default()
@@ -1463,7 +1501,7 @@ fn prepare_cluster_dummy_textures(
 /// in GPU clustering for each view.
 fn prepare_clustering_pipelines(
     mut commands: Commands,
-    views_query: Query<Entity, With<ExtractedView>>,
+    views_query: Query<(Entity, Option<&ExtractedMultiview>), With<ExtractedView>>,
     pipeline_cache: Res<PipelineCache>,
     mut clustering_z_slicing_pipelines: ResMut<
         SpecializedComputePipelines<ClusteringZSlicingPipeline>,
@@ -1476,17 +1514,24 @@ fn prepare_clustering_pipelines(
     clustering_raster_pipeline: Res<ClusteringRasterPipeline>,
     clustering_allocation_pipeline: Res<ClusteringAllocationPipeline>,
 ) {
-    for view_entity in &views_query {
+    for (view_entity, multiview) in &views_query {
+        let multiview_view_count = multiview
+            .map(|m| m.subviews.len() as u32)
+            .unwrap_or(1);
+
         let clustering_z_slicing_pipeline_id = clustering_z_slicing_pipelines.specialize(
             &pipeline_cache,
             &clustering_z_slicing_pipeline,
-            (),
+            ClusteringZSlicingPipelineKey {
+                multiview_view_count,
+            },
         );
         let clustering_count_pipeline_id = clustering_raster_pipelines.specialize(
             &pipeline_cache,
             &clustering_raster_pipeline,
             ClusteringRasterPipelineKey {
                 populate_pass: false,
+                multiview_view_count,
             },
         );
         let clustering_local_allocation_pipeline_id = clustering_allocation_pipelines.specialize(
@@ -1504,6 +1549,7 @@ fn prepare_clustering_pipelines(
             &clustering_raster_pipeline,
             ClusteringRasterPipelineKey {
                 populate_pass: true,
+                multiview_view_count,
             },
         );
 
