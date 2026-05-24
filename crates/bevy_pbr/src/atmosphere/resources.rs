@@ -23,9 +23,9 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedMultiview, ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 use super::GpuAtmosphereSettings;
@@ -42,6 +42,12 @@ pub(crate) struct AtmosphereBindGroupLayouts {
 pub(crate) struct RenderSkyBindGroupLayouts {
     pub render_sky: BindGroupLayoutDescriptor,
     pub render_sky_msaa: BindGroupLayoutDescriptor,
+    /// Variant used on multiview cameras when MSAA is off: binding 13 is a
+    /// `texture_depth_2d_array` so the fragment can read its own eye's depth
+    /// via `@builtin(view_index)`. MSAA + multiview keeps the non-multiview
+    /// `render_sky_msaa` layout — see the carve-out in `render_sky.wgsl` and
+    /// `mesh_view_bindings.wgsl:99-106`.
+    pub render_sky_multiview: BindGroupLayoutDescriptor,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
 }
@@ -219,9 +225,36 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             ),
         );
 
+        let render_sky_multiview = BindGroupLayoutDescriptor::new(
+            "render_sky_multiview_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::FRAGMENT,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    // scattering medium luts and sampler
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
+                    // atmosphere luts and sampler
+                    (8, texture_2d(TextureSampleType::default())), // transmittance
+                    (9, texture_2d(TextureSampleType::default())), // multiscattering
+                    (10, texture_2d(TextureSampleType::default())), // sky view
+                    (11, texture_3d(TextureSampleType::default())), // aerial view
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    // per-eye view depth texture array
+                    (13, texture_2d_array(TextureSampleType::Depth)),
+                ),
+            ),
+        );
+
         Self {
             render_sky,
             render_sky_msaa,
+            render_sky_multiview,
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
             fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
         }
@@ -304,6 +337,10 @@ pub(crate) struct RenderSkyPipelineId(pub CachedRenderPipelineId);
 pub(crate) struct RenderSkyPipelineKey {
     pub msaa_samples: u32,
     pub dual_source_blending: bool,
+    /// Number of subviews on the camera's `Multiview` component, or 1 if the
+    /// camera is not multiview. Gates the `MULTIVIEW`/`MAX_VIEW_COUNT` shader
+    /// defs and the per-eye depth-array layout selection in `specialize`.
+    pub multiview_view_count: u32,
 }
 
 impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
@@ -319,19 +356,35 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("DUAL_SOURCE_BLENDING".into());
         }
 
+        // WGSL has no `texture_depth_multisampled_2d_array`, so MULTIVIEW only
+        // kicks in on non-MSAA cameras. See `render_sky.wgsl` and
+        // `mesh_view_bindings.wgsl:99-106`.
+        let push_multiview = key.multiview_view_count > 1 && key.msaa_samples == 1;
+        if push_multiview {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+        }
+
         let dst_factor = if key.dual_source_blending {
             BlendFactor::Src1
         } else {
             BlendFactor::SrcAlpha
         };
 
+        let layout = if key.msaa_samples > 1 {
+            self.render_sky_msaa.clone()
+        } else if push_multiview {
+            self.render_sky_multiview.clone()
+        } else {
+            self.render_sky.clone()
+        };
+
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
-            layout: vec![if key.msaa_samples == 1 {
-                self.render_sky.clone()
-            } else {
-                self.render_sky_msaa.clone()
-            }],
+            layout: vec![layout],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
@@ -364,14 +417,18 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 }
 
 pub(super) fn queue_render_sky_pipelines(
-    views: Query<(Entity, &Msaa), (With<Camera>, With<ExtractedAtmosphere>)>,
+    views: Query<
+        (Entity, &Msaa, Option<&ExtractedMultiview>),
+        (With<Camera>, With<ExtractedAtmosphere>),
+    >,
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, msaa) in &views {
+    for (entity, msaa, multiview) in &views {
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
         let id = specializer.specialize(
             &pipeline_cache,
             &layouts,
@@ -380,6 +437,7 @@ pub(super) fn queue_render_sky_pipelines(
                 dual_source_blending: render_device
                     .features()
                     .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
+                multiview_view_count,
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));
@@ -622,6 +680,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &AtmosphereTextures,
             &ViewDepthTexture,
             &Msaa,
+            Option<&ExtractedMultiview>,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
     >,
@@ -666,7 +725,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
-    for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
+    for (entity, atmosphere, textures, view_depth_texture, msaa, multiview) in &views {
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+        let use_multiview_layout = multiview_view_count > 1 && *msaa == Msaa::Off;
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -751,13 +812,16 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
+        let render_sky_layout = if *msaa != Msaa::Off {
+            &render_sky_layouts.render_sky_msaa
+        } else if use_multiview_layout {
+            &render_sky_layouts.render_sky_multiview
+        } else {
+            &render_sky_layouts.render_sky
+        };
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
-            &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
-                &render_sky_layouts.render_sky
-            } else {
-                &render_sky_layouts.render_sky_msaa
-            }),
+            &pipeline_cache.get_bind_group_layout(render_sky_layout),
             &BindGroupEntries::with_indices((
                 // uniforms
                 (0, atmosphere_binding.clone()),

@@ -13,10 +13,21 @@ enable dual_source_blending;
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
+// Under MULTIVIEW the view depth texture is grown to a per-eye array (see
+// `prepare_core_3d_depth_textures`), and the fragment threads
+// `@builtin(view_index)` into the read. WGSL has no
+// `texture_depth_multisampled_2d_array`, so the MSAA + multiview combination
+// keeps the single-layer shape — the host gates the MULTIVIEW shader def on
+// `!MULTISAMPLED` to match. Same shape as the prepass-texture bindings in
+// `mesh_view_bindings.wgsl`.
 #ifdef MULTISAMPLED
 @group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
 #else
+#ifdef MULTIVIEW
+@group(0) @binding(13) var depth_texture: texture_depth_2d_array;
+#else
 @group(0) @binding(13) var depth_texture: texture_depth_2d;
+#endif
 #endif
 
 struct RenderSkyOutput {
@@ -29,8 +40,21 @@ struct RenderSkyOutput {
 }
 
 @fragment
-fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
+fn main(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> RenderSkyOutput {
+#ifdef MULTIVIEW
+#ifndef MULTISAMPLED
+    let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), view_index, 0);
+#else
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
+#endif
+#else
+    let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
+#endif
 
     let ray_dir_ws = uv_to_ray_direction(in.uv);
     let world_pos = get_view_position();
