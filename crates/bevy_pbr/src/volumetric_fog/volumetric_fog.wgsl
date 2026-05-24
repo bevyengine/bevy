@@ -71,10 +71,21 @@ struct VolumetricFog {
 
 @group(1) @binding(0) var<uniform> volumetric_fog: VolumetricFog;
 
+// Under MULTIVIEW the view depth texture is grown to a per-eye array (see
+// `prepare_core_3d_depth_textures`), and the fragment threads
+// `@builtin(view_index)` into the read. WGSL has no
+// `texture_depth_multisampled_2d_array`, so the MSAA + multiview combination
+// keeps the single-layer shape — the host gates the MULTIVIEW shader def on
+// `!MULTISAMPLED` to match. Same shape as the prepass-texture bindings in
+// `mesh_view_bindings.wgsl`.
 #ifdef MULTISAMPLED
 @group(1) @binding(1) var depth_texture: texture_depth_multisampled_2d;
 #else
+#ifdef MULTIVIEW
+@group(1) @binding(1) var depth_texture: texture_depth_2d_array;
+#else
 @group(1) @binding(1) var depth_texture: texture_depth_2d;
+#endif
 #endif
 
 #ifdef DENSITY_TEXTURE
@@ -111,7 +122,16 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
 }
 
 @fragment
-fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+fn fragment(
+    @builtin(position) position: vec4<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    current_view_index = view_index;
+#endif
+
     // Unpack the `volumetric_fog` settings.
     let uvw_from_world = volumetric_fog.uvw_from_world;
     let fog_color = volumetric_fog.fog_color;
@@ -134,7 +154,15 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // shouldn't trace through solid objects). If this is multisample, just use
     // sample 0; this is approximate but good enough.
     let frag_coord = position;
+#ifdef MULTIVIEW
+#ifndef MULTISAMPLED
+    let ndc_end_depth_from_buffer = textureLoad(depth_texture, vec2<i32>(frag_coord.xy), view_index, 0);
+#else
     let ndc_end_depth_from_buffer = textureLoad(depth_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
+#else
+    let ndc_end_depth_from_buffer = textureLoad(depth_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
     let view_end_depth_from_buffer = -position_ndc_to_view(
         frag_coord_to_ndc(vec4(position.xy, ndc_end_depth_from_buffer, 1.0))).z;
 

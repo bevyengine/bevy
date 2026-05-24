@@ -22,7 +22,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{
-            sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
+            sampler, texture_2d_array, texture_3d, texture_depth_2d,
+            texture_depth_2d_multisampled, uniform_buffer,
         },
         BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResource, BlendComponent,
         BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState,
@@ -35,10 +36,10 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
+    view::{ExtractedMultiview, ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
     Extract,
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
@@ -55,6 +56,13 @@ bitflags! {
         const MULTISAMPLED = 0x1;
         /// The volumetric fog has a 3D voxel density texture.
         const DENSITY_TEXTURE = 0x2;
+        /// The camera is a multiview camera, so the view depth texture binds
+        /// as `texture_depth_2d_array` and the fragment threads
+        /// `@builtin(view_index)` into the read. Never set under MULTISAMPLED
+        /// — WGSL has no `texture_depth_multisampled_2d_array`, so the MSAA +
+        /// multiview combination keeps the single-layer binding shape (rare
+        /// in practice; VR doesn't pair with MSAA).
+        const MULTIVIEW = 0x4;
     }
 }
 
@@ -119,6 +127,13 @@ pub struct VolumetricFogPipelineKey {
 
     /// The volumetric fog has a 3D voxel density texture.
     has_density_texture: bool,
+
+    /// Per-camera multiview layer count. `1` is the non-multiview case; `>1`
+    /// flips the WGSL depth-texture binding to `texture_depth_2d_array` and
+    /// reads `current_view_index` from `@builtin(view_index)`. Not honored
+    /// under MSAA — WGSL has no `texture_depth_multisampled_2d_array`, so the
+    /// MSAA + multiview combination keeps the single-layer binding shape.
+    multiview_view_count: u32,
 }
 
 /// The same as [`VolumetricFog`] and [`FogVolume`], but formatted for
@@ -206,6 +221,8 @@ pub fn init_volumetric_fog_pipeline(
                 1,
                 if flags.contains(VolumetricFogBindGroupLayoutKey::MULTISAMPLED) {
                     texture_depth_2d_multisampled()
+                } else if flags.contains(VolumetricFogBindGroupLayoutKey::MULTIVIEW) {
+                    texture_2d_array(TextureSampleType::Depth)
                 } else {
                     texture_depth_2d()
                 },
@@ -287,6 +304,7 @@ pub fn volumetric_fog(
         &ViewVolumetricFog,
         &MeshViewBindGroup,
         &Msaa,
+        Option<&ExtractedMultiview>,
     )>,
     pipeline_cache: Res<PipelineCache>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
@@ -304,7 +322,12 @@ pub fn volumetric_fog(
         view_fog_volumes,
         view_bind_group,
         msaa,
+        multiview,
     ) = view.into_inner();
+
+    let multiview_view_count = multiview
+        .map(|m| m.subviews.len() as u32)
+        .unwrap_or(1);
 
     // Fetch the uniform buffer and binding.
     let (
@@ -360,9 +383,11 @@ pub fn volumetric_fog(
         // TODO: Cache this.
 
         let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
+        let is_msaa = !matches!(*msaa, Msaa::Off);
+        bind_group_layout_key.set(VolumetricFogBindGroupLayoutKey::MULTISAMPLED, is_msaa);
         bind_group_layout_key.set(
-            VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-            !matches!(*msaa, Msaa::Off),
+            VolumetricFogBindGroupLayoutKey::MULTIVIEW,
+            multiview_view_count > 1 && !is_msaa,
         );
 
         // Create the bind group entries. The ones relating to the density
@@ -455,17 +480,19 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
         let mut shader_defs = vec!["SHADOW_FILTER_METHOD_HARDWARE_2X2".into()];
 
         // We need a separate layout for MSAA and non-MSAA, as well as one for
-        // the presence or absence of the density texture.
+        // the presence or absence of the density texture, and one for the
+        // multiview / non-multiview depth binding shape.
         let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
-        bind_group_layout_key.set(
-            VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-            key.mesh_pipeline_view_key
-                .contains(MeshPipelineViewLayoutKey::MULTISAMPLED),
-        );
+        let is_msaa = key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
+        bind_group_layout_key.set(VolumetricFogBindGroupLayoutKey::MULTISAMPLED, is_msaa);
         bind_group_layout_key.set(
             VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE,
             key.has_density_texture,
         );
+        let push_multiview = key.multiview_view_count > 1 && !is_msaa;
+        bind_group_layout_key.set(VolumetricFogBindGroupLayoutKey::MULTIVIEW, push_multiview);
 
         let volumetric_view_bind_group_layout =
             self.volumetric_view_bind_group_layouts[bind_group_layout_key.bits() as usize].clone();
@@ -494,6 +521,14 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
 
         if key.has_density_texture {
             shader_defs.push("DENSITY_TEXTURE".into());
+        }
+
+        if push_multiview {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
         }
 
         let layout = self
@@ -553,7 +588,10 @@ pub fn prepare_volumetric_fog_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<VolumetricFogPipeline>>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
     fog_assets: Res<FogAssets>,
-    view_targets: Query<(Entity, &ExtractedView), With<VolumetricFog>>,
+    view_targets: Query<
+        (Entity, &ExtractedView, Option<&ExtractedMultiview>),
+        With<VolumetricFog>,
+    >,
     meshes: Res<RenderAssets<RenderMesh>>,
     view_key_cache: Res<ViewKeyCache>,
 ) {
@@ -562,7 +600,7 @@ pub fn prepare_volumetric_fog_pipelines(
         return;
     };
 
-    for (entity, view) in view_targets.iter() {
+    for (entity, view, multiview) in view_targets.iter() {
         let Some(mesh_pipeline_key) = view_key_cache.get(&view.retained_view_entity) else {
             continue;
         };
@@ -573,6 +611,9 @@ pub fn prepare_volumetric_fog_pipelines(
             vertex_buffer_layout: plane_mesh.layout.clone(),
             target_format: view.target_format,
             has_density_texture: false,
+            multiview_view_count: multiview
+                .map(|m| m.subviews.len() as u32)
+                .unwrap_or(1),
         };
         let textureless_pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -744,6 +785,8 @@ impl VolumetricFogBindGroupLayoutKey {
                         Some("density texture")
                     } else if flag == VolumetricFogBindGroupLayoutKey::MULTISAMPLED {
                         Some("multisampled")
+                    } else if flag == VolumetricFogBindGroupLayoutKey::MULTIVIEW {
+                        Some("multiview")
                     } else {
                         None
                     }
