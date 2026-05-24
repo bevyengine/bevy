@@ -415,6 +415,11 @@ impl Schedule {
         this
     }
 
+    /// Returns whether this schedule has been changed since the last time it was built.
+    pub fn is_changed(&self) -> bool {
+        self.graph.changed
+    }
+
     /// Returns the [`InternedScheduleLabel`] for this `Schedule`,
     /// corresponding to the [`ScheduleLabel`] this schedule was created with.
     pub fn label(&self) -> InternedScheduleLabel {
@@ -1456,7 +1461,7 @@ impl ProcessScheduleConfig for InternedSystemSet {
 }
 
 /// Policy to use when removing systems.
-#[derive(Default)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScheduleCleanupPolicy {
     /// Remove the referenced set and any systems in the set.
     /// Attempts to maintain the order between the transitive dependencies by adding new edges

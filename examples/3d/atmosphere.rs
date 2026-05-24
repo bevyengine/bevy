@@ -70,7 +70,7 @@ fn print_controls() {
 
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut planet_atmosphere: Query<(&mut Atmosphere, &mut Transform)>,
+    mut planet_atmosphere: Query<(&mut Atmosphere, &mut GlobalTransform)>,
     mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
@@ -80,7 +80,7 @@ fn atmosphere_controls(
     if keyboard_input.just_pressed(KeyCode::Digit3) {
         for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
-            transform.translation = -Vec3::Y * atmosphere.inner_radius;
+            *transform = GlobalTransform::from_translation(-Vec3::Y * atmosphere.inner_radius);
             println!("Switched to Earth atmosphere");
         }
     }
@@ -88,7 +88,7 @@ fn atmosphere_controls(
     if keyboard_input.just_pressed(KeyCode::Digit4) {
         for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
-            transform.translation = -Vec3::Y * atmosphere.inner_radius;
+            *transform = GlobalTransform::from_translation(-Vec3::Y * atmosphere.inner_radius);
             println!("Switched to Mars atmosphere");
         }
     }
@@ -265,38 +265,40 @@ fn spawn_water(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
-        MeshMaterial3d(water_materials.add(ExtendedMaterial {
-            base: StandardMaterial {
-                base_color: BLACK.into(),
-                perceptual_roughness: 0.0,
-                ..default()
-            },
-            extension: Water {
-                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
-                    |settings| {
-                        settings.is_srgb = false;
-                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            mag_filter: ImageFilterMode::Linear,
-                            min_filter: ImageFilterMode::Linear,
-                            ..default()
-                        });
-                    },
-                ),
-                // These water settings are just random values to create some
-                // variety.
-                settings: WaterSettings {
-                    octave_vectors: [
-                        vec4(0.080, 0.059, 0.073, -0.062),
-                        vec4(0.153, 0.138, -0.149, -0.195),
-                    ],
-                    octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
-                    octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+        MeshMaterial3d(
+            water_materials.add(ExtendedMaterial {
+                base: StandardMaterial {
+                    base_color: BLACK.into(),
+                    perceptual_roughness: 0.0,
+                    ..default()
                 },
-            },
-        })),
+                extension: Water {
+                    normals: asset_server
+                        .load_builder()
+                        .with_settings(|settings: &mut ImageLoaderSettings| {
+                            settings.is_srgb = false;
+                            settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                address_mode_u: ImageAddressMode::Repeat,
+                                address_mode_v: ImageAddressMode::Repeat,
+                                mag_filter: ImageFilterMode::Linear,
+                                min_filter: ImageFilterMode::Linear,
+                                ..default()
+                            });
+                        })
+                        .load("textures/water_normals.png"),
+                    // These water settings are just random values to create some
+                    // variety.
+                    settings: WaterSettings {
+                        octave_vectors: [
+                            vec4(0.080, 0.059, 0.073, -0.062),
+                            vec4(0.153, 0.138, -0.149, -0.195),
+                        ],
+                        octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
+                        octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+                    },
+                },
+            }),
+        ),
         Transform::from_scale(Vec3::splat(100.0)),
     ));
 }

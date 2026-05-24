@@ -8,7 +8,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault;
 use bevy_light::Skybox;
 use bevy_log::warn_once;
 use bevy_math::Mat4;
@@ -20,9 +19,10 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -37,7 +37,10 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "skybox.wgsl");
 
-        app.add_plugins(UniformComponentPlugin::<SkyboxUniforms>::default());
+        app.add_plugins((
+            SyncComponentPlugin::<Skybox, Self>::default(),
+            UniformComponentPlugin::<SkyboxUniforms>::default(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -54,6 +57,10 @@ impl Plugin for SkyboxPlugin {
                 ),
             );
     }
+}
+
+impl SyncComponent<SkyboxPlugin> for Skybox {
+    type Target = (Self, SkyboxUniforms, SkyboxPipelineId, SkyboxBindGroup);
 }
 
 // This is needed because of the orphan rule not allowing implementing
@@ -131,7 +138,7 @@ fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
     samples: u32,
     depth_format: TextureFormat,
 }
@@ -171,11 +178,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -195,14 +198,14 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    cameras: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, view, msaa) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },

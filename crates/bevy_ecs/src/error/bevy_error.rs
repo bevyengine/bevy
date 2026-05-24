@@ -18,10 +18,11 @@ use core::{
 /// You can change the behavior of the fallback handler by modifying the [`FallbackErrorHandler`] resource.
 ///
 /// By default, errors without an assigned severity use [`Severity::Panic`], and will cause your application to panic.
-/// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
+/// You can change the severity of an error by using [`with_severity`], or [`map_severity`] on any [`Result`] type.
 ///
 /// [`FallbackErrorHandler`]: crate::error::handler::FallbackErrorHandler
 /// [`with_severity`]: ResultSeverityExt::with_severity
+/// [`map_severity`]: ResultSeverityExt::map_severity
 ///
 /// # Backtraces
 ///
@@ -69,6 +70,7 @@ impl BevyError {
     ///
     /// fn some_function(val: i64) -> Result<(), BevyError> {
     ///     if val < 0 {
+    ///         // Consider using the bevy_error! or even the bail! macro for format! support
     ///         let error =
     ///             BevyError::new(Severity::Panic, format!("Value can't be negative {val}"));
     ///         return Err(error);
@@ -242,9 +244,10 @@ struct InnerBevyError {
 /// you can modify the [fallback error handler], and read the [`Severity`] stored inside of each [`BevyError`].
 ///
 /// You can change the severity of an error (including assigning an error severity) to an ordinary result
-/// by calling [`with_severity`].
+/// by calling [`with_severity`] or [`map_severity`].
 ///
 /// [`with_severity`]: ResultSeverityExt::with_severity
+/// [`map_severity`]: ResultSeverityExt::map_severity
 /// [fallback error handler]: crate::error::handler::FallbackErrorHandler
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Severity {
@@ -283,7 +286,7 @@ impl BevyError {
 }
 
 /// Extension methods for annotating errors with a [`Severity`].
-pub trait ResultSeverityExt<T> {
+pub trait ResultSeverityExt<T, E> {
     /// Overrides the [`Severity`] of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
@@ -298,15 +301,57 @@ pub trait ResultSeverityExt<T> {
     ///     Ok(())
     /// }
     /// ```
+    ///
+    /// For more fine grained control see [`Result::map_severity`]
     fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
+
+    /// Overrides the [`Severity`] of the error if this result is `Err`.
+    /// This does not change control flow; it only annotates the error.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ResultSeverityExt, Severity};
+    /// # use thiserror::Error;
+    /// # fn validate(_string: &str) -> Result<usize, ValidationError> {
+    /// #     Err(ValidationError::IncorrectVersion)
+    /// # }
+    ///
+    /// #[derive(Error, Debug)]
+    /// pub enum ValidationError {
+    ///     #[error("Incorrect version")]
+    ///     IncorrectVersion,
+    ///     #[error("Syntax error")]
+    ///     SyntaxError,
+    /// }
+    ///
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     // This failure is expected in some contexts, so we downgrade its severity.
+    ///     let _parsed: usize = validate("I am not a number")
+    ///         .map_severity(|e| match e {
+    ///             ValidationError::IncorrectVersion => Severity::Debug,
+    ///             ValidationError::SyntaxError => Severity::Error,
+    ///         })?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// If you don't need to inspect the error, use [`Result::with_severity`]
+    fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
 }
 
-impl<T, E> ResultSeverityExt<T> for Result<T, E>
+impl<T, E> ResultSeverityExt<T, E> for Result<T, E>
 where
     E: Into<BevyError>,
 {
     fn with_severity(self, severity: Severity) -> Result<T, BevyError> {
         self.map_err(|e| e.into().with_severity(severity))
+    }
+
+    fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError> {
+        self.map_err(|e| {
+            let severity = f(&e);
+            e.into().with_severity(severity)
+        })
     }
 }
 
@@ -373,6 +418,72 @@ pub fn bevy_error_panic_hook(
     }
 }
 
+/// Creates a new [`BevyError`] from a string.
+///
+/// Strings can be formatted like the [`format!`](std::format!) macro. Severity
+/// can optionally be provided to change it from the default [`Severity::Panic`].
+/// This can be done by adding the severity as the fist argument.
+///
+/// # Example
+/// ```
+/// use bevy_ecs::{bevy_error, error::{BevyError, Severity}};
+///
+/// fn this_will_fail(value: u32) -> Result<(), BevyError> {
+///     if value == 0 {
+///         return Err(bevy_error!(Severity::Debug, "A debug message"));
+///     } else {
+///         return Err(bevy_error!("We can even do formatting {value}, {}", "hello"));
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! bevy_error {
+    ($fmt:literal) => {
+        $crate::error::BevyError::new($crate::error::Severity::Panic, $fmt)
+    };
+    ($fmt:literal, $($arg:tt)*) => {
+        $crate::error::BevyError::new($crate::error::Severity::Panic, $crate::__macro_exports::format!($fmt, $($arg)*))
+    };
+    ($severity:expr, $fmt:literal) => {
+        $crate::error::BevyError::new($severity, $fmt)
+    };
+    ($severity:expr, $fmt:literal, $($arg:tt)*) => {
+        $crate::error::BevyError::new($severity, $crate::__macro_exports::format!($fmt, $($arg)*))
+    };
+    ($severity:expr) => {
+        compile_error!("missing error message")
+    };
+}
+
+/// Returns early with an error.
+///
+/// Equivalent to <code>return Err([bevy_error!(\...)](bevy_error!))</code>
+/// As a result the returned error defaults to [`Severity::Panic`]. As with
+/// `bevy_error!` the severity can be changed by providing a severity as the
+/// first argument
+///
+/// # Example
+/// ```
+/// use bevy_ecs::{bail, error::{BevyError, Severity}};
+///
+/// fn do_some_stuff(val: i32) -> Result<(), BevyError> {
+///     if val < 0 {
+///         bail!(Severity::Warning, "Something is broken: {}", val);
+///     } else if val == 0 {
+///         bail!("Value really can't be zero");
+///     }
+///
+///     // ...
+///     Ok(())
+/// }
+/// ```
+#[macro_export]
+macro_rules! bail {
+    ($($args:tt)+) => {
+        return core::result::Result::Err($crate::bevy_error!($($args)*))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::error::BevyError;
@@ -401,9 +512,11 @@ mod tests {
         );
 
         // On mac backtraces can start with Backtrace::create
+        // Rust 1.95 changed the format to use angle brackets: <std::backtrace::Backtrace>::create
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "std::backtrace::Backtrace::create"
+            && (line[6..] == *"std::backtrace::Backtrace::create"
+                || line[6..] == *"<std::backtrace::Backtrace>::create")
         {
             skip = true;
         }
@@ -441,6 +554,7 @@ mod tests {
         {
             skip = true;
         }
+
         if skip {
             lines.next().unwrap();
         }
@@ -474,5 +588,42 @@ mod tests {
 
         assert!(new_error.is::<Fun>());
         assert_eq!(new_error.downcast_ref::<Fun>(), Some(&Fun(1)));
+    }
+
+    /// Testing the functionality would be difficult so we at least check if it
+    /// compiles.
+    #[test]
+    fn bevy_error_macro() {
+        bevy_error!("One arg");
+        bevy_error!(crate::error::Severity::Debug, "With severity");
+        bevy_error!(
+            crate::error::Severity::Debug,
+            "With severity and args {}",
+            4 / 3
+        );
+
+        // This is the pain in the ass one since both args are literals but neither is severity
+        bevy_error!("Format string {}", 1 + 2);
+    }
+
+    #[test]
+    fn bevy_bail_macro() {
+        // Simplest way to specify the return type
+        fn t(f: impl Fn() -> Result<(), BevyError>) {
+            let val = f();
+
+            assert!(val.is_err(), "expected error got {:?}", val);
+        }
+
+        t(|| bail!("One arg"));
+        t(|| bail!(crate::error::Severity::Debug, "With severity"));
+        t(|| {
+            bail!(
+                crate::error::Severity::Debug,
+                "With severity and args {}",
+                2
+            )
+        });
+        t(|| bail!("Format string {}", 1 + 2));
     }
 }
