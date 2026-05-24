@@ -20,9 +20,7 @@ use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntityEquivalentHashMap<K: EntityEquivalent + Hash, V>(
-    HashMap<K, V, EntityHash>,
-);
+pub struct EntityEquivalentHashMap<K: EntityEquivalent + Hash, V>(HashMap<K, V, EntityHash>);
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityHashMap<V> = EntityEquivalentHashMap<Entity, V>;
@@ -130,7 +128,9 @@ impl<K: EntityEquivalent + Hash, V> FromIterator<(K, V)> for EntityEquivalentHas
     }
 }
 
-impl<K: EntityEquivalent + Hash, V> From<HashMap<K, V, EntityHash>> for EntityEquivalentHashMap<K, V> {
+impl<K: EntityEquivalent + Hash, V> From<HashMap<K, V, EntityHash>>
+    for EntityEquivalentHashMap<K, V>
+{
     fn from(value: HashMap<K, V, EntityHash>) -> Self {
         Self(value)
     }

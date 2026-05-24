@@ -399,9 +399,7 @@ impl<'a, K: EntityEquivalent + Hash> Drain<'a, K> {
     ///
     /// `drain` must either be empty, or have been obtained from a
     /// [`hash_set::HashSet`] using the `S` hasher.
-    pub const unsafe fn from_drain_unchecked<S>(
-        drain: hash_set::Drain<'a, K>,
-    ) -> Drain<'a, K, S> {
+    pub const unsafe fn from_drain_unchecked<S>(drain: hash_set::Drain<'a, K>) -> Drain<'a, K, S> {
         Drain(drain, PhantomData)
     }
 

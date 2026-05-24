@@ -32,9 +32,7 @@ use bevy_platform::prelude::Box;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone)]
-pub struct EntityEquivalentIndexMap<K: EntityEquivalent + Hash, V>(
-    IndexMap<K, V, EntityHash>,
-);
+pub struct EntityEquivalentIndexMap<K: EntityEquivalent + Hash, V>(IndexMap<K, V, EntityHash>);
 
 /// An [`IndexMap`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityIndexMap<V> = EntityEquivalentIndexMap<Entity, V>;
@@ -1164,9 +1162,7 @@ impl<'a, K: EntityEquivalent + Hash, V> Drain<'a, K, V> {
     ///
     /// `drain` must either be empty, or have been obtained from a
     /// [`IndexMap`] using the `S` hasher.
-    pub const unsafe fn from_drain_unchecked<S>(
-        drain: map::Drain<'a, K, V>,
-    ) -> Drain<'a, K, V, S> {
+    pub const unsafe fn from_drain_unchecked<S>(drain: map::Drain<'a, K, V>) -> Drain<'a, K, V, S> {
         Drain(drain, PhantomData)
     }
 

@@ -54,7 +54,7 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     }
 
     /// Constructs an `EntityIndexSet` from an [`IndexSet`].
-    pub const fn from_index_set(set: IndexSet<Entity, EntityHash>) -> Self {
+    pub const fn from_index_set(set: IndexSet<K, EntityHash>) -> Self {
         Self(set)
     }
 
@@ -675,9 +675,7 @@ impl<K: EntityEquivalent + Hash> IntoIter<K> {
     ///
     /// `into_iter` must either be empty, or have been obtained from a
     /// [`IndexSet`] using the `S` hasher.
-    pub const unsafe fn from_into_iter_unchecked<S>(
-        into_iter: set::IntoIter<K>,
-    ) -> IntoIter<K, S> {
+    pub const unsafe fn from_into_iter_unchecked<S>(into_iter: set::IntoIter<K>) -> IntoIter<K, S> {
         IntoIter(into_iter, PhantomData)
     }
 
