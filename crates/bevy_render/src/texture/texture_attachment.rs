@@ -24,6 +24,11 @@ pub struct ColorAttachment {
     per_layer_views: Arc<OnceLock<Vec<TextureView>>>,
     /// Lazily-populated per-layer `D2` views of [`Self::resolve_target`].
     per_layer_resolve_views: Arc<OnceLock<Vec<TextureView>>>,
+    /// One first-call latch per layer of [`Self::texture`], populated lazily
+    /// on first per-layer attachment access. Each per-layer slot is flipped
+    /// independently so per-eye dispatch (one render pass per layer) clears
+    /// each layer exactly once per frame instead of only layer 0.
+    per_layer_first_call: Arc<OnceLock<Vec<AtomicBool>>>,
 }
 
 impl ColorAttachment {
@@ -41,6 +46,7 @@ impl ColorAttachment {
             is_first_call: Arc::new(AtomicBool::new(true)),
             per_layer_views: Arc::new(OnceLock::new()),
             per_layer_resolve_views: Arc::new(OnceLock::new()),
+            per_layer_first_call: Arc::new(OnceLock::new()),
         }
     }
 
@@ -100,7 +106,7 @@ impl ColorAttachment {
     /// separate render pass.
     pub fn get_attachment_for_layer(&self, layer: u32) -> RenderPassColorAttachment<'_> {
         if let Some(resolve_target) = self.resolve_target.as_ref() {
-            let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+            let first_call = self.first_call_for_layer(layer);
             let resolve_views = self.per_layer_resolve_views.get_or_init(|| {
                 build_per_layer_d2_views(
                     &resolve_target.texture,
@@ -131,7 +137,7 @@ impl ColorAttachment {
     /// Per-layer counterpart to [`Self::get_unsampled_attachment`]. See
     /// [`Self::get_attachment_for_layer`].
     pub fn get_unsampled_attachment_for_layer(&self, layer: u32) -> RenderPassColorAttachment<'_> {
-        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        let first_call = self.first_call_for_layer(layer);
         let target_views = self.per_layer_views.get_or_init(|| {
             build_per_layer_d2_views(&self.texture.texture, "color_attachment_layer_view")
         });
@@ -150,8 +156,25 @@ impl ColorAttachment {
         }
     }
 
+    /// Flip the per-layer first-call latch for `layer`, and mark the global
+    /// latch as touched so any subsequent legacy `get_attachment` /
+    /// `get_unsampled_attachment` call loads instead of re-clearing the
+    /// already-per-layer-cleared texture.
+    fn first_call_for_layer(&self, layer: u32) -> bool {
+        let _ = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        let per_layer_first = self
+            .per_layer_first_call
+            .get_or_init(|| init_per_layer_first_call(&self.texture.texture, true));
+        per_layer_first[layer as usize].fetch_and(false, Ordering::SeqCst)
+    }
+
     pub(crate) fn mark_as_cleared(&self) {
         self.is_first_call.store(false, Ordering::SeqCst);
+        if let Some(per_layer) = self.per_layer_first_call.get() {
+            for slot in per_layer {
+                slot.store(false, Ordering::SeqCst);
+            }
+        }
     }
 }
 
@@ -173,6 +196,16 @@ fn build_per_layer_d2_views(texture: &Texture, label: &'static str) -> Vec<Textu
         .collect()
 }
 
+/// Build a vector of first-call latches (one per layer of `texture`) all set
+/// to `initial`. Used to back per-layer attachment access in
+/// [`ColorAttachment::per_layer_first_call`] and
+/// [`DepthAttachment::per_layer_first_call`].
+fn init_per_layer_first_call(texture: &Texture, initial: bool) -> Vec<AtomicBool> {
+    (0..texture.depth_or_array_layers())
+        .map(|_| AtomicBool::new(initial))
+        .collect()
+}
+
 /// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
 pub struct DepthAttachment {
@@ -184,6 +217,10 @@ pub struct DepthAttachment {
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
     per_layer_views: Arc<OnceLock<Vec<TextureView>>>,
+    /// One first-call latch per layer of [`Self::multi_layer_texture`],
+    /// populated lazily on first per-layer attachment access. See
+    /// [`ColorAttachment::per_layer_first_call`] for rationale.
+    per_layer_first_call: Arc<OnceLock<Vec<AtomicBool>>>,
 }
 
 impl DepthAttachment {
@@ -194,6 +231,7 @@ impl DepthAttachment {
             clear_value,
             is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
             per_layer_views: Arc::new(OnceLock::new()),
+            per_layer_first_call: Arc::new(OnceLock::new()),
         }
     }
 
@@ -212,6 +250,7 @@ impl DepthAttachment {
             clear_value,
             is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
             per_layer_views: Arc::new(OnceLock::new()),
+            per_layer_first_call: Arc::new(OnceLock::new()),
         }
     }
 
@@ -258,8 +297,17 @@ impl DepthAttachment {
             .per_layer_views
             .get_or_init(|| build_per_layer_d2_views(texture, "depth_attachment_layer_view"));
 
-        let first_call = self
+        // Mark the global latch as touched so any subsequent legacy
+        // `get_attachment` call (e.g., main opaque/transparent pass after the
+        // prepass per-eye loop) loads instead of re-clearing the depth that
+        // was just written per layer.
+        let _ = self
             .is_first_call
+            .fetch_and(store != StoreOp::Store, Ordering::Relaxed);
+        let per_layer_first = self.per_layer_first_call.get_or_init(|| {
+            init_per_layer_first_call(texture, self.clear_value.is_some())
+        });
+        let first_call = per_layer_first[layer as usize]
             .fetch_and(store != StoreOp::Store, Ordering::Relaxed);
 
         RenderPassDepthStencilAttachment {
@@ -280,6 +328,11 @@ impl DepthAttachment {
     /// cleared at first use.
     pub fn prepare_for_new_frame(&self) {
         self.is_first_call.store(true, Ordering::Relaxed);
+        if let Some(per_layer) = self.per_layer_first_call.get() {
+            for slot in per_layer {
+                slot.store(true, Ordering::Relaxed);
+            }
+        }
     }
 }
 
