@@ -279,8 +279,11 @@ fn run_prepass_system(
 
         let depth_stencil_attachment = Some(view_depth_texture.get_attachment(StoreOp::Store));
 
+        // `(1 << view_count) - 1` computed via `u32::MAX >> (32 - view_count)`
+        // to avoid the shift overflow that `1 << 32` would hit at the
+        // `MAX_VIEW_COUNT` cap.
         let multiview_mask = if view_count > 1 {
-            NonZeroU32::new((1u32 << view_count) - 1)
+            NonZeroU32::new(u32::MAX >> (32 - view_count))
         } else {
             None
         };
