@@ -230,7 +230,7 @@ impl<K: EntityEquivalent + Hash> FromEntitySetIterator<K> for EntityEquivalentHa
     }
 }
 
-impl From<HashSet<K, EntityHash>> for EntityHashSet {
+impl<K: EntityEquivalent + Hash> From<HashSet<K, EntityHash>> for EntityEquivalentHashSet<K> {
     fn from(value: HashSet<K, EntityHash>) -> Self {
         Self(value)
     }
