@@ -10,12 +10,15 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::Children,
     query::{Changed, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
@@ -41,7 +44,8 @@ const TRACK_RADIUS: f32 = SLIDER_HEIGHT * 0.5 - TRACK_PADDING;
 const THUMB_SIZE: f32 = SLIDER_HEIGHT - 2.0;
 
 /// Indicates which color channel we want to edit.
-#[derive(Component, Default, Copy, Clone)]
+#[derive(Component, Default, Copy, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub enum ColorChannel {
     /// Editing the RGB red channel (0..=1)
     #[default]
@@ -140,7 +144,8 @@ impl ColorChannel {
 
 /// Used to store the color channels that we are not editing: the components of the color
 /// that are constant for this slider.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct SliderBaseColor(pub Color);
 
 /// A color slider widget.
@@ -152,8 +157,9 @@ pub struct SliderBaseColor(pub Color);
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersColorSliderProps)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersColorSlider;
 
 /// Props used to construct a [`FeathersColorSlider`] scene.
@@ -175,19 +181,22 @@ impl Default for FeathersColorSliderProps {
 }
 
 /// A color slider widget.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
 #[require(Slider, SliderBaseColor(Color::WHITE))]
+#[reflect(Component, Default, Clone)]
 pub struct ColorSlider {
     /// Which channel is being edited by this slider.
     pub channel: ColorChannel,
 }
 
 /// Marker for the track
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 struct ColorSliderTrack;
 
 /// Marker for the thumb
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 struct ColorSliderThumb;
 
 impl FeathersColorSlider {
