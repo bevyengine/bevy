@@ -13,7 +13,23 @@ struct SkyboxUniforms {
 
 @group(0) @binding(0) var skybox: texture_cube<f32>;
 @group(0) @binding(1) var skybox_sampler: sampler;
-@group(0) @binding(2) var<uniform> view: View;
+// View uniform, shaped the same as `bevy_pbr::mesh_view_bindings::view_array`
+// so the skybox pipeline can share the packed `DynamicArrayUniformBuffer`
+// behind `ViewUniforms`. The shader reads through `view()`, which indexes the
+// array at `current_view_index` (set from `@builtin(view_index)` at the top
+// of multiview entry points). For non-multiview pipelines, `MAX_VIEW_COUNT`
+// is undefined and the fallback `array<View, 1>` matches the single
+// `ViewUniform` packed per camera.
+#ifdef MAX_VIEW_COUNT
+@group(0) @binding(2) var<uniform> view_array: array<View, #{MAX_VIEW_COUNT}>;
+#else
+@group(0) @binding(2) var<uniform> view_array: array<View, 1>;
+#endif
+var<private> current_view_index: i32 = 0;
+
+fn view() -> View {
+    return view_array[current_view_index];
+}
 @group(0) @binding(3) var<uniform> uniforms: SkyboxUniforms;
 
 fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
@@ -25,16 +41,16 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
     // fragment position.
     // Use the position on the near clipping plane to avoid -inf world position
     // because the far plane of an infinite reverse projection is at infinity.
-    let view_position_homogeneous = view.view_from_clip * vec4(
+    let view_position_homogeneous = view().view_from_clip * vec4(
         coords_to_viewport_uv(position, viewport) * vec2(2.0, -2.0) + vec2(-1.0, 1.0),
         1.0,
         1.0,
     );
 
-    // Transforming the view space ray direction by the skybox transform matrix, it is 
+    // Transforming the view space ray direction by the skybox transform matrix, it is
     // equivalent to rotating the skybox itself.
     var view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
-    view_ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
+    view_ray_direction = (view().world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
     // Transforming the view space ray direction by the view matrix, transforms the
     // direction to world space. Note that the w element is set to 0.0, as this is a
@@ -71,9 +87,19 @@ fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return VertexOutput(vec4(clip_position, 0.0, 1.0));
 }
 
+struct FragmentInput {
+    @builtin(position) position: vec4<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+}
+
 @fragment
-fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let ray_direction = coords_to_ray_direction(in.position.xy, view.viewport);
+fn skybox_fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    current_view_index = in.view_index;
+#endif
+    let ray_direction = coords_to_ray_direction(in.position.xy, view().viewport);
 
     // Cube maps are left-handed so we negate the z coordinate.
     let out = textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
