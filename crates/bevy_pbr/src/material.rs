@@ -1423,6 +1423,7 @@ pub fn queue_material_meshes(
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
+#[extract_app(RenderApp)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
