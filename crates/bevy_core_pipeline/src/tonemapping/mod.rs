@@ -23,6 +23,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
+use core::num::NonZeroU32;
 
 mod node;
 
@@ -282,8 +283,21 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::PbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
         }
+
+        // L7d: broadcast across every eye layer in a single pass. The matching
+        // render-pass descriptor in `node.rs` sets the same mask. The mask is
+        // `(1 << view_count) - 1` (one bit per eye); computed via
+        // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+        // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+        let multiview_mask = if key.multiview_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - key.multiview_view_count))
+        } else {
+            None
+        };
+
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
+            multiview_mask,
             layout: vec![self.texture_bind_group.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
