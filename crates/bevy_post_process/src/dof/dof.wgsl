@@ -75,10 +75,22 @@ struct DualOutput {
 // @group(0) @binding(0) is `mesh_view_bindings::view`.
 
 // The depth texture for the main view.
+//
+// Under MULTIVIEW the view depth texture is grown to a per-eye array (see
+// `prepare_core_3d_depth_textures`), and the fragments thread
+// `@builtin(view_index)` through `current_view_index` so the helper read
+// indexes the right layer. WGSL has no `texture_depth_multisampled_2d_array`,
+// so the MSAA + multiview combination keeps the single-layer shape — the host
+// gates the MULTIVIEW shader def on `!MULTISAMPLED` to match. Same shape as
+// the prepass-texture bindings in `mesh_view_bindings.wgsl`.
 #ifdef MULTISAMPLED
 @group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
 #else   // MULTISAMPLED
+#ifdef MULTIVIEW
+@group(0) @binding(1) var depth_texture: texture_depth_2d_array;
+#else   // MULTIVIEW
 @group(0) @binding(1) var depth_texture: texture_depth_2d;
+#endif  // MULTIVIEW
 #endif  // MULTISAMPLED
 
 // The main color texture.
@@ -121,9 +133,20 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     let scale = dof_params.coc_scale_factor;
     let max_coc_diameter = dof_params.max_circle_of_confusion_diameter;
 
-    // Sample the depth.
+    // Sample the depth. Under MULTIVIEW the binding is a per-eye array and
+    // we index it with `current_view_index` (set by the fragment entry from
+    // `@builtin(view_index)`); the multisampled binding remains single-layer
+    // because WGSL has no `texture_depth_multisampled_2d_array`.
     let frag_coord = vec2<i32>(floor(in_frag_coord.xy));
+#ifdef MULTIVIEW
+#ifndef MULTISAMPLED
+    let raw_depth = textureLoad(depth_texture, frag_coord, current_view_index, 0);
+#else   // MULTISAMPLED
     let raw_depth = textureLoad(depth_texture, frag_coord, 0);
+#endif  // MULTISAMPLED
+#else   // MULTIVIEW
+    let raw_depth = textureLoad(depth_texture, frag_coord, 0);
+#endif  // MULTIVIEW
     let depth = min(-depth_ndc_to_view_z(raw_depth), dof_params.max_depth);
 
     // Calculate the circle of confusion.
@@ -191,14 +214,30 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 
 // Calculates the horizontal component of the separable Gaussian blur.
 @fragment
-fn gaussian_horizontal(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn gaussian_horizontal(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    current_view_index = view_index;
+#endif
     let coc = calculate_circle_of_confusion(in.position);
     return gaussian_blur(color_texture_a, color_texture_sampler, in.position, coc, vec2(1.0, 0.0));
 }
 
 // Calculates the vertical component of the separable Gaussian blur.
 @fragment
-fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn gaussian_vertical(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    current_view_index = view_index;
+#endif
     let coc = calculate_circle_of_confusion(in.position);
     return gaussian_blur(color_texture_a, color_texture_sampler, in.position, coc, vec2(0.0, 1.0));
 }
@@ -212,7 +251,15 @@ fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 //       │
 //       │
 @fragment
-fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
+fn bokeh_pass_a(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> DualOutput {
+#ifdef MULTIVIEW
+    current_view_index = view_index;
+#endif
     let coc = calculate_circle_of_confusion(in.position);
     let vertical = box_blur_a(in.position, coc, vec2(0.0, 1.0));
     let diagonal = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
@@ -232,7 +279,15 @@ fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
 //       •
 #ifdef DUAL_INPUT
 @fragment
-fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn bokeh_pass_b(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    current_view_index = view_index;
+#endif
     let coc = calculate_circle_of_confusion(in.position);
     let output_0 = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
     let output_1 = box_blur_b(in.position, coc, vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6));
