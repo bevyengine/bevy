@@ -168,8 +168,9 @@ fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
 }
 ```
 
-If it's not possible to add the bound, use either `UnsafeWorldCell::get_resource_mut_assume_mutable`, `UnsafeWorldCell::get_resource_by_id` and make sure that the safety conditions are satisfied.
-It's also possible to use the `*_assume_mutable` component methods for this purpose, but you'd first have to retrieve the resource entity.
+If it's not possible to add the bound, use either `UnsafeWorldCell::get_resource_mut_assume_mutable`, `UnsafeWorldCell::get_resource_by_id` and make sure that the safety conditions are satisfied. 
+There's also `World::modify_resource` and `World::modify_resource_by_id`, that behave exactly like their component counterparts.
+Lastly, it's also possible to use the `*_assume_mutable` component methods for this purpose, but you'd first have to retrieve the resource entity from `ResourceEntities`.
 
 ## Miscellaneous
 
