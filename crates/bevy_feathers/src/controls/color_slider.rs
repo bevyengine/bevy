@@ -157,8 +157,9 @@ pub struct SliderBaseColor(pub Color);
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(SceneComponent, Default, Clone, Reflect)]
+#[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersColorSliderProps)]
+#[derive(Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct FeathersColorSlider;
 
@@ -181,8 +182,9 @@ impl Default for FeathersColorSliderProps {
 }
 
 /// A color slider widget.
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Component, Default, Clone)]
 #[require(Slider, SliderBaseColor(Color::WHITE))]
+#[derive(Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct ColorSlider {
     /// Which channel is being edited by this slider.

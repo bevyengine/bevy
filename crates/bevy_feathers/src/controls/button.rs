@@ -121,8 +121,9 @@ impl FeathersButton {
 ///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(SceneComponent, Default, Clone, Reflect)]
+#[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersToolButton;
 
