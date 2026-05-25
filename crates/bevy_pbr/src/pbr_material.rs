@@ -680,7 +680,8 @@ pub struct StandardMaterial {
     /// sharp geometric curvature produce at low roughness...
     ///
     /// Based on Tokuyoshi and Kaplanyan, "Improved Geometric Specular
-    /// Antialiasing" (I3D 2019) paper: https://www.jp.square-enix.com/tech/library/pdf/ImprovedGeometricSpecularAA.pdf
+    /// Antialiasing" (I3D 2019):
+    /// <https://www.jp.square-enix.com/tech/library/pdf/ImprovedGeometricSpecularAA.pdf>.
     ///
     /// Defaults to `false`.
     pub specular_anti_aliasing: bool,
