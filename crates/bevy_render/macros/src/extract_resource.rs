@@ -15,11 +15,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let app_label = match ast
-        .attrs
-        .iter()
-        .find(|a| a.path().is_ident("extract_app"))
-    {
+    let app_label = match ast.attrs.iter().find(|a| a.path().is_ident("extract_app")) {
         Some(attr) => match attr.parse_args::<syn::Type>() {
             Ok(label) => label,
             Err(e) => return e.to_compile_error().into(),
