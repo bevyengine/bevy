@@ -111,7 +111,7 @@ impl Name {
     pub fn as_str(&self) -> &str {
         &self.0 .0
     }
-    /// Get the precomputed hash of this names string, useful for raw entry operations on [`PreHashMap`](bevy_utils::map::PreHashMap)
+    /// Get the precomputed hash of this names string, useful for raw entry operations on [`PreHashMap`](bevy_utils::PreHashMap)
     #[inline(always)]
     pub fn pre_hash(&self) -> u64 {
         self.0 .0.hash()

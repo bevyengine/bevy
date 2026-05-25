@@ -65,7 +65,7 @@ impl HoistedExpressions {
         //   not doing any quote_spanned! causes trait errors (and probably others too)
         //   to highlight the entire macro invocation.
         //   doing just `let span = value.span()` works for error messages,
-        //   but causes hover docs to show a concantenated version of the docs for *all* items.
+        //   but causes hover docs to show a concatenated version of the docs for *all* items.
         //   yes, that means hovering the expression showed docs for Name and Name::from
         //
         // why is it __Name and not #bevy_ecs::name::Name?
