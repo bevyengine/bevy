@@ -67,8 +67,7 @@ type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMater
 ///
 /// A [`DiagnosticsOverlay`] entity will be managed by [`DiagnosticsOverlayPlugin`],
 /// and be added as a child of the [`DiagnosticsOverlayPlane`]. To work properly,
-/// the entity must be spawned [`after`](bevy_ecs::schedule::IntoScheduleConfigs::after)
-/// [`DiagnosticsOverlaySystems::Setup`].
+/// the entity must be spawned after [`DiagnosticsOverlaySystems::Setup`].
 ///
 /// If any value is showing as `Missing`, means that the [`DiagnosticPath`] is not registered,
 /// so make sure that the plugin that writes to it is properly set up.
@@ -214,8 +213,7 @@ impl DiagnosticsOverlayStatistic {
 pub enum DiagnosticsOverlaySystems {
     /// Runs in the [`Startup`] schedule.
     /// Sets up the [`DiagnosticsOverlayPlane`] that will parent all [`DiagnosticsOverlay`]s.
-    /// Ensure that any [`DiagnosticsOverlay`]s are spawned
-    /// [`after`](bevy_ecs::schedule::IntoScheduleConfigs::after) this system.
+    /// Ensure that any [`DiagnosticsOverlay`]s are spawned after this system.
     Setup,
     /// Rebuild the contents of the [`DiagnosticsOverlay`] entities
     Rebuild,
