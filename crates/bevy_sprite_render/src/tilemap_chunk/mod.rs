@@ -305,7 +305,7 @@ mod tests {
             1, 2,
         ]
         .into_iter()
-        .map(|tileset_index| Some(tileset_index))
+        .map(Some)
         .collect::<Vec<_>>();
 
         assert_eq!(data, expected_data);
@@ -337,7 +337,7 @@ mod tests {
             1, 2,
         ]
         .into_iter()
-        .map(|tileset_index| Some(tileset_index))
+        .map(Some)
         .collect::<Vec<_>>();
 
         assert_eq!(data, expected_data);
