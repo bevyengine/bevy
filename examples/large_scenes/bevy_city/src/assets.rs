@@ -1,8 +1,7 @@
-use bevy::{dev_tools::world_asset_helpers::merge_all_mesh_3d, prelude::*};
+use bevy::dev_tools::world_asset_helpers::merge_all_mesh_3d;
 use bevy::{
     asset::RenderAssetUsages,
     camera::{primitives::MeshAabb, visibility::VisibilityRange},
-    ecs::system::SystemState,
     mesh::{Indices, PrimitiveTopology},
     platform::collections::HashMap,
     prelude::*,
@@ -504,40 +503,6 @@ pub fn merge_car_meshes(
         };
         city_assets.car_meshes.push(meshes.add(merged));
     }
-}
-
-/// Merge an entire scene into a single mesh
-fn merge_world_asset(
-    world_assets: &mut Assets<WorldAsset>,
-    meshes: &mut Assets<Mesh>,
-    scene_handle: &Handle<WorldAsset>,
-) -> Option<Mesh> {
-    let mut scene = world_assets.get_mut(scene_handle)?;
-    let mut merged: Option<Mesh> = None;
-
-    let mut system_state = SystemState::<TransformHelper>::new(&mut scene.world);
-    let helper = system_state.get(&scene.world).ok()?;
-
-    for entity_ref in scene.world.iter_entities() {
-        let Some(mesh) = entity_ref
-            .get::<Mesh3d>()
-            .and_then(|mesh3d| meshes.get(mesh3d))
-        else {
-            continue;
-        };
-        let Ok(global_transform) = helper.compute_global_transform(entity_ref.id()) else {
-            continue;
-        };
-        let transform = global_transform.compute_transform();
-        let transformed = mesh.clone().transformed_by(transform);
-        match &mut merged {
-            Some(mesh) => {
-                let _ = mesh.merge(&transformed);
-            }
-            None => merged = Some(transformed),
-        }
-    }
-    merged
 }
 
 /// To get a cube that matches the Aabb we need to load the mesh data but that's not easy to do at
