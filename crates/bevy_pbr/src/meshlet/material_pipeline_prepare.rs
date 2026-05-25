@@ -138,7 +138,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if let Some(SpectralModel::TristimulusPlusMonochromaticLights) = camera.spectral_model {
+        if let Some(SpectralModel::MonochromaticLights) = camera.spectral_model {
             view_key |= MeshPipelineKey::MONOCHROMATIC_LIGHTS;
         }
 
