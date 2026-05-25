@@ -291,8 +291,11 @@ impl BsnScene {
                         path,
                         args: input.parse()?,
                     };
-                    if func.args.0.is_some() {
-                        err_if_cached("Cannot cache Scene function with arguments")?;
+                    if func.args.0.as_ref().is_some_and(|args| !args.is_empty()) {
+                        err_if_cached(&format!(
+                            "Cannot cache Scene function with arguments, {:?}",
+                            func.args.0
+                        ))?;
                     }
                     BsnScene::Fn(func)
                 }

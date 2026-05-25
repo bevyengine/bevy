@@ -162,7 +162,7 @@ fn demo_column_1() -> impl Scene {
                         })
                     ),
                     (
-                        @FeathersMenu
+                        :@FeathersMenu
                         Children [
                             (
                                 @FeathersMenuButton {
@@ -174,7 +174,7 @@ fn demo_column_1() -> impl Scene {
                                 }
                             ),
                             (
-                                @FeathersMenuPopup
+                                :@FeathersMenuPopup
                                 Children [
                                     (
                                         @FeathersMenuItem {
@@ -259,7 +259,7 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
-                @FeathersButton
+                :@FeathersButton
                 on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
                     ovr.0 = if ovr.0.is_some() {
                         None

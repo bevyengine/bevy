@@ -1472,7 +1472,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                :a()
                 Foo {
                     y: 2,
                     nested: Bar(2),
@@ -1783,14 +1783,14 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {:@Widget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<Widget>());
 
         #[derive(SceneComponent, Default, Clone)]
         #[scene(Widget::scene)]
         struct OtherWidget;
-        let entity = world.spawn_scene(bsn! {@OtherWidget}).unwrap();
+        let entity = world.spawn_scene(bsn! {:@OtherWidget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<OtherWidget>());
         assert!(
@@ -1869,7 +1869,7 @@ mod tests {
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! {@Widget}).unwrap();
+        let entity = world.spawn_scene(bsn! {:@Widget}).unwrap();
         assert!(entity.contains::<Widget>());
     }
 
