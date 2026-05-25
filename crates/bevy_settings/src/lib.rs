@@ -30,7 +30,7 @@ use bevy_log::warn;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    FromReflect, FromType, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
+    CreateTypeData, FromReflect, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
     TypeRegistry,
 };
 
@@ -172,8 +172,8 @@ pub struct ReflectSettingsGroup {
     settings_source: Option<&'static str>,
 }
 
-impl<T: SettingsGroup + FromReflect + TypePath> FromType<T> for ReflectSettingsGroup {
-    fn from_type() -> Self {
+impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
+    fn create_type_data(_input: ()) -> Self {
         ReflectSettingsGroup {
             settings_group_name: T::settings_group_name(),
             settings_key_name: T::settings_key_name(),

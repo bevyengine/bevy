@@ -336,4 +336,75 @@ mod tests {
         };
         assert_eq!(n.default().unwrap().downcast_ref::<usize>().unwrap(), &10);
     }
+
+    #[test]
+    fn should_not_capture_generics_with_type_path_opt_out() {
+        #[derive(Reflect)]
+        #[reflect(type_path = false)]
+        struct Test<T: Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        impl<T: Default + 'static, const N: usize> TypePath for Test<T, N> {
+            fn type_path() -> &'static str {
+                ::core::any::type_name::<Self>()
+            }
+
+            fn short_type_path() -> &'static str {
+                "Test<T, N>"
+            }
+        }
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_tuple_struct()
+            .unwrap()
+            .generics();
+
+        assert!(generics.is_empty());
+    }
+
+    #[test]
+    fn should_capture_generics_on_opaque_type() {
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque)]
+        struct Test<T: Clone + Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_opaque()
+            .unwrap()
+            .generics();
+
+        let t = generics.get_named("T").unwrap();
+        assert_eq!(t.name(), "T");
+        assert!(t.is::<f32>());
+        assert!(!t.is_const());
+
+        let n = generics.get_named("N").unwrap();
+        assert_eq!(n.name(), "N");
+        assert!(n.is::<usize>());
+        assert!(n.is_const());
+    }
+
+    #[test]
+    fn should_not_capture_generics_on_opaque_type_with_type_path_opt_out() {
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque)]
+        #[reflect(type_path = false)]
+        struct Test<T: Clone + Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        impl<T: Clone + Default + 'static, const N: usize> TypePath for Test<T, N> {
+            fn type_path() -> &'static str {
+                ::core::any::type_name::<Self>()
+            }
+
+            fn short_type_path() -> &'static str {
+                "Test<T, N>"
+            }
+        }
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_opaque()
+            .unwrap()
+            .generics();
+
+        assert!(generics.is_empty());
+    }
 }

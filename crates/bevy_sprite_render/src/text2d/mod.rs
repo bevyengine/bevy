@@ -63,16 +63,20 @@ pub fn extract_text2d_sprite(
         global_transform,
     ) in text2d_query.iter()
     {
-        let inverse_scale_factor = text_layout_info.scale_factor.recip();
-        let scaling =
-            GlobalTransform::from_scale(Vec3::new(inverse_scale_factor, -inverse_scale_factor, 1.));
         if !view_visibility.get() {
             continue;
         }
 
+        let inverse_scale_factor = text_layout_info.scale_factor.recip();
+        let scaling =
+            GlobalTransform::from_scale(Vec3::new(inverse_scale_factor, -inverse_scale_factor, 1.));
         let size = Vec2::new(
-            text_bounds.width.unwrap_or(text_layout_info.size.x),
-            text_bounds.height.unwrap_or(text_layout_info.size.y),
+            text_bounds
+                .width
+                .unwrap_or(text_layout_info.size.x * inverse_scale_factor),
+            text_bounds
+                .height
+                .unwrap_or(text_layout_info.size.y * inverse_scale_factor),
         );
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;

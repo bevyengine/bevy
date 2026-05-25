@@ -21,9 +21,8 @@ pub enum BsnEntry {
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     TemplateConst { type_path: Path, const_ident: Ident },
-    SceneExpression(TokenStream),
-    InheritedScene(BsnInheritedScene),
-    SceneFn(BsnSceneFn),
+    UncachedScene(BsnScene),
+    CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
 }
 
@@ -68,10 +67,10 @@ pub struct BsnSceneFn {
 }
 
 #[derive(Debug)]
-pub enum BsnInheritedScene {
+pub enum BsnScene {
     Asset(LitStr),
     Fn(BsnSceneFn),
-    Type(BsnType),
+    SceneComponent(BsnType),
     Expression(TokenStream),
 }
 
@@ -86,6 +85,14 @@ pub struct BsnConstructor {
 pub enum BsnFields {
     Named(Vec<BsnNamedField>),
     Tuple(Vec<BsnUnnamedField>),
+}
+impl BsnFields {
+    pub fn len(&self) -> usize {
+        match self {
+            BsnFields::Named(vec) => vec.len(),
+            BsnFields::Tuple(vec) => vec.len(),
+        }
+    }
 }
 
 #[derive(Debug)]
