@@ -3,7 +3,7 @@ use super::{
     resource_manager::ResourceManager,
 };
 use crate::*;
-use bevy_camera::{Camera3d, Projection};
+use bevy_camera::{Camera3d, Projection, SpectralModel};
 use bevy_core_pipeline::{
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
