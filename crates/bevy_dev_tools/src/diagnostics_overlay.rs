@@ -210,7 +210,10 @@ impl DiagnosticsOverlayStatistic {
 /// System set for the systems of the [`DiagnosticsOverlayPlugin`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub enum DiagnosticsOverlaySystems {
+    /// Runs in the [`Startup`] schedule.
     /// Sets up the [`DiagnosticsOverlayPlane`] that will parent all [`DiagnosticsOverlay`]s.
+    /// Ensure that any [`DiagnosticsOverlay`]s are spawned
+    /// [`after`](bevy_ecs::schedule::IntoScheduleConfigs::after) this system.
     Setup,
     /// Rebuild the contents of the [`DiagnosticsOverlay`] entities
     Rebuild,
