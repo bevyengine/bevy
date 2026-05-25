@@ -419,11 +419,8 @@ fn on_focus_select_all(
                     queued_select_all.0 = Some(target);
                 }
             }
-
-            // Navigating into a text input should always select all even without
-            // the `SelectAllOnFocus` marker, unless it is a multiline input.
             FocusCause::Navigated => {
-                if select_all_on_focus || !editable_text.allow_newlines {
+                if select_all_on_focus {
                     editable_text.queue_edit(TextEdit::SelectAll);
                 }
             }
