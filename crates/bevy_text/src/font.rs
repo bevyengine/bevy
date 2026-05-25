@@ -1,5 +1,5 @@
 use crate::FontCx;
-use crate::FontFamilyEntry;
+use crate::FontItem;
 use crate::FontSource;
 use crate::TextFont;
 use bevy_asset::Asset;
@@ -108,11 +108,11 @@ pub fn load_font_assets_into_font_collection(
                         .any(|id| new_family_ids.contains(&id)),
                 }),
             FontSource::List(items) => items.iter().any(|family| match family {
-                FontFamilyEntry::Named(name) => font_cx
+                FontItem::Named(name) => font_cx
                     .collection
                     .family_id(name.as_str())
                     .is_some_and(|id| new_family_ids.contains(&id)),
-                FontFamilyEntry::Generic(generic_family) => font_cx
+                FontItem::Generic(generic_family) => font_cx
                     .collection
                     .generic_families((*generic_family).into())
                     .any(|id| new_family_ids.contains(&id)),

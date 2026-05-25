@@ -297,7 +297,7 @@ pub enum FontSource {
     /// For example: `"Arial, Noto Sans, sans-serif"`.
     Names(SmolStr),
     /// Ordered list of font families.
-    List(#[template(built_in)] Vec<FontFamilyEntry>),
+    List(#[template(built_in)] Vec<FontItem>),
     /// Resolve the font using a generic font family.
     Generic(GenericFontFamily),
 }
@@ -314,7 +314,7 @@ impl FontSource {
     pub fn list<I, F>(list: I) -> Self
     where
         I: IntoIterator<Item = F>,
-        F: Into<FontFamilyEntry>,
+        F: Into<FontItem>,
     {
         Self::List(list.into_iter().map(Into::into).collect())
     }
@@ -434,11 +434,11 @@ impl From<&str> for FontSource {
     }
 }
 
-impl From<FontFamilyEntry> for FontSource {
-    fn from(family: FontFamilyEntry) -> Self {
+impl From<FontItem> for FontSource {
+    fn from(family: FontItem) -> Self {
         match family {
-            FontFamilyEntry::Named(family) => FontSource::Named(family),
-            FontFamilyEntry::Generic(generic) => FontSource::Generic(generic),
+            FontItem::Named(family) => FontSource::Named(family),
+            FontItem::Generic(generic) => FontSource::Generic(generic),
         }
     }
 }
@@ -449,21 +449,21 @@ impl From<GenericFontFamily> for FontSource {
     }
 }
 
-impl From<Vec<FontFamilyEntry>> for FontSource {
-    fn from(list: Vec<FontFamilyEntry>) -> Self {
+impl From<Vec<FontItem>> for FontSource {
+    fn from(list: Vec<FontItem>) -> Self {
         Self::List(list)
     }
 }
 
-impl<const N: usize> From<[FontFamilyEntry; N]> for FontSource {
-    fn from(list: [FontFamilyEntry; N]) -> Self {
+impl<const N: usize> From<[FontItem; N]> for FontSource {
+    fn from(list: [FontItem; N]) -> Self {
         Self::List(list.into())
     }
 }
 
 /// A single named or generic font family used in a [`FontSource::List`].
 #[derive(Clone, Debug, Reflect, PartialEq, Eq, FromTemplate)]
-pub enum FontFamilyEntry {
+pub enum FontItem {
     /// A named font family.
     #[default]
     Named(SmolStr),
@@ -471,13 +471,13 @@ pub enum FontFamilyEntry {
     Generic(GenericFontFamily),
 }
 
-impl From<&str> for FontFamilyEntry {
+impl From<&str> for FontItem {
     fn from(family: &str) -> Self {
         Self::Named(family.into())
     }
 }
 
-impl From<GenericFontFamily> for FontFamilyEntry {
+impl From<GenericFontFamily> for FontItem {
     fn from(generic: GenericFontFamily) -> Self {
         Self::Generic(generic)
     }

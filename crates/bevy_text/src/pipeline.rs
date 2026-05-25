@@ -430,10 +430,10 @@ pub fn resolve_font_source<'a>(
         FontSource::List(list) => FontFamily::List(Cow::Owned(
             list.iter()
                 .map(|family| match family {
-                    crate::FontFamilyEntry::Named(name) => {
+                    crate::FontItem::Named(name) => {
                         parley::FontFamilyName::Named(Cow::Borrowed(name.as_str()))
                     }
-                    crate::FontFamilyEntry::Generic(generic_family) => {
+                    crate::FontItem::Generic(generic_family) => {
                         #[cfg(not(feature = "system_font_discovery"))]
                         bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
                             feature is not enabled. Text may not render. Enable the feature to allow Bevy \
