@@ -105,7 +105,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_debug|Provides a debug overlay for bevy UI|
+|bevy_ui_debug|Provides a debug overlay for Bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
@@ -131,7 +131,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `claxon`)|
-|force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
+|force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
