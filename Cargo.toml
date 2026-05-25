@@ -300,7 +300,7 @@ bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 # Provides post process effects such as depth of field, bloom, chromatic aberration.
 bevy_post_process = ["bevy_internal/bevy_post_process"]
 
-# Provides various anti aliasing solutions
+# Provides various anti-aliasing solutions
 bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
@@ -665,7 +665,7 @@ schedule_data = ["bevy_internal/schedule_data"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
-# Enables processing meshes into meshlet meshes for bevy_pbr
+# Enables processing meshes into meshlet meshes for `bevy_pbr`
 meshlet_processor = ["bevy_internal/meshlet_processor"]
 
 # Enable built in global state machines
@@ -677,7 +677,7 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
-# Enables bevy_reflect to access documentation comments of Rust code at runtime
+# Enables `bevy_reflect` to access documentation comments of Rust code at runtime
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration

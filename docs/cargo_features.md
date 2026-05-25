@@ -68,7 +68,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |async_executor|Uses `async-executor` as a task execution backend.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
-|bevy_anti_alias|Provides various anti aliasing solutions|
+|bevy_anti_alias|Provides various anti-aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
