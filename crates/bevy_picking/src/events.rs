@@ -61,11 +61,8 @@ use crate::{
     backend::{prelude::PointerLocation, HitData},
     hover::{get_hovered_entities, is_directly_hovered, HoverMap, PreviousHoverMap},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap},
+    PickingSettings,
 };
-
-/// Maximum time between clicks for them to count as consecutive clicks.
-// TODO: add optional feature-flagged support for fetching this from the OS preferences
-pub const MULTI_CLICK_DURATION: Duration = Duration::from_millis(500);
 
 /// Stores the common data needed for all pointer events.
 ///
@@ -293,6 +290,8 @@ pub struct Press {
     pub button: PointerButton,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Number of consecutive presses, starting at `1`.
+    pub count: u8,
 }
 
 /// Fires when a pointer button is released over the [target entity](EntityEvent::event_target).
@@ -677,6 +676,7 @@ pub fn pointer_events(
     pointer_map: Res<PointerMap>,
     hover_map: Res<HoverMap>,
     previous_hover_map: Res<PreviousHoverMap>,
+    picking_settings: Res<PickingSettings>,
     mut pointer_state: ResMut<PointerState>,
     mut hovered_entity_ancestors: Local<HoveredEntityAncestors>,
     mut sent_leave: Local<HashSet<(PointerId, Entity)>>,
@@ -923,6 +923,9 @@ pub fn pointer_events(
         match action {
             PointerAction::Press(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
+                state.clicking.retain(|_, (last_click, _)| {
+                    now - *last_click <= picking_settings.multi_click_interval
+                });
 
                 // If it's a press, emit a Pressed event and mark the hovered entities as pressed
                 for (hovered_entity, hit) in hover_map
@@ -930,12 +933,18 @@ pub fn pointer_events(
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                 {
+                    let count = state
+                        .clicking
+                        .get(&hovered_entity)
+                        .map_or(1, |(_, count)| count.saturating_add(1));
+                    state.clicking.insert(hovered_entity, (now, count));
                     let pressed_event = Pointer::new(
                         pointer_id,
                         location.clone(),
                         Press {
                             button,
                             hit: hit.clone(),
+                            count,
                         },
                         hovered_entity,
                     );
@@ -949,9 +958,9 @@ pub fn pointer_events(
             }
             PointerAction::Release(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);
-                state
-                    .clicking
-                    .retain(|_, (last_click, _)| now - *last_click <= MULTI_CLICK_DURATION);
+                state.clicking.retain(|_, (last_click, _)| {
+                    now - *last_click <= picking_settings.multi_click_interval
+                });
 
                 // Emit Click and Release events on all the previously hovered entities.
                 for (hovered_entity, hit) in previous_hover_map
@@ -964,7 +973,7 @@ pub fn pointer_events(
                         let count = state
                             .clicking
                             .get(&hovered_entity)
-                            .map_or(1, |(_, count)| count.saturating_add(1));
+                            .map_or(1, |(_, count)| *count);
                         state.clicking.insert(hovered_entity, (now, count));
                         let click_event = Pointer::new(
                             pointer_id,
@@ -1227,6 +1236,7 @@ mod tests {
         // Init all the resources and messages necessary to run `pointer_events`
         app.init_resource::<HoverMap>()
             .init_resource::<PreviousHoverMap>()
+            .init_resource::<PickingSettings>()
             .init_resource::<PointerState>()
             .add_message::<PointerInput>()
             .add_message::<Pointer<Cancel>>()

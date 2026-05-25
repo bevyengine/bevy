@@ -82,6 +82,12 @@ impl<'a, 'w> TemplateContext<'a, 'w> {
     pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         self.entity.resource_mut()
     }
+
+    /// Retrieves the entity associated with the given resource `R`, if it exists.
+    #[inline]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        self.entity.resource_entity::<R>()
+    }
 }
 
 /// Struct to store a mapping from [`SceneEntityReference`] to [`Entity`]

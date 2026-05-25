@@ -70,7 +70,7 @@ fn print_controls() {
 
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut planet_atmosphere: Query<(&mut Atmosphere, &mut Transform)>,
+    mut planet_atmosphere: Query<(&mut Atmosphere, &mut GlobalTransform)>,
     mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
@@ -80,7 +80,7 @@ fn atmosphere_controls(
     if keyboard_input.just_pressed(KeyCode::Digit3) {
         for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
-            transform.translation = -Vec3::Y * atmosphere.inner_radius;
+            *transform = GlobalTransform::from_translation(-Vec3::Y * atmosphere.inner_radius);
             println!("Switched to Earth atmosphere");
         }
     }
@@ -88,7 +88,7 @@ fn atmosphere_controls(
     if keyboard_input.just_pressed(KeyCode::Digit4) {
         for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
-            transform.translation = -Vec3::Y * atmosphere.inner_radius;
+            *transform = GlobalTransform::from_translation(-Vec3::Y * atmosphere.inner_radius);
             println!("Switched to Mars atmosphere");
         }
     }
