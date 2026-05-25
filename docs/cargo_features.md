@@ -31,7 +31,7 @@ By default, the `bevy` crate enables the  features.
 ### Collections
 
 "Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don't
-suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target no_std, etc), then you can use these
+suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target `no_std`, etc), then you can use these
 collections to build your own "profile" equivalent, without needing to manually manage _every single_ feature.
 
 |Collection|Description|
@@ -50,7 +50,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 |3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render`. **Feature set:** `3d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_gizmos_render`, `bevy_anti_alias`, `bevy_gltf`, `bevy_pbr`, `bevy_post_process`, `gltf_animation`.|
 |ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `default_app`, `common_api`, `bevy_input_focus`, `bevy_ui`.|
 |ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render`. **Feature set:** `ui_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_ui_render`.|
-|default_no_std|Recommended defaults for no_std applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
+|default_no_std|Recommended defaults for `no_std` applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
 
 ### Feature List
 
