@@ -44,7 +44,10 @@ pub struct CityAssets {
     pub tree_large_lod: (Handle<Mesh>, Handle<StandardMaterial>),
     pub path_stones_long: Handle<WorldAsset>,
     pub fence: Handle<WorldAsset>,
+    /// Default visibility ranges used for all building types
     pub visibility_ranges: Vec<VisibilityRange>,
+    /// Cars have a different set of ranges because they are smaller than buildings and can
+    /// therefore be a bit more aggressive
     pub car_visibility_ranges: Vec<VisibilityRange>,
 }
 
