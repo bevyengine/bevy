@@ -223,7 +223,7 @@ impl BevyError {
 }
 
 /// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// a "fat pointer", which reduces the size of our `Result` by a `usize`. This does introduce an extra indirection, but error handling is a "cold path".
 /// We don't need to optimize it to that degree.
 /// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but that's not a huge priority right now and the code simplicity
 /// of the current impl is nice.

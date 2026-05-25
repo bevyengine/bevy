@@ -784,7 +784,7 @@ Example | File | Description
 
 #### Setup
 
-You need to install the correct rust targets:
+You need to install the correct Rust targets:
 
 - `aarch64-apple-ios`: iOS devices
 - `x86_64-apple-ios`: iOS simulator on x86 processors
@@ -886,7 +886,7 @@ In browsers, audio is not authorized to start without being triggered by an user
 #### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
-With rust, there are many ways to improve your executable sizes, starting with
+With Rust, there are many ways to improve your executable sizes, starting with
 the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:

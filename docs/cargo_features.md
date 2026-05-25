@@ -170,7 +170,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register|Enable automatic reflect registration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
-|reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
+|reflect_documentation|Enables bevy_reflect to access documentation comments of Rust code at runtime|
 |reflect_functions|Enable function reflection|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
@@ -210,4 +210,4 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |x11|X11 display server support|
 |zlib|For KTX2 supercompression|
 |zstd_c|For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".|
-|zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|
+|zstd_rust|For KTX2 Zstandard decompression using pure Rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|

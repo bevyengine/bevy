@@ -2322,7 +2322,7 @@ impl Default for BorderColor {
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
-/// To add an [`Outline`] to a ui node you can spawn a `(Node, Outline)` tuple bundle:
+/// To add an [`Outline`] to a UI node you can spawn a `(Node, Outline)` tuple bundle:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;

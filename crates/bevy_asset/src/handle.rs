@@ -208,7 +208,7 @@ impl<A: Asset> Handle<A> {
         }
     }
 
-    /// Returns `true` if this is a uuid handle.
+    /// Returns `true` if this is a UUID handle.
     #[inline]
     pub fn is_uuid(&self) -> bool {
         matches!(self, Handle::Uuid(..))

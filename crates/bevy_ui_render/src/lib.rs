@@ -737,7 +737,7 @@ pub fn extract_uinode_borders(
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
 /// distance of this many units. This ensures that with a left-handed projection,
-/// as ui elements are "stacked on top of each other", they are within the camera's view
+/// as UI elements are "stacked on top of each other", they are within the camera's view
 /// and have room to grow.
 // TODO: Consider computing this value at runtime based on the maximum z-value.
 const UI_CAMERA_FAR: f32 = 1000.0;

@@ -492,7 +492,7 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
+# For KTX2 Zstandard decompression using pure Rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
 zstd_rust = ["bevy_internal/zstd_rust"]
 
 # For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
@@ -677,7 +677,7 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
-# Enables bevy_reflect to access documentation comments of rust code at runtime
+# Enables bevy_reflect to access documentation comments of Rust code at runtime
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration

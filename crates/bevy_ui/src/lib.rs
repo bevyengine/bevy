@@ -100,7 +100,7 @@ pub enum UiSystems {
     Propagate,
     /// Update content requirements before layout.
     Content,
-    /// After this label, the ui layout state has been updated.
+    /// After this label, the UI layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
     Layout,
@@ -116,8 +116,8 @@ pub enum UiSystems {
 
 /// The current scale of the UI.
 ///
-/// A multiplier to fixed-sized ui values.
-/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+/// A multiplier to fixed-sized UI values.
+/// **Note:** This will only affect fixed UI values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
