@@ -52,6 +52,6 @@ Additionally, sorted render phases now use an `IndexMap` instead of a `Vec`, so 
 
 The `add` method on `SortedRenderPhase` has been split in two. The old behavior
 of clearing every frame is available with `add_transient`, while `add_retained`
-uses the change list system.
+The `add` method on `SortedRenderPhase` has been split in two. The old behavior of clearing every frame is available as `add_transient`, while `add_retained` should be used with the change list system.
 
 See `examples/shader_advanced/specialized_mesh_pipeline.rs` for a comprehensive example.
