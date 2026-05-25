@@ -138,9 +138,14 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
+        if let Some(SpectralModel::TristimulusPlusMonochromaticLights) = camera.spectral_model {
+            view_key |= MeshPipelineKey::MONOCHROMATIC_LIGHTS;
+        }
+
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
+
         if distance_fog {
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }

@@ -134,6 +134,15 @@ pub struct SpotLight {
     /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
     /// `inner_angle` should be <= `outer_angle`
     pub inner_angle: f32,
+
+    /// Whether this directional light is a source of [monochromatic light].
+    ///
+    /// Must be paired with [`SpectralModel::MonochromaticLights`](bevy_camera::SpectralModel::MonochromaticLights) on the camera to have any effect.
+    ///
+    /// When combined with light colors that are non-spectral (e.g. white, magenta) produces non-physical results.
+    ///
+    /// [monochromatic light]:https://en.wikipedia.org/wiki/Monochromatic_radiation
+    pub monochromatic: bool,
 }
 
 impl SpotLight {
@@ -166,6 +175,7 @@ impl Default for SpotLight {
             outer_angle: core::f32::consts::FRAC_PI_4,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: false,
+            monochromatic: false,
         }
     }
 }
