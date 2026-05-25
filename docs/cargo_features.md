@@ -150,7 +150,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
-|meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
+|meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |mouse|Mouse support. Automatically enabled by `bevy_window`.|
@@ -170,7 +170,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register|Enable automatic reflect registration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
-|reflect_documentation|Enables bevy_reflect to access documentation comments of Rust code at runtime|
+|reflect_documentation|Enables `bevy_reflect` to access documentation comments of Rust code at runtime|
 |reflect_functions|Enable function reflection|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|

@@ -261,7 +261,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# COLLECTION: Recommended defaults for no_std applications.
+# COLLECTION: Recommended defaults for `no_std` applications.
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -273,7 +273,7 @@ sprite_picking = ["bevy_internal/sprite_picking"]
 # Provides an implementation for picking UI
 ui_picking = ["bevy_internal/ui_picking"]
 
-# Provides a debug overlay for bevy UI
+# Provides a debug overlay for Bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 
 # Force dynamic linking, which improves iterative compile times
@@ -579,7 +579,7 @@ area_light_luts = ["bevy_internal/area_light_luts"]
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_internal/dlss"]
 
-# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+# Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
