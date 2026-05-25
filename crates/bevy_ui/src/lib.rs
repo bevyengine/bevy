@@ -52,6 +52,7 @@ pub use widget::TextNodeFlags;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    pub use crate::accessibility::AccessibleLabel;
     #[doc(hidden)]
     #[cfg(feature = "bevy_picking")]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};

@@ -752,7 +752,7 @@ bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-fea
 bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
-bevy_settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
+bevy-settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
@@ -3574,6 +3574,19 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_meshlet_materials"
+path = "examples/stress_tests/many_meshlet_materials.rs"
+doc-scrape-examples = true
+required-features = ["meshlet", "https"]
+
+[package.metadata.example.many_meshlet_materials]
+name = "Many Meshlet Materials"
+description = "Benchmark to test rendering many meshlet materials (experimental)"
+category = "Stress Tests"
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
+wasm = false
+
+[[example]]
 name = "many_materials"
 path = "examples/stress_tests/many_materials.rs"
 doc-scrape-examples = true
@@ -3981,6 +3994,17 @@ doc-scrape-examples = true
 [package.metadata.example.flex_layout]
 name = "Flex Layout"
 description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "fixed_node"
+path = "examples/ui/layout/fixed_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fixed_node]
+name = "Fixed Node"
+description = "Demonstrates how to use FixedNode to lay out a UI node as a root node"
 category = "UI (User Interface)"
 wasm = true
 

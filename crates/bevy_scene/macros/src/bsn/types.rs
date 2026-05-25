@@ -21,8 +21,8 @@ pub enum BsnEntry {
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     TemplateConst { type_path: Path, const_ident: Ident },
-    SceneExpression(TokenStream),
-    InheritedScene(BsnInheritedScene),
+    UncachedScene(BsnScene),
+    CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
 }
 
@@ -52,13 +52,25 @@ pub enum BsnSceneListItem {
 }
 
 #[derive(Debug)]
-pub enum BsnInheritedScene {
+pub enum BsnSceneFnArg {
+    Expr(Expr),
+    Name(Ident),
+    NameExpression(TokenStream),
+}
+#[derive(Debug)]
+pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
+
+#[derive(Debug)]
+pub struct BsnSceneFn {
+    pub path: Path,
+    pub args: BsnSceneFnArgs,
+}
+
+#[derive(Debug)]
+pub enum BsnScene {
     Asset(LitStr),
-    Fn {
-        path: Path,
-        args: Option<Punctuated<Expr, Token![,]>>,
-    },
-    Type(BsnType),
+    Fn(BsnSceneFn),
+    SceneComponent(BsnType),
     Expression(TokenStream),
 }
 
@@ -66,13 +78,21 @@ pub enum BsnInheritedScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
-    pub args: Option<Punctuated<Expr, Token![,]>>,
+    pub args: BsnSceneFnArgs,
 }
 
 #[derive(Debug)]
 pub enum BsnFields {
     Named(Vec<BsnNamedField>),
     Tuple(Vec<BsnUnnamedField>),
+}
+impl BsnFields {
+    pub fn len(&self) -> usize {
+        match self {
+            BsnFields::Named(vec) => vec.len(),
+            BsnFields::Tuple(vec) => vec.len(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -101,4 +121,5 @@ pub enum BsnValue {
     Type(BsnType),
     Tuple(BsnTuple),
     Name(Ident),
+    NameExpression(TokenStream),
 }

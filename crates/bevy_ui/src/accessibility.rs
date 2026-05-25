@@ -9,16 +9,21 @@ use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     change_detection::DetectChanges,
+    component::Component,
     hierarchy::ChildOf,
+    lifecycle::HookContext,
     prelude::Entity,
     query::{Changed, With, Without},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
-    world::Ref,
+    world::{DeferredWorld, Ref},
 };
 use bevy_math::Affine2;
+use bevy_reflect::prelude::ReflectDefault;
 
 use accesskit::{Affine, Node, Rect, Role};
+use bevy_reflect::Reflect;
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -162,6 +167,46 @@ fn label_changed(
                 .entity(entity)
                 .try_insert(AccessibilityNode::from(node));
         }
+    }
+}
+
+/// A component which permits the a11y label to be specified independently from other a11y
+/// attributes.
+///
+/// The content of the `label` attribute is typically application-specific, and frequently
+/// originates in application code rather than library code. Because the primary mechanism of entity
+/// composition in Bevy is component insertion (especially in BSN scenes), and because ``accesskit``
+/// mandates that all a11y properties be stored in a single data structure, it can be cumbersome
+/// to combine together a11y properties coming from different parts of the code; making the label
+/// its own component makes it possible to specify the label as a mixin.
+///
+/// Internally, what this does is update the [`AccessibilityNode`] component, using component hooks
+/// which are automatically registered when this component is used.
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+#[require(AccessibilityNode)]
+#[component(immutable, on_insert = on_label_inserted, on_remove = on_label_removed)]
+pub struct AccessibleLabel(pub String);
+
+impl AccessibleLabel {
+    /// Makes a new [`AccessibleLabel`] component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+}
+
+fn on_label_inserted(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    if let Some(label) = world.get::<AccessibleLabel>(entity) {
+        let label_text = label.0.clone().into_boxed_str();
+        if let Some(mut accessible) = world.get_mut::<AccessibilityNode>(entity) {
+            accessible.set_label(label_text);
+        }
+    }
+}
+
+fn on_label_removed(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    if let Some(mut accessible) = world.get_mut::<AccessibilityNode>(entity) {
+        accessible.clear_label();
     }
 }
 

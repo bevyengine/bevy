@@ -1039,7 +1039,7 @@ pub fn extract_text_sections(
             if current_section_index != *section_index
                 && let Some(section_entity) = computed_block
                     .entities()
-                    .get(*section_index)
+                    .get(*section_index as usize)
                     .map(|t| t.entity)
             {
                 color = text_styles
@@ -1199,7 +1199,7 @@ pub fn extract_text_shadows(
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
                 .entities()
-                .get(run.section_index)
+                .get(run.section_index as usize)
                 .map(|t| t.entity)
             else {
                 continue;
@@ -1332,7 +1332,7 @@ pub fn extract_text_decorations(
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
                 .entities()
-                .get(run.section_index)
+                .get(run.section_index as usize)
                 .map(|t| t.entity)
             else {
                 continue;

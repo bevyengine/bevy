@@ -246,7 +246,7 @@ impl PipelineCache {
         }
 
         global_shader_defs.push(ShaderDefVal::UInt(
-            String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+            "AVAILABLE_STORAGE_BUFFER_BINDINGS".into(),
             device.limits().max_storage_buffers_per_shader_stage,
         ));
 
