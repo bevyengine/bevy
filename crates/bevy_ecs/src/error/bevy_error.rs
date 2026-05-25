@@ -301,7 +301,7 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// For more fine grained control see [`Result::map_severity`]
+    /// For more fine grained control see [`Result::map_severity`](ResultSeverityExt::map_severity)
     fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
 
     /// Overrides the [`Severity`] of the error if this result is `Err`.
@@ -334,7 +334,7 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// If you don't need to inspect the error, use [`Result::with_severity`]
+    /// If you don't need to inspect the error, use [`Result::with_severity`](ResultSeverityExt::with_severity)
     fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
 }
 
