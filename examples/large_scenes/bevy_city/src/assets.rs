@@ -30,9 +30,9 @@ pub struct CityAssets {
     pub high_density: Buildings,
     pub medium_density: Buildings,
     pub low_density: Buildings,
-    pub low_density_lod: (Rect, Rect),
-    pub medium_density_lod: (Rect, Rect),
-    pub high_density_lod: (Rect, Rect),
+    pub low_density_lod_uv: (Rect, Rect),
+    pub medium_density_lod_uv: (Rect, Rect),
+    pub high_density_lod_uv: (Rect, Rect),
     pub ground_tile: (
         Handle<Mesh>,
         Handle<StandardMaterial>,
@@ -112,8 +112,8 @@ impl CityAssets {
                 commands.spawn((
                     PendingLod {
                         source_mesh: mesh.0.clone(),
-                        top_uv: self.low_density_lod.0,
-                        side_uv: self.low_density_lod.1,
+                        top_uv: self.low_density_lod_uv.0,
+                        side_uv: self.low_density_lod_uv.1,
                     },
                     material.clone(),
                     Transform::default(),
@@ -141,8 +141,8 @@ impl CityAssets {
                 commands.spawn((
                     PendingLod {
                         source_mesh: mesh.0.clone(),
-                        top_uv: self.medium_density_lod.0,
-                        side_uv: self.medium_density_lod.1,
+                        top_uv: self.medium_density_lod_uv.0,
+                        side_uv: self.medium_density_lod_uv.1,
                     },
                     material.clone(),
                     Transform::default(),
@@ -170,8 +170,8 @@ impl CityAssets {
                 commands.spawn((
                     PendingLod {
                         source_mesh: mesh.0.clone(),
-                        top_uv: self.high_density_lod.0,
-                        side_uv: self.high_density_lod.1,
+                        top_uv: self.high_density_lod_uv.0,
+                        side_uv: self.high_density_lod_uv.1,
                     },
                     material.clone(),
                     Transform::default(),
@@ -415,25 +415,26 @@ pub fn load_assets(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
-    let low_density_lod = (
+    // These UVs have been manually defined so the top of the uv cube matches the primary roof color
+    // and the walls the primary wall colors. The kenney assets used the same uv pattern for each
+    // asset pack and defines color variations by swapping the texture but using the same UVs.
+    let low_density_lod_uv = (
         Rect::new(0.0, 1.0 - 0.75, 0.062, 1.0 - 0.5),
         Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
     );
-    let medium_density_lod = (
+    let medium_density_lod_uv = (
         Rect::new(0.626, 1.0 - 0.249, 0.687, 1.0 - 0.0),
         Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
     );
-    let high_density_lod = (
+    let high_density_lod_uv = (
         Rect::new(0.626, 1.0 - 0.249, 0.687, 1.0 - 0.0),
         Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
     );
 
+    // Cars currenly use an hardcoded box because they aren't as easy as buildings to identify
+    // a primary color
     let car_lod = (
-        // Once we merge the meshes of the car glb we'll be able to use the aabb instead of
-        // manually created values
         meshes.add(Cuboid::new(1.0, 1.0, 2.5)),
-        // We'll probably need to have specific uv for each cart type to have a color match.
-        // This will be done once we have the merged meshes
         materials.add(StandardMaterial::default()),
     );
 
@@ -448,9 +449,9 @@ pub fn load_assets(
         high_density,
         medium_density,
         low_density,
-        low_density_lod,
-        medium_density_lod,
-        high_density_lod,
+        low_density_lod_uv,
+        medium_density_lod_uv,
+        high_density_lod_uv,
         ground_tile,
         tree_small,
         tree_large,
