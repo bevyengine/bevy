@@ -72,7 +72,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             Text::new("Your text here!"),
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
