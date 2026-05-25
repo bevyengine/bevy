@@ -54,8 +54,7 @@ impl Plugin for ExtractPlugin {
                     // This set applies the commands from the extract schedule while the render schedule
                     // is running in parallel with the main app.
                     apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                    despawn_temporary_entities::<RenderApp>
-                        .in_set(RenderSystems::PostCleanup),
+                    despawn_temporary_entities::<RenderApp>.in_set(RenderSystems::PostCleanup),
                 ),
             );
 

@@ -252,7 +252,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-pub(crate) fn despawn_temporary_render_entities<L: AppLabel + Copy + Default + Eq>(
+pub(crate) fn despawn_temporary_entities<L: AppLabel + Copy + Default + Eq>(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<TemporaryEntity<L>>>>,
     mut local: Local<Vec<Entity>>,
