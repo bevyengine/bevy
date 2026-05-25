@@ -112,7 +112,7 @@ pub enum SpectralModel {
     Tristimulus,
 
     /// Extends [`SpectralModel::Tristimulus`] while also supporting monochromatic (single wavelength) light sources
-    /// via a fast HSV + triangle function based approximation.
+    /// via a fast HSV + triangle function-based gaussian approximation.
     ///
     /// Allows things like Violet or Sodium Vapor lights, with a small performance impact.
     MonochromaticLights,

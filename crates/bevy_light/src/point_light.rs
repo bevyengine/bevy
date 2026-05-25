@@ -124,7 +124,7 @@ pub struct PointLight {
     /// This only has an effect if shadows are enabled.
     pub shadow_map_near_z: f32,
 
-    /// Whether this directional light is a source of [monochromatic light].
+    /// Whether this point light is a source of [monochromatic light].
     ///
     /// Must be paired with [`SpectralModel::MonochromaticLights`](bevy_camera::SpectralModel::MonochromaticLights) on the camera to have any effect.
     ///
@@ -164,7 +164,7 @@ impl PointLight {
 }
 
 /// Add to a [`PointLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
+/// A texture mask is applied to the light source to modulate its intensity,
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]

@@ -165,6 +165,7 @@ fn update(
             light.monochromatic = false;
         }
         LightPreset::Violet => {
+            // See: https://en.wikipedia.org/wiki/Violet_(color)#Relationship_to_purple
             light.color = PURPLE;
             light.monochromatic = true;
         }
