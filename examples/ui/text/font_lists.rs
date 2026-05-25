@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             (
                                 Text::new(list.replace(", ", "\n")),
                                 TextFont {
-                                    font: FontSource::css(list),
+                                    font: FontSource::names(list),
                                     font_size: FontSize::Px(16.),
                                     ..default()
                                 },

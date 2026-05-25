@@ -42,8 +42,8 @@ impl FontCx {
     /// up the `Font` asset instead.
     pub fn get_family<'a>(&'a mut self, source: &'a FontSource) -> Option<&'a str> {
         let generic_family = match source {
-            FontSource::Family(family) => return Some(family.as_str()),
-            FontSource::Handle(_) | FontSource::Css(_) | FontSource::List(_) => return None,
+            FontSource::Named(family) => return Some(family.as_str()),
+            FontSource::Handle(_) | FontSource::Names(_) | FontSource::List(_) => return None,
             FontSource::Generic(generic_family) => *generic_family,
         };
 

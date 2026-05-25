@@ -291,11 +291,11 @@ pub enum FontSource {
     #[default]
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
-    Family(SmolStr),
+    Named(SmolStr),
     /// Font family list in CSS format.
     ///
     /// For example: `"Arial, Noto Sans, sans-serif"`.
-    Css(SmolStr),
+    Names(SmolStr),
     /// Ordered list of font families.
     List(#[template(built_in)] Vec<FontFamilyEntry>),
     /// Resolve the font using a generic font family.
@@ -306,8 +306,8 @@ impl FontSource {
     /// Font family list in CSS format.
     ///
     /// For example: `"Arial, 'Noto Sans', sans-serif"`.
-    pub fn css(source: impl Into<SmolStr>) -> Self {
-        Self::Css(source.into())
+    pub fn names(source: impl Into<SmolStr>) -> Self {
+        Self::Names(source.into())
     }
 
     /// Creates an ordered list of font families.
@@ -424,20 +424,20 @@ impl From<&Handle<Font>> for FontSource {
 
 impl From<SmolStr> for FontSource {
     fn from(family: SmolStr) -> Self {
-        FontSource::Family(family)
+        FontSource::Named(family)
     }
 }
 
 impl From<&str> for FontSource {
     fn from(family: &str) -> Self {
-        FontSource::Family(family.into())
+        FontSource::Named(family.into())
     }
 }
 
 impl From<FontFamilyEntry> for FontSource {
     fn from(family: FontFamilyEntry) -> Self {
         match family {
-            FontFamilyEntry::Named(family) => FontSource::Family(family),
+            FontFamilyEntry::Named(family) => FontSource::Named(family),
             FontFamilyEntry::Generic(generic) => FontSource::Generic(generic),
         }
     }
@@ -615,7 +615,7 @@ impl TextFont {
 
     /// Returns this [`TextFont`] with the specified font family.
     pub fn with_family(mut self, family: impl Into<SmolStr>) -> Self {
-        self.font = FontSource::Family(family.into());
+        self.font = FontSource::Named(family.into());
         self
     }
 

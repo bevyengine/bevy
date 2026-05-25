@@ -254,7 +254,7 @@ mod text {
                     content.with_child((
                         Text::new("Font from css font list"),
                         TextFont {
-                            font: FontSource::css(
+                            font: FontSource::names(
                                 "'Comic Sans', Arial, 'Noto Sans', sans-serif, 'fonts/FiraSans-Bold.ttf'",
                             ),
                             ..Default::default()

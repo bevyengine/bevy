@@ -91,11 +91,11 @@ pub fn load_font_assets_into_font_collection(
     for mut text_font in text_font_query.iter_mut() {
         if match &text_font.font {
             FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
-            FontSource::Family(name) => font_cx
+            FontSource::Named(name) => font_cx
                 .collection
                 .family_id(name.as_str())
                 .is_some_and(|id| new_family_ids.contains(&id)),
-            FontSource::Css(source) => FontFamilyName::parse_css_list(source.as_str())
+            FontSource::Names(source) => FontFamilyName::parse_css_list(source.as_str())
                 .map_while(Result::ok)
                 .any(|family| match family {
                     FontFamilyName::Named(name) => font_cx

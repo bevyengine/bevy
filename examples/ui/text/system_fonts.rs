@@ -54,7 +54,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                 })
                 .with_children(|builder| {
                     for family in families {
-                        let font = FontSource::Family(family.clone().into());
+                        let font = FontSource::Named(family.clone().into());
                         builder.spawn((
                             Node {
                                 display: Display::Grid,

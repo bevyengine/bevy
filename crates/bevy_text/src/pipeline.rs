@@ -425,8 +425,8 @@ pub fn resolve_font_source<'a>(
                 font.family_name.as_str().to_owned(),
             )))
         }
-        FontSource::Family(family) => FontFamily::named(family.as_str()),
-        FontSource::Css(source) => FontFamily::Source(Cow::Borrowed(source.as_str())),
+        FontSource::Named(family) => FontFamily::named(family.as_str()),
+        FontSource::Names(source) => FontFamily::Source(Cow::Borrowed(source.as_str())),
         FontSource::List(list) => FontFamily::List(Cow::Owned(
             list.iter()
                 .map(|family| match family {
