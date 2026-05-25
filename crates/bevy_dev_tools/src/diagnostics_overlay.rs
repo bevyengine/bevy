@@ -210,6 +210,8 @@ impl DiagnosticsOverlayStatistic {
 /// System set for the systems of the [`DiagnosticsOverlayPlugin`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub enum DiagnosticsOverlaySystems {
+    /// Sets up the [`DiagnosticsOverlayPlane`] that will parent all [`DiagnosticsOverlay`]s.
+    Setup,
     /// Rebuild the contents of the [`DiagnosticsOverlay`] entities
     Rebuild,
 }
@@ -221,8 +223,12 @@ pub struct DiagnosticsOverlayPlugin;
 
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
+        app.configure_sets(Startup, DiagnosticsOverlaySystems::Setup);
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
-        app.add_systems(Startup, build_plane);
+        app.add_systems(
+            Startup,
+            build_plane.in_set(DiagnosticsOverlaySystems::Setup),
+        );
         app.add_systems(
             Update,
             rebuild_diagnostics_list
