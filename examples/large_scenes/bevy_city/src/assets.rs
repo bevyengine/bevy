@@ -434,7 +434,7 @@ pub fn load_assets(
         Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
     );
 
-    // Cars currenly use an hardcoded box because they aren't as easy as buildings to identify
+    // Cars currently use an hardcoded box because they aren't as easy as buildings to identify
     // a primary color
     let car_lod = (
         meshes.add(Cuboid::new(1.0, 1.0, 2.5)),
