@@ -778,6 +778,8 @@ pub enum RootMotionMode {
 impl RootMotionMode {
     /// Returns true if the translation should be extracted
     pub fn should_extract_translation(&self) -> bool {
+        // Note: All cases are explicitly handled so we don't forget to change
+        // this match if new options are added.
         match self {
             Self::Translation | Self::TranslationAndRotation => true,
         }
