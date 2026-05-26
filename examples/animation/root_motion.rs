@@ -1,14 +1,16 @@
 //! Demonstrates the usage of root motion.
 
 use bevy::{
-    animation::{AnimationTargetId, RepeatAnimation, RootMotion, RootMotionMode},
+    animation::{
+        find_root_bone_recursive, AnimationTargetId, RepeatAnimation, RootMotion, RootMotionConfig,
+        RootMotionMode,
+    },
     app::AnimationSystems,
     color::palettes::css::SILVER,
     light::CascadeShadowConfigBuilder,
     prelude::*,
     world_serialization::WorldInstanceReady,
 };
-use bevy_animation::{find_root_bone_recursive, RootMotionConfig};
 
 const MODEL: &str = "models/animated/FoxRootMotion.glb";
 const ORIGIN_POSITION: Vec3 = Vec3::new(0., 0., -50.);
