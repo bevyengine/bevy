@@ -203,7 +203,7 @@ pub struct BinUnpackingPipeline {
     pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
-    /// This gets filled in in the [`prepare_preprocess_pipelines`] system.
+    /// This gets filled in the [`prepare_preprocess_pipelines`] system.
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
 

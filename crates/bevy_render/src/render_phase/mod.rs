@@ -162,7 +162,7 @@ where
     ///
     /// We retain these so that, when the entity changes, the methods that
     /// remove items from bins can quickly find the bin each entity was located
-    /// in in order to remove it.
+    /// in order to remove it.
     cached_entity_bin_keys: MainEntityHashMap<CachedBinnedEntity<BPI>>,
 
     /// The gpu preprocessing mode configured for the view this phase is associated
