@@ -216,7 +216,7 @@ pub struct AnimatedBy(#[entities] pub Entity);
 
 /// A read-only projection of an animation event.
 ///
-/// Use this when you need to manually inspect or trigger animation events
+/// Use this when you need to manually inspect animation events and run their designated functions
 /// outside of the standard animation playback system.
 pub struct AnimationEventView {
     /// The target bone or entity associated with the event.
