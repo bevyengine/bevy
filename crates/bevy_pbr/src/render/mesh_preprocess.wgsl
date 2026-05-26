@@ -15,7 +15,7 @@
 // respectively.
 
 #import bevy_pbr::mesh_preprocess_types::{
-    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput
+    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput, PreprocessWorkItem
 }
 #import bevy_pbr::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
@@ -41,17 +41,6 @@ struct MeshCullingData {
     // The 3D extents of the AABB in model space, divided by two, padded with
     // an extra unused float value.
     aabb_half_extents: vec4<f32>,
-}
-
-// One invocation of this compute shader: i.e. one mesh instance in a view.
-struct PreprocessWorkItem {
-    // The index of the `MeshInput` in the `current_input` buffer that we read
-    // from.
-    input_index: u32,
-    // In direct mode, the index of the `Mesh` in `output` that we write to. In
-    // indirect mode, the index of the `IndirectParameters` in
-    // `indirect_parameters` that we write to.
-    output_or_indirect_parameters_index: u32,
 }
 
 // The parameters for the indirect compute dispatch for the late mesh
@@ -235,7 +224,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             world_pos = world_from_local[3].xyz;
         }
 
-        let camera_distance = length(position_world_to_view(world_pos));
+        let camera_distance = length(world_pos - view.lod_view_world_position);
         // `x` is the minimum range; `w` is the largest range.
         if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
             return;

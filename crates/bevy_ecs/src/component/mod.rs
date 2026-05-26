@@ -257,7 +257,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// Note that cycles in the "component require tree" will result in stack overflows when attempting to
 /// insert a component.
 ///
-/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for a given type
+/// This "multiple inheritance" pattern does mean that it is possible to have duplicate `require`s for a given type
 /// at different levels of the inheritance tree:
 ///
 /// ```
@@ -321,7 +321,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// Similar rules as before apply to duplicate requires fer a given type at different levels
+/// Similar rules as before apply to duplicate `require`s for a given type at different levels
 /// of the inheritance tree. `A` requiring `C` directly would take precedence over indirectly
 /// requiring it through `A` requiring `B` and `B` requiring `C`.
 ///
@@ -595,12 +595,11 @@ pub trait Component: Send + Sync + 'static {
     /// component itself, and this method will simply call that implementation.
     ///
     /// ```
-    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper, EntityHashMap}};
     /// #[derive(Component)]
     /// #[component(map_entities)]
     /// struct Inventory {
-    ///     items: HashMap<Entity, usize>
+    ///     items: EntityHashMap<usize>
     /// }
     ///
     /// impl MapEntities for Inventory {
@@ -623,13 +622,12 @@ pub trait Component: Send + Sync + 'static {
     /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic.
     ///
     /// ```
-    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper, EntityHashMap}};
     /// #[derive(Component)]
     /// #[component(map_entities = map_the_map)]
     /// // Also works: map_the_map::<M> or map_the_map::<_>
     /// struct Inventory {
-    ///     items: HashMap<Entity, usize>
+    ///     items: EntityHashMap<usize>
     /// }
     ///
     /// fn map_the_map<M: EntityMapper>(inv: &mut Inventory, entity_mapper: &mut M) {

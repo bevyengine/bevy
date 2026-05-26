@@ -52,6 +52,16 @@ const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 1u << 
 const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 1u << 2u;
 const DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32           = 1u << 3u;
 
+struct RectLight {
+    color: vec4<f32>,
+    position: vec3<f32>,
+    width: f32,
+    right: vec3<f32>,
+    height: f32,
+    up: vec3<f32>,
+    range: f32,
+};
+
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
     directional_lights: array<DirectionalLight, #{MAX_DIRECTIONAL_LIGHTS}u>,
@@ -71,7 +81,9 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-    ambient_light_affects_lightmapped_meshes: u32
+    ambient_light_affects_lightmapped_meshes: u32,
+    n_rect_lights: u32,
+    rect_lights: array<RectLight, #{MAX_RECT_LIGHTS}u>,
 };
 
 struct Fog {
@@ -148,7 +160,7 @@ struct LightProbe {
 };
 
 struct LightProbes {
-    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    // This must match `MAX_VIEW_LIGHT_PROBES` on the Rust side.
     reflection_probes: array<LightProbe, 8u>,
     irradiance_volumes: array<LightProbe, 8u>,
     reflection_probe_count: i32,
@@ -159,6 +171,7 @@ struct LightProbes {
     // The smallest valid mipmap level for the specular environment cubemap
     // associated with the view.
     smallest_specular_mip_level_for_view: u32,
+    view_rotation: vec4<f32>,
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
     // Whether the environment map attached to the view affects the diffuse

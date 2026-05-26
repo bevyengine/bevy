@@ -26,7 +26,7 @@ use bevy::{
         batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling, render_resource::Face,
         view::NoIndirectDrawing,
     },
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 use bevy::{
     camera::Hdr,
@@ -184,12 +184,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
 
     let bistro_exterior = asset_server.load("bistro_exterior/BistroExterior.gltf#Scene0");
     commands
-        .spawn((SceneRoot(bistro_exterior.clone()), Spin))
+        .spawn((WorldAssetRoot(bistro_exterior.clone()), Spin))
         .observe(proc_scene);
 
     let bistro_interior = asset_server.load("bistro_interior_wine/BistroInterior_Wine.gltf#Scene0");
     commands
-        .spawn((SceneRoot(bistro_interior.clone()), Spin))
+        .spawn((WorldAssetRoot(bistro_interior.clone()), Spin))
         .observe(proc_scene);
 
     let mut count = 0;
@@ -208,14 +208,14 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
                 }
                 commands
                     .spawn((
-                        SceneRoot(bistro_exterior.clone()),
+                        WorldAssetRoot(bistro_exterior.clone()),
                         Transform::from_xyz(x as f32 * 150.0, 0.0, z as f32 * 150.0),
                         Spin,
                     ))
                     .observe(proc_scene);
                 commands
                     .spawn((
-                        SceneRoot(bistro_interior.clone()),
+                        WorldAssetRoot(bistro_interior.clone()),
                         Transform::from_xyz(x as f32 * 150.0, 0.3, z as f32 * 150.0 - 0.2),
                         Spin,
                     ))
@@ -228,7 +228,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     if !args.no_gltf_lights {
         // In Repo glTF
         commands.spawn((
-            SceneRoot(asset_server.load("BistroExteriorFakeGI.gltf#Scene0")),
+            WorldAssetRoot(asset_server.load("BistroExteriorFakeGI.gltf#Scene0")),
             Spin,
         ));
     }
@@ -337,7 +337,7 @@ pub fn all_children<F: FnMut(Entity)>(
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn proc_scene(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     has_std_mat: Query<&MeshMaterial3d<StandardMaterial>>,

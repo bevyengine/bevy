@@ -139,7 +139,7 @@ macro_rules! impl_atomic_pod {
             type Blob = $blob_ty;
 
             fn read_from_blob(blob: &Self::Blob) -> Self {
-                const _ASSERT_POD_TYPE_SIZE: () = assert!(
+                const _ASSERT_POD_TYPE_SIZE: () = ::core::assert!(
                     ::core::mem::size_of::<$pod_ty>() % 4 == 0
                 );
 
@@ -181,7 +181,7 @@ macro_rules! impl_atomic_pod {
             $(
                 $(
                     pub fn $getter(&self) -> $field_ty {
-                        const _ASSERT_FIELD_SIZE: () = assert!(
+                        const _ASSERT_FIELD_SIZE: () = ::core::assert!(
                             ::core::mem::size_of::<$field_ty>() % 4 == 0
                         );
 
@@ -190,7 +190,7 @@ macro_rules! impl_atomic_pod {
                         // multiple of 4.
                         let words: [u32; ::core::mem::size_of::<$field_ty>() / 4] =
                             ::core::array::from_fn(|i| {
-                                self.0[offset_of!($pod_ty, $field_name) / 4 + i]
+                                self.0[::core::mem::offset_of!($pod_ty, $field_name) / 4 + i]
                                     .load(::bevy_platform::sync::atomic::Ordering::Relaxed)
                             });
                         *::bytemuck::must_cast_ref(&words)
@@ -204,7 +204,7 @@ macro_rules! impl_atomic_pod {
                             let words: [u32; ::core::mem::size_of::<$field_ty>() / 4] =
                                 ::bytemuck::must_cast(value);
                             for i in 0..(::core::mem::size_of::<$field_ty>() / 4) {
-                                self.0[offset_of!($pod_ty, $field_name) / 4 + i]
+                                self.0[::core::mem::offset_of!($pod_ty, $field_name) / 4 + i]
                                     .store(words[i], ::bevy_platform::sync::atomic::Ordering::Relaxed);
                             }
                         }

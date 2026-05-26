@@ -15,6 +15,7 @@ use crate::{
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, Assets, Handle, RenderAssetUsages};
+use bevy_camera::primitives::MeshAabb;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -130,6 +131,9 @@ pub struct MeshMetadata {
 pub struct RenderMesh {
     /// The number of vertices in the mesh.
     pub vertex_count: u32,
+
+    /// The 3D center of the mesh in model space.
+    pub aabb_center: Vec3,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -278,6 +282,10 @@ impl RenderAsset for RenderMesh {
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
+            aabb_center: match mesh.get_aabb() {
+                Some(aabb) => aabb.center.into(),
+                None => Vec3::ZERO,
+            },
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,

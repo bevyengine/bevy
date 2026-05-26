@@ -247,6 +247,18 @@ impl SubApp {
         self.world.register_system(system)
     }
 
+    /// See [`App::register_tracked_system`].
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> bevy_ecs::system::SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.world.register_tracked_system(system)
+    }
+
     /// See [`App::configure_sets`].
     #[track_caller]
     pub fn configure_sets<M>(
@@ -476,12 +488,39 @@ impl SubApp {
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type_data<
         T: bevy_reflect::Reflect + bevy_reflect::TypePath,
-        D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
+        D: bevy_reflect::CreateTypeData<T>,
     >(
         &mut self,
     ) -> &mut Self {
         let registry = self.world.resource_mut::<AppTypeRegistry>();
         registry.write().register_type_data::<T, D>();
+        self
+    }
+
+    /// See [`App::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry
+            .write()
+            .register_type_conversion::<T, U, _>(function);
+        self
+    }
+
+    /// See [`App::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath + From<T>,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_into_type_conversion::<T, U>();
         self
     }
 

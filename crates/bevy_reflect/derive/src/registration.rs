@@ -1,7 +1,7 @@
 //! Contains code related specifically to Bevy's type registration.
 
 use crate::{serialization::SerializationDataDef, where_clause_options::WhereClauseOptions};
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::Type;
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
@@ -13,7 +13,6 @@ pub(crate) fn impl_get_type_registration<'a>(
     let meta = where_clause_options.meta();
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let registration_data = meta.attrs().idents();
 
     let type_deps_fn = type_dependencies.map(|deps| {
         quote! {
@@ -29,7 +28,9 @@ pub(crate) fn impl_get_type_registration<'a>(
 
     let from_reflect_data = if meta.from_reflect().should_auto_derive() {
         Some(quote! {
-            registration.insert::<#bevy_reflect_path::ReflectFromReflect>(#bevy_reflect_path::FromType::<Self>::from_type());
+            registration.insert(
+                <#bevy_reflect_path::ReflectFromReflect as #bevy_reflect_path::CreateTypeData<Self>>::create_type_data(())
+            );
         })
     } else {
         None
@@ -42,14 +43,33 @@ pub(crate) fn impl_get_type_registration<'a>(
         }
     });
 
+    let type_data = meta.attrs().type_data().iter().map(|data| {
+        let reflect_ident = data.reflect_ident();
+        let args = data.args();
+
+        let args = if args.is_empty() {
+            // Set the span so that we get pointed to the correct identifier even when there are no type data arguments
+            let span = reflect_ident.span();
+            quote_spanned!(span => ())
+        } else {
+            quote!((#args))
+        };
+
+        quote! {
+            registration.register_type_data_with::<#reflect_ident, Self, _>(#args);
+        }
+    });
+
     quote! {
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_path #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
-                registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<Self>::from_type());
+                registration.insert(
+                    <#bevy_reflect_path::ReflectFromPtr as #bevy_reflect_path::CreateTypeData::<Self>>::create_type_data(())
+                );
                 #from_reflect_data
                 #serialization_data
-                #(registration.register_type_data::<#registration_data, Self>();)*
+                #(#type_data)*
                 registration
             }
 

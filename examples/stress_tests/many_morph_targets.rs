@@ -7,9 +7,9 @@ use bevy::{
     mesh::MeshAttributeCompressionFlags,
     post_process::motion_blur::MotionBlur,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 use chacha20::ChaCha8Rng;
 use core::{f32::consts::PI, str::FromStr};
@@ -185,7 +185,7 @@ fn main() {
 
 #[derive(Resource, Default)]
 struct MorphAssets {
-    scene: Handle<Scene>,
+    scene: Handle<WorldAsset>,
     animations: Vec<(Handle<AnimationGraph>, AnimationNodeIndex)>,
 }
 
@@ -370,7 +370,7 @@ fn update(
             .spawn((
                 animation,
                 Transform::from_xyz(x, y, 0.0),
-                SceneRoot(assets.scene.clone()),
+                WorldAssetRoot(assets.scene.clone()),
             ))
             .observe(play_animation)
             .observe(set_weights)
@@ -381,7 +381,7 @@ fn update(
 }
 
 fn play_animation(
-    trigger: On<SceneInstanceReady>,
+    trigger: On<WorldInstanceReady>,
     mut commands: Commands,
     args: Res<Args>,
     children: Query<&Children>,
@@ -407,7 +407,7 @@ fn play_animation(
 }
 
 fn set_weights(
-    trigger: On<SceneInstanceReady>,
+    trigger: On<WorldInstanceReady>,
     args: Res<Args>,
     children: Query<&Children>,
     mut weight_components: Query<&mut MorphWeights>,
