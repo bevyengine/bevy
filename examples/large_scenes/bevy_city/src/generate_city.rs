@@ -102,7 +102,7 @@ fn spawn_roads_and_cars<R: RngExt>(
     assets: &CityAssets,
     rng: &mut R,
     offset: Vec3,
-    car_density: f32,
+    max_car_density: f32,
     stats: &mut CityStats,
 ) {
     let x = offset.x;
@@ -113,8 +113,6 @@ fn spawn_roads_and_cars<R: RngExt>(
         Transform::from_xyz(x, 0.0, z),
     ));
     stats.roads += 1;
-
-    let max_car_density = car_density;
 
     // When spawning roads we rotate and stretch a single road asset instead of spawning multiple
     // road segments
@@ -269,7 +267,7 @@ fn spawn_low_density<R: RngExt>(
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
             assets.visibility_ranges[0].clone(),
         ));
-        stats.fences += 6;
+        stats.fences += 1;
     }
     for z in 0..=8 {
         assets.spawn_tree_small(

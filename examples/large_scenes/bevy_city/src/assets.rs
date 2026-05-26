@@ -61,39 +61,43 @@ impl CityAssets {
     }
 
     pub fn spawn_tree_small(&self, commands: &mut ChildSpawnerCommands, transform: Transform) {
-        commands
-            .spawn((transform, Visibility::default()))
-            .with_children(|commands| {
-                commands.spawn((
+        commands.spawn((
+            transform,
+            Visibility::default(),
+            children![
+                (
                     WorldAssetRoot(self.tree_small.clone()),
                     Transform::default(),
                     self.visibility_ranges[0].clone(),
-                ));
-                commands.spawn((
+                ),
+                (
                     Mesh3d(self.tree_small_lod.0.clone()),
                     MeshMaterial3d(self.tree_small_lod.1.clone()),
                     Transform::from_xyz(0.0, 0.3, 0.0),
                     self.visibility_ranges[1].clone(),
-                ));
-            });
+                )
+            ],
+        ));
     }
 
     pub fn spawn_tree_large(&self, commands: &mut ChildSpawnerCommands, transform: Transform) {
-        commands
-            .spawn((transform, Visibility::default()))
-            .with_children(|commands| {
-                commands.spawn((
+        commands.spawn((
+            transform,
+            Visibility::default(),
+            children![
+                (
                     WorldAssetRoot(self.tree_large.clone()),
                     Transform::default(),
                     self.visibility_ranges[0].clone(),
-                ));
-                commands.spawn((
+                ),
+                (
                     Mesh3d(self.tree_large_lod.0.clone()),
                     MeshMaterial3d(self.tree_large_lod.1.clone()),
                     Transform::from_xyz(0.0, 0.4, 0.0),
                     self.visibility_ranges[1].clone(),
-                ));
-            });
+                )
+            ],
+        ));
     }
 
     pub fn spawn_low_density_building<R: RngExt>(
@@ -102,17 +106,18 @@ impl CityAssets {
         rng: &mut R,
         transform: Transform,
     ) {
-        commands
-            .spawn((transform, Visibility::default()))
-            .with_children(|commands| {
-                let (mesh, material) = self.low_density.get_random_building(rng);
-                commands.spawn((
+        let (mesh, material) = self.low_density.get_random_building(rng);
+        commands.spawn((
+            transform,
+            Visibility::default(),
+            children![
+                (
                     mesh.clone(),
                     material.clone(),
                     Transform::default(),
                     self.visibility_ranges[0].clone(),
-                ));
-                commands.spawn((
+                ),
+                (
                     PendingLod {
                         source_mesh: mesh.0.clone(),
                         top_uv: self.low_density_lod_uv.0,
@@ -121,8 +126,9 @@ impl CityAssets {
                     material.clone(),
                     Transform::default(),
                     self.visibility_ranges[1].clone(),
-                ));
-            });
+                )
+            ],
+        ));
     }
 
     pub fn spawn_medium_density_building<R: RngExt>(
@@ -131,17 +137,18 @@ impl CityAssets {
         rng: &mut R,
         transform: Transform,
     ) {
-        commands
-            .spawn((transform, Visibility::default()))
-            .with_children(|commands| {
-                let (mesh, material) = self.medium_density.get_random_building(rng);
-                commands.spawn((
+        let (mesh, material) = self.medium_density.get_random_building(rng);
+        commands.spawn((
+            transform,
+            Visibility::default(),
+            children![
+                (
                     mesh.clone(),
                     material.clone(),
                     Transform::default(),
                     self.visibility_ranges[0].clone(),
-                ));
-                commands.spawn((
+                ),
+                (
                     PendingLod {
                         source_mesh: mesh.0.clone(),
                         top_uv: self.medium_density_lod_uv.0,
@@ -150,8 +157,9 @@ impl CityAssets {
                     material.clone(),
                     Transform::default(),
                     self.visibility_ranges[1].clone(),
-                ));
-            });
+                )
+            ],
+        ));
     }
 
     pub fn spawn_high_density_building<R: RngExt>(
@@ -160,17 +168,18 @@ impl CityAssets {
         rng: &mut R,
         transform: Transform,
     ) {
-        commands
-            .spawn((transform, Visibility::default()))
-            .with_children(|commands| {
-                let (mesh, material) = self.high_density.get_random_building(rng);
-                commands.spawn((
+        let (mesh, material) = self.high_density.get_random_building(rng);
+        commands.spawn((
+            transform,
+            Visibility::default(),
+            children![
+                (
                     mesh.clone(),
                     material.clone(),
                     Transform::default(),
                     self.visibility_ranges[0].clone(),
-                ));
-                commands.spawn((
+                ),
+                (
                     PendingLod {
                         source_mesh: mesh.0.clone(),
                         top_uv: self.high_density_lod_uv.0,
@@ -179,8 +188,9 @@ impl CityAssets {
                     material.clone(),
                     Transform::default(),
                     self.visibility_ranges[1].clone(),
-                ));
-            });
+                )
+            ],
+        ));
     }
 
     pub fn spawn_car<R: RngExt>(
@@ -190,21 +200,24 @@ impl CityAssets {
         transform: Transform,
         car: Car,
     ) {
-        commands
-            .spawn((transform, Visibility::default(), car))
-            .with_children(|commands| {
-                commands.spawn((
+        commands.spawn((
+            transform,
+            Visibility::default(),
+            car,
+            children![
+                (
                     self.get_random_car(rng),
                     Transform::default(),
                     self.car_visibility_ranges[0].clone(),
-                ));
-                commands.spawn((
+                ),
+                (
                     Mesh3d(self.car_lod.0.clone()),
                     MeshMaterial3d(self.car_lod.1.clone()),
                     Transform::from_xyz(0.0, 0.5, 0.0),
                     self.car_visibility_ranges[1].clone(),
-                ));
-            });
+                )
+            ],
+        ));
     }
 }
 
