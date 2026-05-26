@@ -4070,8 +4070,8 @@ fn prepare_mesh_bind_groups_for_phase(
                     },
                     &mut MeshMorphTargetBindGroups::Uniform(ref mut _morph_targets),
                 ) => {
-                    // we will create it later out of the loop, since the `MeshMorphTargetBindGroups::Uniform` is per-mesh uniforms,
-                    // unlike `MeshMorphTargetBindGroups::Storage` which is per-metadata-slab and per-morph-slab.
+                    // We will create it later in `prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms`,
+                    // since the `MeshMorphTargetBindGroups::Uniform` is per-mesh instead of per-slab.
                 }
 
                 (

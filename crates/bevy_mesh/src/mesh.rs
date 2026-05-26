@@ -306,7 +306,7 @@ impl MeshAttributeCompressionFlags {
     }
 }
 
-// Workaround const expression in match pattern.
+// Constants to work around const expression can't be used in match pattern.
 const ATTRIBUTE_POSITION_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_POSITION.id;
 const ATTRIBUTE_NORMAL_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_NORMAL.id;
 const ATTRIBUTE_UV_0_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_0.id;

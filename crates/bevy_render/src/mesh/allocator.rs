@@ -80,15 +80,6 @@ impl Default for MeshAllocatorSettings {
     }
 }
 
-const fn mesh_metadata_element_layout(storage_buffers_are_usable: bool) -> ElementLayout {
-    ElementLayout {
-        class: ElementClass::Metadata,
-        size: size_of::<MeshMetadata>() as u64,
-        elements_per_slot: 1,
-        storage_buffers_are_usable,
-    }
-}
-
 /// The [`ElementLayout`] for morph displacements.
 ///
 /// All morph displacements currently have the same element layout, so we only
@@ -98,7 +89,7 @@ const MORPH_ATTRIBUTE_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
     class: ElementClass::MorphTarget,
     size: size_of::<MorphAttributes>() as u64,
     elements_per_slot: 1,
-    storage_buffers_are_usable: true,
+    buffer_usages: ElementClass::MorphTarget.buffer_usages(true),
 };
 
 /// The ID of a single slab.
@@ -162,7 +153,7 @@ impl MeshAllocationKey {
 /// The type of element that a mesh slab can store.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ElementClass {
-    /// Per-mesh metadata.
+    /// Per-mesh metadata, except for meshes without `final_aabb` and `final_uv_ranges`.
     Metadata,
     /// Data for a vertex.
     Vertex,
@@ -173,8 +164,7 @@ pub enum ElementClass {
     MorphTarget,
 }
 
-/// Information about the size of individual elements (vertices or indices)
-/// within a slab.
+/// Information about the size of individual elements within a slab.
 ///
 /// Slab objects are allocated in units of *slots*. Usually, each element takes
 /// up one slot, and so elements and slots are equivalent. Occasionally,
@@ -188,10 +178,9 @@ pub enum ElementClass {
 /// freely.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ElementLayout {
-    /// Either a vertex or an index.
     class: ElementClass,
 
-    /// The size in bytes of a single element (vertex or index).
+    /// The size in bytes of a single element.
     size: u64,
 
     /// The number of elements that make up a single slot.
@@ -201,7 +190,7 @@ pub struct ElementLayout {
     /// details.
     elements_per_slot: u32,
 
-    storage_buffers_are_usable: bool,
+    buffer_usages: BufferUsages,
 }
 
 impl Plugin for MeshAllocatorPlugin {
@@ -278,7 +267,7 @@ pub fn allocate_and_free_meshes(
 }
 
 impl MeshAllocator {
-    /// Returns the buffer and range within that buffer of the metadata data for
+    /// Returns the buffer and range within that buffer of the metadata for
     /// the mesh with the given ID.
     ///
     /// If the mesh wasn't allocated, returns None.
@@ -423,16 +412,17 @@ impl MeshAllocator {
 
             // Allocate metadata.
             if mesh.final_aabb.is_some() || mesh.final_uv_ranges.iter().any(Option::is_some) {
+                // If storage buffers are unsupported, we allocate uniform buffers for each mesh.
                 if crate::storage_buffers_are_unsupported(&render_device.limits()) {
                     allocation_stage.allocate_large(
                         &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
-                        mesh_metadata_element_layout(false),
+                        ElementLayout::metadata(false),
                     );
                 } else {
                     allocation_stage.allocate(
                         &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
                         size_of::<MeshMetadata>() as u64,
-                        mesh_metadata_element_layout(true),
+                        ElementLayout::metadata(true),
                         mesh_allocator_settings,
                     );
                 }
@@ -635,6 +625,10 @@ impl ElementLayout {
         const {
             assert!(4 == COPY_BUFFER_ALIGNMENT);
         }
+
+        // Use `ElementLayout::metadata` instead, as it needs to specify whether to use storage buffer.
+        assert!(class != ElementClass::Metadata);
+
         // this is equivalent to `4 / gcd(4,size)` but lets us not implement gcd.
         // ping @atlv if above assert ever fails (likely never)
         let elements_per_slot = [1, 4, 2, 4][size as usize & 3];
@@ -644,7 +638,16 @@ impl ElementLayout {
             // Make sure that slot boundaries begin and end on
             // `COPY_BUFFER_ALIGNMENT`-byte (4-byte) boundaries.
             elements_per_slot,
-            storage_buffers_are_usable: true,
+            buffer_usages: class.buffer_usages(true),
+        }
+    }
+
+    fn metadata(storage_buffers_are_usable: bool) -> ElementLayout {
+        ElementLayout {
+            class: ElementClass::Metadata,
+            size: size_of::<MeshMetadata>() as u64,
+            elements_per_slot: 1,
+            buffer_usages: ElementClass::Metadata.buffer_usages(storage_buffers_are_usable),
         }
     }
 
@@ -683,17 +686,17 @@ impl SlabItemLayout for ElementLayout {
     }
 
     fn buffer_usages(&self) -> BufferUsages {
-        self.class.buffer_usages(self.storage_buffers_are_usable)
+        self.buffer_usages
     }
 }
 
 impl ElementClass {
     /// Returns the `wgpu` [`BufferUsages`] appropriate for a buffer of this
     /// class.
-    fn buffer_usages(&self, storage_buffers_are_usable: bool) -> BufferUsages {
+    const fn buffer_usages(&self, metadata_use_storage_buffer: bool) -> BufferUsages {
         match *self {
             ElementClass::Metadata => {
-                if storage_buffers_are_usable {
+                if metadata_use_storage_buffer {
                     BufferUsages::STORAGE
                 } else {
                     BufferUsages::UNIFORM
