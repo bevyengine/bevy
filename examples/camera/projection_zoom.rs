@@ -141,15 +141,17 @@ fn zoom(
 ) {
     // Usually, you won't need to handle both types of projection,
     // but doing so makes for a more complete example.
+
+    // Get a scroll amount proportional to the kind of input that generated it.
+    let scroll = match mouse_wheel_input.unit {
+        MouseScrollUnit::Line => mouse_wheel_input.delta.y,
+        MouseScrollUnit::Pixel => {
+            mouse_wheel_input.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
+        }
+    };
+
     match *camera.into_inner() {
         Projection::Orthographic(ref mut orthographic) => {
-            // Get a scroll amount proportional to the kind of input that generated it.
-            let scroll = match mouse_wheel_input.unit {
-                MouseScrollUnit::Line => mouse_wheel_input.delta.y,
-                MouseScrollUnit::Pixel => {
-                    mouse_wheel_input.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
-                }
-            };
             // We want scrolling up to zoom in, decreasing the scale, so we negate the delta.
             let delta_zoom = -scroll * camera_settings.orthographic_zoom_speed;
             // When changing scales, logarithmic changes are more intuitive.
@@ -165,7 +167,7 @@ fn zoom(
         }
         Projection::Perspective(ref mut perspective) => {
             // We want scrolling up to zoom in, decreasing the scale, so we negate the delta.
-            let delta_zoom = -mouse_wheel_input.delta.y * camera_settings.perspective_zoom_speed;
+            let delta_zoom = -scroll * camera_settings.perspective_zoom_speed;
 
             // Adjust the field of view, but keep it within our stated range.
             perspective.fov = (perspective.fov + delta_zoom).clamp(
