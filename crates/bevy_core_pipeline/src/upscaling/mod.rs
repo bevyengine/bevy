@@ -61,22 +61,7 @@ fn prepare_view_upscaling_pipelines(
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
                 CameraOutputMode::Skip => None,
-                CameraOutputMode::Write { blend_state, .. } => {
-                    match blend_state {
-                        None => {
-                            // Auto-detect: the first camera to render to this output
-                            // (sorted_camera_index_for_target == 0) uses replace mode;
-                            // subsequent cameras default to alpha blending so they don't
-                            // accidentally overwrite earlier cameras' output.
-                            if extracted_camera.sorted_camera_index_for_target > 0 {
-                                Some(BlendState::ALPHA_BLENDING)
-                            } else {
-                                None
-                            }
-                        }
-                        _ => blend_state,
-                    }
-                }
+                CameraOutputMode::Write { blend_state, .. } => blend_state,
             }
         } else {
             None
