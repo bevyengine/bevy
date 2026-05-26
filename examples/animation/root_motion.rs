@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     world_serialization::WorldInstanceReady,
 };
-use bevy_animation::find_root_bone_recursive;
+use bevy_animation::{find_root_bone_recursive, RootMotionConfig};
 
 const MODEL: &str = "models/animated/FoxRootMotion.glb";
 const ORIGIN_POSITION: Vec3 = Vec3::new(0., 0., -50.);
@@ -57,22 +57,29 @@ fn apply_root_motion(
 struct RootMotionTargetId(AnimationTargetId);
 
 fn toggle_root_motion(
+    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut help_text: Single<&mut Text, With<HelpTextMarker>>,
     mut q_transform: Query<&mut Transform>,
     root_motion_target_id: Option<Res<RootMotionTargetId>>,
-    player: Single<(&mut AnimationPlayer, &ApplyRootMotionTo)>,
+    player: Single<(Entity, Option<&RootMotionConfig>, &ApplyRootMotionTo)>,
 ) {
     if let Some(root_motion_target_id) = root_motion_target_id
         && keys.just_pressed(KeyCode::Space)
     {
-        let (mut animation_player, apply_to) = player.into_inner();
-        if animation_player.root_motion_target().is_none() {
-            animation_player.set_root_motion_target(Some(root_motion_target_id.0));
-            help_text.0 = HELP_TEXT.to_string() + "(current: On)";
-        } else {
-            animation_player.set_root_motion_target(None);
-            help_text.0 = HELP_TEXT.to_string() + "(current: Off)";
+        let (player_entity, root_motion_config, apply_to) = player.into_inner();
+        match root_motion_config {
+            Some(_) => {
+                help_text.0 = HELP_TEXT.to_string() + "(current: Off)";
+                commands.entity(player_entity).remove::<RootMotionConfig>();
+            }
+            None => {
+                help_text.0 = HELP_TEXT.to_string() + "(current: On)";
+                commands.entity(player_entity).insert(RootMotionConfig {
+                    root_motion_mode: RootMotionMode::Translation,
+                    root_motion_target: root_motion_target_id.0,
+                });
+            }
         }
         q_transform.get_mut(apply_to.0).unwrap().translation = ORIGIN_POSITION;
     }
@@ -127,13 +134,16 @@ fn setup(
                                 &Name::new("b_Root_00"),
                             )
                             .unwrap();
-                            // You can choose if you want to get Translation + Rotation
-                            // or only Translation with RootMotionMode.
-                            // By default, it's Translation + Rotation.
-                            animation_player.set_root_motion_mode(RootMotionMode::Translation);
-                            commands
-                                .entity(*scene_child)
-                                .insert(ApplyRootMotionTo(trigger.event_target()));
+                            commands.entity(*scene_child).insert((
+                                RootMotionConfig {
+                                    // You can choose if you want to get Translation + Rotation
+                                    // or only Translation with RootMotionMode.
+                                    // By default, it's Translation + Rotation.
+                                    root_motion_mode: RootMotionMode::Translation,
+                                    root_motion_target: root_motion_target_id,
+                                },
+                                ApplyRootMotionTo(trigger.event_target()),
+                            ));
                             commands.insert_resource(RootMotionTargetId(root_motion_target_id));
                             return;
                         }
@@ -172,7 +182,7 @@ fn setup(
     // Help Text
     commands.spawn((
         HelpTextMarker,
-        Text::new(HELP_TEXT.to_string() + "(current: Off)"),
+        Text::new(HELP_TEXT.to_string() + "(current: On)"),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),

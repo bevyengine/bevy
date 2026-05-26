@@ -738,21 +738,6 @@ pub struct RootMotion {
     pub rotation_delta: Quat,
 }
 
-/// A system that removes [`RootMotion`] from [`AnimationPlayer`] entities
-/// with `root_motion_target` set to `None`.
-///
-/// This happens when root motion is disabled after being active for at least one frame.
-pub fn remove_disabled_root_motion(
-    mut query: Query<(Entity, &AnimationPlayer), With<RootMotion>>,
-    mut commands: Commands,
-) {
-    for (entity, player) in query.iter_mut() {
-        if player.root_motion_target.is_none() {
-            commands.entity(entity).remove::<RootMotion>();
-        }
-    }
-}
-
 /// Finds the root bone by recursively searching in the `entity` hierarchy an entity with the requested name.
 /// `entity` itself is tested so you can call this function directly on the rig entity.
 pub fn find_root_bone_recursive(
@@ -807,6 +792,23 @@ impl RootMotionMode {
     }
 }
 
+/// Configures the root motion for the entity. This must be placed in the same entity as the [`AnimationPlayer`].
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Reflect)]
+#[component(on_remove = Self::on_remove)]
+pub struct RootMotionConfig {
+    /// Describes which components of the bone should be extracted.
+    pub root_motion_mode: RootMotionMode,
+    /// The bone used for root motion. Depending on the [`RootMotionMode`],
+    /// that means that the bone will no longer translate and / or rotate.
+    /// You can easily find the root bone by name using [`find_root_bone_recursive`].
+    pub root_motion_target: AnimationTargetId,
+}
+impl RootMotionConfig {
+    fn on_remove(mut world: DeferredWorld, ctx: HookContext) {
+        world.commands().entity(ctx.entity).remove::<RootMotion>();
+    }
+}
+
 /// Animation controls.
 ///
 /// Automatically added to any root animations of a scene when it is
@@ -816,8 +818,6 @@ impl RootMotionMode {
 #[component(on_remove=Self::on_remove)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
-    root_motion_target: Option<AnimationTargetId>,
-    root_motion_mode: RootMotionMode,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -825,15 +825,11 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
-            root_motion_target: self.root_motion_target,
-            root_motion_mode: self.root_motion_mode,
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
-        self.root_motion_target = source.root_motion_target;
-        self.root_motion_mode = source.root_motion_mode;
     }
 }
 
@@ -1075,33 +1071,6 @@ impl AnimationPlayer {
         self.active_animations.get_mut(&animation)
     }
 
-    /// Returns the root motion target linked with this [`AnimationPlayer`].
-    pub fn root_motion_target(&self) -> Option<AnimationTargetId> {
-        self.root_motion_target
-    }
-
-    /// Set the root motion target. Set to `None` if you want to disable root motion.
-    ///
-    /// When the root motion is active, [`Transform::translation`] and / or [`Transform::rotation`] will be
-    /// extracted from the root target according to the [`RootMotionMode`].
-    ///
-    /// For example, if [`AnimationPlayer::root_motion_mode`] is set to [`RootMotionMode::TranslationAndRotation`], the
-    /// [`Transform::translation`] and [`Transform::rotation`] in the root target will always be the default value.
-    /// The delta between each frame will be stored in [`RootMotion`] in the [`AnimationPlayer`]'s entity.
-    pub fn set_root_motion_target(&mut self, target: Option<AnimationTargetId>) {
-        self.root_motion_target = target;
-    }
-
-    /// Returns the [`RootMotionMode`].
-    pub fn root_motion_mode(&self) -> RootMotionMode {
-        self.root_motion_mode
-    }
-
-    /// Set the [`RootMotionMode`] to control how [`RootMotion`] is extracted.
-    pub fn set_root_motion_mode(&mut self, mode: RootMotionMode) {
-        self.root_motion_mode = mode;
-    }
-
     fn on_remove(mut world: DeferredWorld<'_>, context: HookContext) {
         // Removes potential [`RootMotion`] added by the [`AnimationPlayer`]
         world
@@ -1200,6 +1169,7 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
         AnimatedBy,
         AnimationPlayer,
         AnimationGraphHandle,
+        RootMotionConfig,
     ),
 >;
 
@@ -1294,7 +1264,12 @@ pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+    players: Query<(
+        Entity,
+        &AnimationPlayer,
+        &AnimationGraphHandle,
+        Option<&RootMotionConfig>,
+    )>,
     mut targets: Query<
         (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
         Without<IsResource>,
@@ -1306,21 +1281,23 @@ pub fn animate_targets(
     // Evaluate all animation targets in parallel.
     targets.par_iter_mut().for_each(
         |(entity, &target_id, &AnimatedBy(player_id), mut entity_mut)| {
-            let (animation_player_entity, animation_player, animation_graph_id) =
-                if let Ok((player_entity, player, graph_handle)) = players.get(player_id) {
-                    (player_entity, player, graph_handle.id())
-                } else {
-                    trace!(
-                        "Either an animation player {} or a graph was missing for the target \
+            let (
+                animation_player_entity,
+                animation_player,
+                animation_graph_id,
+                maybe_root_motion_config,
+            ) = if let Ok((player_entity, player, graph_handle, config)) = players.get(player_id) {
+                (player_entity, player, graph_handle.id(), config)
+            } else {
+                trace!(
+                    "Either an animation player {} or a graph was missing for the target \
                          entity {} ({:?}); no animations will play this frame",
-                        player_id,
-                        entity_mut.id(),
-                        entity_mut.get::<Name>(),
-                    );
-                    return;
-                };
-
-            let is_root_target = Some(target_id) == animation_player.root_motion_target;
+                    player_id,
+                    entity_mut.id(),
+                    entity_mut.get::<Name>(),
+                );
+                return;
+            };
 
             // The graph might not have loaded yet. Safely bail.
             let Some(animation_graph) = graphs.get(animation_graph_id) else {
@@ -1332,6 +1309,10 @@ pub fn animate_targets(
             else {
                 return;
             };
+
+            // Get root motion configuration
+            let is_root_target = maybe_root_motion_config
+                .is_some_and(|config| config.root_motion_target == target_id);
 
             // Determine which mask groups this animation target belongs to.
             let target_mask = animation_graph
@@ -1447,12 +1428,11 @@ pub fn animate_targets(
                         let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
-                        if is_root_target {
-                            let extract_translation = animation_player
-                                .root_motion_mode
-                                .should_extract_translation();
+                        if is_root_target && let Some(config) = maybe_root_motion_config {
+                            let extract_translation =
+                                config.root_motion_mode.should_extract_translation();
                             let extract_rotation =
-                                animation_player.root_motion_mode.should_extract_rotation();
+                                config.root_motion_mode.should_extract_rotation();
                             for curve in curves {
                                 let curve_evaluator_id = (*curve.0).evaluator_id();
                                 let curve_evaluator =
@@ -1525,18 +1505,14 @@ pub fn animate_targets(
                 warn!("Animation application failed: {:?}", err);
             }
 
-            if is_root_target {
+            if is_root_target && let Some(config) = maybe_root_motion_config {
                 let mut root_motion_transform = entity_mut.get_mut::<Transform>().unwrap();
-                let translation_delta = if animation_player
-                    .root_motion_mode
-                    .should_extract_translation()
-                {
+                let translation_delta = if config.root_motion_mode.should_extract_translation() {
                     core::mem::take(&mut root_motion_transform.translation)
                 } else {
                     Default::default()
                 };
-                let rotation_delta = if animation_player.root_motion_mode.should_extract_rotation()
-                {
+                let rotation_delta = if config.root_motion_mode.should_extract_rotation() {
                     core::mem::take(&mut root_motion_transform.rotation)
                 } else {
                     Default::default()
@@ -1577,7 +1553,6 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets.ambiguous_with_all(),
-                    remove_disabled_root_motion,
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
@@ -2212,7 +2187,6 @@ mod tests {
         };
         // Add multiple clips
         let mut animation_player = AnimationPlayer::default();
-        animation_player.set_root_motion_target(Some(root_target));
         let slow_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
         animation_player
             .play(slow_animation)
@@ -2233,7 +2207,17 @@ mod tests {
         // Update to create the ThreadedAnimationGraph
         app.update();
         // Spawn entities
-        let animator_entity = app.world_mut().spawn((animation_player, graph_handle)).id();
+        let animator_entity = app
+            .world_mut()
+            .spawn((
+                animation_player,
+                graph_handle,
+                RootMotionConfig {
+                    root_motion_target: root_target,
+                    root_motion_mode: Default::default(),
+                },
+            ))
+            .id();
         let animated_entity = app
             .world_mut()
             .spawn((
@@ -2293,9 +2277,8 @@ mod tests {
         // Test if RootMotion is removed when root motion is disabled
         app.world_mut()
             .entity_mut(animator_entity)
-            .get_mut::<AnimationPlayer>()
-            .unwrap()
-            .root_motion_target = None;
+            .remove::<RootMotionConfig>();
+
         app.update();
         assert!(app
             .world_mut()
