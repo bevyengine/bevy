@@ -729,7 +729,7 @@ impl ActiveAnimation {
 }
 
 /// Contains the root motion extracted by the [`AnimationPlayer`].
-#[derive(Debug, Component, Default, Reflect)]
+#[derive(Debug, Clone, Component, Default, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 pub struct RootMotion {
     /// Translation delta with the previous frame.
