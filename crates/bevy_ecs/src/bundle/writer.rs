@@ -135,19 +135,24 @@ impl<'a> BundleWriter<'a> {
         // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
-            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
-                entity.insert_by_ids_internal(
-                    &self.0.component_ids,
-                    self.0
-                        .component_ptrs
-                        .drain(..)
-                        .map(|ptr| OwningPtr::new(ptr)),
-                    RelationshipHookMode::Run,
-                );
-            }));
-            self.0.component_ids.clear();
-            self.0.alloc.reset();
-            bevy_utils::resume_caught_unwind(maybe_panic);
+            struct DropGuard<'a>(BundleWriter<'a>);
+            impl Drop for DropGuard<'_> {
+                fn drop(&mut self) {
+                    self.0 .0.component_ids.clear();
+                    self.0 .0.alloc.reset();
+                }
+            }
+            let guard = DropGuard(self);
+            entity.insert_by_ids_internal(
+                &guard.0 .0.component_ids,
+                guard
+                    .0
+                     .0
+                    .component_ptrs
+                    .drain(..)
+                    .map(|ptr| OwningPtr::new(ptr)),
+                RelationshipHookMode::Run,
+            );
         }
     }
 
