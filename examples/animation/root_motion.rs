@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     world_serialization::WorldInstanceReady,
 };
+use bevy_animation::find_root_bone_recursive;
 
 const MODEL: &str = "models/animated/FoxRootMotion.glb";
 const ORIGIN_POSITION: Vec3 = Vec3::new(0., 0., -50.);
@@ -179,29 +180,4 @@ fn setup(
             ..default()
         },
     ));
-}
-
-/// Finds the root node so we can configure the [`AnimationPlayer`] to extract the motion from it.
-fn find_root_bone_recursive(
-    entity: Entity,
-    q_children: &Query<&Children>,
-    q_name: &Query<&Name>,
-    q_animation_target_id: &Query<&AnimationTargetId>,
-    name: &Name,
-) -> Option<AnimationTargetId> {
-    if let Ok(entity_name) = q_name.get(entity)
-        && name == entity_name
-    {
-        return q_animation_target_id.get(entity).ok().copied();
-    }
-    if let Ok(children) = q_children.get(entity) {
-        for child in children {
-            let found =
-                find_root_bone_recursive(*child, q_children, q_name, q_animation_target_id, name);
-            if found.is_some() {
-                return found;
-            }
-        }
-    }
-    None
 }

@@ -753,6 +753,32 @@ pub fn remove_disabled_root_motion(
     }
 }
 
+/// Finds the root bone by recursively searching in the `entity` hierarchy an entity with the requested name.
+/// `entity` itself is tested so you can call this function directly on the rig entity.
+pub fn find_root_bone_recursive(
+    entity: Entity,
+    q_children: &Query<&Children>,
+    q_name: &Query<&Name>,
+    q_animation_target_id: &Query<&AnimationTargetId>,
+    name: &Name,
+) -> Option<AnimationTargetId> {
+    if let Ok(entity_name) = q_name.get(entity)
+        && name == entity_name
+    {
+        return q_animation_target_id.get(entity).ok().copied();
+    }
+    if let Ok(children) = q_children.get(entity) {
+        for child in children {
+            let found =
+                find_root_bone_recursive(*child, q_children, q_name, q_animation_target_id, name);
+            if found.is_some() {
+                return found;
+            }
+        }
+    }
+    None
+}
+
 /// How [`RootMotion`] should be extracted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Reflect)]
 #[reflect(Default, Clone)]
