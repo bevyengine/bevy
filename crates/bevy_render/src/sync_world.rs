@@ -17,9 +17,9 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-/// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
+/// A plugin that synchronizes entities with [`SyncToSubWorld`] between the main world and the render world.
 ///
-/// All entities with the [`SyncToRenderWorld`] component are kept in sync. It
+/// All entities with the [`SyncToSubWorld`] component are kept in sync. It
 /// is automatically added as a required component by [`ExtractComponentPlugin`]
 /// and [`SyncComponentPlugin`], so it doesn't need to be added manually when
 /// spawning or as a required component when either of these plugins are used.
@@ -33,13 +33,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
 /// between the main world and the render world.
 /// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
-/// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
+/// The link between synced entities is maintained by the [`SubEntity`] and [`MainEntity`] components.
 ///
-/// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
+/// The [`SubEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
 /// the corresponding main world entity of a render world entity.
 /// For convenience, [`QueryData`](bevy_ecs::query::QueryData) implementations are provided for both components:
 /// adding [`MainEntity`] to a query (without a `&`) will return the corresponding main world [`Entity`],
-/// and adding [`RenderEntity`] will return the corresponding render world [`Entity`].
+/// and adding [`SubEntity`] will return the corresponding render world [`Entity`].
 /// If you have access to the component itself, the underlying entities can be accessed by calling `.id()`.
 ///
 /// Synchronization is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
@@ -59,8 +59,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// |---------------------------Main World------------------------------|
 /// |  Entity  |                    Component                           |
 /// |-------------------------------------------------------------------|
-/// | ID: 1v1  | PointLight | RenderEntity(ID: 3V1) | SyncToRenderWorld |
-/// | ID: 18v1 | PointLight | RenderEntity(ID: 5V1) | SyncToRenderWorld |
+/// | ID: 1v1  | PointLight | SubEntity(ID: 3V1) | SyncToSubWorld |
+/// | ID: 18v1 | PointLight | SubEntity(ID: 5V1) | SyncToSubWorld |
 /// |-------------------------------------------------------------------|
 ///
 /// |----------Render World-----------|
@@ -73,8 +73,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// ```
 ///
 /// Note that this effectively establishes a link between the main world entity and the render world entity.
-/// Not every entity needs to be synchronized, however; only entities with the [`SyncToRenderWorld`] component are synced.
-/// Adding [`SyncToRenderWorld`] to a main world component will establish such a link.
+/// Not every entity needs to be synchronized, however; only entities with the [`SyncToSubWorld`] component are synced.
+/// Adding [`SyncToSubWorld`] to a main world component will establish such a link.
 /// Once a synchronized main entity is despawned, its corresponding render entity will be automatically
 /// despawned in the next `sync`.
 ///
@@ -90,23 +90,22 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Default)]
-pub struct SyncWorldPlugin;
+pub struct SyncWorldPlugin<L: AppLabel>(PhantomData<L>);
 
-impl Plugin for SyncWorldPlugin {
+impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<PendingSyncEntity<crate::RenderApp>>();
+        app.init_resource::<PendingSyncEntity<L>>();
         app.add_observer(
-            |add: On<Add, SyncToRenderWorld>,
-             mut pending: ResMut<PendingSyncEntity<crate::RenderApp>>| {
-                pending.push(EntityRecord::Added(add.entity));
+            |add: On<Add, SyncToSubWorld<L>>, mut pending: ResMut<PendingSyncEntity<L>>| {
+                pending.push(EntityRecord::<L>::Added(add.entity));
             },
         );
         app.add_observer(
-            |remove: On<Remove, SyncToRenderWorld>,
-             mut pending: ResMut<PendingSyncEntity<crate::RenderApp>>,
-             query: Query<&RenderEntity>| {
+            |remove: On<Remove, SyncToSubWorld<L>>,
+             mut pending: ResMut<PendingSyncEntity<L>>,
+             query: Query<&SubEntity<L>>| {
                 if let Ok(e) = query.get(remove.entity) {
-                    pending.push(EntityRecord::Removed(*e));
+                    pending.push(EntityRecord::<L>::Removed(*e));
                 };
             },
         );
