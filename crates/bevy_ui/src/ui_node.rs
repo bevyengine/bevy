@@ -20,7 +20,7 @@ use tracing::warn;
 /// Provides the computed size and layout properties of a UI [`Node`].
 ///
 /// All of the fields are automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`)
-/// during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set..
+/// during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
 ///
 /// The fields are measured in physical pixels.
 /// You can multiply by the `inverse_scale_factor` field to convert back to logical pixels.
