@@ -560,7 +560,7 @@ impl UntypedHandle {
         handle
     }
 
-    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
+    /// Converts to a typed Handle if the internal [`TypeId`] matches the given asset type `A`.
     #[inline]
     pub fn try_typed<A: Asset>(self) -> Result<Handle<A>, UntypedAssetConversionError> {
         Handle::try_from(self)
