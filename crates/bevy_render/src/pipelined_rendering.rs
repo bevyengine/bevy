@@ -1,6 +1,7 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppExit, Plugin, SubApp};
+use bevy_derive::AppLabel;
 use bevy_ecs::{
     resource::Resource,
     schedule::MainThreadExecutor,
