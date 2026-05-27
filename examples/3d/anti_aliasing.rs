@@ -345,7 +345,7 @@ fn update_ui(
             .0
             .iter()
             .skip(1) // First supported sample count is always '1' (no multisampling), skip it
-            .zip(['Q', 'W', 'E'].into_iter())
+            .zip(['Q', 'W', 'E'])
         {
             draw_selectable_menu_item(
                 ui,
