@@ -3,7 +3,8 @@
 use bevy::{
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite_render::{AlphaMode2d, TileData, TileOrientation, TilemapChunk, TilemapChunkTileData},
+    sprite::TileStorage,
+    sprite_render::{AlphaMode2d, TileOrientation, TileRenderData, TilemapChunkRenderData},
 };
 
 fn main() {
@@ -46,7 +47,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .map(|i| {
             let row = i / 8;
             let col = i % 8;
-            Some(TileData {
+            Some(TileRenderData {
                 // Alternate tiles per row
                 tileset_index: (row % 2) as u16,
                 color: colors[row as usize],
@@ -58,7 +59,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .collect();
 
     commands.spawn((
-        TilemapChunk {
+        Transform::default(),
+        Visibility::default(),
+        TilemapChunkRenderData {
             chunk_size,
             tile_display_size,
             tileset: assets
@@ -71,7 +74,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 .load("textures/arrow.png"),
             alpha_mode: AlphaMode2d::Blend,
         },
-        TilemapChunkTileData(tile_data),
+        TileStorage::new_with_tiles(chunk_size, tile_data),
     ));
 
     commands.spawn(Camera2d);

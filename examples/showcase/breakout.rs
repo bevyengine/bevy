@@ -5,6 +5,7 @@
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
+    sprite::{TileCoord, TileOf, Tilemap, TilemapEntityQuery},
 };
 
 mod stepping;
@@ -46,9 +47,12 @@ const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 const PADDLE_COLOR: Color = Color::srgb(0.3, 0.3, 0.7);
 const BALL_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
 const BRICK_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const BOMB_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
 const WALL_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
 const SCORE_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
+
+const BOMB_INTERVAL: usize = 4;
 
 fn main() {
     App::new()
@@ -89,6 +93,9 @@ struct BallCollided;
 #[derive(Component)]
 struct Brick;
 
+#[derive(Component)]
+struct Bomb;
+
 #[derive(Resource, Deref)]
 struct CollisionSound(Handle<AudioSource>);
 
@@ -100,6 +107,9 @@ struct Collider;
 #[derive(Component)]
 #[require(Sprite, Transform, Collider)]
 struct Wall;
+
+#[derive(EntityEvent)]
+struct BrickHit(Entity);
 
 /// Which side of the arena is this wall located on?
 enum WallLocation {
@@ -264,6 +274,20 @@ fn setup(
     let offset_x = left_edge_of_bricks + BRICK_SIZE.x / 2.;
     let offset_y = bottom_edge_of_bricks + BRICK_SIZE.y / 2.;
 
+    let total_brick_size = BRICK_SIZE + GAP_BETWEEN_BRICKS;
+    let map = commands
+        .spawn((
+            Tilemap::new(
+                UVec2::splat(16),
+                UVec2::new(total_brick_size.x as u32, total_brick_size.y as u32),
+            ),
+            Transform::default(),
+        ))
+        .id();
+
+    let mut brick_observer = Observer::new(on_brick_hit);
+    let mut bomb_observer = Observer::new(on_bomb_hit);
+
     for row in 0..n_rows {
         for column in 0..n_columns {
             let brick_position = Vec2::new(
@@ -271,22 +295,52 @@ fn setup(
                 offset_y + row as f32 * (BRICK_SIZE.y + GAP_BETWEEN_BRICKS),
             );
 
-            // brick
-            commands.spawn((
-                Sprite {
-                    color: BRICK_COLOR,
-                    ..default()
-                },
-                Transform {
-                    translation: brick_position.extend(0.0),
-                    scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
-                    ..default()
-                },
-                Brick,
-                Collider,
-            ));
+            // bricks
+            if column % BOMB_INTERVAL == 0 && row % BOMB_INTERVAL == 0 {
+                let id = commands
+                    .spawn((
+                        Sprite {
+                            color: BOMB_COLOR,
+                            ..default()
+                        },
+                        Transform {
+                            translation: brick_position.extend(0.0),
+                            scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
+                            ..default()
+                        },
+                        Bomb,
+                        Brick,
+                        TileOf(map),
+                        TileCoord(IVec2::new(column as i32, row as i32)),
+                        Collider,
+                    ))
+                    .id();
+                bomb_observer.watch_entity(id);
+            } else {
+                let id = commands
+                    .spawn((
+                        Sprite {
+                            color: BRICK_COLOR,
+                            ..default()
+                        },
+                        Transform {
+                            translation: brick_position.extend(0.0),
+                            scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
+                            ..default()
+                        },
+                        Brick,
+                        TileOf(map),
+                        TileCoord(IVec2::new(column as i32, row as i32)),
+                        Collider,
+                    ))
+                    .id();
+                brick_observer.watch_entity(id);
+            }
         }
     }
+
+    commands.spawn(brick_observer);
+    commands.spawn(bomb_observer);
 }
 
 fn move_paddle(
@@ -333,7 +387,6 @@ fn update_scoreboard(
 
 fn check_for_collisions(
     mut commands: Commands,
-    mut score: ResMut<Score>,
     ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
 ) {
@@ -354,8 +407,7 @@ fn check_for_collisions(
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
-                commands.entity(collider_entity).despawn();
-                **score += 1;
+                commands.entity(collider_entity).trigger(BrickHit);
             }
 
             // Reflect the ball's velocity when it collides
@@ -422,4 +474,41 @@ fn ball_collision(ball: BoundingCircle, bounding_box: Aabb2d) -> Option<Collisio
     };
 
     Some(side)
+}
+
+fn on_brick_hit(
+    hit: On<BrickHit>,
+    bricks: Query<Entity, With<Brick>>,
+    mut score: ResMut<Score>,
+    mut commands: Commands,
+) {
+    if let Ok(brick) = bricks.get(hit.0) {
+        commands.entity(brick).despawn();
+        **score += 1;
+    }
+}
+
+fn on_bomb_hit(
+    hit: On<BrickHit>,
+    map: Single<Entity, With<Tilemap>>,
+    bombs: Query<(Entity, &TileCoord), With<Bomb>>,
+    bricks: TilemapEntityQuery<Entity, With<Brick>>,
+    mut score: ResMut<Score>,
+    mut commands: Commands,
+) {
+    let Ok((bomb_id, bomb_coord)) = bombs.get(hit.0) else {
+        return;
+    };
+    commands.entity(bomb_id).despawn();
+    **score += 1;
+
+    let Some(bricks) = bricks.get_map(*map) else {
+        return;
+    };
+
+    for coord in bomb_coord.adjacent() {
+        if let Some(brick) = bricks.get_at(*coord) {
+            commands.entity(brick).trigger(BrickHit);
+        }
+    }
 }
