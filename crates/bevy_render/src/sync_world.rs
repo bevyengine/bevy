@@ -96,7 +96,8 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity<crate::RenderApp>>();
         app.add_observer(
-            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity<crate::RenderApp>>| {
+            |add: On<Add, SyncToRenderWorld>,
+             mut pending: ResMut<PendingSyncEntity<crate::RenderApp>>| {
                 pending.push(EntityRecord::Added(add.entity));
             },
         );

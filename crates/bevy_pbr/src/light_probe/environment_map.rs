@@ -61,6 +61,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
+    RenderApp,
 };
 
 use core::{num::NonZero, ops::Deref};
@@ -139,7 +140,7 @@ pub struct EnvironmentMapViewLightProbeInfo {
     pub(crate) rotation: Quat,
 }
 
-impl ExtractInstance for EnvironmentMapIds {
+impl ExtractInstance<RenderApp> for EnvironmentMapIds {
     type QueryData = Read<EnvironmentMapLight>;
 
     type QueryFilter = ();
