@@ -34,7 +34,7 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::{AnimatableCurveEvaluator, AnimatableProperty, AnimatedField, EvaluatorId},
+    prelude::{AnimatableCurveEvaluator, AnimatableProperty, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
@@ -1844,7 +1844,7 @@ mod tests {
 
     use crate::{
         self as bevy_animation,
-        prelude::{AnimatableCurve, AnimatableKeyframeCurve, AnimatedField},
+        prelude::{AnimatableCurve, AnimatableKeyframeCurve},
     };
     use bevy_app::{First, Last, ScheduleRunnerPlugin};
     use bevy_asset::AssetPlugin;
