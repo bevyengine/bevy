@@ -57,7 +57,7 @@ impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
         app.world_mut()
             .register_component_hooks::<C>()
             .on_remove(|mut world, context| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
+                let mut pending = world.resource_mut::<PendingSyncEntity<RenderApp>>();
                 pending.push(EntityRecord::ComponentRemoved(
                     context.entity,
                     |mut entity| {
