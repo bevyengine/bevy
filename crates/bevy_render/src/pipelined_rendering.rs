@@ -14,7 +14,7 @@ use crate::RenderApp;
 ///
 /// The Main schedule of this app can be used to run logic after the render schedule starts, but
 /// before I/O processing. This can be useful for something like frame pacing.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 pub struct RenderExtractApp;
 
 /// Channels used by the main app to send and receive the render app.

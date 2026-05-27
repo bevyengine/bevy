@@ -1954,7 +1954,7 @@ mod tests {
     fn test_extract_sees_changes() {
         use super::AppLabel;
 
-        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug, Default)]
         struct MySubApp;
 
         #[derive(Resource)]
