@@ -1,7 +1,8 @@
 name: Action on PR labeled
 
 # This workflow has write permissions on the repo.
-# It must not checkout a PR and run untrusted code!
+# It must not checkout a PR and run untrusted code! Changed files are detected
+# via the API rather than by checking out the PR's head.
 
 on:
   pull_request_target:
@@ -15,65 +16,51 @@ jobs:
     permissions:
       pull-requests: "write"
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Migration-Guide'
+    if: github.repository == 'bevyengine/bevy' && github.event.label.name == 'M-Migration-Guide'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 2
-          persist-credentials: false
-      - name: Get changes
-        id: get_changes
-        shell: bash {0}
-        run: |
-          git fetch --depth=1 origin $BASE_SHA
-          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./_release-content/migration-guides
-          echo "found_changes=$?" >> $GITHUB_OUTPUT
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `It looks like your PR is a breaking change, but **you didn't provide a migration guide**.
+              pull_number: context.issue.number,
+            });
+            const hasGuide = files.some((file) =>
+              file.filename.startsWith('_release-content/migration-guides/'));
+            if (!hasGuide) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `It looks like your PR is a breaking change, but **you didn't provide a migration guide**.
 
-              Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/_release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/_release-content/migration-guides) to reflect your changes.`
-            })
+                Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/_release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/_release-content/migration-guides) to reflect your changes.`
+              })
+            }
   comment-on-release-note-label:
     permissions:
       pull-requests: "write"
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'M-Release-Note'
+    if: github.repository == 'bevyengine/bevy' && github.event.label.name == 'M-Release-Note'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 2
-          persist-credentials: false
-      - name: Get changes
-        id: get_changes
-        shell: bash {0}
-        run: |
-          git fetch --depth=1 origin $BASE_SHA
-          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./_release-content/release-notes
-          echo "found_changes=$?" >> $GITHUB_OUTPUT
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
+              pull_number: context.issue.number,
+            });
+            const hasNote = files.some((file) =>
+              file.filename.startsWith('_release-content/release-notes/'));
+            if (!hasNote) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
 
-              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/_release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/_release-content/release-notes) to showcase your changes.`
-            })
+                Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/_release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/_release-content/release-notes) to showcase your changes.`
+              })
+            }
