@@ -6,15 +6,15 @@ use syn::{parse_macro_input, DeriveInput};
 
 /// Macro which returns a [`Scene`](https://docs.rs/bevy/latest/bevy/prelude/trait.Scene.html), comprehensive docs at [`bevy_scene`](https://docs.rs/bevy/latest/bevy/scene/index.html)
 ///
-/// Example, intended as a hint for allowed syntax.:
+/// Example macro, intended as a hint for allowed syntax.:
 /// ```rust,ignore
 /// bsn! {
-///     :some_scene() // inherit from a scene function, its
+///     :some_scene // include a cached scene function
 ///     #SomeName // entity name, will insert Name("SomeName")
-///     ComponentA // component without a value will use default
-///     ComponentB(0.0) // passing a value, other fields will use default
+///     ComponentA // component without a value will use its Default
+///     ComponentB(0.0) // passing a value, other fields will use its Default
 ///     Node {
-///         height: px(0.1) // same with named fields, unmentioned ones stay default
+///         height: px(0.1) // same with named fields, other fields will be Default
 ///     }
 ///     on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| { // add an observer
 ///         let mut b = query.get_mut(evt.entity).unwrap(); // unwrap since we're sure this entity always has ComponentA
@@ -25,16 +25,16 @@ use syn::{parse_macro_input, DeriveInput};
 ///         , // entities are comma-separated
 ///         (:other_scene() #Child3), // parentheses around a single entity optional
 ///         Link(#SomeName), // pasing a entity reference to a component as `Entity`, component has to imlement FromTemplate
-///         :MySceneComponent {  // components which derive SceneComponent have scenes and can be inherited from
+///         @MySceneComponent {  // components which derive SceneComponent have scenes and can be inherited from
 ///             @some_prop: 3, // props, look like fields prefixed with @ but end up passed to the components scene as arguments
 ///             normal_field: 5 // while normal fields are the actual fields of the component
 ///         },
 ///         ComponentB({some_variable + 3.}) // values can be expressions, when wrapped in {}
-///         :Container {
+///         @Container {
 ///             @items: {
 ///                 bsn_list![ // sometimes you may need to nest macro calls
 ///                     #item1 SomeComponent, // note: the name #item1 here is in its own scope
-///                     :some_scene() #item2
+///                     :some_scene #item2
 ///                 ]
 ///             }
 ///         }

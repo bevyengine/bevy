@@ -26,12 +26,12 @@
 //! by providing a terse syntax for defining [`Scene`]s inline.
 //! This brevity is essential: making it easier to review and understand scenes at a glance,
 //! resolve merge conflicts and keep file sizes under control.
-//! The macro includes full Rust Analyzer support (autocomplete, go-to-definition, hover docs)!
+//! The macro includes best-effort Rust-Analyzer support. Autocomplete, go-to-definition, and hover docs
+//! should work basically everywhere!
 //!
 //! ## BSN syntax reference
 //!
-//! For a quick rundown on how to read and write BSN syntax,
-//! see the docs for [`bsn!`].
+//! For a quick rundown on how to read and write BSN syntax, see the docs for [`bsn!`].
 //!
 //! ## Quick Start
 //!
@@ -63,8 +63,7 @@
 //! // #Player adds a `Name("Player")` component to the root entity.
 //! // Children spawns two child entities: one with Sword, one with Shield.
 //! world.spawn_scene(bsn! {
-//!     // This names the entity "Player"
-//!     #Player
+//!     #Player // This names the entity "Player"
 //!     Score(0)
 //!     Children [
 //!         Sword,
@@ -75,36 +74,32 @@
 //!
 //! ## Core Concepts
 //!
-//! - **[`Scene`]**: the main authoring type. A [`Scene`] is made up of [`Template`]s (one
-//!   per component, plus any related entities such as children). Use the [`bsn!`] macro to
-//!   create a scene.
-//! - **[`SceneList`]**: a list of scenes, each producing a separate root entity.
-//!   Think of it as the `Vec<Entity>` analogue to [`Scene`]'s single `Entity`.
-//!   Use the [`bsn_list!`] macro to create a scene list.
-//! - **[`Template`]**: a data description that produces a component value at spawn time,
-//!   given access to the entity and world (e.g. resolving asset paths into handles, or
-//!   named entity references into [`Entity`] ids). Each component in a [`Scene`] is
-//!   represented by a [`Template`] rather than a concrete value.
-//! - **[`FromTemplate`]**: associates a type with its canonical [`Template`]. Derive
-//!   [`FromTemplate`] on your components to generate a companion template type where each
-//!   field is independently set-or-unset, enabling per-field overrides.
-//! - **[`ScenePatch`]**: an [`Asset`] that wraps a [`Scene`] together with its dependencies
-//!   and its [`ResolvedScene`] (once loaded). You'll encounter this when using asset
-//!   inheritance (`:"enemy.bsn"`), or when you want to treat a scene as a loadable,
-//!   hot-reloadable prefab. See also [`ScenePatchInstance`] for applying one to an entity.
-//! - **[`ResolvedScene`]**: the fully-resolved, ready-to-spawn result produced by resolving
-//!   one or more [`Scene`]s. User code rarely interacts with this directly.
+//! - **[`Scene`]**: Describes what a spawned [`Entity`] should look like, created using [`bsn!`] or,
+//!   in the future, `.bsn` asset files. Conceptually, a [`Scene`] contains a list of "entries" to apply to an [`Entity`].
+//! - **Scene Composition**: Composition works by including scenes in other scenes. The included scenes "entries" will be
+//!   treated as if they were written in the outer scene.
+//! - **[`SceneList`]**: A list of scenes, returned by [`bsn_list!`].
+//!   Each of the scenes in this still produces one [`Entity`].
+//! - **[`Template`]**: Represents a kind of "change" in a [`Scene`].
+//!   This is how [`Components`](Component) and a few other things are added to a [`Scene`].
+//!   [`Templates`](Template) allow per-field overrides, [see below for details](#composition-and-patching)
+//!   When spawning, they get access to the [`Entity`] and the ECS [`World`], allowing for
+//!   some more complex behaviour. [`Template`] is automatically implemented for types which have
+//!   [`Default`] + [`Clone`] (preferred) or [`FromTemplate`] (when fields implement [`FromTemplate`]).
+//! - **[`RelatedScenes`]**: These add a [`SceneList`] as related to this [`Scene`] by a specific [`relationship`](bevy_ecs::relationship::Relationship).
+//!   This is the kind of "change" added to the [`Scene`] when using a [`RelationshipTarget`] component like [`Children`].
 //!
 //! ## Spawning Scenes
 //!
 //! There are two approaches to spawning scenes:
 //!
 //! - **Immediate**: [`World::spawn_scene`] and [`Commands::spawn_scene`]
-//!   resolve and spawn in one step. Returns an error if any asset dependencies are not yet loaded.
-//!   Use this when your scene has no asset dependencies.
+//!   resolve and spawn in one step.
+//!   Returns an error if any asset dependencies are not yet loaded.
 //! - **Queued**: [`World::queue_spawn_scene`] and [`Commands::queue_spawn_scene`]
 //!   register the scene's dependencies and wait for them to load before resolving and spawning.
-//!   Use this when inheriting from asset-based scenes.
+//!   If nothing needs to be loaded, this will spawn during this frames [`SpawnScene`] schedule,
+//!   between [`Update`](bevy_app::main_schedule::Update) and [`PostUpdate`](bevy_app::main_schedule::PostUpdate).
 //!
 //! In all cases, your `*_spawn_scene` method call should wrap an invocation of the [`bsn!`] macro,
 //! or call a function which returns a [`Scene`].
@@ -115,17 +110,17 @@
 //! ## Entity Hierarchies and Relationships
 //!
 //! Use `Children [scene1, scene2]` inside [`bsn!`] to spawn child entities.
-//! Children (and entities within [`bsn_list!`]) are separated by commas;
+//! [`Children`] (and entities within [`bsn_list!`]) are separated by commas;
 //! add multiple components to the same entity by listing them without a comma:
 //!
 //! ```ignore
-//! // Spawns one child entity
+//! // Spawns one child entity with A, B an C
 //! bsn! { #Parent Children [ComponentA ComponentB ComponentC] }
 //!
-//! // Spawns two child entities due to the added comma
+//! // Spawns two child entities, one with A and B, the other with C, due to the added comma
 //! bsn! { #Parent Children [ComponentA ComponentB, ComponentC] }
 //!
-//! // Spawns two child entities, but more clearly
+//! // Spawns two child entities, but more clearly separated due to parentheses.
 //! bsn! { #Parent Children [(ComponentA ComponentB), ComponentC] }
 //! ```
 //!
@@ -165,10 +160,14 @@
 //!        #Child2
 //!        ComponentA
 //!        Children [
-//!           #GrandChild1
-//!           ComponentA,
-//!           #GrandChild2
-//!           ComponentB
+//!           (
+//!             #GrandChild1
+//!             ComponentA
+//!           ),
+//!           (
+//!             #GrandChild2
+//!             ComponentB
+//!           )
 //!        ]
 //!      ),
 //!   ]
@@ -181,21 +180,44 @@
 //!
 //! ## Named Entity References
 //!
-//! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing.
-//! Other entities in the same **scope** can refer to a named entity by its `#Name`,
-//! receiving the resolved [`Entity`] id at spawn time.
+//! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
+//! In a few others places in the same invocation, its possible to refer to a named entity by its `#Name`:
+//! - `my_scene(#Name)`
+//! - `Component(#Name)`
+//! - `Component { entity: #Name }`
+//!
+//! All of these will initially recieve a [`EntityTemplate`], which for [`Components`](Component)
+//! will be resolved to an [`Entity`] using [`FromTemplate`]. This is why [`Components`](Component) which contain
+//! an [`Entity`] field should likely derive [`FromTemplate`] instead of [`Default`].
+//!
+//! ```ignore
+//! bsn!{
+//!     needs_last_child_scene(#Last)
+//!     Children [
+//!         #First,
+//!         #Second,
+//!         #Last
+//!     ]
+//! }
+//! ```
 //!
 //! ### Scope rules
 //!
 //! Each [`bsn!`] invocation creates its own name scope. A name is visible to the root
-//! entity, its children, and any deeper descendants — as long as the reference is written
-//! in the same [`bsn!`] call. Composed or cached scenes (via `my_scene()` or `:my_scene`)
-//! each bring their own separate scope, so names do not leak across scene boundaries.
-//! However, the results of a named entity reference, a [`EntityTemplate`], can be passed to
-//! composed or inherited scenes, since it represents a sort of global identifier for the name.
+//! entity, its children, and any deeper descendants in the same call.
+//! Composed scenes (via `my_scene(#Name)`) or [`SceneComponents`](SceneComponent)
+//! each contain their own [`bsn!`] invocation and therefore their own scope,
+//! so re-using the same name across multiple different scenes is fine.
+//! However, the results of a named entity reference, the [`EntityTemplate`],
+//! can be passed to other scenes. Its valid only during the spawning of a scene.
+//! That means [`Components`](Component) should never store [`EntityTemplate`] fields,
+//! they should store the resolved [`Entity`] instead and
+//! derive [`FromTemplate`] to convert [`EntityTemplate`] automatically.
 //!
 //! If both a parent and a composed child define the same name (e.g. both use `#X`),
 //! each scope's `#X` resolves to its own entity, avoiding conflicts or potentially unintuitive shadowing.
+//! The same way, individual executions of the [`bsn!`]-generated block will also resolve to different entities,
+//! even during the same spawn. This allows, for example, loops containing [`bsn!`] to create different entities.
 //!
 //! In a [`bsn_list!`], all root entities share a single name scope, so sibling scenes
 //! can reference each other by name. This is useful for wiring up relationships between
@@ -213,14 +235,14 @@
 //!
 //! ## Composition and Patching
 //!
-//! When you insert a component in normal ECS code, the entire pre-existing value is replaced.
-//! If a base scene sets `Button { width: 100, height: 300 }` and a caller wants to
+//! When you insert a component into an [`Entity`] in normal ECS code, the entire pre-existing value is replaced.
+//! If a scene sets `Button { width: 100, height: 300 }` and a caller wants to
 //! change just `width`, ordinary component insertion would force them to respecify `height` too.
 //!
 //! **Patching** avoids this. When you write `Button { width: 200 }` in [`bsn!`], it creates
 //! a *patch* that sets only the `width` field. Unmentioned fields keep their existing values
-//! (from a parent scene, an earlier patch, or the type's defaults). Multiple patches to the
-//! same component merge together rather than overwriting each other.
+//! (from a included scene, an earlier patch, or the type's defaults). Multiple patches to the
+//! same component and its values are applied in order rather than overwriting each other.
 //!
 //! To make a component available in [`bsn!`], derive either [`Default`] + [`Clone`], or [`FromTemplate`].
 //! Both support patching: unmentioned fields keep their values from earlier patches or the
@@ -228,8 +250,8 @@
 //!
 //! The distinction is about what values a field can hold at spawn time:
 //!
-//! -  **[`Clone`] + [`Default`]** (e.g. `#[derive(Component, Default, Clone)]`): covers the simple case, and should be your default choice.
-//!    The blanket [`Template`] impl handles patching automatically with no scene-specific derives needed.
+//! - **[`Clone`] + [`Default`]** (e.g. `#[derive(Component, Default, Clone)]`): covers the simple case, and should be your default choice.
+//!   The blanket [`Template`] impl handles patching automatically with no scene-specific derives needed.
 //!
 //! - **[`FromTemplate`]** (e.g. `#[derive(Component, FromTemplate)]`) is needed when a field requires spawn-time context.
 //!   Examples include [`Handle<T>`] fields which need [`AssetServer`] to resolve asset paths, or [`Entity`]
@@ -268,7 +290,7 @@
 //!
 //! // Compose `enemy()` and patch just the `max` field:
 //! world.spawn_scene(bsn! {
-//!     enemy()
+//!     :enemy
 //!     Health { max: 200 }
 //! });
 //! ```
@@ -280,55 +302,37 @@
 //! For programmatic patching outside of [`bsn!`], see the [`PatchFromTemplate`] and
 //! [`PatchTemplate`] traits.
 //!
-//! ## Scene Inheritance
+//! ## Scene Caching
 //!
-//! There are two ways to build on an existing scene: **inline composition** and **inheritance**.
-//! Both let you patch fields on top of the parent, and both merge children from parent
-//! and child (parent's children appear first). They differ in *when* the parent is resolved
-//! and what kinds of parents they support.
+//! You may have noticed the `:enemy` syntax above. Thats a feature called "scene caching" which allows you
+//! to cache a scene or scene component included into another scene if its the first one and if it does not take any arguments.
 //!
-//! **Inline composition** (shown in the example above) calls a function directly inside
-//! [`bsn!`]. The parent's templates are merged *unresolved* alongside the child's, and
-//! everything resolves together in one pass:
-//!
+//! No caching, calling without `:`
 //! ```ignore
-//! // Inline composition: call with parentheses, no `:`
 //! bsn! {
 //!     enemy()
 //!     Health { max: 200 }
 //! }
 //! ```
 //!
-//! **Inheritance** uses the `:` prefix. The parent is pre-resolved and its templates are
-//!  flattened into a [`ResolvedScene`] *before* the child's templates/patches apply on top:
-//!
+//! Caching, no call, with `:`
 //! ```ignore
-//! // Inheritance: `:` prefix, no parentheses or arguments
 //! bsn! {
 //!     :enemy
 //!     Health { max: 200 }
 //! }
+//! ```
 //!
-//! // Asset inheritance: `:` prefix with a string path to a ScenePatch asset
-//! // DISCLAIMER: .bsn file format is not yet released!
+//! BSN assets always need to be cached using the `:` prefix.
+//! Note that the `.bsn` file format is not yet released.
+//! ```ignore
 //! bsn! {
 //!    :"enemy.bsn"
 //!    Health { max: 200 }
 //! }
 //! ```
 //!
-//! ### Which composition pattern should I choose?
-//!
-//! |                           | Function inheritance `:my_scene`    | Asset inheritance `:"my_scene.bsn"` | Inline composition `my_scene()`  |
-//! |---------------------------|-------------------------------------|-------------------------------------|----------------------------------|
-//! | Accepts parameters        | Yes                                 | No                                  | Yes                              |
-//! | Asset-based               | No                                  | Yes                                 | No                               |
-//! | Cached resolution         | Parameterless scenes only           | Yes                                 | No                               |
-//!
-//! Prefer scene inheritance over inline composition in general: the expensive scene resolution is cached, saving work during reuse.
-//! Inline composition should be reserved for parameterized scenes that vary based on a given input,
-//! small scenes that are shared across contexts (like styles),
-//! or one-off scenes that do not require reuse.
+//! Note: Caching is not yet fully implemented. All of the structure is there, but its not fully wired up yet.
 //!
 //! ## Loading Assets into Scenes
 //!
@@ -339,8 +343,8 @@
 //! commands.spawn(Sprite { image: handle, ..default() });
 //! ```
 //!
-//! This can be particularly frustrating when defining helper functions,
-//! requiring you to pipe asset handles or collections through multiple layers of function calls.
+//! This was particularly frustrating when defining helper functions for spawning entities,
+//! requiring you to pass [`AssetServer`] or handles through multiple layers of function calls.
 //!
 //! In [`bsn!`], asset paths work directly as field values. When a component field is a
 //! [`Handle<T>`], the [`bsn!`] macro accepts a string literal in its place. Under the hood,
@@ -354,8 +358,7 @@
 //! });
 //! ```
 //!
-//! This also works for components you define yourself. Any `Handle<T>` field on a
-//! [`FromTemplate`]-derived component automatically accepts asset paths:
+//! A [`Component`] has to also derive [`FromTemplate`] to accept asset paths:
 //!
 //! ```ignore
 //! #[derive(Component, FromTemplate)]
@@ -379,15 +382,12 @@
 //!
 //! Use [`on(func)`](on) inside [`bsn!`] to attach an entity [`Observer`]. Entity observers are closures or
 //! functions which fire when a given [`EntityEvent`] is triggered and targets this entity.
-//! The first parameter's type determines which event is observed. Multiple observers can be addedc to
-//! the same entity, and the observer has full access to the ECS via [system parameters]:
+//! The first parameter's type determines which event is observed. Multiple observers can be added to
+//! the same entity, and the observer has full access to the ECS via [system parameters](bevy_ecs::system#system-parameter-list):
 //!
 //! ```ignore
 //! #[derive(EntityEvent)]
 //! struct Damage(u32);
-//!
-//! #[derive(EntityEvent)]
-//! struct Heal(u32);
 //!
 //! fn is_dead(ev: On<Damage>, query: Query<&Health>){
 //!     let health = query.get(ev.event_target()).unwrap();
@@ -403,10 +403,6 @@
 //!         on(|damage: On<Damage>, mut query: Query<&mut Health>| {
 //!             let mut health = query.get_mut(damage.event_target()).unwrap();
 //!             health.current = health.current.saturating_sub(damage.0);
-//!         })
-//!         on(|heal: On<Heal>, mut query: Query<&mut Health>| {
-//!             let mut health = query.get_mut(heal.event_target()).unwrap();
-//!             health.current = (health.current + heal.0).min(health.max);
 //!         })
 //!         on(is_dead)
 //!     }
@@ -535,7 +531,7 @@
 //! }
 //! ```
 //!
-//! This enables inheriting the [`SceneComponent`] as a scene, using the following syntax:
+//! This enables including the [`SceneComponent`] as a scene, using the following syntax:
 //!
 //! ```no_run
 //! # use bevy_scene::prelude::*;
@@ -550,6 +546,7 @@
 //! # let mut world = World::new();
 //! world.spawn_scene(bsn! {
 //!  @Player { score: 0 }
+//!  Camera3d
 //! });
 //! ```
 //!
@@ -574,6 +571,20 @@
 //!
 //! fn player() -> impl Scene {
 //!    bsn! { /* scene here */}
+//! }
+//! ```
+//!
+//! This can sometimes be useful, for example if a scene function needs a generic type or constant:
+//!
+//! ```
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! #[derive(SceneComponent, Default, Clone)]
+//! #[scene(player::<5>)]
+//! struct Player;
+//!
+//! fn player<const ID: usize>() -> impl Scene {
+//!    bsn! { /* scene using ID here */}
 //! }
 //! ```
 //!
@@ -680,8 +691,8 @@
 //! ```
 //!
 //! Notice the `@field` syntax, which specifies that a prop is being set instead of a field.
-//! Props are evaluated "immediately" at the point of inheritance where the scene is constructed.
-//! This means that they are not "patchable".
+//! Props are evaluated "immediately" when the scene is included in another.
+//! This means that they are not "patchable" since they can be used for any purpose.
 //!
 //! You can set _both_ props and normal fields at the same time:
 //! ```no_run
@@ -730,7 +741,7 @@
 //! }
 //! ```
 //! However you _can_ patch the scene component in the scene if you would like. This comes in handy
-//! if you would like props to contribute to the scene component's value:
+//! if you would like props to contribute to the scene component's fields:
 //!
 //! ```
 //! # use bevy_scene::prelude::*;
@@ -758,6 +769,9 @@
 //! They are functionally quite different however. It is worth understanding the differences and
 //! tradeoffs:
 //!
+// TODO: I (laund) don't like this section, and would like to consider removing/reworking it.
+//       it feels overly verbose and compares sceen components and required components somewhat
+//       holistically, which feels out of place in these docs.
 //! - **Required Components**: Context-less (ex: Default constructors), non-hierarchical, can always
 //!   be applied immediately, not dependency aware, automatically enforced at runtime as components
 //!   are added, not patchable, pretty low overhead, not a lot of features / functionality
@@ -1055,6 +1069,38 @@ mod tests {
         let y = world.entity(children[1]);
         let name = y.get::<Name>().unwrap();
         assert_eq!(name.as_str(), "Y");
+    }
+
+    #[test]
+    fn cached_patching_order() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Position {
+            x: f32,
+            y: f32,
+            z: f32,
+        }
+
+        fn a() -> impl Scene {
+            bsn! {
+                Position { x: 2. }
+            }
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                Position { x: 1., y: 1., z: 1. }
+                :a
+            }
+        }
+
+        let root = world.spawn_scene(b()).unwrap();
+        let position = root.get::<Position>().unwrap();
+        assert_eq!(position.x, 2.);
+        assert_eq!(position.y, 2.);
+        assert_eq!(position.z, 2.);
     }
 
     #[test]
@@ -1374,6 +1420,30 @@ mod tests {
                 .0
         );
     }
+    #[test]
+    fn bsn_reverse_reference() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        fn a() -> impl Scene {
+            bsn! {
+                Reference(#Last)
+                Children [
+                    #First,
+                    #Second,
+                    #Last
+                ]
+            }
+        }
+        let id = world.spawn_scene(a()).unwrap().id();
+        let ref_id = world.entity(id).get::<Reference>().unwrap();
+
+        let children = world.entity(id).get::<Children>().unwrap();
+        assert_eq!(children[2], ref_id.0);
+
+        let name = world.entity(ref_id.0).get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "Last");
+    }
 
     #[test]
     fn bsn_list_name_references() {
@@ -1602,7 +1672,7 @@ mod tests {
             let scene: Box<dyn Scene> = if is_boss {
                 Box::new(bsn! {
                     Boss
-                    Children [ :unit(false, level - 1) #Grunt1, :unit(false, level - 1) #Grunt2]
+                    Children [ unit(false, level - 1) #Grunt1, unit(false, level - 1) #Grunt2]
                 })
             } else {
                 Box::new(bsn! { Grunt })
@@ -1680,7 +1750,7 @@ mod tests {
 
         // inheritance is the same!
         let entity_b = bsn! {
-            :armor()
+            :armor
             Health { current: 100, max: 100 }
         };
         let idb = world.spawn_scene(entity_b).unwrap().id();
@@ -1724,7 +1794,7 @@ mod tests {
 
         // inheritance
         let scene_a = bsn! {
-            :unit_with_armor()
+            :unit_with_armor
             armor()
         };
 
@@ -2317,6 +2387,19 @@ mod tests {
             .unwrap();
         assert_eq!(entity.get::<OtherWidget>().unwrap().value, 10);
         assert_eq!(entity.get::<Children>().unwrap().len(), 2);
+
+        fn const_val<const N: usize>() -> impl Scene {
+            bsn! {
+                @Widget {
+                    @children: N
+                }
+            }
+        }
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(const_val::<5>)]
+        struct SpecificWidget;
+        let entity = world.spawn_scene(bsn! { @SpecificWidget }).unwrap();
+        assert_eq!(entity.get::<Children>().unwrap().len(), 5);
     }
 
     #[test]
@@ -2643,7 +2726,7 @@ mod tests {
         // why not doctests? because the macro can't depend on this crate
         // why not include! it here and include_str! it in the docs? because rust-analyzer ignores #[doc = include_str!()] and this is mostly a showcase for rust-analyzer
         let scene = bsn! {
-           :some_scene() // inherit from a scene function, its
+           :some_scene // inherit from a scene function, its
            #SomeName // entity name, will insert Name("SomeName")
            ComponentA // component without a value will use default
            ComponentB(0.0) // passing a value, other fields will use default
@@ -2657,9 +2740,9 @@ mod tests {
            Children [ // spawning multiple related entities using a RelationshipTarget component
                #Child1 ComponentA // whitespace doesn't have to be newlines
                , // entities are comma-separated
-               (:other_scene() #Child3), // parentheses around a single entity optional
+               (:other_scene #Child3), // parentheses around a single entity optional
                Link(#SomeName), // pasing a entity reference to a component as `Entity`, component has to imlement FromTemplate
-               :MySceneComponent {  // components which derive SceneComponent have scenes and can be inherited from
+               @MySceneComponent {  // components which derive SceneComponent have scenes and can be inherited from
                    @some_prop: 3, // props, look like fields prefixed with @ but end up passed to the components scene as arguments
                    normal_field: 5 // while normal fields are the actual fields of the component
                },
@@ -2667,11 +2750,11 @@ mod tests {
                 width: some_variable
                }
                ComponentB({some_variable + 3.}) // values can be expressions, when wrapped in {}
-               :Container {
+               @Container {
                    @items: {
                        bsn_list![ // sometimes you may need to nest macro calls
                            #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                           :some_scene() #item2
+                           :some_scene #item2
                        ]
                    }
                }
