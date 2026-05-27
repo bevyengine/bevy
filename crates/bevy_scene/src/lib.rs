@@ -84,7 +84,7 @@
 //!   This is how [`Components`](Component) and a few other things are added to a [`Scene`].
 //!   [`Templates`](Template) allow per-field overrides, [see below for details](#composition-and-patching)
 //!   When spawning, they get access to the [`Entity`] and the ECS [`World`], allowing for
-//!   some more complex behaviour. [`Template`] is automatically implemented for types which have
+//!   some more complex behavior. [`Template`] is automatically implemented for types which have
 //!   [`Default`] + [`Clone`] (preferred) or [`FromTemplate`] (when fields implement [`FromTemplate`]).
 //! - **[`RelatedScenes`]**: These add a [`SceneList`] as related to this [`Scene`] by a specific [`relationship`](bevy_ecs::relationship::Relationship).
 //!   This is the kind of "change" added to the [`Scene`] when using a [`RelationshipTarget`] component like [`Children`].
@@ -186,7 +186,7 @@
 //! - `Component(#Name)`
 //! - `Component { entity: #Name }`
 //!
-//! All of these will initially recieve a [`EntityTemplate`], which for [`Components`](Component)
+//! All of these will initially receive a [`EntityTemplate`], which for [`Components`](Component)
 //! will be resolved to an [`Entity`] using [`FromTemplate`]. This is why [`Components`](Component) which contain
 //! an [`Entity`] field should likely derive [`FromTemplate`] instead of [`Default`].
 //!
@@ -770,7 +770,7 @@
 //! tradeoffs:
 //!
 // TODO: I (laund) don't like this section, and would like to consider removing/reworking it.
-//       it feels overly verbose and compares sceen components and required components somewhat
+//       it feels overly verbose and compares scene components and required components somewhat
 //       holistically, which feels out of place in these docs.
 //! - **Required Components**: Context-less (ex: Default constructors), non-hierarchical, can always
 //!   be applied immediately, not dependency aware, automatically enforced at runtime as components
@@ -907,7 +907,7 @@ use bevy_ecs::prelude::*;
 /// | Example                      | Meaning                                                                                                            |
 /// | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 /// | `#Child1 CompA, #Child2`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`               |
-/// | `(#Child1 CompA), (#Child2)` | Same as above, with explicity parentheses                                                                          |
+/// | `(#Child1 CompA), (#Child2)` | Same as above, with explicit parentheses                                                                          |
 /// | `#First, { expr }, #Last `   | Spawns an entity with name `First`, then every entity from the `SceneList` returned by expr, then one named `Last` |
 /// | `#First, ({ expr }), #Last ` | Same as above, but the `expr` should result in a `Scene` and will only spawn one entity using it                   |
 ///
@@ -2726,39 +2726,39 @@ mod tests {
         // why not doctests? because the macro can't depend on this crate
         // why not include! it here and include_str! it in the docs? because rust-analyzer ignores #[doc = include_str!()] and this is mostly a showcase for rust-analyzer
         let scene = bsn! {
-           :some_scene // inherit from a scene function, its
-           #SomeName // entity name, will insert Name("SomeName")
-           ComponentA // component without a value will use default
-           ComponentB(0.0) // passing a value, other fields will use default
-           Node {
-               height: px(0.1) // same with named fields, unmentioned ones stay default
-           }
-           on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| { // add an observer
-               let mut b = query.get_mut(evt.entity).unwrap(); // unwrap since we're sure this entity always has ComponentA
-               b.0 += evt.value;
-           })
-           Children [ // spawning multiple related entities using a RelationshipTarget component
-               #Child1 ComponentA // whitespace doesn't have to be newlines
-               , // entities are comma-separated
-               (:other_scene #Child3), // parentheses around a single entity optional
-               Link(#SomeName), // pasing a entity reference to a component as `Entity`, component has to imlement FromTemplate
-               @MySceneComponent {  // components which derive SceneComponent have scenes and can be inherited from
-                   @some_prop: 3, // props, look like fields prefixed with @ but end up passed to the components scene as arguments
-                   normal_field: 5 // while normal fields are the actual fields of the component
-               },
-               Node {
+            :some_scene // inherit from a scene function, its
+            #SomeName // entity name, will insert Name("SomeName")
+            ComponentA // component without a value will use default
+            ComponentB(0.0) // passing a value, other fields will use default
+            Node {
+                height: px(0.1) // same with named fields, unmentioned ones stay default
+            }
+            on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| { // add an observer
+                let mut b = query.get_mut(evt.entity).unwrap(); // unwrap since we're sure this entity always has ComponentA
+                b.0 += evt.value;
+            })
+            Children [ // spawning multiple related entities using a RelationshipTarget component
+                #Child1 ComponentA // whitespace doesn't have to be newlines
+                , // entities are comma-separated
+                (:other_scene #Child3), // parentheses around a single entity optional
+                Link(#SomeName), // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
+                @MySceneComponent {  // components which derive SceneComponent have scenes and can be inherited from
+                    @some_prop: 3, // props, look like fields prefixed with @ but end up passed to the components scene as arguments
+                    normal_field: 5 // while normal fields are the actual fields of the component
+                },
+                Node {
                 width: some_variable
-               }
-               ComponentB({some_variable + 3.}) // values can be expressions, when wrapped in {}
-               @Container {
-                   @items: {
-                       bsn_list![ // sometimes you may need to nest macro calls
-                           #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                           :some_scene #item2
-                       ]
-                   }
-               }
-           ]
+                }
+                ComponentB({some_variable + 3.}) // values can be expressions, when wrapped in {}
+                @Container {
+                    @items: {
+                        bsn_list![ // sometimes you may need to nest macro calls
+                            #item1 SomeComponent, // note: the name #item1 here is in its own scope
+                            :some_scene #item2
+                        ]
+                    }
+                }
+            ]
         };
         // just checking it spawns correctly
         let mut app = test_app();
