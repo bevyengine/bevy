@@ -111,7 +111,8 @@ impl Plugin for SyncWorldPlugin {
         );
     }
 }
-/// Marker component that indicates that its entity needs to be synchronized to the render world.
+
+/// Marker component that indicates that its entity needs to be synchronized to the sub world.
 ///
 /// This component is automatically added as a required component by [`ExtractComponentPlugin`] and [`SyncComponentPlugin`].
 /// For more information see [`SyncWorldPlugin`].
@@ -124,36 +125,41 @@ impl Plugin for SyncWorldPlugin {
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[component(storage = "SparseSet")]
-pub struct SyncToRenderWorld;
+pub struct SyncToSubWorld<L: AppLabel + Default + Clone>(PhantomData<L>);
 
-/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
+pub type SyncToRenderWorld = SyncToSubWorld<crate::RenderApp>;
+
+/// Component added on the main world entities that are synced to the Sub World in order to keep track of the corresponding sub world entity.
 ///
-/// Can also be used as a newtype wrapper for render world entities.
+/// Can also be used as a newtype wrapper for sub world entities.
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Reflect)]
 #[component(clone_behavior = Ignore)]
 #[reflect(Component, Clone)]
-pub struct RenderEntity(Entity);
-impl RenderEntity {
+pub struct SubEntity<L: AppLabel + Clone + Copy + Eq>(#[deref] Entity, PhantomData<L>);
+
+pub type RenderEntity = SubEntity<crate::RenderApp>;
+
+impl<L: AppLabel + Clone + Copy + Eq> SubEntity<L> {
     #[inline]
     pub fn id(&self) -> Entity {
         self.0
     }
 }
 
-impl From<Entity> for RenderEntity {
+impl<L: AppLabel + Clone + Copy + Eq> From<Entity> for SubEntity<L> {
     fn from(entity: Entity) -> Self {
-        RenderEntity(entity)
+        SubEntity(entity, PhantomData)
     }
 }
 
-impl ContainsEntity for RenderEntity {
+impl<L: AppLabel + Clone + Copy + Eq> ContainsEntity for SubEntity<L> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
-// SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
-unsafe impl EntityEquivalent for RenderEntity {}
+// SAFETY: SubEntity is a newtype around Entity that derives its comparison traits.
+unsafe impl<L: AppLabel + Clone + Copy + Eq> EntityEquivalent for SubEntity<L> {}
 
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
@@ -180,7 +186,7 @@ impl ContainsEntity for MainEntity {
     }
 }
 
-// SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
+// SAFETY: MainEntity is a newtype around Entity that derives its comparison traits.
 unsafe impl EntityEquivalent for MainEntity {}
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
@@ -236,7 +242,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                             bevy_ecs::world::ComponentEntry::Vacant(entry) => {
                                 let id = render_world.spawn(MainEntity(e)).id();
 
-                                entry.insert(RenderEntity(id));
+                                entry.insert(SubEntity::<crate::RenderApp>(id, PhantomData));
                             }
                         };
                     }
@@ -540,6 +546,8 @@ mod render_entities_world_query_impls {
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
     use bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -550,9 +558,11 @@ mod tests {
         world::World,
     };
 
+    use crate::RenderApp;
+
     use super::{
         entity_sync_system, EntityRecord, MainEntity, PendingSyncEntity, RenderEntity,
-        SyncToRenderWorld,
+        SyncToRenderWorld, SyncToSubWorld,
     };
 
     #[derive(Component)]
@@ -588,7 +598,7 @@ mod tests {
         let main_entity = main_world
             .spawn(RenderDataComponent)
             // indicates that its entity needs to be synchronized to the render world
-            .insert(SyncToRenderWorld)
+            .insert(SyncToSubWorld::<RenderApp>(PhantomData))
             .id();
 
         entity_sync_system(&mut main_world, &mut render_world);
