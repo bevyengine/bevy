@@ -71,21 +71,21 @@ pub(crate) fn texture_source<'a>(
     }
 
     // This block is where we check if we support ktx2 and if we do we add it with the weight.
-    if ImageLoader::SUPPORTED_FILE_EXTENSIONS.contains(&"ktx2") {
-        if let Some(extension) = texture.extension_value("KHR_texture_basisu") {
-            let source = extension
-                .get("source")
-                .and_then(Value::as_u64)
-                .and_then(|source| usize::try_from(source).ok())
-                .ok_or_else(|| extension.to_string())?;
+    if ImageLoader::SUPPORTED_FILE_EXTENSIONS.contains(&"ktx2")
+        && let Some(extension) = texture.extension_value("KHR_texture_basisu")
+    {
+        let source = extension
+            .get("source")
+            .and_then(Value::as_u64)
+            .and_then(|source| usize::try_from(source).ok())
+            .ok_or_else(|| extension.to_string())?;
 
-            let ktx2_image = document
-                .images()
-                .nth(source)
-                .ok_or_else(|| source.to_string())?;
+        let ktx2_image = document
+            .images()
+            .nth(source)
+            .ok_or_else(|| source.to_string())?;
 
-            images.push((KHR_TEXTURE_BASISU_WEIGHT, ktx2_image));
-        }
+        images.push((KHR_TEXTURE_BASISU_WEIGHT, ktx2_image));
     }
 
     // We grab the highest weight and return it.
