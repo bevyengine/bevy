@@ -196,7 +196,15 @@ impl WorldSceneExt for World {
         let assets = self.resource::<AssetServer>();
         let patch = ScenePatch::load(assets, scene);
         let handle = assets.add(patch);
-        self.spawn(ScenePatchInstance(handle))
+        let mut entity = self.spawn_empty();
+        let id = entity.id();
+        entity
+            .resource_mut::<WaitingScenes>()
+            .scene_entities
+            .entry(handle)
+            .or_default()
+            .push(id);
+        entity
     }
 
     fn spawn_scene_list<L: SceneList>(
@@ -501,7 +509,12 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
         let assets = self.resource::<AssetServer>();
         let patch = ScenePatch::load(assets, scene);
         let handle = assets.add(patch);
-        self.insert(ScenePatchInstance(handle));
+        let id = self.id();
+        self.resource_mut::<WaitingScenes>()
+            .scene_entities
+            .entry(handle)
+            .or_default()
+            .push(id);
     }
 }
 
