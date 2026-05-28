@@ -64,8 +64,6 @@ pub(crate) struct BsnCodegenCtx<'a> {
     pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
     pub errors: Vec<syn::Error>,
-    /// Separeate bool as its also set to true for #{expr} which won't increase EntityRefs counter
-    pub has_entity_refs: bool,
 }
 impl<'a> BsnCodegenCtx<'a> {
     fn fixed_entity_ref(&mut self, ident: &Ident) -> (String, usize) {
@@ -96,7 +94,7 @@ impl BsnTokenStream for BsnRoot {
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-        let for_refs = if ctx.has_entity_refs {
+        let for_refs = if !ctx.entity_refs.refs.is_empty() {
             quote! {
                 static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
                 let _call_id = _CALL_ID.increment();
@@ -127,7 +125,7 @@ impl BsnTokenStream for BsnListRoot {
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-        let call_id = if ctx.has_entity_refs {
+        let call_id = if !ctx.entity_refs.refs.is_empty() {
             quote! {
                 static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
                 let _call_id = _CALL_ID.increment();
@@ -289,7 +287,6 @@ impl BsnEntry {
             BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::Name(ident) => {
-                ctx.has_entity_refs = true;
                 let (name, index) = ctx.fixed_entity_ref(ident);
                 let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
@@ -568,7 +565,6 @@ impl BsnType {
                 assignments.push(quote! { #(#base_path.)*#member = #value; });
             }
             Some(BsnValue::Name(ident)) => {
-                ctx.has_entity_refs = true;
                 let index = ctx.entity_refs.get(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
                 let invocation = ctx.invocation_index.clone();
@@ -770,7 +766,6 @@ mod tests {
                 invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
                 errors: Vec::new(),
-                has_entity_refs: false,
             }
         }
     }
