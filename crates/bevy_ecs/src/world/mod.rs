@@ -1476,6 +1476,95 @@ impl World {
         Ok(result)
     }
 
+    /// Temporarily removes a [`Resource`] `R` and
+    /// runs the provided closure on it, returning the result if `R` was available.
+    /// This will trigger the `Remove` and `Discard` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable resources, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your resource
+    /// is mutable, prefer using [`get_resource_mut`](World::get_resource_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Bar(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Bar(false));
+    /// #
+    /// world.modify_resource(|bar: &mut Bar| {
+    ///     bar.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(world.get_resource::<Bar>(), Some(&Bar(true)));
+    /// ```
+    #[inline]
+    #[track_caller]
+    pub fn modify_resource<R: Resource, S>(
+        &mut self,
+        f: impl FnOnce(&mut R) -> S,
+    ) -> Result<Option<S>, EntityMutableFetchError> {
+        let component_id = self.register_component::<R>();
+        if let Some(entity) = self.resource_entities.get(component_id) {
+            let mut world = DeferredWorld::from(&mut *self);
+            let result = world.modify_component_with_relationship_hook_mode(
+                entity,
+                RelationshipHookMode::Run,
+                f,
+            )?;
+
+            self.flush();
+            Ok(result)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Temporarily removes a [`Resource`] identified by the provided
+    /// [`ComponentId`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `Remove` and `Discard` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable resources, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your resource
+    /// is mutable, prefer using [`get_resource_mut_by_id`](World::get_resource_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_resource`](World::modify_resource)
+    /// whenever possible.
+    #[inline]
+    #[track_caller]
+    pub fn modify_resource_by_id<S>(
+        &mut self,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> S,
+    ) -> Result<Option<S>, EntityMutableFetchError> {
+        if let Some(entity) = self.resource_entities.get(component_id) {
+            let mut world = DeferredWorld::from(&mut *self);
+
+            let result = world.modify_component_by_id_with_relationship_hook_mode(
+                entity,
+                component_id,
+                RelationshipHookMode::Run,
+                f,
+            )?;
+
+            self.flush();
+            Ok(result)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Despawns the given [`Entity`], if it exists.
     /// This will also remove all of the entity's [`Components`](Component).
     ///
