@@ -57,7 +57,7 @@ pub(crate) fn texture_source<'a>(
     texture: &Texture<'a>,
     document: &'a Document,
 ) -> Result<Option<Image<'a>>, String> {
-    // These are pure opinionated value judgement. Higher is better lower is worse.
+    // These are pure opinionated value judgment. Higher is better lower is worse.
     // The base case is always last but guaranteed.
     // The extensions we rank.
     const BASE_TEXTURE_SOURCE_WEIGHT: u8 = 0;
