@@ -59,7 +59,6 @@ impl HoistedExpressions {
 pub(crate) struct BsnCodegenCtx<'a> {
     pub bevy_scene: &'a Path,
     pub bevy_ecs: &'a Path,
-    pub bevy_platform: &'a Path,
     pub invocation_index: ExprTuple,
     pub entity_refs: &'a mut EntityRefs,
     pub hoisted_expressions: &'a mut HoistedExpressions,
@@ -96,12 +95,11 @@ impl BsnTokenStream for BsnRoot {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
-        let bevy_platform = ctx.bevy_platform;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let for_refs = if ctx.has_entity_refs {
             quote! {
-                static _CALL_ID: #bevy_platform::sync::atomic::AtomicU64 = #bevy_platform::sync::atomic::AtomicU64::new(0);
-                let _call_id = _CALL_ID.fetch_add(1, #bevy_platform::sync::atomic::Ordering::Relaxed);
+                static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
+                let _call_id = _CALL_ID.increment();
             }
         } else {
             quote! {}
@@ -128,12 +126,11 @@ impl BsnTokenStream for BsnListRoot {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
-        let bevy_platform = ctx.bevy_platform;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let call_id = if ctx.has_entity_refs {
             quote! {
-                static _CALL_ID: #bevy_platform::sync::atomic::AtomicU64 = #bevy_platform::sync::atomic::AtomicU64::new(0);
-                let _call_id = _CALL_ID.fetch_add(1, #bevy_platform::sync::atomic::Ordering::Relaxed);
+                static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
+                let _call_id = _CALL_ID.increment();
             }
         } else {
             quote! {}
@@ -751,7 +748,6 @@ mod tests {
     struct TestPaths {
         bevy_scene: Path,
         bevy_ecs: Path,
-        bevy_platform: Path,
     }
 
     impl TestPaths {
@@ -759,7 +755,6 @@ mod tests {
             Self {
                 bevy_scene: parse_quote!(bevy_scene),
                 bevy_ecs: parse_quote!(bevy_ecs),
-                bevy_platform: parse_quote!(bevy_platform),
             }
         }
 
@@ -771,7 +766,6 @@ mod tests {
             BsnCodegenCtx {
                 bevy_scene: &self.bevy_scene,
                 bevy_ecs: &self.bevy_ecs,
-                bevy_platform: &self.bevy_platform,
                 entity_refs: refs,
                 invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
