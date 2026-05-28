@@ -13,8 +13,8 @@ use bevy_ecs::{
 };
 use bevy_utils::default;
 
-/// Plugin that sets up the [`RenderApp`](`crate::RenderApp`) and handles extracting data from the
-/// main world to the render world.
+/// Plugin that sets up the sub app for the [`AppLabel`] and handles extracting data from the
+/// main world to the sub world.
 pub struct ExtractPlugin<L: AppLabel + Default> {
     /// Function that gets run at the beginning of each extraction.
     ///
