@@ -222,7 +222,7 @@ pub struct DiagnosticsOverlayPlugin;
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
-        app.add_systems(Startup, build_plane);
+        app.add_systems(PreStartup, build_plane);
         app.add_systems(
             Update,
             rebuild_diagnostics_list
