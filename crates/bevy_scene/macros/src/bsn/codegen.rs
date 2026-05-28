@@ -39,7 +39,6 @@ impl EntityRefs {
 #[derive(Default)]
 pub(crate) struct HoistedExpressions {
     expressions: Vec<TokenStream>,
-    dedup_name_exprs: HashMap<String, Ident>,
     next: usize,
 }
 
@@ -55,47 +54,6 @@ impl HoistedExpressions {
         let ident = self.next_ident();
         self.expressions.push(quote! {let #ident = #value;});
         ident
-    }
-
-    pub fn hoist_name_expr(&mut self, value: &TokenStream) -> (TokenStream, Ident) {
-        let raw = value.to_string();
-        // This sets the span of __Name::from to a 0 width span at the start of the expr
-        //
-        // why?
-        //   not doing any quote_spanned! causes trait errors (and probably others too)
-        //   to highlight the entire macro invocation.
-        //   doing just `let span = value.span()` works for error messages,
-        //   but causes hover docs to show a concatenated version of the docs for *all* items.
-        //   yes, that means hovering the expression showed docs for Name and Name::from
-        //
-        // why is it __Name and not #bevy_ecs::name::Name?
-        //   because quote_spanned! does not overwrite spans for interpolated tokens like #bevy_ecs
-        //   which means theres now a Span::call_site in there (because thats what #bevy_ecs brings with it).
-        //   And any call_site in the function call which causes the trait error will make the error show for
-        //   the entire macro.
-        //
-        let span = proc_macro2::Span::from(value.span().unwrap().start());
-        let name_expr = quote_spanned! {span=>
-            __names.get(#value)
-        };
-
-        match self.dedup_name_exprs.entry(raw) {
-            Entry::Occupied(entry) => {
-                let name_id = entry.get();
-                let name = format_ident!("_name{}", name_id);
-                (quote! { #name.clone() }, name_id.clone())
-            }
-            Entry::Vacant(entry) => {
-                let name_id = format_ident!("_id{}", self.next);
-                let name = format_ident!("_name{}", name_id);
-                self.expressions.push(quote! {
-                    let (#name, #name_id) = #name_expr;
-                });
-                entry.insert(name_id.clone());
-                self.next += 1;
-                (quote! { #name.clone() }, name_id)
-            }
-        }
     }
 }
 
@@ -117,9 +75,6 @@ impl<'a> BsnCodegenCtx<'a> {
     fn fixed_entity_ref(&mut self, ident: &Ident) -> (String, usize) {
         let string = ident.to_string();
         (ident.to_string(), self.entity_refs.get(string))
-    }
-    fn expr_entity_ref(&mut self, expr: &TokenStream) -> (TokenStream, Ident) {
-        self.hoisted_expressions.hoist_name_expr(expr)
     }
 }
 
@@ -147,11 +102,9 @@ impl BsnTokenStream for BsnRoot {
         let bevy_platform = ctx.bevy_platform;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let for_refs = if ctx.has_entity_refs {
-            let next_id = ctx.entity_refs.next;
             quote! {
                 static _CALL_ID: #bevy_platform::sync::atomic::AtomicU64 = #bevy_platform::sync::atomic::AtomicU64::new(0);
                 let _call_id = _CALL_ID.fetch_add(1, #bevy_platform::sync::atomic::Ordering::Relaxed);
-                let mut __names = #bevy_scene::macro_utils::NameIds::new(#next_id);
             }
         } else {
             quote! {}
@@ -181,11 +134,9 @@ impl BsnTokenStream for BsnListRoot {
         let bevy_platform = ctx.bevy_platform;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let call_id = if ctx.has_entity_refs {
-            let next_id = ctx.entity_refs.next;
             quote! {
                 static _CALL_ID: #bevy_platform::sync::atomic::AtomicU64 = #bevy_platform::sync::atomic::AtomicU64::new(0);
                 let _call_id = _CALL_ID.fetch_add(1, #bevy_platform::sync::atomic::Ordering::Relaxed);
-                let __names = #bevy_scene::macro_utils::NameIds::new(#next_id);
             }
         } else {
             quote! {}
@@ -349,15 +300,6 @@ impl BsnEntry {
                 let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
                     #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
-                })
-            }
-            BsnEntry::NameExpression(tokens) => {
-                ctx.has_entity_refs = true;
-                let (name, index) = ctx.expr_entity_ref(tokens);
-                let invocation = ctx.invocation_index.clone();
-                // Cannot be CombinedSceneFunction due to the name not living long enough if its moved into the closure
-                EntryResult::NewSceneImpl(quote! {
-                    #bevy_scene::NameEntityReference { name: #name, reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id) }
                 })
             }
         })
@@ -640,15 +582,6 @@ impl BsnType {
                     #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id);
                 });
             }
-            Some(BsnValue::NameExpression(tokens)) => {
-                ctx.has_entity_refs = true;
-                let (_, index) = ctx.expr_entity_ref(tokens);
-                let bevy_ecs = ctx.bevy_ecs;
-                let invocation = ctx.invocation_index.clone();
-                assignments.push(quote! {
-                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index, _call_id);
-                });
-            }
             Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
                 assignments.push(quote! {#(#base_path.)*#member = #ty;});
             }
@@ -730,12 +663,6 @@ impl BsnTokenStream for BsnSceneFnArg {
         let bevy_ecs = ctx.bevy_ecs;
         match self {
             BsnSceneFnArg::Expr(expr) => quote! {#expr},
-            BsnSceneFnArg::NameExpression(tokens) => {
-                ctx.has_entity_refs = true;
-                let (_, index) = ctx.expr_entity_ref(tokens);
-                let invocation = ctx.invocation_index.clone();
-                quote! {#bevy_ecs::template::EntityTemplate::SceneEntityReference(#bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id))}
-            }
             BsnSceneFnArg::Name(ident) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let invocation = ctx.invocation_index.clone();
@@ -810,7 +737,7 @@ impl ToTokens for BsnValue {
                 quote! {(#(#inner),*)}.to_tokens(tokens);
             }
             BsnValue::Type(ty) => ty.to_tokens(tokens),
-            BsnValue::Name(_) | BsnValue::NameExpression(_) => {
+            BsnValue::Name(_) => {
                 // Name requires additional context to convert to tokens
                 unreachable!()
             }

@@ -1,4 +1,5 @@
 //! Functionality that relates to the [`Template`] trait.
+pub use bevy_ecs_macros::FromTemplate;
 
 use core::{hash::Hash, ops::Deref};
 
@@ -10,7 +11,6 @@ use crate::{
     world::{EntityWorldMut, Mut, World},
 };
 use alloc::vec::Vec;
-pub use bevy_ecs_macros::FromTemplate;
 use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
 use bevy_utils::PreHashMap;
 use indexmap::Equivalent;

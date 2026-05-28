@@ -1968,12 +1968,14 @@ mod tests {
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
 
-        let name = "Foo".to_string();
+        // Workaround after the removal of name expressions
+        let i = 5;
         let pass_name_expr = bsn! {
-            #{name}
+            #Root
+            Name({format!("Foo{i}")})
             Children [
                 #Name
-                widget(#{name})
+                widget(#Root)
             ]
         };
         let entity = world.spawn_scene(pass_name_expr).unwrap().id();
@@ -1981,6 +1983,8 @@ mod tests {
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
+        let name = root.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "Foo5");
     }
 
     #[test]

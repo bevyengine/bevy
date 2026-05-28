@@ -97,11 +97,7 @@ impl BsnEntry {
             BsnEntry::CachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
-                BsnEntry::NameExpression(braced_tokens(input)?)
-            } else {
-                BsnEntry::Name(input.parse::<Ident>()?)
-            }
+            BsnEntry::Name(input.parse::<Ident>()?)
         } else if input.peek(Brace) || input.peek(At) {
             BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
         } else {
@@ -221,11 +217,7 @@ impl Parse for BsnSceneFnArg {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
-                Ok(Self::NameExpression(braced_tokens(input)?))
-            } else {
-                Ok(Self::Name(input.parse::<Ident>()?))
-            }
+            Ok(Self::Name(input.parse::<Ident>()?))
         } else {
             Ok(Self::Expr(Expr::parse(input)?))
         }
@@ -500,11 +492,7 @@ impl Parse for BsnValue {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
-                BsnValue::NameExpression(braced_tokens(input)?)
-            } else {
-                BsnValue::Name(input.parse::<Ident>()?)
-            }
+            BsnValue::Name(input.parse::<Ident>()?)
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })
