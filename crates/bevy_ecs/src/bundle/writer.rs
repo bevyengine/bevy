@@ -87,8 +87,8 @@ impl<'a> BundleWriter<'a> {
     ///
     /// # Safety
     ///
-    /// `components` must be from the same world that all previous [`Self::push_component`] calls were called with,
-    /// and the _next_  [`Self::write`] call.
+    /// `components` must be from the same world that all previous [`Self::push_component`] or [`Self::push_component_by_id`] calls were called with,
+    /// and the _next_ [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] call.
     pub unsafe fn push_component<C: Component>(
         &mut self,
         components: &mut ComponentsRegistrator,
@@ -106,8 +106,8 @@ impl<'a> BundleWriter<'a> {
     ///
     /// # Safety
     ///
-    /// `components` must be from the same world that all previous [`Self::push_component`] calls were called with,
-    /// and the _next_ [`Self::write`] call. `component` must point to a [`Component`] value that matches `id`.
+    /// `components` must be from the same world that all previous [`Self::push_component`] or [`Self::push_component_by_id`] calls were called with,
+    /// and the _next_ [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] call. `component` must point to a [`Component`] value that matches `id`.
     /// `layout` must correspond to the layout of the [`Component`] type.
     pub unsafe fn push_component_by_id(
         &mut self,
@@ -123,12 +123,29 @@ impl<'a> BundleWriter<'a> {
 
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
     ///
+    /// Runs with [`RelationshipHookMode::Run`] by default.
+    /// Use [`write_with_relationship_hook_insert_mode`](Self::write_with_relationship_hook_insert_mode) if you need more flexibility.
+    ///
     /// # Safety
     ///
-    /// `entity` must be from the same world that all [`Self::push_component`] calls since the last
-    /// [`Self::write`] were called with.
+    /// `entity` must be from the same world that all [`Self::push_component`] or [`Self::push_component_by_id`] calls since the last
+    /// [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] were called with.
     #[track_caller]
-    pub unsafe fn write(
+    pub unsafe fn write(self, entity: &mut EntityWorldMut) {
+        self.write_with_relationship_hook_insert_mode(entity, RelationshipHookMode::Run);
+    }
+
+    /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
+    ///
+    /// Also accepts [`RelationshipHookMode`] as an argument. Prefer [`write`](Self::write) to this if
+    /// [`RelationshipHookMode::Run`] by default is enough.
+    ///
+    /// # Safety
+    ///
+    /// `entity` must be from the same world that all [`Self::push_component`] or [`Self::push_component_by_id`] calls since the last
+    ///  [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] were called with.
+    #[track_caller]
+    pub unsafe fn write_with_relationship_hook_insert_mode(
         self,
         entity: &mut EntityWorldMut,
         relationship_hook_insert_mode: RelationshipHookMode,
@@ -159,10 +176,7 @@ impl<'a> BundleWriter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        bundle::BundleScratch, component::Component, name::Name,
-        relationship::RelationshipHookMode, world::World,
-    };
+    use crate::{bundle::BundleScratch, component::Component, name::Name, world::World};
 
     #[test]
     fn write_component() {
@@ -178,7 +192,7 @@ mod tests {
             bundle_writer.push_component(&mut components, X);
             bundle_writer.push_component(&mut components, Name::new("Hi"));
             let mut entity = world.spawn_empty();
-            bundle_writer.write(&mut entity, RelationshipHookMode::Run);
+            bundle_writer.write(&mut entity);
 
             assert_eq!(entity.get::<Name>().unwrap().as_str(), "Hi");
             assert!(entity.contains::<X>());
