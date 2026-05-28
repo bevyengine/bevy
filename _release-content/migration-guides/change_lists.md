@@ -50,4 +50,6 @@ If you need to handle the case in which a mesh might not be able to be specializ
 
 Additionally, sorted render phases now use an `IndexMap` instead of a `Vec`, so that entities can be added and removed incrementally instead of having to reconstruct the list every frame. This is incompatible with some exotic sorting algorithms that were commonly in use before (e.g. radix sort), so you may need to switch to the built-in `sort_unstable` method on `IndexMap`.
 
+The `add` method on `SortedRenderPhase` has been split in two. The old behavior of clearing every frame is available as `add_transient`, while `add_retained` should be used with the change list system.
+
 See `examples/shader_advanced/specialized_mesh_pipeline.rs` for a comprehensive example.
