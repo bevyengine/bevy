@@ -1968,7 +1968,7 @@ mod tests {
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
 
-        // Workaround after the removal of name expressions
+        // This allows both passing entity id by name reference and a custom dynamic name
         let i = 5;
         let pass_name_expr = bsn! {
             #Root
