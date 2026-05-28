@@ -763,7 +763,7 @@
 //!
 //! ### Scene Components vs Required Components
 //!
-//! At first glace, Scene Components and [Required Components](bevy_ecs::component::Component) solve
+//! At first glance, Scene Components and [Required Components](bevy_ecs::component::Component) solve
 //! similar problems. They both provide a mechanism to initialize components with other components.
 //!
 //! They are functionally quite different however. It is worth understanding the differences and
