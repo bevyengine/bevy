@@ -49,7 +49,7 @@ use core::ops::{Deref, DerefMut};
 /// ```
 ///
 /// [`ExtractSchedule`]: crate::ExtractSchedule
-/// [Window]: bevy_window::Window
+/// [`Window`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html
 pub struct Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam + 'static,

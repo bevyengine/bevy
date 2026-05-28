@@ -83,12 +83,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled
 /// differently.
 ///
-/// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
+/// [`RenderAsset`]: https://docs.rs/bevy/latest/bevy/render/render_asset/trait.RenderAsset.html
 #[derive(Default)]
 pub struct SyncWorldPlugin<L: AppLabel>(PhantomData<L>);
 
