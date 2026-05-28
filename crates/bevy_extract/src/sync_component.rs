@@ -11,7 +11,7 @@ use bevy_ecs::{
 
 use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld};
 
-/// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
+/// Plugin that registers a component for automatic sync to the sub world. See [`SyncWorldPlugin`] for more information.
 ///
 /// This plugin is automatically added by [`ExtractComponentPlugin`], and only needs to be added for manual extraction implementations.
 ///
@@ -22,7 +22,7 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld};
 /// # Implementation details
 ///
 /// It adds [`SyncToSubWorld`] as a required component to make the [`SyncWorldPlugin`] aware of the component, and
-/// handles cleanup of the component in the render world when it is removed from an entity.
+/// handles cleanup of the component in the sub world when it is removed from an entity.
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
@@ -35,7 +35,7 @@ impl<L: AppLabel, C: SyncComponent<L, F>, F> Default for SyncComponentPlugin<L, 
 }
 
 /// Trait that links components from the main world with output components in
-/// the render world. It is used by [`SyncComponentPlugin`].
+/// the sub world. It is used by [`SyncComponentPlugin`].
 ///
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
@@ -43,7 +43,7 @@ impl<L: AppLabel, C: SyncComponent<L, F>, F> Default for SyncComponentPlugin<L, 
 ///
 /// [`ExtractComponent`]: crate::extract_component::ExtractComponent
 pub trait SyncComponent<L: AppLabel, F = ()>: Component {
-    /// Describes what components should be removed from the render world if the
+    /// Describes what components should be removed from the sub world if the
     /// implementing component is removed.
     type Target: Bundle<Effect: NoBundleEffect>;
     // TODO: https://github.com/rust-lang/rust/issues/29661
