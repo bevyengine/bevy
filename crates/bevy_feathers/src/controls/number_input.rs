@@ -77,7 +77,7 @@ impl Default for FeathersNumberInputProps {
 impl FeathersNumberInput {
     fn scene(props: FeathersNumberInputProps) -> impl Scene {
         bsn! {
-            :@FeathersTextInputContainer
+            @FeathersTextInputContainer
             ThemeBorderColor({props.sigil_color})
             FeathersNumberInput
             template_value(props.number_format)
