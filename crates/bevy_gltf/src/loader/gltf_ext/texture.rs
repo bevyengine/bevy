@@ -1,4 +1,4 @@
-use bevy_image::{ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor};
+use bevy_image::{ImageAddressMode, ImageFilterMode, ImageLoader, ImageSamplerDescriptor};
 use bevy_math::Affine2;
 
 use gltf::{
@@ -57,21 +57,44 @@ pub(crate) fn texture_source<'a>(
     texture: &Texture<'a>,
     document: &'a Document,
 ) -> Result<Option<Image<'a>>, String> {
-    if let Some(extension) = texture.extension_value("KHR_texture_basisu") {
-        let source = extension
-            .get("source")
-            .and_then(Value::as_u64)
-            .and_then(|source| usize::try_from(source).ok())
-            .ok_or_else(|| extension.to_string())?;
+    // These are pure opinionated value judgement. Higher is better lower is worse.
+    // The base case is always last but guaranteed.
+    // The extensions we rank.
+    const BASE_TEXTURE_SOURCE_WEIGHT: u8 = 0;
+    const KHR_TEXTURE_BASISU_WEIGHT: u8 = 200;
 
-        return document
-            .images()
-            .nth(source)
-            .ok_or_else(|| source.to_string())
-            .map(Some);
+    // Base case here. No matter what we have something. This could be a ktx2 technically
+    // but valid ktx2.0 files will only have pngs and jpegs here.
+    let mut images = Vec::new();
+    if let Some(image) = texture.source() {
+        images.push((BASE_TEXTURE_SOURCE_WEIGHT, image));
     }
 
-    Ok(texture.source())
+    // This block is where we check if we support ktx2 and if we do we add it with the weight.
+    if ImageLoader::SUPPORTED_FILE_EXTENSIONS.contains(&"ktx2") {
+        if let Some(extension) = texture.extension_value("KHR_texture_basisu") {
+            let source = extension
+                .get("source")
+                .and_then(Value::as_u64)
+                .and_then(|source| usize::try_from(source).ok())
+                .ok_or_else(|| extension.to_string())?;
+
+            let ktx2_image = document
+                .images()
+                .nth(source)
+                .ok_or_else(|| source.to_string())?;
+
+            images.push((KHR_TEXTURE_BASISU_WEIGHT, ktx2_image));
+        }
+    }
+
+    // We grab the highest weight and return it.
+    let image = images
+        .into_iter()
+        .max_by_key(|(weight, _)| *weight)
+        .map(|(_, image)| image);
+
+    Ok(image)
 }
 
 pub(crate) fn address_mode(wrapping_mode: &WrappingMode) -> ImageAddressMode {
