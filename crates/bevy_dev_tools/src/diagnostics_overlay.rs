@@ -66,8 +66,7 @@ type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMater
 /// ```
 ///
 /// A [`DiagnosticsOverlay`] entity will be managed by [`DiagnosticsOverlayPlugin`],
-/// and be added as a child of the [`DiagnosticsOverlayPlane`]. To work properly,
-/// the entity must be spawned after [`DiagnosticsOverlaySystems::Setup`].
+/// and be added as a child of the [`DiagnosticsOverlayPlane`].
 ///
 /// If any value is showing as `Missing`, means that the [`DiagnosticPath`] is not registered,
 /// so make sure that the plugin that writes to it is properly set up.
@@ -211,10 +210,6 @@ impl DiagnosticsOverlayStatistic {
 /// System set for the systems of the [`DiagnosticsOverlayPlugin`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub enum DiagnosticsOverlaySystems {
-    /// Runs in the [`Startup`] schedule.
-    /// Sets up the [`DiagnosticsOverlayPlane`] that will parent all [`DiagnosticsOverlay`]s.
-    /// Ensure that any [`DiagnosticsOverlay`]s are spawned after this system.
-    Setup,
     /// Rebuild the contents of the [`DiagnosticsOverlay`] entities
     Rebuild,
 }
@@ -226,12 +221,8 @@ pub struct DiagnosticsOverlayPlugin;
 
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(Startup, DiagnosticsOverlaySystems::Setup);
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
-        app.add_systems(
-            Startup,
-            build_plane.in_set(DiagnosticsOverlaySystems::Setup),
-        );
+        app.add_systems(PreStartup, build_plane);
         app.add_systems(
             Update,
             rebuild_diagnostics_list
