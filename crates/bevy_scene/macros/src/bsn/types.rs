@@ -55,6 +55,7 @@ pub enum BsnSceneFnArg {
     Expr(Expr),
     Name(Ident),
 }
+
 #[derive(Debug)]
 pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
 
