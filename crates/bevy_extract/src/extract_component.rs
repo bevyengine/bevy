@@ -14,9 +14,9 @@ use core::marker::PhantomData;
 
 pub use bevy_extract_macros::ExtractComponent;
 
-/// Describes how a component gets extracted for rendering.
+/// Describes how a component gets extracted for processing.
 ///
-/// Therefore the component is transferred from the "app world" into the "render
+/// Therefore the component is transferred from the "app world" into the "sub
 /// world" in the [`ExtractSchedule`] step. This functionality is enabled by
 /// adding [`ExtractComponentPlugin`] with the component type.
 ///
@@ -32,20 +32,20 @@ pub trait ExtractComponent<L: AppLabel, F = ()>: SyncComponent<L, F> {
     type QueryFilter: QueryFilter;
     /// The output from extraction, i.e. [`ExtractComponent::extract_component`].
     ///
-    /// The output components won't be removed automatically from the render world if the implementing component is removed,
+    /// The output components won't be removed automatically from the sub world if the implementing component is removed,
     /// unless you set them in the [`SyncComponent::Target`].
     type Out: Bundle<Effect: NoBundleEffect>;
     // TODO: https://github.com/rust-lang/rust/issues/29661
     // type Out: Bundle<Effect: NoBundleEffect> = Self;
 
-    /// Defines how the component is transferred into the "render world".
+    /// Defines how the component is transferred into the "sub world".
     ///
     /// Returning `None` based on the queried item will remove the [`SyncComponent::Target`] from the entity in
-    /// the render world.
+    /// the sub world.
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }
 
-/// This plugin extracts the components into the render world for synced
+/// This plugin extracts the components into the sub world for synced
 /// entities. To do so, it sets up the [`ExtractSchedule`] step for the
 /// specified [`ExtractComponent`].
 ///
@@ -87,11 +87,11 @@ impl<
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<L, C, F>::default());
 
-        if let Some(render_app) = app.get_sub_app_mut(L::default()) {
+        if let Some(sub_app) = app.get_sub_app_mut(L::default()) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<L, C, F>);
+                sub_app.add_systems(ExtractSchedule, extract_visible_components::<L, C, F>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<L, C, F>);
+                sub_app.add_systems(ExtractSchedule, extract_components::<L, C, F>);
             }
         }
     }
