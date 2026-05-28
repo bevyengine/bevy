@@ -1289,7 +1289,7 @@ pub fn queue_material_meshes(
                     else {
                         continue;
                     };
-                    transmissive_phase.add(Transmissive3d {
+                    transmissive_phase.add_retained(Transmissive3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
                             mesh_center: get_mesh_instance_world_from_local(
                                 *visible_entity,
@@ -1389,7 +1389,7 @@ pub fn queue_material_meshes(
                     else {
                         continue;
                     };
-                    transparent_phase.add(Transparent3d {
+                    transparent_phase.add_retained(Transparent3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
                             mesh_center: get_mesh_instance_world_from_local(
                                 *visible_entity,
