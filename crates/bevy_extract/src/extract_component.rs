@@ -97,7 +97,7 @@ impl<
     }
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToSubWorld`].
 fn extract_components<C: ExtractComponent<L, F>, L: AppLabel + Clone + Copy + Eq, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -115,7 +115,7 @@ fn extract_components<C: ExtractComponent<L, F>, L: AppLabel + Clone + Copy + Eq
     commands.try_insert_batch(values);
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToSubWorld`].
 fn extract_visible_components<C: ExtractComponent<L, F>, L: AppLabel + Clone + Copy + Eq, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
