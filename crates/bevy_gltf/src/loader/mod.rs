@@ -118,7 +118,9 @@ pub enum GltfError {
     #[error("invalid image uri: {0}. asset path error={1}")]
     InvalidImageUri(String, ParseAssetPathError),
     /// A texture did not have an image source.
-    #[error("texture {0} is missing an image source")]
+    #[error(
+        "texture {0} is missing an image source: neither a base texture source nor a supported texture extension source was found"
+    )]
     MissingImageSource(usize),
     /// A texture extension contained an invalid image source.
     #[error("texture {texture} contains an invalid KHR_texture_basisu source: {value}")]
@@ -2859,6 +2861,44 @@ mod test {
             asset_server
                 .is_loaded_with_dependencies(&handle)
                 .then_some(())
+        });
+    }
+
+    #[test]
+    fn texture_without_source_is_missing_image_source_error() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "textures": [
+        {}
+    ]
+}
+"#,
+        );
+
+        app.init_asset::<Image>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+            LoadState::Failed(err) => {
+                let err = err.to_string();
+                assert!(
+                    err.contains(
+                        "texture 0 is missing an image source: neither a base texture source nor a supported texture extension source was found"
+                    ),
+                    "incorrect error message: {err}"
+                );
+                Some(())
+            }
+            LoadState::Loading => None,
+            state => panic!("Unexpected load state: {state:?}"),
         });
     }
 
