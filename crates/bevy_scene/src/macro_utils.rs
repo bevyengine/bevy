@@ -148,7 +148,7 @@ macro_rules! auto_nest_tuple {
 /// A fix is implemented and on track for stabilization. If it is ever implemented, we can remove this.
 pub type PathResolveHelper<T> = T;
 
-/// A counter meant to be stored in a `static` to differentiate multiple evaluations of the epxression returned by [`bsn!`](crate::bsn)
+/// A counter meant to be stored in a `static` to differentiate multiple evaluations of the expression returned by [`bsn!`](crate::bsn)
 ///
 /// Required for named entity references
 pub struct CallCounter(AtomicU64);
