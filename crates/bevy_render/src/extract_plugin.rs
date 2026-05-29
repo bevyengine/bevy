@@ -303,4 +303,228 @@ mod test {
                 .unwrap();
         }
     }
+
+    #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+    pub struct ExtractAppA;
+
+    #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+    pub struct ExtractAppB;
+
+    #[derive(Component, Clone, Debug)]
+    struct RenderComponentSeparateA;
+
+    #[derive(Component, Clone, Debug)]
+    struct RenderComponentSeparateB;
+
+    #[derive(Component, Clone, Debug)]
+    struct RenderComponentSeparateBoth;
+
+    impl SyncComponent<ExtractAppA> for RenderComponentSeparateA {
+        type Target = RenderComponentSeparateA;
+    }
+
+    impl ExtractComponent<ExtractAppA> for RenderComponentSeparateA {
+        type QueryData = &'static Self;
+        type QueryFilter = ();
+        type Out = Self;
+
+        fn extract_component(
+            _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
+        ) -> Option<Self::Out> {
+            Some(RenderComponentSeparateA)
+        }
+    }
+
+    impl SyncComponent<ExtractAppB> for RenderComponentSeparateB {
+        type Target = RenderComponentSeparateB;
+    }
+
+    impl ExtractComponent<ExtractAppB> for RenderComponentSeparateB {
+        type QueryData = &'static Self;
+        type QueryFilter = ();
+        type Out = Self;
+
+        fn extract_component(
+            _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
+        ) -> Option<Self::Out> {
+            Some(RenderComponentSeparateB)
+        }
+    }
+
+    impl SyncComponent<ExtractAppA> for RenderComponentSeparateBoth {
+        type Target = RenderComponentSeparateBoth;
+    }
+
+    impl ExtractComponent<ExtractAppA> for RenderComponentSeparateBoth {
+        type QueryData = &'static Self;
+        type QueryFilter = ();
+        type Out = Self;
+
+        fn extract_component(
+            _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
+        ) -> Option<Self::Out> {
+            Some(RenderComponentSeparateBoth)
+        }
+    }
+
+    impl SyncComponent<ExtractAppB> for RenderComponentSeparateBoth {
+        type Target = RenderComponentSeparateBoth;
+    }
+
+    impl ExtractComponent<ExtractAppB> for RenderComponentSeparateBoth {
+        type QueryData = &'static Self;
+        type QueryFilter = ();
+        type Out = Self;
+
+        fn extract_component(
+            _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
+        ) -> Option<Self::Out> {
+            Some(RenderComponentSeparateBoth)
+        }
+    }
+
+    #[test]
+    fn dual_extraction_works() {
+        let mut app = App::new();
+
+        app.add_plugins(ExtractPlugin::<ExtractAppA>::new(
+            |_, _| {},
+            MySchedule::base_schedule,
+            MySchedule.intern(),
+            MyScheduleSystems::ExtractCommands.intern(),
+            MyScheduleSystems::PostCleanup.intern(),
+        ));
+        app.add_plugins(ExtractPlugin::<ExtractAppB>::new(
+            |_, _| {},
+            MySchedule::base_schedule,
+            MySchedule.intern(),
+            MyScheduleSystems::ExtractCommands.intern(),
+            MyScheduleSystems::PostCleanup.intern(),
+        ));
+
+        app.add_plugins(ExtractComponentPlugin::<
+            ExtractAppA,
+            RenderComponentSeparateA,
+        >::default());
+        app.add_plugins(ExtractComponentPlugin::<
+            ExtractAppB,
+            RenderComponentSeparateB,
+        >::default());
+        app.add_plugins(ExtractComponentPlugin::<
+            ExtractAppA,
+            RenderComponentSeparateBoth,
+        >::default());
+        app.add_plugins(ExtractComponentPlugin::<
+            ExtractAppB,
+            RenderComponentSeparateBoth,
+        >::default());
+
+        app.add_systems(Startup, |mut commands: Commands| {
+            commands.spawn((
+                RenderComponent,
+                RenderComponentSeparateA,
+                RenderComponentSeparateB,
+                RenderComponentSeparateBoth,
+            ));
+        });
+
+        let sub_app_a = app.get_sub_app_mut(ExtractAppA).unwrap();
+        sub_app_a.update_schedule = Some(MySchedule.intern());
+
+        let sub_app_b = app.get_sub_app_mut(ExtractAppB).unwrap();
+        sub_app_b.update_schedule = Some(MySchedule.intern());
+
+        app.update();
+
+        // Check that all components have been extracted
+        {
+            let sub_app_a = app.get_sub_app_mut(ExtractAppA).unwrap();
+            sub_app_a
+                .world_mut()
+                .run_system_cached(
+                    |entity: Single<(
+                        &MainEntity,
+                        Option<&RenderComponentSeparateA>,
+                        Option<&RenderComponentSeparateB>,
+                        Option<&RenderComponentSeparateBoth>,
+                    )>| {
+                        assert!(entity.1.is_some());
+                        assert!(entity.2.is_none());
+                        assert!(entity.3.is_some());
+                    },
+                )
+                .unwrap();
+        }
+
+        {
+            let sub_app_b = app.get_sub_app_mut(ExtractAppB).unwrap();
+            sub_app_b
+                .world_mut()
+                .run_system_cached(
+                    |entity: Single<(
+                        &MainEntity,
+                        Option<&RenderComponentSeparateA>,
+                        Option<&RenderComponentSeparateB>,
+                        Option<&RenderComponentSeparateBoth>,
+                    )>| {
+                        assert!(entity.1.is_none());
+                        assert!(entity.2.is_some());
+                        assert!(entity.3.is_some());
+                    },
+                )
+                .unwrap();
+        }
+
+        // Remove RenderComponentSeparateA
+        app.world_mut()
+            .run_system_cached(
+                |mut commands: Commands, query: Query<Entity, With<RenderComponentSeparateA>>| {
+                    for entity in query {
+                        commands.entity(entity).remove::<RenderComponentSeparateA>();
+                    }
+                },
+            )
+            .unwrap();
+
+        app.update();
+
+        // Check that the extracted components have been removed
+        {
+            let sub_app_a = app.get_sub_app_mut(ExtractAppA).unwrap();
+            sub_app_a
+                .world_mut()
+                .run_system_cached(
+                    |entity: Single<(
+                        &MainEntity,
+                        Option<&RenderComponentSeparateA>,
+                        Option<&RenderComponentSeparateB>,
+                        Option<&RenderComponentSeparateBoth>,
+                    )>| {
+                        assert!(entity.1.is_none());
+                        assert!(entity.2.is_none());
+                        assert!(entity.3.is_some());
+                    },
+                )
+                .unwrap();
+        }
+
+        {
+            let sub_app_b = app.get_sub_app_mut(ExtractAppB).unwrap();
+            sub_app_b
+                .world_mut()
+                .run_system_cached(
+                    |entity: Single<(
+                        &MainEntity,
+                        Option<&RenderComponentSeparateA>,
+                        Option<&RenderComponentSeparateB>,
+                        Option<&RenderComponentSeparateBoth>,
+                    )>| {
+                        assert!(entity.1.is_none());
+                        assert!(entity.2.is_some());
+                        assert!(entity.3.is_some());
+                    },
+                )
+                .unwrap();
+        }
+    }
 }
