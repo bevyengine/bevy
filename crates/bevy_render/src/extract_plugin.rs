@@ -319,6 +319,10 @@ mod test {
     #[derive(Component, Clone, Debug)]
     struct RenderComponentSeparateBoth;
 
+    #[derive(Component, Clone, Debug, ExtractComponent)]
+    #[extract_app(ExtractAppA, ExtractAppB)]
+    struct RenderComponentDual;
+
     impl SyncComponent<ExtractAppA> for RenderComponentSeparateA {
         type Target = RenderComponentSeparateA;
     }
@@ -418,6 +422,8 @@ mod test {
             ExtractAppB,
             RenderComponentSeparateBoth,
         >::default());
+        app.add_plugins(ExtractComponentPlugin::<ExtractAppA, RenderComponentDual>::default());
+        app.add_plugins(ExtractComponentPlugin::<ExtractAppB, RenderComponentDual>::default());
 
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((
@@ -425,6 +431,7 @@ mod test {
                 RenderComponentSeparateA,
                 RenderComponentSeparateB,
                 RenderComponentSeparateBoth,
+                RenderComponentDual,
             ));
         });
 
@@ -447,10 +454,12 @@ mod test {
                         Option<&RenderComponentSeparateA>,
                         Option<&RenderComponentSeparateB>,
                         Option<&RenderComponentSeparateBoth>,
+                        Option<&RenderComponentDual>,
                     )>| {
                         assert!(entity.1.is_some());
                         assert!(entity.2.is_none());
                         assert!(entity.3.is_some());
+                        assert!(entity.4.is_some());
                     },
                 )
                 .unwrap();
@@ -466,10 +475,12 @@ mod test {
                         Option<&RenderComponentSeparateA>,
                         Option<&RenderComponentSeparateB>,
                         Option<&RenderComponentSeparateBoth>,
+                        Option<&RenderComponentDual>,
                     )>| {
                         assert!(entity.1.is_none());
                         assert!(entity.2.is_some());
                         assert!(entity.3.is_some());
+                        assert!(entity.4.is_some());
                     },
                 )
                 .unwrap();
@@ -499,10 +510,12 @@ mod test {
                         Option<&RenderComponentSeparateA>,
                         Option<&RenderComponentSeparateB>,
                         Option<&RenderComponentSeparateBoth>,
+                        Option<&RenderComponentDual>,
                     )>| {
                         assert!(entity.1.is_none());
                         assert!(entity.2.is_none());
                         assert!(entity.3.is_some());
+                        assert!(entity.4.is_some());
                     },
                 )
                 .unwrap();
@@ -518,10 +531,12 @@ mod test {
                         Option<&RenderComponentSeparateA>,
                         Option<&RenderComponentSeparateB>,
                         Option<&RenderComponentSeparateBoth>,
+                        Option<&RenderComponentDual>,
                     )>| {
                         assert!(entity.1.is_none());
                         assert!(entity.2.is_some());
                         assert!(entity.3.is_some());
+                        assert!(entity.4.is_some());
                     },
                 )
                 .unwrap();
