@@ -2047,8 +2047,6 @@ mod tests {
         let world = app.world_mut();
         world.spawn_scene_list(scenes).unwrap();
         assert_eq!(world.query::<&Name>().query(world).count(), scenes_len);
-        // let mut query = world.query::<(Entity, &Name)>();
-        // let all: Vec<_> = query.iter(world).map(|(e, n)| (e, n.clone())).collect();
     }
 
     #[test]

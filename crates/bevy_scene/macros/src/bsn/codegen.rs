@@ -94,7 +94,7 @@ impl BsnTokenStream for BsnRoot {
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-        let for_refs = if !ctx.entity_refs.refs.is_empty() {
+        let call_id = if !ctx.entity_refs.refs.is_empty() {
             quote! {
                 static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
                 let _call_id = _CALL_ID.increment();
@@ -109,7 +109,7 @@ impl BsnTokenStream for BsnRoot {
         // e.g. when typing the name of a field but no value yet.
         quote! {
             #bevy_scene::SceneScope({
-                #for_refs
+                #call_id
                 #(#hoisted_exprs)*
                 let _res = #tokens;
                 #(#errors)*
