@@ -95,9 +95,9 @@ impl FeathersTextInput {
             Node {
                 flex_grow: {
                     if props.visible_width.is_some() {
-                        0.
+                        0_f32
                     } else {
-                        1.
+                        1_f32
                     }
                 } ,
             }
