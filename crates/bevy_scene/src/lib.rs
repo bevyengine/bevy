@@ -2070,7 +2070,7 @@ mod tests {
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
 
-    // NOTE: caching is not yet implemented
+    // NOTE: function scene caching is not yet implemented
     // #[test]
     // fn caching_with_generics() {
     //     #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
