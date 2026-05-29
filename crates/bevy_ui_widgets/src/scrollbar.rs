@@ -74,7 +74,7 @@ pub struct Scrollbar {
 /// A `ScrollbarThumb` UI node does not have a `Node` component. It only has `Border` and `BorderRadius` styling properties.
 /// Its layout is handled after `ui_layout_system` in `update_scroll_thumb` so that its size and position can be set relative to the scrolling area's
 /// size and scroll position.
-#[derive(Component, FromTemplate, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 #[require(
     ScrollbarDragState,
     ComputedNode,
