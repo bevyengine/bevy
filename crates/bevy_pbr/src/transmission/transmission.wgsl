@@ -103,8 +103,8 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // the first scenario.
     //
     // Blur intensity is:
-    // - proportional to the square of `transmission_roughness`
-    // - proportional to how far the IOR ratio is from air
+    // - proportional to the square of `perceptual_roughness`
+    // - reduced for IOR < 1.5 (through `transmission_roughness`)
     // - proportional to the inverse of view z
     let blur_intensity = (transmission_roughness * transmission_roughness) / view_z;
 
