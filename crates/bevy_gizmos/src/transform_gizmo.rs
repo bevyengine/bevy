@@ -533,12 +533,12 @@ fn transform_gizmo_drag(
                     let new_projected = cursor_vec.dot(axis_norm) * axis_norm + gizmo_origin;
                     let delta = new_projected - state.drag_start_world;
 
-                    let new_pos = state.start_transform.translation + delta;
                     transform.translation = match settings.snap_translate {
                         Some(inc) => {
-                            snap_axis(new_pos, state.start_transform.translation, axis, inc)
+                            state.start_transform.translation
+                                + axis_norm * snap_value(delta.dot(axis_norm), inc)
                         }
-                        None => new_pos,
+                        None => state.start_transform.translation + delta,
                     };
                 }
             }
@@ -742,27 +742,4 @@ pub fn gizmo_rotation(global_tf: &GlobalTransform, space: &TransformGizmoSpace) 
 
 fn snap_value(value: f32, increment: f32) -> f32 {
     (value / increment).round() * increment
-}
-
-/// Snap only the component along the dragged axis, leaving others unchanged.
-fn snap_axis(position: Vec3, original: Vec3, axis: TransformGizmoAxis, increment: f32) -> Vec3 {
-    match axis {
-        TransformGizmoAxis::X => {
-            Vec3::new(snap_value(position.x, increment), original.y, original.z)
-        }
-        TransformGizmoAxis::Y => {
-            Vec3::new(original.x, snap_value(position.y, increment), original.z)
-        }
-        TransformGizmoAxis::Z => {
-            Vec3::new(original.x, original.y, snap_value(position.z, increment))
-        }
-        TransformGizmoAxis::View => {
-            // Snap all axes uniformly
-            Vec3::new(
-                snap_value(position.x, increment),
-                snap_value(position.y, increment),
-                snap_value(position.z, increment),
-            )
-        }
-    }
 }
