@@ -2,10 +2,10 @@ use core::marker::PhantomData;
 
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::{component::Mutable, prelude::*};
-pub use bevy_render_macros::ExtractResource;
+pub use bevy_extract_macros::ExtractResource;
 use bevy_utils::once;
 
-use crate::{Extract, ExtractSchedule, RenderApp};
+use crate::{Extract, ExtractSchedule};
 
 /// Describes how a resource gets extracted for rendering.
 ///
@@ -30,11 +30,9 @@ pub trait ExtractResource<L: AppLabel, F = ()>: Resource {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub struct ExtractResourcePlugin<R: ExtractResource<L, F>, L: AppLabel = RenderApp, F = ()>(
+pub struct ExtractResourcePlugin<R: ExtractResource<L, F>, L: AppLabel, F = ()>(
     PhantomData<(R, L, F)>,
 );
-
-// pub type ExtractResourcePlugin<R, F = ()> = ExtractResourcePlugin<R, RenderApp, F>;
 
 impl<R: ExtractResource<L, F>, L: AppLabel, F> Default for ExtractResourcePlugin<R, L, F> {
     fn default() -> Self {

@@ -2,8 +2,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod as_bind_group;
-mod extract_component;
-mod extract_resource;
 mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
