@@ -5,7 +5,7 @@ pull_requests: []
 
 Extraction used to be specific of Main World to Render World, but will now be generic
 
-- When using extraction related traits e.g. `SyncComponent`, `ExtractComponent` and `ExtractResource`, 
+- When using extraction related traits e.g. `SyncComponent`, `ExtractComponent` and `ExtractResource`,
 you must specify the `AppLabel` for the target world.
 
 Before:
