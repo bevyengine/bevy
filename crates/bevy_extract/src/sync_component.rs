@@ -9,10 +9,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 
-use crate::{
-    sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld},
-    RenderApp,
-};
+use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld};
 
 use bevy_log::warn_once;
 
@@ -31,7 +28,7 @@ use bevy_log::warn_once;
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C, L: AppLabel = RenderApp, F = ()>(PhantomData<(C, L, F)>);
+pub struct SyncComponentPlugin<C, L: AppLabel, F = ()>(PhantomData<(C, L, F)>);
 
 // pub type SyncComponentPlugin<C, F = ()> = SyncComponentPlugin<C, RenderApp, F>;
 

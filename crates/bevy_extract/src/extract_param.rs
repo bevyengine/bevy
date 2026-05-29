@@ -33,12 +33,15 @@ use core::ops::{Deref, DerefMut};
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_render::Extract;
-/// use bevy_render::sync_world::RenderEntity;
+/// use bevy_extract::Extract;
+/// use bevy_extract::sync_world::SubEntity;
+/// use bevy_derive::AppLabel;
+/// # #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+/// # struct ExtractApp;
 /// # #[derive(Component)]
 /// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<RenderEntity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<SubEntity<ExtractApp>, With<Cloud>>>) {
 ///     for cloud in &clouds {
 ///         commands.entity(cloud).insert(Cloud);
 ///     }

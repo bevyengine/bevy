@@ -1,7 +1,7 @@
 use crate::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::SubEntity,
-    Extract, ExtractSchedule, RenderApp,
+    Extract, ExtractSchedule,
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
@@ -12,9 +12,7 @@ use bevy_ecs::{
 };
 use core::marker::PhantomData;
 
-pub use crate::uniform::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin};
-
-pub use bevy_render_macros::ExtractComponent;
+pub use bevy_extract_macros::ExtractComponent;
 
 /// Describes how a component gets extracted for rendering.
 ///
@@ -57,12 +55,10 @@ pub trait ExtractComponent<L: AppLabel, F = ()>: SyncComponent<L, F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub struct ExtractComponentPlugin<C, L: AppLabel = RenderApp, F = ()> {
+pub struct ExtractComponentPlugin<C, L: AppLabel, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, L, F)>,
 }
-
-// pub type ExtractComponentPlugin<C, F> = ExtractComponentPlugin<C, RenderApp, F>;
 
 impl<C, L: AppLabel, F> Default for ExtractComponentPlugin<C, L, F> {
     fn default() -> Self {

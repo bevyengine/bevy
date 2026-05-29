@@ -88,7 +88,7 @@ fn extract_render_asset_bench(c: &mut Criterion) {
 
                     // Measuring the extract call
                     let start = Instant::now();
-                    bevy_render::extract_plugin::extract(main.world_mut(), render_world);
+                    bevy_extract::extract_plugin::extract(main.world_mut(), render_world);
                     total += Instant::now().duration_since(start);
 
                     // Run a standard app update to allow Bevy's internal systems to flush/clear the message queues.

@@ -5,9 +5,9 @@ mod extract_component;
 mod extract_resource;
 
 use bevy_macro_utils::BevyManifest;
-// use proc_macro::TokenStream;
+use proc_macro::TokenStream;
 
-pub(crate) fn _bevy_extract_path() -> syn::Path {
+pub(crate) fn bevy_extract_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_extract"))
 }
 
@@ -30,7 +30,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///
 /// ```no_compile
 /// use bevy_ecs::component::Component;
-/// use bevy_render_macros::ExtractComponent;
+/// use bevy_extract_macros::ExtractComponent;
 ///
 /// #[derive(Component, Clone, ExtractComponent)]
 /// #[extract_component_filter(With<Camera>)]
