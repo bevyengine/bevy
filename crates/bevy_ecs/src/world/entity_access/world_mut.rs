@@ -1215,7 +1215,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// # Safety
-    /// see [`insert_by_ids`]
+    /// see [`EntityWorldMut::insert_by_ids`]
     #[track_caller]
     pub(crate) unsafe fn insert_by_ids_internal<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
