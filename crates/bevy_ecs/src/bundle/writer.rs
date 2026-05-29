@@ -6,7 +6,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_ptr::OwningPtr;
 use bumpalo::Bump;
-use core::{alloc::Layout, panic::AssertUnwindSafe, ptr::NonNull};
+use core::{alloc::Layout, ptr::NonNull};
 
 /// Enables pushing components to internal scratch space (uses a bump allocator), which can then be
 /// written as a dynamic bundle. The contents are cleared after each write and the allocated scratch
