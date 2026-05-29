@@ -78,7 +78,6 @@ pub fn update_editable_text_content_size(
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
-            || fonts.is_changed()
             || rem_size.is_changed())
         {
             continue;
