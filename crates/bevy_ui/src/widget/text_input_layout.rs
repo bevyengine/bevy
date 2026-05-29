@@ -170,10 +170,8 @@ pub fn update_editable_text_styles(
     for (mut editable_text, text_font, line_height, target, text_layout) in
         editable_text_query.iter_mut()
     {
-        let editor = editable_text.editor_mut();
-
-        if f32::EPSILON < (target.scale_factor() - editor.get_scale()).abs() {
-            editor.set_scale(target.scale_factor());
+        if f32::EPSILON < (target.scale_factor() - editable_text.editor.get_scale()).abs() {
+            editable_text.editor.set_scale(target.scale_factor());
         }
 
         if text_font.is_changed()
@@ -183,9 +181,12 @@ pub fn update_editable_text_styles(
                 FontSize::Vw(_) | FontSize::Vh(_) | FontSize::VMin(_) | FontSize::VMax(_)
             ) && target.is_changed()
         {
-            editor.edit_styles().insert(StyleProperty::FontSize(
-                text_font.font_size.eval(target.logical_size(), rem_size.0),
-            ));
+            editable_text
+                .editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(
+                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                ));
         }
 
         if text_font.is_changed() {
