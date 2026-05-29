@@ -5,7 +5,7 @@ use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
 
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_render_path: Path = crate::bevy_render_path();
+    let bevy_extract_path: Path = crate::bevy_extract_path();
 
     ast.generics
         .make_where_clause()
@@ -31,7 +31,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_render_path::extract_resource::ExtractResource<#app_label> for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_extract_path::extract_resource::ExtractResource<#app_label> for #struct_name #type_generics #where_clause {
             type Source = Self;
 
             fn extract_resource(source: &Self::Source) -> Self {

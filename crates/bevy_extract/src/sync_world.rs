@@ -126,8 +126,6 @@ impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
 #[component(storage = "SparseSet")]
 pub struct SyncToSubWorld<L: AppLabel + Default + Clone>(PhantomData<L>);
 
-pub type SyncToRenderWorld = SyncToSubWorld<crate::RenderApp>;
-
 /// Component added on the main world entities that are synced to the Sub World in order to keep track of the corresponding sub world entity.
 ///
 /// Can also be used as a newtype wrapper for sub world entities.
@@ -135,8 +133,6 @@ pub type SyncToRenderWorld = SyncToSubWorld<crate::RenderApp>;
 #[component(clone_behavior = Ignore)]
 #[reflect(Component, Clone)]
 pub struct SubEntity<L: AppLabel + Clone + Copy + Eq>(#[deref] Entity, PhantomData<L>);
-
-pub type RenderEntity = SubEntity<crate::RenderApp>;
 
 impl<L: AppLabel + Clone + Copy + Eq> SubEntity<L> {
     #[inline]
@@ -198,8 +194,6 @@ pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct TemporaryEntity<L: AppLabel + Clone + Eq + Copy + Default>(PhantomData<L>);
-
-pub type TemporaryRenderEntity = TemporaryEntity<crate::RenderApp>;
 
 /// A record enum to what entities with [`SyncToSubWorld`] have been added or removed.
 #[derive(Debug)]
@@ -547,7 +541,7 @@ mod sub_entities_world_query_impls {
 mod tests {
     use core::marker::PhantomData;
 
-    use bevy_app::AppLabel;
+    use bevy_derive::AppLabel;
     use bevy_ecs::{
         component::Component,
         entity::Entity,

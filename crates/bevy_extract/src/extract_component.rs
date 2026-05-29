@@ -1,7 +1,7 @@
 use crate::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::SubEntity,
-    Extract, ExtractSchedule, RenderApp,
+    Extract, ExtractSchedule,
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
@@ -12,9 +12,7 @@ use bevy_ecs::{
 };
 use core::marker::PhantomData;
 
-pub use crate::uniform::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin};
-
-pub use bevy_render_macros::ExtractComponent;
+pub use bevy_extract_macros::ExtractComponent;
 
 /// Describes how a component gets extracted for rendering.
 ///
@@ -57,14 +55,12 @@ pub trait ExtractComponent<L: AppLabel, F = ()>: SyncComponent<L, F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub struct ExtractComponentPlugin<C, F = (), L: AppLabel = RenderApp> {
+pub struct ExtractComponentPlugin<L: AppLabel, C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (L, C, F)>,
 }
 
-// pub type ExtractComponentPlugin<C, F> = ExtractComponentPlugin<RenderApp, C, F>;
-
-impl<L: AppLabel, C, F> Default for ExtractComponentPlugin<C, F, L> {
+impl<L: AppLabel, C, F> Default for ExtractComponentPlugin<L, C, F> {
     fn default() -> Self {
         Self {
             only_extract_visible: false,
@@ -73,7 +69,7 @@ impl<L: AppLabel, C, F> Default for ExtractComponentPlugin<C, F, L> {
     }
 }
 
-impl<L: AppLabel, C, F> ExtractComponentPlugin<C, F, L> {
+impl<L: AppLabel, C, F> ExtractComponentPlugin<L, C, F> {
     pub fn extract_visible() -> Self {
         Self {
             only_extract_visible: true,
@@ -86,10 +82,10 @@ impl<
         L: AppLabel + Default + Clone + Copy + Eq,
         C: ExtractComponent<L, F>,
         F: 'static + Send + Sync,
-    > Plugin for ExtractComponentPlugin<C, F, L>
+    > Plugin for ExtractComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncComponentPlugin::<C, F, L>::default());
+        app.add_plugins(SyncComponentPlugin::<L, C, F>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(L::default()) {
             if self.only_extract_visible {
