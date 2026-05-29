@@ -1,6 +1,6 @@
 ---
 title: Extract Extract
-pull_requests: []
+pull_requests: [24420]
 ---
 
 Extraction used to be specific of Main World to Render World, but will now be generic
