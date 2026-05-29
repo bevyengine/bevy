@@ -149,6 +149,7 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 #[cfg(test)]
 mod test {
     use bevy_app::{App, Startup};
+    use bevy_derive::AppLabel;
     use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
     use crate::{
@@ -156,7 +157,6 @@ mod test {
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
-        RenderApp,
     };
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -164,6 +164,9 @@ mod test {
         ExtractCommands,
         PostCleanup,
     }
+
+    #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+    pub struct ExtractApp;
 
     #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
     pub struct MySchedule;
@@ -190,17 +193,17 @@ mod test {
     struct RenderComponentExtra;
 
     #[derive(Component, Clone, Debug, ExtractComponent)]
-    #[extract_app(RenderApp)]
+    #[extract_app(ExtractApp)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponentNoExtract;
 
-    impl SyncComponent<RenderApp> for RenderComponent {
+    impl SyncComponent<ExtractApp> for RenderComponent {
         type Target = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractComponent<RenderApp> for RenderComponent {
+    impl ExtractComponent<ExtractApp> for RenderComponent {
         type QueryData = &'static Self;
         type QueryFilter = ();
         type Out = (RenderComponent, RenderComponentExtra);
@@ -216,20 +219,20 @@ mod test {
     fn extraction_works() {
         let mut app = App::new();
 
-        app.add_plugins(ExtractPlugin::<RenderApp>::new(
+        app.add_plugins(ExtractPlugin::<ExtractApp>::new(
             |_, _| {},
             MySchedule::base_schedule,
             MySchedule.intern(),
             MyScheduleSystems::ExtractCommands.intern(),
             MyScheduleSystems::PostCleanup.intern(),
         ));
-        app.add_plugins(ExtractComponentPlugin::<RenderComponent>::default());
-        app.add_plugins(ExtractComponentPlugin::<RenderComponentSeparate>::default());
+        app.add_plugins(ExtractComponentPlugin::<ExtractApp, RenderComponent>::default());
+        app.add_plugins(ExtractComponentPlugin::<ExtractApp, RenderComponentSeparate>::default());
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });
 
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+        let render_app = app.get_sub_app_mut(ExtractApp).unwrap();
 
         // Normally RenderPlugin sets the RenderRecovery schedule as update, but for
         // testing we just use the Render schedule directly.
@@ -248,7 +251,7 @@ mod test {
 
         // Check that all components have been extracted
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+            let render_app = app.get_sub_app_mut(ExtractApp).unwrap();
             render_app
                 .world_mut()
                 .run_system_cached(
@@ -283,7 +286,7 @@ mod test {
 
         // Check that the extracted components have been removed
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+            let render_app = app.get_sub_app_mut(ExtractApp).unwrap();
             render_app
                 .world_mut()
                 .run_system_cached(

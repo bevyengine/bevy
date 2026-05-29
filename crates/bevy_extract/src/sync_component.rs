@@ -9,10 +9,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 
-use crate::{
-    sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld},
-    RenderApp,
-};
+use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld};
 
 /// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
 ///
@@ -29,11 +26,9 @@ use crate::{
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C, F = (), L: AppLabel = RenderApp>(PhantomData<(L, C, F)>);
+pub struct SyncComponentPlugin<L: AppLabel, C, F = ()>(PhantomData<(L, C, F)>);
 
-// pub type SyncComponentPlugin<C, F = ()> = SyncComponentPlugin<RenderApp, C, F>;
-
-impl<L: AppLabel, C: SyncComponent<L, F>, F> Default for SyncComponentPlugin<C, F, L> {
+impl<L: AppLabel, C: SyncComponent<L, F>, F> Default for SyncComponentPlugin<L, C, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -59,7 +54,7 @@ impl<
         L: AppLabel + Default + Clone + Copy + Eq,
         C: SyncComponent<L, F>,
         F: Send + Sync + 'static,
-    > Plugin for SyncComponentPlugin<C, F, L>
+    > Plugin for SyncComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
         app.register_required_components::<C, SyncToSubWorld<L>>();

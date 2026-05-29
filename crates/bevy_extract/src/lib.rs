@@ -11,7 +11,7 @@
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
-// #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 
 //! This crate is about everything concerning extract.
 
@@ -19,16 +19,16 @@ extern crate alloc;
 
 pub mod extract_component;
 pub mod extract_instances;
-mod extract_param;
+pub mod extract_param;
 pub mod extract_plugin;
 pub mod extract_resource;
 pub mod sync_component;
 pub mod sync_world;
 
-// pub use extract_param::Extract;
-// pub use extract_plugin::*;
-// pub use extract_plugin::{ExtractSchedule, MainWorld};
-// pub use sync_world::*;
+pub use extract_param::Extract;
+pub use extract_plugin::*;
+pub use extract_plugin::{ExtractSchedule, MainWorld};
+pub use sync_world::*;
 
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_extract;
