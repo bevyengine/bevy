@@ -64,6 +64,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
                     entities
                         .drain(..)
                         .for_each(|e| world.entity_allocator_mut().free(e));
+                    world.entity_allocator_mut().flush();
                 },
                 BatchSize::SmallInput,
             );
@@ -107,6 +108,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
                     let entities =
                         Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
                     world.entity_allocator_mut().free_many(&entities);
+                    world.entity_allocator_mut().flush();
                     world
                 },
                 |world| {
@@ -134,6 +136,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
                     let entities =
                         Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
                     world.entity_allocator_mut().free_many(&entities);
+                    world.entity_allocator_mut().flush();
                     world
                 },
                 |world| {
@@ -183,9 +186,8 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
                     let mut world = World::new();
                     let mut entities =
                         Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
-                    entities
-                        .drain(..)
-                        .for_each(|e| world.entity_allocator_mut().free(e));
+                    world.entity_allocator_mut().free_many(&entities);
+                    world.entity_allocator_mut().flush();
                     world.entity_allocator().build_remote_allocator()
                 },
                 |remote| {
