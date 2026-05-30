@@ -139,7 +139,7 @@ impl Head {
 
     #[inline]
     fn producer_pop_count(self) -> i32 {
-        self.head() - self.consumer_head()
+        self.consumer_head() - self.head()
     }
 }
 
