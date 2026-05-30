@@ -402,7 +402,7 @@ impl Metadata {
     }
 
     fn non_empty_count(self) -> u32 {
-        (self.0 & 0b11).count_zeros()
+        (self.0 | !0b11).count_zeros()
     }
 }
 
