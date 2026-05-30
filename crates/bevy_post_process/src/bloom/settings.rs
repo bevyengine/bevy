@@ -1,10 +1,12 @@
-use bevy_asset::Handle;
+use bevy_asset::{Handle, HandleTemplate};
 use bevy_camera::{Camera, Hdr};
 use bevy_color::{Color, ColorToComponents};
 use bevy_ecs::{
+    error::Result as EcsResult,
     prelude::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
+    template::{FromTemplate, OptionTemplate, Template, TemplateContext},
 };
 use bevy_image::Image;
 use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec3, Vec4};
@@ -32,7 +34,7 @@ use bevy_render::{
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 #[require(Hdr)]
 pub struct Bloom {
@@ -217,6 +219,18 @@ impl Default for Bloom {
     }
 }
 
+impl Template for Bloom {
+    type Output = Bloom;
+
+    fn build_template(&self, _context: &mut TemplateContext) -> EcsResult<Self::Output> {
+        Ok(self.clone())
+    }
+
+    fn clone_template(&self) -> Self {
+        self.clone()
+    }
+}
+
 /// Applies a threshold filter to the input image to extract the brightest
 /// regions before blurring them and compositing back onto the original image.
 /// These settings are useful when emulating the 1990s-2000s game look.
@@ -242,9 +256,10 @@ pub struct BloomPrefilter {
     pub threshold_softness: f32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
-#[reflect(Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy, Default)]
+#[reflect(Clone, Hash, PartialEq, Default)]
 pub enum BloomCompositeMode {
+    #[default]
     EnergyConserving,
     Additive,
 }
@@ -253,10 +268,11 @@ pub enum BloomCompositeMode {
 ///
 /// Lens dirt overlays a texture (e.g., dust, smudges) onto bloom regions during final
 /// compositing. This creates a cinematic or stylized look.
-#[derive(Default, Clone, Reflect)]
+#[derive(Default, Clone, Reflect, FromTemplate)]
 #[reflect(Clone, Default)]
 pub struct LensDirt {
     /// The lens dirt texture. Set to `Some` to enable the effect.
+    #[template(OptionTemplate<HandleTemplate<Image>>)]
     pub texture: Option<Handle<Image>>,
 
     /// How strongly the lens dirt appears (default: 1.0).
