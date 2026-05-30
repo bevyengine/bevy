@@ -408,8 +408,8 @@ impl<'a> Drop for PopMany<'a> {
 }
 
 /// # Layout
-/// - 0: a_empty
-/// - 1: b_empty
+/// - 0: a_non_empty
+/// - 1: b_non_empty
 /// - 2: priority (true -> b, false -> b) (see [`SharedFreeList::swaps`])
 #[derive(Clone, Copy)]
 struct Metadata(u32);
@@ -422,12 +422,12 @@ impl Metadata {
 
     #[inline]
     fn are_empty(self) -> bool {
-        self.0 & 0b11 == 0b11
+        self.0 & 0b11 == 0b00
     }
 
     #[inline]
     fn non_empty_count(self) -> u32 {
-        (self.0 | !0b11).count_zeros()
+        (self.0 | 0b11).count_ones()
     }
 }
 
