@@ -526,8 +526,8 @@ impl SharedFreeList {
     /// # Safety
     ///
     #[inline]
-    unsafe fn pop_many_as_producer(&self, n: u32) -> ChainPopMany<'_> {
-        let empty = ChainPopMany::empty(self.swaps(false)[0]);
+    unsafe fn pop_many_as_producer(&self, n: u32) -> FlattenPopMany<'_> {
+        let empty = FlattenPopMany::empty(self.swaps(false)[0]);
         if n == 0 {
             return empty;
         }
@@ -544,13 +544,13 @@ impl SharedFreeList {
             let a = priority.pop_many_as_producer(n, || self.meta.set_empty(which));
             let remaining = n - a.len() as u32;
             let b = other.pop_many_as_producer(remaining, || self.meta.set_empty(!which));
-            ChainPopMany { a, b }
+            FlattenPopMany::new([a, b])
         }
     }
 
     #[inline]
-    fn pop_many_as_consumer(&self, n: u32) -> ChainPopMany<'_> {
-        let empty = ChainPopMany::empty(self.swaps(false)[0]);
+    fn pop_many_as_consumer(&self, n: u32) -> FlattenPopMany<'_> {
+        let empty = FlattenPopMany::empty(self.swaps(false)[0]);
         if n == 0 {
             return empty;
         }
@@ -565,7 +565,7 @@ impl SharedFreeList {
         let a = priority.pop_many_as_consumer(n, || self.meta.set_empty(which));
         let remaining = n - a.len() as u32;
         let b = other.pop_many_as_consumer(remaining, || self.meta.set_empty(!which));
-        ChainPopMany { a, b }
+        FlattenPopMany::new([a, b])
     }
 
     /// # Safety
@@ -616,36 +616,50 @@ impl Drop for SharedFreeList {
     }
 }
 
-pub struct ChainPopMany<'a> {
-    a: PopMany<'a>,
-    b: PopMany<'a>,
+pub struct FlattenPopMany<'a> {
+    pop_manys: [PopMany<'a>; 2],
+    index: usize,
 }
 
-impl<'a> ChainPopMany<'a> {
+impl<'a> FlattenPopMany<'a> {
+    #[inline]
+    fn new(pop_manys: [PopMany<'a>; 2]) -> Self {
+        Self {
+            pop_manys,
+            index: 0,
+        }
+    }
+
     #[inline]
     fn empty(swap: SharedSwapDrain<'a>) -> Self {
         Self {
-            a: PopMany::empty(swap),
-            b: PopMany::empty(swap),
+            pop_manys: [PopMany::empty(swap), PopMany::empty(swap)],
+            index: 2,
         }
     }
 }
 
-impl<'a> Iterator for ChainPopMany<'a> {
+impl<'a> Iterator for FlattenPopMany<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.a.next().or_else(|| self.b.next())
+        while self.index < 1 {
+            if let Some(item) = self.pop_manys[self.index].next() {
+                return Some(item);
+            }
+            self.index += 1;
+        }
+        None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.a.len() + self.b.len();
+        let len = self.pop_manys[0].len() + self.pop_manys[1].len();
         (len, Some(len))
     }
 }
 
-impl<'a> ExactSizeIterator for ChainPopMany<'a> {}
-impl<'a> FusedIterator for ChainPopMany<'a> {}
+impl<'a> ExactSizeIterator for FlattenPopMany<'a> {}
+impl<'a> FusedIterator for FlattenPopMany<'a> {}
 
 #[derive(Default)]
 struct FreshAllocator {
@@ -877,7 +891,7 @@ impl core::fmt::Debug for Allocator {
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
-    reused: ChainPopMany<'a>,
+    reused: FlattenPopMany<'a>,
     new: AllocUniqueEntityIndexIterator,
 }
 
