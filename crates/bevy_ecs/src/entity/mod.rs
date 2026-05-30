@@ -729,16 +729,18 @@ impl EntityAllocator {
     /// Freeing an [`Entity`] such that one [`EntityIndex`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
-    pub fn free(&mut self, freed: Entity) {
+    pub fn free(&mut self, freed: Entity) -> &mut Self {
         self.inner.free(freed);
+        self
     }
 
     /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
     ///
     /// The same caveats of [`free`](Self::free) apply here.
     /// (Eg. the slice should not contain duplicates.)
-    pub fn free_many(&mut self, freed: &[Entity]) {
+    pub fn free_many(&mut self, freed: &[Entity]) -> &mut Self {
         self.inner.free_many(freed);
+        self
     }
 
     /// Allocates some [`Entity`].
