@@ -184,7 +184,7 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
             bencher.iter_batched_ref(
                 || {
                     let mut world = World::new();
-                    let mut entities =
+                    let entities =
                         Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
                     world.entity_allocator_mut().free_many(&entities);
                     world.entity_allocator_mut().flush();
