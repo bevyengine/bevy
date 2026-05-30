@@ -710,7 +710,7 @@ pub struct EntityAllocator {
 impl EntityAllocator {
     /// Restarts the allocator.
     pub(crate) fn restart(&mut self) {
-        self.inner = remote_allocator::Allocator::new();
+        self.inner = remote_allocator::Allocator::default();
     }
 
     /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
