@@ -795,6 +795,11 @@ impl EntityAllocator {
             inner: self.inner.alloc_many(count),
         }
     }
+
+    /// Flushes any pending frees to the shared free list.
+    pub fn flush(&mut self) {
+        self.inner.flush();
+    }
 }
 
 /// An [`Iterator`] returning a sequence of unique [`Entity`] values from [`Entities`].
