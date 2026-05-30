@@ -530,14 +530,20 @@ impl PipelineCache {
                         fragment_module.unwrap(),
                         fragment.entry_point.as_deref(),
                         fragment.targets.as_slice(),
+                        fragment
+                            .constants
+                            .iter()
+                            .map(|(k, v)| (k.as_ref(), *v))
+                            .collect::<Vec<_>>(),
                     )
                 });
 
-                // TODO: Expose the rest of this somehow
-                let compilation_options = PipelineCompilationOptions {
-                    constants: &[],
-                    zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
-                };
+                let vertex_constants: Vec<(&str, f64)> = descriptor
+                    .vertex
+                    .constants
+                    .iter()
+                    .map(|(k, v)| (k.as_ref(), *v))
+                    .collect();
 
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview_mask: None,
@@ -550,18 +556,24 @@ impl PipelineCache {
                         buffers: &vertex_buffer_layouts,
                         entry_point: descriptor.vertex.entry_point.as_deref(),
                         module: &vertex_module,
-                        // TODO: Should this be the same as the fragment compilation options?
-                        compilation_options: compilation_options.clone(),
+                        compilation_options: PipelineCompilationOptions {
+                            constants: &vertex_constants,
+                            zero_initialize_workgroup_memory: descriptor
+                                .zero_initialize_workgroup_memory,
+                        },
                     },
-                    fragment: fragment_data
-                        .as_ref()
-                        .map(|(module, entry_point, targets)| RawFragmentState {
+                    fragment: fragment_data.as_ref().map(
+                        |(module, entry_point, targets, constants)| RawFragmentState {
                             entry_point: entry_point.as_deref(),
                             module,
                             targets,
-                            // TODO: Should this be the same as the vertex compilation options?
-                            compilation_options,
-                        }),
+                            compilation_options: PipelineCompilationOptions {
+                                constants,
+                                zero_initialize_workgroup_memory: descriptor
+                                    .zero_initialize_workgroup_memory,
+                            },
+                        },
+                    ),
                     cache: None,
                 };
 
@@ -609,14 +621,18 @@ impl PipelineCache {
 
                 drop((shader_cache, layout_cache));
 
+                let constants: Vec<(&str, f64)> = descriptor
+                    .constants
+                    .iter()
+                    .map(|(k, v)| (k.as_ref(), *v))
+                    .collect();
                 let descriptor = RawComputePipelineDescriptor {
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
                     entry_point: descriptor.entry_point.as_deref(),
-                    // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &[],
+                        constants: &constants,
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
