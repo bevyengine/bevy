@@ -62,7 +62,7 @@ impl SharedDrain {
     /// # Safety
     /// - The previous `Vec` must have a length of `0`
     #[inline]
-    unsafe fn swap(&mut self, other: &mut Vec<Entity>) {
+    unsafe fn swap(&mut self, other: &mut Vec<Entity>) -> i32 {
         const MAX: usize = i32::MAX as usize;
         if other.len() > MAX {
             #[cold]
@@ -71,11 +71,13 @@ impl SharedDrain {
             }
             drain(&mut *self.0, other);
         }
+        let initial_len = other.len() as i32;
         mem::swap(&mut *self.0, other);
         // SAFETY: The next time this function is called this length will be correct
         unsafe {
             self.0.set_len(0);
         }
+        initial_len
     }
 
     /// Returns the value at `index` the `Vec`.
@@ -86,12 +88,6 @@ impl SharedDrain {
     #[inline]
     unsafe fn read(&self, index: usize) -> Entity {
         unsafe { self.0.as_ptr().add(index).read() }
-    }
-
-    #[inline]
-    fn initial_len(&self) -> i32 {
-        // see [`SharedDrain::swap`]
-        self.0.len() as i32
     }
 }
 
@@ -296,18 +292,14 @@ impl<'a> SharedSwapDrain<'a> {
         let producer_pop_count = Head(self.head.0.load(Ordering::Relaxed)).producer_pop_count();
         let actual_tail = tail - producer_pop_count;
 
-        if actual_tail >= 0 {
+        if actual_tail > 0 {
             return false;
         }
 
         // SAFETY: Nobody is allowed to read from `drain` when `actual_tail <= 0`.
         let drain = unsafe { self.drain.get().as_mut_unchecked() };
-        // SAFETY: We checked that `actual_tail < 0` meaning all items have been drained
-        unsafe {
-            drain.swap(data);
-        }
-
-        let initial_len = drain.initial_len() as i32;
+        // SAFETY: We checked that `actual_tail <= 0` meaning all items have been drained.
+        let initial_len = unsafe { drain.swap(data) };
 
         // `tail` can be relaxed because `head` fences the publication
         // `tail` must be stored before `head`
