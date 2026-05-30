@@ -785,7 +785,7 @@ impl SharedAllocator {
     /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
     #[inline]
     fn alloc_many_as_consumer(&self, count: u32) -> AllocEntitiesIterator<'_> {
-        let reused = unsafe { self.free.pop_many_as_producer(count) };
+        let reused = self.free.pop_many_as_consumer(count);
         let still_need = count - reused.len() as u32;
         let new = self.fresh.alloc_many(still_need);
         AllocEntitiesIterator { new, reused }
@@ -884,7 +884,7 @@ impl core::fmt::Debug for Allocator {
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
-pub(crate) struct AllocEntitiesIterator<'a> {
+pub struct AllocEntitiesIterator<'a> {
     reused: ChainPopMany<'a>,
     new: AllocUniqueEntityIndexIterator,
 }
@@ -964,7 +964,7 @@ impl RemoteAllocator {
     /// They will not be unique in the world anymore and you should not spawn them!
     /// Before using the returned values in the world, first check that it is ok with [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
     #[inline]
-    pub(crate) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
+    pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         self.shared.alloc_many_as_consumer(count)
     }
 
