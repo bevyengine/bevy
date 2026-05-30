@@ -617,7 +617,7 @@ fn queue_custom_meshes(
             };
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
-            custom_phase.add(Stencil3d {
+            custom_phase.add_retained(Stencil3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
                     mesh_center: pbr::get_mesh_instance_world_from_local(
                         *visible_entity,
