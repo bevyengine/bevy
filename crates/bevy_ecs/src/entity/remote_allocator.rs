@@ -427,7 +427,7 @@ impl Metadata {
 
     #[inline]
     fn non_empty_count(self) -> u32 {
-        (self.0 | 0b11).count_ones()
+        (self.0 & 0b11).count_ones()
     }
 }
 
@@ -702,7 +702,7 @@ impl FreshAllocator {
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
         let new = match start_new
             .checked_add(count)
-            .filter(|new| *new < Self::MAX_ENTITIES)
+            .filter(|new| *new <= Self::MAX_ENTITIES)
         {
             Some(new_next_entity_index) => start_new..new_next_entity_index,
             None => Self::on_overflow(),
