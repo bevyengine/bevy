@@ -2354,6 +2354,103 @@ impl Mesh {
         self.generate_skinned_mesh_bounds()?;
         Ok(self)
     }
+
+    /// Get multiple vertex attributes of the [`Mesh`] mutably.
+    ///
+    /// The result, if attributes are available and not extracted into the
+    /// render world, will have the same length as `attributes`, and missing
+    /// or duplicated ids will be returned as [`None`].
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_asset::RenderAssetUsages;
+    /// # use bevy_math::{Vec3, Vec4};
+    /// # use bevy_mesh::{Mesh, PrimitiveTopology};
+    /// # let mut mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::default())
+    /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![Vec3::new(0., 0., 0.)])
+    /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![Vec3::new(1., 1., 1.)])
+    /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, vec![Vec4::new(2., 2., 2., 2.)]);
+    /// let Some([pos1, pos2, pos3, normal, color]) = mesh.get_attributes_mut([
+    ///     &Mesh::ATTRIBUTE_POSITION.id,
+    ///     &Mesh::ATTRIBUTE_POSITION.id,
+    ///     &Mesh::ATTRIBUTE_POSITION.id,
+    ///     &Mesh::ATTRIBUTE_NORMAL.id,
+    ///     &Mesh::ATTRIBUTE_COLOR.id,
+    /// ]) else {
+    ///     // Data may have been extracted to the render world
+    ///     return;
+    /// };
+    /// assert_eq!(pos1.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+    /// assert!(pos2.is_none());
+    /// assert!(pos3.is_none());
+    /// assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+    /// assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+    /// ```
+    pub fn get_attributes_mut<'a, const N: usize>(
+        &'a mut self,
+        mesh_vertex_attribute_ids: [&MeshVertexAttributeId; N],
+    ) -> Option<[Option<(&'a MeshVertexAttribute, &'a mut VertexAttributeValues)>; N]> {
+        let MeshExtractableData::Data(ref mut attrs) = self.attributes else {
+            return None;
+        };
+        let mut attrs = attrs
+            .iter_mut()
+            .map(|(key, value)| {
+                Some((&value.attribute, &mut value.values))
+                    .filter(|(_, _)| mesh_vertex_attribute_ids.contains(&key))
+            })
+            .collect::<Vec<_>>();
+
+        // Extending the size of the attributes list to match N
+        // to guarantee that there is enough `None`s for the swaps
+        if attrs.len() < N {
+            attrs.resize_with(N, || None);
+        }
+
+        let mut attrs_slice = attrs.as_mut_slice();
+        for mesh_vertex_attribute_id in mesh_vertex_attribute_ids {
+            // If current key is different from top of attributes slice,
+            // swap is needed
+            if attrs_slice[0]
+                .as_ref()
+                .filter(|(attr, _)| &attr.id != mesh_vertex_attribute_id)
+                .is_some()
+            {
+                if let Some(pos) = attrs_slice.iter().position(|attr| {
+                    attr.as_ref()
+                        .filter(|(attr, _)| &attr.id == mesh_vertex_attribute_id)
+                        .is_some()
+                }) {
+                    // Swap for the attribute with the correct id
+                    attrs_slice.swap(0, pos);
+                } else if attrs_slice[0].is_some() {
+                    // If attribute with id does not exist and current attribute is not `None`
+                    // swap for a `None`
+                    if let Some(pos) = attrs_slice[1..].iter().position(Option::is_none) {
+                        attrs_slice.swap(0, pos + 1);
+                    } else {
+                        // attrs_slice will always have a least the same length as ks
+                        unreachable!("Attribute list must have enough `None`s to be able to sort.");
+                    }
+                }
+            }
+            attrs_slice = &mut attrs_slice[1..];
+        }
+
+        // Truncate the attributes list after sorting to prevent accidentally
+        // removing a valid output
+        if attrs.len() > N {
+            attrs.truncate(N);
+        }
+
+        let Ok(result): Result<[Option<(&MeshVertexAttribute, &mut VertexAttributeValues)>; N], _> =
+            attrs.try_into()
+        else {
+            unreachable!("Must always return {N} attributes.");
+        };
+
+        Some(result)
+    }
 }
 
 #[cfg(feature = "morph")]
@@ -2729,7 +2826,7 @@ mod tests {
     use bevy_asset::RenderAssetUsages;
     use bevy_math::bounding::Aabb3d;
     use bevy_math::primitives::Triangle3d;
-    use bevy_math::Vec3;
+    use bevy_math::{Vec3, Vec4};
     use bevy_transform::components::Transform;
 
     #[test]
@@ -3186,5 +3283,82 @@ mod tests {
         };
         assert_eq!(&positions, new_positions);
         assert_eq!(&uvs, new_uvs);
+    }
+
+    #[test]
+    fn get_attributes_mut_test() {
+        let mut mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::default());
+
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![Vec3::new(0., 0., 0.)]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![Vec3::new(1., 1., 1.)]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![Vec4::new(2., 2., 2., 2.)]);
+        {
+            let Some([pos, normal, color]) = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+                &Mesh::ATTRIBUTE_COLOR.id,
+            ]) else {
+                unreachable!("Data shouldn't have been extracted.");
+            };
+            assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+        }
+        {
+            let Some([pos, color, normal]) = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_COLOR.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+            ]) else {
+                unreachable!("Data shouldn't have been extracted.");
+            };
+            assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+        }
+        {
+            let Some([pos1, pos2, pos3]) = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+            ]) else {
+                unreachable!("Data shouldn't have been extracted.");
+            };
+            assert_eq!(pos1.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert!(pos2.is_none());
+            assert!(pos3.is_none());
+        }
+        {
+            let Some([pos1, pos2, pos3, normal, color]) = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+                &Mesh::ATTRIBUTE_COLOR.id,
+            ]) else {
+                unreachable!("Data shouldn't have been extracted.");
+            };
+            assert_eq!(pos1.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+            assert!(pos2.is_none());
+            assert!(pos3.is_none());
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+        }
+        {
+            let Some([color, uv0, normal, uv1, pos]) = mesh.get_attributes_mut([
+                &Mesh::ATTRIBUTE_COLOR.id,
+                &Mesh::ATTRIBUTE_UV_0.id,
+                &Mesh::ATTRIBUTE_NORMAL.id,
+                &Mesh::ATTRIBUTE_UV_1.id,
+                &Mesh::ATTRIBUTE_POSITION.id,
+            ]) else {
+                unreachable!("Data shouldn't have been extracted.");
+            };
+            assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
+            assert!(uv0.is_none());
+            assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
+            assert!(uv1.is_none());
+            assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
+        }
     }
 }
