@@ -257,14 +257,14 @@ pub enum BloomCompositeMode {
 pub struct LensDirt {
     /// The lens dirt texture. Set to `Some` to enable the effect.
     pub texture: Option<Handle<Image>>,
-    
+
     /// How strongly the lens dirt appears (default: 1.0).
     ///
     /// Valid range: 0.0 to 1.0 where:
     /// * 0.0 - No dirt visible
     /// * 1.0 - Full dirt intensity
     pub intensity: f32,
-    
+
     /// Color tint applied to the lens dirt (default: `Color::WHITE`).
     ///
     /// Use this to match the dirt effect to your scene's lighting or mood.
