@@ -296,7 +296,7 @@ impl<'a> SharedSwapDrain<'a> {
         let producer_pop_count = Head(self.head.0.load(Ordering::Relaxed)).producer_pop_count();
         let actual_tail = tail - producer_pop_count;
 
-        if actual_tail <= 0 {
+        if actual_tail >= 0 {
             return false;
         }
 
