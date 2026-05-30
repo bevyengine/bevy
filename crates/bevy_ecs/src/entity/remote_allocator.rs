@@ -61,6 +61,7 @@ impl SharedDrain {
     ///
     /// # Safety
     /// - The previous `Vec` must have a length of `0`
+    #[inline]
     unsafe fn swap(&mut self, other: &mut Vec<Entity>) {
         const MAX: usize = i32::MAX as usize;
         if other.len() > MAX {
@@ -82,10 +83,12 @@ impl SharedDrain {
     /// # Safety
     /// - `index` must be in bounds.
     /// - each `index` must be called with this function exactly once.
+    #[inline]
     unsafe fn read(&self, index: usize) -> Entity {
         unsafe { self.0.as_ptr().add(index).read() }
     }
 
+    #[inline]
     fn initial_len(&self) -> i32 {
         // see [`SharedDrain::swap`]
         self.0.len() as i32
@@ -113,11 +116,13 @@ impl Default for Head {
 }
 
 impl Head {
+    #[inline]
     fn new(v: i32) -> Self {
         let v = v as u64;
         Self(v | (v << 32))
     }
 
+    #[inline]
     fn consumer_head(self) -> i32 {
         let mut consumer_head = ((self.0 as i64) >> 32) as i32;
         // Note: This only works because `head` is not allowed to wrap
@@ -127,11 +132,12 @@ impl Head {
         consumer_head
     }
 
+    #[inline]
     fn head(self) -> i32 {
         (self.0 & u32::MAX as u64) as i32
     }
 
-    /// We only actually need the value if the head is < 0
+    #[inline]
     fn producer_pop_count(self) -> i32 {
         self.head() - self.consumer_head()
     }
@@ -142,11 +148,13 @@ impl Head {
 struct AtomicHead(AtomicU64);
 
 impl AtomicHead {
+    #[inline]
     fn publish(&self, head: Head) {
         // release matches with [`AtomicHead::claim_as_consumer`]
         self.0.store(head.0, Ordering::Release);
     }
 
+    #[inline]
     fn claim_as_consumer(&self, n: u32) -> Head {
         let n = n as u64;
         let rhs = n | (n << 32);
@@ -156,6 +164,7 @@ impl AtomicHead {
 
     /// # Safety
     /// - must not be called syncronously with [`AtomicHead::publish`]
+    #[inline]
     unsafe fn claim_as_producer(&self, n: u32) -> Head {
         // relaxed ordering due to safety requirements
         Head(self.0.fetch_sub(n as u64, Ordering::Relaxed))
@@ -173,11 +182,13 @@ impl AtomicHead {
 struct AtomicTail(AtomicI32);
 
 impl AtomicTail {
+    #[inline]
     fn release_as_consumer(&self, n: u32) {
         // release matches with [`Tail::acquire`]
         self.0.fetch_sub(n as i32, Ordering::Release);
     }
 
+    #[inline]
     fn acquire(&self) -> i32 {
         // acquire matches with [`Tail::release_as_consumer`]
         self.0.load(Ordering::Acquire)
@@ -194,6 +205,7 @@ struct SharedSwapDrain<'a> {
 impl<'a> SharedSwapDrain<'a> {
     /// # Safety
     /// - must not be called syncronously with [`SharedSwapDrain::publish`]
+    #[inline]
     unsafe fn pop_as_producer(self, on_empty: impl Fn()) -> Option<Entity> {
         // SAFETY: [`SharedSwapDrain::publish`] which calls [`Head::publish`] is not being called
         let head = unsafe { self.head.claim_as_producer(1) };
@@ -215,6 +227,7 @@ impl<'a> SharedSwapDrain<'a> {
         Some(value)
     }
 
+    #[inline]
     fn pop_as_consumer(self, on_empty: impl Fn()) -> Option<Entity> {
         let head = self.head.claim_as_consumer(1);
         if head.head() < 1 {
@@ -239,6 +252,7 @@ impl<'a> SharedSwapDrain<'a> {
 
     /// # Safety
     /// - must not be called syncronously with [`SharedSwapDrain::publish`]
+    #[inline]
     unsafe fn pop_many_as_producer(self, n: u32, on_empty: impl Fn()) -> PopMany<'a> {
         if n == 0 {
             return PopMany::empty(self);
@@ -255,6 +269,7 @@ impl<'a> SharedSwapDrain<'a> {
         unsafe { PopMany::new(self, range.into_iter(), None) }
     }
 
+    #[inline]
     fn pop_many_as_consumer(self, n: u32, on_empty: impl Fn()) -> PopMany<'a> {
         if n == 0 {
             return PopMany::empty(self);
@@ -274,6 +289,7 @@ impl<'a> SharedSwapDrain<'a> {
 
     /// # Safety
     /// - must not be called syncronously with any [`SharedSwapDrain::*_as_producer`]
+    #[inline]
     unsafe fn try_publish(self, data: &mut Vec<Entity>) -> bool {
         let tail = self.tail.acquire();
         // producer_pop_count cannot change while we have exclusive access to the producer
@@ -302,6 +318,7 @@ impl<'a> SharedSwapDrain<'a> {
     }
 }
 
+#[inline]
 fn clamp_to_positive(range: Range<i32>, on_empty: impl Fn()) -> Range<u32> {
     // `<=` makes sure we also call `on_empty` on ranges to `0` not just past `0`
     if range.start <= 0 {
@@ -331,6 +348,7 @@ struct PopMany<'a> {
 impl<'a> PopMany<'a> {
     /// # Safety
     /// - if range yields elements `swap.drain` must be under shared access
+    #[inline]
     unsafe fn new(
         swap: SharedSwapDrain<'a>,
         range: RangeIter<u32>,
@@ -343,6 +361,7 @@ impl<'a> PopMany<'a> {
         }
     }
 
+    #[inline]
     fn empty(swap: SharedSwapDrain<'a>) -> Self {
         Self {
             swap,
@@ -355,6 +374,7 @@ impl<'a> PopMany<'a> {
 impl<'a> Iterator for PopMany<'a> {
     type Item = Entity;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let Some(index) = self.range.next() else {
             return None;
@@ -366,6 +386,7 @@ impl<'a> Iterator for PopMany<'a> {
         Some(unsafe { drain.read(index) })
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.range.size_hint()
     }
@@ -375,6 +396,7 @@ impl<'a> ExactSizeIterator for PopMany<'a> {}
 impl<'a> FusedIterator for PopMany<'a> {}
 
 impl<'a> Drop for PopMany<'a> {
+    #[inline]
     fn drop(&mut self) {
         // Note: Since [`Entity`] is [`Copy`] we don't actually have to do this.
         self.by_ref().for_each(drop);
@@ -393,14 +415,17 @@ impl<'a> Drop for PopMany<'a> {
 struct Metadata(u32);
 
 impl Metadata {
+    #[inline]
     fn priority(self) -> bool {
         self.0 & 0b100 != 0
     }
 
+    #[inline]
     fn are_empty(self) -> bool {
         self.0 & 0b11 == 0b11
     }
 
+    #[inline]
     fn non_empty_count(self) -> u32 {
         (self.0 | !0b11).count_zeros()
     }
@@ -414,10 +439,12 @@ impl Metadata {
 struct AtomicMetadata(AtomicU32);
 
 impl AtomicMetadata {
+    #[inline]
     fn load(&self) -> Metadata {
         Metadata(self.0.load(Ordering::Relaxed))
     }
 
+    #[inline]
     fn set_empty(&self, which: bool) {
         let bit_index = if which { 1 } else { 0 };
         let empty_mask = 1 << bit_index;
@@ -433,6 +460,7 @@ impl AtomicMetadata {
 
     // We don't swap the priority in this case. The priority is only swapped
     // on emptying.
+    #[inline]
     fn set_non_empty(&self, which: bool) {
         let bit_index = if which { 1 } else { 0 };
         let empty_mask = 1 << bit_index;
@@ -470,6 +498,7 @@ impl SharedFreeList {
 
     /// # Safety
     /// - Must
+    #[inline]
     unsafe fn pop_as_producer(&self) -> Option<Entity> {
         let meta = self.meta.load();
         if meta.are_empty() {
@@ -487,6 +516,7 @@ impl SharedFreeList {
         }
     }
 
+    #[inline]
     fn pop_as_consumer(&self) -> Option<Entity> {
         let meta = self.meta.load();
         if meta.are_empty() {
@@ -503,6 +533,7 @@ impl SharedFreeList {
 
     /// # Safety
     ///
+    #[inline]
     unsafe fn pop_many_as_producer(&self, n: u32) -> ChainPopMany<'_> {
         let empty = ChainPopMany::empty(self.swaps(false)[0]);
         if n == 0 {
@@ -525,6 +556,7 @@ impl SharedFreeList {
         }
     }
 
+    #[inline]
     fn pop_many_as_consumer(&self, n: u32) -> ChainPopMany<'_> {
         let empty = ChainPopMany::empty(self.swaps(false)[0]);
         if n == 0 {
@@ -545,6 +577,7 @@ impl SharedFreeList {
     }
 
     /// # Safety
+    #[inline]
     pub unsafe fn try_publish(&self, data: &mut Vec<Entity>) {
         if data.len() == 0 {
             return;
@@ -572,6 +605,7 @@ impl SharedFreeList {
 }
 
 impl Drop for SharedFreeList {
+    #[inline]
     fn drop(&mut self) {
         for i in 0..2 {
             // Since we have &mut self we know that `head.max(0) == actual_tail` (actual_tail as computed)
@@ -596,6 +630,7 @@ pub struct ChainPopMany<'a> {
 }
 
 impl<'a> ChainPopMany<'a> {
+    #[inline]
     fn empty(swap: SharedSwapDrain<'a>) -> Self {
         Self {
             a: PopMany::empty(swap),
