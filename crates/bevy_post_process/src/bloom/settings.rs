@@ -1,13 +1,18 @@
-use super::downsampling_pipeline::BloomUniforms;
+use bevy_asset::Handle;
 use bevy_camera::{Camera, Hdr};
+use bevy_color::{Color, ColorToComponents};
 use bevy_ecs::{
     prelude::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
 };
-use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
+use bevy_image::Image;
+use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, sync_component::SyncComponent, RenderApp};
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType,
+    sync_component::SyncComponent, RenderApp,
+};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -121,6 +126,15 @@ pub struct Bloom {
     /// anamorphic blur by using a large x-value. For large values, you may need to increase
     /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
     pub scale: Vec2,
+
+    /// Controls the lens dirt effect, which overlays a texture onto bloom highlights
+    /// to simulate dust or smudges on the camera lens (default: disabled).
+    ///
+    /// The dirt effect is applied during the final composite stage and only affects
+    /// regions where bloom is present.
+    ///
+    /// See [`LensDirt`] for configuration options.
+    pub lens_dirt: LensDirt,
 }
 
 impl Bloom {
@@ -141,6 +155,11 @@ impl Bloom {
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        lens_dirt: LensDirt {
+            texture: None,
+            intensity: 0.0,
+            tint: Color::WHITE,
+        },
     };
 
     /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
@@ -164,6 +183,11 @@ impl Bloom {
         composite_mode: BloomCompositeMode::Additive,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        lens_dirt: LensDirt {
+            texture: None,
+            intensity: 0.0,
+            tint: Color::WHITE,
+        },
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -179,6 +203,11 @@ impl Bloom {
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        lens_dirt: LensDirt {
+            texture: None,
+            intensity: 0.0,
+            tint: Color::WHITE,
+        },
     };
 }
 
@@ -220,6 +249,29 @@ pub enum BloomCompositeMode {
     Additive,
 }
 
+/// Controls a lens dirt effect that simulates physical imperfections on the camera lens.
+///
+/// Lens dirt overlays a texture (e.g., dust, smudges) onto bloom regions during final
+/// compositing. This creates a cinematic or stylized look.
+#[derive(Default, Clone, Reflect)]
+#[reflect(Clone, Default)]
+pub struct LensDirt {
+    /// The lens dirt texture. Set to `Some` to enable the effect.
+    pub texture: Option<Handle<Image>>,
+
+    /// How strongly the lens dirt appears (default: 1.0).
+    ///
+    /// Valid range: 0.0 to 1.0 where:
+    /// * 0.0 - No dirt visible
+    /// * 1.0 - Full dirt intensity
+    pub intensity: f32,
+
+    /// Color tint applied to the lens dirt (default: `Color::WHITE`).
+    ///
+    /// Use this to match the dirt effect to your scene's lighting or mood.
+    pub tint: Color,
+}
+
 impl SyncComponent<RenderApp> for Bloom {
     type Target = (Self, BloomUniforms);
 }
@@ -253,10 +305,22 @@ impl ExtractComponent<RenderApp> for Bloom {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
+                    scale: bloom.scale,
                     aspect: AspectRatio::try_from_pixels(size.x, size.y)
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),
-                    scale: bloom.scale,
+                    intensity: bloom.intensity,
+                    low_frequency_boost: bloom.low_frequency_boost,
+                    low_frequency_boost_curvature: bloom.low_frequency_boost_curvature,
+                    high_pass_frequency: bloom.high_pass_frequency,
+                    composite_mode: match bloom.composite_mode {
+                        BloomCompositeMode::EnergyConserving => 0,
+                        BloomCompositeMode::Additive => 1,
+                    },
+                    max_mip: (bloom.max_mip_dimension.ilog2().max(2) - 1).saturating_sub(1) as f32,
+                    lens_dirt_intensity: bloom.lens_dirt.intensity,
+                    lens_dirt_tint: bloom.lens_dirt.tint.to_linear().to_vec3(),
+                    padding: 0,
                 };
 
                 Some((bloom.clone(), uniform))
@@ -264,4 +328,24 @@ impl ExtractComponent<RenderApp> for Bloom {
             _ => None,
         }
     }
+}
+
+/// The uniform struct extracted from [`Bloom`] attached to a Camera.
+/// Will be available for use in the Bloom shader.
+#[derive(Component, ShaderType, Clone)]
+pub struct BloomUniforms {
+    // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+    pub threshold_precomputations: Vec4,
+    pub viewport: Vec4,
+    pub scale: Vec2,
+    pub aspect: f32,
+    pub intensity: f32,
+    pub low_frequency_boost: f32,
+    pub low_frequency_boost_curvature: f32,
+    pub high_pass_frequency: f32,
+    pub composite_mode: u32,
+    pub max_mip: f32,
+    pub lens_dirt_intensity: f32,
+    pub lens_dirt_tint: Vec3,
+    pub padding: u32,
 }
