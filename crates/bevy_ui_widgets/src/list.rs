@@ -154,17 +154,16 @@ fn listbox_on_key_input(
                 }
             };
 
-            if prev_active == next_active {
-                // If the next index is the same as the current, do nothing
-                return;
-            }
-
             // Change active descendant
             let (next_id, _, _) = list_items[next_active];
-            focus_visible.0 = true;
-            commands
-                .entity(listbox)
-                .insert(ActiveDescendant(Some(next_id)));
+
+            // If the next index is the same as the current, do nothing
+            if prev_active != next_active {
+                focus_visible.0 = true;
+                commands
+                    .entity(listbox)
+                    .insert(ActiveDescendant(Some(next_id)));
+            }
 
             // Scroll active descendant into view
             commands.trigger(ScrollIntoView { entity: next_id });
