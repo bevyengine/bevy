@@ -5,7 +5,7 @@ use bevy_math::FloatExt;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
-/// A color produced by monochromatic light. (of a single wavelength)
+/// A color produced by monochromatic light (which is light of a single wavelength).
 ///
 /// Since not every color is a spectral color, (e.g. magenta, white)
 /// this type can be converted to `Color`, but not the other way around.
@@ -89,7 +89,7 @@ impl SpectralColor {
         luminance: 1.0,
     };
 
-    /// Create a new spectral color with the given wavelength, luminance.
+    /// Create a new spectral color with the given wavelength and luminance.
     pub const fn new(wavelength: f32, luminance: f32) -> Self {
         Self {
             wavelength,
