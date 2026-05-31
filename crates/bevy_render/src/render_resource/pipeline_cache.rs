@@ -490,7 +490,7 @@ impl PipelineCache {
             .map(|bind_group_layout_descriptor| {
                 bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
             })
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
 
         create_pipeline_task(
             async move {
@@ -598,7 +598,7 @@ impl PipelineCache {
             .map(|bind_group_layout_descriptor| {
                 bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
             })
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
 
         create_pipeline_task(
             async move {
