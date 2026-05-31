@@ -76,7 +76,7 @@ struct WorldCacheGeometryData {
     world_position: vec3<f32>,
     padding_a: u32,
     world_normal: vec3<f32>,
-    padding_b: u32
+    padding_b: u32,
 }
 
 struct WorldCache {
