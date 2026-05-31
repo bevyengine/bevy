@@ -354,3 +354,62 @@ impl From<SpectralColor> for Color {
         LinearRgba::from(value).into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        testing::{assert_approx_eq, assert_approx_less},
+        Hsva, Hue, Oklcha, Saturation, SpectralColor,
+    };
+
+    #[test]
+    fn is_fully_saturated() {
+        // Every spectral color is by definition fully saturated
+        let mut wavelength = 360.0;
+        while wavelength <= 830.0 {
+            let spectral = SpectralColor::wavelength(wavelength);
+            let color = Hsva::from(spectral);
+            assert_approx_eq!(color.saturation(), 1.0, 0.001);
+            wavelength += 1.0;
+        }
+    }
+
+    #[test]
+    fn is_not_magenta() {
+        // Spectral colors can never fall in the magenta range of hues
+        // since otherwise they would be non-monochromatic
+        // e.g. hue >= 270.0 && hue < 360.0
+        let mut wavelength = 360.0;
+        while wavelength <= 830.0 {
+            let spectral = SpectralColor::wavelength(wavelength);
+            let color = Hsva::from(spectral);
+            let hue = color.hue();
+            assert!(hue >= 0.0, "{}", hue);
+            assert!(hue < 270.0, "{}", hue);
+            wavelength += 1.0;
+        }
+    }
+
+    #[test]
+    fn is_approximately_monotonically_decreasing_perceptual_hue() {
+        // As wavelength grows, the hue monotonically decreases.
+        // There are a few caveats to this:
+        // - This property only holds in perceptual color spaces (e.g. Oklcha)
+        // - We need to allow for a slight tolerance due to floating point
+        //   imprecision, and the fact that we linearly interpolate lookup table
+        //   values when converting from `SpectralColor`
+        const TOLERANCE: f32 = 0.2;
+        let mut wavelength = 360.0;
+        let mut min_hue = f32::INFINITY;
+        while wavelength <= 830.0 {
+            let spectral = SpectralColor::wavelength(wavelength);
+            let color = Oklcha::from(spectral);
+            let hue = color.hue;
+            assert_approx_less!(hue, min_hue, TOLERANCE);
+            if hue < min_hue {
+                min_hue = hue;
+            }
+            wavelength += 1.0;
+        }
+    }
+}
