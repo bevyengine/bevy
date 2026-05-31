@@ -267,14 +267,13 @@ impl From<SpectralColor> for LinearRgba {
             return LinearRgba::BLACK;
         }
 
-        let index = ((value.wavelength - SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_START)
-            / SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_INCREMENT)
-            .floor() as usize;
-
-        let lerp = (value.wavelength - SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_START)
-            % SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_INCREMENT
+        let scaled = (value.wavelength - SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_START)
             / SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_INCREMENT;
 
+        let floored = scaled.floor();
+        let lerp = scaled - floored;
+
+        let index = floored as usize;
         let row = SpectralColor::CIE_1931_XYZ_CMF_LOOKUP_TABLE[index];
         let next_row = SpectralColor::CIE_1931_XYZ_CMF_LOOKUP_TABLE[index + 1];
 
@@ -284,7 +283,7 @@ impl From<SpectralColor> for LinearRgba {
 
         let xyza = Xyza::new(x, y, z, 1.0);
 
-        let mut linear = Color::from(xyza).to_linear();
+        let mut linear = LinearRgba::from(xyza);
 
         // Clamp negative values to zero
         linear.red = linear.red.max(0.0);
