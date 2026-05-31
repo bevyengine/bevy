@@ -859,6 +859,7 @@ mod tests {
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
     use bevy_ecs::relationship::Relationship;
+    use bevy_ecs::system::{system_value, SystemHandle};
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
@@ -2149,5 +2150,37 @@ mod tests {
         }
 
         func();
+    }
+
+    #[test]
+    fn scene_with_oneshot_system() {
+        #[derive(Component, FromTemplate)]
+        struct Callback {
+            callback: SystemHandle<(), ()>,
+        }
+
+        fn my_system() {}
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let direct = bsn! {
+            Callback {
+                callback: system_value(my_system)
+            }
+        };
+        let direct_ent = world.spawn_scene(direct).unwrap();
+        assert!(direct_ent.get::<Callback>().is_some());
+
+        let id = world.register_tracked_system(my_system);
+        let id2 = id.clone();
+
+        let indirect = bsn! {
+            Callback {
+                callback: id
+            }
+        };
+        let indirect_ent = world.spawn_scene(indirect).unwrap();
+        assert!(indirect_ent.get::<Callback>().unwrap().callback == id2);
     }
 }
