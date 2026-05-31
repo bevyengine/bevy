@@ -351,7 +351,7 @@ impl<I: SystemInput + 'static, O: 'static> Template for SystemHandleTemplate<I, 
                 match &mut *value_or_id {
                     SystemHandleOrValue::Handle(handle) => Ok(handle.clone()),
                     SystemHandleOrValue::Value(system) => {
-                        let system = system.take().unwrap_or_else(|| unreachable!());
+                        let system = system.take().unwrap();
                         let id = context
                             .entity
                             .world_scope(|world| world.register_tracked_boxed_system(system));
@@ -382,6 +382,14 @@ impl<I: SystemInput + 'static, O: 'static> Default for SystemHandleTemplate<I, O
 impl<I: SystemInput + 'static, O: 'static> From<SystemHandle<I, O>> for SystemHandleTemplate<I, O> {
     fn from(handle: SystemHandle<I, O>) -> Self {
         Self::Handle(handle)
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<BoxedSystem<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(system: BoxedSystem<I, O>) -> Self {
+        Self::Value(SystemHandleValue(Arc::new(Mutex::new(
+            SystemHandleOrValue::Value(Some(system)),
+        ))))
     }
 }
 
