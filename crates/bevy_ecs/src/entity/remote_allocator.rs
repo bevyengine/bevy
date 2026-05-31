@@ -324,8 +324,13 @@ impl<'a> SharedSwapDrain<'a> {
     #[inline]
     unsafe fn try_publish(self, data: &mut Vec<Entity>) -> bool {
         let tail = self.tail.acquire();
-        // producer_pop_count cannot change while we have exclusive access to the producer
-        let producer_pop_count = Head(self.head.0.load(Ordering::Relaxed)).producer_pop_count();
+        let head = Head(self.head.0.load(Ordering::Relaxed));
+        if head.head() > 0 {
+            return false;
+        }
+        // producer_pop_count cannot change while we have exclusive access to the producer (see docs
+        // for [`Head`] for more info about 32 bit targets)
+        let producer_pop_count = head.producer_pop_count();
         let (actual_tail, overflow) = tail.overflowing_sub_unsigned(producer_pop_count);
 
         if actual_tail > 0 || overflow {
