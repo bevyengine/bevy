@@ -792,7 +792,7 @@ impl FreshAllocator {
 /// These rows have never been given out before.
 ///
 /// **NOTE:** Dropping will leak the remaining entity rows!
-pub(super) struct AllocUniqueEntityIndexIterator(core::ops::Range<u32>);
+pub(super) struct AllocUniqueEntityIndexIterator(Range<u32>);
 
 impl Iterator for AllocUniqueEntityIndexIterator {
     type Item = Entity;
