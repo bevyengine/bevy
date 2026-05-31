@@ -179,7 +179,7 @@ fn setup(
     // Spawn the 2D heart
     commands.spawn((
         // We can use the methods defined on the `MeshBuilder` to customize the mesh.
-        Mesh3d(meshes.add(HEART.mesh().resolution(50))),
+        Mesh3d(meshes.add(HEART.mesh_builder().resolution(50))),
         MeshMaterial3d(materials.add(StandardMaterial {
             emissive: RED.into(),
             base_color: RED.into(),
@@ -194,7 +194,7 @@ fn setup(
     // Spawn the 2D heart ring
     commands.spawn((
         // We can use the methods defined on the `MeshBuilder` to customize the mesh.
-        Mesh3d(meshes.add(RING.mesh().with_inner(|heart| heart.resolution(50)))),
+        Mesh3d(meshes.add(RING.mesh_builder().with_inner(|heart| heart.resolution(50)))),
         MeshMaterial3d(materials.add(StandardMaterial {
             emissive: RED.into(),
             base_color: RED.into(),
@@ -209,7 +209,7 @@ fn setup(
     // Spawn an extrusion of the heart
     commands.spawn((
         // We can set a custom resolution for the round parts of the extrusion as well.
-        Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
+        Mesh3d(meshes.add(EXTRUSION.mesh_builder().resolution(50))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.into(),
             ..Default::default()
@@ -226,7 +226,7 @@ fn setup(
         Mesh3d(
             meshes.add(
                 RING_EXTRUSION
-                    .mesh()
+                    .mesh_builder()
                     .with_inner(|ring| ring.with_inner(|heart| heart.resolution(50))),
             ),
         ),
@@ -471,10 +471,10 @@ impl BoundedExtrusion for Heart {}
 // You can use the `Meshable` trait to create a `MeshBuilder` for the primitive.
 impl Meshable for Heart {
     // The `MeshBuilder` can be used to create the actual mesh for that primitive.
-    type Output = HeartMeshBuilder;
+    type Builder = HeartMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
-        Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
+        Self::Builder {
             heart: *self,
             resolution: 32,
         }
@@ -511,7 +511,7 @@ impl HeartBuilder for ExtrusionBuilder<Heart> {
 
 impl MeshBuilder for HeartMeshBuilder {
     // This is where you should build the actual mesh.
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         let radius = self.heart.radius;
         // The curved parts of each wing (half) of the heart have an angle of `PI * 1.25` or 225°
         let wing_angle = PI * 1.25;

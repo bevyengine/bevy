@@ -94,7 +94,7 @@ impl Capsule3dMeshBuilder {
 }
 
 impl MeshBuilder for Capsule3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
         let Capsule3dMeshBuilder {
             capsule,
@@ -419,18 +419,12 @@ impl MeshBuilder for Capsule3dMeshBuilder {
 }
 
 impl Meshable for Capsule3d {
-    type Output = Capsule3dMeshBuilder;
+    type Builder = Capsule3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         Capsule3dMeshBuilder {
             capsule: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Capsule3d> for Mesh {
-    fn from(capsule: Capsule3d) -> Self {
-        capsule.mesh().build()
     }
 }

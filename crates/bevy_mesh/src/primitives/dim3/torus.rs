@@ -77,7 +77,7 @@ impl TorusMeshBuilder {
 }
 
 impl MeshBuilder for TorusMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         // code adapted from http://apparat-engine.blogspot.com/2013/04/procedural-meshes-torus.html
 
         let n_vertices = (self.major_resolution + 1) * (self.minor_resolution + 1);
@@ -159,18 +159,12 @@ impl MeshBuilder for TorusMeshBuilder {
 }
 
 impl Meshable for Torus {
-    type Output = TorusMeshBuilder;
+    type Builder = TorusMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         TorusMeshBuilder {
             torus: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Torus> for Mesh {
-    fn from(torus: Torus) -> Self {
-        torus.mesh().build()
     }
 }

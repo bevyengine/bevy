@@ -41,7 +41,7 @@ fn generate_bodies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
+    let mesh = meshes.add(Sphere::new(1.0).mesh_builder().ico(3).unwrap());
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
@@ -94,7 +94,7 @@ fn generate_bodies(
     commands
         .spawn((
             BodyBundle {
-                mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
+                mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh_builder().ico(5).unwrap())),
                 material: MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: ORANGE_RED.into(),
                     emissive: LinearRgba::from(ORANGE_RED) * 2.,

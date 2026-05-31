@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_material::AlphaMode;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
-use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
+use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -32,7 +32,6 @@ impl Plugin for ForwardDecalPlugin {
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
                 .mesh()
-                .build()
                 .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
                 .with_generated_tangents()
                 .unwrap(),

@@ -11,7 +11,7 @@ pub struct Polyline3dMeshBuilder {
 }
 
 impl MeshBuilder for Polyline3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         let positions: Vec<_> = self.polyline.vertices.clone();
 
         let indices = Indices::U32(
@@ -27,17 +27,11 @@ impl MeshBuilder for Polyline3dMeshBuilder {
 }
 
 impl Meshable for Polyline3d {
-    type Output = Polyline3dMeshBuilder;
+    type Builder = Polyline3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         Polyline3dMeshBuilder {
             polyline: self.clone(),
         }
-    }
-}
-
-impl From<Polyline3d> for Mesh {
-    fn from(polyline: Polyline3d) -> Self {
-        polyline.mesh().build()
     }
 }

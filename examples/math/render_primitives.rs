@@ -523,26 +523,26 @@ fn spawn_primitive_2d(
     };
     let convex_polygon = ConvexPolygon::new(CONVEX_POLYGON_VERTICES).unwrap();
     [
-        Some(RECTANGLE.mesh().build()),
-        Some(CIRCLE.mesh().build()),
-        Some(ELLIPSE.mesh().build()),
-        Some(TRIANGLE_2D.mesh().build()),
+        Some(RECTANGLE.mesh()),
+        Some(CIRCLE.mesh()),
+        Some(ELLIPSE.mesh()),
+        Some(TRIANGLE_2D.mesh()),
         None, // plane
         None, // line
-        Some(SEGMENT_2D.mesh().build()),
-        Some(polyline_2d.mesh().build()),
+        Some(SEGMENT_2D.mesh()),
+        Some(polyline_2d.mesh()),
         None, // polygon
-        Some(convex_polygon.mesh().build()),
-        Some(REGULAR_POLYGON.mesh().build()),
-        Some(CAPSULE_2D.mesh().build()),
+        Some(convex_polygon.mesh()),
+        Some(REGULAR_POLYGON.mesh()),
+        Some(CAPSULE_2D.mesh()),
         None, // cylinder
         None, // cone
         None, // conical frustum
-        Some(ANNULUS.mesh().build()),
+        Some(ANNULUS.mesh()),
         None, // tetrahedron
         None, // arc
-        Some(CIRCULAR_SECTOR.mesh().build()),
-        Some(CIRCULAR_SEGMENT.mesh().build()),
+        Some(CIRCULAR_SECTOR.mesh()),
+        Some(CIRCULAR_SEGMENT.mesh()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
@@ -574,23 +574,23 @@ fn spawn_primitive_3d(
         vertices: POLYLINE_3D_VERTICES.to_vec(),
     };
     [
-        Some(CUBOID.mesh().build()),
-        Some(SPHERE.mesh().build()),
+        Some(CUBOID.mesh()),
+        Some(SPHERE.mesh()),
         None, // ellipse
-        Some(TRIANGLE_3D.mesh().build()),
-        Some(PLANE_3D.mesh().build()),
+        Some(TRIANGLE_3D.mesh()),
+        Some(PLANE_3D.mesh()),
         None, // line
-        Some(SEGMENT_3D.mesh().build()),
-        Some(polyline_3d.mesh().build()),
+        Some(SEGMENT_3D.mesh()),
+        Some(polyline_3d.mesh()),
         None, // polygon
         None, // convex polygon
         None, // regular polygon
-        Some(CAPSULE_3D.mesh().build()),
-        Some(CYLINDER.mesh().build()),
-        Some(CONE.mesh().build()),
-        Some(CONICAL_FRUSTUM.mesh().build()),
-        Some(TORUS.mesh().build()),
-        Some(TETRAHEDRON.mesh().build()),
+        Some(CAPSULE_3D.mesh()),
+        Some(CYLINDER.mesh()),
+        Some(CONE.mesh()),
+        Some(CONICAL_FRUSTUM.mesh()),
+        Some(TORUS.mesh()),
+        Some(TETRAHEDRON.mesh()),
         None, // arc
         None, // circular sector
         None, // circular segment

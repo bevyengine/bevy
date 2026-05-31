@@ -70,7 +70,10 @@ fn setup_scene(
 ) {
     let shapes: [(Mesh, Color); 3] = [
         (Cuboid::default().into(), RED.into()),
-        (Sphere::default().mesh().ico(2).unwrap(), GREEN.into()),
+        (
+            Sphere::default().mesh_builder().ico(2).unwrap(),
+            GREEN.into(),
+        ),
         (Cylinder::default().into(), BLUE.into()),
     ];
 
@@ -87,7 +90,7 @@ fn setup_scene(
     }
 
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(30.0, 30.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(30.0, 30.0))),
         MeshMaterial3d(materials.add(Color::from(DARK_GRAY))),
         Pickable::IGNORE,
     ));

@@ -118,7 +118,7 @@ fn setup(
 ) {
     // Spawn a plane.
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(50.0, 50.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
     ));
 

@@ -69,7 +69,7 @@ impl ConeMeshBuilder {
 }
 
 impl MeshBuilder for ConeMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         let half_height = self.cone.height / 2.0;
 
         // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral surface,
@@ -172,19 +172,13 @@ impl MeshBuilder for ConeMeshBuilder {
 }
 
 impl Meshable for Cone {
-    type Output = ConeMeshBuilder;
+    type Builder = ConeMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         ConeMeshBuilder {
             cone: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Cone> for Mesh {
-    fn from(cone: Cone) -> Self {
-        cone.mesh().build()
     }
 }
 
@@ -211,9 +205,9 @@ mod tests {
             radius: 0.5,
             height: 1.0,
         }
-        .mesh()
+        .mesh_builder()
         .resolution(4)
-        .build();
+        .mesh();
 
         let Some(VertexAttributeValues::Float32x3(mut positions)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)

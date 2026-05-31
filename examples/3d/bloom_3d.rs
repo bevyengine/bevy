@@ -52,7 +52,7 @@ fn setup_scene(
         ..default()
     });
 
-    let mesh = meshes.add(Sphere::new(0.4).mesh().ico(5).unwrap());
+    let mesh = meshes.add(Sphere::new(0.4).mesh_builder().ico(5).unwrap());
 
     for x in -5..5 {
         for z in -5..5 {

@@ -61,7 +61,7 @@ impl ConicalFrustumMeshBuilder {
 }
 
 impl MeshBuilder for ConicalFrustumMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         debug_assert!(self.resolution > 2);
         debug_assert!(self.segments > 0);
 
@@ -167,18 +167,12 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
 }
 
 impl Meshable for ConicalFrustum {
-    type Output = ConicalFrustumMeshBuilder;
+    type Builder = ConicalFrustumMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         ConicalFrustumMeshBuilder {
             frustum: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<ConicalFrustum> for Mesh {
-    fn from(frustum: ConicalFrustum) -> Self {
-        frustum.mesh().build()
     }
 }

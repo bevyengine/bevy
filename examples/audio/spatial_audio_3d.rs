@@ -26,7 +26,7 @@ fn setup(
 
     // sound emitter
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
+        Mesh3d(meshes.add(Sphere::new(0.2).mesh_builder().uv(32, 18))),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),

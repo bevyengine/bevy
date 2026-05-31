@@ -492,7 +492,7 @@ impl FromWorld for ExampleAssets {
             AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
-            main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
+            main_sphere: world.add_asset(Sphere::default().mesh_builder().uv(32, 18)),
             fox: world.load_asset(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
             main_sphere_material: world.add_asset(Color::from(SILVER)),
             main_scene: world.load_asset(

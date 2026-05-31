@@ -51,7 +51,7 @@ fn setup(
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
+        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh_builder().ico(9).unwrap())),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_scale(Vec3::NEG_ONE),
     ));

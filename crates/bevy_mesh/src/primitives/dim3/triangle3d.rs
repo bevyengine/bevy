@@ -11,7 +11,7 @@ pub struct Triangle3dMeshBuilder {
 }
 
 impl MeshBuilder for Triangle3dMeshBuilder {
-    fn build(&self) -> Mesh {
+    fn mesh(&self) -> Mesh {
         let positions: Vec<_> = self.triangle.vertices.into();
         let uvs: Vec<_> = uv_coords(&self.triangle).into();
 
@@ -33,9 +33,9 @@ impl MeshBuilder for Triangle3dMeshBuilder {
 }
 
 impl Meshable for Triangle3d {
-    type Output = Triangle3dMeshBuilder;
+    type Builder = Triangle3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Builder {
         Triangle3dMeshBuilder { triangle: *self }
     }
 }
@@ -91,12 +91,6 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
         let c_uv = [offset, 1.];
 
         [a_uv, b_uv, c_uv]
-    }
-}
-
-impl From<Triangle3d> for Mesh {
-    fn from(triangle: Triangle3d) -> Self {
-        triangle.mesh().build()
     }
 }
 
