@@ -540,18 +540,11 @@ impl SharedFreeList {
     /// Returns a [`SharedSwapDrain`] for the given `which`.
     #[inline]
     fn swap(&self, which: bool) -> SharedSwapDrain<'_> {
-        if which {
-            SharedSwapDrain {
-                drain: &self.drains[1],
-                head: &self.heads[1],
-                tail: &self.tails[1],
-            }
-        } else {
-            SharedSwapDrain {
-                drain: &self.drains[0],
-                head: &self.heads[0],
-                tail: &self.tails[0],
-            }
+        let index = if which { 1 } else { 0 };
+        SharedSwapDrain {
+            drain: &self.drains[index],
+            head: &self.heads[index],
+            tail: &self.tails[index],
         }
     }
 
