@@ -181,7 +181,7 @@ impl AtomicHead {
     /// Claim `n` slots as a producer and return the old head value.
     ///
     /// # Safety
-    /// - must not be called syncronously with [`AtomicHead::publish`]
+    /// - must not be called synchronously with [`AtomicHead::publish`]
     #[inline]
     unsafe fn claim_as_producer(&self, n: u32) -> Head {
         // relaxed ordering due to safety requirements
@@ -194,7 +194,7 @@ impl AtomicHead {
 /// Although this value is an `i32` it is always non-negative because consumers
 /// don't decrement it past zero.
 ///
-/// When the producer is performing their own reads they elide the decriment to
+/// When the producer is performing their own reads they elide the decrement to
 /// tail. The actual tail must be reconstructed by subtracting the [`Head::producer_pop_count`].
 #[derive(Default)]
 struct AtomicTail(AtomicI32);
@@ -235,7 +235,7 @@ impl<'a> SharedSwapDrain<'a> {
     /// Pop an entity from the drain.
     ///
     /// # Safety
-    /// - must not be called syncronously with [`SharedSwapDrain::try_publish`]
+    /// - must not be called synchronously with [`SharedSwapDrain::try_publish`]
     #[inline]
     unsafe fn pop_as_producer(self, on_empty: impl Fn()) -> Option<Entity> {
         // SAFETY: [`SharedSwapDrain::publish`] which calls [`Head::publish`] is not being called
@@ -283,7 +283,7 @@ impl<'a> SharedSwapDrain<'a> {
     }
 
     /// # Safety
-    /// - must not be called syncronously with [`SharedSwapDrain::try_publish`]
+    /// - must not be called synchronously with [`SharedSwapDrain::try_publish`]
     #[inline]
     unsafe fn pop_many_as_producer(self, n: u32, on_empty: impl Fn()) -> PopMany<'a> {
         if n == 0 {
@@ -320,7 +320,7 @@ impl<'a> SharedSwapDrain<'a> {
     }
 
     /// # Safety
-    /// - must not be called syncronously with any `*_as_producer`
+    /// - must not be called synchronously with any `*_as_producer`
     /// - must not be called concurrently with itself
     #[inline]
     unsafe fn try_publish(self, data: &mut Vec<Entity>) -> bool {
@@ -634,7 +634,7 @@ impl SharedFreeList {
         FlattenPopMany::new([a, b])
     }
 
-    /// Trys to pull all of `data` into the free list by trying to swap it with a [`SharedDrain`].
+    /// Tries to pull all of `data` into the free list by trying to swap it with a [`SharedDrain`].
     ///
     /// # Safety
     /// - must not be called concurrently with any `*_as_producer` function
