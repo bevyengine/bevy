@@ -194,7 +194,7 @@ impl AtomicHead {
 /// don't decrement it past zero.
 ///
 /// When the producer is performing their own reads they elide the decriment to
-/// tail. The actual tail must be reconstructed by adding this value and the [`Head::producer_pop_count`].
+/// tail. The actual tail must be reconstructed by subtracting the [`Head::producer_pop_count`].
 #[derive(Default)]
 struct AtomicTail(AtomicI32);
 
