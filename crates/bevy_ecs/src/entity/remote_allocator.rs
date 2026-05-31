@@ -649,15 +649,15 @@ impl SharedFreeList {
         }
         let meta = self.meta.load();
 
-        let wich_priority = meta.which_priority();
+        let which_priority = meta.which_priority();
         let which = match meta.non_empty_count() {
             2 => return,
             // publish to the non-priority buffer which will be (or already has been) swapped to when
             // the current priority buffer empties
-            1 => !wich_priority,
+            1 => !which_priority,
             // publish to the priority buffer which has already been swapped to when the last buffer
             // was emptied
-            0 => wich_priority,
+            0 => which_priority,
             _ => unreachable!(),
         };
 
