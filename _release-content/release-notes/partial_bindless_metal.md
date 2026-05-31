@@ -1,22 +1,24 @@
 ---
-title: Partial Bindless on Metal and Reduced Bind Group Overhead
+title: Partial Bindless and Reduced Bind Group Overhead
 authors: ["@holg"]
 pull_requests: [23436]
 ---
 
 In an ideal world, Bevy users could write a single application and ship it everywhere, with every last one of the messy cross-platform differences beautifully abstracted away.
-That's a little hard though, and in this particular case, we found that rendering complex scenes on Mac and iOS was markedly slower.
+That can be a bit hard though.
+In this particular case, we found that rendering complex scenes on Mac and iOS was markedly slower than it should have been.
 
+Looking into it, the lack of bindless rendering support was to blame.
 Bindless rendering is how modern engines handle scenes with many different materials efficiently: shaders index into shared pools of textures and buffers rather than rebinding them per draw call.
 
-Metal (Apple's GPU API) has partial bindless support:
-it permits texture binding arrays but not buffer binding arrays.
+Both Metal (Apple's GPU API) and DX12 (an older Windows API) have partial bindless support:
+they permit texture binding arrays but not buffer binding arrays.
 Historically, Bevy required both to enable bindless, which excluded Metal entirely, even for materials that never use buffer arrays.
 
 Most materials, including `StandardMaterial`, do not need buffer array support.
 To ensure those materials take the fast path, Bevy now checks the actual needs of each material.
 If you only need texture arrays, your material can be rendered efficiently across Bevy's desktop platforms.
-If you use `#[uniform(..., binding_array(...))]`, expect unusually poor performance on Metal.
+If you use `#[uniform(..., binding_array(...))]`, expect unusually poor performance when using Metal or DX12.
 
 We've also fixed two important correctness bugs in the process.
 First, we discovered that the sampler limit check was testing the wrong metric: `max_samplers_per_shader_stage` counts binding slots, but the relevant limit is `max_binding_array_sampler_elements_per_shader_stage`, the array element count (a mismatch that could silently exceed hardware limits).
@@ -33,7 +35,7 @@ Benchmarked on Bistro Exterior (698 materials), 5-minute runs:
 | Intel Iris XE            | Same                | Same                | Same        |
 
 [Bistro] is a demanding, fairly realistic scene.
-While Metal's bindless limitations remain frustrating,
-it's lovely to see those performance gains, and to know that Bevy is not artificially holding performance on iOS and macOS back.
+While bindless limitations remain frustrating, especially on Mac where Vulkan isn't an option,
+it's lovely to see those performance gains, and to know that Bevy itself is no longer artifically holding our users back.
 
 [Bistro]: https://developer.nvidia.com/orca/amazon-lumberyard-bistro
