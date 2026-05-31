@@ -85,11 +85,11 @@ impl SharedDrain {
     }
 }
 
-/// Reserves items to be drained from a [`SharedDrain`] using [`AtomicHead::claim_as_*`].
+/// Reserves items to be drained from a [`SharedDrain`] using [`AtomicHead::claim_as_producer`] and [`AtomicHead::claim_as_consumer`].
 ///
 /// # Producer Optimization
 /// Consumers normally decrement the [`Head::head`] cursor to claim items and decrement the
-/// [`Tail`] counter to release items. However when we are the producer ([`Allocator`]) we
+/// tail counter to release items. However when we are the producer ([`Allocator`]) we
 /// don't need to release items because we would be releasing them to ourself see
 /// [`SharedSwapDrain::pop_as_producer`] vs [`SharedSwapDrain::pop_as_consumer`]. Still,
 /// we need to know how many items we're popped by the producer. In order to achieve this
@@ -189,7 +189,7 @@ impl AtomicHead {
     }
 }
 
-/// The [`Tail`] counts how many remaining slots are unread by consumers
+/// The [`AtomicTail`] counts how many remaining slots are unread by consumers
 ///
 /// Although this value is an `i32` it is always non-negative because consumers
 /// don't decrement it past zero.
@@ -220,7 +220,7 @@ impl AtomicTail {
 ///
 /// This structure facilitates concurrent access to a [`SharedDrain`].
 ///
-/// When the `actual_tail` (as summed by [`Head::produer_pop_count`] and [`Tail::acquire`]) is `<= 0`, the drain is considered empty.
+/// When the `actual_tail` (as summed by [`Head::producer_pop_count`] and [`AtomicTail::acquire`]) is `<= 0`, the drain is considered empty.
 /// This is the only time that the producer is allowed to write data because we know that no consumer are
 /// reading the `drain`.
 /// Otherwise, the `drain` is under shared immutable access to all consumers and producers.
@@ -896,7 +896,7 @@ impl SharedAllocator {
 /// This keeps track of freed entities and allows the allocation of new ones.
 ///
 /// Note that this must not implement [`Clone`].
-/// The allocator assumes that it is the only one with [`FreeList::free`] permissions.
+/// The allocator assumes that it is the only one with [`SharedFreeList::free`] permissions.
 /// If this were cloned, that assumption would be broken, leading to undefined behavior.
 /// This is in contrast to the [`RemoteAllocator`], which may be cloned freely.
 #[derive(Default)]
