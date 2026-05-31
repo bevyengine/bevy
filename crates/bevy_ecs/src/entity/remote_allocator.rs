@@ -714,7 +714,7 @@ impl<'a> Iterator for FlattenPopMany<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.index < 1 {
+        while self.index < 2 {
             if let Some(item) = self.pop_manys[self.index].next() {
                 return Some(item);
             }
