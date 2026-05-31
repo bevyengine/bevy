@@ -1,7 +1,7 @@
 use crate::{
     Alpha, Color, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Luminance, Oklaba, Oklcha, Srgba, Xyza,
 };
-use bevy_math::FloatExt;
+use bevy_math::{ops::floor, FloatExt};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -270,7 +270,7 @@ impl From<SpectralColor> for LinearRgba {
         let scaled = (value.wavelength - SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_START)
             / SpectralColor::CIE_1931_NM_CMF_LOOKUP_TABLE_INCREMENT;
 
-        let floored = scaled.floor();
+        let floored = floor(scaled);
         let lerp = scaled - floored;
 
         let index = floored as usize;
