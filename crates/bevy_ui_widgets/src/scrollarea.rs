@@ -32,7 +32,7 @@ fn scrollarea_on_scroll(
 
         let scroll_delta = Vec2::new(scroll.x, scroll.y)
             * match scroll.unit {
-                MouseScrollUnit::Line => 14.0, // Guess for now. No idea how we'd get the real value.
+                MouseScrollUnit::Line => MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR,
                 MouseScrollUnit::Pixel => 1.0,
             };
 
