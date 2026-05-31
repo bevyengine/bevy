@@ -705,11 +705,11 @@ fn demo_column_2() -> impl Scene {
                     ),
                 ]
             ),
-            :subpane Children [
-                :subpane_header Children [
+            subpane() Children [
+                subpane_header() Children [
                     (Text("List") ThemedText),
                 ],
-                :subpane_body Children [
+                subpane_body() Children [
                     @FeathersListView {
                         @rows: {bsn_list![
                             @FeathersListRow Children [(Text("First World") ThemedText)],
