@@ -15,7 +15,6 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 #[derive(Debug)]
 pub enum BsnEntry {
     Name(Ident),
-    NameExpression(TokenStream),
     FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
     FromTemplateConstructor(BsnConstructor),
@@ -55,8 +54,8 @@ pub enum BsnSceneListItem {
 pub enum BsnSceneFnArg {
     Expr(Expr),
     Name(Ident),
-    NameExpression(TokenStream),
 }
+
 #[derive(Debug)]
 pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
 
@@ -121,5 +120,4 @@ pub enum BsnValue {
     Type(BsnType),
     Tuple(BsnTuple),
     Name(Ident),
-    NameExpression(TokenStream),
 }
