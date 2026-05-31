@@ -105,6 +105,12 @@ impl SharedDrain {
 /// Although this is a [`AtomicU64`]. On unsupporting platforms we can easily split this into two [`AtomicI32`] values and
 /// have [`SharedSwapDrain::pop_as_consumer`] update both atomically.
 ///
+/// Keep in mind that the two heads [`Head::head`] and [`Head::consumer_head`] would not be decremented (together) atomically in this case
+/// resulting in [`Head::producer_pop_count`] being incorrect when publishing. However, assuming we decrement the [`Head::consumer_head]
+/// first, we can at least ensure that [`Head::producer_pop_count`] is only ever incorrect in a direction where it won't result in UB.
+/// Additionally, because we use [`Metadata`] to (loosely) avoid polling empty queues, this possible design results in a fallible but
+/// eventually correct [`Head::producer_pop_count`] value.
+///
 /// # Layout
 /// - 0..31 - `i32` head used to reserve indices
 /// - 32..63 - `i32` consumer only head
