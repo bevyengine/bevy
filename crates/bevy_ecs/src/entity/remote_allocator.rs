@@ -14,21 +14,6 @@
 //! In particular, a concurrent queue must do additional work to handle cases where something is added concurrently with being removed.
 //! But for non-remote allocation, we can guarantee that no free will happen during an allocation since `free` needs mutably access to the world already.
 //! That means, we can skip a lot of those safety checks.
-//! Plus, we know the maximum size of the free list ahead of time, since we can assume there are no duplicates.
-//! That means, we can have a much more efficient allocation scheme, far better than a linked list.
-//!
-//! For the free list, the list needs to be pinned in memory and yet grow-able.
-//! That's quite the pickle, but by splitting the growth over multiple arrays, this isn't so bad.
-//! When the list needs to grow, we just *add* on another array to the buffer (instead of *replacing* the old one with a bigger one).
-//! These arrays are called [`Chunk`]s.
-//! This keeps everything pinned, and since we know the maximum size ahead of time, we can make this mapping very fast.
-//!
-//! Similar to how `Vec` is implemented, the free list is implemented as a [`FreeBuffer`] (handling allocations and implicit capacity)
-//! and the [`FreeCount`] manages the length of the free list.
-//! The free list's item is a [`Slot`], which manages accessing each item concurrently.
-//!
-//! These types are summed up in [`SharedAllocator`], which is highly unsafe.
-//! The interfaces [`Allocator`] and [`RemoteAllocator`] provide safe interfaces to them.
 
 use super::{Entity, EntityIndex, EntitySetIterator};
 use bevy_platform::{
@@ -50,17 +35,25 @@ use crossbeam_utils::CachePadded;
 use log::warn;
 use nonmax::NonMaxU32;
 
+/// A [`SharedDrain`] is a wrapper around a [`Vec`]. It ensures the capacity doesn't overflow `i32::MAX`.
+/// It also facilitates unsafe swapping and reading of elements.
+///
+/// # Note
+/// [`ManuallyDrop`] is not needed here as the capacity is always correct (unlike the len) and
+/// [`Entity`] is [`Copy`] but it is included anyways for correctness.
 #[derive(Default)]
 struct SharedDrain(ManuallyDrop<Vec<Entity>>);
 
 impl SharedDrain {
-    /// Swaps the previous `Vec` as if it had been drained to `0` with the `other` `Vec`.
-    /// Swaps it with an empty `Vec` if this is the first time it's been called.
+    /// Swaps the previous [`Vec`] as if it had been drained to `0` with the `other` [`Vec`].
+    /// Swaps it with an empty [`Vec`] if this is the first time it's been called.
+    ///
+    /// Returns the initial length of the [`SharedDrain`] that should be used as a cursor.
     ///
     /// This function makes sure the length of the vector is bound to `i32::MAX`.
     ///
     /// # Safety
-    /// - The previous `Vec` must have a length of `0`
+    /// - The previous [`Vec`] must have had all items in it [`SharedDrain::read`].
     #[inline]
     unsafe fn swap(&mut self, other: &mut Vec<Entity>) -> i32 {
         const MAX: usize = i32::MAX as usize;
@@ -93,23 +86,34 @@ impl SharedDrain {
 
 /// Reserves items to be drained from a [`SharedDrain`] using [`AtomicHead::claim_as_*`].
 ///
+/// # Producer Optimization
+/// Consumers normally decrement the [`Head::head`] cursor to claim items and decrement the
+/// [`Tail`] counter to release items. However when we are the producer ([`Allocator`]) we
+/// don't need to release items because we would be releasing them to ourself see
+/// [`SharedSwapDrain::pop_as_producer`] vs [`SharedSwapDrain::pop_as_consumer`]. Still,
+/// we need to know how many items we're popped by the producer. In order to achieve this
+/// we have two [`Head`]s: [`Head::head`] and [`Head::consumer_head`]. [`Head::head`] is
+/// decremented by the producer AND the consumer, and [`Head::consumer_head`] is decremented only by the consumer.
+/// We can then recreate the [`Head::producer_pop_count`] by subtracting [`Head::consumer_head`] from [`Head::head`].
+///
+/// To achieve this without significantly slowing down [`SharedSwapDrain::pop_as_consumer`], we pack both counters
+/// into a single `u64` value so that a single RMW operation can be used to update both. (I specifically chose this
+/// over having producer doubly increment so that the performance of [`SharedSwapDrain::pop_as_producer`] is not affected
+/// on unsupported platforms. vvv)
+///
+/// # Compatibility
+/// Although this is a [`AtomicU64`]. On unsupporting platforms we can easily split this into two [`AtomicI32`] values and
+/// have [`SharedSwapDrain::pop_as_consumer`] update both atomically.
+///
 /// # Layout
 /// - 0..31 - `i32` head used to reserve indices
 /// - 32..63 - `i32` consumer only head
 ///
-/// The lower 32 bits freely borrow and carry into the upper 32 bits. We only ever
-/// need to read the upper 32 bits when the lower 32 bits are negative (and also the
-/// lower 32 bits aren't allowed to wrap from negative <-> positive) therefore we can
-/// extract the actual value from the upper 32 bits by adding 1 when the lower 32 bits
-/// are negative.
+/// The lower 32 bits freely borrow and carry into the upper 32 bits. We manually correct
+/// this by adding `1` to the upper 32 bits when the lower 32 bits are negative.
+/// Keep in mind that this _only_ works because [`Head::head`] is not allowed to wrap (`i32::MAX` <-> `i32::MIN`)
 #[derive(Clone, Copy)]
 struct Head(u64);
-
-impl Default for Head {
-    fn default() -> Self {
-        Self::new(0)
-    }
-}
 
 impl Head {
     #[inline]
@@ -118,24 +122,31 @@ impl Head {
         Self(v | (v << 32))
     }
 
+    /// The current cursor position as if only consumers popped values.
+    ///
+    /// Only should be used in [`Head::producer_pop_count`].
     #[inline]
     fn consumer_head(self) -> i32 {
-        let mut consumer_head = ((self.0 as i64) >> 32) as i32;
-        // Note: This only works because `head` is not allowed to wrap
+        let mut consumer_head = (self.0 >> 32) as i32;
+        // Note: This only works because `head` is not allowed to wrap.
         if self.head() < 0 {
             consumer_head += 1;
         }
         consumer_head
     }
 
+    /// The current cursor position
     #[inline]
     fn head(self) -> i32 {
         (self.0 & u32::MAX as u64) as i32
     }
 
+    /// Returns the number of entities popped by the producer since the last [`Head::consumer_head`] update.
     #[inline]
-    fn producer_pop_count(self) -> i32 {
-        self.consumer_head() - self.head()
+    fn producer_pop_count(self) -> u32 {
+        // This could technically wrap which is why we cast to `u32` (besides it being the
+        // semantically correct option).
+        self.consumer_head().wrapping_sub(self.head()) as u32
     }
 }
 
@@ -144,12 +155,14 @@ impl Head {
 struct AtomicHead(AtomicU64);
 
 impl AtomicHead {
+    /// Write a new head value and release any prior written data to consumers.
     #[inline]
     fn publish(&self, head: Head) {
         // release matches with [`AtomicHead::claim_as_consumer`]
         self.0.store(head.0, Ordering::Release);
     }
 
+    /// Claim `n` slots as a consumer and return the old head value.
     #[inline]
     fn claim_as_consumer(&self, n: u32) -> Head {
         let n = n as u64;
@@ -158,6 +171,8 @@ impl AtomicHead {
         Head(self.0.fetch_sub(rhs, Ordering::Acquire))
     }
 
+    /// Claim `n` slots as a producer and return the old head value.
+    ///
     /// # Safety
     /// - must not be called syncronously with [`AtomicHead::publish`]
     #[inline]
@@ -167,13 +182,13 @@ impl AtomicHead {
     }
 }
 
-/// The `Tail` tracks how many remaining slots still need to be drained
-/// in order for the producer to have exclusive access to the buffer.
+/// The [`Tail`] counts how many remaining slots are unread by consumers
 ///
-/// Although this value is an `i32` it is always non-negative.
+/// Although this value is an `i32` it is always non-negative because consumers
+/// don't decrement it past zero.
 ///
 /// When the producer is performing their own reads they elide the decriment to
-/// tail. The actual tail must be reconstructed when publishing.
+/// tail. The actual tail must be reconstructed by adding this value and the [`Head::producer_pop_count`].
 #[derive(Default)]
 struct AtomicTail(AtomicI32);
 
@@ -184,6 +199,9 @@ impl AtomicTail {
         self.0.fetch_sub(n as i32, Ordering::Release);
     }
 
+    /// load the current tail and Acquire any reads the consumers released.
+    ///
+    /// This is used to reconstruct the actual tail value when publishing.
     #[inline]
     fn acquire(&self) -> i32 {
         // acquire matches with [`Tail::release_as_consumer`]
@@ -191,6 +209,14 @@ impl AtomicTail {
     }
 }
 
+/// A "View" of a [`SharedSwapDrain`] because it's internally stored as a SOA (see [`SharedFreeList`]).
+///
+/// This structure facilitates concurrent access to a [`SharedDrain`].
+///
+/// When the `actual_tail` (as summed by [`Head::produer_pop_count`] and [`Tail::acquire`]) is `<= 0`, the drain is considered empty.
+/// This is the only time that the producer is allowed to write data because we know that no consumer are
+/// reading the `drain`.
+/// Otherwise, the `drain` is under shared immutable access to all consumers and producers.
 #[derive(Clone, Copy)]
 struct SharedSwapDrain<'a> {
     drain: &'a SyncUnsafeCell<SharedDrain>,
@@ -199,8 +225,10 @@ struct SharedSwapDrain<'a> {
 }
 
 impl<'a> SharedSwapDrain<'a> {
+    /// Pop an entity from the drain.
+    ///
     /// # Safety
-    /// - must not be called syncronously with [`SharedSwapDrain::publish`]
+    /// - must not be called syncronously with [`SharedSwapDrain::try_publish`]
     #[inline]
     unsafe fn pop_as_producer(self, on_empty: impl Fn()) -> Option<Entity> {
         // SAFETY: [`SharedSwapDrain::publish`] which calls [`Head::publish`] is not being called
@@ -215,7 +243,7 @@ impl<'a> SharedSwapDrain<'a> {
             on_empty()
         }
 
-        // SAFETY: [`SharedSwapDrain::publish`], which mutates this value, is not being called
+        // SAFETY: if `head` returns any positive value then drain is under immutable access
         let drain = unsafe { self.drain.get().as_ref_unchecked() };
         // SAFETY: all indices in ranges returned by head are unique and in-bounds
         let value = unsafe { drain.read(index) };
@@ -223,6 +251,7 @@ impl<'a> SharedSwapDrain<'a> {
         Some(value)
     }
 
+    /// Pop an entity from the drain as a consumer.
     #[inline]
     fn pop_as_consumer(self, on_empty: impl Fn()) -> Option<Entity> {
         let head = self.head.claim_as_consumer(1);
@@ -236,7 +265,7 @@ impl<'a> SharedSwapDrain<'a> {
             on_empty()
         }
 
-        // SAFETY: if `head` returns any positive value then consumers have immutable access to drain
+        // SAFETY: if `head` returns any positive value then drain is under immutable access
         let drain = unsafe { self.drain.get().as_ref_unchecked() };
         // SAFETY: all indices in ranges returned by head are unique and in-bounds
         let value = unsafe { drain.read(index) };
@@ -247,7 +276,7 @@ impl<'a> SharedSwapDrain<'a> {
     }
 
     /// # Safety
-    /// - must not be called syncronously with [`SharedSwapDrain::publish`]
+    /// - must not be called syncronously with [`SharedSwapDrain::try_publish`]
     #[inline]
     unsafe fn pop_many_as_producer(self, n: u32, on_empty: impl Fn()) -> PopMany<'a> {
         if n == 0 {
@@ -284,25 +313,26 @@ impl<'a> SharedSwapDrain<'a> {
     }
 
     /// # Safety
-    /// - must not be called syncronously with any [`SharedSwapDrain::*_as_producer`]
+    /// - must not be called syncronously with any `*_as_producer`
+    /// - must not be called concurrently with itself
     #[inline]
     unsafe fn try_publish(self, data: &mut Vec<Entity>) -> bool {
         let tail = self.tail.acquire();
         // producer_pop_count cannot change while we have exclusive access to the producer
         let producer_pop_count = Head(self.head.0.load(Ordering::Relaxed)).producer_pop_count();
-        let actual_tail = tail - producer_pop_count;
+        let (actual_tail, overflow) = tail.overflowing_sub_unsigned(producer_pop_count);
 
-        if actual_tail > 0 {
+        if actual_tail > 0 || overflow {
             return false;
         }
 
         // SAFETY: Nobody is allowed to read from `drain` when `actual_tail <= 0`.
         let drain = unsafe { self.drain.get().as_mut_unchecked() };
-        // SAFETY: We checked that `actual_tail <= 0` meaning all items have been drained.
+        // SAFETY: We checked that `actual_tail <= 0` meaning all items have been claimed and read.
         let initial_len = unsafe { drain.swap(data) };
 
         // `tail` can be relaxed because `head` fences the publication
-        // `tail` must be stored before `head`
+        // `tail` must be stored before `head` because `head` also fences `tail`.
         self.tail.0.store(initial_len, Ordering::Relaxed);
         self.head.publish(Head::new(initial_len));
 
@@ -312,8 +342,12 @@ impl<'a> SharedSwapDrain<'a> {
 
 #[inline]
 fn clamp_to_positive(range: Range<i32>, on_empty: impl Fn()) -> Range<u32> {
-    // `<=` makes sure we also call `on_empty` on ranges to `0` not just past `0`
-    if range.start <= 0 {
+    if range.start > 0 {
+        Range {
+            start: range.start as u32,
+            end: range.end as u32,
+        }
+    } else {
         if range.end > 0 {
             on_empty();
             Range {
@@ -322,11 +356,6 @@ fn clamp_to_positive(range: Range<i32>, on_empty: impl Fn()) -> Range<u32> {
             }
         } else {
             Range { start: 0, end: 0 }
-        }
-    } else {
-        Range {
-            start: range.start as u32,
-            end: range.end as u32,
         }
     }
 }
@@ -340,6 +369,7 @@ struct PopMany<'a> {
 impl<'a> PopMany<'a> {
     /// # Safety
     /// - if range yields elements `swap.drain` must be under shared access
+    /// - all items yielded by range must be valid indices into `swap.drain`
     #[inline]
     unsafe fn new(
         swap: SharedSwapDrain<'a>,
@@ -374,7 +404,7 @@ impl<'a> Iterator for PopMany<'a> {
         // SAFETY: ensured by construction with either [`PopMany::new`] or [`PopMany::empty`]
         let drain = unsafe { self.swap.drain.get().as_ref_unchecked() };
         let index = index as usize;
-        // SAFETY: all indices in ranges returned by head are unique and in-bounds
+        // SAFETY: ensured by construction with either [`PopMany::new`] or [`PopMany::empty`]
         Some(unsafe { drain.read(index) })
     }
 
@@ -399,6 +429,9 @@ impl<'a> Drop for PopMany<'a> {
     }
 }
 
+/// Determines which [`SharedSwapDrain`] to prioritize when popping elements. Additionally,
+/// stores the empty state of both drains to short-circuit popping elements.
+///
 /// # Layout
 /// - 0: a_non_empty
 /// - 1: b_non_empty
@@ -407,16 +440,19 @@ impl<'a> Drop for PopMany<'a> {
 struct Metadata(u32);
 
 impl Metadata {
+    /// Returns `which` [`SharedSwapDrain`] to prioritize when popping elements.
     #[inline]
-    fn priority(self) -> bool {
+    fn which_priority(self) -> bool {
         self.0 & 0b100 != 0
     }
 
+    /// Returns `true` if both [`SharedSwapDrain`]s are empty.
     #[inline]
     fn are_empty(self) -> bool {
         self.0 & 0b11 == 0b00
     }
 
+    /// Returns the number of non-empty elements in both [`SharedSwapDrain`]s.
     #[inline]
     fn non_empty_count(self) -> u32 {
         (self.0 & 0b11).count_ones()
@@ -431,35 +467,56 @@ impl Metadata {
 struct AtomicMetadata(AtomicU32);
 
 impl AtomicMetadata {
+    /// Loads the metadata value from the atomic variable.
     #[inline]
     fn load(&self) -> Metadata {
         Metadata(self.0.load(Ordering::Relaxed))
     }
 
+    /// Call this when a drain becomes empty.
+    ///
+    /// Swaps the priority bit (see how [`SharedFreeList::try_publish`] handles this)
+    /// and swaps the empty bit for the drain.
+    ///
+    /// It doesn't matter if these operations are reordered, as long as
+    /// they are performed atomically. That's because we simply toggle state
+    /// and n toggles in any order will eventually result in the correct state
+    /// once they are all performed.
+    ///
+    /// What does matter is that these "Event" operations are only called
+    /// once when the event happens.
     #[inline]
-    fn set_empty(&self, which: bool) {
+    fn on_drain_empty(&self, which: bool) {
         let bit_index = if which { 1 } else { 0 };
         let empty_mask = 1 << bit_index;
         let priority_mask = 0b100;
-        // We can do a checkless toggle because we that we only
-        // toggle these flags once on each event therefore even if
-        // we don't check the state, the state will be correct OR
-        // pending correct (correctness influences heuristics but not
-        // soundness so it's only loosely guarded)
         self.0
             .fetch_xor(empty_mask | priority_mask, Ordering::Relaxed);
     }
 
-    // We don't swap the priority in this case. The priority is only swapped
-    // on emptying.
+    /// Called when a drain is swapped.
+    ///
+    /// Swaps the empty bit for the drain being swapped to.
+    ///
+    /// It doesn't matter if these operations are reordered, as long as
+    /// they are performed atomically. That's because we simply toggle state
+    /// and n toggles in any order will eventually result in the correct state
+    /// once they are all performed.
+    ///
+    /// What does matter is that these "Event" operations are only called
+    /// once when the event happens.
     #[inline]
-    fn set_non_empty(&self, which: bool) {
+    fn on_drain_swapped(&self, which: bool) {
         let bit_index = if which { 1 } else { 0 };
         let empty_mask = 1 << bit_index;
         self.0.fetch_xor(empty_mask, Ordering::Relaxed);
     }
 }
 
+/// Stored as an SOA so that I can put the [`SharedDrain`]s and [`AtomicMetadata`]
+/// in the same cache line.
+///
+/// The other fields are hot RMW fields and so are padded to stop false sharing.
 #[derive(Default)]
 pub struct SharedFreeList {
     heads: [CachePadded<AtomicHead>; 2],
@@ -469,27 +526,34 @@ pub struct SharedFreeList {
 }
 
 impl SharedFreeList {
+    /// Returns a [`SharedSwapDrain`] for the given `which`.
     #[inline]
-    fn swaps(&self, priority: bool) -> [SharedSwapDrain<'_>; 2] {
-        let a = SharedSwapDrain {
-            drain: &self.drains[0],
-            head: &self.heads[0],
-            tail: &self.tails[0],
-        };
-        let b = SharedSwapDrain {
-            drain: &self.drains[1],
-            head: &self.heads[1],
-            tail: &self.tails[1],
-        };
-        if priority {
-            [b, a]
+    fn swap(&self, which: bool) -> SharedSwapDrain<'_> {
+        if which {
+            SharedSwapDrain {
+                drain: &self.drains[1],
+                head: &self.heads[1],
+                tail: &self.tails[1],
+            }
         } else {
-            [a, b]
+            SharedSwapDrain {
+                drain: &self.drains[0],
+                head: &self.heads[0],
+                tail: &self.tails[0],
+            }
         }
     }
 
+    /// Returns the [priority, other] array of [`SharedSwapDrain`]s for the given `priority`.
+    #[inline]
+    fn swaps(&self, which_priority: bool) -> [SharedSwapDrain<'_>; 2] {
+        [self.swap(which_priority), self.swap(!which_priority)]
+    }
+
+    /// Pops an entity from the free list as a producer, returning it.
+    ///
     /// # Safety
-    /// - Must
+    /// - must not be called concurrently with [`SharedFreeList::try_publish`]
     #[inline]
     unsafe fn pop_as_producer(&self) -> Option<Entity> {
         let meta = self.meta.load();
@@ -497,17 +561,19 @@ impl SharedFreeList {
             return None;
         }
 
-        let which = meta.priority();
-        let [priority, other] = self.swaps(which);
+        let which_priority = meta.which_priority();
+        let [priority, other] = self.swaps(which_priority);
 
-        // SAFETY: todo
+        // SAFETY: [`SharedSwapDrain::try_publish`] which calls [`SharedSwapDrain::try_publish`]
+        // is not being called right now.
         unsafe {
             priority
-                .pop_as_producer(|| self.meta.set_empty(which))
-                .or_else(|| other.pop_as_producer(|| self.meta.set_empty(!which)))
+                .pop_as_producer(|| self.meta.on_drain_empty(which_priority))
+                .or_else(|| other.pop_as_producer(|| self.meta.on_drain_empty(!which_priority)))
         }
     }
 
+    /// Pops an entity from the free list as a consumer, returning it.
     #[inline]
     fn pop_as_consumer(&self) -> Option<Entity> {
         let meta = self.meta.load();
@@ -515,83 +581,90 @@ impl SharedFreeList {
             return None;
         }
 
-        let which = meta.priority();
-        let [priority, other] = self.swaps(which);
+        let which_priority = meta.which_priority();
+        let [priority, other] = self.swaps(which_priority);
 
         priority
-            .pop_as_consumer(|| self.meta.set_empty(which))
-            .or_else(|| other.pop_as_consumer(|| self.meta.set_empty(!which)))
+            .pop_as_consumer(|| self.meta.on_drain_empty(which_priority))
+            .or_else(|| other.pop_as_consumer(|| self.meta.on_drain_empty(!which_priority)))
     }
 
-    /// # Safety
+    /// Pops `n` entities from the free list as a producer, returning them in a [`FlattenPopMany`].
     ///
+    /// # Safety
+    /// - must not be called concurrently with [`SharedFreeList::try_publish`]
     #[inline]
     unsafe fn pop_many_as_producer(&self, n: u32) -> FlattenPopMany<'_> {
-        let empty = FlattenPopMany::empty(self.swaps(false)[0]);
         if n == 0 {
-            return empty;
+            return FlattenPopMany::empty(self.swap(false));
         }
         let meta = self.meta.load();
         if meta.are_empty() {
-            return empty;
+            return FlattenPopMany::empty(self.swap(false));
         }
 
-        let which = meta.priority();
-        let [priority, other] = self.swaps(which);
+        let which_priority = meta.which_priority();
+        let [priority, other] = self.swaps(which_priority);
 
-        // SAFETY: todo
+        // SAFETY: [`SharedSwapDrain::try_publish`] which calls [`SharedSwapDrain::try_publish`]
+        // is not being called right now.
         unsafe {
-            let a = priority.pop_many_as_producer(n, || self.meta.set_empty(which));
+            let a = priority.pop_many_as_producer(n, || self.meta.on_drain_empty(which_priority));
             let remaining = n - a.len() as u32;
-            let b = other.pop_many_as_producer(remaining, || self.meta.set_empty(!which));
+            let b =
+                other.pop_many_as_producer(remaining, || self.meta.on_drain_empty(!which_priority));
             FlattenPopMany::new([a, b])
         }
     }
 
+    /// Pops `n` entities from the free list as a consumer, returning them in a [`FlattenPopMany`].
     #[inline]
     fn pop_many_as_consumer(&self, n: u32) -> FlattenPopMany<'_> {
-        let empty = FlattenPopMany::empty(self.swaps(false)[0]);
         if n == 0 {
-            return empty;
+            return FlattenPopMany::empty(self.swap(false));
         }
         let meta = self.meta.load();
         if meta.are_empty() {
-            return empty;
+            return FlattenPopMany::empty(self.swap(false));
         }
 
-        let which = meta.priority();
-        let [priority, other] = self.swaps(which);
+        let which_priority = meta.which_priority();
+        let [priority, other] = self.swaps(which_priority);
 
-        let a = priority.pop_many_as_consumer(n, || self.meta.set_empty(which));
+        let a = priority.pop_many_as_consumer(n, || self.meta.on_drain_empty(which_priority));
         let remaining = n - a.len() as u32;
-        let b = other.pop_many_as_consumer(remaining, || self.meta.set_empty(!which));
+        let b = other.pop_many_as_consumer(remaining, || self.meta.on_drain_empty(!which_priority));
         FlattenPopMany::new([a, b])
     }
 
+    /// Trys to pull all of `data` into the free list by trying to swap it with a [`SharedDrain`].
+    ///
     /// # Safety
+    /// - must not be called concurrently with any `*_as_producer` function
+    /// - must not be called concurrently with itself
     #[inline]
-    pub unsafe fn try_publish(&self, data: &mut Vec<Entity>) {
+    unsafe fn try_publish(&self, data: &mut Vec<Entity>) {
         if data.len() == 0 {
             return;
         }
         let meta = self.meta.load();
 
-        let which = meta.priority();
-        let publish_to = match meta.non_empty_count() {
-            // nowhere to publish
+        let wich_priority = meta.which_priority();
+        let which = match meta.non_empty_count() {
             2 => return,
-            // publish to the non-priority buffer which will be (or already has been) swapped to when the current
-            // buffer empties
-            1 => !which,
+            // publish to the non-priority buffer which will be (or already has been) swapped to when
+            // the current priority buffer empties
+            1 => !wich_priority,
             // publish to the priority buffer which has already been swapped to when the last buffer
             // was emptied
-            0 => which,
+            0 => wich_priority,
             _ => unreachable!(),
         };
 
-        let [swap, _] = self.swaps(publish_to);
+        let swap = self.swap(which);
+        // SAFETY: ensured by caller
         if unsafe { swap.try_publish(data) } {
-            self.meta.set_non_empty(publish_to);
+            self.meta.on_drain_swapped(which);
         }
     }
 }
@@ -600,13 +673,10 @@ impl Drop for SharedFreeList {
     #[inline]
     fn drop(&mut self) {
         for i in 0..2 {
-            // Since we have &mut self we know that `head.max(0) == actual_tail` (actual_tail as computed)
             let head = Head(*self.heads[i].0.get_mut());
             let undrained_len = head.head().max(0) as usize;
-
             let drain = self.drains[i].get_mut();
             // SAFETY: `num_undrained_items` is the number of elements in `drain` that are still valid.
-            //
             // Note: Since [`Entity`] is [`Copy`] we don't actually have to do this.
             unsafe {
                 drain.0.set_len(undrained_len);
@@ -642,6 +712,7 @@ impl<'a> FlattenPopMany<'a> {
 impl<'a> Iterator for FlattenPopMany<'a> {
     type Item = Entity;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.index < 1 {
             if let Some(item) = self.pop_manys[self.index].next() {
@@ -652,6 +723,7 @@ impl<'a> Iterator for FlattenPopMany<'a> {
         None
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.pop_manys[0].len() + self.pop_manys[1].len();
         (len, Some(len))
@@ -701,6 +773,7 @@ impl FreshAllocator {
     /// Allocates `count` [`EntityIndex`]s.
     /// These rows will be fresh.
     /// They have never been given out before.
+    #[inline]
     fn alloc_many(&self, count: u32) -> AllocUniqueEntityIndexIterator {
         if count == 0 {
             return AllocUniqueEntityIndexIterator(0..0);
@@ -758,9 +831,10 @@ impl SharedAllocator {
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
     ///
     /// # Safety
-    /// - You must be the single producer to call this function.
+    /// - must not be called at the same time as [`SharedAllocator::try_publish`]
     #[inline]
     unsafe fn alloc_as_producer(&self) -> Entity {
+        // SAFETY: ensured by caller
         unsafe {
             self.free
                 .pop_as_producer()
@@ -768,12 +842,13 @@ impl SharedAllocator {
         }
     }
 
-    /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
+    /// Allocates `count` [`Entity`]s, reusing freed indices if they exist.
     ///
     /// # Safety
-    /// - You must be the single producer to call this function.
+    /// - must not be called at the same time as [`SharedAllocator::try_publish`]
     #[inline]
     unsafe fn alloc_many_as_producer(&self, count: u32) -> AllocEntitiesIterator<'_> {
+        // SAFETY: ensured by caller
         let reused = unsafe { self.free.pop_many_as_producer(count) };
         let still_need = count - reused.len() as u32;
         let new = self.fresh.alloc_many(still_need);
@@ -795,6 +870,18 @@ impl SharedAllocator {
         let still_need = count - reused.len() as u32;
         let new = self.fresh.alloc_many(still_need);
         AllocEntitiesIterator { new, reused }
+    }
+
+    /// Attempts the publish the contents of `data` to the free list.
+    ///
+    /// # Safety
+    /// - must not be called at the same time as [`Self::alloc_as_producer`] or [`Self::alloc_many_as_producer`]
+    #[inline]
+    unsafe fn try_publish(&self, data: &mut Vec<Entity>) {
+        // SAFETY: ensured by caller
+        unsafe {
+            self.free.try_publish(data);
+        }
     }
 
     /// Marks the allocator as closed, but it will still function normally.
@@ -828,15 +915,22 @@ impl Allocator {
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
     #[inline]
     pub(super) fn alloc(&self) -> Entity {
-        // SAFETY: we have &self, so we are the single producer. also no Clone
+        // SAFETY: we have &self therefore [`Allocator::flush`] cannot be called right now
         unsafe { self.shared.alloc_as_producer() }
     }
 
     /// Allocates `count` entities in an iterator.
     #[inline]
     pub(super) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
-        // SAFETY: we have &self, so we are the single producer. also no Clone
+        // SAFETY: we have &self therefore [`Allocator::flush`] cannot be called right now
         unsafe { self.shared.alloc_many_as_producer(count) }
+    }
+
+    /// Synchronizes the local free list with the shared free list.
+    #[inline]
+    pub(crate) fn flush(&mut self) {
+        // SAFETY: we have &mut self therefore [`Allocator::alloc_many`] and [`Allocator::alloc`] and [`Allocator::try_publish`]cannot be called right now
+        unsafe { self.shared.try_publish(&mut self.local) };
     }
 
     /// The total number of indices given out.
@@ -849,14 +943,6 @@ impl Allocator {
     #[inline]
     fn num_free(&self) -> u32 {
         todo!()
-        // Safety: The `Allocator` is the single producer for `SharedFreeList`.
-        // unsafe { self.shared.free.len() }
-    }
-
-    /// Synchronizes the local free list with the shared free list.
-    pub(crate) fn flush(&mut self) {
-        // Safety: The `Allocator` is the single producer for `SharedFreeList`.
-        unsafe { self.shared.free.try_publish(&mut self.local) };
     }
 
     /// Frees the entity allowing it to be reused.
