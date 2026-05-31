@@ -28,7 +28,7 @@ use core::{
     iter::FusedIterator,
     mem::{self, ManuallyDrop},
     num::NonZeroU32,
-    range::{Range, RangeIter},
+    ops::Range,
     sync::atomic::{AtomicI32, AtomicU64},
 };
 use crossbeam_utils::CachePadded;
@@ -62,7 +62,7 @@ impl SharedDrain {
             fn drain(to: &mut Vec<Entity>, from: &mut Vec<Entity>) {
                 to.extend(from.drain(MAX..));
             }
-            drain(&mut *self.0, other);
+            drain(&mut self.0, other);
         }
         let initial_len = other.len() as i32;
         mem::swap(&mut *self.0, other);
@@ -80,6 +80,7 @@ impl SharedDrain {
     /// - each `index` must be called with this function exactly once.
     #[inline]
     unsafe fn read(&self, index: usize) -> Entity {
+        // SAFETY: Ensured by caller
         unsafe { self.0.as_ptr().add(index).read() }
     }
 }
@@ -106,7 +107,7 @@ impl SharedDrain {
 /// have [`SharedSwapDrain::pop_as_consumer`] update both atomically.
 ///
 /// Keep in mind that the two heads [`Head::head`] and [`Head::consumer_head`] would not be decremented (together) atomically in this case
-/// resulting in [`Head::producer_pop_count`] being incorrect when publishing. However, assuming we decrement the [`Head::consumer_head]
+/// resulting in [`Head::producer_pop_count`] being incorrect when publishing. However, assuming we decrement the [`Head::consumer_head`]
 /// first, we can at least ensure that [`Head::producer_pop_count`] is only ever incorrect in a direction where it won't result in UB.
 /// Additionally, because we use [`Metadata`] to (loosely) avoid polling empty queues, this possible design results in a fallible but
 /// eventually correct [`Head::producer_pop_count`] value.
@@ -246,7 +247,7 @@ impl<'a> SharedSwapDrain<'a> {
 
         let index = (head.head() - 1) as usize;
         if index == 0 {
-            on_empty()
+            on_empty();
         }
 
         // SAFETY: if `head` returns any positive value then drain is under immutable access
@@ -268,7 +269,7 @@ impl<'a> SharedSwapDrain<'a> {
 
         let index = (head.head() - 1) as usize;
         if index == 0 {
-            on_empty()
+            on_empty();
         }
 
         // SAFETY: if `head` returns any positive value then drain is under immutable access
@@ -354,26 +355,20 @@ impl<'a> SharedSwapDrain<'a> {
 #[inline]
 fn clamp_to_positive(range: Range<i32>, on_empty: impl Fn()) -> Range<u32> {
     if range.start > 0 {
-        Range {
-            start: range.start as u32,
-            end: range.end as u32,
-        }
+        range.start as u32..range.end as u32
     } else {
         if range.end > 0 {
             on_empty();
-            Range {
-                start: 0,
-                end: range.end as u32,
-            }
+            0..range.end as u32
         } else {
-            Range { start: 0, end: 0 }
+            0..0
         }
     }
 }
 
 struct PopMany<'a> {
     swap: SharedSwapDrain<'a>,
-    range: RangeIter<u32>,
+    range: Range<u32>,
     popped_as_consumer: Option<NonZeroU32>,
 }
 
@@ -384,7 +379,7 @@ impl<'a> PopMany<'a> {
     #[inline]
     unsafe fn new(
         swap: SharedSwapDrain<'a>,
-        range: RangeIter<u32>,
+        range: Range<u32>,
         popped_as_consumer: Option<NonZeroU32>,
     ) -> Self {
         Self {
@@ -398,7 +393,7 @@ impl<'a> PopMany<'a> {
     fn empty(swap: SharedSwapDrain<'a>) -> Self {
         Self {
             swap,
-            range: Range::default().into_iter(),
+            range: 0..0,
             popped_as_consumer: None,
         }
     }
@@ -409,9 +404,7 @@ impl<'a> Iterator for PopMany<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(index) = self.range.next() else {
-            return None;
-        };
+        let index = self.range.next()?;
         // SAFETY: ensured by construction with either [`PopMany::new`] or [`PopMany::empty`]
         let drain = unsafe { self.swap.drain.get().as_ref_unchecked() };
         let index = index as usize;
@@ -444,8 +437,8 @@ impl<'a> Drop for PopMany<'a> {
 /// stores the empty state of both drains to short-circuit popping elements.
 ///
 /// # Layout
-/// - 0: a_non_empty
-/// - 1: b_non_empty
+/// - 0: `a_non_empty`
+/// - 1: `b_non_empty`
 /// - 2: priority (true -> b, false -> b) (see [`SharedFreeList::swaps`])
 #[derive(Clone, Copy)]
 struct Metadata(u32);
@@ -648,7 +641,7 @@ impl SharedFreeList {
     /// - must not be called concurrently with itself
     #[inline]
     unsafe fn try_publish(&self, data: &mut Vec<Entity>) {
-        if data.len() == 0 {
+        if data.is_empty() {
             return;
         }
         let meta = self.meta.load();
@@ -783,6 +776,7 @@ impl FreshAllocator {
             return AllocUniqueEntityIndexIterator(0..0);
         }
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
+        #[allow(clippy::absurd_extreme_comparisons)]
         let new = match start_new
             .checked_add(count)
             .filter(|new| *new <= Self::MAX_ENTITIES)
@@ -958,7 +952,7 @@ impl Allocator {
     /// Frees the entities allowing them to be reused.
     #[inline]
     pub(super) fn free_many(&mut self, entities: &[Entity]) {
-        self.local.extend_from_slice(entities)
+        self.local.extend_from_slice(entities);
     }
 }
 
