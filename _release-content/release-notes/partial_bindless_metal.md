@@ -36,6 +36,6 @@ Benchmarked on Bistro Exterior (698 materials), 5-minute runs:
 
 [Bistro] is a demanding, fairly realistic scene.
 While bindless limitations remain frustrating, especially on Mac where Vulkan isn't an option,
-it's lovely to see those performance gains, and to know that Bevy itself is no longer artifically holding our users back.
+it's lovely to see those performance gains, and to know that Bevy itself is no longer artificially holding our users back.
 
 [Bistro]: https://developer.nvidia.com/orca/amazon-lumberyard-bistro
