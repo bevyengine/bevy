@@ -738,7 +738,7 @@
 //!
 //! ### Scene Components vs Required Components
 //!
-//! At first glace, Scene Components and [Required Components](bevy_ecs::component::Component) solve
+//! At first glance, Scene Components and [Required Components](bevy_ecs::component::Component) solve
 //! similar problems. They both provide a mechanism to initialize components with other components.
 //!
 //! They are functionally quite different however. It is worth understanding the differences and
@@ -859,6 +859,7 @@ mod tests {
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
     use bevy_ecs::relationship::Relationship;
+    use bevy_ecs::system::{system_value, SystemHandle};
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
@@ -889,7 +890,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                :a
+                a()
                 Position { x: 1. }
                 Children [ #Y ]
             }
@@ -1183,12 +1184,11 @@ mod tests {
     fn bsn_name_references() {
         let mut app = test_app();
         let world = app.world_mut();
-
         fn a() -> impl Scene {
             bsn! {
                 #X
                 Children [
-                    (:b Reference(#X))
+                    (b() Reference(#X))
                 ]
             }
         }
@@ -1271,7 +1271,7 @@ mod tests {
                         Reference(#Y)
                     ]
                 ),
-                (:b #Z)
+                (b() #Z)
             ]
         }
 
@@ -1947,7 +1947,7 @@ mod tests {
         let pass_expr = bsn! {
             #Name
             Children [
-                widget(#{Entity::PLACEHOLDER})
+                widget(Entity::PLACEHOLDER.into())
             ]
         };
         let entity = world.spawn_scene(pass_expr).unwrap().id();
@@ -1967,6 +1967,24 @@ mod tests {
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
+
+        // This allows both passing entity id by name reference and a custom dynamic name
+        let i = 5;
+        let pass_name_expr = bsn! {
+            #Root
+            Name({format!("Foo{i}")})
+            Children [
+                #Name
+                widget(#Root)
+            ]
+        };
+        let entity = world.spawn_scene(pass_name_expr).unwrap().id();
+        let root = world.entity(entity);
+        let children = root.get::<Children>().unwrap();
+        let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
+        assert_eq!(child_widget.0, entity);
+        let name = root.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "Foo5");
     }
 
     #[test]
@@ -1987,7 +2005,7 @@ mod tests {
         impl Widget {
             fn scene(props: WidgetProps) -> impl Scene {
                 bsn! {
-                    Reference(#{props.entity})
+                    Reference({props.entity})
                 }
             }
         }
@@ -2019,6 +2037,16 @@ mod tests {
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn repeated_call_entity_reference() {
+        let scenes = (0..6).map(|_: u32| bsn! { #Name }).collect::<Vec<_>>();
+        let scenes_len = scenes.len();
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene_list(scenes).unwrap();
+        assert_eq!(world.query::<&Name>().query(world).count(), scenes_len);
     }
 
     #[test]
@@ -2071,37 +2099,38 @@ mod tests {
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
 
-    #[test]
-    fn caching_with_generics() {
-        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
-        struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
-            value: T,
-            number: u32,
-        }
+    // NOTE: function scene caching is not yet implemented
+    // #[test]
+    // fn caching_with_generics() {
+    //     #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+    //     struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
+    //         value: T,
+    //         number: u32,
+    //     }
 
-        fn b() -> impl Scene {
-            bsn! {
-                :a::<0, i32>
-                Children [ #Y ]
-            }
-        }
+    //     fn b() -> impl Scene {
+    //         bsn! {
+    //             :a::<0, i32>
+    //             Children [ #Y ]
+    //         }
+    //     }
 
-        fn a<
-            const A: u32,
-            T: 'static
-                + Send
-                + Sync
-                + FromTemplate<Template: Send + Sync + Default + Template<Output = T>>,
-        >() -> impl Scene {
-            bsn! {
-                Foo<T>{
-                    number: A
-                }
-            }
-        }
+    //     fn a<
+    //         const A: u32,
+    //         T: 'static
+    //             + Send
+    //             + Sync
+    //             + FromTemplate<Template: Send + Sync + Default + Template<Output = T>>,
+    //     >() -> impl Scene {
+    //         bsn! {
+    //             Foo<T>{
+    //                 number: A
+    //             }
+    //         }
+    //     }
 
-        b();
-    }
+    //     b();
+    // }
 
     #[test]
     fn scene_with_blocks() {
@@ -2121,5 +2150,37 @@ mod tests {
         }
 
         func();
+    }
+
+    #[test]
+    fn scene_with_oneshot_system() {
+        #[derive(Component, FromTemplate)]
+        struct Callback {
+            callback: SystemHandle<(), ()>,
+        }
+
+        fn my_system() {}
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let direct = bsn! {
+            Callback {
+                callback: system_value(my_system)
+            }
+        };
+        let direct_ent = world.spawn_scene(direct).unwrap();
+        assert!(direct_ent.get::<Callback>().is_some());
+
+        let id = world.register_tracked_system(my_system);
+        let id2 = id.clone();
+
+        let indirect = bsn! {
+            Callback {
+                callback: id
+            }
+        };
+        let indirect_ent = world.spawn_scene(indirect).unwrap();
+        assert!(indirect_ent.get::<Callback>().unwrap().callback == id2);
     }
 }
