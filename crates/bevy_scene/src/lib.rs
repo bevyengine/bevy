@@ -131,7 +131,6 @@
 //!   #Parent
 //!   Children [
 //!     #Child1
-//!     ComponentA
 //!     ComponentB,
 //!     #Child2
 //!     ComponentA
@@ -139,7 +138,6 @@
 //!        #GrandChild1
 //!        ComponentA,
 //!        #GrandChild2
-//!        ComponentB
 //!     ]
 //!   ]
 //! }
@@ -153,12 +151,10 @@
 //!   Children [
 //!      (
 //!        #Child1
-//!        ComponentA
 //!        ComponentB
 //!      ),
 //!      (
 //!        #Child2
-//!        ComponentA
 //!        Children [
 //!           (
 //!             #GrandChild1
@@ -166,7 +162,6 @@
 //!           ),
 //!           (
 //!             #GrandChild2
-//!             ComponentB
 //!           )
 //!        ]
 //!      ),
@@ -191,7 +186,7 @@
 //! an [`Entity`] field should likely derive [`FromTemplate`] instead of [`Default`].
 //!
 //! ```ignore
-//! bsn!{
+//! bsn! {
 //!     needs_last_child_scene(#Last)
 //!     Children [
 //!         #First,
@@ -200,6 +195,29 @@
 //!     ]
 //! }
 //! ```
+//!
+//! ### Limitations
+//!
+//! Its not possible to use expressions or variables to assign entity names, yet this is sometimes desired and useful.
+//!
+//! You could of course insert the `Name(variable)` directly, but then you cant use entity references.
+//!
+//! This can be worked around by doing both:
+//! ```ignore
+//! let i = 0;
+//! bsn! {
+//!   Name("My Root")
+//!   needs_last_child_scene(#Last)
+//!   Children [
+//!       Name("First Entity"),
+//!       #Second,
+//!       #Last
+//!       Name(format!("foo{i}"))
+//!   ]
+//! }
+//! ```
+//! Adding `Name("desired name")` after the `#SomeName` reference will patch over the `Name` component created by the reference to give it a custom name.
+//! Since the named entity references just need to be unique identifiers when the macro executes, this does not cause any issues.
 //!
 //! ### Scope rules
 //!
@@ -233,7 +251,7 @@
 //! }
 //! ```
 //!
-//! ## Composition and Patching
+//! ## Patching
 //!
 //! When you insert a component into an [`Entity`] in normal ECS code, the entire pre-existing value is replaced.
 //! If a scene sets `Button { width: 100, height: 300 }` and a caller wants to
@@ -242,7 +260,27 @@
 //! **Patching** avoids this. When you write `Button { width: 200 }` in [`bsn!`], it creates
 //! a *patch* that sets only the `width` field. Unmentioned fields keep their existing values
 //! (from a included scene, an earlier patch, or the type's defaults). Multiple patches to the
-//! same component and its values are applied in order rather than overwriting each other.
+//! same component and its values are applied in order, only overwriting the fields they changed.
+//!
+//! The following scenes all end up with a button which is 200 wide and 300 high.
+//! ```ignore
+//! impl Default for Button {
+//!     fn default() -> Self {
+//!         Button { width: 100, height: 300 }
+//!     }
+//! }
+//!
+//! bsn! { Button { width: 200, height: 300 } } // fully specified
+//! bsn! { Button { width: 200 } }              // only changing width, height defaults to 300
+//!
+//! bsn! {
+//!     Button                 // inserts defaults
+//!     Button { width: 200 }  // changes width
+//!     Button { height: 300 } // changes height
+//! }
+//! ```
+//!
+//! ### Required Traits
 //!
 //! To make a component available in [`bsn!`], derive either [`Default`] + [`Clone`], or [`FromTemplate`].
 //! Both support patching: unmentioned fields keep their values from earlier patches or the
@@ -262,8 +300,21 @@
 //! You still have access to a default constructor of sorts though: the derive generates a companion struct
 //! for `YourType` named `YourTypeTemplate` which implements `Default`, so `YourTypeTemplate::default()` serves the same purpose.
 //!
-//! You compose scenes by writing functions that return `impl Scene` and calling them
-//! inside [`bsn!`]:
+//! #### Enums in bsn
+//!
+//! Enums are special cased due to their complexity regarding [`Default`] or similar traits: [`bsn!`] needs to have defaults for *all* variants accessible.
+//!
+//! For this reason, theres a custom "Derive" which isn't actually a Trait, called [`VariantDefaults`](bevy_ecs::VariantDefaults)
+//! which creates a impl block with one static method for each variant, in the schema `default_{variant_lower}`.
+//!
+//! [`bsn!`] will use these when encountering a Enum instead of [`Default`]. Alternatively, [`FromTemplate`] also works.
+//!
+//! ## Composition
+//!
+//! Composition relies on patching to work nicely, allowing you to include other scenes in the current ones.
+//! All of their patches will be applied at the position they're included.
+//!
+//! Example:
 //!
 //! ```
 //! # use bevy_app::App;
@@ -288,9 +339,9 @@
 //!     bsn! { Health { current: 100, max: 100 } }
 //! }
 //!
-//! // Compose `enemy()` and patch just the `max` field:
+//! // Include `enemy()` and patch just the `max` field:
 //! world.spawn_scene(bsn! {
-//!     :enemy
+//!     enemy()
 //!     Health { max: 200 }
 //! });
 //! ```
@@ -299,13 +350,56 @@
 //! while `current` retains the value from `enemy()`. Tuples of [`Scene`]s also implement
 //! [`Scene`], so patches from multiple sources merge into a single [`ResolvedScene`].
 //!
-//! For programmatic patching outside of [`bsn!`], see the [`PatchFromTemplate`] and
+//!  For programmatic patching outside of [`bsn!`], see the [`PatchFromTemplate`] and
 //! [`PatchTemplate`] traits.
+//!
+//! #### bsn expansion
+//!
+//! This is a rough schema of the code [`bsn!`] expands to, based on the example above.
+//! Its pseudocode intended to help you build a mental model, not as a fully accurate representation.
+//!
+//!
+//! ```ignore
+//! fn enemy() -> impl Scene {
+//!     SceneScope(({
+//!         let health = this_scene.get_or_default::<Health>();
+//!         health.current = 100;
+//!         health.max = 100;
+//!     }))
+//! }
+//!
+//! world.spawn_scene(
+//!     SceneScope((
+//!         enemy(), // executed first, calls Health::default and sets the values
+//!         {
+//!             let health = this_scene.get_or_default::<Health>(); // this sees that Health was already inserted, and returns the existing version
+//!             health.max = 200;
+//!          }
+//!     ))
+//! );
+//! ```
+//!
+//! As you can see, its ends up as setting the individual values of the components.
+//! That means order matters and by changing the order in which you list scene entries affects the outcome.
+//! For example, if the order for the spawn was reversed, and `Health` came before `enemy()`, the `get_or_default` in `enemy()`
+//! would return the existing Health and set both values, overwriting what came before.
+//!
+//! This overwriting works with multiple levels, bsn will happily generate multiple
+//! levels of field access to overwrite whats in that specific field.
+//!
 //!
 //! ## Scene Caching
 //!
-//! You may have noticed the `:enemy` syntax above. Thats a feature called "scene caching" which allows you
-//! to cache a scene or scene component included into another scene if its the first one and if it does not take any arguments.
+//! <div class="warning">
+//!
+//! Note: Caching is not yet fully implemented. All of the structure is there, but its not fully wired up yet.
+//!
+//! </div>
+//!
+//! Scenes can be cached, improving performance. Since this can change the semantics in some cases, its an explicit opt-in.
+//! Caching works by resolving the included scene and storing the resulting [`ResolvedScene`] as an asset. When the outer scene is spawned again,
+//! it will not need to resolve the included scene again, instead patching on top of a clone of the cached version.
+//! This means caching can only be used if the scene is the first scene entry.
 //!
 //! No caching, calling without `:`
 //! ```ignore
@@ -315,7 +409,7 @@
 //! }
 //! ```
 //!
-//! Caching, no call, with `:`
+//! Caching, no call, with `:` (This is what doesn't work currently)
 //! ```ignore
 //! bsn! {
 //!     :enemy
@@ -324,15 +418,13 @@
 //! ```
 //!
 //! BSN assets always need to be cached using the `:` prefix.
-//! Note that the `.bsn` file format is not yet released.
+//! Note that the `.bsn` file format is not yet released. (This should already work, assuming theres a loader for the asset format)
 //! ```ignore
 //! bsn! {
 //!    :"enemy.bsn"
 //!    Health { max: 200 }
 //! }
 //! ```
-//!
-//! Note: Caching is not yet fully implemented. All of the structure is there, but its not fully wired up yet.
 //!
 //! ## Loading Assets into Scenes
 //!
@@ -443,7 +535,7 @@
 //! A [`Template`] value, like a instance of a Component, cannot be directly returned from a curly bracketed `{ ... }` expression.
 //! For this, `template_value(...)` has to be used, which returns a [`Template`] version of the given value.
 //!
-//! ```rs
+//! ```ignore
 //! fn enemy(translation: Vec3){
 //!     let transform = Transform::from_translation(translation);
 //!     bsn! {
@@ -451,6 +543,22 @@
 //!         template_value(transform)
 //!     }
 //!
+//! }
+//! ```
+//!
+//! ### Using ad-hoc template functions
+//!
+//! Sometimes you need custom behavior or world access to create a [`Template`].
+//! If this is the case, you can use [`template`](fn@template) instead of a custom [`FromTemplate`] or [`Template`] implementation.
+//! In [`template`](fn@template) you get access to a [`TemplateContext`](bevy_ecs::template::TemplateContext) which
+//! contains the [`EntityWorldMut`] and a collection of named entity references.
+//!
+//! ```ignore
+//! bsn! {
+//!     #Foo
+//!     template(|ctx| {
+//!         Foo(ctx.resource::<MyAssetCollection>().get("generated_asset_name"))
+//!     })
 //! }
 //! ```
 //!
@@ -894,7 +1002,7 @@ use bevy_ecs::prelude::*;
 /// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
 /// | **Including Scenes**                       |                                                                                                                |
 /// | `scene()`<br>`scene(val)`                  | Include the result of a `impl `[`Scene`] function                                                              |
-/// | `{ expr }`                                 | Composition with the result of `expr`, which should be a [`Scene`]                                             |
+/// | `{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                             |
 /// | `@MySceneComp`                             | Include a [`SceneComponent`]. Fields, if any exist, will be default                                            |
 /// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
 /// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
@@ -2659,7 +2767,7 @@ mod tests {
             some_prop: u8,
         }
         fn scenecomponentscene(props: Props) -> impl Scene {}
-        let some_variable: f32 = 0.;
+        let some_var: f32 = 0.;
         #[derive(SceneComponent, FromTemplate)]
         #[scene(scenecomponentscene2(Props2))]
         struct Container;
@@ -2704,7 +2812,7 @@ mod tests {
                 Node {
                     width: some_var      // you can directly use variables without {}
                 }
-                ComponentB({some_variable + 3.})  // values can be expressions, when wrapped in {}
+                ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
                 @Container {
                     @items: {
                         bsn_list![                // sometimes you may need to nest macro calls
