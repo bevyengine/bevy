@@ -776,7 +776,10 @@ impl FreshAllocator {
             return AllocUniqueEntityIndexIterator(0..0);
         }
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
-        #[allow(clippy::absurd_extreme_comparisons)]
+        #[expect(
+            clippy::absurd_extreme_comparisons,
+            reason = "Self::MAX_ENTITIES may later be changed to not be equal to u32::MAX n some platforms"
+        )]
         let new = match start_new
             .checked_add(count)
             .filter(|new| *new <= Self::MAX_ENTITIES)
