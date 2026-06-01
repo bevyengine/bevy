@@ -59,22 +59,27 @@ impl Parse for BsnListRoot {
 impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
-        let mut found_cached_scene = false;
         if input.peek(Paren) {
             let content;
             parenthesized![content in input];
             while !content.is_empty() {
-                let entry = BsnEntry::parse(&content, found_cached_scene)?;
-                if matches!(entry, BsnEntry::CachedScene(_)) {
-                    found_cached_scene = true;
+                let entry = BsnEntry::parse(&content)?;
+                if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
+                    return Err(syn::Error::new(
+                        content.span(),
+                        "Caching entries after the first is not supported, remove the ':' prefix or make this the first entry.",
+                    ));
                 }
                 entries.push(entry);
             }
         } else if ALLOW_FLAT {
             while !input.is_empty() {
-                let entry = BsnEntry::parse(input, found_cached_scene)?;
-                if matches!(entry, BsnEntry::CachedScene(_)) {
-                    found_cached_scene = true;
+                let entry = BsnEntry::parse(input)?;
+                if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
+                    return Err(syn::Error::new(
+                        input.span(),
+                        "Caching entries after the first is not supported, remove the ':' prefix or make this the first entry.",
+                    ));
                 }
                 entries.push(entry);
                 if input.peek(Comma) {
@@ -84,7 +89,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                 }
             }
         } else {
-            entries.push(BsnEntry::parse(input, found_cached_scene)?);
+            entries.push(BsnEntry::parse(input)?);
         }
 
         Ok(Self { entries })
@@ -92,18 +97,14 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 }
 
 impl BsnEntry {
-    fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
+    fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Token![:]) {
-            BsnEntry::CachedScene(BsnScene::parse(input, found_cached_scene)?)
+            BsnEntry::CachedScene(BsnScene::parse(input)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
-                BsnEntry::NameExpression(braced_tokens(input)?)
-            } else {
-                BsnEntry::Name(input.parse::<Ident>()?)
-            }
+            BsnEntry::Name(input.parse::<Ident>()?)
         } else if input.peek(Brace) || input.peek(At) {
-            BsnEntry::UncachedScene(BsnScene::parse(input, found_cached_scene)?)
+            BsnEntry::UncachedScene(BsnScene::parse(input)?)
         } else {
             let is_template = input.peek(Tilde);
             if is_template {
@@ -221,18 +222,14 @@ impl Parse for BsnSceneFnArg {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
-                Ok(Self::NameExpression(braced_tokens(input)?))
-            } else {
-                Ok(Self::Name(input.parse::<Ident>()?))
-            }
+            Ok(Self::Name(input.parse::<Ident>()?))
         } else {
             Ok(Self::Expr(Expr::parse(input)?))
         }
     }
 }
 impl BsnScene {
-    fn parse(input: ParseStream, found_cached_scene: bool) -> Result<Self> {
+    fn parse(input: ParseStream) -> Result<Self> {
         let cached = if input.peek(Token![:]) {
             Some(input.parse::<Token![:]>()?)
         } else {
@@ -247,8 +244,13 @@ impl BsnScene {
             }
         };
 
-        if found_cached_scene {
-            err_if_cached("Cannot cache scenes more than once")?;
+        // It may seem odd how this is checking LitStr again
+        // and how there doesn't seem to be a need for all the specific `err_if_cached`
+        // in later code. But since caching is planned, and will very likely
+        // have the limitations which are ensured by the other errors below,
+        // this is its own block so its very simple to remove once caching is implemented.
+        if !input.peek(LitStr) {
+            err_if_cached("Currently, caching is only supported for scene assets. Please remove the ':' prefix for now.")?;
         }
 
         Ok(if input.peek(LitStr) {
@@ -256,7 +258,7 @@ impl BsnScene {
             if cached.is_none() {
                 return Err(syn::Error::new(
                     path.span(),
-                    "Cannot use scenes from asset path without caching, please add the ':' prefix.",
+                    "Cannot use scene assets without caching, please add the ':' prefix.",
                 ));
             }
             BsnScene::Asset(path)
@@ -500,11 +502,7 @@ impl Parse for BsnValue {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
-                BsnValue::NameExpression(braced_tokens(input)?)
-            } else {
-                BsnValue::Name(input.parse::<Ident>()?)
-            }
+            BsnValue::Name(input.parse::<Ident>()?)
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })

@@ -177,7 +177,7 @@ fn queue_custom(
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
-            transparent_phase.add(Transparent3d {
+            transparent_phase.add_retained(Transparent3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
                     mesh_center: pbr::get_mesh_instance_world_from_local(
                         *main_entity,
