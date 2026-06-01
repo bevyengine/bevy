@@ -49,9 +49,12 @@ impl<P: SystemParam + 'static> Clone for AsyncSystemState<P> {
 }
 
 impl<P: SystemParam + 'static> AsyncSystemState<P> {
-    /// Create a new `AsyncSystemState` from an `AsyncWorld` matching the Api surface of
-    /// `SystemState` with `World`.
-    pub fn new(world: AsyncWorld) -> Self {
+    /// Create a new system state from an [`AsyncWorld`] matching the API surface of [`SystemState`]
+    /// with [`World`].
+    ///
+    /// [`SystemState`]: bevy_ecs::system::SystemState
+    /// [`World`]: bevy_ecs::world::World
+    pub(crate) fn new(world: AsyncWorld) -> Self {
         Self {
             _p: PhantomData,
             world,
@@ -70,15 +73,19 @@ impl<P: SystemParam + 'static> AsyncSystemState<P> {
     /// here are able to take in `&` and `&mut` variables from the surrounding context unlike
     /// standard Bevy systems.
     ///
-    /// We bridge *at* the `_sync_point` `SyncPoint` with our `bridge_fn`.
+    /// We bridge *at* the `sync_point` `SyncPoint` with our `bridge_fn`.
     pub async fn bridge<BridgeFn, Out, SyncPoint: 'static>(
         &self,
-        _sync_point: SyncPoint,
+        sync_point: SyncPoint,
         bridge_fn: BridgeFn,
     ) -> Result<Out, BridgeError>
     where
         for<'w, 's> BridgeFn: FnOnce(P::Item<'w, 's>) -> Out,
     {
+        // We only need the type of `sync_point`, not the actual value, so this value goes unused.
+        // Dropping it explicitly avoids needing to name it `_sync_point` which makes the API less
+        // clear.
+        drop(sync_point);
         BridgeFuture {
             _p: PhantomData,
             system_set: bridge_request::async_world_sync_point::<SyncPoint>
