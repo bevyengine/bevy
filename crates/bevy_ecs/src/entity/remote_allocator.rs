@@ -896,7 +896,7 @@ impl SharedAllocator {
 /// This keeps track of freed entities and allows the allocation of new ones.
 ///
 /// Note that this must not implement [`Clone`].
-/// The allocator assumes that it is the only one with [`SharedFreeList::free`] permissions.
+/// The allocator assumes that it is the only one with `*_as_producer` and `try_publish` permissions.
 /// If this were cloned, that assumption would be broken, leading to undefined behavior.
 /// This is in contrast to the [`RemoteAllocator`], which may be cloned freely.
 #[derive(Default)]
