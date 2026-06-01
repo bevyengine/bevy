@@ -790,20 +790,24 @@
 //! - Is spawn performance a very high priority? Use required components.
 //!
 //! ## .bsn Asset Format
+//! Bevy does not currently have support for `.bsn` files,
+//! but intends to offer a `.bsn` asset format in future releases.
 //!
-//! In future releases, Bevy intends to offer a `.bsn` asset format.
 //! This would allow you to define your scenes on disk,
 //! creating/modifying them in various authoring tools and using asset hot-reloading.
 //!
 //! This format is intended to have broad syntactic compatibility with the `bsn!` macro,
 //! making it easy to port your content between both the macro and the asset form.
 //!
-//! Bevy does not currently have support for `.bsn` files:
-//! for now, you should use existing non-Bevy asset formats like glTF,
+//! When planning to use the asset format later, be aware that `.bsn` asset files,
+//! unlike `bsn!` macro calls, will not support expressions or other dynamic features directly.
+//!
+//! For now, you should use existing non-Bevy asset formats like glTF,
 //! search for ecosystem implementations or stick to `bsn!` macro calls.
 //!
-//! When planning, be aware that `.bsn` asset files, unlike `bsn!` macro calls,
-//! will not support expressions or other dynamic features directly.
+//! The surrounding architecture in the macro and other systems to implement such an asset format already exists,
+//! allowing community implementations/experimentation until an official version exists. An example of how to go about this
+//! can be found in the [scene benchmarks](<https://github.com/bevyengine/bevy/blob/v0.19.0/benches/benches/bevy_scene/spawn.rs#L414>)
 //!
 //! [`Template`]: bevy_ecs::template::Template
 //! [`FromTemplate`]: bevy_ecs::template::FromTemplate
