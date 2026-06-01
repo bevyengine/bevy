@@ -137,6 +137,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
+#[extract_app(RenderApp)]
 struct CustomRenderedEntity;
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into

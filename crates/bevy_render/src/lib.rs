@@ -41,11 +41,25 @@ pub mod camera;
 pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod error_handler;
-pub mod extract_component;
-pub mod extract_instances;
-mod extract_param;
-pub mod extract_plugin;
-pub mod extract_resource;
+pub mod extract_component {
+    pub type ExtractComponentPlugin<C, F = ()> =
+        bevy_extract::extract_component::ExtractComponentPlugin<crate::RenderApp, C, F>;
+
+    pub use crate::uniform::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin};
+
+    pub use bevy_extract::extract_component::ExtractComponent;
+}
+// pub mod extract_instances;
+// mod extract_param;
+pub mod extract_plugin {
+    pub use bevy_extract::extract_plugin::ExtractPlugin;
+}
+pub mod extract_resource {
+    pub type ExtractResourcePlugin<R, F = ()> =
+        bevy_extract::extract_resource::ExtractResourcePlugin<crate::RenderApp, R, F>;
+
+    pub use bevy_extract::extract_resource::{extract_resource, ExtractResource};
+}
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
@@ -60,8 +74,21 @@ pub mod renderer;
 pub mod settings;
 pub mod slab_allocator;
 pub mod storage;
-pub mod sync_component;
-pub mod sync_world;
+pub mod sync_component {
+    pub type SyncComponentPlugin<C, F = ()> =
+        bevy_extract::sync_component::SyncComponentPlugin<crate::RenderApp, C, F>;
+
+    pub use bevy_extract::sync_component::SyncComponent;
+}
+pub mod sync_world {
+    pub type SyncToRenderWorld = bevy_extract::sync_world::SyncToSubWorld<crate::RenderApp>;
+
+    pub type RenderEntity = bevy_extract::sync_world::SubEntity<crate::RenderApp>;
+
+    pub type TemporaryRenderEntity = bevy_extract::sync_world::TemporaryEntity<crate::RenderApp>;
+
+    pub use bevy_extract::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
+}
 pub mod texture;
 pub mod uniform;
 pub mod view;
@@ -76,14 +103,14 @@ pub mod prelude {
         view::Msaa, ExtractSchedule,
     };
 }
-
-pub use extract_param::Extract;
-pub use extract_plugin::{ExtractSchedule, MainWorld};
+pub use bevy_extract::{
+    extract_param::Extract,
+    extract_plugin::{ExtractSchedule, MainWorld},
+};
 
 use crate::{
     camera::CameraPlugin,
     error_handler::{RenderErrorHandler, RenderState},
-    extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
@@ -103,6 +130,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleLabel},
 };
+use bevy_extract::ExtractPlugin;
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
@@ -342,7 +370,7 @@ impl Render {
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {
@@ -357,9 +385,13 @@ impl Plugin for RenderPlugin {
         if insert_future_resources(&self.render_creation, app.world_mut()) {
             // We only create the render world and set up extraction if we
             // have a rendering backend available.
-            app.add_plugins(ExtractPlugin {
-                pre_extract: error_handler::update_state,
-            });
+            app.add_plugins(ExtractPlugin::<RenderApp>::new(
+                error_handler::update_state,
+                Render::base_schedule,
+                Render.intern(),
+                RenderSystems::ExtractCommands.intern(),
+                RenderSystems::PostCleanup.intern(),
+            ));
         };
 
         app.add_plugins((

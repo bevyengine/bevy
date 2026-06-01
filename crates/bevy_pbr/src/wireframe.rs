@@ -38,7 +38,6 @@ use bevy_render::{
         allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
-    prelude::*,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -55,7 +54,8 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
@@ -882,6 +882,7 @@ pub enum WireframeTopology {
 
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
