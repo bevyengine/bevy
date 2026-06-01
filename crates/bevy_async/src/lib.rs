@@ -158,7 +158,7 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ));
@@ -200,7 +200,7 @@ mod tests {
         static ACCESS_RAN: AtomicBool = AtomicBool::new(false);
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ));
