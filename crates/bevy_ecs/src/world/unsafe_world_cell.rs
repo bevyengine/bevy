@@ -580,6 +580,25 @@ impl<'w> UnsafeWorldCell<'w> {
         entity_cell.get_mut_by_id(component_id).ok()
     }
 
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
+    /// - no other references to the resource exist at the same time
+    /// - the resource `R` is mutable
+    #[inline]
+    pub unsafe fn get_resource_mut_assume_mutable<R: Resource>(self) -> Option<Mut<'w, R>> {
+        let component_id = self.components().get_valid_id(TypeId::of::<R>())?;
+        // SAFETY:
+        // - caller ensures `self` has permission to access the resource mutably
+        // - caller ensures no other references to the resource exist
+        // - caller ensures the resource is mutable
+        unsafe {
+            self.get_resource_mut_by_id(component_id)
+                // `component_id` was gotten from `TypeId::of::<R>()`
+                .map(|ptr| ptr.with_type::<R>())
+        }
+    }
+
     /// Gets a mutable reference to the non-send resource of the given type if it exists
     ///
     /// # Safety

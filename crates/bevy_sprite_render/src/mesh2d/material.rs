@@ -1037,7 +1037,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     // entity field here entirely, but we currently can't do so
                     // because UI creates multiple render entities for each main
                     // entity in its sorted phases.
-                    transparent_phase.add(Transparent2d {
+                    transparent_phase.add_retained(Transparent2d {
                         entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,
                         pipeline: pipeline_id,
