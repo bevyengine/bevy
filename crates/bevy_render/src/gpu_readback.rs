@@ -25,11 +25,11 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
+use bevy_extract_macros::ExtractComponent;
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_log::warn;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-use bevy_render_macros::ExtractComponent;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
@@ -81,6 +81,7 @@ impl Plugin for GpuReadbackPlugin {
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
 /// when complete. If this component is not removed, the readback will be attempted every frame
 #[derive(Component, ExtractComponent, Clone, Debug, FromTemplate)]
+#[extract_app(RenderApp)]
 pub enum Readback {
     #[default]
     Texture(Handle<Image>),

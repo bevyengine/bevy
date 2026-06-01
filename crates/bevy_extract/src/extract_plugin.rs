@@ -1,100 +1,121 @@
-use crate::{
-    sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderApp, RenderSystems,
-};
-use bevy_app::{App, Plugin, SubApp};
+use core::marker::PhantomData;
+
+use crate::sync_world::{despawn_temporary_entities, entity_sync_system, SyncWorldPlugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule,
+        ScheduleBuildSettings, ScheduleLabel, Schedules,
+    },
     world::{Mut, World},
 };
 use bevy_utils::default;
 
-/// Plugin that sets up the [`RenderApp`] and handles extracting data from the
-/// main world to the render world.
-pub struct ExtractPlugin {
+/// Plugin that sets up the sub app for the [`AppLabel`] and handles extracting data from the
+/// main world to the sub world.
+pub struct ExtractPlugin<L: AppLabel + Default> {
     /// Function that gets run at the beginning of each extraction.
     ///
-    /// Gets the main world and render world as arguments (in that order).
+    /// Gets the main world and sub world as arguments (in that order).
     pub pre_extract: fn(&mut World, &mut World),
+
+    marker: PhantomData<L>,
+
+    pub base_schedule: fn() -> Schedule,
+    pub schedule_label: InternedScheduleLabel,
+
+    pub extract_set: InternedSystemSet,
+    pub despawn_set: InternedSystemSet,
 }
 
-impl Default for ExtractPlugin {
-    fn default() -> Self {
+impl<L: AppLabel + Default> ExtractPlugin<L> {
+    pub fn new(
+        pre_extract: fn(&mut World, &mut World),
+        base_schedule: fn() -> Schedule,
+        schedule_label: InternedScheduleLabel,
+        extract_set: InternedSystemSet,
+        despawn_set: InternedSystemSet,
+    ) -> Self {
         Self {
-            pre_extract: |_, _| {},
+            pre_extract,
+            marker: PhantomData,
+            base_schedule,
+            schedule_label,
+            extract_set,
+            despawn_set,
         }
     }
 }
 
-impl Plugin for ExtractPlugin {
+impl<L: AppLabel + Default + Copy + Eq> Plugin for ExtractPlugin<L> {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncWorldPlugin);
+        app.add_plugins(SyncWorldPlugin::<L>::default());
         app.init_resource::<ScratchMainWorld>();
 
-        let mut render_app = SubApp::new();
+        let mut sub_app = SubApp::new();
 
         let mut extract_schedule = Schedule::new(ExtractSchedule);
         // We skip applying any commands during the ExtractSchedule
-        // so commands can be applied on the render thread.
+        // so commands can be applied on the sub thread.
         extract_schedule.set_build_settings(ScheduleBuildSettings {
             auto_insert_apply_deferred: false,
             ..default()
         });
         extract_schedule.set_apply_final_deferred(false);
 
-        render_app
-            .add_schedule(Render::base_schedule())
+        sub_app
+            .add_schedule((self.base_schedule)())
             .add_schedule(extract_schedule)
             .allow_ambiguous_resource::<MainWorld>()
             .add_systems(
-                Render,
+                self.schedule_label,
                 (
-                    // This set applies the commands from the extract schedule while the render schedule
+                    // This set applies the commands from the extract schedule while the sub schedule
                     // is running in parallel with the main app.
-                    apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                    despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
+                    apply_extract_commands.in_set(self.extract_set),
+                    despawn_temporary_entities::<L>.in_set(self.despawn_set),
                 ),
             );
 
         let pre_extract = self.pre_extract;
-        render_app.set_extract(move |main_world, render_world| {
-            pre_extract(main_world, render_world);
+        sub_app.set_extract(move |main_world, sub_world| {
+            pre_extract(main_world, sub_world);
 
             {
                 #[cfg(feature = "trace")]
                 let _stage_span = bevy_log::info_span!("entity_sync").entered();
-                entity_sync_system(main_world, render_world);
+                entity_sync_system::<L>(main_world, sub_world);
             }
 
             // run extract schedule
-            extract(main_world, render_world);
+            extract(main_world, sub_world);
         });
 
-        app.insert_sub_app(RenderApp, render_app);
+        app.insert_sub_app(L::default(), sub_app);
     }
 }
 
-/// Schedule in which data from the main world is 'extracted' into the render world.
+/// Schedule in which data from the main world is 'extracted' into the sub world.
 ///
 /// This step should be kept as short as possible to increase the "pipelining potential" for
-/// running the next frame while rendering the current frame.
+/// running the next frame while processing the current frame.
 ///
-/// This schedule is run on the render world, but it also has access to the main world.
+/// This schedule is run on the sub world, but it also has access to the main world.
 /// See [`MainWorld`] and [`Extract`](crate::Extract) for details on how to access main world data from this schedule.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
 /// Applies the commands from the extract schedule. This happens during
-/// the render schedule rather than during extraction to allow the commands to run in parallel with the
-/// main app when pipelined rendering is enabled.
-fn apply_extract_commands(render_world: &mut World) {
-    render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
+/// the sub schedule rather than during extraction to allow the commands to run in parallel with the
+/// main app when pipelined processing is enabled.
+fn apply_extract_commands(sub_world: &mut World) {
+    sub_world.resource_scope(|sub_world, mut schedules: Mut<Schedules>| {
         schedules
             .get_mut(ExtractSchedule)
             .unwrap()
-            .apply_deferred(render_world);
+            .apply_deferred(sub_world);
     });
 }
 /// The simulation [`World`] of the application, stored as a resource.
@@ -110,17 +131,17 @@ pub struct MainWorld(World);
 #[derive(Resource, Default)]
 struct ScratchMainWorld(World);
 
-/// Executes the [`ExtractSchedule`] step of the renderer.
-/// This updates the render world with the extracted ECS data of the current frame.
-pub fn extract(main_world: &mut World, render_world: &mut World) {
-    // temporarily add the app world to the render world as a resource
+/// Executes the [`ExtractSchedule`] step of the processor.
+/// This updates the sub world with the extracted ECS data of the current frame.
+pub fn extract(main_world: &mut World, sub_world: &mut World) {
+    // temporarily add the app world to the sub world as a resource
     let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = core::mem::replace(main_world, scratch_world.0);
-    render_world.insert_resource(MainWorld(inserted_world));
-    render_world.run_schedule(ExtractSchedule);
+    sub_world.insert_resource(MainWorld(inserted_world));
+    sub_world.run_schedule(ExtractSchedule);
 
     // move the app world back, as if nothing happened.
-    let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
+    let inserted_world = sub_world.remove_resource::<MainWorld>().unwrap();
     let scratch_world = core::mem::replace(main_world, inserted_world.0);
     main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
@@ -128,6 +149,7 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 #[cfg(test)]
 mod test {
     use bevy_app::{App, Startup};
+    use bevy_derive::AppLabel;
     use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
     use crate::{
@@ -135,8 +157,34 @@ mod test {
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
-        Render, RenderApp,
     };
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+    pub enum MyScheduleSystems {
+        ExtractCommands,
+        PostCleanup,
+    }
+
+    #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+    pub struct ExtractApp;
+
+    #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+    pub struct MySchedule;
+
+    impl MySchedule {
+        /// Sets up the base structure of the processing [`Schedule`].
+        ///
+        /// The sets defined in this enum are configured to run in order.
+        pub fn base_schedule() -> Schedule {
+            use MyScheduleSystems::*;
+
+            let mut schedule = Schedule::new(Self);
+
+            schedule.configure_sets((ExtractCommands, PostCleanup).chain());
+
+            schedule
+        }
+    }
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponent;
@@ -145,16 +193,17 @@ mod test {
     struct RenderComponentExtra;
 
     #[derive(Component, Clone, Debug, ExtractComponent)]
+    #[extract_app(ExtractApp)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponentNoExtract;
 
-    impl SyncComponent for RenderComponent {
+    impl SyncComponent<ExtractApp> for RenderComponent {
         type Target = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractComponent for RenderComponent {
+    impl ExtractComponent<ExtractApp> for RenderComponent {
         type QueryData = &'static Self;
         type QueryFilter = ();
         type Out = (RenderComponent, RenderComponentExtra);
@@ -170,20 +219,26 @@ mod test {
     fn extraction_works() {
         let mut app = App::new();
 
-        app.add_plugins(ExtractPlugin::default());
-        app.add_plugins(ExtractComponentPlugin::<RenderComponent>::default());
-        app.add_plugins(ExtractComponentPlugin::<RenderComponentSeparate>::default());
+        app.add_plugins(ExtractPlugin::<ExtractApp>::new(
+            |_, _| {},
+            MySchedule::base_schedule,
+            MySchedule.intern(),
+            MyScheduleSystems::ExtractCommands.intern(),
+            MyScheduleSystems::PostCleanup.intern(),
+        ));
+        app.add_plugins(ExtractComponentPlugin::<ExtractApp, RenderComponent>::default());
+        app.add_plugins(ExtractComponentPlugin::<ExtractApp, RenderComponentSeparate>::default());
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });
 
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+        let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
 
         // Normally RenderPlugin sets the RenderRecovery schedule as update, but for
         // testing we just use the Render schedule directly.
-        render_app.update_schedule = Some(Render.intern());
+        sub_app.update_schedule = Some(MySchedule.intern());
 
-        render_app.world_mut().add_observer(
+        sub_app.world_mut().add_observer(
             |event: On<Add, (RenderComponent, RenderComponentExtra)>, mut commands: Commands| {
                 // Simulate data that's not extracted
                 commands
@@ -196,8 +251,8 @@ mod test {
 
         // Check that all components have been extracted
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-            render_app
+            let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
+            sub_app
                 .world_mut()
                 .run_system_cached(
                     |entity: Single<(
@@ -231,8 +286,8 @@ mod test {
 
         // Check that the extracted components have been removed
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-            render_app
+            let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
+            sub_app
                 .world_mut()
                 .run_system_cached(
                     |entity: Single<(

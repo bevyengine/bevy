@@ -29,11 +29,11 @@ use bevy_app::{App, Plugin};
 use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, VariantDefaults};
+use bevy_extract_macros::ExtractComponent;
 use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render_macros::ExtractComponent;
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
@@ -237,6 +237,7 @@ impl Plugin for ViewPlugin {
     Debug,
 )]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
+#[extract_app(RenderApp)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,

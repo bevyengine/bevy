@@ -24,12 +24,14 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
+    RenderApp,
 };
 use bevy_utils::default;
 use tracing::warn;
 
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone, FromTemplate)]
+#[extract_app(RenderApp)]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,
