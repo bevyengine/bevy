@@ -421,6 +421,7 @@ pub struct NoWireframe2d;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
