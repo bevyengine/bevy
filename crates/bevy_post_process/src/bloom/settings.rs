@@ -325,15 +325,6 @@ impl ExtractComponent<RenderApp> for Bloom {
                     aspect: AspectRatio::try_from_pixels(size.x, size.y)
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),
-                    intensity: bloom.intensity,
-                    low_frequency_boost: bloom.low_frequency_boost,
-                    low_frequency_boost_curvature: bloom.low_frequency_boost_curvature,
-                    high_pass_frequency: bloom.high_pass_frequency,
-                    composite_mode: match bloom.composite_mode {
-                        BloomCompositeMode::EnergyConserving => 0,
-                        BloomCompositeMode::Additive => 1,
-                    },
-                    max_mip: (bloom.max_mip_dimension.ilog2().max(2) - 1).saturating_sub(1) as f32,
                     lens_dirt_intensity: bloom.lens_dirt.intensity,
                     lens_dirt_tint: bloom.lens_dirt.tint.to_linear().to_vec3(),
                     padding: 0,
@@ -355,12 +346,6 @@ pub struct BloomUniforms {
     pub viewport: Vec4,
     pub scale: Vec2,
     pub aspect: f32,
-    pub intensity: f32,
-    pub low_frequency_boost: f32,
-    pub low_frequency_boost_curvature: f32,
-    pub high_pass_frequency: f32,
-    pub composite_mode: u32,
-    pub max_mip: f32,
     pub lens_dirt_intensity: f32,
     pub lens_dirt_tint: Vec3,
     pub padding: u32,

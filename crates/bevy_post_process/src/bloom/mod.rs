@@ -17,7 +17,6 @@ pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter, LensDirt};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_color::{Gray, LinearRgba};
 use bevy_core_pipeline::{
     schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
     tonemapping::tonemapping,
@@ -38,6 +37,7 @@ use bevy_render::{
     view::ViewTarget,
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use core::num::NonZero;
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
@@ -172,6 +172,11 @@ pub fn bloom(
                     &bloom_texture.view(0),
                     &bind_groups.sampler,
                     uniforms_binding.clone(),
+                    BufferBinding {
+                        buffer: &bind_groups.blend_factor_buffers[0],
+                        offset: 0,
+                        size: NonZero::<u64>::new(4),
+                    },
                     &dirt_image.texture_view,
                     &bind_groups.sampler,
                 )),
@@ -263,12 +268,6 @@ pub fn bloom(
             &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
             &[uniform_index.index()],
         );
-        let blend = compute_blend_factor(
-            bloom_settings,
-            mip as f32,
-            (bloom_texture.mip_count - 1) as f32,
-        );
-        upsampling_pass.set_blend_constant(LinearRgba::gray(blend).into());
         upsampling_pass.draw(0..3, 0..1);
     }
 
@@ -293,12 +292,6 @@ pub fn bloom(
                 viewport.depth.start,
                 viewport.depth.end,
             );
-        }
-
-        if !use_dirt {
-            let blend =
-                compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
-            upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend).into());
         }
         upsampling_final_pass.draw(0..3, 0..1);
     }
@@ -421,6 +414,7 @@ pub struct BloomBindGroups {
     cache_key: (Vec<TextureId>, BufferId),
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
+    blend_factor_buffers: Box<[Buffer]>,
     sampler: Sampler,
 }
 
@@ -429,13 +423,13 @@ fn prepare_bloom_bind_groups(
     render_device: Res<RenderDevice>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomTexture, Option<&BloomBindGroups>)>,
+    views: Query<(Entity, &BloomTexture, &Bloom, Option<&BloomBindGroups>)>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
     pipeline_cache: Res<PipelineCache>,
 ) {
     let sampler = &downsampling_pipeline.sampler;
 
-    for (entity, bloom_texture, bloom_bind_groups) in &views {
+    for (entity, bloom_texture, bloom, bloom_bind_groups) in &views {
         #[cfg(any(
             not(feature = "webgl"),
             not(target_arch = "wasm32"),
@@ -476,6 +470,18 @@ fn prepare_bloom_bind_groups(
             ));
         }
 
+        let mip_count = bloom_texture.mip_count;
+        let blend_factor_buffers: Box<[Buffer]> = (0..mip_count)
+            .map(|mip| {
+                let factor = compute_blend_factor(bloom, mip as f32, (mip_count - 1) as f32);
+                render_device.create_buffer_with_data(&BufferInitDescriptor {
+                    label: Some("bloom_blend_factor"),
+                    contents: &factor.to_ne_bytes(),
+                    usage: BufferUsages::STORAGE,
+                })
+            })
+            .collect();
+
         let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in (0..bloom_texture.mip_count).rev() {
             upsampling_bind_groups.push(render_device.create_bind_group(
@@ -485,6 +491,11 @@ fn prepare_bloom_bind_groups(
                     &bloom_texture.view(mip),
                     sampler,
                     uniforms.binding().unwrap(),
+                    BufferBinding {
+                        buffer: &blend_factor_buffers[mip as usize],
+                        offset: 0,
+                        size: NonZero::<u64>::new(4),
+                    },
                 )),
             ));
         }
@@ -493,6 +504,7 @@ fn prepare_bloom_bind_groups(
             cache_key,
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
+            blend_factor_buffers,
             sampler: sampler.clone(),
         });
     }
