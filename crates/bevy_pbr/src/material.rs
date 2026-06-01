@@ -143,6 +143,33 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
 /// ```
+///
+/// # Multiview
+///
+/// Under a multiview camera, the main opaque pass broadcasts each
+/// `Opaque3d` / `AlphaMask3d` draw across all eye layers in a single
+/// dispatch. Any custom WGSL entry (vertex or fragment) must declare
+/// `@builtin(view_index)` and assign
+/// `bevy_pbr::mesh_view_bindings::current_view_index = view_index;`
+/// inside `#ifdef MULTIVIEW`. Otherwise `current_view_index` stays at 0
+/// on every layer, and reads through `view()` / `mesh_view_bindings::*`
+/// (and helpers built on them, e.g. `view_transformations::*`) resolve
+/// to eye 0's data — silent visual incorrectness.
+///
+/// A material that overrides [`fragment_shader`] only and keeps the
+/// default vertex entry still renders geometry correctly per layer
+/// (the default `mesh.wgsl` vertex entry threads `view_index` itself);
+/// the failure mode is restricted to lighting and camera-relative
+/// effects in the custom fragment. A material that also overrides
+/// [`vertex_shader`] must thread `view_index` in the custom vertex
+/// entry the same way, otherwise per-layer geometry breaks too.
+///
+/// See `pbr.wgsl` for the canonical fragment-entry pattern,
+/// `mesh.wgsl` for the vertex-entry pattern, and
+/// `mesh_view_bindings.wgsl` for a paste-ready snippet.
+///
+/// [`fragment_shader`]: Material::fragment_shader
+/// [`vertex_shader`]: Material::vertex_shader
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.

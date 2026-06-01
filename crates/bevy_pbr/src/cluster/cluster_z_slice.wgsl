@@ -33,8 +33,23 @@
 // Information about the clusters as a whole, including the dimensions of the
 // cluster grid.
 @group(0) @binding(5) var<uniform> lights: Lights;
-// Information about the view.
-@group(0) @binding(6) var<uniform> view: View;
+// View uniform, shaped the same as `bevy_pbr::mesh_view_bindings::view_array`
+// so this compute pipeline can share the packed `DynamicArrayUniformBuffer`
+// behind `ViewUniforms`. Clustering output is a single set of storage buffers
+// per camera (shared across all eyes of a multiview camera), so this shader
+// reads `view()` at the default `current_view_index = 0` — i.e. eye 0's head
+// pose — to keep cluster assignment consistent across eyes. Per-eye clustering
+// would require splitting the output buffers per eye, which is future work.
+#ifdef MAX_VIEW_COUNT
+@group(0) @binding(6) var<uniform> view_array: array<View, #{MAX_VIEW_COUNT}>;
+#else
+@group(0) @binding(6) var<uniform> view_array: array<View, 1>;
+#endif
+var<private> current_view_index: i32 = 0;
+
+fn view() -> View {
+    return view_array[current_view_index];
+}
 
 // A temporary workgroup-local buffer used to accelerate the "farthest depth of
 // any object" calculation.
@@ -105,8 +120,8 @@ fn z_slice_main(
         radius = clustered_decals.decals[object_index].bounding_sphere_radius;
     }
 
-    let view_from_world_scale = compute_view_from_world_scale(view.world_from_view);
-    let is_orthographic = view.clip_from_view[3].w == 1.0;
+    let view_from_world_scale = compute_view_from_world_scale(view().world_from_view);
+    let is_orthographic = view().clip_from_view[3].w == 1.0;
 
     // Gather the farthest Z value among all clusters in this workgroup.
     // We want to do this *before* bailing out below so that all threads hit the
@@ -121,8 +136,8 @@ fn z_slice_main(
     let cluster_bounds = calculate_sphere_cluster_bounds(
         position,
         radius,
-        view.view_from_world,
-        view.clip_from_view,
+        view().view_from_world,
+        view().clip_from_view,
         view_from_world_scale,
         lights.cluster_dimensions.xyz,
         lights.cluster_factors.zw,
@@ -161,7 +176,7 @@ fn accumulate_farthest_z_value(
     is_orthographic: bool
 ) {
     // Compute the maximum Z extent for our clusterable object.
-    let view_from_world_row_2 = transpose(view.view_from_world)[2];
+    let view_from_world_row_2 = transpose(view().view_from_world)[2];
     let far_z = dot(-view_from_world_row_2, vec4(position, 1.0)) + radius * view_from_world_scale.z;
     shared_farthest_z[local_id] = far_z;
     workgroupBarrier();

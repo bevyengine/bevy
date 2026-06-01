@@ -46,7 +46,7 @@ fn pbr_input_from_vertex_output(
     pbr_input.flags = mesh[in.instance_index].flags;
 #endif
 
-    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
+    pbr_input.is_orthographic = view().clip_from_view[3].w == 1.0;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
@@ -110,7 +110,7 @@ fn pbr_input_from_standard_material(
     bias.ddx_uv = in.ddx_uv;
     bias.ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-    bias.mip_bias = view.mip_bias;
+    bias.mip_bias = view().mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
 // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
@@ -656,7 +656,11 @@ pbr_input.material.uv_transform = uv_transform;
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#ifdef MULTIVIEW
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0i).r;
+#else
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+#endif
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
         // Use SSAO to estimate the specular occlusion.

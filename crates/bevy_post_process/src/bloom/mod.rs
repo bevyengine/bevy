@@ -136,10 +136,17 @@ pub fn bloom(
     let view_texture = view_target.main_texture_view();
     let view_texture_unsampled = view_target.get_unsampled_color_attachment();
 
-    // Create the first downsampling bind group (reads from main texture)
+    // Create the first downsampling bind group (reads from main texture).
+    // Pick the multiview layout when the camera's main texture is an array;
+    // subsequent downsample passes always read bloom's own single-layer mips.
+    let first_downsample_layout = if view_target.multiview_count().is_some() {
+        &downsampling_pipeline_res.bind_group_layout_multiview
+    } else {
+        &downsampling_pipeline_res.bind_group_layout
+    };
     let downsampling_first_bind_group = ctx.render_device().create_bind_group(
         "bloom_downsampling_first_bind_group",
-        &pipeline_cache.get_bind_group_layout(&downsampling_pipeline_res.bind_group_layout),
+        &pipeline_cache.get_bind_group_layout(first_downsample_layout),
         &BindGroupEntries::sequential((
             view_texture,
             &bind_groups.sampler,

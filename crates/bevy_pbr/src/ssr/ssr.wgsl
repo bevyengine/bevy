@@ -124,14 +124,27 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>, jitter: f32) -> vec4<f32
 }
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     // Sample the depth.
     var frag_coord = in.position;
     frag_coord.z = prepass_utils::prepass_depth(in.position, 0u);
 
     // Load the G-buffer data.
     let fragment = textureLoad(color_texture, vec2<i32>(frag_coord.xy), 0);
+#ifdef MULTIVIEW
+    let gbuffer = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+#else
     let gbuffer = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
     let pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, gbuffer);
 
     // Don't do anything if the surface is too rough or too smooth
@@ -310,7 +323,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Accumulate the environment map light.
     // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
     // environment map if SSR hits.
-    indirect_light += (view.exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
+    indirect_light += (view().exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
 #endif
 
     // Write the results.

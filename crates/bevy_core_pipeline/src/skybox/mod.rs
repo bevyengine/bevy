@@ -15,19 +15,20 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{sampler, texture_cube, uniform_buffer},
+        binding_types::{sampler, texture_cube, uniform_buffer, uniform_buffer_sized},
         *,
     },
     renderer::RenderDevice,
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
+    view::{ExtractedMultiview, ExtractedView, Msaa, ViewUniforms},
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
+use core::num::NonZeroU32;
 
 use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
@@ -120,7 +121,16 @@ impl SkyboxPipeline {
                     (
                         texture_cube(TextureSampleType::Float { filterable: true }),
                         sampler(SamplerBindingType::Filtering),
-                        uniform_buffer::<ViewUniform>(true)
+                        // View
+                        //
+                        // Sized `None` (unbounded) so the WGSL is free to
+                        // declare the binding as `array<View, MAX_VIEW_COUNT>`
+                        // for multiview pipelines and `array<View, 1>` for the
+                        // non-multiview fallback. Backing storage is the
+                        // packed `DynamicArrayUniformBuffer<ViewUniform>` and
+                        // the dynamic offset selects the per-camera array
+                        // slot.
+                        uniform_buffer_sized(true, None)
                             .visibility(ShaderStages::VERTEX_FRAGMENT),
                         uniform_buffer::<SkyboxUniforms>(true),
                     ),
@@ -141,17 +151,44 @@ struct SkyboxPipelineKey {
     target_format: TextureFormat,
     samples: u32,
     depth_format: TextureFormat,
+    /// Per-camera multiview layer count. `1` is the non-multiview case;
+    /// `>1` flips the WGSL `view_array` to `array<View, MAX_VIEW_COUNT>`
+    /// and reads `current_view_index` from `@builtin(view_index)`.
+    multiview_view_count: u32,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
     type Key = SkyboxPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = Vec::new();
+        if key.multiview_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+        }
+
+        // Broadcast across every eye layer in a single pass. The matching
+        // render-pass descriptor in `core_3d/main_opaque_pass_3d_node.rs`
+        // (the extracted skybox broadcast pass) sets the same mask. The
+        // mask is `(1 << view_count) - 1` (one bit per eye); computed via
+        // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+        // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+        let multiview_mask = if key.multiview_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - key.multiview_view_count))
+        } else {
+            None
+        };
+
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
+            multiview_mask,
             layout: vec![self.bind_group_layout.clone()],
             vertex: VertexState {
                 shader: self.shader.clone(),
+                shader_defs: shader_defs.clone(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
@@ -177,6 +214,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
@@ -198,9 +236,15 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    cameras: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    cameras: Query<
+        (Entity, &ExtractedView, &Msaa, Option<&ExtractedMultiview>),
+        With<Skybox>,
+    >,
 ) {
-    for (entity, view, msaa) in &cameras {
+    for (entity, view, msaa, multiview) in &cameras {
+        let multiview_view_count = multiview
+            .map(|m| m.subviews.len() as u32)
+            .unwrap_or(1);
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
@@ -208,6 +252,7 @@ fn prepare_skybox_pipelines(
                 target_format: view.target_format,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
+                multiview_view_count,
             },
         );
 

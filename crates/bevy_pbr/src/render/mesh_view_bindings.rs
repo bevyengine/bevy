@@ -31,7 +31,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
+        Msaa, RenderVisibilityRanges, ViewTarget, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
@@ -99,6 +99,7 @@ bitflags::bitflags! {
         const CONTACT_SHADOWS                  = 1 << 13;
         const DISTANCE_FOG                     = 1 << 14;
         const AREA_LIGHT_LUTS                  = 1 << 15;
+        const MULTIVIEW                        = 1 << 16;
     }
 }
 
@@ -179,6 +180,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         if value.contains(MeshPipelineKey::DISTANCE_FOG) {
             result |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
         }
+        if value.max_view_count() > 1 {
+            result |= MeshPipelineViewLayoutKey::MULTIVIEW;
+        }
 
         result
     }
@@ -252,9 +256,14 @@ fn layout_entries(
         ShaderStages::FRAGMENT,
         (
             // View
+            //
+            // Declared as `uniform_buffer_sized(true, None)` so the WGSL is free to size
+            // the binding as `array<View, MAX_VIEW_COUNT>` (multiview) or `array<View, 1>`
+            // (non-multiview). Backing storage is `DynamicArrayUniformBuffer<ViewUniform>`;
+            // the dynamic offset selects the per-camera array slot.
             (
                 0,
-                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer_sized(true, None).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Lights
             (1, uniform_buffer::<GpuLights>(true)),
@@ -372,13 +381,16 @@ fn layout_entries(
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        entries = entries.extend_with_indices((
-            // Screen space ambient occlusion texture
-            (
-                17,
-                texture_2d(TextureSampleType::Float { filterable: false }),
-            ),
-        ));
+        // Screen space ambient occlusion texture
+        //
+        // Under multiview the binding is an array texture with one layer per eye;
+        // non-multiview keeps the original `texture_2d` shape.
+        let entry = if layout_key.contains(MeshPipelineViewLayoutKey::MULTIVIEW) {
+            texture_2d_array(TextureSampleType::Float { filterable: false })
+        } else {
+            texture_2d(TextureSampleType::Float { filterable: false })
+        };
+        entries = entries.extend_with_indices(((17, entry),));
     }
 
     if layout_key.contains(MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER) {
@@ -411,11 +423,16 @@ fn layout_entries(
     }
 
     // View Transmission Texture
+    //
+    // Switches to `texture_2d_array` under multiview so per-eye reads can
+    // index the right layer via `current_view_index`. Sampler is unchanged.
+    let view_transmission_entry = if layout_key.contains(MeshPipelineViewLayoutKey::MULTIVIEW) {
+        texture_2d_array(TextureSampleType::Float { filterable: true })
+    } else {
+        texture_2d(TextureSampleType::Float { filterable: true })
+    };
     entries = entries.extend_with_indices((
-        (
-            24,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
+        (24, view_transmission_entry),
         (25, sampler(SamplerBindingType::Filtering)),
     ));
 
@@ -644,6 +661,7 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         &Msaa,
+        &ViewTarget,
         Option<&ScreenSpaceAmbientOcclusionResources>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
@@ -717,6 +735,7 @@ pub fn prepare_mesh_view_bind_groups(
             shadow_bindings,
             cluster_bindings,
             msaa,
+            view_target,
             ssao_resources,
             prepass_textures,
             transmission_texture,
@@ -753,8 +772,12 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
+            let is_multiview = view_target.multiview_count().is_some();
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
+            if is_multiview {
+                layout_key |= MeshPipelineViewLayoutKey::MULTIVIEW;
+            }
             let mut offsets = ArrayVec::from_iter([
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -850,17 +873,50 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
+            // Under multiview the SSAO output texture carries `view_count`
+            // layers; bind it via an explicit `D2Array` view so it matches the
+            // array-typed WGSL binding, and the consumer reads its eye's slice
+            // via `current_view_index`. Non-multiview keeps the single-layer
+            // `default_view`.
+            let ssao_array_view = ssao_resources.filter(|_| is_multiview).map(|res| {
+                res.screen_space_ambient_occlusion_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("ssao_texture_array_view"),
+                        dimension: Some(TextureViewDimension::D2Array),
+                        ..Default::default()
+                    })
+            });
             if let Some(ssao_resources) = ssao_resources {
                 layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-                let ssao_view = &ssao_resources
-                    .screen_space_ambient_occlusion_texture
-                    .default_view;
+                let ssao_view = ssao_array_view.as_ref().unwrap_or(
+                    &ssao_resources.screen_space_ambient_occlusion_texture.default_view,
+                );
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
+            // Under multiview the transmission binding is a `D2Array` view of
+            // the multi-layer transmission texture (or single-layer fallback,
+            // which `D2Array` accepts at `array_layer_count = 1`).
+            let transmission_array_view = if is_multiview {
+                let source_texture = transmission_texture
+                    .map(|transmission| &transmission.texture)
+                    .unwrap_or(&fallback_image_zero.texture);
+                Some(source_texture.create_view(&TextureViewDescriptor {
+                    label: Some("view_transmission_array_view"),
+                    dimension: Some(TextureViewDimension::D2Array),
+                    ..Default::default()
+                }))
+            } else {
+                None
+            };
+            let transmission_view: &TextureView = transmission_array_view.as_ref().unwrap_or_else(
+                || {
+                    transmission_texture
+                        .map(|transmission| &transmission.view)
+                        .unwrap_or(&fallback_image_zero.texture_view)
+                },
+            );
 
             let transmission_sampler = transmission_texture
                 .map(|transmission| &transmission.sampler)
@@ -873,7 +929,13 @@ pub fn prepare_mesh_view_bind_groups(
             // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
             if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
-                prepass_bindings = prepass::get_bindings(prepass_textures);
+                // Bindings 20-22 only switch to D2Array views when multiview is
+                // active AND MSAA is off (no multisampled-array textures in
+                // WGSL). Binding 23 (deferred) is never multisampled so the
+                // multiview switch is unconditional.
+                let multiview_array = is_multiview && msaa.samples() == 1;
+                prepass_bindings =
+                    prepass::get_bindings(prepass_textures, multiview_array, is_multiview);
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)

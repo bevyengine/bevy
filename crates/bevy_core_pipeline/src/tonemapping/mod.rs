@@ -13,16 +13,17 @@ use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
+        binding_types::{sampler, texture_2d, texture_3d, uniform_buffer_sized},
         *,
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform},
+    view::{ExtractedMultiview, ExtractedView, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
+use core::num::NonZeroU32;
 
 mod node;
 
@@ -193,6 +194,10 @@ pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
     flags: TonemappingPipelineKeyFlags,
+    /// Per-camera multiview layer count. `1` is the non-multiview case;
+    /// `>1` flips the WGSL `view_array` to `array<View, MAX_VIEW_COUNT>`
+    /// and reads `current_view_index` from `@builtin(view_index)`.
+    multiview_view_count: u32,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -209,6 +214,14 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
             4,
         ));
+
+        if key.multiview_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+        }
 
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
@@ -270,8 +283,21 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::PbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
         }
+
+        // Broadcast across every eye layer in a single pass. The matching
+        // render-pass descriptor in `node.rs` sets the same mask. The mask is
+        // `(1 << view_count) - 1` (one bit per eye); computed via
+        // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+        // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+        let multiview_mask = if key.multiview_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - key.multiview_view_count))
+        } else {
+            None
+        };
+
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
+            multiview_mask,
             layout: vec![self.texture_bind_group.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
@@ -298,7 +324,14 @@ pub fn init_tonemapping_pipeline(
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
         (
-            (0, uniform_buffer::<ViewUniform>(true)),
+            // View
+            //
+            // Sized `None` (unbounded) so the WGSL is free to declare the
+            // binding as `array<View, MAX_VIEW_COUNT>` for multiview pipelines
+            // and `array<View, 1>` for the non-multiview fallback. Backing
+            // storage is the packed `DynamicArrayUniformBuffer<ViewUniform>`
+            // and the dynamic offset selects the per-camera array slot.
+            (0, uniform_buffer_sized(true, None)),
             (
                 1,
                 texture_2d(TextureSampleType::Float { filterable: false }),
@@ -336,11 +369,12 @@ pub fn prepare_view_tonemapping_pipelines(
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
+            Option<&ExtractedMultiview>,
         ),
         With<ViewTarget>,
     >,
 ) {
-    for (entity, view, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, tonemapping, dither, multiview) in view_targets.iter() {
         // As an optimization, we omit parts of the shader that are unneeded.
         let mut flags = TonemappingPipelineKeyFlags::empty();
         flags.set(
@@ -358,11 +392,16 @@ pub fn prepare_view_tonemapping_pipelines(
                 .any(|section| *section != default()),
         );
 
+        let multiview_view_count = multiview
+            .map(|m| m.subviews.len() as u32)
+            .unwrap_or(1);
+
         let key = TonemappingPipelineKey {
             target_format: view.target_format,
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
+            multiview_view_count,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 

@@ -20,20 +20,22 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::num::NonZeroU32;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
-        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        DownlevelFlags, FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        binding_types::{uniform_buffer, uniform_buffer_sized},
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, CompareFunction, DepthStencilState, DownlevelFlags, FragmentState,
+        MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
+        SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
     renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
-    view::{Msaa, ViewUniform, ViewUniforms},
+    view::{ExtractedMultiview, Msaa, ViewUniforms},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 
 use crate::{
@@ -144,6 +146,10 @@ struct BackgroundMotionVectorsPipeline {
 struct BackgroundMotionVectorsPipelineKey {
     samples: u32,
     normal_prepass: bool,
+    /// Per-camera multiview layer count. `1` is the non-multiview case;
+    /// `>1` flips the WGSL `view_array` to `array<View, MAX_VIEW_COUNT>`
+    /// and reads `current_view_index` from `@builtin(view_index)`.
+    multiview_view_count: u32,
 }
 
 fn init_background_motion_vectors_pipeline(
@@ -157,7 +163,15 @@ fn init_background_motion_vectors_pipeline(
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    uniform_buffer::<ViewUniform>(true),
+                    // View
+                    //
+                    // Sized `None` (unbounded) so the WGSL is free to declare
+                    // the binding as `array<View, MAX_VIEW_COUNT>` for
+                    // multiview pipelines and `array<View, 1>` for the
+                    // non-multiview fallback. Backing storage is the packed
+                    // `DynamicArrayUniformBuffer<ViewUniform>` and the
+                    // dynamic offset selects the per-camera array slot.
+                    uniform_buffer_sized(true, None),
                     uniform_buffer::<PreviousViewData>(true),
                 ),
             ),
@@ -186,8 +200,29 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             target.write_mask = bevy_render::render_resource::ColorWrites::empty();
         }
 
+        let mut shader_defs = Vec::new();
+        if key.multiview_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
+        }
+
+        // Broadcast across every eye layer in a single pass. The matching
+        // render-pass descriptor in `prepass/node.rs` sets the same mask.
+        // The mask is `(1 << view_count) - 1` (one bit per eye); computed
+        // via `u32::MAX >> (32 - view_count)` to avoid the shift overflow
+        // that `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+        let multiview_mask = if key.multiview_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - key.multiview_view_count))
+        } else {
+            None
+        };
+
         RenderPipelineDescriptor {
             label: Some("background_motion_vectors_pipeline".into()),
+            multiview_mask,
             layout: vec![self.bind_group_layout.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
@@ -204,6 +239,7 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
+                shader_defs,
                 targets,
                 ..default()
             }),
@@ -218,20 +254,24 @@ fn prepare_background_motion_vectors_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>,
     pipeline: Res<BackgroundMotionVectorsPipeline>,
     views: Query<
-        (Entity, Has<NormalPrepass>, &Msaa),
+        (Entity, Has<NormalPrepass>, &Msaa, Option<&ExtractedMultiview>),
         (
             With<MotionVectorPrepass>,
             Without<NoBackgroundMotionVectors>,
         ),
     >,
 ) {
-    for (entity, normal_prepass, msaa) in &views {
+    for (entity, normal_prepass, msaa, multiview) in &views {
+        let multiview_view_count = multiview
+            .map(|m| m.subviews.len() as u32)
+            .unwrap_or(1);
         let id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BackgroundMotionVectorsPipelineKey {
                 samples: msaa.samples(),
                 normal_prepass,
+                multiview_view_count,
             },
         );
         commands

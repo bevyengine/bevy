@@ -74,6 +74,7 @@ use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
+use core::num::NonZeroU32;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
@@ -101,7 +102,7 @@ use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter}
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{
-    texture_format_from_code, texture_format_to_code, ExtractedView,
+    texture_format_from_code, texture_format_to_code, ExtractedMultiview, ExtractedView,
     RenderShadowMapVisibleEntities, RenderVisibleEntities,
 };
 use bevy_render::RenderSystems::PrepareAssets;
@@ -386,6 +387,7 @@ pub fn check_views_need_specialization(
             Has<ScreenSpaceReflectionsUniform>,
             Has<ViewContactShadowsUniformOffset>,
         ),
+        Option<&ExtractedMultiview>,
     )>,
 ) {
     for (
@@ -402,10 +404,15 @@ pub fn check_views_need_specialization(
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
         (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
+        multiview,
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_target_format(view.target_format);
+
+        if let Some(multiview) = multiview {
+            view_key |= MeshPipelineKey::from_max_view_count(multiview.subviews.len() as u32);
+        }
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -3065,6 +3072,7 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS
             << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const MAX_VIEW_COUNT_RESERVED_BITS = Self::MAX_VIEW_COUNT_MASK_BITS << Self::MAX_VIEW_COUNT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
@@ -3072,7 +3080,8 @@ bitflags::bitflags! {
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
             Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
-            Self::COLOR_TARGET_FORMAT_RESERVED_BITS.bits();
+            Self::COLOR_TARGET_FORMAT_RESERVED_BITS.bits() |
+            Self::MAX_VIEW_COUNT_RESERVED_BITS.bits();
     }
 }
 
@@ -3105,6 +3114,14 @@ impl MeshPipelineKey {
         .count_ones() as u64
         + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
 
+    // Per-camera multiview layer count. Encodes 1..=MAX_VIEW_COUNT directly;
+    // 0 means "no Multiview component" (treated as non-multiview, i.e. 1).
+    // `MAX_VIEW_COUNT` is 32 (see `bevy_camera::multiview::MAX_VIEW_COUNT`),
+    // so 6 bits is enough.
+    const MAX_VIEW_COUNT_MASK_BITS: u64 = 0b111111;
+    const MAX_VIEW_COUNT_SHIFT_BITS: u64 =
+        Self::COLOR_TARGET_FORMAT_MASK_BITS.count_ones() as u64 + Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
@@ -3132,6 +3149,24 @@ impl MeshPipelineKey {
 
     pub fn msaa_samples(&self) -> u32 {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+    }
+
+    /// Encodes the per-camera multiview layer count into the key. `count == 1`
+    /// is the non-multiview case; values >1 cause the mesh + prepass pipelines
+    /// to emit the `MAX_VIEW_COUNT` and `MULTIVIEW` shader defs.
+    #[inline]
+    pub fn from_max_view_count(count: u32) -> Self {
+        Self::from_bits_retain(
+            ((count as u64) & Self::MAX_VIEW_COUNT_MASK_BITS) << Self::MAX_VIEW_COUNT_SHIFT_BITS,
+        )
+    }
+
+    /// Returns the multiview layer count encoded in this key. Returns 1 when
+    /// no count has been encoded (i.e. non-multiview).
+    #[inline]
+    pub fn max_view_count(&self) -> u32 {
+        let bits = ((self.bits() >> Self::MAX_VIEW_COUNT_SHIFT_BITS) & Self::MAX_VIEW_COUNT_MASK_BITS) as u32;
+        bits.max(1)
     }
 
     /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
@@ -3293,6 +3328,29 @@ impl SpecializedMeshPipeline for MeshPipeline {
         shader_defs.push("MESH_PIPELINE".into());
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
+
+        let max_view_count = key.max_view_count();
+        if max_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
+        }
+
+        // Broadcast every `Opaque3d` / `AlphaMask3d` main-pass dispatch
+        // that flows through `DrawMaterial` under multiview. The pass-side
+        // mask in `main_opaque_pass_3d` uses the same `max_view_count > 1`
+        // predicate, so wgpu's required pipeline-vs-pass multiview-mask
+        // agreement holds. The prepass + deferred prepass dispatches
+        // (`Opaque3dPrepass` / `AlphaMask3dPrepass` / `Opaque3dDeferred` /
+        // `AlphaMask3dDeferred`) flow through `DrawPrepass` and the
+        // separate `PrepassPipelineSpecializer` type and set their own
+        // pipeline-side mask. Formula is the shift-safe equivalent of
+        // `(1u32 << max_view_count) - 1`; the latter is UB at
+        // `MAX_VIEW_COUNT = 32`.
+        let multiview_mask = if max_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - max_view_count))
+        } else {
+            None
+        };
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
@@ -3661,6 +3719,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
+            multiview_mask,
             ..default()
         })
     }

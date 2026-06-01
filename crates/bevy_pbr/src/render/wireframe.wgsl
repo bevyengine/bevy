@@ -61,7 +61,14 @@ fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
 fn vertex(
     @builtin(vertex_index) vertex_index: u32,
     @builtin(instance_index) instance_index: u32,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
 ) -> WireframeVertexOutput {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     var out: WireframeVertexOutput;
 
     let first_vertex = mesh[instance_index].first_vertex_index;
@@ -82,7 +89,7 @@ fn vertex(
     let clip1 = position_world_to_clip((world_from_local * vec4(p1, 1.0)).xyz);
     let clip2 = position_world_to_clip((world_from_local * vec4(p2, 1.0)).xyz);
 
-    let viewport_size = view.viewport.zw;
+    let viewport_size = view().viewport.zw;
     let screen0 = (clip0.xy / clip0.w) * viewport_size * 0.5;
     let screen1 = (clip1.xy / clip1.w) * viewport_size * 0.5;
     let screen2 = (clip2.xy / clip2.w) * viewport_size * 0.5;

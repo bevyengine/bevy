@@ -43,10 +43,23 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
 }
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifdef MULTIVIEW
+    bevy_pbr::mesh_view_bindings::current_view_index = view_index;
+#endif
+
     var frag_coord = vec4(in.position.xy, 0.0, 0.0);
 
+#ifdef MULTIVIEW
+    let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0);
+#else
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
 
 #ifdef WEBGL2
     frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
@@ -63,7 +76,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#ifdef MULTIVIEW
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), bevy_pbr::mesh_view_bindings::current_view_index, 0i).r;
+#else
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+#endif
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 

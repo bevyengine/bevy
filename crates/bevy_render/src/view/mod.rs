@@ -15,7 +15,9 @@ use crate::{
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
+    render_resource::{
+        DynamicArrayIndex, DynamicArrayUniformBuffer, ShaderType, Texture, TextureView,
+    },
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
@@ -37,6 +39,7 @@ use bevy_render_macros::ExtractComponent;
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
+    num::NonZeroU32,
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -390,6 +393,30 @@ impl ExtractedView {
     }
 }
 
+/// Per-layer view data for a camera with a [`Multiview`](bevy_camera::Multiview)
+/// component, extracted to the render world.
+///
+/// Sits alongside [`ExtractedView`] on a multiview camera's render-world
+/// entity. The companion [`ExtractedView`] still holds the camera's "head"
+/// pose and is used for sort-distance, frustum culling, and other view-level
+/// decisions. Per-eye data is read from this component when packing the view
+/// uniform array.
+#[derive(Component, Clone, Debug)]
+pub struct ExtractedMultiview {
+    /// One entry per layer of the camera's render target texture array.
+    pub subviews: Vec<ExtractedSubview>,
+}
+
+/// Per-layer transform and projection for an [`ExtractedMultiview`].
+#[derive(Clone, Debug)]
+pub struct ExtractedSubview {
+    /// World-space transform of this view (camera's `world_from_view`
+    /// composed with the subview's per-eye `view_from_camera`).
+    pub world_from_view: GlobalTransform,
+    /// Per-eye projection (`clip <- view`).
+    pub clip_from_view: Mat4,
+}
+
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
@@ -670,15 +697,15 @@ pub struct ViewUniform {
 
 #[derive(Resource)]
 pub struct ViewUniforms {
-    pub uniforms: DynamicUniformBuffer<ViewUniform>,
+    pub uniforms: DynamicArrayUniformBuffer<ViewUniform>,
 }
 
 impl FromWorld for ViewUniforms {
     fn from_world(world: &mut World) -> Self {
-        let mut uniforms = DynamicUniformBuffer::default();
+        let render_device = world.resource::<RenderDevice>();
+        let mut uniforms = DynamicArrayUniformBuffer::new(&render_device.limits());
         uniforms.set_label(Some("view_uniforms_buffer"));
 
-        let render_device = world.resource::<RenderDevice>();
         if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
             uniforms.add_usages(BufferUsages::STORAGE);
         }
@@ -699,6 +726,11 @@ pub struct ViewTarget {
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
+    /// Number of layers in the main texture's underlying array. Always at
+    /// least 1; greater than 1 only for cameras with a
+    /// [`Multiview`](bevy_camera::Multiview) component (one layer per
+    /// subview). Used by [`Self::multiview_count`].
+    main_texture_array_layers: u32,
     /// The final output attachment this view will present to, if available.
     out_texture: Option<OutputColorAttachment>,
     /// Color space of values stored in the main texture (for blit conversion to output)
@@ -830,12 +862,37 @@ impl ViewTarget {
         }
     }
 
+    /// Per-eye color attachment targeting a single layer of the underlying
+    /// multi-layer main texture. Used by per-eye dispatch under multiview;
+    /// for single-layer cameras pass `layer = 0` (byte-identical to
+    /// [`Self::get_color_attachment`]).
+    pub fn get_color_attachment_for_layer(&self, layer: u32) -> RenderPassColorAttachment<'_> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_attachment_for_layer(layer)
+        } else {
+            self.main_textures.b.get_attachment_for_layer(layer)
+        }
+    }
+
     /// Retrieve this target's "unsampled" main texture's color attachment.
     pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
             self.main_textures.b.get_unsampled_attachment()
+        }
+    }
+
+    /// Per-eye counterpart to [`Self::get_unsampled_color_attachment`]. See
+    /// [`Self::get_color_attachment_for_layer`].
+    pub fn get_unsampled_color_attachment_for_layer(
+        &self,
+        layer: u32,
+    ) -> RenderPassColorAttachment<'_> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_unsampled_attachment_for_layer(layer)
+        } else {
+            self.main_textures.b.get_unsampled_attachment_for_layer(layer)
         }
     }
 
@@ -913,6 +970,19 @@ impl ViewTarget {
         self.main_texture_format
     }
 
+    /// Number of subviews packed into the main texture's array layers when
+    /// this view targets a multiview camera, or `None` for a regular
+    /// single-view camera (1 layer).
+    ///
+    /// Useful as a render-side, frame-stable source for the multiview view
+    /// count when allocating downstream resources (e.g. the
+    /// `MAX_VIEW_COUNT` shader def) before the view-uniform buffer's
+    /// capacity has been resolved.
+    #[inline]
+    pub fn multiview_count(&self) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.main_texture_array_layers).filter(|n| n.get() > 1)
+    }
+
     /// The final texture this view will render to.
     #[inline]
     pub fn out_texture(&self) -> Option<&TextureView> {
@@ -980,14 +1050,30 @@ pub struct ViewDepthTexture {
 
 impl ViewDepthTexture {
     pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
+        let attachment = DepthAttachment::new_multi_layer(
+            texture.texture.clone(),
+            texture.default_view.clone(),
+            clear_value,
+        );
         Self {
             texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
+            attachment,
         }
     }
 
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
+    }
+
+    /// Per-eye depth attachment targeting a single layer of the underlying
+    /// multi-layer texture. Used by per-eye dispatch in the prepass and
+    /// deferred render-graph nodes under multiview.
+    pub fn get_attachment_for_layer(
+        &self,
+        layer: u32,
+        store: StoreOp,
+    ) -> RenderPassDepthStencilAttachment<'_> {
+        self.attachment.get_attachment_for_layer(layer, store)
     }
 
     pub fn view(&self) -> &TextureView {
@@ -1004,6 +1090,7 @@ pub fn prepare_view_uniforms(
         Entity,
         Option<&ExtractedCamera>,
         &ExtractedView,
+        Option<&ExtractedMultiview>,
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
@@ -1012,19 +1099,20 @@ pub fn prepare_view_uniforms(
     frame_count: Res<FrameCount>,
     shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
 ) {
-    let view_iter = views.iter();
-    let view_count = view_iter.len();
-    let Some(mut writer) =
-        view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
-    else {
-        return;
-    };
+    view_uniforms.uniforms.clear();
+
+    // Pass 1: build each view's array of subview uniforms and stage them.
+    //
+    // `DynamicArrayUniformBuffer`'s offset alignment depends on the longest
+    // queued array, so we can't resolve `ViewUniformOffset`s until every
+    // view has been pushed and `finish_queuing` has run. We collect
+    // `(entity, array_index)` here and fix up offsets in pass 2.
+    let mut per_entity: Vec<(Entity, DynamicArrayIndex)> = Vec::with_capacity(views.iter().len());
     for (
         entity,
         extracted_camera,
         extracted_view,
+        extracted_multiview,
         frustum,
         temporal_jitter,
         mip_bias,
@@ -1038,60 +1126,45 @@ pub fn prepare_view_uniforms(
             main_pass_viewport.w = resolution_override.0.y as f32;
         }
 
-        let unjittered_projection = extracted_view.clip_from_view;
-        let mut clip_from_view = unjittered_projection;
-
-        if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
-        }
-
-        let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.to_matrix();
-        let view_from_world = world_from_view.inverse();
-
-        let clip_from_world = if temporal_jitter.is_some() {
-            clip_from_view * view_from_world
-        } else {
-            extracted_view
-                .clip_from_world
-                .unwrap_or_else(|| clip_from_view * view_from_world)
-        };
-
-        // Map Frustum type to shader array<vec4<f32>, 6>
+        // Map Frustum type to shader array<vec4<f32>, 6>.
         let frustum = frustum
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
         // Determine the position of the camera used for resolving visibility
-        // ranges (LODs).
+        // ranges (LODs). For multiview cameras this is intentionally the
+        // *head* position, not any individual eye, so LODs don't flicker
+        // between eyes.
         let lod_view_world_position = match (&extracted_camera, &shadow_lod_origin) {
             (Some(_), _) | (None, None) => {
                 // If we're rendering a camera directly (i.e. we're not
-                // rendering a shadow map), we use this camera's position as the
-                // LOD view position.
+                // rendering a shadow map), we use this camera's position as
+                // the LOD view position.
                 extracted_view.world_from_view.translation()
             }
             (None, Some(shadow_lod_origin))
                 if extracted_view.retained_view_entity.auxiliary_entity
                     == MainEntity::from(Entity::PLACEHOLDER) =>
             {
-                // If this is a shadow map not associated with a camera (a point
-                // light or spot light shadow map), use the shadow LOD origin.
+                // If this is a shadow map not associated with a camera (a
+                // point light or spot light shadow map), use the shadow LOD
+                // origin.
                 shadow_lod_origin.0
             }
             (None, Some(shadow_lod_origin)) => {
-                // Otherwise, if we're rendering a shadow map that is associated
-                // with a camera (i.e. a directional light shadow map, at
-                // present), we use the position of that camera as the LOD view
-                // position. This ensures that each rendered object has a shadow
-                // and that no invisible objects have shadows.
+                // Otherwise, if we're rendering a shadow map that is
+                // associated with a camera (i.e. a directional light shadow
+                // map, at present), we use the position of that camera as
+                // the LOD view position. This ensures that each rendered
+                // object has a shadow and that no invisible objects have
+                // shadows.
                 match views.get(
                     extracted_view
                         .retained_view_entity
                         .auxiliary_entity
                         .entity(),
                 ) {
-                    Ok((_, _, camera_view, _, _, _, _)) => {
+                    Ok((_, _, camera_view, _, _, _, _, _)) => {
                         camera_view.world_from_view.translation()
                     }
                     Err(_) => shadow_lod_origin.0,
@@ -1099,30 +1172,120 @@ pub fn prepare_view_uniforms(
             }
         };
 
-        let view_uniforms = ViewUniformOffset {
-            offset: writer.write(&ViewUniform {
-                clip_from_world,
-                unjittered_clip_from_world: unjittered_projection * view_from_world,
-                world_from_clip: world_from_view * view_from_clip,
-                world_from_view,
-                view_from_world,
-                clip_from_view,
-                view_from_clip,
-                world_position: extracted_view.world_from_view.translation(),
-                exposure: extracted_camera
-                    .map(|c| c.exposure)
-                    .unwrap_or_else(|| Exposure::default().exposure()),
+        // Per-subview uniforms. Non-multiview cameras produce a single-
+        // element array; multiview cameras produce one element per layer.
+        let array_uniforms: Vec<ViewUniform> = if let Some(multiview) = extracted_multiview {
+            multiview
+                .subviews
+                .iter()
+                .map(|s| {
+                    build_view_uniform(
+                        s.clip_from_view,
+                        s.world_from_view,
+                        extracted_view,
+                        extracted_camera,
+                        temporal_jitter,
+                        mip_bias,
+                        viewport,
+                        main_pass_viewport,
+                        frustum,
+                        lod_view_world_position,
+                        frame_count.0,
+                    )
+                })
+                .collect()
+        } else {
+            vec![build_view_uniform(
+                extracted_view.clip_from_view,
+                extracted_view.world_from_view,
+                extracted_view,
+                extracted_camera,
+                temporal_jitter,
+                mip_bias,
                 viewport,
                 main_pass_viewport,
                 frustum,
                 lod_view_world_position,
-                color_grading: extracted_view.color_grading.clone().into(),
-                mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                frame_count: frame_count.0,
-            }),
+                frame_count.0,
+            )]
         };
 
-        commands.entity(entity).insert(view_uniforms);
+        let array_index = view_uniforms.uniforms.push_array(array_uniforms);
+        per_entity.push((entity, array_index));
+    }
+
+    view_uniforms.uniforms.finish_queuing();
+    view_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
+
+    // Pass 2: attach the resolved offset to each entity.
+    for (entity, array_index) in per_entity {
+        let offset = view_uniforms.uniforms.get_array_offset(array_index);
+        commands
+            .entity(entity)
+            .insert(ViewUniformOffset { offset });
+    }
+}
+
+/// Builds the [`ViewUniform`] for a single view layer.
+///
+/// Pulled out of [`prepare_view_uniforms`] so multiview cameras can call it
+/// once per subview while sharing the camera-level computations
+/// (`viewport`, `frustum`, `lod_view_world_position`, etc.) between layers.
+fn build_view_uniform(
+    clip_from_view: Mat4,
+    world_from_view: GlobalTransform,
+    extracted_view: &ExtractedView,
+    extracted_camera: Option<&ExtractedCamera>,
+    temporal_jitter: Option<&TemporalJitter>,
+    mip_bias: Option<&MipBias>,
+    viewport: Vec4,
+    main_pass_viewport: Vec4,
+    frustum: [Vec4; 6],
+    lod_view_world_position: Vec3,
+    frame_count: u32,
+) -> ViewUniform {
+    let unjittered_projection = clip_from_view;
+    let mut clip_from_view = unjittered_projection;
+    if let Some(temporal_jitter) = temporal_jitter {
+        temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
+    }
+    let view_from_clip = clip_from_view.inverse();
+    let world_from_view_mat = world_from_view.to_matrix();
+    let view_from_world = world_from_view_mat.inverse();
+
+    // The `extracted_view.clip_from_world` override is honored when set
+    // (e.g. for mirror cameras). For multiview subviews it represents the
+    // head pose, not this eye, so combining the override with multiview is
+    // undefined; non-multiview is the normal case and works as before.
+    let clip_from_world = if temporal_jitter.is_some() {
+        clip_from_view * view_from_world
+    } else {
+        extracted_view
+            .clip_from_world
+            .unwrap_or_else(|| clip_from_view * view_from_world)
+    };
+
+    ViewUniform {
+        clip_from_world,
+        unjittered_clip_from_world: unjittered_projection * view_from_world,
+        world_from_clip: world_from_view_mat * view_from_clip,
+        world_from_view: world_from_view_mat,
+        view_from_world,
+        clip_from_view,
+        view_from_clip,
+        world_position: world_from_view.translation(),
+        exposure: extracted_camera
+            .map(|c| c.exposure)
+            .unwrap_or_else(|| Exposure::default().exposure()),
+        viewport,
+        main_pass_viewport,
+        frustum,
+        lod_view_world_position,
+        color_grading: extracted_view.color_grading.clone().into(),
+        mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+        frame_count,
     }
 }
 
@@ -1194,6 +1357,10 @@ type MainTextureKey = (
     TextureUsages,
     TextureFormat,
     Msaa,
+    // Layer count. Multiview cameras need a multi-layer texture array;
+    // non-multiview cameras get 1. Keyed so cameras with different layer
+    // counts don't share a cache slot.
+    u32,
 );
 
 pub fn prepare_view_targets(
@@ -1205,6 +1372,7 @@ pub fn prepare_view_targets(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
+        Option<&ExtractedMultiview>,
         &CameraMainTextureUsages,
         &Msaa,
     )>,
@@ -1214,7 +1382,7 @@ pub fn prepare_view_targets(
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
+    for (entity, camera, view, multiview, texture_usage, msaa) in cameras.iter() {
         let Some(target_size) = camera.physical_target_size else {
             // If we don't have a target size, we can't create the main texture and have to bail
             commands.entity(entity).try_remove::<ViewTarget>();
@@ -1250,18 +1418,31 @@ pub fn prepare_view_targets(
                 Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
             });
 
+        // For multiview cameras, allocate the main texture as a texture array
+        // with one layer per subview. Non-multiview cameras stay 1-layer.
+        // Extraction (in `extract_cameras`) clamps subview count to
+        // `MAX_VIEW_COUNT` (32) and skips inserting `ExtractedMultiview` for
+        // empty view sets, so casting `len()` to `u32` here is always safe.
+        let view_count: u32 = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+        let mut texture_size = target_size.to_extents();
+        texture_size.depth_or_array_layers = view_count;
+
         let key: MainTextureKey = (
             camera.target.clone(),
             texture_usage.0,
             main_texture_format,
             *msaa,
+            view_count,
         );
         let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
             let descriptor = TextureDescriptor {
                 label: None,
-                size: target_size.to_extents(),
+                size: texture_size,
                 mip_level_count: 1,
                 sample_count: 1,
+                // Keep D2 even for multi-layer arrays; `TextureDimension` is
+                // texture-storage-side. The view-side `D2Array` binding is a
+                // later concern (shader infrastructure layer).
                 dimension: TextureDimension::D2,
                 format: main_texture_format,
                 usage: texture_usage.0,
@@ -1290,7 +1471,7 @@ pub fn prepare_view_targets(
                     &render_device,
                     TextureDescriptor {
                         label: Some("main_texture_sampled"),
-                        size: target_size.to_extents(),
+                        size: texture_size,
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
@@ -1329,6 +1510,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
+            main_texture_array_layers: view_count,
             out_texture: out_attachment.cloned(),
             compositing_space: camera.compositing_space,
         });

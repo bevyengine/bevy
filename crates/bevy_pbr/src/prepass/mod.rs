@@ -34,19 +34,22 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::{binding_types::uniform_buffer, *},
+    render_resource::{
+        binding_types::{uniform_buffer, uniform_buffer_sized},
+        *,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
-        ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ExtractedMultiview, ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities,
+        RetainedViewEntity, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
     RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
-use core::any::TypeId;
+use core::{any::TypeId, num::NonZeroU32};
 pub use prepass_bindings::*;
 use tracing::{error, warn};
 
@@ -279,8 +282,10 @@ pub fn init_prepass_pipeline(
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
             (
-                // View
-                (0, uniform_buffer::<ViewUniform>(true)),
+                // View. Untyped binding so the WGSL can declare it as
+                // `array<View, MAX_VIEW_COUNT>` (multiview) or `array<View, 1>`
+                // (non-multiview); see `mesh_view_bindings::view`.
+                (0, uniform_buffer_sized(true, None)),
                 // Globals
                 (1, uniform_buffer::<GlobalsUniform>(false)),
                 // PreviousViewUniforms
@@ -304,8 +309,10 @@ pub fn init_prepass_pipeline(
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
             (
-                // View
-                (0, uniform_buffer::<ViewUniform>(true)),
+                // View. Untyped binding so the WGSL can declare it as
+                // `array<View, MAX_VIEW_COUNT>` (multiview) or `array<View, 1>`
+                // (non-multiview); see `mesh_view_bindings::view`.
+                (0, uniform_buffer_sized(true, None)),
                 // Globals
                 (1, uniform_buffer::<GlobalsUniform>(false)),
                 // VisibilityRanges
@@ -405,6 +412,28 @@ impl PrepassPipeline {
         // (PBR code will use this to detect that it's running in deferred mode,
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
+
+        let max_view_count = mesh_key.max_view_count();
+        if max_view_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
+        }
+
+        // Broadcast every prepass + deferred prepass dispatch that flows
+        // through `DrawPrepass` (`Opaque3dPrepass` / `AlphaMask3dPrepass` /
+        // `Opaque3dDeferred` / `AlphaMask3dDeferred`) under multiview. The
+        // pass-side mask in `prepass/node.rs` uses the same
+        // `view_count > 1` predicate, so wgpu's required pipeline-vs-pass
+        // multiview-mask agreement holds. `Opaque3d` / `AlphaMask3d`
+        // main-pass dispatches flow through the separate `MeshPipeline`
+        // type and set their own pipeline-side mask. Formula is the
+        // shift-safe equivalent of `(1u32 << max_view_count) - 1`; the
+        // latter is UB at `MAX_VIEW_COUNT = 32`.
+        let multiview_mask = if max_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - max_view_count))
+        } else {
+            None
+        };
 
         shader_defs.push(ShaderDefVal::UInt(
             "MATERIAL_BIND_GROUP".into(),
@@ -639,6 +668,7 @@ impl PrepassPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("prepass_pipeline".into()),
+            multiview_mask,
             ..default()
         };
         Ok(descriptor)
@@ -802,9 +832,12 @@ pub fn check_prepass_views_need_specialization(
         Option<&DepthPrepass>,
         Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
+        Option<&ExtractedMultiview>,
     )>,
 ) {
-    for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass) in views.iter_mut() {
+    for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass, multiview) in
+        views.iter_mut()
+    {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
@@ -814,6 +847,9 @@ pub fn check_prepass_views_need_specialization(
         }
         if motion_vector_prepass.is_some() {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+        if let Some(multiview) = multiview {
+            view_key |= MeshPipelineKey::from_max_view_count(multiview.subviews.len() as u32);
         }
 
         if let Some(current_key) = view_key_cache.get_mut(&view.retained_view_entity) {

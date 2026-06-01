@@ -218,6 +218,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                     bias: DepthBiasState::default(),
                 }),
                 multisample: MultisampleState::default(),
+                multiview_mask: None,
                 fragment: Some(FragmentState {
                     shader: match material.properties.get_shader(MeshletFragmentShader) {
                         Some(shader) => shader.clone(),

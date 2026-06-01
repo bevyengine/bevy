@@ -9,7 +9,7 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedMultiview, ExtractedView, ViewDepthTexture, ViewTarget},
 };
 use core::ops::Range;
 use tracing::error;
@@ -26,6 +26,7 @@ pub fn main_transmissive_pass_3d(
         Option<&ViewTransmissionTexture>,
         &ViewDepthTexture,
         Option<&MainPassResolutionOverride>,
+        Option<&'static ExtractedMultiview>,
     )>,
     transmissive_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     mut ctx: RenderContext,
@@ -40,6 +41,7 @@ pub fn main_transmissive_pass_3d(
         transmission,
         depth,
         resolution_override,
+        multiview,
     ) = view.into_inner();
 
     let Some(transmissive_phase) = transmissive_phases.get(&extracted_view.retained_view_entity)
@@ -57,14 +59,7 @@ pub fn main_transmissive_pass_3d(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
-    let render_pass_descriptor = RenderPassDescriptor {
-        label: Some("main_transmissive_pass_3d"),
-        color_attachments: &[Some(target.get_color_attachment())],
-        depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
-        timestamp_writes: None,
-        occlusion_query_set: None,
-        multiview_mask: None,
-    };
+    let view_count: u32 = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
 
     if !transmissive_phase.items.is_empty() {
         let steps = transmission_settings.steps;
@@ -75,44 +70,83 @@ pub fn main_transmissive_pass_3d(
             // `transmissive_phase.items` are depth sorted, so we split them into N = `steps`
             // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
             for range in split_range(0..transmissive_phase.items.len(), steps) {
-                // Copy the main texture to the transmission texture
+                // Copy the main texture to the transmission texture. Both
+                // textures carry `depth_or_array_layers = view_count`, so a
+                // single copy spans every eye's layer.
+                let mut copy_extents = physical_target_size.to_extents();
+                copy_extents.depth_or_array_layers = view_count;
                 ctx.command_encoder().copy_texture_to_texture(
                     target.main_texture().as_image_copy(),
                     transmission.texture.as_image_copy(),
-                    physical_target_size.to_extents(),
+                    copy_extents,
                 );
 
-                let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
+                // Per-eye dispatch: each eye renders its slice of the range
+                // into its own layer of the (multi-layer) main + depth
+                // textures. The transmission texture is sampled via the
+                // `D2Array` view, picking the right layer through the
+                // PBR pipeline's `@builtin(view_index)` plumbing.
+                for eye in 0..view_count {
+                    let render_pass_descriptor = RenderPassDescriptor {
+                        label: Some("main_transmissive_pass_3d"),
+                        color_attachments: &[Some(target.get_color_attachment_for_layer(eye))],
+                        depth_stencil_attachment: Some(
+                            depth.get_attachment_for_layer(eye, StoreOp::Store),
+                        ),
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
+                        multiview_mask: None,
+                    };
+                    let mut render_pass =
+                        ctx.begin_tracked_render_pass(render_pass_descriptor);
+                    let pass_span =
+                        diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
+
+                    if let Some(viewport) = camera.viewport.as_ref() {
+                        render_pass.set_camera_viewport(viewport);
+                    }
+
+                    if let Err(err) = transmissive_phase.render_range(
+                        &mut render_pass,
+                        world,
+                        view_entity,
+                        range.clone(),
+                    ) {
+                        error!("Error encountered while rendering the transmissive phase {err:?}");
+                    }
+
+                    pass_span.end(&mut render_pass);
+                }
+            }
+        } else {
+            for eye in 0..view_count {
+                let render_pass_descriptor = RenderPassDescriptor {
+                    label: Some("main_transmissive_pass_3d"),
+                    color_attachments: &[Some(target.get_color_attachment_for_layer(eye))],
+                    depth_stencil_attachment: Some(
+                        depth.get_attachment_for_layer(eye, StoreOp::Store),
+                    ),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                };
+                let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor);
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport);
+                if let Some(viewport) = Viewport::from_viewport_and_override(
+                    camera.viewport.as_ref(),
+                    resolution_override,
+                ) {
+                    render_pass.set_camera_viewport(&viewport);
                 }
 
-                if let Err(err) =
-                    transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
-                {
+                if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
                     error!("Error encountered while rendering the transmissive phase {err:?}");
                 }
 
                 pass_span.end(&mut render_pass);
             }
-        } else {
-            let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor);
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
-
-            if let Some(viewport) =
-                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-            {
-                render_pass.set_camera_viewport(&viewport);
-            }
-
-            if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
-                error!("Error encountered while rendering the transmissive phase {err:?}");
-            }
-
-            pass_span.end(&mut render_pass);
         }
     }
 }

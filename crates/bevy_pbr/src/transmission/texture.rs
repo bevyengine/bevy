@@ -15,7 +15,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::TextureCache,
-    view::ExtractedView,
+    view::{ExtractedMultiview, ExtractedView},
 };
 
 use crate::{ScreenSpaceTransmission, Transmissive3d};
@@ -40,10 +40,11 @@ pub fn prepare_core_3d_transmission_textures(
         &ExtractedCamera,
         &ScreenSpaceTransmission,
         &ExtractedView,
+        Option<&ExtractedMultiview>,
     )>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, transmission, view) in &views_3d {
+    for (entity, camera, transmission, view, multiview) in &views_3d {
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
             || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
             || !transparent_3d_phases.contains_key(&view.retained_view_entity)
@@ -70,15 +71,23 @@ pub fn prepare_core_3d_transmission_textures(
             continue;
         }
 
+        // Allocate one layer per subview under multiview so the per-eye
+        // transmissive pass can sample its own eye's pre-step main-texture
+        // copy via the `D2Array` view at `mesh_view_bindings.rs:897-911`.
+        // Non-multiview cameras stay 1-layer (byte-identical no-op).
+        let view_count: u32 = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+        let mut texture_size = physical_target_size.to_extents();
+        texture_size.depth_or_array_layers = view_count;
+
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), view_count))
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
+                    size: texture_size,
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,

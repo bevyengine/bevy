@@ -1,3 +1,5 @@
+use core::num::NonZeroU32;
+
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
 use bevy_render::occlusion_culling::OcclusionCulling;
@@ -5,7 +7,7 @@ use bevy_render::occlusion_culling::OcclusionCulling;
 use bevy_log::error;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
-use bevy_render::view::{ExtractedView, NoIndirectDrawing};
+use bevy_render::view::{ExtractedMultiview, ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -26,6 +28,7 @@ type DeferredPrepassViewQueryData = (
     &'static ViewDepthTexture,
     &'static ViewPrepassTextures,
     Option<&'static MainPassResolutionOverride>,
+    Option<&'static ExtractedMultiview>,
     Has<OcclusionCulling>,
     Has<NoIndirectDrawing>,
 );
@@ -44,6 +47,7 @@ pub(crate) fn early_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         _,
         _,
     ) = view.into_inner();
@@ -56,6 +60,7 @@ pub(crate) fn early_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         false,
         &opaque_deferred_phases,
         &alpha_mask_deferred_phases,
@@ -78,6 +83,7 @@ pub fn late_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         occlusion_culling,
         no_indirect_drawing,
     ) = view.into_inner();
@@ -94,6 +100,7 @@ pub fn late_deferred_prepass(
         view_depth_texture,
         view_prepass_textures,
         resolution_override,
+        multiview,
         true,
         &opaque_deferred_phases,
         &alpha_mask_deferred_phases,
@@ -114,6 +121,7 @@ fn run_deferred_prepass_system(
     view_depth_texture: &ViewDepthTexture,
     view_prepass_textures: &ViewPrepassTextures,
     resolution_override: Option<&MainPassResolutionOverride>,
+    multiview: Option<&ExtractedMultiview>,
     is_late: bool,
     opaque_deferred_phases: &ViewBinnedRenderPhases<Opaque3dDeferred>,
     alpha_mask_deferred_phases: &ViewBinnedRenderPhases<AlphaMask3dDeferred>,
@@ -133,6 +141,53 @@ fn run_deferred_prepass_system(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
+    // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
+    // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
+    // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
+    // Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
+    // For webgl2 we fallback to manually clearing.
+    // Runs before the broadcast pass: `clear_texture` with the default
+    // subresource range clears every layer of the multi-layer texture in one
+    // call.
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    if !is_late {
+        if let Some(deferred_texture) = &view_prepass_textures.deferred {
+            ctx.command_encoder().clear_texture(
+                &deferred_texture.texture.texture,
+                &bevy_render::render_resource::ImageSubresourceRange::default(),
+            );
+        }
+    }
+
+    // Dispatch the deferred prepass items as a single broadcast pass under
+    // multiview: the hardware fans each draw out to every eye layer via
+    // `@builtin(view_index)`, and the matching `PrepassPipelineSpecializer`
+    // pipeline-side mask uses the same `view_count > 1` predicate so wgpu's
+    // required pipeline-vs-pass agreement holds. At view_count = 1 the gate
+    // collapses to `multiview_mask: None`. `(1 << view_count) - 1` is
+    // computed as `u32::MAX >> (32 - view_count)` to avoid the shift
+    // overflow that `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    //
+    // Attachment lifecycle on entry: when a forward prepass is also present,
+    // it runs before this node and flips the global `is_first_call` latches
+    // on `view_depth_texture` (and on the shared `Normal` / `MotionVectors`
+    // ColorAttachments). Legacy `get_attachment(StoreOp::Store)` here
+    // therefore returns `LoadOp::Load` and preserves the forward-prepass
+    // depth + Normal + MotionVectors output. The deferred-only configuration
+    // leaves those latches untouched, so the first call on this node lands
+    // `LoadOp::Clear` and writes a fresh depth + Normal + MV pass. The
+    // deferred-specific `Deferred` and `DeferredLightingPassId` color
+    // attachments have independent latches (not shared with forward prepass)
+    // — `early` lands `LoadOp::Clear`, and `late` (when occlusion culling
+    // is on) lands `LoadOp::Load` against early's output via the second-call
+    // latch.
+    let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+    let multiview_mask = if view_count > 1 {
+        NonZeroU32::new(u32::MAX >> (32 - view_count))
+    } else {
+        None
+    };
+
     let mut color_attachments = vec![];
     color_attachments.push(
         view_prepass_textures
@@ -147,21 +202,6 @@ fn run_deferred_prepass_system(
             .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
     );
 
-    // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
-    // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
-    // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
-    // Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
-    // For webgl2 we fallback to manually clearing
-    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    if !is_late {
-        if let Some(deferred_texture) = &view_prepass_textures.deferred {
-            ctx.command_encoder().clear_texture(
-                &deferred_texture.texture.texture,
-                &bevy_render::render_resource::ImageSubresourceRange::default(),
-            );
-        }
-    }
-
     color_attachments.push(
         view_prepass_textures
             .deferred
@@ -170,7 +210,11 @@ fn run_deferred_prepass_system(
                 if is_late {
                     deferred_texture.get_attachment()
                 } else {
-                    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                    #[cfg(all(
+                        feature = "webgl",
+                        target_arch = "wasm32",
+                        not(feature = "webgpu")
+                    ))]
                     {
                         bevy_render::render_resource::RenderPassColorAttachment {
                             view: &deferred_texture.texture.default_view,
@@ -212,7 +256,7 @@ fn run_deferred_prepass_system(
         depth_stencil_attachment,
         timestamp_writes: None,
         occlusion_query_set: None,
-        multiview_mask: None,
+        multiview_mask,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
@@ -244,7 +288,9 @@ fn run_deferred_prepass_system(
     pass_span.end(&mut render_pass);
     drop(render_pass);
 
-    // After rendering to the view depth texture, copy it to the prepass depth texture
+    // After rendering to the view depth texture, copy it to the prepass depth texture.
+    // Source + dest extents both carry `depth_or_array_layers = view_count` post-C2
+    // sub-A, so this single call copies every layer.
     if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
         ctx.command_encoder().copy_texture_to_texture(
             view_depth_texture.texture.as_image_copy(),

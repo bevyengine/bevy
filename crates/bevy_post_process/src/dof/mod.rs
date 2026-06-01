@@ -34,7 +34,8 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
-            sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
+            sampler, texture_2d, texture_2d_array, texture_depth_2d,
+            texture_depth_2d_multisampled, uniform_buffer,
         },
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
@@ -48,12 +49,12 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ExtractedMultiview, ExtractedView, Msaa, ViewDepthTexture,
+        ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
@@ -177,6 +178,12 @@ pub struct DepthOfFieldPipelineKey {
     target_format: TextureFormat,
     /// Whether the render target is multisampled.
     multisample: bool,
+    /// The number of subviews packed into the view uniform buffer. `1` when the
+    /// camera is not multiview. Gates the `MULTIVIEW`/`MAX_VIEW_COUNT` shader
+    /// defs (and the per-eye depth-array binding) in `specialize`. MSAA cameras
+    /// keep the single-layer depth binding regardless because WGSL has no
+    /// `texture_depth_multisampled_2d_array`.
+    multiview_view_count: u32,
 }
 
 /// Identifies a specific depth of field render pass.
@@ -373,9 +380,25 @@ pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: 
 /// specific to each view.
 pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
-    view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
+    view_targets: Query<(Entity, &DepthOfField, &Msaa, Option<&ExtractedMultiview>)>,
 ) {
-    for (view, depth_of_field, msaa) in view_targets.iter() {
+    for (view, depth_of_field, msaa, multiview) in view_targets.iter() {
+        let is_msaa = *msaa != Msaa::Off;
+        // Under multiview the view depth texture is grown to a per-eye array
+        // (see `prepare_core_3d_depth_textures`); the binding has to match.
+        // MSAA + multiview keeps the single-layer shape because WGSL has no
+        // `texture_depth_multisampled_2d_array` (same carve-out as the
+        // prepass-texture bindings in `mesh_view_bindings.wgsl`).
+        let use_multiview_depth =
+            multiview.is_some_and(|m| m.subviews.len() > 1) && !is_msaa;
+        let depth_binding = if is_msaa {
+            texture_depth_2d_multisampled()
+        } else if use_multiview_depth {
+            texture_2d_array(TextureSampleType::Depth)
+        } else {
+            texture_depth_2d()
+        };
+
         // Create the bind group layout for the passes that take one input.
         let single_input = BindGroupLayoutDescriptor::new(
             "depth of field bind group layout (single input)",
@@ -383,11 +406,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
                 ShaderStages::FRAGMENT,
                 (
                     uniform_buffer::<ViewUniform>(true),
-                    if *msaa != Msaa::Off {
-                        texture_depth_2d_multisampled()
-                    } else {
-                        texture_depth_2d()
-                    },
+                    depth_binding,
                     texture_2d(TextureSampleType::Float { filterable: true }),
                 ),
             ),
@@ -403,11 +422,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
                     ShaderStages::FRAGMENT,
                     (
                         uniform_buffer::<ViewUniform>(true),
-                        if *msaa != Msaa::Off {
-                            texture_depth_2d_multisampled()
-                        } else {
-                            texture_depth_2d()
-                        },
+                        depth_binding,
                         texture_2d(TextureSampleType::Float { filterable: true }),
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
@@ -511,13 +526,16 @@ pub fn prepare_depth_of_field_pipelines(
             &DepthOfField,
             &ViewDepthOfFieldBindGroupLayouts,
             &Msaa,
+            Option<&ExtractedMultiview>,
         ),
         With<ExtractedCamera>,
     >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
+    for (entity, view, depth_of_field, view_bind_group_layouts, msaa, multiview) in
+        view_targets.iter()
+    {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
@@ -527,6 +545,7 @@ pub fn prepare_depth_of_field_pipelines(
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
         let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
+        let multiview_view_count = multiview.map_or(1, |m| m.subviews.len() as u32);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -540,6 +559,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 target_format,
                                 multisample,
+                                multiview_view_count,
                                 pass: DofPass::GaussianHorizontal,
                             },
                         ),
@@ -549,6 +569,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 target_format,
                                 multisample,
+                                multiview_view_count,
                                 pass: DofPass::GaussianVertical,
                             },
                         ),
@@ -565,6 +586,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 target_format,
                                 multisample,
+                                multiview_view_count,
                                 pass: DofPass::BokehPass0,
                             },
                         ),
@@ -574,6 +596,7 @@ pub fn prepare_depth_of_field_pipelines(
                             DepthOfFieldPipelineKey {
                                 target_format,
                                 multisample,
+                                multiview_view_count,
                                 pass: DofPass::BokehPass1,
                             },
                         ),
@@ -625,6 +648,20 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 
         if key.multisample {
             shader_defs.push("MULTISAMPLED".into());
+        }
+
+        // Under MULTIVIEW the depth binding becomes a per-eye array and each
+        // fragment threads `@builtin(view_index)` into `current_view_index`.
+        // MSAA cameras keep the single-layer depth binding (no
+        // `texture_depth_multisampled_2d_array` in WGSL), so skip the def
+        // there to match the `prepare_depth_of_field_view_bind_group_layouts`
+        // carve-out.
+        if key.multiview_view_count > 1 && !key.multisample {
+            shader_defs.push("MULTIVIEW".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_VIEW_COUNT".into(),
+                key.multiview_view_count,
+            ));
         }
 
         RenderPipelineDescriptor {

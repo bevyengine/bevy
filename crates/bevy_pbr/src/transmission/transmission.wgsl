@@ -30,7 +30,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let exit_position = world_position.xyz + T * thickness;
 
     // Transform exit_position into clip space
-    let clip_exit_position = view_bindings::view.clip_from_world * vec4<f32>(exit_position, 1.0);
+    let clip_exit_position = view_bindings::view().clip_from_world * vec4<f32>(exit_position, 1.0);
 
     // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
@@ -45,7 +45,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     }
 
     // Compensate for exposure, since the background color is coming from an already exposure-adjusted texture
-    background_color = vec4(background_color.rgb / view_bindings::view.exposure, background_color.a);
+    background_color = vec4(background_color.rgb / view_bindings::view().exposure, background_color.a);
 
     // Dot product of the refracted direction with the exit normal (Note: We assume the exit normal is the entry normal but inverted)
     let MinusNdotT = dot(-N, T);
@@ -58,24 +58,34 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
 }
 
 fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coord: vec3<f32>) -> vec4<f32> {
+#ifdef MULTIVIEW
+    var background_color = textureSampleLevel(
+        view_bindings::view_transmission_texture,
+        view_bindings::view_transmission_sampler,
+        offset_position,
+        view_bindings::current_view_index,
+        0.0
+    );
+#else
     var background_color = textureSampleLevel(
         view_bindings::view_transmission_texture,
         view_bindings::view_transmission_sampler,
         offset_position,
         0.0
     );
+#endif
 
 #ifdef DEPTH_PREPASS
 #ifndef WEBGL2
     // Use depth prepass data to reject values that are in front of the current fragment
-    if prepass_utils::prepass_depth(vec4<f32>(offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
+    if prepass_utils::prepass_depth(vec4<f32>(offset_position * view_bindings::view().viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
         background_color.a = 0.0;
     }
 #endif
 #endif
 
 #ifdef TONEMAP_IN_SHADER
-    background_color = approximate_inverse_tone_mapping(background_color, view_bindings::view.color_grading);
+    background_color = approximate_inverse_tone_mapping(background_color, view_bindings::view().color_grading);
 #endif
 
     return background_color;
@@ -83,7 +93,7 @@ fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coor
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, perceptual_roughness: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
-    let aspect = view_bindings::view.viewport.z / view_bindings::view.viewport.w;
+    let aspect = view_bindings::view().viewport.z / view_bindings::view().viewport.w;
 
     // Calculate how “blurry” the transmission should be.
     // Blur is more or less eyeballed to look approximately “right”, since the “correct”
@@ -158,17 +168,27 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
+#ifdef MULTIVIEW
+        var sample = textureSampleLevel(
+            view_bindings::view_transmission_texture,
+            view_bindings::view_transmission_sampler,
+            modified_offset_position,
+            view_bindings::current_view_index,
+            0.0
+        );
+#else
         var sample = textureSampleLevel(
             view_bindings::view_transmission_texture,
             view_bindings::view_transmission_sampler,
             modified_offset_position,
             0.0
         );
+#endif
 
 #ifdef DEPTH_PREPASS
 #ifndef WEBGL2
         // Use depth prepass data to reject values that are in front of the current fragment
-        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
+        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view().viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
             sample = vec4<f32>(0.0);
         }
 #endif
@@ -185,7 +205,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     result /= f32(num_taps);
 
 #ifdef TONEMAP_IN_SHADER
-    result = approximate_inverse_tone_mapping(result, view_bindings::view.color_grading);
+    result = approximate_inverse_tone_mapping(result, view_bindings::view().color_grading);
 #endif
 
     return result;

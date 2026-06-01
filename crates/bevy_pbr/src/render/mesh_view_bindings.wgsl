@@ -7,7 +7,57 @@
     globals::Globals,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+// View uniform.
+//
+// Backed by a runtime-sized `array<View, N>` so multiview cameras can pack
+// N per-eye records into a single dynamic-offset slot. `MAX_VIEW_COUNT` is
+// the shader-def that names N; when undefined (non-multiview pipelines) the
+// fallback is a 1-element array, which matches the single ViewUniform pushed
+// by `DynamicArrayUniformBuffer` for non-multiview cameras.
+//
+// All shader code reads `view()` (not `view_array` directly). The helper
+// returns the current view via `view_array[current_view_index]`, where
+// `current_view_index` defaults to 0 and is overwritten from
+// `@builtin(view_index)` at the top of multiview entry-point bodies.
+#ifdef MAX_VIEW_COUNT
+@group(0) @binding(0) var<uniform> view_array: array<View, #{MAX_VIEW_COUNT}>;
+#else
+@group(0) @binding(0) var<uniform> view_array: array<View, 1>;
+#endif
+var<private> current_view_index: i32 = 0;
+
+// Custom WGSL entries (vertex or fragment) used by user `Material`
+// implementors must thread `@builtin(view_index)` and assign it to
+// `current_view_index` under `#ifdef MULTIVIEW`, otherwise `view()` (and any
+// helper that reads through it, e.g. `mesh_view_bindings::*`,
+// `view_transformations::*`) resolves to eye 0 on every layer under a
+// multiview camera. The default `mesh.wgsl` vertex entry and `pbr.wgsl`
+// fragment entry already follow this pattern, so a material that overrides
+// only one of the two and keeps the default for the other still gets
+// correct per-eye behavior from the default side. Paste-ready snippet for a
+// custom fragment entry:
+//
+//     struct FragmentInput {
+//         @builtin(position) frag_coord: vec4<f32>,
+//     #ifdef MULTIVIEW
+//         @builtin(view_index) view_index: i32,
+//     #endif
+//         // ... other fields ...
+//     }
+//
+//     @fragment
+//     fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+//     #ifdef MULTIVIEW
+//         bevy_pbr::mesh_view_bindings::current_view_index = in.view_index;
+//     #endif
+//         // ... rest of fragment body ...
+//     }
+//
+// The default PBR fragment entry in `pbr.wgsl` follows this pattern.
+
+fn view() -> View {
+    return view_array[current_view_index];
+}
 @group(0) @binding(1) var<uniform> lights: types::Lights;
 #ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube;
@@ -61,7 +111,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #endif
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#ifdef MULTIVIEW
+@group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+#endif
 #endif
 
 #ifdef TONEMAP_IN_SHADER
@@ -70,6 +124,14 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(19) var dt_lut_sampler: sampler;
 #endif
 
+// Prepass textures.
+//
+// Under MULTIVIEW we switch to `_array` variants so per-eye reads can index
+// the right layer via `current_view_index`. WGSL has no multisampled-array
+// texture types, so multisampled prepass bindings keep their single-layer
+// shape even under multiview — the MSAA + multiview combination is left
+// unsupported at the texture-binding level (rare in practice; VR doesn't
+// pair with MSAA). The host-side layout/entry-resolution must mirror this.
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
 @group(0) @binding(20) var depth_prepass_texture: texture_depth_multisampled_2d;
@@ -84,22 +146,42 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(20) var depth_prepass_texture: texture_depth_2d_array;
+#else
 @group(0) @binding(20) var depth_prepass_texture: texture_depth_2d;
+#endif
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(21) var normal_prepass_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(21) var normal_prepass_texture: texture_2d<f32>;
+#endif
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(22) var motion_vector_prepass_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(22) var motion_vector_prepass_texture: texture_2d<f32>;
+#endif
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
+#ifdef MULTIVIEW
+@group(0) @binding(23) var deferred_prepass_texture: texture_2d_array<u32>;
+#else
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
+#endif
 #endif // DEFERRED_PREPASS
 
+#ifdef MULTIVIEW
+@group(0) @binding(24) var view_transmission_texture: texture_2d_array<f32>;
+#else
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
+#endif
 @group(0) @binding(25) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED

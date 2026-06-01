@@ -10,9 +10,10 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
-        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        ColorGrading, ExtractedMultiview, ExtractedSubview, ExtractedView, ExtractedWindows, Msaa,
+        NoIndirectDrawing, RenderExtractedVisibleEntities, RenderVisibleEntities,
+        RenderVisibleEntitiesClass, RetainedViewEntity, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -24,7 +25,8 @@ use bevy_camera::{
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
-    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    MsaaWriteback, Multiview, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
+    Viewport, MAX_VIEW_COUNT,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -493,6 +495,7 @@ pub fn extract_cameras(
                 Option<&RenderLayers>,
                 Option<&Projection>,
                 Has<NoIndirectDrawing>,
+                Option<&Multiview>,
             ),
         )>,
     >,
@@ -512,6 +515,7 @@ pub fn extract_cameras(
     type ExtractedCameraComponents = (
         ExtractedCamera,
         ExtractedView,
+        ExtractedMultiview,
         RenderVisibleEntities,
         TemporalJitter,
         MipBias,
@@ -540,6 +544,7 @@ pub fn extract_cameras(
             render_layers,
             projection,
             no_indirect_drawing,
+            multiview,
         ),
     ) in query.iter()
     {
@@ -658,6 +663,31 @@ pub fn extract_cameras(
                 render_visible_entities_cpu_culling,
                 *frustum,
             ));
+
+            let multiview = multiview.filter(|m| !m.views.is_empty());
+            if let Some(multiview) = multiview {
+                if multiview.views.len() > MAX_VIEW_COUNT {
+                    warn_once!(
+                        "Camera with {} multiview subviews exceeds MAX_VIEW_COUNT ({}); \
+                         rendering as non-multiview. This warning fires once per process.",
+                        multiview.views.len(),
+                        MAX_VIEW_COUNT,
+                    );
+                    commands.remove::<ExtractedMultiview>();
+                } else {
+                    let subviews = multiview
+                        .views
+                        .iter()
+                        .map(|s| ExtractedSubview {
+                            world_from_view: transform.mul_transform(s.view_from_camera),
+                            clip_from_view: s.clip_from_view,
+                        })
+                        .collect();
+                    commands.insert(ExtractedMultiview { subviews });
+                }
+            } else {
+                commands.remove::<ExtractedMultiview>();
+            }
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());

@@ -15,6 +15,7 @@ use bevy_render::{
 };
 
 use super::{get_lut_bindings, Tonemapping};
+use core::num::NonZeroU32;
 
 /// Cached bind group state for tonemapping.
 #[derive(Default)]
@@ -102,6 +103,18 @@ pub fn tonemapping(
         }
     };
 
+    // Broadcast across every eye layer in a single pass. The matching
+    // pipeline descriptor in `mod.rs` sets the same mask. The mask is
+    // `(1 << view_count) - 1` (one bit per eye); computed via
+    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    let view_count = target.multiview_count().map_or(1, |n| n.get());
+    let multiview_mask = if view_count > 1 {
+        NonZeroU32::new(u32::MAX >> (32 - view_count))
+    } else {
+        None
+    };
+
     let pass_descriptor = RenderPassDescriptor {
         label: Some("tonemapping"),
         color_attachments: &[Some(RenderPassColorAttachment {
@@ -116,7 +129,7 @@ pub fn tonemapping(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
-        multiview_mask: None,
+        multiview_mask,
     };
 
     let diagnostics = ctx.diagnostic_recorder();

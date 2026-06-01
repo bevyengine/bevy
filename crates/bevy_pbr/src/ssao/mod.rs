@@ -31,7 +31,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedMultiview, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -215,58 +215,64 @@ fn ssao(
     let command_encoder = ctx.command_encoder();
     command_encoder.push_debug_group("ssao");
 
-    {
-        let mut preprocess_depth_pass =
-            command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("ssao_preprocess_depth"),
+    // Each pipeline runs once per eye against per-layer bind groups. For
+    // non-multiview cameras `per_view` has one entry and this loops once,
+    // matching the non-multiview single-pass dispatch shape.
+    for per_view in &bind_groups.per_view {
+        {
+            let mut preprocess_depth_pass =
+                command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("ssao_preprocess_depth"),
+                    timestamp_writes: None,
+                });
+            preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
+            preprocess_depth_pass.set_bind_group(0, &per_view.preprocess_depth_bind_group, &[]);
+            preprocess_depth_pass.set_bind_group(
+                1,
+                &bind_groups.common_bind_group,
+                &[view_uniform_offset.offset],
+            );
+            preprocess_depth_pass.dispatch_workgroups(
+                camera_size.x.div_ceil(16),
+                camera_size.y.div_ceil(16),
+                1,
+            );
+        }
+
+        {
+            let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("ssao"),
                 timestamp_writes: None,
             });
-        preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
-        preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
-        preprocess_depth_pass.set_bind_group(
-            1,
-            &bind_groups.common_bind_group,
-            &[view_uniform_offset.offset],
-        );
-        preprocess_depth_pass.dispatch_workgroups(
-            camera_size.x.div_ceil(16),
-            camera_size.y.div_ceil(16),
-            1,
-        );
-    }
+            ssao_pass.set_pipeline(ssao_pipeline);
+            ssao_pass.set_bind_group(0, &per_view.ssao_bind_group, &[]);
+            ssao_pass.set_bind_group(
+                1,
+                &bind_groups.common_bind_group,
+                &[view_uniform_offset.offset],
+            );
+            ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
+        }
 
-    {
-        let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("ssao"),
-            timestamp_writes: None,
-        });
-        ssao_pass.set_pipeline(ssao_pipeline);
-        ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
-        ssao_pass.set_bind_group(
-            1,
-            &bind_groups.common_bind_group,
-            &[view_uniform_offset.offset],
-        );
-        ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
-    }
-
-    {
-        let mut spatial_denoise_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("ssao_spatial_denoise"),
-            timestamp_writes: None,
-        });
-        spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
-        spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
-        spatial_denoise_pass.set_bind_group(
-            1,
-            &bind_groups.common_bind_group,
-            &[view_uniform_offset.offset],
-        );
-        spatial_denoise_pass.dispatch_workgroups(
-            camera_size.x.div_ceil(8),
-            camera_size.y.div_ceil(8),
-            1,
-        );
+        {
+            let mut spatial_denoise_pass =
+                command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("ssao_spatial_denoise"),
+                    timestamp_writes: None,
+                });
+            spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
+            spatial_denoise_pass.set_bind_group(0, &per_view.spatial_denoise_bind_group, &[]);
+            spatial_denoise_pass.set_bind_group(
+                1,
+                &bind_groups.common_bind_group,
+                &[view_uniform_offset.offset],
+            );
+            spatial_denoise_pass.dispatch_workgroups(
+                camera_size.x.div_ceil(8),
+                camera_size.y.div_ceil(8),
+                1,
+            );
+        }
     }
 
     command_encoder.pop_debug_group();
@@ -534,13 +540,20 @@ fn prepare_ssao_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     pipelines: Res<SsaoPipelines>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
+    views: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ScreenSpaceAmbientOcclusion,
+        Option<&ExtractedMultiview>,
+    )>,
 ) {
-    for (entity, camera, ssao_settings) in &views {
+    for (entity, camera, ssao_settings, multiview) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
-        let size = physical_viewport_size.to_extents();
+        let view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
+        let mut size = physical_viewport_size.to_extents();
+        size.depth_or_array_layers = view_count;
 
         let preprocessed_depth_texture = texture_cache.get(
             &render_device,
@@ -649,16 +662,24 @@ fn prepare_ssao_pipelines(
     }
 }
 
-/// A render world component that stores the bind groups necessary to perform
-/// Screen Space Ambient Occlusion.
-///
-/// This is stored on each view.
-#[derive(Component)]
-pub struct SsaoBindGroups {
-    pub common_bind_group: BindGroup,
+/// Per-eye bind groups dispatched once per view layer in [`ssao`].
+pub struct SsaoPerViewBindGroups {
     pub preprocess_depth_bind_group: BindGroup,
     pub ssao_bind_group: BindGroup,
     pub spatial_denoise_bind_group: BindGroup,
+}
+
+/// A render world component that stores the bind groups necessary to perform
+/// Screen Space Ambient Occlusion.
+///
+/// This is stored on each view. [`Self::common_bind_group`] is shared across
+/// all eyes (it binds the packed view-uniform array); the pipeline-specific
+/// bind groups are duplicated per eye so each dispatch reads and writes its
+/// own layer of the prepass / SSAO textures.
+#[derive(Component)]
+pub struct SsaoBindGroups {
+    pub common_bind_group: BindGroup,
+    pub per_view: Vec<SsaoPerViewBindGroups>,
 }
 
 fn prepare_ssao_bind_groups(
@@ -692,64 +713,201 @@ fn prepare_ssao_bind_groups(
             )),
         );
 
-        let create_depth_view = |mip_level| {
+        // Under multiview, each SSAO texture has `view_count` layers and each
+        // eye is dispatched separately with single-layer `D2` views into its
+        // own layer. For non-multiview cameras `view_count == 1` and we use
+        // the textures' default views (bit-identical to the non-multiview
+        // single-pass path).
+        let view_count = ssao_resources
+            .preprocessed_depth_texture
+            .texture
+            .depth_or_array_layers();
+        let is_multiview = view_count > 1;
+
+        // Prepass attachment textures may be 1-layer at runtime even when
+        // SSAO is multi-layer (e.g., when the camera has SSAO but the
+        // prepass component itself is not configured for per-eye storage).
+        // Building `base_array_layer: layer >= 1` views of a 1-layer texture
+        // would error wgpu validation, so gate per-layer view creation on
+        // each texture's actual layer count. When the prepass textures are
+        // multi-layer, build per-eye views; otherwise fall back to the
+        // single-layer `prepass_textures.{depth,normal}_view()` helpers and
+        // all eyes read the shared layer.
+        let prepass_depth_multilayer = prepass_textures
+            .depth
+            .as_ref()
+            .is_some_and(|d| d.texture.texture.depth_or_array_layers() > 1);
+        let prepass_normal_multilayer = prepass_textures
+            .normal
+            .as_ref()
+            .is_some_and(|n| n.texture.texture.depth_or_array_layers() > 1);
+
+        // Per-eye, single-layer `D2` view of a specific `mip_level` of the
+        // 5-mip preprocessed depth texture.
+        let preprocessed_depth_mip_view = |mip_level: u32, layer: u32| {
             ssao_resources
                 .preprocessed_depth_texture
                 .texture
                 .create_view(&TextureViewDescriptor {
                     label: Some("ssao_preprocessed_depth_texture_mip_view"),
                     base_mip_level: mip_level,
+                    base_array_layer: layer,
+                    array_layer_count: Some(1),
                     format: Some(pipelines.depth_format),
                     dimension: Some(TextureViewDimension::D2),
                     mip_level_count: Some(1),
                     ..default()
                 })
         };
+        // Per-eye, single-layer `D2` view of any of the SSAO textures.
+        // `default` covers `base_mip_level: 0`, `mip_level_count: None` and
+        // `format: None`.
+        let single_layer_view = |texture: &Texture, layer: u32, label: &'static str| {
+            texture.create_view(&TextureViewDescriptor {
+                label: Some(label),
+                base_array_layer: layer,
+                array_layer_count: Some(1),
+                dimension: Some(TextureViewDimension::D2),
+                ..default()
+            })
+        };
+        // Per-eye `D2` view of one of the prepass attachment textures.
+        // The host-side prepass `*_view()` helpers return the texture's
+        // `default_view`, which under multiview is a `D2Array` view of the
+        // full array. SSAO needs to read its eye's slice, so when multiview
+        // is active we build a fresh per-layer view here.
+        let prepass_layer_view = |texture: &Texture, layer: u32, label: &'static str| {
+            texture.create_view(&TextureViewDescriptor {
+                label: Some(label),
+                base_array_layer: layer,
+                array_layer_count: Some(1),
+                dimension: Some(TextureViewDimension::D2),
+                ..default()
+            })
+        };
 
-        let preprocess_depth_bind_group = render_device.create_bind_group(
-            "ssao_preprocess_depth_bind_group",
-            &pipeline_cache.get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
-            &BindGroupEntries::sequential((
-                prepass_textures.depth_view().unwrap(),
-                &create_depth_view(0),
-                &create_depth_view(1),
-                &create_depth_view(2),
-                &create_depth_view(3),
-                &create_depth_view(4),
-            )),
-        );
+        let mut per_view = Vec::with_capacity(view_count as usize);
+        for layer in 0..view_count {
+            // Pre-compute per-eye views as owned locals so the borrows live
+            // through `create_bind_group`. For non-multiview cameras the
+            // existing `default_view` / prepass `*_view()` helpers are still
+            // used (bit-identical).
+            let prepass_depth_view = prepass_depth_multilayer.then(|| {
+                prepass_layer_view(
+                    &prepass_textures.depth.as_ref().unwrap().texture.texture,
+                    layer,
+                    "ssao_prepass_depth_layer_view",
+                )
+            });
+            let prepass_normal_view = prepass_normal_multilayer.then(|| {
+                prepass_layer_view(
+                    &prepass_textures.normal.as_ref().unwrap().texture.texture,
+                    layer,
+                    "ssao_prepass_normal_layer_view",
+                )
+            });
+            let preprocessed_depth_layer_view = is_multiview.then(|| {
+                single_layer_view(
+                    &ssao_resources.preprocessed_depth_texture.texture,
+                    layer,
+                    "ssao_preprocessed_depth_layer_view",
+                )
+            });
+            let ssao_noisy_layer_view = is_multiview.then(|| {
+                single_layer_view(
+                    &ssao_resources.ssao_noisy_texture.texture,
+                    layer,
+                    "ssao_noisy_layer_view",
+                )
+            });
+            let depth_differences_layer_view = is_multiview.then(|| {
+                single_layer_view(
+                    &ssao_resources.depth_differences_texture.texture,
+                    layer,
+                    "ssao_depth_differences_layer_view",
+                )
+            });
+            let ssao_output_layer_view = is_multiview.then(|| {
+                single_layer_view(
+                    &ssao_resources.screen_space_ambient_occlusion_texture.texture,
+                    layer,
+                    "ssao_output_layer_view",
+                )
+            });
 
-        let ssao_bind_group = render_device.create_bind_group(
-            "ssao_ssao_bind_group",
-            &pipeline_cache.get_bind_group_layout(&pipelines.ssao_bind_group_layout),
-            &BindGroupEntries::sequential((
-                &ssao_resources.preprocessed_depth_texture.default_view,
-                prepass_textures.normal_view().unwrap(),
-                &pipelines.hilbert_index_lut,
-                &ssao_resources.ssao_noisy_texture.default_view,
-                &ssao_resources.depth_differences_texture.default_view,
-                globals_uniforms.clone(),
-                ssao_resources.settings_buffer.as_entire_binding(),
-            )),
-        );
+            let mip0 = preprocessed_depth_mip_view(0, layer);
+            let mip1 = preprocessed_depth_mip_view(1, layer);
+            let mip2 = preprocessed_depth_mip_view(2, layer);
+            let mip3 = preprocessed_depth_mip_view(3, layer);
+            let mip4 = preprocessed_depth_mip_view(4, layer);
 
-        let spatial_denoise_bind_group = render_device.create_bind_group(
-            "ssao_spatial_denoise_bind_group",
-            &pipeline_cache.get_bind_group_layout(&pipelines.spatial_denoise_bind_group_layout),
-            &BindGroupEntries::sequential((
-                &ssao_resources.ssao_noisy_texture.default_view,
-                &ssao_resources.depth_differences_texture.default_view,
-                &ssao_resources
-                    .screen_space_ambient_occlusion_texture
-                    .default_view,
-            )),
-        );
+            let preprocess_depth_bind_group = render_device.create_bind_group(
+                "ssao_preprocess_depth_bind_group",
+                &pipeline_cache
+                    .get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
+                &BindGroupEntries::sequential((
+                    prepass_depth_view
+                        .as_ref()
+                        .unwrap_or_else(|| prepass_textures.depth_view().unwrap()),
+                    &mip0,
+                    &mip1,
+                    &mip2,
+                    &mip3,
+                    &mip4,
+                )),
+            );
+
+            let ssao_bind_group = render_device.create_bind_group(
+                "ssao_ssao_bind_group",
+                &pipeline_cache.get_bind_group_layout(&pipelines.ssao_bind_group_layout),
+                &BindGroupEntries::sequential((
+                    preprocessed_depth_layer_view
+                        .as_ref()
+                        .unwrap_or(&ssao_resources.preprocessed_depth_texture.default_view),
+                    prepass_normal_view
+                        .as_ref()
+                        .unwrap_or_else(|| prepass_textures.normal_view().unwrap()),
+                    &pipelines.hilbert_index_lut,
+                    ssao_noisy_layer_view
+                        .as_ref()
+                        .unwrap_or(&ssao_resources.ssao_noisy_texture.default_view),
+                    depth_differences_layer_view
+                        .as_ref()
+                        .unwrap_or(&ssao_resources.depth_differences_texture.default_view),
+                    globals_uniforms.clone(),
+                    ssao_resources.settings_buffer.as_entire_binding(),
+                )),
+            );
+
+            let spatial_denoise_bind_group = render_device.create_bind_group(
+                "ssao_spatial_denoise_bind_group",
+                &pipeline_cache
+                    .get_bind_group_layout(&pipelines.spatial_denoise_bind_group_layout),
+                &BindGroupEntries::sequential((
+                    ssao_noisy_layer_view
+                        .as_ref()
+                        .unwrap_or(&ssao_resources.ssao_noisy_texture.default_view),
+                    depth_differences_layer_view
+                        .as_ref()
+                        .unwrap_or(&ssao_resources.depth_differences_texture.default_view),
+                    ssao_output_layer_view.as_ref().unwrap_or(
+                        &ssao_resources
+                            .screen_space_ambient_occlusion_texture
+                            .default_view,
+                    ),
+                )),
+            );
+
+            per_view.push(SsaoPerViewBindGroups {
+                preprocess_depth_bind_group,
+                ssao_bind_group,
+                spatial_denoise_bind_group,
+            });
+        }
 
         commands.entity(entity).insert(SsaoBindGroups {
             common_bind_group,
-            preprocess_depth_bind_group,
-            ssao_bind_group,
-            spatial_denoise_bind_group,
+            per_view,
         });
     }
 }
