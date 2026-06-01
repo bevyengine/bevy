@@ -22,6 +22,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -33,7 +34,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
-    view::{prepare_view_targets, Msaa, ViewDepthTexture, ViewTarget},
+    view::{prepare_view_targets, ViewDepthTexture, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -188,7 +189,7 @@ pub fn motion_blur(
         &ViewPrepassTextures,
         &ViewDepthTexture,
         &MotionBlurUniform,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
     motion_blur_pipeline: Res<MotionBlurPipeline>,
     pipeline_cache: Res<PipelineCache>,
@@ -196,7 +197,7 @@ pub fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
+    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, target_info) =
         view.into_inner();
 
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
@@ -219,7 +220,7 @@ pub fn motion_blur(
 
     let post_process = view_target.post_process_write();
 
-    let layout = if msaa.samples() == 1 {
+    let layout = if target_info.sample_count == 1 {
         &motion_blur_pipeline.layout
     } else {
         &motion_blur_pipeline.layout_msaa

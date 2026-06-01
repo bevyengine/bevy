@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     render_resource::{
         binding_types::{
             storage_buffer_read_only_sized, storage_buffer_sized, texture_depth_2d, uniform_buffer,
@@ -22,7 +22,7 @@ use bevy_render::{
         TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ExtractedView, ViewUniform, ViewUniforms},
+    view::{ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::ShaderDefVal;
@@ -154,7 +154,7 @@ pub fn queue_oit_resolve_pipeline(
     cameras: Query<
         (
             Entity,
-            &ExtractedView,
+            &ViewTargetInfo,
             &OrderIndependentTransparencySettings,
             Has<DepthPrepass>,
         ),
@@ -170,10 +170,10 @@ pub fn queue_oit_resolve_pipeline(
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, view, oit_settings, depth_prepass) in &cameras {
+    for (e, target_info, oit_settings, depth_prepass) in &cameras {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
-            target_format: view.target_format,
+            target_format: target_info.color_format,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
             depth_prepass,
         };

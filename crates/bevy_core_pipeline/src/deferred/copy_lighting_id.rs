@@ -7,7 +7,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
@@ -147,24 +147,22 @@ fn prepare_deferred_lighting_id_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
+    views: Query<(Entity, &ViewTargetInfo), With<DeferredPrepass>>,
 ) {
-    for (entity, camera) in &views {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let texture_descriptor = TextureDescriptor {
-                label: Some("deferred_lighting_id_depth_texture_a"),
-                size: physical_target_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
-                view_formats: &[],
-            };
-            let texture = texture_cache.get(&render_device, texture_descriptor);
-            commands
-                .entity(entity)
-                .insert(DeferredLightingIdDepthTexture { texture });
-        }
+    for (entity, target_info) in &views {
+        let texture_descriptor = TextureDescriptor {
+            label: Some("deferred_lighting_id_depth_texture_a"),
+            size: target_info.size.to_extents(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+            view_formats: &[],
+        };
+        let texture = texture_cache.get(&render_device, texture_descriptor);
+        commands
+            .entity(entity)
+            .insert(DeferredLightingIdDepthTexture { texture });
     }
 }

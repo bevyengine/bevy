@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{TemporalJitter, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -31,7 +31,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -182,7 +182,7 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
 
 fn ssao(
     view: ViewQuery<(
-        &ExtractedCamera,
+        &ViewTargetInfo,
         &SsaoPipelineId,
         &SsaoBindGroups,
         &ViewUniformOffset,
@@ -191,22 +191,16 @@ fn ssao(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
+    let (target_info, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
 
-    let (
-        Some(camera_size),
-        Some(preprocess_depth_pipeline),
-        Some(spatial_denoise_pipeline),
-        Some(ssao_pipeline),
-    ) = (
-        camera.physical_viewport_size,
+    let (Some(preprocess_depth_pipeline), Some(spatial_denoise_pipeline), Some(ssao_pipeline)) = (
         pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         pipeline_cache.get_compute_pipeline(pipeline_id.0),
-    )
-    else {
+    ) else {
         return;
     };
+    let camera_size = target_info.size;
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -496,16 +490,21 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (
+                RenderEntity,
+                &Camera,
+                &ScreenSpaceAmbientOcclusion,
+                &ViewTargetInfo,
+            ),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
 ) {
-    for (entity, camera, ssao_settings, msaa) in &cameras {
-        if *msaa != Msaa::Off {
+    for (entity, camera, ssao_settings, target_info) in &cameras {
+        if target_info.sample_count > 1 {
             error!(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
-                *msaa
+                target_info.sample_count,
             );
             return;
         }
@@ -534,13 +533,10 @@ fn prepare_ssao_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     pipelines: Res<SsaoPipelines>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
+    views: Query<(Entity, &ViewTargetInfo, &ScreenSpaceAmbientOcclusion)>,
 ) {
-    for (entity, camera, ssao_settings) in &views {
-        let Some(physical_viewport_size) = camera.physical_viewport_size else {
-            continue;
-        };
-        let size = physical_viewport_size.to_extents();
+    for (entity, target_info, ssao_settings) in &views {
+        let size = target_info.size.to_extents();
 
         let preprocessed_depth_texture = texture_cache.get(
             &render_device,
