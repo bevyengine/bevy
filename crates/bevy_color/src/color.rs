@@ -859,17 +859,19 @@ impl Saturation for Color {
         let mut new = *self;
 
         match &mut new {
-            Color::Srgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::LinearRgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Hsla(x) => x.with_saturation(saturation).into(),
-            Color::Hsva(x) => x.with_saturation(saturation).into(),
-            Color::Hwba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Laba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Lcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Oklaba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Oklcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Xyza(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Srgba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::LinearRgba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Hsla(x) => *x = x.with_saturation(saturation),
+            Color::Hsva(x) => *x = x.with_saturation(saturation),
+            Color::Hwba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Laba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Lcha(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklaba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklcha(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Xyza(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
         }
+
+        new
     }
 
     fn saturation(&self) -> f32 {
