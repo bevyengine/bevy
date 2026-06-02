@@ -111,6 +111,11 @@ impl Name {
     pub fn as_str(&self) -> &str {
         &self.0 .0
     }
+    /// Get the precomputed hash of this names string, useful for raw entry operations on [`PreHashMap`](bevy_utils::PreHashMap)
+    #[inline(always)]
+    pub fn pre_hash(&self) -> u64 {
+        self.0 .0.hash()
+    }
 }
 
 impl core::fmt::Display for Name {
@@ -283,6 +288,7 @@ mod tests {
     use super::*;
     use crate::world::World;
     use alloc::string::ToString;
+    use bevy_platform::hash::fixed_hash_one;
 
     #[test]
     fn test_display_of_debug_name() {
@@ -297,6 +303,11 @@ mod tests {
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
+    }
+    #[test]
+    fn test_name_hash_is_fixed() {
+        let str = "foobar";
+        assert_eq!(Name::from(str).pre_hash(), fixed_hash_one(str));
     }
 }
 

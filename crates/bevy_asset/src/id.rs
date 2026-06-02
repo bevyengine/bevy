@@ -44,7 +44,7 @@ pub enum AssetId<A: Asset> {
 }
 
 impl<A: Asset> AssetId<A> {
-    /// The uuid for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
+    /// The UUID for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
     /// and by convention (where appropriate) assets should support this pattern.
     pub const DEFAULT_UUID: Uuid = Uuid::from_u128(200809721996911295814598172825939264631);
 
