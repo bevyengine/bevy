@@ -681,7 +681,7 @@ fn visibility_propagate_system(
         };
 
         let is_visible = match visibility {
-            // If a entity has no parent, fall back to true
+            // If an entity has no parent, fall back to true
             Visibility::Visible | Visibility::Inherited => true,
             Visibility::Hidden => false,
         };

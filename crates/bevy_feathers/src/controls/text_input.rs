@@ -5,12 +5,15 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
     template::template,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
     EditableText, FontSource, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
@@ -32,7 +35,8 @@ use crate::{
 /// (such as "search" or "clear") to be inserted adjacent to the input.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersTextInputContainer;
 
 impl FeathersTextInputContainer {
@@ -78,6 +82,8 @@ impl FeathersTextInputContainer {
 /// ```
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersTextInputProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersTextInput;
 
 /// Props used to construct the [`FeathersTextInput`] scene.
