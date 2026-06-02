@@ -169,7 +169,7 @@ impl Default for TransformGizmoSettings {
             snap_translate: None,
             snap_rotate: None,
             snap_scale: None,
-            confine_cursor: true,
+            confine_cursor: !cfg!(target_os = "macos"),
             screen_scale_factor: 0.1,
         }
     }
