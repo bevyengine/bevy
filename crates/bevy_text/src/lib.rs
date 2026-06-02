@@ -125,8 +125,8 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    detect_text_needs_rerender,
                     load_font_assets_into_font_collection,
+                    detect_text_needs_rerender,
                 )
                     .chain(),
             )
