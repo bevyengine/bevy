@@ -139,16 +139,24 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
-impl MouseScrollUnit {
-    /// An approximate conversion factor to account for the difference between
-    /// [`MouseScrollUnit::Line`] and [`MouseScrollUnit::Pixel`].
-    ///
-    /// Each line corresponds to many pixels; this must be corrected for in order to ensure that
-    /// mouse wheel controls are scaled properly regardless of the provided input events for the end user.
-    ///
-    /// This value is correct for Microsoft Edge, but its validity has not been broadly tested.
-    /// Please file an issue if you find that this differs on certain platforms or hardware!
-    pub const SCROLL_UNIT_CONVERSION_FACTOR: f32 = 100.;
+/// Describes the quantity of [`MouseScrollUnit::Pixel`]s per [`MouseScrollUnit::Line`]
+#[derive(Debug, Clone, Copy, PartialEq, Resource)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct MouseScrollPixelsPerLine(f32);
+
+impl Default for MouseScrollPixelsPerLine {
+    fn default() -> Self {
+        MouseScrollPixelsPerLine(100.0)
+    }
 }
 
 /// A mouse wheel event.
