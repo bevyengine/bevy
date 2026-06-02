@@ -169,6 +169,7 @@ fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
 ```
 
 If the bound cannot be added, there are a couple of options:
+
 - If the resource is only sometimes mutable OR the API should not be unsafe, use `World::modify_resource` and `World::modify_resource_by_id`. They behave exactly like their component counterparts.
 - If your API can be made unsafe, use the `UnsafeWorldCell::*_assume_mutable` methods and make sure that the safety conditions are satisfied. `UnsafeWorldCell::get_resource_mut_assume_mutable` has been provided for this explicit purpose. It is also possible to use the `*_assume_mutable` component methods, but you will first have to retrieve the resource entity from `ResourceEntities`.
 
