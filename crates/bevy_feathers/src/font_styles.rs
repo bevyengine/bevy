@@ -25,6 +25,7 @@ pub struct InheritableFont {
     /// The desired font size.
     pub font_size: FontSize,
     /// The desired font weight.
+    #[template(built_in)]
     pub weight: Option<FontWeight>,
 }
 
