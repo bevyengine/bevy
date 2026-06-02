@@ -2413,7 +2413,8 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct OverrideClip;
 
 #[expect(
@@ -2974,7 +2975,8 @@ impl UiTargetCamera {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]

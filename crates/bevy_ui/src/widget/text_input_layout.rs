@@ -8,6 +8,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
+    reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::Ref,
 };
@@ -15,6 +16,8 @@ use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
@@ -26,7 +29,8 @@ use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 use taffy::MaybeMath;
 
-#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Component, Clone, Copy, PartialEq, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
