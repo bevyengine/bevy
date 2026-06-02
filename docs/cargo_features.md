@@ -31,7 +31,7 @@ By default, the `bevy` crate enables the  features.
 ### Collections
 
 "Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don't
-suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target no_std, etc), then you can use these
+suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target `no_std`, etc), then you can use these
 collections to build your own "profile" equivalent, without needing to manually manage _every single_ feature.
 
 |Collection|Description|
@@ -50,7 +50,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 |3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render`. **Feature set:** `3d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_gizmos_render`, `bevy_anti_alias`, `bevy_gltf`, `bevy_pbr`, `bevy_post_process`, `gltf_animation`.|
 |ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `default_app`, `common_api`, `bevy_input_focus`, `bevy_ui`.|
 |ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render`. **Feature set:** `ui_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_ui_render`.|
-|default_no_std|Recommended defaults for no_std applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
+|default_no_std|Recommended defaults for `no_std` applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
 
 ### Feature List
 
@@ -68,7 +68,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |async_executor|Uses `async-executor` as a task execution backend.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
-|bevy_anti_alias|Provides various anti aliasing solutions|
+|bevy_anti_alias|Provides various anti-aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
@@ -105,7 +105,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_debug|Provides a debug overlay for bevy UI|
+|bevy_ui_debug|Provides a debug overlay for Bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
@@ -131,7 +131,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `claxon`)|
-|force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
+|force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
@@ -150,7 +150,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
-|meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
+|meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |mouse|Mouse support. Automatically enabled by `bevy_window`.|
@@ -170,7 +170,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register|Enable automatic reflect registration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
-|reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
+|reflect_documentation|Enables `bevy_reflect` to access documentation comments of Rust code at runtime|
 |reflect_functions|Enable function reflection|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
@@ -210,4 +210,4 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |x11|X11 display server support|
 |zlib|For KTX2 supercompression|
 |zstd_c|For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".|
-|zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|
+|zstd_rust|For KTX2 Zstandard decompression using pure Rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|

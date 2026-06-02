@@ -147,13 +147,13 @@ pub enum NumberFormat {
 /// Represents numbers in different formats.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 pub enum NumberInputValue {
-    /// An f32 value
+    /// An `f32` value
     F32(f32),
-    /// An f64 value
+    /// An `f64` value
     F64(f64),
-    /// An i32 value
+    /// An `i32` value
     I32(i32),
-    /// An i64 value
+    /// An `i64` value
     I64(i64),
 }
 

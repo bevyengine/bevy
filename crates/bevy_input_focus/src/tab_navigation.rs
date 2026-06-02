@@ -12,7 +12,7 @@
 //! Tabbable entities must be descendants of a [`TabGroup`] entity, which is a component that
 //! marks a tree of entities as containing tabbable elements. The order of tab groups
 //! is determined by the [`TabGroup::order`] field, with lower orders being tabbed first. Modal tab groups
-//! are used for ui elements that should only tab within themselves, such as modal dialog boxes.
+//! are used for UI elements that should only tab within themselves, such as modal dialog boxes.
 //!
 //! To enable automatic tabbing, add the
 //! [`TabNavigationPlugin`] and [`InputDispatchPlugin`](crate::InputDispatchPlugin) to your app.
