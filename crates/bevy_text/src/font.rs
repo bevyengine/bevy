@@ -1,5 +1,8 @@
 use crate::FontCx;
 use crate::FontSource;
+use crate::FontStyle;
+use crate::FontWeight;
+use crate::FontWidth;
 use crate::TextFont;
 use bevy_asset::Asset;
 use bevy_asset::AssetId;
@@ -33,6 +36,12 @@ pub struct Font {
     /// If the font file is a collection with multiple families, this is the family name from the
     /// first font face in the collection.
     pub family_name: SmolStr,
+    /// Font weight used when the font is referenced by handle.
+    pub weight: FontWeight,
+    /// Font width used when the font is referenced by handle.
+    pub width: FontWidth,
+    /// Font style used when the font is referenced by handle.
+    pub style: FontStyle,
 }
 
 impl Font {
@@ -41,6 +50,9 @@ impl Font {
         Self {
             data: Blob::from(font_data),
             family_name: family_name.into(),
+            weight: FontWeight::default(),
+            width: FontWidth::default(),
+            style: FontStyle::default(),
         }
     }
 }
@@ -70,18 +82,24 @@ pub fn load_font_assets_into_font_collection(
 
         let new_fonts = font_cx.collection.register_fonts(font_data, None);
 
-        if let Some((_, family_id)) = new_fonts
+        if let Some((family_id, font_info)) = new_fonts
             .iter()
             .flat_map(|(family_id, fonts)| {
-                fonts
-                    .iter()
-                    .map(move |font_info| (font_info.index(), *family_id))
+                fonts.iter().map(move |font_info| (*family_id, font_info))
             })
-            .min_by_key(|(index, _)| *index)
-            && let Some(family_name) = font_cx.0.collection.family_name(family_id)
+            .min_by_key(|(_, font_info)| font_info.index())
+            && let Some(family_name) = font_cx.collection.family_name(family_id)
             && let Some(font) = fonts.get_mut_untracked(*asset_id)
         {
             font.family_name = family_name.into();
+            font.weight = FontWeight(font_info.weight().value().round().clamp(1.0, 1000.0) as u16);
+            font.width = FontWidth(font_info.width().ratio());
+            font.style = match font_info.style() {
+                parley::FontStyle::Normal => FontStyle::Normal,
+                parley::FontStyle::Italic => FontStyle::Italic,
+                parley::FontStyle::Oblique(angle) => FontStyle::Oblique(angle),
+            };
+
             new_family_ids.extend(new_fonts.iter().map(|(family_id, _)| *family_id));
         }
     }

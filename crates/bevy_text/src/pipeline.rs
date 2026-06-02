@@ -26,8 +26,8 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
-    TextFont, TextLayout,
+    FontStyle, FontWeight, FontWidth, Justify, LetterSpacing, LineBreak, LineHeight,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 struct TextSectionView<'a> {
@@ -117,7 +117,7 @@ impl TextPipeline {
                 }
 
                 if matches!(text_font.font, FontSource::Handle(_))
-                    && resolve_font_source(&text_font.font, fonts).is_err()
+                    && resolve_font_source(text_font, fonts).is_err()
                 {
                     return Err(TextError::NoSuchFont);
                 }
@@ -191,9 +191,12 @@ impl TextPipeline {
                     continue;
                 }
 
-                let family = resolve_font_source(&section.text_font.font, fonts)?;
+                let resolved_font = resolve_font_source(section.text_font, fonts)?;
 
-                builder.push(StyleProperty::FontFamily(family), range.clone());
+                builder.push(
+                    StyleProperty::FontFamily(resolved_font.family),
+                    range.clone(),
+                );
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
                         section.index as u32,
@@ -211,15 +214,15 @@ impl TextPipeline {
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWeight(section.text_font.weight.into()),
+                    StyleProperty::FontWeight(resolved_font.weight.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWidth(section.text_font.width.into()),
+                    StyleProperty::FontWidth(resolved_font.width.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontStyle(section.text_font.style.into()),
+                    StyleProperty::FontStyle(resolved_font.style.into()),
                     range.clone(),
                 );
                 builder.push(
@@ -413,44 +416,68 @@ impl TextPipeline {
     }
 }
 
-/// Resolve a [`FontSource`], producing a [`FontFamily`], by looking it up in the [`Assets<Font>`] collection.
+/// Resolved [`FontSource`] and face attributes.
+pub struct ResolvedFontSource<'a> {
+    /// The font family used for layout.
+    pub family: FontFamily<'a>,
+    /// The font weight used for face matching.
+    pub weight: FontWeight,
+    /// The font width used for face matching.
+    pub width: FontWidth,
+    /// The font style used for face matching.
+    pub style: FontStyle,
+}
+
+/// Resolve a [`TextFont`]'s [`FontSource`], producing a font family and face attributes.
 pub fn resolve_font_source<'a>(
-    font: &'a FontSource,
+    text_font: &'a TextFont,
     fonts: &Assets<Font>,
-) -> Result<FontFamily<'a>, TextError> {
-    Ok(match font {
-        FontSource::Handle(handle) => {
-            let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-            FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
+) -> Result<ResolvedFontSource<'a>, TextError> {
+    if let FontSource::Handle(handle) = &text_font.font {
+        let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
+        Ok(ResolvedFontSource {
+            family: FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
                 font.family_name.as_str().to_owned(),
-            )))
-        }
-        FontSource::Family(family) => FontFamily::named(family.as_str()),
-        generic => {
-            #[cfg(not(feature = "system_font_discovery"))]
-            bevy_log::error_once!(
-                "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
+            ))),
+            weight: font.weight,
+            width: font.width,
+            style: font.style,
+        })
+    } else {
+        Ok(ResolvedFontSource {
+            family: match &text_font.font {
+                FontSource::Handle(_) => unreachable!(),
+                FontSource::Family(family) => FontFamily::named(family.as_str()),
+                generic => {
+                    #[cfg(not(feature = "system_font_discovery"))]
+                    bevy_log::error_once!(
+                    "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
                 feature is not enabled. Text may not render. Enable the feature to allow Bevy \
                 to discover system fonts."
-            );
-            match generic {
-                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                FontSource::Serif => parley::GenericFamily::Serif.into(),
-                FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-                FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-                FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-                FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-                FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-                FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-                FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-                FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-                FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-                FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-                FontSource::Math => parley::GenericFamily::Math.into(),
-                FontSource::FangSong => parley::GenericFamily::FangSong.into(),
-            }
-        }
-    })
+                );
+                    match generic {
+                        FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
+                        FontSource::Serif => parley::GenericFamily::Serif.into(),
+                        FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
+                        FontSource::Cursive => parley::GenericFamily::Cursive.into(),
+                        FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
+                        FontSource::Monospace => parley::GenericFamily::Monospace.into(),
+                        FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
+                        FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
+                        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
+                        FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
+                        FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
+                        FontSource::Emoji => parley::GenericFamily::Emoji.into(),
+                        FontSource::Math => parley::GenericFamily::Math.into(),
+                        FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+                    }
+                }
+            },
+            weight: text_font.weight,
+            width: text_font.width,
+            style: text_font.style,
+        })
+    }
 }
 
 /// Render information for a corresponding text block.

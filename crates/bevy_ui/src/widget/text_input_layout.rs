@@ -90,11 +90,12 @@ pub fn update_editable_text_content_size(
         let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
+            let resolved_font = resolve_font_source(&text_font, fonts.as_ref()).ok()?;
             let font_context = &mut font_cx.0;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
+            match resolved_font.family {
                 parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
                     query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
                 }
@@ -104,9 +105,9 @@ pub fn update_editable_text_content_size(
                 _ => return None,
             }
             query.set_attributes(parley::fontique::Attributes::new(
-                text_font.width.into(),
-                text_font.style.into(),
-                text_font.weight.into(),
+                resolved_font.width.into(),
+                resolved_font.style.into(),
+                resolved_font.weight.into(),
             ));
 
             let mut width = None;
@@ -193,16 +194,16 @@ pub fn update_editable_text_styles(
         }
 
         if text_font.is_changed() {
-            let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
+            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
                 continue;
             };
 
-            let family = font_family.into_owned();
+            let family = resolved_font.family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
-            style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
-            style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
-            style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
+            style_set.insert(StyleProperty::FontWeight(resolved_font.weight.into()));
+            style_set.insert(StyleProperty::FontWidth(resolved_font.width.into()));
+            style_set.insert(StyleProperty::FontStyle(resolved_font.style.into()));
             style_set.insert(StyleProperty::FontFeatures(
                 (&text_font.font_features).into(),
             ));
