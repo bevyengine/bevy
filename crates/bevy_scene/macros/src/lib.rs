@@ -11,7 +11,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// bsn! {
 ///     some_scene()        // include a scene function
 ///     #SomeName           // entity name, will insert Name("SomeName")
-///     ComponentA          // component without a value will use default
+///     ComponentA          // component without fields: will use the default field values
 ///     ComponentB(0.0)     // passing a value, other fields will use default
 ///     Node {
 ///         height: px(0.1) // same with named fields, unmentioned ones stay default
