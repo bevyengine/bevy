@@ -54,18 +54,46 @@ where
     }
 }
 
-/// Macro to define a new label trait
+/// Macro to define a new label trait.
 ///
-/// # Example
+/// Each label trait has an associated [`Interner<dyn YourLabelTraitHere>`][crate::intern::Interner]
+/// The trait has an `intern(&self)` method which uses that interner to
+/// produce [`Interned<dyn YourLabelTraitHere>`][crate::intern::Interned] values,
+/// and a `dyn_clone(&self)` method which must be implemented for the system to work.
+///
+/// # Examples
+///
+/// Minimal working example:
 ///
 /// ```
 /// # use bevy_ecs::define_label;
+/// // Defines `trait MyNewLabelTrait` and `static MY_NEW_LABEL_TRAIT_INTERNER`.
+/// // You don’t need to use the interner for anything; just give it a unique name.
 /// define_label!(
 ///     /// Documentation of label trait
 ///     MyNewLabelTrait,
 ///     MY_NEW_LABEL_TRAIT_INTERNER
 /// );
 ///
+/// /// A new label type implementing the new label trait.
+/// #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+/// pub struct MyLabel;
+///
+/// impl MyNewLabelTrait for MyLabel {
+///     // Implementations of the trait must implement the `dyn_clone()` method in this way
+///     // to enable cloning the trait object because `Clone` is not `dyn` compatible.
+///     fn dyn_clone(&self) -> Box<dyn MyNewLabelTrait> {
+///         Box::new(self.clone())
+///     }
+/// }
+///
+/// assert_eq!(MyLabel.intern(), MyLabel.intern());
+/// ```
+///
+/// A label trait defined by this macro can also be given additional methods:
+///
+/// ```
+/// # use bevy_ecs::define_label;
 /// define_label!(
 ///     /// Documentation of another label trait
 ///     MyNewExtendedLabelTrait,
@@ -75,13 +103,63 @@ where
 ///         fn additional_method(&self) -> i32;
 ///     },
 ///     extra_methods_impl: {
-///         // Implementation of the extra methods for Interned<dyn MyNewExtendedLabelTrait>
+///         // Implementation of the extra methods for Interned<dyn MyNewExtendedLabelTrait>,
+///         // which should usually forward to the contained value.
 ///         fn additional_method(&self) -> i32 {
-///             0
+///             (**self).additional_method()
 ///         }
 ///     }
 /// );
+///
+/// #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+/// pub struct MyLabel;
+///
+/// impl MyNewExtendedLabelTrait for MyLabel {
+///     fn dyn_clone(&self) -> Box<dyn MyNewExtendedLabelTrait> {
+///         Box::new(self.clone())
+///     }
+///
+///     fn additional_method(&self) -> i32 {
+///         42
+///     }
+/// }
+///
+/// let interned_label = MyLabel.intern();
+/// assert_eq!(interned_label.additional_method(), 42);
 /// ```
+///
+/// In order to minimize boilerplate for each new label type, you may wish to define a macro to
+/// generate labels. In Bevy’s own traits, this is done by derive macros (e.g.
+/// `derive(ScheduleLabel)`), but it is often sufficient to write a simple, less general
+/// `macro_rules!` macro:
+///
+/// ```
+/// # use bevy_ecs::define_label;
+/// define_label!(
+///     Team,
+///     TEAM_INTERNER
+/// );
+///
+/// macro_rules! define_team {
+///     ($name:ident) => {
+///         #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+///         pub struct $name;
+///
+///         impl Team for $name {
+///             fn dyn_clone(&self) -> Box<dyn Team> {
+///                 Box::new(self.clone())
+///             }
+///         }
+///     }
+/// }
+///
+/// define_team!(Home);
+/// define_team!(Away);
+///
+/// assert_eq!(Home.intern(), Home.intern());
+/// assert_ne!(Home.intern(), Away.intern());
+/// ```
+///
 #[macro_export]
 macro_rules! define_label {
     (
