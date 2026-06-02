@@ -167,6 +167,7 @@ fn run_pancamera_controller(
     time: Res<Time<Real>>,
     key_input: Res<ButtonInput<KeyCode>>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+    mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
     mut query: Query<(&mut Transform, &mut PanCamera), With<Camera>>,
 ) {
     let dt = time.delta_secs();
@@ -242,9 +243,7 @@ fn run_pancamera_controller(
     // (with mouse wheel)
     let mouse_scroll = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
-        MouseScrollUnit::Pixel => {
-            accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
-        }
+        MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / mouse_scroll_conversion,
     };
     zoom_amount += mouse_scroll * controller.zoom_speed;
 
