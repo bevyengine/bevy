@@ -49,7 +49,7 @@ pub trait SerializeWithRegistry {
 }
 
 /// Type data used to serialize a [`Reflect`] type with a custom [`SerializeWithRegistry`] implementation.
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSerializeWithRegistry {
     serialize: for<'a> fn(
         value: &'a dyn Reflect,
@@ -71,8 +71,6 @@ impl ReflectSerializeWithRegistry {
         ((self.serialize)(value, registry)).serialize(serializer)
     }
 }
-
-impl TypeData for ReflectSerializeWithRegistry {}
 
 impl<T: Reflect + SerializeWithRegistry> CreateTypeData<T> for ReflectSerializeWithRegistry {
     fn create_type_data(_input: ()) -> Self {

@@ -102,7 +102,7 @@ pub trait FromReflect: Reflect + Sized {
 ///
 /// [`DynamicStruct`]: crate::structs::DynamicStruct
 /// [`DynamicEnum`]: crate::enums::DynamicEnum
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectFromReflect {
     from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
 }
@@ -116,8 +116,6 @@ impl ReflectFromReflect {
         (self.from_reflect)(reflect_value)
     }
 }
-
-impl TypeData for ReflectFromReflect {}
 
 impl<T: FromReflect> CreateTypeData<T> for ReflectFromReflect {
     fn create_type_data(_input: ()) -> Self {

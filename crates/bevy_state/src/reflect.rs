@@ -1,13 +1,13 @@
 use crate::state::{FreelyMutableState, NextState, State, States};
 
 use bevy_ecs::{reflect::from_reflect_with_fallback, world::World};
-use bevy_reflect::{CreateTypeData, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, Reflect, TypeData, TypePath, TypeRegistry};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
 ///
 /// A [`ReflectState`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectState(ReflectStateFns);
 
 /// The raw function pointers needed to make up a [`ReflectState`].
@@ -51,7 +51,7 @@ impl<S: States + Reflect> CreateTypeData<S> for ReflectState {
 ///
 /// A [`ReflectFreelyMutableState`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectFreelyMutableState(ReflectFreelyMutableStateFns);
 
 /// The raw function pointers needed to make up a [`ReflectFreelyMutableState`].

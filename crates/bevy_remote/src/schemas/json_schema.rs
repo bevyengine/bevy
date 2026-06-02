@@ -463,7 +463,7 @@ mod tests {
 
     use bevy_ecs::{component::Component, reflect::AppTypeRegistry, resource::Resource};
     use bevy_reflect::prelude::ReflectDefault;
-    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize, TypeData};
 
     #[test]
     fn reflect_export_struct() {
@@ -482,10 +482,9 @@ mod tests {
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<Foo>())
-            .expect("SHOULD BE REGISTERED")
-            .clone();
+            .expect("SHOULD BE REGISTERED");
         let (_, schema) = export_type(
-            &foo_registration,
+            foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
         );
@@ -527,10 +526,9 @@ mod tests {
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<EnumComponent>())
-            .expect("SHOULD BE REGISTERED")
-            .clone();
+            .expect("SHOULD BE REGISTERED");
         let (_, schema) = export_type(
-            &foo_registration,
+            foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
         );
@@ -566,10 +564,9 @@ mod tests {
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<EnumComponent>())
-            .expect("SHOULD BE REGISTERED")
-            .clone();
+            .expect("SHOULD BE REGISTERED");
         let (_, schema) = export_type(
-            &foo_registration,
+            foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
         );
@@ -598,7 +595,7 @@ mod tests {
             NoValue,
         }
 
-        #[derive(Clone)]
+        #[derive(Clone, TypeData)]
         pub struct ReflectCustomData;
 
         impl<T: Reflect> bevy_reflect::CreateTypeData<T> for ReflectCustomData {
@@ -618,9 +615,8 @@ mod tests {
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<EnumComponent>())
-            .expect("SHOULD BE REGISTERED")
-            .clone();
-        let (_, schema) = export_type(&foo_registration, &metadata, &Components::default());
+            .expect("SHOULD BE REGISTERED");
+        let (_, schema) = export_type(foo_registration, &metadata, &Components::default());
         assert!(
             !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
             "Should not be a component"
@@ -655,10 +651,9 @@ mod tests {
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<TupleStructType>())
-            .expect("SHOULD BE REGISTERED")
-            .clone();
+            .expect("SHOULD BE REGISTERED");
         let (_, schema) = export_type(
-            &foo_registration,
+            foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
         );
@@ -690,10 +685,9 @@ mod tests {
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<Foo>())
-            .expect("SHOULD BE REGISTERED")
-            .clone();
+            .expect("SHOULD BE REGISTERED");
         let (_, schema) = export_type(
-            &foo_registration,
+            foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
         );

@@ -6,13 +6,15 @@
 //! Same as [`component`](`super::component`), but for messages.
 
 use crate::{message::Message, reflect::from_reflect_with_fallback, world::World};
-use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{
+    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeData, TypePath, TypeRegistry,
+};
 
 /// A struct used to operate on reflected [`Message`] trait of a type.
 ///
 /// A [`ReflectMessage`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectMessage(ReflectMessageFns);
 
 /// The raw function pointers needed to make up a [`ReflectMessage`].

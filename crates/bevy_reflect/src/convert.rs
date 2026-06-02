@@ -32,7 +32,7 @@ use crate::{Reflect, TypeData, TypePath};
 ///     .downcast::<String>()
 ///     .unwrap();
 /// ```
-#[derive(Default)]
+#[derive(Default, TypeData)]
 pub struct ReflectConvert {
     /// A mapping from the type to be converted *from* to its associated
     /// [`Converter`].
@@ -100,8 +100,6 @@ impl ReflectConvert {
         );
     }
 }
-
-impl TypeData for ReflectConvert {}
 
 impl Clone for ReflectConvert {
     fn clone(&self) -> Self {
