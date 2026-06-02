@@ -30,7 +30,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///             normal_field: 5      // while normal fields are the actual fields of the component
 ///         },
 ///         Node {
-///             width: some_var      // you can directly use variables without {}
+///             width: some_var      // variables can be assigned to field values
 ///         }
 ///         ComponentB({some_variable + 3.})  // values can be expressions, when wrapped in {}
 ///         @Container {
