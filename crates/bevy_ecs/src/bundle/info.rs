@@ -249,7 +249,7 @@ impl BundleInfo {
         insert_mode: InsertMode,
         caller: MaybeLocation,
     ) {
-        // NOTE: get_components calls this closure on each component in "bundle order".
+        // NOTE: get_components calls `write_component` on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         let mut write_component = bind_lifetime(|storage_type, component_ptr| {
