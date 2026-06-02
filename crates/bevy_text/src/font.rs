@@ -81,7 +81,7 @@ pub fn load_font_assets_into_font_collection(
     for asset_id in &new_asset_ids {
         let font_data = fonts
             .get(*asset_id)
-            .expect("AssetId should have a corresponding asset")
+            .expect("Each AssetId should have a corresponding asset")
             .data
             .clone();
 
