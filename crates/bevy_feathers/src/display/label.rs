@@ -17,7 +17,7 @@ pub fn label(text: impl Into<String>) -> impl Scene {
         TextFont {
             font: FontSourceTemplate::Handle(fonts::REGULAR),
             font_size: size::MEDIUM_FONT,
-            weight: {Some(FontWeight::NORMAL)},
+            weight: FontWeight::NORMAL,
         }
         PropagateOver<TextFont>
         ThemeTextColor(tokens::TEXT_MAIN)
@@ -31,7 +31,7 @@ pub fn label_dim(text: impl Into<String>) -> impl Scene {
         TextFont {
             font: FontSourceTemplate::Handle(fonts::REGULAR),
             font_size: size::MEDIUM_FONT,
-            weight: {Some(FontWeight::NORMAL)},
+            weight: FontWeight::NORMAL,
         }
         PropagateOver<TextFont>
         ThemeTextColor(tokens::TEXT_DIM)
@@ -45,7 +45,7 @@ pub fn label_small(text: impl Into<String>) -> impl Scene {
         TextFont {
             font: FontSourceTemplate::Handle(fonts::REGULAR),
             font_size: size::EXTRA_SMALL_FONT,
-            weight: {Some(FontWeight::NORMAL)},
+            weight: FontWeight::NORMAL,
         }
         PropagateOver<TextFont>
         ThemeTextColor(tokens::TEXT_MAIN)

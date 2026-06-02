@@ -397,14 +397,17 @@ pub struct TextFont {
     /// Only supports variable weight fonts.
     ///
     /// If this is `None`, the font source's default weight is used.
+    #[template(built_in)]
     pub weight: Option<FontWeight>,
     /// How condensed or expanded the glyphs appear horizontally.
     ///
     /// If this is `None`, the font source's default width is used.
+    #[template(built_in)]
     pub width: Option<FontWidth>,
     /// The slant style of a font face: normal, italic, or oblique.
     ///
     /// If this is `None`, the font source's default style is used.
+    #[template(built_in)]
     pub style: Option<FontStyle>,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
