@@ -154,7 +154,7 @@ Since resources may now be immutable, the following now carry a `Mutability = Mu
 - `TemplateContext::resource_mut`
 - as well as `ExtractResourcePlugin`
 
-If you're calling these in a generic context, you need to add this bound to your own type parameters:
+If you are calling these in a generic context and the resource is always mutable, you need to add this bound to your type parameter:
 
 ```rust
 // 0.18
@@ -168,9 +168,9 @@ fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
 }
 ```
 
-If it's not possible to add the bound, use either `UnsafeWorldCell::get_resource_mut_assume_mutable`, `UnsafeWorldCell::get_resource_by_id` and make sure that the safety conditions are satisfied.
-There's also `World::modify_resource` and `World::modify_resource_by_id`, that behave exactly like their component counterparts.
-Lastly, it's also possible to use the `*_assume_mutable` component methods for this purpose, but you'd first have to retrieve the resource entity from `ResourceEntities`.
+If the bound cannot be added, there are a couple of options:
+- If the resource is only sometimes mutable OR the API should not be unsafe, use `World::modify_resource` and `World::modify_resource_by_id`. They behave exactly like their component counterparts.
+- If your API can be made unsafe, use the `UnsafeWorldCell::*_assume_mutable` methods and make sure that the safety conditions are satisfied. `UnsafeWorldCell::get_resource_mut_assume_mutable` has been provided for this explicit purpose. It is also possible to use the `*_assume_mutable` component methods, but you will first have to retrieve the resource entity from `ResourceEntities`.
 
 ## Miscellaneous
 
