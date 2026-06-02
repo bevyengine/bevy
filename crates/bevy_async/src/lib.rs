@@ -101,8 +101,7 @@ mod tests {
     use bevy_app::prelude::*;
     use bevy_app::ScheduleRunnerPlugin;
     use bevy_ecs::prelude::*;
-    use bevy_platform::sync::atomic::AtomicBool;
-    use bevy_platform::sync::atomic::Ordering;
+    use bevy_platform::sync::atomic::{AtomicBool, Ordering};
     use bevy_tasks::AsyncComputeTaskPool;
 
     /// This tests that if a world is dropped we return an error from attempting to run it and
@@ -146,6 +145,54 @@ mod tests {
         drop(app);
         other_app.update();
         assert!(WORLD_WAS_DROPPED.load(Ordering::Relaxed));
+    }
+
+    bevy_tasks::cfg::multi_threaded! {
+        #[test]
+        fn ecs_then_stuck() {
+            use bevy_platform::sync::{Arc, Mutex};
+
+            // We want to make sure that the implementation here doesn't block the ECS thread. So we
+            // spawn a task that does some ECS work and then immediately blocks (not awaits). Since
+            // this test blocks a thread, we cannot run this test unless we are multi_threaded.
+
+            struct MySyncPoint;
+
+            let mut app = App::new();
+            app.add_plugins((
+                AsyncPlugin,
+                ScheduleRunnerPlugin::default(),
+                TaskPoolPlugin::default(),
+            ));
+
+            let mutex = Arc::new(Mutex::new(()));
+
+            let mutex_clone = mutex.clone();
+            app.add_systems(Startup, move |world: Res<AsyncWorld>| {
+                let system_state = world.system_state::<Commands>();
+
+                let mutex_clone = mutex_clone.clone();
+                AsyncComputeTaskPool::get()
+                    .spawn(async move {
+                        system_state
+                            .bridge(MySyncPoint, |mut commands| {
+                                commands.spawn_empty();
+                            })
+                            .await
+                            .unwrap();
+                        let _guard = mutex_clone.lock().unwrap();
+                    })
+                    .detach();
+            })
+            .add_systems(Update, async_world_sync_point::<MySyncPoint>);
+
+            // Lock the guard while we update - this makes it impossible to get the lock, and
+            // therefore, makes the task stuck. That's fine as long as this happens in another
+            // thread.
+            let _guard = mutex.lock().unwrap();
+
+            app.update();
+        }
     }
 
     #[test]
