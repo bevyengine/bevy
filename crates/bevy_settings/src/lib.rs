@@ -298,7 +298,7 @@ fn save_preferences(world: &mut World, use_async: bool, force: bool) {
 
     // Update timestamps
     let mut registry = world.get_resource_mut::<PreferencesFileRegistry>().unwrap();
-    for (_, manifest) in registry.files.iter_mut() {
+    for manifest in registry.files.values_mut() {
         manifest.last_save = this_run;
     }
 }
