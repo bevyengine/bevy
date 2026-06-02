@@ -93,8 +93,8 @@ fn demo_root() -> impl Scene {
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
-            :demo_column_1,
-            :demo_column_2,
+            demo_column_1(),
+            demo_column_2(),
         ]
     }
 }
@@ -415,7 +415,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     label("Srgba"),
                     // Spacer
-                    :flex_spacer,
+                    flex_spacer(),
                     // Text input
                     (
                         @FeathersTextInputContainer
@@ -547,14 +547,14 @@ fn demo_column_2() -> impl Scene {
         }
         Children [
             (
-                :pane Children [
-                    :pane_header Children [
+                pane() Children [
+                    pane_header() Children [
                         @FeathersToolButton {
                             @variant: ButtonVariant::Primary,
                         } Children [
                             (Text("\u{0398}") ThemedText)
                         ],
-                        :pane_header_divider,
+                        pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
@@ -570,13 +570,13 @@ fn demo_column_2() -> impl Scene {
                         } Children [
                             (Text("\u{00BE}") ThemedText)
                         ],
-                        :pane_header_divider,
+                        pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             icon(icons::CHEVRON_DOWN)
                         ],
-                        :flex_spacer,
+                        flex_spacer(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
@@ -584,27 +584,27 @@ fn demo_column_2() -> impl Scene {
                         ],
                     ],
                     (
-                        :pane_body Children [
+                        pane_body() Children [
                             label_dim("A standard editor pane"),
-                            :subpane Children [
-                                :subpane_header Children [
+                            subpane() Children [
+                                subpane_header() Children [
                                     (Text("Left") ThemedText),
                                     (Text("Center") ThemedText),
                                     (Text("Right") ThemedText)
                                 ],
-                                :subpane_body Children [
+                                subpane_body() Children [
                                     label_dim("A standard sub-pane"),
-                                    :group
+                                    group()
                                     Children [
-                                        :group_header Children [
+                                        group_header() Children [
                                             (Text("Group") ThemedText),
                                         ],
-                                        :group_body
+                                        group_body()
                                         Children [
                                             label("A standard group"),
                                             label_small("Scalar property"),
                                             (
-                                                :@FeathersNumberInput
+                                                @FeathersNumberInput
                                                 DemoScalarField
                                                 Node {
                                                     flex_grow: 1.0,
@@ -620,7 +620,7 @@ fn demo_column_2() -> impl Scene {
                                             ),
                                             label_small("Scalar property (copy)"),
                                             (
-                                                :@FeathersNumberInput
+                                                @FeathersNumberInput
                                                 DemoScalarField
                                                 Node {
                                                     flex_grow: 1.0,

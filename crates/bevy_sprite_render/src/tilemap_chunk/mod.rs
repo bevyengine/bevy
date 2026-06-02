@@ -129,8 +129,8 @@ impl Default for TileData {
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
 ///
 /// Data is interpreted in Y-up format. Use [`TilemapChunkTileData::from_y_down_tiles`] to convert from Y-down formatted data.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, FromTemplate)]
-#[reflect(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, Default)]
+#[reflect(Component, Clone, Debug, Default)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 
 fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {

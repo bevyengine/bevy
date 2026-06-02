@@ -1,4 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -66,13 +65,6 @@ use bevy_math::Vec2;
 /// Adds support for 2D sprites.
 #[derive(Default)]
 pub struct SpritePlugin;
-
-/// System set for sprite rendering.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystems {
-    ExtractSprites,
-    ComputeSlices,
-}
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
