@@ -1,3 +1,4 @@
+use crate::font;
 use crate::FontCx;
 use crate::FontSource;
 use crate::FontStyle;
@@ -64,9 +65,16 @@ pub fn load_font_assets_into_font_collection(
     mut font_cx: ResMut<FontCx>,
     mut text_font_query: Query<&mut TextFont>,
 ) {
+    let rebuild = loaded_fonts.iter().any(|id| !fonts.contains(*id));
     loaded_fonts.retain(|id| fonts.contains(*id));
 
-    let new_asset_ids: Vec<_> = fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect();
+    let new_asset_ids: Vec<_> = if rebuild {
+        font_cx.0.collection.clear();
+
+        loaded_fonts.iter().cloned().collect()
+    } else {
+        fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect()
+    };
 
     if new_asset_ids.is_empty() {
         return;
