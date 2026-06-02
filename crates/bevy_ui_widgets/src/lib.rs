@@ -46,7 +46,8 @@ pub use slider::*;
 pub use text_input::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
-use bevy_ecs::{entity::Entity, event::EntityEvent};
+use bevy_ecs::{entity::Entity, event::EntityEvent, reflect::ReflectEvent};
+use bevy_reflect::Reflect;
 
 use crate::popover::PopoverPlugin;
 
@@ -70,14 +71,16 @@ impl PluginGroup for UiWidgetsPlugins {
 }
 
 /// Notification sent by a button or menu item.
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct Activate {
     /// The activated entity.
     pub entity: Entity,
 }
 
 /// Notification sent by a widget that edits a scalar value.
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct ValueChange<T> {
     /// The id of the widget that produced this value.
     #[event_target]

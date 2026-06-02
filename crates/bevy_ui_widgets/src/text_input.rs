@@ -17,6 +17,7 @@ use bevy_input_focus::{
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press, Release};
 use bevy_picking::pointer::PointerButton;
+use bevy_reflect::Reflect;
 use bevy_text::{EditableText, PreeditCursor, TextEdit};
 use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
 use bevy_ui::UiSystems;
@@ -398,12 +399,14 @@ fn on_focus_lost_clear_ime(
 /// pointer release and is only applied if there is no other selection by then.
 /// For example, if pointer dragging caused a selection to be made, we don't want
 /// to replace it with a select all.
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
 pub struct SelectAllOnFocus;
 
 /// Resource to track when a pointer press caused focus on an [`EditableText`].
 /// A corresponding pointer release will select all text if there is no other selection.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Reflect)]
+#[reflect(Resource)]
 struct QueuedSelectAll(Option<Entity>);
 
 fn on_focus_select_all(
