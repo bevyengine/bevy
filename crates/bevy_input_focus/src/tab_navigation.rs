@@ -102,6 +102,11 @@ impl TabGroup {
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Clone, PartialEq)
+)]
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     ///

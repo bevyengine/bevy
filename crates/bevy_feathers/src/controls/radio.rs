@@ -44,6 +44,8 @@ use crate::{
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersRadioProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersRadio;
 
 /// Props used to construct a [`FeathersRadio`] scene.

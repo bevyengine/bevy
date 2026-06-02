@@ -13,7 +13,11 @@
     view_transformations,
     raymarch,
     utils,
-    mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
+    mesh_types::{
+        MESH_FLAGS_SHADOW_RECEIVER_BIT,
+        MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+        MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT,
+    },
 }
 #import bevy_pbr::mesh_view_bindings::globals
 #import bevy_pbr::view_transformations::{position_world_to_ndc}
@@ -145,6 +149,11 @@ fn prepare_world_normal(
 #endif
 #endif
     return output;
+}
+
+fn winding_corrected_front_facing(mesh_flags: u32, is_front: bool) -> bool {
+    let positive_determinant = (mesh_flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT) != 0u;
+    return is_front == positive_determinant;
 }
 
 // Calculates the three TBN vectors according to [mikktspace]. Returns a matrix

@@ -2408,7 +2408,8 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct OverrideClip;
 
 #[expect(
@@ -2969,7 +2970,8 @@ impl UiTargetCamera {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
@@ -3064,7 +3066,8 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 #[require(Node, OverrideClip)]
 pub struct FixedNode;
 
