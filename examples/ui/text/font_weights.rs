@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextFont {
                                 font: font.clone(),
                                 font_size: FontSize::Px(32.0),
-                                weight: FontWeight(weight),
+                                weight: Some(FontWeight(weight)),
                                 ..default()
                             },
                         ))

@@ -25,7 +25,7 @@ pub struct InheritableFont {
     /// The desired font size.
     pub font_size: FontSize,
     /// The desired font weight.
-    pub weight: FontWeight,
+    pub weight: Option<FontWeight>,
 }
 
 /// An observer which looks for changes to the [`InheritableFont`] component on an entity, and

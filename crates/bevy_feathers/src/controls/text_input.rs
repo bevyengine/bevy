@@ -121,7 +121,7 @@ impl FeathersTextInput {
                 Ok(TextFont {
                     font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
                     font_size: size::COMPACT_FONT,
-                    weight: FontWeight::NORMAL,
+                    weight: Some(FontWeight::NORMAL),
                     ..Default::default()
                 })
             })

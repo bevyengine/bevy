@@ -395,11 +395,17 @@ pub struct TextFont {
     /// Font weights can be any value between 1 and 1000, inclusive.
     ///
     /// Only supports variable weight fonts.
-    pub weight: FontWeight,
+    ///
+    /// If this is `None`, the font source's default weight is used.
+    pub weight: Option<FontWeight>,
     /// How condensed or expanded the glyphs appear horizontally.
-    pub width: FontWidth,
+    ///
+    /// If this is `None`, the font source's default width is used.
+    pub width: Option<FontWidth>,
     /// The slant style of a font face: normal, italic, or oblique.
-    pub style: FontStyle,
+    ///
+    /// If this is `None`, the font source's default style is used.
+    pub style: Option<FontStyle>,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -445,7 +451,7 @@ impl TextFont {
 
     /// Returns this [`TextFont`] with the specified [`FontWeight`].
     pub fn with_font_weight(mut self, weight: impl Into<FontWeight>) -> Self {
-        self.weight = weight.into();
+        self.weight = Some(weight.into());
         self
     }
 }
@@ -464,9 +470,9 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: FontSize::from(20.),
-            style: FontStyle::Normal,
-            weight: FontWeight::NORMAL,
-            width: FontWidth::NORMAL,
+            style: None,
+            weight: None,
+            width: None,
             font_features: FontFeatures::default(),
             font_variations: FontVariations::default(),
             font_smoothing: Default::default(),

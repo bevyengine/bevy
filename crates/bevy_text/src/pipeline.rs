@@ -439,9 +439,9 @@ pub fn resolve_font_source<'a>(
             family: FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
                 font.family_name.as_str().to_owned(),
             ))),
-            weight: font.weight,
-            width: font.width,
-            style: font.style,
+            weight: text_font.weight.unwrap_or(font.weight),
+            width: text_font.width.unwrap_or(font.width),
+            style: text_font.style.unwrap_or(font.style),
         })
     } else {
         Ok(ResolvedFontSource {
@@ -473,9 +473,9 @@ pub fn resolve_font_source<'a>(
                     }
                 }
             },
-            weight: text_font.weight,
-            width: text_font.width,
-            style: text_font.style,
+            weight: text_font.weight.unwrap_or_default(),
+            width: text_font.width.unwrap_or_default(),
+            style: text_font.style.unwrap_or_default(),
         })
     }
 }

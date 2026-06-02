@@ -164,7 +164,7 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
         InheritableThemeTextColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
             font_size: size::MEDIUM_FONT,
-            weight: FontWeight::NORMAL,
+            weight: Some(FontWeight::NORMAL),
             ..Default::default()
         },
         overrides,

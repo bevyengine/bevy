@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 100 (Thin)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::THIN,
+                                    weight: Some(FontWeight::THIN),
                                     ..default()
                                 },
                             ),
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 200 (Extra Light)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::EXTRA_LIGHT,
+                                    weight: Some(FontWeight::EXTRA_LIGHT),
                                     ..default()
                                 },
                             ),
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 300 (Light)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::LIGHT,
+                                    weight: Some(FontWeight::LIGHT),
                                     ..default()
                                 },
                             ),
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 400 (Normal)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::NORMAL,
+                                    weight: Some(FontWeight::NORMAL),
                                     ..default()
                                 },
                             ),
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 500 (Medium)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::MEDIUM,
+                                    weight: Some(FontWeight::MEDIUM),
                                     ..default()
                                 },
                             ),
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 600 (Semibold)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::SEMIBOLD,
+                                    weight: Some(FontWeight::SEMIBOLD),
                                     ..default()
                                 },
                             ),
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 700 (Bold)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::BOLD,
+                                    weight: Some(FontWeight::BOLD),
                                     ..default()
                                 },
                             ),
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 800 (Extra Bold)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::EXTRA_BOLD,
+                                    weight: Some(FontWeight::EXTRA_BOLD),
                                     ..default()
                                 },
                             ),
@@ -121,7 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Weight 900 (Black)"),
                                 TextFont {
                                     font: family.clone(),
-                                    weight: FontWeight::BLACK,
+                                    weight: Some(FontWeight::BLACK),
                                     ..default()
                                 },
                             ),
@@ -140,7 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::ULTRA_CONDENSED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::ULTRA_CONDENSED,
+                                    width: Some(FontWidth::ULTRA_CONDENSED),
                                     ..default()
                                 },
                             ),
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::EXTRA_CONDENSED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::EXTRA_CONDENSED,
+                                    width: Some(FontWidth::EXTRA_CONDENSED),
                                     ..default()
                                 },
                             ),
@@ -156,7 +156,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::CONDENSED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::CONDENSED,
+                                    width: Some(FontWidth::CONDENSED),
                                     ..default()
                                 },
                             ),
@@ -164,7 +164,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::SEMI_CONDENSED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::SEMI_CONDENSED,
+                                    width: Some(FontWidth::SEMI_CONDENSED),
                                     ..default()
                                 },
                             ),
@@ -172,7 +172,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::NORMAL"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::NORMAL,
+                                    width: Some(FontWidth::NORMAL),
                                     ..default()
                                 },
                             ),
@@ -180,7 +180,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::SEMI_EXPANDED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::SEMI_EXPANDED,
+                                    width: Some(FontWidth::SEMI_EXPANDED),
                                     ..default()
                                 },
                             ),
@@ -188,7 +188,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::EXPANDED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::EXPANDED,
+                                    width: Some(FontWidth::EXPANDED),
                                     ..default()
                                 },
                             ),
@@ -196,7 +196,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::EXTRA_EXPANDED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::EXTRA_EXPANDED,
+                                    width: Some(FontWidth::EXTRA_EXPANDED),
                                     ..default()
                                 },
                             ),
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontWidth::ULTRA_EXPANDED"),
                                 TextFont {
                                     font: family.clone(),
-                                    width: FontWidth::ULTRA_EXPANDED,
+                                    width: Some(FontWidth::ULTRA_EXPANDED),
                                     ..default()
                                 },
                             ),
@@ -223,7 +223,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontStyle::Normal"),
                                 TextFont {
                                     font: family.clone(),
-                                    style: FontStyle::Normal,
+                                    style: Some(FontStyle::Normal),
                                     ..default()
                                 },
                             ),
@@ -231,7 +231,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontStyle::Oblique"),
                                 TextFont {
                                     font: family.clone(),
-                                    style: FontStyle::Oblique(None),
+                                    style: Some(FontStyle::Oblique(None)),
                                     ..default()
                                 },
                             ),
@@ -239,7 +239,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("FontStyle::Italic"),
                                 TextFont {
                                     font: family.clone(),
-                                    style: FontStyle::Italic,
+                                    style: Some(FontStyle::Italic),
                                     ..default()
                                 },
                             ),

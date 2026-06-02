@@ -552,7 +552,7 @@ mod text {
                         TextFont {
                             font: "Mona Sans".into(),
                             font_size: FontSize::Px(25.),
-                            weight: FontWeight(100),
+                            weight: Some(FontWeight(100)),
                             ..default()
                         },
                         children![
@@ -561,7 +561,7 @@ mod text {
                                 TextFont {
                                     font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
-                                    weight: FontWeight(500),
+                                    weight: Some(FontWeight(500)),
                                     ..default()
                                 }
                             ),
@@ -570,7 +570,7 @@ mod text {
                                 TextFont {
                                     font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
-                                    weight: FontWeight(900),
+                                    weight: Some(FontWeight(900)),
                                     ..default()
                                 },
                             ),
@@ -583,7 +583,7 @@ mod text {
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                             font_size: FontSize::Px(25.),
-                            weight: FontWeight(900),
+                            weight: Some(FontWeight(900)),
                             ..default()
                         },
                         children![
@@ -594,7 +594,7 @@ mod text {
                                         .load("fonts/MonaSans-VariableFont.ttf")
                                         .into(),
                                     font_size: FontSize::Px(25.),
-                                    weight: FontWeight(700),
+                                    weight: Some(FontWeight(700)),
                                     ..default()
                                 }
                             ),
@@ -605,7 +605,7 @@ mod text {
                                         .load("fonts/EBGaramond12-Regular.otf")
                                         .into(),
                                     font_size: FontSize::Px(25.),
-                                    weight: FontWeight(500),
+                                    weight: Some(FontWeight(500)),
                                     ..default()
                                 },
                             ),
@@ -614,7 +614,7 @@ mod text {
                                 TextFont {
                                     font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                                     font_size: FontSize::Px(25.),
-                                    weight: FontWeight(300),
+                                    weight: Some(FontWeight(300)),
                                     ..default()
                                 },
                             ),
