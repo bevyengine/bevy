@@ -63,7 +63,6 @@
 //! If `SystemState`s are invalid, they can't be used and the future cannot complete
 //!
 //! Regardless, the future returns Ready(Err) and completes permanently
-#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://!bevy.org/assets/icon.png",
@@ -74,10 +73,16 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+// Forbid unsafe_code in every module except the tests, which need some unsafe for Future Pins.
+#[forbid(unsafe_code)]
 mod bridge_future;
+#[forbid(unsafe_code)]
 mod bridge_request;
+#[forbid(unsafe_code)]
 mod plugin;
+#[forbid(unsafe_code)]
 mod system_state;
+#[forbid(unsafe_code)]
 mod wake_signal;
 
 pub use crate::bridge_future::{AsyncSystemState, BridgeError};
@@ -97,13 +102,129 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+
+    use core::pin::Pin;
+
+    use alloc::{sync::Arc, vec::Vec};
+
     use crate::prelude::*;
     use bevy_app::prelude::*;
     use bevy_app::ScheduleRunnerPlugin;
     use bevy_ecs::prelude::*;
-    use bevy_platform::sync::atomic::{AtomicBool, Ordering};
+    use bevy_platform::sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    };
     use bevy_tasks::futures::check_ready;
     use bevy_tasks::AsyncComputeTaskPool;
+
+    /// A future wrapper around `F` that **first** polls the `F` future, then increments `counter`.
+    ///
+    /// This allows tests to wait until async bridge futures are polled once (and therefore are
+    /// waiting for ECS access) before allowing ECS access, which we can then track since the ECS
+    /// cannot proceed until all async tasks have moved on.
+    struct PollThenCount<F> {
+        future: F,
+        counted: bool,
+        counter: Arc<Mutex<usize>>,
+    }
+
+    impl<F: Future> Future for PollThenCount<F> {
+        type Output = F::Output;
+
+        fn poll(
+            self: Pin<&mut Self>,
+            cx: &mut core::task::Context<'_>,
+        ) -> core::task::Poll<Self::Output> {
+            #[expect(
+                unsafe_code,
+                reason = "we need to access all fields independently to update the future's state"
+            )]
+            // SAFETY: We don't move out of `this` - we just create a pin to the future (which
+            // we poll), then assign to `counted` and update `counter`.
+            let this = unsafe { self.get_unchecked_mut() };
+            #[expect(unsafe_code, reason = "we need to poll the future for !Unpin types")]
+            // SAFETY: We never move this.future, so it is pinned in place, so this pin is
+            // valid.
+            let result = unsafe { Pin::new_unchecked(&mut this.future) }.poll(cx);
+            if !this.counted {
+                this.counted = true;
+                *this.counter.lock().unwrap() += 1;
+            }
+            result
+        }
+    }
+
+    #[test]
+    fn more_tasks_than_threads() {
+        struct MySyncPoint;
+
+        let mut app = App::new();
+        app.add_plugins((
+            AsyncPlugin::default(),
+            ScheduleRunnerPlugin::default(),
+            TaskPoolPlugin::default(),
+        ))
+        .insert_resource(AsyncTickBudget(3))
+        .add_systems(Update, async_world_sync_point::<MySyncPoint>);
+
+        let system_state = app
+            .world()
+            .resource::<AsyncWorld>()
+            .system_state::<Commands>();
+
+        let task_pool = AsyncComputeTaskPool::get();
+        let desired_tasks = task_pool.thread_num() * 10;
+
+        let barrier_counter = Arc::new(Mutex::new(0));
+        let mut tasks = Vec::new();
+        for _ in 0..desired_tasks {
+            let barrier_counter = barrier_counter.clone();
+            let system_state = system_state.clone();
+            tasks.push(task_pool.spawn(async move {
+                let future = system_state.bridge(MySyncPoint, |_: Commands| {});
+                PollThenCount {
+                    future,
+                    counted: false,
+                    counter: barrier_counter,
+                }
+                .await
+                .unwrap()
+            }));
+        }
+
+        // Spinloop until all the tasks are waiting for ECS access.
+        while *barrier_counter.lock().unwrap() != desired_tasks {
+            // If we're configured to be single-threaded, tick the task pools.
+            bevy_tasks::cfg::multi_threaded! {
+                if {} else {
+                    bevy_tasks::tick_global_task_pools_on_main_thread();
+                }
+            }
+        }
+
+        // Clear the barrier counters.
+        *barrier_counter.lock().unwrap() = 0;
+
+        app.update();
+
+        'outer: {
+            for _ in 0..10000 {
+                bevy_tasks::cfg::multi_threaded! {
+                    if {} else {
+                        bevy_tasks::tick_global_task_pools_on_main_thread();
+                    }
+                }
+                tasks.retain_mut(|task| check_ready(task).is_none());
+                if tasks.is_empty() {
+                    break 'outer;
+                }
+            }
+
+            panic!("Ran out of iterations waiting for tasks to complete");
+        }
+    }
 
     #[test]
     fn different_sync_points_allow_different_tasks() {
