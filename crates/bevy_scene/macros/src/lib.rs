@@ -37,7 +37,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///             @items: {
 ///                 bsn_list![                // sometimes you may need to nest macro calls
 ///                     #Item1 SomeComponent, // note: the name #Item1 here is in its own scope
-///                     some_scene() #item2
+///                     some_scene() #Item2
 ///                 ]
 ///             }
 ///         }
