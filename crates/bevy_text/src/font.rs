@@ -64,24 +64,21 @@ pub fn load_font_assets_into_font_collection(
     mut font_cx: ResMut<FontCx>,
     mut text_font_query: Query<&mut TextFont>,
 ) {
-    let rebuild = loaded_fonts.iter().any(|id| !fonts.contains(*id));
-    let new_asset_ids: Vec<_> = fonts
-        .ids()
-        .filter(|id| rebuild || loaded_fonts.insert(*id))
-        .collect();
-
-    if rebuild {
+    let new_asset_ids: Vec<_> = if loaded_fonts.iter().any(|id| !fonts.contains(*id)) {
         font_cx.0.collection.clear();
         loaded_fonts.clear();
-        loaded_fonts.extend(new_asset_ids.iter().copied());
-    }
+        loaded_fonts.extend(fonts.ids());
+        loaded_fonts.iter().copied().collect()
+    } else {
+        fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect()
+    };
 
     if new_asset_ids.is_empty() {
         return;
     }
 
     let mut new_family_ids = Vec::new();
-    for asset_id in new_asset_ids.iter() {
+    for asset_id in &new_asset_ids {
         let font_data = fonts
             .get(*asset_id)
             .expect("AssetId should have a corresponding asset")
