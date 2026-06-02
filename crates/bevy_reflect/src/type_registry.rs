@@ -306,7 +306,7 @@ impl TypeRegistry {
         self.registrations.insert(type_id, registration);
 
         for callback in callbacks {
-            callback(self);
+            callback.call(self);
         }
 
         true
@@ -372,6 +372,8 @@ impl TypeRegistry {
             )
         });
 
+        let on_create_data_insert = <D as CreateTypeData<T, P>>::on_insert(&params);
+        let on_create_data_register = <D as CreateTypeData<T, P>>::on_register(&params);
         let data = D::create_type_data(params);
 
         let on_register = data.on_register();
@@ -379,18 +381,18 @@ impl TypeRegistry {
         registration.insert_internal(
             TypeId::of::<D>(),
             Box::new(data),
-            <D as CreateTypeData<T, P>>::on_insert(),
+            on_create_data_insert,
             // Set to `None` since we already handle the `on_register` callback in this method
             None,
             true,
         );
 
         if let Some(on_register) = on_register {
-            on_register(self);
+            on_register.call(self);
         }
 
-        if let Some(on_register) = <D as CreateTypeData<T, P>>::on_register() {
-            on_register(self);
+        if let Some(on_register) = on_create_data_register {
+            on_register.call(self);
         }
     }
 
@@ -506,7 +508,7 @@ impl TypeRegistry {
     pub fn registration_scope(
         &mut self,
         type_id: TypeId,
-        mut f: impl FnMut(TypeRegistrationMut<'_>),
+        f: impl FnOnce(TypeRegistrationMut<'_>),
     ) -> bool {
         let Some(registration) = self.registrations.get_mut(&type_id) else {
             return false;
@@ -516,7 +518,7 @@ impl TypeRegistry {
 
         let callbacks = registration.flush_on_register_callbacks();
         for callback in callbacks {
-            callback(self);
+            callback.call(self);
         }
 
         true
@@ -839,9 +841,9 @@ macro_rules! type_data_insertion_methods {
             $($mut)? $self: $self_ty,
             input: I,
         ) -> $return_ty {
+            let on_insert = <T as CreateTypeData<V, I>>::on_insert(&input);
+            let on_register = <T as CreateTypeData<V, I>>::on_register(&input);
             let data = T::create_type_data(input);
-            let on_insert = <T as CreateTypeData<V, I>>::on_insert();
-            let on_register = <T as CreateTypeData<V, I>>::on_register();
 
             let has_deps = on_insert.is_some() || data.on_insert().is_some();
 
@@ -906,7 +908,7 @@ pub struct TypeRegistration {
         And since these don't need to be accessed as often or in performance-sensitive code, \
         we can spare the extra layer of indirection"
     )]
-    pending_callbacks: Option<Box<Vec<fn(&mut TypeRegistry)>>>,
+    pending_callbacks: Option<Box<Vec<OnRegisterTypeData>>>,
 }
 
 impl Debug for TypeRegistration {
@@ -980,10 +982,10 @@ impl TypeRegistration {
         match entry {
             indexmap::map::Entry::Vacant(entry) => {
                 if let Some(on_insert) = entry.insert(data).on_insert() {
-                    on_insert(TypeRegistrationMut::new(self));
+                    on_insert.call(TypeRegistrationMut::new(self));
                 }
                 if let Some(on_insert) = on_insert {
-                    on_insert(TypeRegistrationMut::new(self));
+                    on_insert.call(TypeRegistrationMut::new(self));
                 }
                 if let Some(on_register) = on_register {
                     self.pending_callbacks
@@ -1007,12 +1009,16 @@ impl TypeRegistration {
     ///
     /// This includes all pending callbacks and callbacks from inserted type data.
     /// It should therefore only be used when the this [`TypeRegistration`] is first registered into a [`TypeRegistry`].
-    fn flush_on_register_callbacks(&mut self) -> Vec<fn(&mut TypeRegistry)> {
+    fn flush_on_register_callbacks(&mut self) -> Vec<OnRegisterTypeData> {
         let pending_callbacks = self.pending_callbacks.take();
 
         self.iter()
             .filter_map(|(_, data)| data.on_register())
-            .chain(pending_callbacks.as_deref().into_iter().flatten().copied())
+            .chain(
+                pending_callbacks
+                    .into_iter()
+                    .flat_map(|callbacks| callbacks.into_iter()),
+            )
             .collect()
     }
 

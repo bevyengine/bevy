@@ -138,13 +138,87 @@
 //! [dyn-compatible]: https://doc.rust-lang.org/reference/items/traits.html#dyn-compatibility
 
 use crate::{TypeRegistration, TypeRegistrationMut, TypeRegistry};
+use alloc::boxed::Box;
 use downcast_rs::{impl_downcast, Downcast};
 
-/// Type alias representing the callback function for when [`TypeData`] is inserted into a [`TypeRegistration`].
-pub type OnInsertTypeData = fn(registration: TypeRegistrationMut<'_>);
+/// Callback object for when [`TypeData`] is inserted into a [`TypeRegistration`].
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::{OnInsertTypeData, TypeData, TypeRegistration};
+/// #
+/// #[derive(TypeData)]
+/// struct ReflectSomeOtherData;
+///
+/// struct ReflectSomeData;
+///
+/// impl TypeData for ReflectSomeData {
+///   fn on_insert(&self) -> Option<OnInsertTypeData> {
+///     Some(OnInsertTypeData::new(|mut registration| {
+///       registration.insert_data(ReflectSomeOtherData);
+///     }))
+///   }
+/// }
+///
+/// // ...
+/// let registration = TypeRegistration::of::<String>().insert_data(ReflectSomeData);
+/// assert!(registration.contains::<ReflectSomeOtherData>());
+/// ```
+pub struct OnInsertTypeData(Box<dyn FnOnce(TypeRegistrationMut<'_>) + Send + Sync + 'static>);
 
-/// Type alias representing the callback function for when a [`TypeRegistration`] is registered into a [`TypeRegistry`].
-pub type OnRegisterTypeData = fn(registry: &mut TypeRegistry);
+impl OnInsertTypeData {
+    /// Create a new instance of [`OnInsertTypeData`] with the given callback function.
+    pub fn new<F: FnOnce(TypeRegistrationMut<'_>) + Send + Sync + 'static>(f: F) -> Self {
+        Self(Box::new(f))
+    }
+
+    pub(crate) fn call(self, registration: TypeRegistrationMut<'_>) {
+        self.0(registration);
+    }
+}
+
+/// Callback object for when a [`TypeRegistration`] is registered into a [`TypeRegistry`].
+///
+/// # Example
+///
+/// ```
+/// # use core::any::TypeId;
+/// # use bevy_reflect::{OnRegisterTypeData, Reflect, TypeData, TypeRegistration, TypeRegistry};
+/// #
+/// #[derive(Reflect)]
+/// struct SomeType;
+///
+/// struct ReflectSomeData;
+///
+/// impl TypeData for ReflectSomeData {
+///   fn on_register(&self) -> Option<OnRegisterTypeData> {
+///     Some(OnRegisterTypeData::new(|registry| {
+///       registry.register::<SomeType>();
+///     }))
+///   }
+/// }
+///
+/// // ...
+/// let mut registry = TypeRegistry::empty();
+/// let registration = TypeRegistration::of::<String>().insert_data(ReflectSomeData);
+///
+/// assert!(!registry.contains(TypeId::of::<SomeType>()));
+/// registry.add_registration(registration);
+/// assert!(registry.contains(TypeId::of::<SomeType>()));
+/// ```
+pub struct OnRegisterTypeData(Box<dyn FnOnce(&mut TypeRegistry) + Send + Sync + 'static>);
+
+impl OnRegisterTypeData {
+    /// Create a new instance of [`OnRegisterTypeData`] with the given callback function.
+    pub fn new<F: FnOnce(&mut TypeRegistry) + Send + Sync + 'static>(f: F) -> Self {
+        Self(Box::new(f))
+    }
+
+    pub(crate) fn call(self, registry: &mut TypeRegistry) {
+        self.0(registry);
+    }
+}
 
 /// A trait for representing type metadata.
 ///
@@ -198,12 +272,13 @@ impl_downcast!(TypeData);
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{CreateTypeData, Reflect};
+/// # use bevy_reflect::{CreateTypeData, Reflect, TypeData};
+///
 /// trait Combine {
 ///   fn combine(a: f32, b: f32) -> f32;
 /// }
 ///
-/// #[derive(Clone)]
+/// #[derive(TypeData)]
 /// struct ReflectCombine {
 ///   multiplier: f32,
 ///   additional: f32,
@@ -292,7 +367,11 @@ pub trait CreateTypeData<T, Input = ()>: TypeData {
     fn insert_dependencies(type_registration: &mut TypeRegistration) {}
 
     /// Optional callback for when this type data is created and inserted into a [`TypeRegistration`].
-    fn on_insert() -> Option<OnInsertTypeData> {
+    #[expect(
+        unused_variables,
+        reason = "default implementation does not need input"
+    )]
+    fn on_insert(input: &Input) -> Option<OnInsertTypeData> {
         None
     }
 
@@ -301,7 +380,11 @@ pub trait CreateTypeData<T, Input = ()>: TypeData {
     ///
     /// Note that if this type data is inserted into a [`TypeRegistration`] that already belongs to a [`TypeRegistry`],
     /// then this should trigger immediately.
-    fn on_register() -> Option<OnRegisterTypeData> {
+    #[expect(
+        unused_variables,
+        reason = "default implementation does not need input"
+    )]
+    fn on_register(input: &Input) -> Option<OnRegisterTypeData> {
         None
     }
 }
@@ -311,6 +394,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::{Reflect, TypeData, TypeRegistration};
+    use alloc::string::String;
     use core::any::TypeId;
     use core::marker::PhantomData;
 
@@ -322,9 +406,9 @@ mod tests {
         struct ReflectA;
         impl TypeData for ReflectA {
             fn on_insert(&self) -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.insert_data(ReflectB);
-                })
+                }))
             }
         }
 
@@ -349,10 +433,10 @@ mod tests {
                 Self(PhantomData)
             }
 
-            fn on_insert() -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+            fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.register_type_data::<ReflectB<T>, _>();
-                })
+                }))
             }
         }
 
@@ -379,9 +463,9 @@ mod tests {
         struct ReflectA;
         impl TypeData for ReflectA {
             fn on_insert(&self) -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.insert_data(ReflectB);
-                })
+                }))
             }
         }
 
@@ -416,10 +500,10 @@ mod tests {
                 Self(PhantomData)
             }
 
-            fn on_insert() -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+            fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.register_type_data::<ReflectB<T>, _>();
-                })
+                }))
             }
         }
 
@@ -449,27 +533,27 @@ mod tests {
         struct ReflectA;
         impl TypeData for ReflectA {
             fn on_insert(&self) -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.insert_data(ReflectB);
-                })
+                }))
             }
         }
 
         struct ReflectB;
         impl TypeData for ReflectB {
             fn on_insert(&self) -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.insert_data(ReflectC);
-                })
+                }))
             }
         }
 
         struct ReflectC;
         impl TypeData for ReflectC {
             fn on_insert(&self) -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.insert_data(ReflectA);
-                })
+                }))
             }
         }
 
@@ -492,10 +576,10 @@ mod tests {
                 Self(PhantomData)
             }
 
-            fn on_insert() -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+            fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.register_type_data::<ReflectB<T>, _>();
-                })
+                }))
             }
         }
 
@@ -507,10 +591,10 @@ mod tests {
                 Self(PhantomData)
             }
 
-            fn on_insert() -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+            fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.register_type_data::<ReflectC<T>, _>();
-                })
+                }))
             }
         }
 
@@ -522,10 +606,10 @@ mod tests {
                 Self(PhantomData)
             }
 
-            fn on_insert() -> Option<OnInsertTypeData> {
-                Some(|mut registration| {
+            fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+                Some(OnInsertTypeData::new(|mut registration| {
                     registration.register_type_data::<ReflectA<T>, _>();
-                })
+                }))
             }
         }
 
@@ -546,9 +630,9 @@ mod tests {
         struct ReflectA;
         impl TypeData for ReflectA {
             fn on_register(&self) -> Option<OnRegisterTypeData> {
-                Some(|registry| {
+                Some(OnRegisterTypeData::new(|registry| {
                     registry.register::<Bar>();
-                })
+                }))
             }
         }
 
@@ -582,10 +666,10 @@ mod tests {
                 Self
             }
 
-            fn on_register() -> Option<OnRegisterTypeData> {
-                Some(|registry| {
+            fn on_register(_: &()) -> Option<OnRegisterTypeData> {
+                Some(OnRegisterTypeData::new(|registry| {
                     registry.register::<Bar>();
-                })
+                }))
             }
         }
 
@@ -608,9 +692,9 @@ mod tests {
         struct ReflectA;
         impl TypeData for ReflectA {
             fn on_register(&self) -> Option<OnRegisterTypeData> {
-                Some(|registry| {
+                Some(OnRegisterTypeData::new(|registry| {
                     registry.register::<Bar>();
-                })
+                }))
             }
         }
 
@@ -639,10 +723,10 @@ mod tests {
                 Self
             }
 
-            fn on_register() -> Option<OnRegisterTypeData> {
-                Some(|registry| {
+            fn on_register(_: &()) -> Option<OnRegisterTypeData> {
+                Some(OnRegisterTypeData::new(|registry| {
                     registry.register::<Bar>();
-                })
+                }))
             }
         }
 
@@ -653,5 +737,52 @@ mod tests {
 
         assert!(registry.contains(TypeId::of::<Foo>()));
         assert!(registry.contains(TypeId::of::<Bar>()));
+    }
+
+    #[test]
+    fn should_invoke_callbacks_with_input() {
+        #[derive(Reflect)]
+        struct Foo;
+
+        #[derive(TypeData)]
+        struct ReflectA;
+
+        #[derive(TypeData, PartialEq, Debug)]
+        struct InsertedData(String);
+
+        #[derive(TypeData, PartialEq, Debug)]
+        struct RegisteredData(String);
+
+        impl<T> CreateTypeData<T, String> for ReflectA {
+            fn create_type_data(_: String) -> Self {
+                Self
+            }
+
+            fn on_insert(input: &String) -> Option<OnInsertTypeData> {
+                let data = input.clone();
+                Some(OnInsertTypeData::new(move |mut registration| {
+                    registration.insert_data(InsertedData(data));
+                }))
+            }
+
+            fn on_register(input: &String) -> Option<OnRegisterTypeData> {
+                let data = input.clone();
+                Some(OnRegisterTypeData::new(move |registry| {
+                    registry.registration_scope(TypeId::of::<Foo>(), |mut registration| {
+                        registration.insert_data(RegisteredData(data));
+                    });
+                }))
+            }
+        }
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Foo>();
+        registry.register_type_data_with::<Foo, ReflectA, _>(String::from("test"));
+
+        let data = registry.get_type_data::<InsertedData>(TypeId::of::<Foo>());
+        assert_eq!(data, Some(&InsertedData(String::from("test"))));
+
+        let data = registry.get_type_data::<RegisteredData>(TypeId::of::<Foo>());
+        assert_eq!(data, Some(&RegisteredData(String::from("test"))));
     }
 }

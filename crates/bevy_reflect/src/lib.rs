@@ -4124,9 +4124,9 @@ bevy_reflect::tests::Test {
 
             impl TypeData for ReflectA {
                 fn on_insert(&self) -> Option<OnInsertTypeData> {
-                    Some(|mut registration| {
+                    Some(OnInsertTypeData::new(|mut registration| {
                         registration.insert_data(ReflectB);
-                    })
+                    }))
                 }
             }
 

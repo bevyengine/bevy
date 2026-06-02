@@ -181,10 +181,10 @@ impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSet
         }
     }
 
-    fn on_insert() -> Option<OnInsertTypeData> {
-        Some(|mut registration| {
+    fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+        Some(OnInsertTypeData::new(|mut registration| {
             registration.register_type_data::<ReflectResource, T>();
-        })
+        }))
     }
 }
 
