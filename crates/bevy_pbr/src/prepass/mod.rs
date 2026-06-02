@@ -255,6 +255,10 @@ pub struct PrepassPipeline {
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
 
+    /// Whether mesh metadata will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub metadata_use_uniform_buffers: bool,
+
     pub depth_clip_control_supported: bool,
 
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
@@ -331,6 +335,9 @@ pub fn init_prepass_pipeline(
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
         default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
         skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
+        metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
+            &render_device.limits(),
+        ),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         empty_layout: BindGroupLayoutDescriptor::new("prepass_empty_layout", &[]),
@@ -568,6 +575,9 @@ impl PrepassPipeline {
                 | MeshPipelineKey::DEFERRED_PREPASS,
         ) {
             shader_defs.push("PREPASS_FRAGMENT".into());
+        }
+        if self.metadata_use_uniform_buffers {
+            shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
         }
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
