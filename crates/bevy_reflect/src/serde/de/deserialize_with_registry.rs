@@ -1,5 +1,5 @@
 use crate::serde::de::error_utils::make_custom_error;
-use crate::{CreateTypeData, PartialReflect, TypeRegistry};
+use crate::{CreateTypeData, PartialReflect, TypeData, TypeRegistry};
 use alloc::boxed::Box;
 use serde::Deserializer;
 
@@ -73,6 +73,8 @@ impl ReflectDeserializeWithRegistry {
         (self.deserialize)(&mut erased, registry).map_err(make_custom_error)
     }
 }
+
+impl TypeData for ReflectDeserializeWithRegistry {}
 
 impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> CreateTypeData<T>
     for ReflectDeserializeWithRegistry

@@ -62,11 +62,7 @@ use alloc::boxed::Box;
 /// # }
 /// #
 /// # struct ReflectHandle;
-/// # impl TypeData for ReflectHandle {
-/// #     fn clone_type_data(&self) -> Box<dyn TypeData> {
-/// #         unimplemented!()
-/// #     }
-/// # }
+/// # impl TypeData for ReflectHandle {}
 /// # impl ReflectHandle {
 /// #     fn asset_type_id(&self) {
 /// #         unimplemented!()

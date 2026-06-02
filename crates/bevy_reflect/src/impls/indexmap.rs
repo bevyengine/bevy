@@ -265,10 +265,9 @@ where
     S: TypePath + BuildHasher + Send + Sync + Default,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
-        registration
+        TypeRegistration::of::<Self>()
+            .register_type_data::<ReflectFromPtr, Self>()
+            .register_type_data::<ReflectFromReflect, Self>()
     }
 
     fn register_type_dependencies(registry: &mut TypeRegistry) {
@@ -490,9 +489,7 @@ where
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration
+        TypeRegistration::of::<Self>().register_type_data::<ReflectFromPtr, Self>()
     }
 }
 

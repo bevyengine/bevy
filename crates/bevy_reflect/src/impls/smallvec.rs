@@ -229,9 +229,8 @@ where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<SmallVec<T>>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration
+        let registration = TypeRegistration::of::<SmallVec<T>>();
+        registration.register_type_data::<ReflectFromPtr, Self>()
     }
 }
 

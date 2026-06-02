@@ -1,4 +1,4 @@
-use crate::Reflect;
+use crate::{Reflect, TypeData};
 use alloc::boxed::Box;
 use bevy_platform::collections::{hash_map::Iter, HashMap};
 
@@ -112,6 +112,8 @@ impl SerializationData {
         self.skipped_fields.iter()
     }
 }
+
+impl TypeData for SerializationData {}
 
 /// Data needed for (de)serialization of a skipped field.
 #[derive(Debug, Clone)]

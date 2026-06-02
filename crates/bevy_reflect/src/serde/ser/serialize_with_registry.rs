@@ -1,4 +1,4 @@
-use crate::{CreateTypeData, Reflect, TypeRegistry};
+use crate::{CreateTypeData, Reflect, TypeData, TypeRegistry};
 use alloc::boxed::Box;
 use serde::{Serialize, Serializer};
 
@@ -71,6 +71,8 @@ impl ReflectSerializeWithRegistry {
         ((self.serialize)(value, registry)).serialize(serializer)
     }
 }
+
+impl TypeData for ReflectSerializeWithRegistry {}
 
 impl<T: Reflect + SerializeWithRegistry> CreateTypeData<T> for ReflectSerializeWithRegistry {
     fn create_type_data(_input: ()) -> Self {
