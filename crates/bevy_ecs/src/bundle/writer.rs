@@ -135,7 +135,8 @@ impl<'a> BundleWriter<'a> {
     /// [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] were called with.
     #[track_caller]
     pub unsafe fn write(self, entity: &mut EntityWorldMut) {
-        self.write_with_relationship_hook_insert_mode(entity, RelationshipHookMode::Run);
+        // SAFETY: Same preconditions
+        unsafe { self.write_with_relationship_hook_insert_mode(entity, RelationshipHookMode::Run) };
     }
 
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
