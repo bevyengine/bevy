@@ -41,6 +41,12 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
+    /// Always emit a warning if a command is dropped before it is applied.
+    /// Defaults to `true`.
+    ///
+    /// This setting can be turned off for commands that might be dropped (due to application exit) before those
+    /// commands are applied in ordinary situations, for example delayed commands.
+    warn_on_unapplied: bool,
 }
 
 impl Default for CommandQueue {
@@ -51,6 +57,7 @@ impl Default for CommandQueue {
             cursor: Default::default(),
             panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
+            warn_on_unapplied: true,
         }
     }
 }
@@ -85,6 +92,18 @@ unsafe impl Send for CommandQueue {}
 unsafe impl Sync for CommandQueue {}
 
 impl CommandQueue {
+    /// Create a queue that does not warn when dropped.
+    #[track_caller]
+    pub fn silent() -> Self {
+        CommandQueue {
+            bytes: Default::default(),
+            cursor: Default::default(),
+            panic_recovery: Default::default(),
+            caller: MaybeLocation::caller(),
+            warn_on_unapplied: false,
+        }
+    }
+
     /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push(&mut self, command: impl Command<Out = ()>) {
@@ -128,6 +147,11 @@ impl CommandQueue {
                 panic_recovery: NonNull::new_unchecked(addr_of_mut!(self.panic_recovery)),
             }
         }
+    }
+
+    /// Silences drop warning if commands are unapplied.
+    pub fn silence_drop_warning(&mut self) {
+        self.warn_on_unapplied = false;
     }
 }
 
@@ -322,7 +346,7 @@ impl RawCommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        if !self.bytes.is_empty() {
+        if !self.bytes.is_empty() && self.warn_on_unapplied {
             if let Some(caller) = self.caller.into_option() {
                 warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{caller:?}");
             } else {
