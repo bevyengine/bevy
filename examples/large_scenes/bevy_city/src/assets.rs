@@ -29,6 +29,7 @@ pub struct CityAssets {
     pub tree_large: Handle<WorldAsset>,
     pub path_stones_long: Handle<WorldAsset>,
     pub fence: Handle<WorldAsset>,
+    pub traffic_lights: Handle<WorldAsset>,
 }
 
 impl CityAssets {
@@ -232,6 +233,10 @@ pub fn load_assets(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
+    let traffic_lights: Handle<WorldAsset> =
+        load_asset!(GltfAssetLabel::Scene(0)
+            .from_asset(format!("{base_url}/city-kit-roads/light-square.glb")));
+
     commands.insert_resource(CityAssets {
         untyped_assets,
         cars,
@@ -247,6 +252,7 @@ pub fn load_assets(
         tree_large,
         path_stones_long,
         fence,
+        traffic_lights,
     });
 }
 
