@@ -32,11 +32,11 @@ struct CommandMeta {
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
 pub struct CommandQueue {
-    //// This buffer densely stores all queued commands.
-    ////
-    //// For each command, one `CommandMeta` is stored, followed by zero or more bytes
-    //// to store the command itself. To interpret these bytes, a pointer must
-    //// be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
+    /// This buffer densely stores all queued commands.
+    ///
+    /// For each command, one `CommandMeta` is stored, followed by zero or more bytes
+    /// to store the command itself. To interpret these bytes, a pointer must
+    /// be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
     /// Index into `bytes` at which unapplied commands start.
     pub(crate) cursor: usize,

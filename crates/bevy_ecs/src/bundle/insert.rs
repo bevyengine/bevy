@@ -216,7 +216,7 @@ impl<'w> BundleInserter<'w> {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get_spawned(swapped_entity).debug_checked_unwrap() };
-                    // SAFETY: entity already existed, it's archetype_row just changed
+                    // SAFETY: entity already existed, its archetype_row just changed
                     unsafe {
                         entities.update_existing_location(
                             swapped_entity.index(),
