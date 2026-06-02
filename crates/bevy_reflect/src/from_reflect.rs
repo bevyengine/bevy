@@ -1,4 +1,4 @@
-use crate::{CreateTypeData, PartialReflect, Reflect};
+use crate::{CreateTypeData, PartialReflect, Reflect, TypeData};
 use alloc::boxed::Box;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
@@ -116,6 +116,8 @@ impl ReflectFromReflect {
         (self.from_reflect)(reflect_value)
     }
 }
+
+impl TypeData for ReflectFromReflect {}
 
 impl<T: FromReflect> CreateTypeData<T> for ReflectFromReflect {
     fn create_type_data(_input: ()) -> Self {

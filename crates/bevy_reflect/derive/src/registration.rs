@@ -28,9 +28,9 @@ pub(crate) fn impl_get_type_registration<'a>(
 
     let from_reflect_data = if meta.from_reflect().should_auto_derive() {
         Some(quote! {
-            registration.insert(
+            .insert_data(
                 <#bevy_reflect_path::ReflectFromReflect as #bevy_reflect_path::CreateTypeData<Self>>::create_type_data(())
-            );
+            )
         })
     } else {
         None
@@ -39,7 +39,7 @@ pub(crate) fn impl_get_type_registration<'a>(
     let serialization_data = serialization_data.map(|data| {
         let serialization_data = data.as_serialization_data(bevy_reflect_path);
         quote! {
-            registration.insert::<#bevy_reflect_path::serde::SerializationData>(#serialization_data);
+            .insert_data::<#bevy_reflect_path::serde::SerializationData>(#serialization_data)
         }
     });
 
@@ -56,21 +56,20 @@ pub(crate) fn impl_get_type_registration<'a>(
         };
 
         quote! {
-            registration.register_type_data_with::<#reflect_ident, Self, _>(#args);
+            .register_type_data_with::<#reflect_ident, Self, _>(#args)
         }
     });
 
     quote! {
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_path #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
-                let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
-                registration.insert(
-                    <#bevy_reflect_path::ReflectFromPtr as #bevy_reflect_path::CreateTypeData::<Self>>::create_type_data(())
-                );
+                #bevy_reflect_path::TypeRegistration::of::<Self>()
+                    .insert_data(
+                        <#bevy_reflect_path::ReflectFromPtr as #bevy_reflect_path::CreateTypeData::<Self>>::create_type_data(())
+                    )
                 #from_reflect_data
                 #serialization_data
                 #(#type_data)*
-                registration
             }
 
             #type_deps_fn

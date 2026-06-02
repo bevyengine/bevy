@@ -199,10 +199,9 @@ where
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
-        registration
+        TypeRegistration::of::<Self>()
+            .register_type_data::<ReflectFromPtr, Self>()
+            .register_type_data::<ReflectFromReflect, Self>()
     }
 }
 

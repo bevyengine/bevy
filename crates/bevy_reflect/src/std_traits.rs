@@ -3,7 +3,7 @@
 use alloc::boxed::Box;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 
-use crate::{CreateTypeData, PartialReflect, Reflect};
+use crate::{CreateTypeData, PartialReflect, Reflect, TypeData};
 
 /// A struct used to provide the default value of a type.
 ///
@@ -19,6 +19,8 @@ impl ReflectDefault {
         (self.default)()
     }
 }
+
+impl TypeData for ReflectDefault {}
 
 impl<T: Reflect + Default> CreateTypeData<T> for ReflectDefault {
     fn create_type_data(_input: ()) -> Self {
@@ -55,6 +57,8 @@ impl ReflectAdd {
         (self.add)(a, b)
     }
 }
+
+impl TypeData for ReflectAdd {}
 
 impl<T: Reflect + Add<Output: Reflect>> CreateTypeData<T> for ReflectAdd {
     fn create_type_data(_input: ()) -> Self {
@@ -106,6 +110,8 @@ impl ReflectSub {
     }
 }
 
+impl TypeData for ReflectSub {}
+
 impl<T: Reflect + Sub<Output: Reflect>> CreateTypeData<T> for ReflectSub {
     fn create_type_data(_input: ()) -> Self {
         ReflectSub {
@@ -156,6 +162,8 @@ impl ReflectMul {
     }
 }
 
+impl TypeData for ReflectMul {}
+
 impl<T: Reflect + Mul<Output: Reflect>> CreateTypeData<T> for ReflectMul {
     fn create_type_data(_input: ()) -> Self {
         ReflectMul {
@@ -205,6 +213,8 @@ impl ReflectDiv {
         (self.div)(a, b)
     }
 }
+
+impl TypeData for ReflectDiv {}
 
 impl<T: Reflect + Div<Output: Reflect>> CreateTypeData<T> for ReflectDiv {
     fn create_type_data(_input: ()) -> Self {
@@ -257,6 +267,8 @@ impl ReflectRem {
     }
 }
 
+impl TypeData for ReflectRem {}
+
 impl<T: Reflect + Rem<Output: Reflect>> CreateTypeData<T> for ReflectRem {
     fn create_type_data(_input: ()) -> Self {
         ReflectRem {
@@ -307,6 +319,8 @@ impl ReflectAddAssign {
     }
 }
 
+impl TypeData for ReflectAddAssign {}
+
 impl<T: Reflect + AddAssign> CreateTypeData<T> for ReflectAddAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectAddAssign {
@@ -352,6 +366,8 @@ impl ReflectSubAssign {
         (self.sub_assign)(a, b)
     }
 }
+
+impl TypeData for ReflectSubAssign {}
 
 impl<T: Reflect + SubAssign> CreateTypeData<T> for ReflectSubAssign {
     fn create_type_data(_input: ()) -> Self {
@@ -399,6 +415,8 @@ impl ReflectMulAssign {
     }
 }
 
+impl TypeData for ReflectMulAssign {}
+
 impl<T: Reflect + MulAssign> CreateTypeData<T> for ReflectMulAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectMulAssign {
@@ -445,6 +463,8 @@ impl ReflectDivAssign {
     }
 }
 
+impl TypeData for ReflectDivAssign {}
+
 impl<T: Reflect + DivAssign> CreateTypeData<T> for ReflectDivAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectDivAssign {
@@ -490,6 +510,8 @@ impl ReflectRemAssign {
         (self.rem_assign)(a, b)
     }
 }
+
+impl TypeData for ReflectRemAssign {}
 
 impl<T: Reflect + RemAssign> CreateTypeData<T> for ReflectRemAssign {
     fn create_type_data(_input: ()) -> Self {

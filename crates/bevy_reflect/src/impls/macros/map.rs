@@ -201,10 +201,9 @@ macro_rules! impl_reflect_for_hashmap {
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync + Default,
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
-                    let mut registration = $crate::type_registry::TypeRegistration::of::<Self>();
-                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, Self>();
-                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, Self>();
-                    registration
+                    $crate::type_registry::TypeRegistration::of::<Self>()
+                        .register_type_data::<$crate::type_registry::ReflectFromPtr, Self>()
+                        .register_type_data::<$crate::from_reflect::ReflectFromReflect, Self>()
                 }
 
                 fn register_type_dependencies(registry: &mut $crate::type_registry::TypeRegistry) {
