@@ -8,7 +8,7 @@ use crate::{CreateTypeData, PartialReflect, Reflect, TypeData};
 /// A struct used to provide the default value of a type.
 ///
 /// A [`ReflectDefault`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectDefault {
     default: fn() -> Box<dyn Reflect>,
 }
@@ -19,8 +19,6 @@ impl ReflectDefault {
         (self.default)()
     }
 }
-
-impl TypeData for ReflectDefault {}
 
 impl<T: Reflect + Default> CreateTypeData<T> for ReflectDefault {
     fn create_type_data(_input: ()) -> Self {
@@ -33,7 +31,7 @@ impl<T: Reflect + Default> CreateTypeData<T> for ReflectDefault {
 /// A struct used to perform addition on reflected values.
 ///
 /// A [`ReflectAdd`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectAdd {
     /// Function pointer implementing [`ReflectAdd::add()`].
     pub add: fn(
@@ -57,8 +55,6 @@ impl ReflectAdd {
         (self.add)(a, b)
     }
 }
-
-impl TypeData for ReflectAdd {}
 
 impl<T: Reflect + Add<Output: Reflect>> CreateTypeData<T> for ReflectAdd {
     fn create_type_data(_input: ()) -> Self {
@@ -85,7 +81,7 @@ impl<T: Reflect + Add<Output: Reflect>> CreateTypeData<T> for ReflectAdd {
 /// A struct used to perform subtraction on reflected values.
 ///
 /// A [`ReflectSub`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSub {
     /// Function pointer implementing [`ReflectSub::sub()`].
     pub sub: fn(
@@ -109,8 +105,6 @@ impl ReflectSub {
         (self.sub)(a, b)
     }
 }
-
-impl TypeData for ReflectSub {}
 
 impl<T: Reflect + Sub<Output: Reflect>> CreateTypeData<T> for ReflectSub {
     fn create_type_data(_input: ()) -> Self {
@@ -137,7 +131,7 @@ impl<T: Reflect + Sub<Output: Reflect>> CreateTypeData<T> for ReflectSub {
 /// A struct used to perform multiplication on reflected values.
 ///
 /// A [`ReflectMul`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectMul {
     /// Function pointer implementing [`ReflectMul::mul()`].
     pub mul: fn(
@@ -161,8 +155,6 @@ impl ReflectMul {
         (self.mul)(a, b)
     }
 }
-
-impl TypeData for ReflectMul {}
 
 impl<T: Reflect + Mul<Output: Reflect>> CreateTypeData<T> for ReflectMul {
     fn create_type_data(_input: ()) -> Self {
@@ -189,7 +181,7 @@ impl<T: Reflect + Mul<Output: Reflect>> CreateTypeData<T> for ReflectMul {
 /// A struct used to perform division on reflected values.
 ///
 /// A [`ReflectDiv`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectDiv {
     /// Function pointer implementing [`ReflectDiv::div()`].
     pub div: fn(
@@ -213,8 +205,6 @@ impl ReflectDiv {
         (self.div)(a, b)
     }
 }
-
-impl TypeData for ReflectDiv {}
 
 impl<T: Reflect + Div<Output: Reflect>> CreateTypeData<T> for ReflectDiv {
     fn create_type_data(_input: ()) -> Self {
@@ -241,7 +231,7 @@ impl<T: Reflect + Div<Output: Reflect>> CreateTypeData<T> for ReflectDiv {
 /// A struct used to perform remainder on reflected values.
 ///
 /// A [`ReflectRem`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectRem {
     /// Function pointer implementing [`ReflectRem::rem()`].
     pub rem: fn(
@@ -266,8 +256,6 @@ impl ReflectRem {
         (self.rem)(a, b)
     }
 }
-
-impl TypeData for ReflectRem {}
 
 impl<T: Reflect + Rem<Output: Reflect>> CreateTypeData<T> for ReflectRem {
     fn create_type_data(_input: ()) -> Self {
@@ -294,7 +282,7 @@ impl<T: Reflect + Rem<Output: Reflect>> CreateTypeData<T> for ReflectRem {
 /// A struct used to perform addition assignment on reflected values.
 ///
 /// A [`ReflectAddAssign`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectAddAssign {
     /// Function pointer implementing [`ReflectAddAssign::add_assign()`].
     pub add_assign: fn(
@@ -319,8 +307,6 @@ impl ReflectAddAssign {
     }
 }
 
-impl TypeData for ReflectAddAssign {}
-
 impl<T: Reflect + AddAssign> CreateTypeData<T> for ReflectAddAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectAddAssign {
@@ -342,7 +328,7 @@ impl<T: Reflect + AddAssign> CreateTypeData<T> for ReflectAddAssign {
 /// A struct used to perform subtraction assignment on reflected values.
 ///
 /// A [`ReflectSubAssign`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSubAssign {
     /// Function pointer implementing [`ReflectSubAssign::sub_assign()`].
     pub sub_assign: fn(
@@ -367,8 +353,6 @@ impl ReflectSubAssign {
     }
 }
 
-impl TypeData for ReflectSubAssign {}
-
 impl<T: Reflect + SubAssign> CreateTypeData<T> for ReflectSubAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectSubAssign {
@@ -390,7 +374,7 @@ impl<T: Reflect + SubAssign> CreateTypeData<T> for ReflectSubAssign {
 /// A struct used to perform multiplication assignment on reflected values.
 ///
 /// A [`ReflectMulAssign`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectMulAssign {
     /// Function pointer implementing [`ReflectMulAssign::mul_assign()`].
     pub mul_assign: fn(
@@ -415,8 +399,6 @@ impl ReflectMulAssign {
     }
 }
 
-impl TypeData for ReflectMulAssign {}
-
 impl<T: Reflect + MulAssign> CreateTypeData<T> for ReflectMulAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectMulAssign {
@@ -438,7 +420,7 @@ impl<T: Reflect + MulAssign> CreateTypeData<T> for ReflectMulAssign {
 /// A struct used to perform division assignment on reflected values.
 ///
 /// A [`ReflectDivAssign`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectDivAssign {
     /// Function pointer implementing [`ReflectDivAssign::div_assign()`].
     pub div_assign: fn(
@@ -463,8 +445,6 @@ impl ReflectDivAssign {
     }
 }
 
-impl TypeData for ReflectDivAssign {}
-
 impl<T: Reflect + DivAssign> CreateTypeData<T> for ReflectDivAssign {
     fn create_type_data(_input: ()) -> Self {
         ReflectDivAssign {
@@ -486,7 +466,7 @@ impl<T: Reflect + DivAssign> CreateTypeData<T> for ReflectDivAssign {
 /// A struct used to perform remainder assignment on reflected values.
 ///
 /// A [`ReflectRemAssign`] for type `T` can be obtained via [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectRemAssign {
     /// Function pointer implementing [`ReflectRemAssign::rem_assign()`].
     pub rem_assign: fn(
@@ -510,8 +490,6 @@ impl ReflectRemAssign {
         (self.rem_assign)(a, b)
     }
 }
-
-impl TypeData for ReflectRemAssign {}
 
 impl<T: Reflect + RemAssign> CreateTypeData<T> for ReflectRemAssign {
     fn create_type_data(_input: ()) -> Self {

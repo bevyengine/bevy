@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use bevy_platform::collections::{hash_map::Iter, HashMap};
 
 /// Contains data relevant to the automatic reflect powered (de)serialization of a type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TypeData)]
 pub struct SerializationData {
     skipped_fields: HashMap<usize, SkippedField>,
 }
@@ -112,8 +112,6 @@ impl SerializationData {
         self.skipped_fields.iter()
     }
 }
-
-impl TypeData for SerializationData {}
 
 /// Data needed for (de)serialization of a skipped field.
 #[derive(Debug, Clone)]

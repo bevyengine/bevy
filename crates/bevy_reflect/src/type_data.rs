@@ -310,7 +310,7 @@ pub trait CreateTypeData<T, Input = ()>: TypeData {
 mod tests {
     use super::*;
     use crate as bevy_reflect;
-    use crate::{Reflect, TypeRegistration};
+    use crate::{Reflect, TypeData, TypeRegistration};
     use core::any::TypeId;
     use core::marker::PhantomData;
 
@@ -328,8 +328,8 @@ mod tests {
             }
         }
 
+        #[derive(TypeData)]
         struct ReflectB;
-        impl TypeData for ReflectB {}
 
         let registration = TypeRegistration::of::<Foo>().insert_data(ReflectA);
         assert!(registration.contains::<ReflectA>());
@@ -391,8 +391,8 @@ mod tests {
             }
         }
 
+        #[derive(TypeData)]
         struct ReflectB;
-        impl TypeData for ReflectB {}
 
         let mut registry = TypeRegistry::empty();
         registry.register::<Foo>();
@@ -574,8 +574,8 @@ mod tests {
         #[derive(Reflect)]
         struct Bar;
 
+        #[derive(TypeData)]
         struct ReflectA;
-        impl TypeData for ReflectA {}
 
         impl<T> CreateTypeData<T> for ReflectA {
             fn create_type_data(_: ()) -> Self {
@@ -631,8 +631,8 @@ mod tests {
         #[derive(Reflect)]
         struct Bar;
 
+        #[derive(TypeData)]
         struct ReflectA;
-        impl TypeData for ReflectA {}
 
         impl<T> CreateTypeData<T> for ReflectA {
             fn create_type_data(_: ()) -> Self {

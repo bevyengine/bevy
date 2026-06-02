@@ -378,7 +378,8 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [type_data] module for details or the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/type_data.rs)
+//!
+//! See the [`type_data`] module for details on type data or the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/type_data.rs)
 //! for additional examples.
 //!
 //! # Serialization
@@ -4135,10 +4136,8 @@ bevy_reflect::tests::Test {
                 }
             }
 
-            #[derive(Clone)]
+            #[derive(Clone, TypeData)]
             struct ReflectB;
-
-            impl TypeData for ReflectB {}
 
             let mut registry = TypeRegistry::new();
             registry.register::<X>();

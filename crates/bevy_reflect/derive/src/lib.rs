@@ -512,6 +512,21 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Derives the `TypePath` trait.
+#[proc_macro_derive(TypeData)]
+pub fn derive_type_data(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let ident = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    let bevy_reflect_path = meta::get_bevy_reflect_path();
+
+    TokenStream::from(quote! {
+        const _: () = {
+            impl #impl_generics #bevy_reflect_path::TypeData for #ident #ty_generics #where_clause {}
+        };
+    })
+}
+
 /// A macro that automatically generates type data for traits, which their implementors can then register.
 ///
 /// The output of this macro is a struct that takes reflected instances of the implementor's type

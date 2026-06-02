@@ -16,7 +16,8 @@ use crate::{
     world::{EntityMut, EntityWorldMut},
 };
 use bevy_reflect::{
-    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectRef, TypeData, TypePath,
+    TypeRegistry,
 };
 
 use super::{from_reflect_with_fallback, ReflectComponent};
@@ -25,7 +26,7 @@ use super::{from_reflect_with_fallback, ReflectComponent};
 ///
 /// A [`ReflectBundle`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectBundle(ReflectBundleFns);
 
 /// The raw function pointers needed to make up a [`ReflectBundle`].

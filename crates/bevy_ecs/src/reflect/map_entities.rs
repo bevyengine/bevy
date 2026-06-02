@@ -1,5 +1,5 @@
 use crate::entity::{EntityMapper, MapEntities};
-use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect};
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, TypeData};
 
 /// For a specific type of value, this maps any fields with values of type [`Entity`] to a new world.
 ///
@@ -10,7 +10,7 @@ use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect};
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`EntityMapper`]: crate::entity::EntityMapper
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectMapEntities {
     map_entities: fn(&mut dyn PartialReflect, &mut dyn EntityMapper),
 }

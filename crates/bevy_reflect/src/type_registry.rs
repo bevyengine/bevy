@@ -883,12 +883,12 @@ macro_rules! type_data_insertion_methods {
 ///
 /// ```
 /// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, CreateTypeData};
-/// let mut registration = TypeRegistration::of::<Option<String>>();
+/// let registration = TypeRegistration::of::<Option<String>>();
 ///
 /// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
 /// assert_eq!("Option<String>", registration.type_info().type_path_table().short_path());
 ///
-/// registration.insert_data::<ReflectDefault>(CreateTypeData::<Option<String>>::create_type_data(()));
+/// let registration = registration.insert_data::<ReflectDefault>(CreateTypeData::<Option<String>>::create_type_data(()));
 /// assert!(registration.data::<ReflectDefault>().is_some())
 /// ```
 ///
@@ -1043,12 +1043,10 @@ impl<'a> TypeRegistrationMut<'a> {
 ///
 /// A `ReflectSerialize` for type `T` can be obtained via
 /// [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSerialize {
     get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
-
-impl TypeData for ReflectSerialize {}
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
     fn create_type_data(_input: ()) -> Self {
@@ -1088,7 +1086,7 @@ impl ReflectSerialize {
 ///
 /// A `ReflectDeserialize` for type `T` can be obtained via
 /// [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectDeserialize {
     /// Function used by [`ReflectDeserialize::deserialize`] to
     /// perform deserialization.
@@ -1112,8 +1110,6 @@ impl ReflectDeserialize {
             .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
     }
 }
-
-impl TypeData for ReflectDeserialize {}
 
 impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserialize {
     fn create_type_data(_input: ()) -> Self {
@@ -1153,7 +1149,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserial
 ///
 /// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
     from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
@@ -1214,8 +1210,6 @@ impl ReflectFromPtr {
         self.from_ptr_mut
     }
 }
-
-impl TypeData for ReflectFromPtr {}
 
 #[expect(
     unsafe_code,
@@ -1297,9 +1291,8 @@ mod test {
         #[derive(Reflect)]
         struct Foo;
 
-        #[derive(Clone)]
+        #[derive(Clone, TypeData)]
         struct DataA(i32);
-        impl TypeData for DataA {}
 
         let registration = TypeRegistration::of::<Foo>().insert_data(DataA(123));
 
@@ -1317,9 +1310,8 @@ mod test {
         #[derive(Reflect)]
         struct Foo;
 
-        #[derive(Clone)]
+        #[derive(Clone, TypeData)]
         struct DataA(i32);
-        impl TypeData for DataA {}
 
         let mut registration = TypeRegistration::of::<Foo>().insert_data(DataA(123));
 
