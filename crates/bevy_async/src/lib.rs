@@ -102,7 +102,55 @@ mod tests {
     use bevy_app::ScheduleRunnerPlugin;
     use bevy_ecs::prelude::*;
     use bevy_platform::sync::atomic::{AtomicBool, Ordering};
+    use bevy_tasks::futures::check_ready;
     use bevy_tasks::AsyncComputeTaskPool;
+
+    #[test]
+    fn different_sync_points_allow_different_tasks() {
+        struct Sync1;
+        struct Sync2;
+
+        let mut app = App::new();
+        app.add_plugins((
+            AsyncPlugin::default(),
+            ScheduleRunnerPlugin::default(),
+            TaskPoolPlugin::default(),
+        ));
+
+        let system_state = app
+            .world()
+            .resource::<AsyncWorld>()
+            .system_state::<Commands>();
+
+        let system_state_clone = system_state.clone();
+        let mut task_1 = AsyncComputeTaskPool::get().spawn(async move {
+            system_state_clone
+                .bridge(Sync1, |_: Commands| {})
+                .await
+                .unwrap();
+            1
+        });
+        let mut task_2 = AsyncComputeTaskPool::get().spawn(async move {
+            system_state.bridge(Sync2, |_: Commands| {}).await.unwrap();
+            2
+        });
+
+        assert!(check_ready(&mut task_1).is_none());
+        assert!(check_ready(&mut task_2).is_none());
+
+        app.world_mut()
+            .run_system_cached(async_world_sync_point::<Sync1>)
+            .unwrap();
+
+        assert_eq!(check_ready(&mut task_1).unwrap(), 1);
+        assert!(check_ready(&mut task_2).is_none());
+
+        app.world_mut()
+            .run_system_cached(async_world_sync_point::<Sync2>)
+            .unwrap();
+
+        assert_eq!(check_ready(&mut task_2).unwrap(), 2);
+    }
 
     /// This tests that if a world is dropped we return an error from attempting to run it and
     /// that everything cleans up nicely
