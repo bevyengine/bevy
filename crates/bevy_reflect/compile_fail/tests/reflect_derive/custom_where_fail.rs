@@ -1,7 +1,7 @@
-use bevy_reflect::{CreateTypeData, Reflect};
+use bevy_reflect::{CreateTypeData, Reflect, TypeData};
 use core::marker::PhantomData;
 
-#[derive(Clone)]
+#[derive(TypeData)]
 struct ReflectMyTrait;
 
 impl<T> CreateTypeData<T> for ReflectMyTrait {

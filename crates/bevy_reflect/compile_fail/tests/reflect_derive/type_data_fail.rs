@@ -1,7 +1,7 @@
 //@no-rustfix
-use bevy_reflect::{CreateTypeData, Reflect};
+use bevy_reflect::{CreateTypeData, Reflect, TypeData};
 
-#[derive(Clone)]
+#[derive(TypeData)]
 struct ReflectMyTrait;
 
 impl<T> CreateTypeData<T, f32> for ReflectMyTrait {
