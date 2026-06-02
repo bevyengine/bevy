@@ -857,7 +857,8 @@ fn apply_pbr_lighting(
         // and will allow us to eventually hook up subsurface scattering more easily
         var attenuation_fog: mesh_view_types::Fog;
         attenuation_fog.base_color.a = 1.0;
-        attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
+        let attenuation_color = max(in.material.attenuation_color.rgb, vec3<f32>(1e-6));
+        attenuation_fog.be = -log(attenuation_color) / in.material.attenuation_distance;
         // TODO: Add the subsurface scattering factor below
         // attenuation_fog.bi = /* ... */
         transmitted_light = bevy_pbr::fog::atmospheric_fog(
