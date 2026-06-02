@@ -159,6 +159,13 @@ impl Default for MouseScrollPixelsPerLine {
     }
 }
 
+impl core::ops::Deref for MouseScrollPixelsPerLine {
+    type Target = f32;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
