@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{punctuated::Punctuated, Expr, Ident, Lit, LitStr, Path, Stmt, Token};
+use syn::{Ident, Lit, LitStr, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -51,18 +51,9 @@ pub enum BsnSceneListItem {
 }
 
 #[derive(Debug)]
-pub enum BsnSceneFnArg {
-    Expr(Expr),
-    Name(Ident),
-}
-
-#[derive(Debug)]
-pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
-
-#[derive(Debug)]
 pub struct BsnSceneFn {
     pub path: Path,
-    pub args: BsnSceneFnArgs,
+    pub args: BsnFnArgs,
 }
 
 #[derive(Debug)]
@@ -77,7 +68,7 @@ pub enum BsnScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
-    pub args: BsnSceneFnArgs,
+    pub args: BsnFnArgs,
 }
 
 #[derive(Debug)]
@@ -121,3 +112,12 @@ pub enum BsnValue {
     Tuple(BsnTuple),
     Name(Ident),
 }
+
+#[derive(Debug)]
+pub enum BsnFnArg {
+    EntityName(Ident),
+    Tokens(TokenStream),
+}
+
+#[derive(Debug)]
+pub struct BsnFnArgs(pub Vec<BsnFnArg>);
