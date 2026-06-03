@@ -17,7 +17,7 @@ use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingCo
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Without,
+    query::{With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -41,7 +41,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 // Implementation: generate diffuse and specular cubemaps required by PBR
@@ -433,17 +433,17 @@ pub fn initialize_generated_environment_map_resources(
 }
 
 pub fn extract_generated_environment_map_entities(
-    query: Extract<
-        Query<(
-            RenderEntity,
-            &GeneratedEnvironmentMapLight,
-            &EnvironmentMapLight,
-        )>,
-    >,
     mut commands: Commands,
+    mut main_world: ResMut<MainWorld>,
     render_images: Res<RenderAssets<GpuImage>>,
 ) {
-    for (entity, filtered_env_map, env_map_light) in query.iter() {
+    let mut query = main_world.query::<(
+        RenderEntity,
+        &mut GeneratedEnvironmentMapLight,
+        &EnvironmentMapLight,
+    )>();
+
+    for (entity, mut filtered_env_map, env_map_light) in query.iter_mut(&mut main_world) {
         let Some(env_map) = render_images.get(&filtered_env_map.environment_map) else {
             continue;
         };
@@ -467,10 +467,16 @@ pub fn extract_generated_environment_map_entities(
             rotation: filtered_env_map.rotation,
             affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
         };
-        commands
+
+        let mut entity_commands = commands
             .get_entity(entity)
-            .expect("Entity not synced to render world")
-            .insert(render_filtered_env_map);
+            .expect("Entity not synced to render world");
+        entity_commands.insert(render_filtered_env_map);
+
+        if filtered_env_map.regenerate {
+            entity_commands.insert(RegenerateEnvironmentMap);
+            filtered_env_map.regenerate = false;
+        }
     }
 }
 
@@ -484,6 +490,13 @@ pub struct RenderEnvironmentMap {
     pub rotation: Quat,
     pub affects_lightmapped_mesh_diffuse: bool,
 }
+
+/// Marks a `RenderEnvironmentMap` as needing (re)generation.
+///
+/// Persists until `filtering_system` has run, so the work gets
+/// retried across frames if pipelines or assets aren't ready yet.
+#[derive(Component)]
+pub struct RegenerateEnvironmentMap;
 
 #[derive(Component)]
 pub struct IntermediateTextures {
@@ -500,7 +513,7 @@ fn compute_mip_count(size: u32) -> u32 {
 
 /// Prepares textures needed for single pass downsampling
 pub fn prepare_generated_environment_map_intermediate_textures(
-    light_probes: Query<(Entity, &RenderEnvironmentMap)>,
+    light_probes: Query<(Entity, &RenderEnvironmentMap), With<RegenerateEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
@@ -557,7 +570,10 @@ pub struct GeneratorBindGroups {
 
 /// Prepares bind groups for environment map generation pipelines
 pub fn prepare_generated_environment_map_bind_groups(
-    light_probes: Query<(Entity, &IntermediateTextures, &RenderEnvironmentMap)>,
+    light_probes: Query<
+        (Entity, &IntermediateTextures, &RenderEnvironmentMap),
+        With<RegenerateEnvironmentMap>,
+    >,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     queue: Res<RenderQueue>,
@@ -840,7 +856,7 @@ fn create_placeholder_storage_view(render_device: &RenderDevice) -> TextureView 
 }
 
 pub fn downsampling_system(
-    query: Query<(&GeneratorBindGroups, &RenderEnvironmentMap)>,
+    query: Query<(&GeneratorBindGroups, &RenderEnvironmentMap), With<RegenerateEnvironmentMap>>,
     pipeline_cache: Res<PipelineCache>,
     pipelines: Option<Res<GeneratorPipelines>>,
     mut ctx: RenderContext,
@@ -940,9 +956,13 @@ pub fn downsampling_system(
 }
 
 pub fn filtering_system(
-    query: Query<(&GeneratorBindGroups, &RenderEnvironmentMap)>,
+    query: Query<
+        (Entity, &GeneratorBindGroups, &RenderEnvironmentMap),
+        With<RegenerateEnvironmentMap>,
+    >,
     pipeline_cache: Res<PipelineCache>,
     pipelines: Option<Res<GeneratorPipelines>>,
+    mut commands: Commands,
     mut ctx: RenderContext,
 ) {
     let Some(pipelines) = pipelines else {
@@ -960,7 +980,7 @@ pub fn filtering_system(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
-    for (bind_groups, env_map_light) in &query {
+    for (entity, bind_groups, env_map_light) in &query {
         // Radiance convolution pass
         {
             let mut compute_pass =
@@ -1011,6 +1031,9 @@ pub fn filtering_system(
 
             irr_span.end(&mut compute_pass);
         }
+
+        // The filtering has run, clear the marker.
+        commands.entity(entity).remove::<RegenerateEnvironmentMap>();
     }
 }
 
