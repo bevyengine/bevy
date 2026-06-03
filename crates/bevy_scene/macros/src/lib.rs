@@ -21,9 +21,8 @@ use syn::{parse_macro_input, DeriveInput};
 ///         b.0 += evt.value;
 ///     })
 ///     Children [                   // spawning multiple related entities using a RelationshipTarget component
-///         #Child1 ComponentA       // whitespace doesn't have to be newlines
-///         ,                        // entities are comma-separated
-///         (other_scene() #Child3), // parentheses around a single entity are optional
+///         #Child1 ComponentA,      // entities are comma-separated
+///         (other_scene() #Child3), // parentheses around a single entity are optional for clarity
 ///         Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
 ///         @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
 ///             @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
