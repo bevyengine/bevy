@@ -95,7 +95,7 @@ pub fn update_editable_text_content_size(
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolved_font.family {
+            match resolved_font {
                 parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
                     query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
                 }
@@ -198,7 +198,7 @@ pub fn update_editable_text_styles(
                 continue;
             };
 
-            let family = resolved_font.family.into_owned();
+            let family = resolved_font.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
