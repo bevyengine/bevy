@@ -43,14 +43,19 @@ impl Font {
     }
 }
 
-/// Add new font assets to the internal font collection.
+/// Add new font assets to the internal font collection, and set any associated `TextFont`'s changed.
+/// If any fonts are removed, the font collection is completely rebuilt, the generic families are remapped, and all `TextFont`s are set changed.
+///
+/// Font asset changes are track locally instead of waiting for asset events. Text layout also builds the atlas images, and waiting for asset events would
+/// delay the image updates by a frame.
 pub fn load_font_assets_into_font_collection(
     mut fonts: ResMut<Assets<Font>>,
     mut loaded_fonts: Local<HashSet<AssetId<Font>>>,
     mut font_cx: ResMut<FontCx>,
     mut text_font_query: Query<&mut TextFont>,
 ) {
-    let new_asset_ids: Vec<_> = if loaded_fonts.iter().any(|id| !fonts.contains(*id)) {
+    let font_removed = loaded_fonts.iter().any(|id| !fonts.contains(*id));
+    let new_asset_ids: Vec<_> = if font_removed {
         // If any font asset has been removed, clear the font collection and queue the remaining fonts to be reinserted into the collection.
         font_cx.collection.clear();
         loaded_fonts.clear();
@@ -60,7 +65,7 @@ pub fn load_font_assets_into_font_collection(
         fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect()
     };
 
-    if new_asset_ids.is_empty() {
+    if new_asset_ids.is_empty() && !font_removed {
         return;
     }
 
@@ -73,7 +78,7 @@ pub fn load_font_assets_into_font_collection(
         font.alias = format!("asset_id:{asset_id:?}");
 
         // Each font is registered twice in Parley's FontContext collection, once under its embedded family name,
-        // and once under an alias generated from the asset path and id.
+        // and once under an alias generated from the asset id.
         // This to allow look ups by the embedded family name while also ensuring that font asset handles
         // accurately resolve to the correct font asset.
         new_family_ids.extend(
@@ -93,38 +98,42 @@ pub fn load_font_assets_into_font_collection(
         );
     }
 
-    font_cx.restore_generic_families();
+    if font_removed {
+        font_cx.restore_generic_families();
+    }
 
     for mut text_font in text_font_query.iter_mut() {
-        if match &text_font.font {
-            FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
-            FontSource::Family(name) => font_cx
-                .collection
-                .family_id(name)
-                .is_some_and(|id| new_family_ids.contains(&id)),
-            generic_source => {
-                let generic_family = match generic_source {
-                    FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                    FontSource::Serif => parley::GenericFamily::Serif,
-                    FontSource::SansSerif => parley::GenericFamily::SansSerif,
-                    FontSource::Cursive => parley::GenericFamily::Cursive,
-                    FontSource::Fantasy => parley::GenericFamily::Fantasy,
-                    FontSource::Monospace => parley::GenericFamily::Monospace,
-                    FontSource::SystemUi => parley::GenericFamily::SystemUi,
-                    FontSource::UiSerif => parley::GenericFamily::UiSerif,
-                    FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif,
-                    FontSource::UiMonospace => parley::GenericFamily::UiMonospace,
-                    FontSource::UiRounded => parley::GenericFamily::UiRounded,
-                    FontSource::Emoji => parley::GenericFamily::Emoji,
-                    FontSource::Math => parley::GenericFamily::Math,
-                    FontSource::FangSong => parley::GenericFamily::FangSong,
-                };
-                font_cx
+        if font_removed
+            || match &text_font.font {
+                FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                FontSource::Family(name) => font_cx
                     .collection
-                    .generic_families(generic_family)
-                    .any(|id| new_family_ids.contains(&id))
+                    .family_id(name)
+                    .is_some_and(|id| new_family_ids.contains(&id)),
+                generic_source => {
+                    let generic_family = match generic_source {
+                        FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
+                        FontSource::Serif => parley::GenericFamily::Serif,
+                        FontSource::SansSerif => parley::GenericFamily::SansSerif,
+                        FontSource::Cursive => parley::GenericFamily::Cursive,
+                        FontSource::Fantasy => parley::GenericFamily::Fantasy,
+                        FontSource::Monospace => parley::GenericFamily::Monospace,
+                        FontSource::SystemUi => parley::GenericFamily::SystemUi,
+                        FontSource::UiSerif => parley::GenericFamily::UiSerif,
+                        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif,
+                        FontSource::UiMonospace => parley::GenericFamily::UiMonospace,
+                        FontSource::UiRounded => parley::GenericFamily::UiRounded,
+                        FontSource::Emoji => parley::GenericFamily::Emoji,
+                        FontSource::Math => parley::GenericFamily::Math,
+                        FontSource::FangSong => parley::GenericFamily::FangSong,
+                    };
+                    font_cx
+                        .collection
+                        .generic_families(generic_family)
+                        .any(|id| new_family_ids.contains(&id))
+                }
             }
-        } {
+        {
             text_font.set_changed();
         }
     }
