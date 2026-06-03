@@ -306,10 +306,10 @@
 //!
 //! Enums are special-cased to allow for better implicit defaults: [`bsn!`] requires that enums have defaults for all variant arms, not just the type as a whole.
 //!
-//! For this reason, there is a custom "derive" which isn't actually a Trait, called [`VariantDefaults`](bevy_ecs::VariantDefaults)
+//! For this reason, there is a custom "derive" which isn't actually a trait, called [`VariantDefaults`](bevy_ecs::VariantDefaults)
 //! which creates an impl block with one static "default" method for each variant, in the schema `default_{variant_lower}`.
 //!
-//! [`bsn!`] will use these when encountering a Enum instead of [`Default`]. Alternatively, [`FromTemplate`] also works.
+//! [`bsn!`] will use these when encountering an enum instead of [`Default`]. Alternatively, [`FromTemplate`] also works.
 //!
 //! ## Composition
 //!
