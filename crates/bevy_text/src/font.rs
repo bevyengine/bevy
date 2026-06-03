@@ -10,7 +10,6 @@ use bevy_ecs::system::Query;
 use bevy_ecs::system::ResMut;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
-use core::fmt::Write as _;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
 
@@ -30,16 +29,16 @@ use parley::fontique::FontInfoOverride;
 pub struct Font {
     /// Content of a font file as bytes
     pub data: Blob<u8>,
-    /// Alias used to identify the asset in the  when referenced by handle.
+    /// Alias used to identify the asset in the when referenced by handle.
     pub alias: String,
 }
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn from_bytes(font_data: Vec<u8>, alias: &str) -> Font {
+    pub fn from_bytes(font_data: Vec<u8>) -> Font {
         Self {
             data: Blob::from(font_data),
-            alias: alias.to_string(),
+            alias: String::new(),
         }
     }
 }
@@ -71,7 +70,7 @@ pub fn load_font_assets_into_font_collection(
             .get_mut_untracked(*asset_id)
             .expect("Each AssetId should have a corresponding asset");
 
-        write!(&mut font.alias, ":{asset_id:?}").unwrap();
+        font.alias = format!("asset_id:{asset_id:?}");
 
         // Each font is registered twice in Parley's FontContext collection, once under its embedded family name,
         // and once under an alias generated from the asset path and id.
