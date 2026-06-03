@@ -138,3 +138,60 @@ pub fn load_font_assets_into_font_collection(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, Update};
+    use bevy_asset::Assets;
+
+    use super::*;
+
+    #[test]
+    fn font_asset_registration_and_cleanup() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<FontCx>()
+            .add_systems(Update, load_font_assets_into_font_collection);
+
+        let font_handle = app
+            .world_mut()
+            .resource_mut::<Assets<Font>>()
+            .add(Font::from_bytes(
+                include_bytes!("FiraMono-subset.ttf").to_vec(),
+            ));
+
+        app.update();
+        let world = app.world_mut();
+
+        let font_alias = world
+            .resource::<Assets<Font>>()
+            .get(&font_handle)
+            .expect("The font asset was just added above.")
+            .alias
+            .clone();
+        assert_eq!(font_alias, format!("asset_id:{:?}", font_handle.id()));
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id("Fira Mono")
+            .is_some());
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id(&font_alias)
+            .is_some());
+
+        world
+            .resource_mut::<Assets<Font>>()
+            .remove(font_handle.id());
+
+        app.update();
+        let world = app.world_mut();
+
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id(&font_alias)
+            .is_none());
+    }
+}
