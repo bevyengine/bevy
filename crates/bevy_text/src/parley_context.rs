@@ -3,6 +3,7 @@ use crate::{FontSmoothing, FontSource};
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::resource::Resource;
+use bevy_platform::collections::HashMap;
 use parley::LayoutContext;
 use parley::{FontContext, GenericFamily};
 use swash::scale::ScaleContext;
@@ -33,7 +34,13 @@ impl TextBrush {
 ///
 /// This resource is a wrapper around [`parley::FontContext`].
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct FontCx(pub FontContext);
+pub struct FontCx {
+    /// A font database/cache (wrapper around a Fontique Collection and SourceCache).
+    #[deref]
+    pub context: FontContext,
+    /// Backup, used to restore the generic family mappings after the font Collection is cleared.
+    generic_families: HashMap<GenericFamily, String>,
+}
 
 impl FontCx {
     /// Get the family name associated with a [`FontSource`].
@@ -59,8 +66,8 @@ impl FontCx {
             FontSource::FangSong => GenericFamily::FangSong,
         };
 
-        let family_id = self.0.collection.generic_families(generic_family).next();
-        family_id.and_then(|id| self.0.collection.family_name(id))
+        let family_id = self.collection.generic_families(generic_family).next();
+        family_id.and_then(|id| self.collection.family_name(id))
     }
 
     /// Sets the fallback font for a given generic family.
@@ -82,6 +89,8 @@ impl FontCx {
             .map(|id| {
                 self.collection
                     .set_generic_families(generic, core::iter::once(id));
+                self.generic_families
+                    .insert(generic, family_name.to_string());
             })
     }
 
