@@ -120,7 +120,8 @@ impl Plugin for AtmospherePlugin {
             Update,
             (
                 prepare_atmosphere_probe_components,
-                request_atmosphere_environment_map_regeneration,
+                request_atmosphere_environment_map_regeneration
+                    .ambiguous_with(crate::light_probe::generate::generate_environment_map_light),
             ),
         );
 
