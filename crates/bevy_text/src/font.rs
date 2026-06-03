@@ -87,7 +87,7 @@ pub fn load_font_assets_into_font_collection(
         font_cx.collection.register_fonts(
             font.data.clone(),
             Some(FontInfoOverride {
-                family_name: Some(format!("{}:{asset_id:?}", font.alias).as_str()),
+                family_name: Some(font.alias.as_str()),
                 ..Default::default()
             }),
         );
