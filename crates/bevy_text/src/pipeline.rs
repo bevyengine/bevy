@@ -415,54 +415,46 @@ impl TextPipeline {
     }
 }
 
-/// Resolved [`FontSource`] and face attributes.
-pub struct ResolvedFontSource<'a> {
-    /// The font family used for layout.
-    pub family: FontFamily<'a>,
-}
-
-/// Resolve a [`TextFont`]'s [`FontSource`], producing a font family and face attributes.
+/// Resolve a [`TextFont`]'s [`FontSource`] to a font family.
 pub fn resolve_font_source<'a>(
     text_font: &'a TextFont,
     fonts: &'a Assets<Font>,
-) -> Result<ResolvedFontSource<'a>, TextError> {
-    Ok(ResolvedFontSource {
-        family: match &text_font.font {
-            FontSource::Handle(handle) => {
-                FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
-                    fonts
-                        .get(handle.id())
-                        .ok_or(TextError::NoSuchFont)?
-                        .alias
-                        .as_str(),
-                )))
-            }
-            FontSource::Family(family) => FontFamily::named(family.as_str()),
-            generic => {
-                #[cfg(not(feature = "system_font_discovery"))]
-                bevy_log::error_once!(
-                    "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
+) -> Result<FontFamily<'a>, TextError> {
+    Ok(match &text_font.font {
+        FontSource::Handle(handle) => {
+            FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
+                fonts
+                    .get(handle.id())
+                    .ok_or(TextError::NoSuchFont)?
+                    .alias
+                    .as_str(),
+            )))
+        }
+        FontSource::Family(family) => FontFamily::named(family.as_str()),
+        generic => {
+            #[cfg(not(feature = "system_font_discovery"))]
+            bevy_log::error_once!(
+                "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
                 feature is not enabled. Text may not render. Enable the feature to allow Bevy \
                 to discover system fonts."
-                );
-                match generic {
-                    FontSource::Serif => parley::GenericFamily::Serif.into(),
-                    FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-                    FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-                    FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-                    FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-                    FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-                    FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-                    FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-                    FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-                    FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-                    FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-                    FontSource::Math => parley::GenericFamily::Math.into(),
-                    FontSource::FangSong => parley::GenericFamily::FangSong.into(),
-                    FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                }
+            );
+            match generic {
+                FontSource::Serif => parley::GenericFamily::Serif.into(),
+                FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
+                FontSource::Cursive => parley::GenericFamily::Cursive.into(),
+                FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
+                FontSource::Monospace => parley::GenericFamily::Monospace.into(),
+                FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
+                FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
+                FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
+                FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
+                FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
+                FontSource::Emoji => parley::GenericFamily::Emoji.into(),
+                FontSource::Math => parley::GenericFamily::Math.into(),
+                FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
             }
-        },
+        }
     })
 }
 
