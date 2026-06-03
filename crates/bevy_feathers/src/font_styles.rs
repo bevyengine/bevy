@@ -24,7 +24,7 @@ pub struct InheritableFont {
     pub font: Handle<Font>,
     /// The desired font size.
     pub font_size: FontSize,
-    /// The desired font weight.    
+    /// The desired font weight.
     pub weight: FontWeight,
 }
 
