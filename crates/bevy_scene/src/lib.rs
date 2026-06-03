@@ -967,7 +967,7 @@ use bevy_ecs::prelude::*;
 /// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
 /// | **Including Scenes**                       |                                                                                                                |
 /// | `scene()`<br>`scene(val)`                  | Include the result of a `impl `[`Scene`] function                                                              |
-/// | `{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                             |
+/// | `{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                                      |
 /// | `@MySceneComp`                             | Include a [`SceneComponent`]. Fields, if any exist, will be default                                            |
 /// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
 /// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
@@ -995,9 +995,9 @@ use bevy_ecs::prelude::*;
 ///
 /// Note: examples are part of a relationship like `Children [<example here>]` or a list macro like `bsn_list![<example here>]`
 ///
-/// | Example                      | Meaning                                                                                                            |
-/// | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-/// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`               |
+/// | Example                      | Meaning                                                                                                               |
+/// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+/// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
 /// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
 /// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the `SceneList` returned by expr, then one named `Last` |
 /// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a `Scene` and will only spawn one entity using it                   |
@@ -1008,20 +1008,20 @@ use bevy_ecs::prelude::*;
 ///
 ///
 /// | Example                          | Meaning       | Explanation                                                                             |
-/// | -------------------------------- | ------------- |
-/// | `1`                              | unsigned int  | positive number, common types: [`usize`], [`u8`], [`u32`], [`u64`]                              |
-/// | `1` or `-1`                      | signed int    | positive or negative number, common types: `i32`, `i64`                                 |
-/// | `1.1` or `-0.1` or `1.` or `-2.` | float         | Floating point number, common types: `f32`, `f64`                                       |
-/// | `true` or `false`                | bool          | Boolean, type: [`bool`]                                                                   |
-/// | `"somename"`                     | string        | Text, types: `String` or `&'static str`                                                 |
-/// | `"mypicture.png"`                | asset path    | Asset, when used in a field which expects a [`Handle`] to the matching `Asset` type     |
-/// | `some(1)`                        | function call | , only works if the function returns the required type                                  |
-/// | `GREEN`                          | constant      | fixed value, must be in scope                                                           |
-/// | `std::f32::consts::PI`           | constant      | fixed value, uses full path so doesn't need to be in scope                              |
+/// | -------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
+/// | `1`                              | Unsigned int  | Positive number, common types: [`usize`], [`u8`], [`u32`], [`u64`]                      |
+/// | `1` or `-1`                      | Signed int    | Positive or negative number, common types: `i32`, `i64`                                 |
+/// | `1.1` or `-0.1` or `1.` or `-2.` | Float         | Floating point number, common types: `f32`, `f64`                                       |
+/// | `true` or `false`                | Bool          | Boolean, type: [`bool`]                                                                 |
+/// | `"somename"`                     | String        | Text, types: `String` or `&'static str`                                                 |
+/// | `"mypicture.png"`                | Asset path    | Asset, when used in a field which expects a [`Handle`] to the matching `Asset` type     |
+/// | `some(1)`                        | Function call | Calls a function with the provided arguments                                            |
+/// | `GREEN`                          | Constant      | Fixed value, must be in scope                                                           |
+/// | `std::f32::consts::PI`           | Constant      | Fixed value, uses full path so doesn't need to be in scope                              |
 /// | **Expression syntax**            |               |                                                                                         |
-/// | `{ 1 + 2 }`                      | expression    | Any rust expression works in `{}`, in this case addition of 2 integers                  |
-/// | `{ vec![true, false] }`          | vector        | An expression returning a [`Vec`], a collection of multiple items of one specific type. |
-/// | `{ bsn!{ Text("foo") Style } }`  | scene         | Sometimes, you may need to pass a small `Scene` as a value to something else            |
+/// | `{ 1 + 2 }`                      | Expression    | Any rust expression works in `{}`, in this case addition of 2 integers                  |
+/// | `{ vec![true, false] }`          | Vector        | An expression returning a [`Vec`], a collection of multiple items of one specific type. |
+/// | `{ bsn!{ Text("foo") Style } }`  | Scene         | Sometimes, you may need to pass a small `Scene` as a value to something else            |
 ///
 /// ### Other Rust syntax
 ///
