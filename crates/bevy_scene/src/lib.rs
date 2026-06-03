@@ -175,7 +175,7 @@
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, resolving to an [`Entity`]:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`] which ultimately resolves to an [`Entity`]:
 //!
 //! ```ignore
 //! bsn! {
