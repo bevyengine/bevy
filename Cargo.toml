@@ -5208,9 +5208,6 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-# approximately equal comand for docs.rs like build locally
-# excluding example scraping and adding mergable info for compile speed
-# cargo doc --lib -Zrustdoc-mergeable-info --config 'build.rustflags=["--cfg", "docsrs_dep"]' -Zhost-config -Ztarget-applies-to-host --config 'host.rustflags=["--cfg", "docsrs_dep"]' --config 'build.rustdocflags=["-Zunstable-options", "--generate-link-to-definition", "--generate-macro-expansion", "--html-after-content", "./docs-rs/trait-tags.html"]' --no-deps -p bevy --all-features
 
 [[example]]
 name = "monitor_info"
