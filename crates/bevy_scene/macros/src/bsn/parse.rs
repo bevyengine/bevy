@@ -449,6 +449,13 @@ fn parenthesized_tokens(input: &ParseBuffer) -> Result<TokenStream> {
     content.parse::<TokenStream>()
 }
 
+// Used to parse bracketed tokens "loosely" without caring about the content in `[...]`. This ensures autocomplete works.
+fn bracketed_tokens(input: &ParseBuffer) -> Result<TokenStream> {
+    let content;
+    bracketed!(content in input);
+    content.parse::<TokenStream>()
+}
+
 fn tokens_between(begin: Cursor, end: Cursor) -> TokenStream {
     assert!(begin <= end);
     let mut cursor = begin;
@@ -487,8 +494,19 @@ impl Parse for BsnValue {
             match PathType::new(&path) {
                 PathType::TypeFunction | PathType::Function => {
                     input.parse::<Path>()?;
-                    let token_stream = parenthesized_tokens(input)?;
-                    BsnValue::Expr(quote! { #path(#token_stream) })
+                    let maybe_macro = input.parse::<Token![!]>().ok();
+                    if input.peek(Paren) {
+                        let token_stream = parenthesized_tokens(input)?;
+                        BsnValue::Expr(quote! { #path #maybe_macro (#token_stream) })
+                    } else if input.peek(Bracket) {
+                        let token_stream = bracketed_tokens(input)?;
+                        BsnValue::Expr(quote! { #path #maybe_macro [#token_stream] })
+                    } else if input.peek(Brace) {
+                        let token_stream = braced_tokens(input)?;
+                        BsnValue::Expr(quote! { #path #maybe_macro { #token_stream } })
+                    } else {
+                        return Err(input.error("Unexpected input after function name"));
+                    }
                 }
                 PathType::Const | PathType::TypeConst => {
                     input.parse::<Path>()?;

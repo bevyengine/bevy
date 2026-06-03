@@ -251,7 +251,7 @@ impl FeathersColorSlider {
                             Node {
                                 flex_grow: 1.0,
                             }
-                            BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+                            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                                 angle: PI * 0.5,
                                 stops: vec![
                                     ColorStop::new(Color::NONE, percent(0)),
@@ -259,7 +259,7 @@ impl FeathersColorSlider {
                                     ColorStop::new(Color::NONE, percent(100)),
                                 ],
                                 color_space: InterpolationColorSpace::Srgba,
-                            })]})
+                            })])
                             ZIndex(1)
                             Children [(
                                 Node {
