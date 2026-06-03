@@ -3,7 +3,9 @@
 use std::{f32::consts::PI, ops::Range};
 
 use bevy::{
-    camera::ScalingMode, input::mouse::AccumulatedMouseScroll, input::mouse::MouseScrollUnit,
+    camera::ScalingMode,
+    input::mouse::MouseScrollUnit,
+    input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine},
     prelude::*,
 };
 
@@ -138,6 +140,7 @@ fn zoom(
     camera: Single<&mut Projection, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
+    scroll_conversion: Res<MouseScrollPixelsPerLine>,
 ) {
     // Usually, you won't need to handle both types of projection,
     // but doing so makes for a more complete example.
@@ -145,9 +148,7 @@ fn zoom(
     // Get a scroll amount proportional to the kind of input that generated it.
     let scroll = match mouse_wheel_input.unit {
         MouseScrollUnit::Line => mouse_wheel_input.delta.y,
-        MouseScrollUnit::Pixel => {
-            mouse_wheel_input.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
-        }
+        MouseScrollUnit::Pixel => mouse_wheel_input.delta.y / **scroll_conversion,
     };
 
     match *camera.into_inner() {
