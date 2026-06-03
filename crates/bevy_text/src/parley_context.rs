@@ -35,10 +35,10 @@ impl TextBrush {
 /// This resource is a wrapper around [`parley::FontContext`].
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct FontCx {
-    /// A font database/cache (wrapper around a Fontique Collection and SourceCache).
+    /// A font database/cache (wrapper around a Fontique [`Collection`](parley::fontique::Collection) and [`SourceCache`](parley::fontique::SourceCache)).
     #[deref]
     pub context: FontContext,
-    /// Backup, used to restore the generic family mappings after the font Collection is cleared.
+    /// Backup, used to restore the generic family mappings after the font [`Collection`](parley::fontique::Collection) is cleared.
     generic_families: HashMap<GenericFamily, String>,
 }
 
@@ -162,7 +162,7 @@ impl FontCx {
     /// Call after clearing the font `Collection` to restore the generic family mappings.
     pub fn restore_generic_families(&mut self) {
         for (generic_family, family_name) in core::mem::take(&mut self.generic_families).iter() {
-            if let Err(err) = self.set_generic_family(*generic_family, &family_name) {
+            if let Err(err) = self.set_generic_family(*generic_family, family_name) {
                 bevy_log::warn!(
                     "Failed to restore generic font family mapping: {generic_family:?} -> {family_name}, {err}"
                 );
