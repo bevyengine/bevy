@@ -249,7 +249,7 @@ impl BevyError {
 }
 
 /// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// a "fat pointer", which reduces the size of our `Result` by a `usize`. This does introduce an extra indirection, but error handling is a "cold path".
 /// We don't need to optimize it to that degree.
 /// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but that's not a huge priority right now and the code simplicity
 /// of the current impl is nice.
@@ -327,7 +327,7 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// For more fine grained control see [`Result::map_severity`]
+    /// For more fine grained control see [`Result::map_severity`](ResultSeverityExt::map_severity)
     fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
 
     /// Overrides the [`Severity`] of the error if this result is `Err`.
@@ -360,7 +360,7 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// If you don't need to inspect the error, use [`Result::with_severity`]
+    /// If you don't need to inspect the error, use [`Result::with_severity`](ResultSeverityExt::with_severity)
     fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
 }
 

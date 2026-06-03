@@ -1354,7 +1354,7 @@ mod tests {
         app.update();
         let world = app.world_mut();
 
-        // There are two UI root entities. Each root taffy node is given it's own viewport node parent,
+        // There are two UI root entities. Each root taffy node is given its own viewport node parent,
         // so a total of four taffy nodes are added to the `TaffyTree` by the UI schedule.
         assert_eq!(
             world.resource_mut::<UiSurface>().taffy.total_node_count(),

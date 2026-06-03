@@ -14,6 +14,15 @@
 #import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping
 #endif
 
+// The IOR impacts how much a single microfacet refracts incoming light. In turn this changes how
+// "wide" the distribution of output ray directions is and how rough the BRDF should be.
+// This function scales the roughness toward 0.0 as IOR tends towards 1.0, while leaving the default
+// roughness for IOR = 1.5.
+// Adapted from Khronos gltf-Sample-Renderer (https://github.com/KhronosGroup/glTF-Sample-Renderer/blob/bec106e53da4a6a398aa3205f0f96563519a657e/source/Renderer/shaders/functions.glsl#L84-L89)
+fn ior_corrected_roughness(roughness: f32, ior: f32) -> f32 {
+    return roughness * clamp(ior * 2.0 - 2.0, 0.0, 1.0);
+}
+
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refraction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
@@ -37,11 +46,12 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
 
     // Fetch background color
     var background_color: vec4<f32>;
-    if perceptual_roughness == 0.0 {
-        // If the material has zero roughness, we can use a faster approach without the blur
+    let transmission_roughness = ior_corrected_roughness(perceptual_roughness, ior);
+    if transmission_roughness == 0.0 {
+        // If transmission roughness is zero, we can use a faster approach without the blur.
         background_color = fetch_transmissive_background_non_rough(offset_position, frag_coord);
     } else {
-        background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
+        background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, transmission_roughness);
     }
 
     // Compensate for exposure, since the background color is coming from an already exposure-adjusted texture
@@ -81,7 +91,7 @@ fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coor
     return background_color;
 }
 
-fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, perceptual_roughness: f32) -> vec4<f32> {
+fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, transmission_roughness: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
     let aspect = view_bindings::view.viewport.z / view_bindings::view.viewport.w;
 
@@ -94,8 +104,9 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     //
     // Blur intensity is:
     // - proportional to the square of `perceptual_roughness`
+    // - reduced for IOR < 1.5 (through `transmission_roughness`)
     // - proportional to the inverse of view z
-    let blur_intensity = (perceptual_roughness * perceptual_roughness) / view_z;
+    let blur_intensity = (transmission_roughness * transmission_roughness) / view_z;
 
 #ifdef SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS
     let num_taps = #{SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS}; // Controlled by the `ScreenSpaceTransmission::quality` property
