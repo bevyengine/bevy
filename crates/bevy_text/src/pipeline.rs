@@ -190,12 +190,9 @@ impl TextPipeline {
                     continue;
                 }
 
-                let resolved_font = resolve_font_source(section.text_font, fonts)?;
+                let resolved_family = resolve_font_source(section.text_font, fonts)?;
 
-                builder.push(
-                    StyleProperty::FontFamily(resolved_font.family),
-                    range.clone(),
-                );
+                builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
                         section.index as u32,
