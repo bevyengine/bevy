@@ -10,6 +10,7 @@ use bevy_ecs::system::Query;
 use bevy_ecs::system::ResMut;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
+use core::fmt::Write as _;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
 
@@ -70,7 +71,7 @@ pub fn load_font_assets_into_font_collection(
             .get_mut_untracked(*asset_id)
             .expect("Each AssetId should have a corresponding asset");
 
-        font.alias.push_str(&format!(":{asset_id:?}"));
+        write!(&mut font.alias, ":{asset_id:?}").unwrap();
 
         // Each font is registered twice in Parley's FontContext collection, once under its embedded family name,
         // and once under an alias generated from the asset path and id.
