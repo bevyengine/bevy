@@ -193,12 +193,12 @@
 //! their descendants:
 //!
 //! ```ignore
+//! let i=0;
 //! bsn! {
 //!     #Root
-//!     ComponentA(#Child1)
+//!     Name({format!("Entity {i}")})
 //!     Children [
-//!         #Child1,
-//!         #Child2,
+//!         Reference(#Root)
 //!     ]
 //! }
 //! ```
