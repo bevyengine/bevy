@@ -50,8 +50,20 @@ pub fn bsn(input: TokenStream) -> TokenStream {
     crate::bsn::bsn(input)
 }
 
+/// Creates a `SceneList` using BSN (Bevy Scene Notation) syntax.
 ///
-#[doc(hidden)]
+/// This is useful when you want multiple root entities in your scene
+/// that do not share a common parent, or if you want to create multiple scenes at once.
+///
+/// Like in [`bsn!`], commas separate entities,
+/// while whitespace separates components on the same entity.
+///
+/// All root entries in a [`bsn_list!`] share a single name scope, so sibling root entities
+/// can cross-reference each other by `#Name`.
+/// This is not possible with separate [`bsn!`] calls, and is a key motivation for using [`bsn_list!`].
+///
+/// See [`bsn!`] for an example of the syntax.
+/// See the `bevy_scene` crate docs for a high-level overview of the key concepts.#[doc(hidden)]
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
     crate::bsn::bsn_list(input)
