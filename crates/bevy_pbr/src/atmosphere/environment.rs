@@ -195,6 +195,14 @@ pub fn validate_environment_map_size(size: UVec2) -> UVec2 {
     new_size
 }
 
+pub fn request_atmosphere_environment_map_regeneration(
+    mut probes: Query<&mut GeneratedEnvironmentMapLight, With<AtmosphereEnvironmentMap>>,
+) {
+    for mut env_map in &mut probes {
+        env_map.regenerate = true;
+    }
+}
+
 pub fn prepare_atmosphere_probe_components(
     probes: Query<(Entity, &AtmosphereEnvironmentMapLight), (Without<AtmosphereEnvironmentMap>,)>,
     mut commands: Commands,
