@@ -424,18 +424,17 @@ pub struct ResolvedFontSource<'a> {
 /// Resolve a [`TextFont`]'s [`FontSource`], producing a font family and face attributes.
 pub fn resolve_font_source<'a>(
     text_font: &'a TextFont,
-    fonts: &Assets<Font>,
+    fonts: &'a Assets<Font>,
 ) -> Result<ResolvedFontSource<'a>, TextError> {
     Ok(ResolvedFontSource {
         family: match &text_font.font {
             FontSource::Handle(handle) => {
-                FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
+                FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
                     fonts
                         .get(handle.id())
                         .ok_or(TextError::NoSuchFont)?
                         .alias
-                        .as_str()
-                        .to_owned(),
+                        .as_str(),
                 )))
             }
             FontSource::Family(family) => FontFamily::named(family.as_str()),
