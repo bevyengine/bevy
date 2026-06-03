@@ -6,7 +6,7 @@
 //! A 2D character might need a distinct sprite entity for weapon, hat and boots.
 //! A UI popup might need text and multiple buttons for accept, cancel, minimize and close actions.
 //! Spawning these collections as individual, disjointed entities is tedious, error-prone, and hard to reuse.
-//! A **scene** lets you describe a conceptual **object**, made of an entity, its components, children, and assets once
+//! A **scene** lets you describe a conceptual **object**, made of an entity, its components, children, and assets, once
 //! and spawn it wherever you need it.
 //!
 //! Any scene system must overcome three challenges:
@@ -27,7 +27,7 @@
 //! This brevity is essential: making it easier to review and understand scenes at a glance,
 //! resolve merge conflicts and keep file sizes under control.
 //! The macro includes best-effort Rust-Analyzer support. Autocomplete, go-to-definition, and hover docs
-//! should work basically everywhere!
+//! should work inside the macros, and this effort should transfer over correctly to other LSPs!
 //!
 //! ## BSN syntax reference
 //!
@@ -175,7 +175,7 @@
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! In a few others places in the same bsn! invocation / scope, its possible to refer to a named entity by its `#Name`:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, resolving to an [`Entity`]:
 //!
 //! ```ignore
 //! bsn! {
@@ -239,7 +239,7 @@
 //!
 //! ### Dynamic Name Values and Entity References
 //!
-//! `#SomeName` syntax will set `Name("SomeName")` in addition to making the entity reference-able in [`bsn!`]. `#Name` syntax is _always_ scoped and
+//! `#SomeName` syntax will set the value of the [`Name`] component to `Name("SomeName")`, and  make the entity reference-able in [`bsn!`]. `#Name` syntax is _always_ scoped and
 //! doesn't support "dynamic" names. If you would like to _both_ reference an entity in [`bsn!`] _and_ provide a dynamic name, you can do this:
 //!
 //! ```ignore
@@ -304,7 +304,7 @@
 //!
 //! #### Enums in bsn
 //!
-//! Enums are special cased due to their complexity regarding [`Default`] or similar traits: [`bsn!`] needs to have defaults for *all* variants accessible.
+//! Enums are special-cased to allow for better implicit defaults: [`bsn!`] requires that enums have defaults for all variant arms, not just the type as a whole.
 //!
 //! For this reason, there is a custom "derive" which isn't actually a Trait, called [`VariantDefaults`](bevy_ecs::VariantDefaults)
 //! which creates an impl block with one static "default" method for each variant, in the schema `default_{variant_lower}`.
@@ -364,7 +364,7 @@
 //!
 //! </div>
 //!
-//! Scenes can be cached, improving performance. Since this can change the semantics in some cases, its an explicit opt-in.
+//! Scenes can be cached, improving performance. Since this can change the semantics in some cases, this requires an explicit opt-in.
 //! Caching works by resolving the included scene and storing the resulting [`ResolvedScene`] for future use. When the outer scene is spawned again,
 //! it will not need to resolve the included scene again, instead patching on top of the cached version (using copy-on-write semantics for each [`Template`]).
 //! This means caching can only be used if the scene is the first scene entry.
@@ -470,7 +470,7 @@
 //!     }
 //! }
 //!
-//! fn on_heal(heal: On<Heal>, query: Query<&Health>){
+//! fn on_heal(heal: On<Heal>, query: Query<&mut Health>){
 //!     let mut health = query.get_mut(heal.entity).unwrap();
 //!     health.current = (health.current + heal.amount).min(health.max);
 //! }
@@ -504,9 +504,9 @@
 //! Braces are required when the macro would otherwise misparse the expression
 //! and for complex expressions like `{hp * 2}`.
 //!
-//! ### Dynamic template values (component values)
+//! ### Dynamic template values
 //!
-//! A [`Template`] value, like a instance of a Component, cannot be directly passed in to a `bsn!` block, as `bsn!`
+//! A [`Template`] value, such as an instance of a Component, cannot be directly passed in to a `bsn!` block, as `bsn!`
 //! expects "scene variables" in that position. Instead use `template_value(...)` which accepts a given component [`Template`] value
 //! and returns a [`Scene`] implementation for it.
 //!
@@ -663,7 +663,7 @@
 //!
 //! ### `SceneComponent` Asset Paths
 //!
-//! Note: Currently, there is no `.bsn` asset format. This exists to help you understand what is planned, and what is currenty possible
+//! Note: Currently, Bevy does not include a `.bsn` asset format. These docs exist to help you understand what is planned, and what is currently possible
 //! with third-party asset formats.
 //!
 //! Alternatively, a scene asset path can be specified:
@@ -872,8 +872,8 @@
 //! This format is intended to have broad syntactic compatibility with the `bsn!` macro,
 //! making it easy to port your content between both the macro and the asset form.
 //!
-//! When planning to use the asset format later, be aware that `.bsn` asset files,
-//! unlike `bsn!` macro calls, will not support expressions or other dynamic features directly.
+//! When planning your future use of `.bsn` asset files (which are not currently shipped), be aware that
+//! unlike `bsn!` macro calls `.bsn` assets will not support expressions or other dynamic features directly.
 //!
 //! For now, you should use existing non-Bevy asset formats like glTF,
 //! search for ecosystem implementations or stick to `bsn!` macro calls.
