@@ -78,6 +78,8 @@ struct Vertex {
 #endif
 };
 
+#ifndef MESHLET_MESH_MATERIAL_PASS
+
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
 fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
@@ -133,6 +135,8 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 #endif
     return uncompressed_vertex;
 }
+
+#endif
 
 struct VertexOutput {
     // This is `clip position` when the struct is used as a vertex stage output
