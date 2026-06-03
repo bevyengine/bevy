@@ -1042,7 +1042,6 @@ use bevy_ecs::prelude::*;
 // rust-analyzer ignores these docs and only shows the original ones, see https://github.com/rust-lang/rust-analyzer/issues/14079
 // despite those being #[doc(hidden)]
 //
-pub struct Foo; // comment this in to get rust-analyzer highlighting in the above docs, probably same issue as above
 #[doc(inline)]
 pub use bevy_scene_macros::bsn;
 
