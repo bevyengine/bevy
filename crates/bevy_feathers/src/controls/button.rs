@@ -189,7 +189,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
         InheritableThemeTextColor(tokens::BUTTON_TEXT),
         InheritableFont {
             font_size: size::MEDIUM_FONT,
-            weight: Some(FontWeight::NORMAL),
+            weight: FontWeight::NORMAL,
             ..Default::default()
         },
         overrides,

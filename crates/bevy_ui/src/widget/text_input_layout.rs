@@ -91,7 +91,7 @@ pub fn update_editable_text_content_size(
 
         let width = editable_text.visible_width.and_then(|visible_width| {
             let resolved_font = resolve_font_source(&text_font, fonts.as_ref()).ok()?;
-            let font_context = &mut font_cx.0;
+            let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
@@ -105,9 +105,9 @@ pub fn update_editable_text_content_size(
                 _ => return None,
             }
             query.set_attributes(parley::fontique::Attributes::new(
-                resolved_font.width.into(),
-                resolved_font.style.into(),
-                resolved_font.weight.into(),
+                text_font.width.into(),
+                text_font.style.into(),
+                text_font.weight.into(),
             ));
 
             let mut width = None;
@@ -201,9 +201,9 @@ pub fn update_editable_text_styles(
             let family = resolved_font.family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
-            style_set.insert(StyleProperty::FontWeight(resolved_font.weight.into()));
-            style_set.insert(StyleProperty::FontWidth(resolved_font.width.into()));
-            style_set.insert(StyleProperty::FontStyle(resolved_font.style.into()));
+            style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
+            style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
+            style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
             style_set.insert(StyleProperty::FontFeatures(
                 (&text_font.font_features).into(),
             ));
@@ -301,7 +301,7 @@ pub fn update_editable_text_layout(
 
         let mut driver = editable_text
             .editor
-            .driver(&mut font_cx.0, &mut layout_cx.0);
+            .driver(font_cx.as_mut(), layout_cx.as_mut());
 
         driver.refresh_layout();
 

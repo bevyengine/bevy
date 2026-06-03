@@ -152,7 +152,7 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
         InheritableThemeTextColor(tokens::RADIO_TEXT),
         InheritableFont {
             font_size: size::MEDIUM_FONT,
-            weight: Some(FontWeight::NORMAL),
+            weight: FontWeight::NORMAL,
             ..Default::default()
         },
         overrides,

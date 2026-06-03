@@ -158,6 +158,17 @@ impl FontCx {
     pub fn set_fang_song_family(&mut self, family_name: &str) -> Result<(), TextError> {
         self.set_generic_family(GenericFamily::FangSong, family_name)
     }
+
+    /// Call after clearing the font `Collection` to restore the generic family mappings.
+    pub fn restore_generic_families(&mut self) {
+        for (generic_family, family_name) in core::mem::take(&mut self.generic_families).iter() {
+            if let Err(err) = self.set_generic_family(*generic_family, &family_name) {
+                bevy_log::warn!(
+                    "Failed to restore generic font family mapping: {generic_family:?} -> {family_name}, {err}"
+                );
+            }
+        }
+    }
 }
 
 /// Text layout context

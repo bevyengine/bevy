@@ -52,7 +52,7 @@ pub fn load_font_assets_into_font_collection(
 ) {
     let new_asset_ids: Vec<_> = if loaded_fonts.iter().any(|id| !fonts.contains(*id)) {
         // If any font asset has been removed, clear the font collection and queue the remaining fonts to be reinserted into the collection.
-        font_cx.0.collection.clear();
+        font_cx.collection.clear();
         loaded_fonts.clear();
         loaded_fonts.extend(fonts.ids());
         loaded_fonts.iter().copied().collect()
@@ -84,7 +84,7 @@ pub fn load_font_assets_into_font_collection(
                 .map(|(family_id, _)| *family_id),
         );
 
-        font_cx.0.collection.register_fonts(
+        font_cx.collection.register_fonts(
             font.data.clone(),
             Some(FontInfoOverride {
                 family_name: Some(format!("{}:{asset_id:?}", font.alias).as_str()),
@@ -92,6 +92,8 @@ pub fn load_font_assets_into_font_collection(
             }),
         );
     }
+
+    font_cx.restore_generic_families();
 
     for mut text_font in text_font_query.iter_mut() {
         if match &text_font.font {

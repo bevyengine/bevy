@@ -73,7 +73,7 @@ impl TextPipeline {
         bounds: TextBounds,
         scale_factor: f32,
         computed: &mut ComputedTextBlock,
-        font_system: &mut FontCx,
+        font_cx: &mut FontCx,
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
@@ -161,10 +161,9 @@ impl TextPipeline {
 
             let text = self.text_buffer.as_str();
             let layout = &mut computed.layout;
-            let mut builder =
-                layout_cx
-                    .0
-                    .ranged_builder(&mut font_system.0, text, scale_factor, true);
+            let mut builder = layout_cx
+                .0
+                .ranged_builder(&mut (*font_cx), text, scale_factor, true);
 
             match linebreak {
                 LineBreak::AnyCharacter => {
@@ -427,45 +426,45 @@ pub fn resolve_font_source<'a>(
     text_font: &'a TextFont,
     fonts: &Assets<Font>,
 ) -> Result<ResolvedFontSource<'a>, TextError> {
-    if let FontSource::Handle(handle) = &text_font.font {
-        let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-        Ok(ResolvedFontSource {
-            family: FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
-                font.alias.as_str().to_owned(),
-            ))),
-        })
-    } else {
-        Ok(ResolvedFontSource {
-            family: match &text_font.font {
-                FontSource::Handle(_) => unreachable!(),
-                FontSource::Family(family) => FontFamily::named(family.as_str()),
-                generic => {
-                    #[cfg(not(feature = "system_font_discovery"))]
-                    bevy_log::error_once!(
+    Ok(ResolvedFontSource {
+        family: match &text_font.font {
+            FontSource::Handle(handle) => {
+                FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
+                    fonts
+                        .get(handle.id())
+                        .ok_or(TextError::NoSuchFont)?
+                        .alias
+                        .as_str()
+                        .to_owned(),
+                )))
+            }
+            FontSource::Family(family) => FontFamily::named(family.as_str()),
+            generic => {
+                #[cfg(not(feature = "system_font_discovery"))]
+                bevy_log::error_once!(
                     "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
                 feature is not enabled. Text may not render. Enable the feature to allow Bevy \
                 to discover system fonts."
                 );
-                    match generic {
-                        FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                        FontSource::Serif => parley::GenericFamily::Serif.into(),
-                        FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-                        FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-                        FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-                        FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-                        FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-                        FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-                        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-                        FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-                        FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-                        FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-                        FontSource::Math => parley::GenericFamily::Math.into(),
-                        FontSource::FangSong => parley::GenericFamily::FangSong.into(),
-                    }
+                match generic {
+                    FontSource::Serif => parley::GenericFamily::Serif.into(),
+                    FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
+                    FontSource::Cursive => parley::GenericFamily::Cursive.into(),
+                    FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
+                    FontSource::Monospace => parley::GenericFamily::Monospace.into(),
+                    FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
+                    FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
+                    FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
+                    FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
+                    FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
+                    FontSource::Emoji => parley::GenericFamily::Emoji.into(),
+                    FontSource::Math => parley::GenericFamily::Math.into(),
+                    FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+                    FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
                 }
-            },
-        })
-    }
+            }
+        },
+    })
 }
 
 /// Render information for a corresponding text block.
@@ -608,5 +607,5 @@ pub(crate) fn trim_source_cache(mut font_cx: ResMut<FontCx>) {
     //
     // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
     // text that is dynamically measured for UI).
-    font_cx.0.source_cache.prune(2, false);
+    font_cx.source_cache.prune(2, false);
 }

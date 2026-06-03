@@ -192,7 +192,7 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
             InheritableThemeTextColor(tokens::SLIDER_TEXT),
             InheritableFont {
                 font_size: size::SMALL_FONT,
-                weight: Some(FontWeight::NORMAL),
+                weight: FontWeight::NORMAL,
                 ..Default::default()
             },
             children![(Text::new("10.0"), ThemedText, SliderValueText,)],
