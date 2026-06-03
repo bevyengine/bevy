@@ -449,7 +449,7 @@ mod tests {
         let mut fonts = world.resource_mut::<Assets<Font>>();
 
         let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
-        font.family_name = "Fira Mono".into();
+        font.alias = "Fira Mono".into();
         let data = font.into_inner().data.clone();
 
         world

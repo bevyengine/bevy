@@ -26,8 +26,8 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    FontStyle, FontWeight, FontWidth, Justify, LetterSpacing, LineBreak, LineHeight,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
+    TextFont, TextLayout,
 };
 
 struct TextSectionView<'a> {
@@ -214,15 +214,15 @@ impl TextPipeline {
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWeight(resolved_font.weight.into()),
+                    StyleProperty::FontWeight(section.text_font.weight.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWidth(resolved_font.width.into()),
+                    StyleProperty::FontWidth(section.text_font.width.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontStyle(resolved_font.style.into()),
+                    StyleProperty::FontStyle(section.text_font.style.into()),
                     range.clone(),
                 );
                 builder.push(
@@ -420,12 +420,6 @@ impl TextPipeline {
 pub struct ResolvedFontSource<'a> {
     /// The font family used for layout.
     pub family: FontFamily<'a>,
-    /// The font weight used for face matching.
-    pub weight: FontWeight,
-    /// The font width used for face matching.
-    pub width: FontWidth,
-    /// The font style used for face matching.
-    pub style: FontStyle,
 }
 
 /// Resolve a [`TextFont`]'s [`FontSource`], producing a font family and face attributes.
@@ -437,11 +431,8 @@ pub fn resolve_font_source<'a>(
         let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
         Ok(ResolvedFontSource {
             family: FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
-                font.family_name.as_str().to_owned(),
+                font.alias.as_str().to_owned(),
             ))),
-            weight: text_font.weight.unwrap_or(font.weight),
-            width: text_font.width.unwrap_or(font.width),
-            style: text_font.style.unwrap_or(font.style),
         })
     } else {
         Ok(ResolvedFontSource {
@@ -473,9 +464,6 @@ pub fn resolve_font_source<'a>(
                     }
                 }
             },
-            weight: text_font.weight.unwrap_or_default(),
-            width: text_font.width.unwrap_or_default(),
-            style: text_font.style.unwrap_or_default(),
         })
     }
 }
