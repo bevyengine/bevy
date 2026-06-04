@@ -184,17 +184,20 @@ impl BevyError {
 
     /// Checks if the internal error is of the given type.
     pub fn is<E: Error + 'static>(&self) -> bool {
-        self.inner.error.is::<E>()
+        if let Some(context) = self.inner.error.downcast_ref::<ContextError>() {
+            context.error.is::<E>()
+        } else {
+            self.inner.error.is::<E>()
+        }
     }
 
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
-        self.inner.error.downcast_ref::<E>()
-    }
-
-    /// Attempts to downcast the internal error to a mutable reference to the given type.
-    pub fn downcast_mut<E: Error + 'static>(&mut self) -> Option<&mut E> {
-        self.inner.error.downcast_mut::<E>()
+        if let Some(context) = self.inner.error.downcast_ref::<ContextError>() {
+            context.error.downcast_ref::<E>()
+        } else {
+            self.inner.error.downcast_ref::<E>()
+        }
     }
 
     fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -478,7 +481,7 @@ pub trait ContextExt<T>: Sized {
 
 impl<T, E> ContextExt<T> for Result<T, E>
 where
-    E: Into<BevyError>,
+    Box<dyn Error + Send + Sync + 'static>: From<E>,
 {
     fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
     where
@@ -487,18 +490,43 @@ where
         match self {
             Ok(v) => Ok(v),
             Err(error) => {
-                let mut error = error.into();
+                let mut error: Box<dyn Error + Send + Sync + 'static> = error.into();
                 let msg = context().to_string();
                 if let Some(ctx) = error.downcast_mut::<ContextError>() {
                     ctx.messages.push(msg);
-                    Err(error)
+                    Err(error.into())
                 } else {
                     let error = ContextError {
                         messages: alloc::vec![error.to_string(), msg],
+                        error,
                     };
 
                     Err(error.into())
                 }
+            }
+        }
+    }
+}
+
+impl<T> ContextExt<T> for Result<T, BevyError> {
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Display,
+    {
+        match self {
+            Ok(v) => Ok(v),
+            Err(mut error) => {
+                let msg = context().to_string();
+                if let Some(ctx) = error.inner.error.downcast_mut::<ContextError>() {
+                    ctx.messages.push(msg);
+                } else {
+                    error.inner.error = ContextError {
+                        messages: alloc::vec![error.inner.error.to_string(), msg],
+                        error: error.inner.error,
+                    }
+                    .into();
+                }
+                Err(error)
             }
         }
     }
@@ -512,8 +540,10 @@ impl<T> ContextExt<T> for Option<T> {
         match self {
             Some(v) => Ok(v),
             None => {
+                let message = context().to_string();
                 let error = ContextError {
-                    messages: alloc::vec![context().to_string()],
+                    messages: alloc::vec![message.clone()],
+                    error: message.into(),
                 };
 
                 Err(error.into())
@@ -522,9 +552,10 @@ impl<T> ContextExt<T> for Option<T> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug)]
 struct ContextError {
     messages: alloc::vec::Vec<alloc::string::String>,
+    error: Box<dyn Error + Send + Sync + 'static>,
 }
 
 impl Display for ContextError {
@@ -856,5 +887,35 @@ Caused by:
 \tOh no!
 "
         ));
+    }
+
+    #[test]
+    fn context_downcasting() {
+        #[derive(Debug, PartialEq)]
+        struct Fun(i32);
+
+        impl core::fmt::Display for Fun {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                core::fmt::Debug::fmt(&self, f)
+            }
+        }
+        impl core::error::Error for Fun {}
+
+        let fun: Result<i32, Fun> = Err(Fun(1));
+        let new_error = fun.context("Hello world!");
+
+        assert!(new_error.as_ref().unwrap_err().is::<Fun>());
+        assert_eq!(
+            new_error.as_ref().unwrap_err().downcast_ref::<Fun>(),
+            Some(&Fun(1))
+        );
+
+        let new_new_error = new_error.context("Hey there!");
+
+        assert!(new_new_error.as_ref().unwrap_err().is::<Fun>());
+        assert_eq!(
+            new_new_error.as_ref().unwrap_err().downcast_ref::<Fun>(),
+            Some(&Fun(1))
+        );
     }
 }
