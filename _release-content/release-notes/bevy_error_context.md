@@ -1,5 +1,5 @@
 ---
-title: `BevyError` Context Messages
+title: Bevy Error Context Messages
 authors: ["@cookie1170"]
 pull_requests: [24528]
 ---
