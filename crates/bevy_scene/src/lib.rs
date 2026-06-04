@@ -2196,10 +2196,47 @@ mod tests {
         let entity = world
             .spawn_scene(bsn! {
                 Foo {
-                    value: vec! [ 10usize ],
+                    value: vec! [ 10 ],
                 }
             })
             .unwrap();
-        assert_eq!(entity.get::<Foo>().unwrap().value, vec![10usize]);
+        assert_eq!(entity.get::<Foo>().unwrap().value, vec![10]);
+    }
+
+    #[test]
+    fn field_name_shorthand() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Default, Clone)]
+        struct Foo {
+            value: usize,
+        }
+        let value = 10;
+        let entity = world.spawn_scene(bsn! { Foo { value } }).unwrap();
+        assert_eq!(entity.get::<Foo>().unwrap().value, 10);
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(BarProps)]
+        struct Bar {
+            value: usize,
+        }
+
+        #[derive(Default)]
+        struct BarProps {
+            value: usize,
+        }
+
+        impl Bar {
+            fn scene(props: BarProps) -> impl Scene {
+                bsn! {Bar {
+                    value: {props.value}
+                }}
+            }
+        }
+
+        let value = 10;
+        let entity = world.spawn_scene(bsn! { @Bar { @value } }).unwrap();
+        assert_eq!(entity.get::<Bar>().unwrap().value, 10);
     }
 }
