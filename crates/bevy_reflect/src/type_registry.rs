@@ -939,7 +939,7 @@ impl TypeRegistration {
     ///
     /// [type data]: TypeData
     #[deprecated(
-        since = "0.21.0",
+        since = "0.20.0",
         note = "This method will be removed in a future release. Use `TypeRegistry::insert_data` or `TypeRegistry::register_type_data` instead."
     )]
     pub fn insert<T: TypeData>(&mut self, data: T) {
@@ -951,7 +951,7 @@ impl TypeRegistration {
     ///
     /// [type data]: TypeData
     #[deprecated(
-        since = "0.21.0",
+        since = "0.20.0",
         note = "This method will be removed in a future release. Use `TypeRegistry::contains` in conjunction with either `TypeRegistry::insert_data` or `TypeRegistry::register_type_data` instead."
     )]
     pub fn get_or_insert_data_with<T: TypeData>(&mut self, get_data: impl FnOnce() -> T) -> &mut T {

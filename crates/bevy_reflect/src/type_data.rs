@@ -18,7 +18,6 @@
 //! # use bevy_reflect::TypeData;
 //! struct ReflectDebuggable;
 //! impl TypeData for ReflectDebuggable {}
-//!
 //! ```
 //!
 //! We can then register our type data on any type we want:

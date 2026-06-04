@@ -512,7 +512,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derives the `TypePath` trait.
+/// Derives the `TypeData` trait.
 #[proc_macro_derive(TypeData)]
 pub fn derive_type_data(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
