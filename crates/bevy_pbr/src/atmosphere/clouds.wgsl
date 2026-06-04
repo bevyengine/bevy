@@ -391,7 +391,7 @@ fn compute_cloud_shadow(
     let r0 = length(world_pos);
     let up0 = normalize(world_pos);
     let mu0 = dot(sun_dir, up0);
-    let ground_i = ray_sphere_intersect(r0, mu0, atmosphere.bottom_radius);
+    let ground_i = ray_sphere_intersect(r0, mu0, atmosphere.inner_radius);
     // `ground_i.x` is the nearest positive intersection along the ray, if any.
     if (ground_i.x > 0.0 && ground_i.x < march_end) {
         return 0.0;

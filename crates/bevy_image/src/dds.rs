@@ -105,10 +105,10 @@ pub fn dds_buffer_to_image(
     image.data = if let Some(transcode_format) = transcode_format {
         match transcode_format {
             TranscodeFormat::Rgb8 => {
-                let data = dds
-                    .data
-                    .chunks_exact(3)
-                    .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
+                let (chunks, _) = dds.data.as_chunks();
+                let data = chunks
+                    .iter()
+                    .flat_map(|&[r, g, b]| [r, g, b, u8::MAX])
                     .collect();
                 Some(data)
             }

@@ -12,17 +12,19 @@ use crate::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use async_channel::{Receiver, Sender};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, First, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
+    bundle::Bundle,
     change_detection::ResMut,
     entity::Entity,
     event::EntityEvent,
     prelude::{Component, Resource, World},
-    system::{Query, Res},
+    query::With,
+    system::{Commands, Query, Res},
 };
+use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_log::warn;
 use bevy_platform::collections::HashMap;
@@ -49,7 +51,12 @@ impl Default for GpuReadbackPlugin {
 
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<Readback>::default());
+        app.add_plugins(ExtractComponentPlugin::<Readback>::default())
+            .register_type::<ReadbackOnce>()
+            .add_systems(
+                First,
+                cleanup_readback_once.after(bevy_ecs::message::MessageUpdateSystems),
+            );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -73,8 +80,9 @@ impl Plugin for GpuReadbackPlugin {
 ///
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
 /// when complete. If this component is not removed, the readback will be attempted every frame
-#[derive(Component, ExtractComponent, Clone, Debug)]
+#[derive(Component, ExtractComponent, Clone, Debug, FromTemplate)]
 pub enum Readback {
+    #[default]
     Texture(Handle<Image>),
     Buffer {
         buffer: Handle<ShaderBuffer>,
@@ -103,6 +111,39 @@ impl Readback {
             buffer,
             start_offset_and_size: Some((start_offset, size)),
         }
+    }
+}
+
+/// Marker component that pairs with a [`Readback`] to indicate the entity should be
+/// despawned after the first [`ReadbackComplete`] event fires for it.
+///
+/// ```ignore
+/// commands.spawn(ReadbackOnce::buffer(handle));
+/// ```
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct ReadbackOnce;
+
+impl ReadbackOnce {
+    /// Create a one-shot readback bundle for a texture using the given handle.
+    pub fn texture(image: Handle<Image>) -> impl Bundle {
+        (Readback::texture(image), Self)
+    }
+
+    /// Create a one-shot readback bundle for a full buffer using the given handle.
+    pub fn buffer(buffer: Handle<ShaderBuffer>) -> impl Bundle {
+        (Readback::buffer(buffer), Self)
+    }
+
+    /// Create a one-shot readback bundle for a buffer range using the given handle, a start
+    /// offset in bytes and a number of bytes to read.
+    pub fn buffer_range(buffer: Handle<ShaderBuffer>, start_offset: u64, size: u64) -> impl Bundle {
+        (Readback::buffer_range(buffer, start_offset, size), Self)
+    }
+}
+
+fn cleanup_readback_once(mut commands: Commands, query: Query<Entity, With<ReadbackOnce>>) {
+    for entity in &query {
+        commands.entity(entity).remove::<(Readback, ReadbackOnce)>();
     }
 }
 
@@ -381,7 +422,7 @@ pub(crate) const fn align_byte_size(value: u32) -> u32 {
     RenderDevice::align_copy_bytes_per_row(value as usize) as u32
 }
 
-/// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+/// Get the size of an image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
 pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
     extent.height * align_byte_size(extent.width * pixel_size) * extent.depth_or_array_layers
 }

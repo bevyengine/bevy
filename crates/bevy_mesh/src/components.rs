@@ -37,7 +37,9 @@ use derive_more::derive::From;
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]
 pub struct Mesh2d(pub Handle<Mesh>);

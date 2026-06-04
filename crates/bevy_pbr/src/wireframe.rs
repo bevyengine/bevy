@@ -1,7 +1,7 @@
 use crate::{
     collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
     SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
@@ -152,7 +152,7 @@ impl Plugin for WireframePlugin {
             .init_gpu_resource::<PendingWireframeQueues>()
             .add_systems(
                 RenderStartup,
-                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+                init_wireframe_3d_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(
                 Core3d,
@@ -746,7 +746,10 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+
+        if descriptor.primitive.topology.is_triangles() {
+            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        }
 
         if key.wide {
             descriptor.label = Some("wireframe_3d_wide_pipeline".into());
@@ -928,7 +931,9 @@ pub struct RenderWireframeMaterial {
     pub topology: WireframeTopology,
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
 
@@ -1604,6 +1609,7 @@ fn queue_wireframes(
             let Some(MeshSlabs {
                 vertex_slab_id: vertex_slab,
                 index_slab_id: index_slab,
+                metadata_slab_id: metadata_slab,
                 morph_target_slab_id: morph_target_slab,
             }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
             else {
@@ -1619,6 +1625,7 @@ fn queue_wireframes(
                 slabs: MeshSlabs {
                     vertex_slab_id: vertex_slab,
                     morph_target_slab_id: morph_target_slab,
+                    metadata_slab_id: metadata_slab,
                     // wide wireframes use non-indexed draws (vertex pulling
                     // from storage), so set index_slab to None to make the
                     // preprocessor emit IndirectParametersNonIndexed instead of

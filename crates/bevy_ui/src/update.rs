@@ -4,7 +4,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
+    Node, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -16,7 +16,6 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
-use bevy_sprite::BorderRect;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -97,32 +96,14 @@ fn update_clipping(
         maybe_inherited_clip
     } else {
         // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-        let mut clip_rect = Rect::from_center_size(transform.translation, computed_node.size());
-
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
         // `clip_inset` should always fit inside `node_rect`.
         // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
-        let clip_inset = match node.overflow_clip_margin.visual_box {
-            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
-            crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
-            crate::OverflowClipBox::PaddingBox => computed_node.border(),
-        };
-
-        clip_rect.min += clip_inset.min_inset;
-        clip_rect.max -= clip_inset.max_inset;
-
-        clip_rect = clip_rect
-            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
-
-        if node.overflow.x == OverflowAxis::Visible {
-            clip_rect.min.x = -f32::INFINITY;
-            clip_rect.max.x = f32::INFINITY;
-        }
-        if node.overflow.y == OverflowAxis::Visible {
-            clip_rect.min.y = -f32::INFINITY;
-            clip_rect.max.y = f32::INFINITY;
-        }
+        let mut clip_rect =
+            computed_node.resolve_clip_rect(node.overflow, node.overflow_clip_margin);
+        clip_rect.min += transform.translation;
+        clip_rect.max += transform.translation;
         Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 

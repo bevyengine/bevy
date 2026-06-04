@@ -10,6 +10,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
+    template::FromTemplate,
 };
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -28,12 +29,13 @@ pub struct DefaultCursor(pub EntityCursor);
 ///
 /// This is effectively the same type as [`CustomCursor`] but with different methods, and used
 /// in different places.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq, FromTemplate)]
 #[reflect(Component, Debug, Default, PartialEq, Clone)]
 pub enum EntityCursor {
     #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.
     Custom(CustomCursor),
+    #[default]
     /// System provided cursor icon.
     System(SystemCursorIcon),
 }
@@ -43,6 +45,7 @@ pub enum EntityCursor {
 /// This is meant for cases like loading where you don't want the cursor to imply you
 /// can interact with something.
 #[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
+#[reflect(Resource, Default, Clone, Debug)]
 pub struct OverrideCursor(pub Option<EntityCursor>);
 
 impl EntityCursor {

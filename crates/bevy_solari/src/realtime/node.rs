@@ -402,10 +402,7 @@ pub fn init_solari_lighting_pipelines(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                texture_storage_2d(
-                    ViewTarget::TEXTURE_FORMAT_HDR,
-                    StorageTextureAccess::ReadWrite,
-                ),
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
@@ -564,7 +561,7 @@ pub fn init_solari_lighting_pipelines(
             "initial_and_temporal",
             load_embedded_asset!(asset_server.as_ref(), "restir_gi.wgsl"),
             None,
-            vec!["WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION".into()],
+            vec![],
         ),
         gi_spatial_and_shade_pipeline: create_pipeline(
             "solari_lighting_gi_spatial_and_shade_pipeline",
@@ -578,7 +575,7 @@ pub fn init_solari_lighting_pipelines(
             "specular_gi",
             load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
             None,
-            vec![],
+            vec!["JITTER_WORLD_CACHE".into()],
         ),
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         specular_gi_with_psr_pipeline: create_pipeline(

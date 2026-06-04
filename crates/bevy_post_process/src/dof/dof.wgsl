@@ -212,7 +212,7 @@ fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 //       │
 //       │
 @fragment
-fn bokeh_pass_0(in: FullscreenVertexOutput) -> DualOutput {
+fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
     let coc = calculate_circle_of_confusion(in.position);
     let vertical = box_blur_a(in.position, coc, vec2(0.0, 1.0));
     let diagonal = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
@@ -232,7 +232,7 @@ fn bokeh_pass_0(in: FullscreenVertexOutput) -> DualOutput {
 //       •
 #ifdef DUAL_INPUT
 @fragment
-fn bokeh_pass_1(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
     let output_0 = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
     let output_1 = box_blur_b(in.position, coc, vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6));

@@ -67,6 +67,7 @@ mod once;
 #[doc(hidden)]
 pub use once::OnceFlag;
 
+pub use debug_info::DebugName;
 pub use default::default;
 
 use core::mem::ManuallyDrop;

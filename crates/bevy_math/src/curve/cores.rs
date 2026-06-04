@@ -589,7 +589,7 @@ impl<T> ChunkedUnevenCore<T> {
             });
         }
 
-        if values.len() % times.len() != 0 {
+        if !values.len().is_multiple_of(times.len()) {
             return Err(ChunkedUnevenCoreError::NonDivisibleLengths {
                 values_len: values.len(),
                 times_len: times.len(),

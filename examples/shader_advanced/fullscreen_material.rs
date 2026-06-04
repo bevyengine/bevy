@@ -91,7 +91,11 @@ impl FullscreenMaterial for FullscreenEffect {
     // fn schedule() -> impl bevy::ecs::schedule::ScheduleLabel + Clone {
     //     bevy::core_pipeline::Core2d
     // }
-    // fn run_in() -> impl SystemSet {
-    //     bevy::core_pipeline::Core2dSystems::PostProcess
+    // fn schedule_configs(
+    //     system: bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::BoxedSystem>,
+    // ) -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::BoxedSystem> {
+    //     system
+    //         .in_set(bevy::core_pipeline::Core2dSystems::PostProcess)
+    //         .before(bevy::core_pipeline::tonemapping::tonemapping)
     // }
 }

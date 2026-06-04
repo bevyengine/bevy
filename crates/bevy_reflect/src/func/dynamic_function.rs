@@ -456,7 +456,7 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 /// [overloaded]: DynamicFunction::with_overload
 impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicFunction({:?})", &self.internal)
+        write!(f, "DynamicFunction({:?})", self.internal)
     }
 }
 

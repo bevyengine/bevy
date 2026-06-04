@@ -816,8 +816,10 @@ where
 
         let old_buffer = slab.buffer.take();
 
-        let buffer_usages =
-            BufferUsages::COPY_SRC | BufferUsages::COPY_DST | slab.element_layout.buffer_usages();
+        let buffer_usages = BufferUsages::COPY_SRC
+            | BufferUsages::COPY_DST
+            | slab.element_layout.buffer_usages()
+            | self.extra_buffer_usages;
 
         // Create the buffer.
         let new_buffer = render_device.create_buffer(&BufferDescriptor {
@@ -828,7 +830,7 @@ where
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages | self.extra_buffer_usages,
+            usage: buffer_usages,
             mapped_at_creation: false,
         });
 
@@ -977,7 +979,9 @@ where
                 debug_assert!(large_object_slab.buffer.is_none());
 
                 // Create the buffer and its data in one go.
-                let buffer_usages = large_object_slab.element_layout.buffer_usages();
+                let buffer_usages = large_object_slab.element_layout.buffer_usages()
+                    | BufferUsages::COPY_DST
+                    | self.extra_buffer_usages;
                 let buffer = render_device.create_buffer(&BufferDescriptor {
                     label: Some(&format!(
                         "large {} slab {} ({}buffer)",
@@ -986,7 +990,7 @@ where
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    usage: buffer_usages,
                     mapped_at_creation: true,
                 });
                 {

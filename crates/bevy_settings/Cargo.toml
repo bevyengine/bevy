@@ -1,5 +1,6 @@
 [package]
-name = "bevy_settings"
+# crate was originally published as bevy-settings and can't be renamed on crates.io
+name = "bevy-settings"
 version = "0.19.0-dev"
 edition = "2024"
 description = "User settings framework for Bevy Engine"
@@ -21,7 +22,7 @@ bevy_time = { path = "../bevy_time", version = "0.19.0-dev" }
 
 serde = "1.0.217"
 thiserror = "2.0.18"
-toml = { version = "0.8.19" }
+toml = { version = "1.1.0" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", default-features = false, features = [

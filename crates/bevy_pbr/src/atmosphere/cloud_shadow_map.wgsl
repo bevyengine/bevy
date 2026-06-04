@@ -49,7 +49,7 @@ fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
 }
 
 fn clamp_to_surface(position: vec3<f32>) -> vec3<f32> {
-    let min_radius = atmosphere.bottom_radius + EPSILON_M;
+    let min_radius = atmosphere.inner_radius + EPSILON_M;
     let r = length(position);
     if (r < min_radius) {
         let up = safe_normalize(position);
@@ -60,8 +60,8 @@ fn clamp_to_surface(position: vec3<f32>) -> vec3<f32> {
 
 fn get_view_position() -> vec3<f32> {
     // Matches `functions.wgsl::get_view_position()` to keep anchor consistent.
-    let world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
-    return clamp_to_surface(world_pos);
+    let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
+    return clamp_to_surface(atmo_pos);
 }
 
 struct LightBasis {

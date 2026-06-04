@@ -1,5 +1,6 @@
+use bevy_macro_utils::fq_std::FQDefault;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput};
 
 pub(crate) fn derive_variant_defaults(input: TokenStream) -> TokenStream {
@@ -17,12 +18,13 @@ pub(crate) fn derive_variant_defaults(input: TokenStream) -> TokenStream {
         let variant_default_name = format_ident!("default_{}", variant_name_lower);
         match &variant.fields {
             syn::Fields::Named(fields_named) => {
+                let fqdefault = FQDefault.into_token_stream();
                 let fields = fields_named.named.iter().map(|f| &f.ident);
                 variant_defaults.push(quote! {
                     #[allow(missing_docs)]
                     pub fn #variant_default_name() -> Self {
                         Self::#variant_ident {
-                            #(#fields: Default::default(),)*
+                            #(#fields: #fqdefault::default(),)*
                         }
                     }
                 });
@@ -31,7 +33,7 @@ pub(crate) fn derive_variant_defaults(input: TokenStream) -> TokenStream {
                 let fields = fields_unnamed
                     .unnamed
                     .iter()
-                    .map(|_| quote! {Default::default()});
+                    .map(|_| quote! {#FQDefault::default()});
                 variant_defaults.push(quote! {
                     #[allow(missing_docs)]
                     pub fn #variant_default_name() -> Self {

@@ -75,7 +75,7 @@ pub(crate) fn extract_linegizmos(
                 handle: gizmo.handle.clone(),
             },
             MainEntity::from(entity),
-            TemporaryRenderEntity,
+            TemporaryRenderEntity::default(),
         ));
     }
     *previous_len = values.len();

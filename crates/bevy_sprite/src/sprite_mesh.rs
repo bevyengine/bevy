@@ -1,7 +1,7 @@
 use bevy_asset::{Assets, Handle};
 use bevy_camera::visibility::{Visibility, VisibilityClass};
 use bevy_color::Color;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
@@ -13,13 +13,14 @@ use crate::{Anchor, SpriteImageMode};
 /// Mesh backend instead of the Sprite backend.
 ///
 /// The only API difference is the added [`alpha mode`](SpriteMesh::alpha_mode).
-#[derive(Component, Debug, Default, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Default, Clone, Reflect, PartialEq, FromTemplate)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SpriteMesh {
     /// The image used to render the sprite
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the sprite
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// The sprite's color tint
     pub color: Color,
@@ -174,6 +175,9 @@ impl SpriteMesh {
 // NOTE: If this is ever replaced by AlphaMode2d, make a custom Default impl for Sprite,
 // because AlphaMode2d defaults to Opaque, but the sprite's alpha mode is most commonly Mask(0.5)
 
+/// An enum describing how a sprite's alpha channel will be handled.
+/// The base color being modified is that of the texture after tinting.
+/// The default is `Mask(0.5)`.
 #[derive(Debug, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]
 pub enum SpriteAlphaMode {

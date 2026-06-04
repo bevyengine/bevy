@@ -1,7 +1,11 @@
-use glam::{Affine3, Affine3A, Vec3Swizzles, Vec4};
+use glam::{vec3, Affine3, Affine3A, Mat3, Vec3Swizzles, Vec4, Vec4Swizzles};
 
 /// Extension trait for [`Affine3`]
 pub trait Affine3Ext {
+    /// Generates an [`Affine3`] from a transposed 3x4 matrix.
+    ///
+    /// This is the inverse of [`Self::to_transpose`].
+    fn from_transpose(transposed: [Vec4; 3]) -> Self;
     /// Calculates the transpose of the affine 4x3 matrix to a 3x4 and formats it for packing into GPU buffers
     fn to_transpose(self) -> [Vec4; 3];
     /// Calculates the inverse transpose of the 3x3 matrix and formats it for packing into GPU buffers
@@ -9,6 +13,16 @@ pub trait Affine3Ext {
 }
 
 impl Affine3Ext for Affine3 {
+    fn from_transpose(transposed: [Vec4; 3]) -> Self {
+        let transpose_3x3 = Mat3::from_cols(
+            transposed[0].xyz(),
+            transposed[1].xyz(),
+            transposed[2].xyz(),
+        );
+        let translation = vec3(transposed[0].w, transposed[1].w, transposed[2].w);
+        Affine3::from_mat3_translation(transpose_3x3.transpose(), translation)
+    }
+
     #[inline]
     fn to_transpose(self) -> [Vec4; 3] {
         let transpose_3x3 = self.matrix3.transpose();

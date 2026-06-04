@@ -23,12 +23,12 @@ use derive_more::derive::From;
 /// [`TypeInfo`]: crate::type_info::TypeInfo
 /// [`Typed::type_info`]: crate::Typed::type_info
 #[derive(Clone, Default, Debug)]
-pub struct Generics(Box<[GenericInfo]>);
+pub struct Generics(Option<Box<[GenericInfo]>>);
 
 impl Generics {
     /// Creates an empty set of generics.
     pub fn new() -> Self {
-        Self(Box::new([]))
+        Self(None)
     }
 
     /// Finds the generic parameter with the given name.
@@ -37,21 +37,24 @@ impl Generics {
     pub fn get_named(&self, name: &str) -> Option<&GenericInfo> {
         // For small sets of generics (the most common case),
         // a linear search is often faster using a `HashMap`.
-        self.0.iter().find(|info| info.name() == name)
+        self.0.iter().flatten().find(|info| info.name() == name)
     }
 
     /// Adds the given generic parameter to the set.
     pub fn with(mut self, info: impl Into<GenericInfo>) -> Self {
-        self.0 = IntoIterator::into_iter(self.0)
-            .chain(core::iter::once(info.into()))
-            .collect();
+        self.0 = Some(match self.0 {
+            Some(existing) => IntoIterator::into_iter(existing)
+                .chain(core::iter::once(info.into()))
+                .collect(),
+            None => Box::new([info.into()]),
+        });
         self
     }
 }
 
 impl<T: Into<GenericInfo>> FromIterator<T> for Generics {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        Self(iter.into_iter().map(Into::into).collect())
+        Self(Some(iter.into_iter().map(Into::into).collect()))
     }
 }
 
@@ -59,7 +62,7 @@ impl Deref for Generics {
     type Target = [GenericInfo];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_deref().unwrap_or(&[])
     }
 }
 
@@ -335,5 +338,76 @@ mod tests {
             panic!("expected a const parameter");
         };
         assert_eq!(n.default().unwrap().downcast_ref::<usize>().unwrap(), &10);
+    }
+
+    #[test]
+    fn should_not_capture_generics_with_type_path_opt_out() {
+        #[derive(Reflect)]
+        #[reflect(type_path = false)]
+        struct Test<T: Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        impl<T: Default + 'static, const N: usize> TypePath for Test<T, N> {
+            fn type_path() -> &'static str {
+                ::core::any::type_name::<Self>()
+            }
+
+            fn short_type_path() -> &'static str {
+                "Test<T, N>"
+            }
+        }
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_tuple_struct()
+            .unwrap()
+            .generics();
+
+        assert!(generics.is_empty());
+    }
+
+    #[test]
+    fn should_capture_generics_on_opaque_type() {
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque)]
+        struct Test<T: Clone + Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_opaque()
+            .unwrap()
+            .generics();
+
+        let t = generics.get_named("T").unwrap();
+        assert_eq!(t.name(), "T");
+        assert!(t.is::<f32>());
+        assert!(!t.is_const());
+
+        let n = generics.get_named("N").unwrap();
+        assert_eq!(n.name(), "N");
+        assert!(n.is::<usize>());
+        assert!(n.is_const());
+    }
+
+    #[test]
+    fn should_not_capture_generics_on_opaque_type_with_type_path_opt_out() {
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque)]
+        #[reflect(type_path = false)]
+        struct Test<T: Clone + Default, const N: usize = 10>(#[reflect(ignore)] T);
+
+        impl<T: Clone + Default + 'static, const N: usize> TypePath for Test<T, N> {
+            fn type_path() -> &'static str {
+                ::core::any::type_name::<Self>()
+            }
+
+            fn short_type_path() -> &'static str {
+                "Test<T, N>"
+            }
+        }
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_opaque()
+            .unwrap()
+            .generics();
+
+        assert!(generics.is_empty());
     }
 }

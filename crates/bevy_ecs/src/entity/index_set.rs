@@ -16,7 +16,7 @@ use core::{
     ptr,
 };
 
-use indexmap::set::{self, IndexSet};
+use indexmap::{self, set, IndexSet};
 
 use super::{Entity, EntityHash, EntitySetIterator};
 
@@ -29,7 +29,7 @@ use bevy_reflect::Reflect;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
-pub struct EntityIndexSet(pub(crate) IndexSet<Entity, EntityHash>);
+pub struct EntityIndexSet(IndexSet<Entity, EntityHash>);
 
 impl EntityIndexSet {
     /// Creates an empty `EntityIndexSet`.
@@ -48,6 +48,11 @@ impl EntityIndexSet {
     /// [`IndexSet::with_capacity_and_hasher(n, EntityHash)`]: IndexSet::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(IndexSet::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Constructs an `EntityIndexSet` from an [`IndexSet`].
+    pub const fn from_index_set(set: IndexSet<Entity, EntityHash>) -> Self {
+        Self(set)
     }
 
     /// Returns the inner [`IndexSet`].
@@ -205,6 +210,7 @@ impl Eq for EntityIndexSet {}
 
 impl Index<(Bound<usize>, Bound<usize>)> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -213,6 +219,7 @@ impl Index<(Bound<usize>, Bound<usize>)> for EntityIndexSet {
 
 impl Index<Range<usize>> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: Range<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -221,6 +228,7 @@ impl Index<Range<usize>> for EntityIndexSet {
 
 impl Index<RangeFrom<usize>> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: RangeFrom<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -229,6 +237,7 @@ impl Index<RangeFrom<usize>> for EntityIndexSet {
 
 impl Index<RangeFull> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: RangeFull) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -237,6 +246,7 @@ impl Index<RangeFull> for EntityIndexSet {
 
 impl Index<RangeInclusive<usize>> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: RangeInclusive<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -245,6 +255,7 @@ impl Index<RangeInclusive<usize>> for EntityIndexSet {
 
 impl Index<RangeTo<usize>> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: RangeTo<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -253,6 +264,7 @@ impl Index<RangeTo<usize>> for EntityIndexSet {
 
 impl Index<RangeToInclusive<usize>> for EntityIndexSet {
     type Output = Slice;
+
     fn index(&self, key: RangeToInclusive<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
         unsafe { Slice::from_slice_unchecked(self.0.index(key)) }
@@ -261,6 +273,7 @@ impl Index<RangeToInclusive<usize>> for EntityIndexSet {
 
 impl Index<usize> for EntityIndexSet {
     type Output = Entity;
+
     fn index(&self, key: usize) -> &Entity {
         self.0.index(key)
     }
@@ -328,7 +341,7 @@ impl Slice {
         clippy::borrowed_box,
         reason = "We wish to access the Box API of the inner type, without consuming it."
     )]
-    pub fn as_boxed_inner(self: &Box<Self>) -> &Box<set::Slice<Entity>> {
+    pub const fn as_boxed_inner(self: &Box<Self>) -> &Box<set::Slice<Entity>> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { &*(ptr::from_ref(self).cast::<Box<set::Slice<Entity>>>()) }
     }
@@ -489,6 +502,7 @@ impl Eq for Slice {}
 
 impl Index<(Bound<usize>, Bound<usize>)> for Slice {
     type Output = Self;
+
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -497,6 +511,7 @@ impl Index<(Bound<usize>, Bound<usize>)> for Slice {
 
 impl Index<Range<usize>> for Slice {
     type Output = Self;
+
     fn index(&self, key: Range<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -505,6 +520,7 @@ impl Index<Range<usize>> for Slice {
 
 impl Index<RangeFrom<usize>> for Slice {
     type Output = Slice;
+
     fn index(&self, key: RangeFrom<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -513,6 +529,7 @@ impl Index<RangeFrom<usize>> for Slice {
 
 impl Index<RangeFull> for Slice {
     type Output = Self;
+
     fn index(&self, key: RangeFull) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -521,6 +538,7 @@ impl Index<RangeFull> for Slice {
 
 impl Index<RangeInclusive<usize>> for Slice {
     type Output = Self;
+
     fn index(&self, key: RangeInclusive<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -529,6 +547,7 @@ impl Index<RangeInclusive<usize>> for Slice {
 
 impl Index<RangeTo<usize>> for Slice {
     type Output = Self;
+
     fn index(&self, key: RangeTo<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -537,6 +556,7 @@ impl Index<RangeTo<usize>> for Slice {
 
 impl Index<RangeToInclusive<usize>> for Slice {
     type Output = Self;
+
     fn index(&self, key: RangeToInclusive<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
         unsafe { Self::from_slice_unchecked(self.1.index(key)) }
@@ -545,6 +565,7 @@ impl Index<RangeToInclusive<usize>> for Slice {
 
 impl Index<usize> for Slice {
     type Output = Entity;
+
     fn index(&self, key: usize) -> &Entity {
         self.1.index(key)
     }
@@ -558,8 +579,18 @@ impl Index<usize> for Slice {
 pub struct Iter<'a, S = EntityHash>(set::Iter<'a, Entity>, PhantomData<S>);
 
 impl<'a> Iter<'a> {
+    /// Constructs a [`Iter<'a, S>`] from a [`set::Iter<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`IndexSet`] using the `S` hasher.
+    pub const unsafe fn from_iter_unchecked<S>(iter: set::Iter<'a, Entity>) -> Iter<'a, S> {
+        Iter(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](set::Iter).
-    pub fn into_inner(self) -> set::Iter<'a, Entity> {
+    pub const fn into_inner(self) -> set::Iter<'a, Entity> {
         self.0
     }
 
@@ -604,7 +635,8 @@ impl FusedIterator for Iter<'_> {}
 
 impl Clone for Iter<'_> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Iter`.
+        unsafe { Self::from_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -616,7 +648,8 @@ impl Debug for Iter<'_> {
 
 impl Default for Iter<'_> {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Iter` is empty.
+        unsafe { Self::from_iter_unchecked(Default::default()) }
     }
 }
 
@@ -631,6 +664,18 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 pub struct IntoIter<S = EntityHash>(set::IntoIter<Entity>, PhantomData<S>);
 
 impl IntoIter {
+    /// Constructs a [`IntoIter<S>`] from a [`set::IntoIter`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`IndexSet`] using the `S` hasher.
+    pub const unsafe fn from_into_iter_unchecked<S>(
+        into_iter: set::IntoIter<Entity>,
+    ) -> IntoIter<S> {
+        IntoIter(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](set::IntoIter).
     pub fn into_inner(self) -> set::IntoIter<Entity> {
         self.0
@@ -677,7 +722,8 @@ impl FusedIterator for IntoIter {}
 
 impl Clone for IntoIter {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `IntoIter`.
+        unsafe { Self::from_into_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -692,7 +738,8 @@ impl Debug for IntoIter {
 
 impl Default for IntoIter {
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoIter` is empty.
+        unsafe { Self::from_into_iter_unchecked(Default::default()) }
     }
 }
 
@@ -707,6 +754,16 @@ unsafe impl EntitySetIterator for IntoIter {}
 pub struct Drain<'a, S = EntityHash>(set::Drain<'a, Entity>, PhantomData<S>);
 
 impl<'a> Drain<'a> {
+    /// Constructs a [`Drain<'a, S>`] from a [`set::Drain<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`IndexSet`] using the `S` hasher.
+    pub const unsafe fn from_drain_unchecked<S>(drain: set::Drain<'a, Entity>) -> Drain<'a, S> {
+        Drain(drain, PhantomData)
+    }
+
     /// Returns the inner [`Drain`](set::Drain).
     pub fn into_inner(self) -> set::Drain<'a, Entity> {
         self.0

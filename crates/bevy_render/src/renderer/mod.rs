@@ -19,7 +19,9 @@ use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_log::{debug, info, info_span, warn};
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
+use bevy_log::{debug, info, warn};
 use bevy_render::camera::ExtractedCamera;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
@@ -87,6 +89,7 @@ pub fn render_system(
     }
 
     {
+        #[cfg(feature = "trace")]
         let _span = info_span!("present_frames").entered();
 
         world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {

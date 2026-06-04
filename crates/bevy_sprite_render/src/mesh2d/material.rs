@@ -47,6 +47,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
+    texture::GpuImage,
     view::ExtractedView,
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -198,7 +199,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ```
 ///
 /// [`MeshMaterial2d`]: crate::MeshMaterial2d
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
+#[derive(Component, FromTemplate, Clone, Debug, Deref, DerefMut, Reflect, From)]
 #[reflect(Component, Default, Clone)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
@@ -280,7 +281,7 @@ where
         app.init_asset::<M>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
             .register_type::<MeshMaterial2d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>, GpuImage>::default())
             .add_systems(
                 PostUpdate,
                 check_entities_needing_specialization::<M>.after(AssetEventSystems),
@@ -578,6 +579,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
         }
         Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::PbrNeutral => Mesh2dPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 
@@ -1035,7 +1037,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     // entity field here entirely, but we currently can't do so
                     // because UI creates multiple render entities for each main
                     // entity in its sorted phases.
-                    transparent_phase.add(Transparent2d {
+                    transparent_phase.add_retained(Transparent2d {
                         entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,
                         pipeline: pipeline_id,

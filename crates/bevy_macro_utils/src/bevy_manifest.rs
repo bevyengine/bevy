@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
 use proc_macro::TokenStream;
-use std::sync::{PoisonError, RwLock};
+use std::sync::{PoisonError, RwLock, RwLockWriteGuard};
 use std::{
     env,
     path::{Path, PathBuf},
@@ -42,15 +42,10 @@ impl BevyManifest {
         };
 
         let key = manifest_path.clone();
-        // TODO: Switch to using RwLockWriteGuard::downgrade when it stabilizes.
-        MANIFESTS
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(key, manifest);
+        let mut manifests = MANIFESTS.write().unwrap_or_else(PoisonError::into_inner);
+        manifests.insert(key, manifest);
 
-        f(MANIFESTS
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
+        f(RwLockWriteGuard::downgrade(manifests)
             .get(&manifest_path)
             .unwrap())
     }
@@ -87,9 +82,11 @@ impl BevyManifest {
     /// Attempt to retrieve the [path](syn::Path) of a particular package in
     /// the [manifest](BevyManifest) by [name](str).
     pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
+        // Cargo normalizes hyphens to underscores when crates are referenced from Rust code.
+        let rust_name = name.replace('-', "_");
         let find_in_deps = |deps: &Item| -> Option<syn::Path> {
             let package = if deps.get(name).is_some() {
-                return Some(Self::parse_str(name));
+                return Some(Self::parse_str(&rust_name));
             } else if deps.get(BEVY).is_some() {
                 BEVY
             } else {
@@ -102,7 +99,7 @@ impl BevyManifest {
             };
 
             let mut path = Self::parse_str::<syn::Path>(&format!("::{package}"));
-            if let Some(module) = name.strip_prefix("bevy_") {
+            if let Some(module) = rust_name.strip_prefix("bevy_") {
                 path.segments.push(Self::parse_str(module));
             }
             Some(path)
@@ -123,7 +120,7 @@ impl BevyManifest {
     /// Returns the path for the crate with the given name.
     pub fn get_path(&self, name: &str) -> syn::Path {
         self.maybe_get_path(name)
-            .unwrap_or_else(|| Self::parse_str(name))
+            .unwrap_or_else(|| Self::parse_str(&name.replace('-', "_")))
     }
 
     /// Attempt to parse provided [path](str) as a [syntax tree node](syn::parse::Parse).

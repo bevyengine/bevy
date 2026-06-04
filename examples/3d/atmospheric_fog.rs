@@ -66,7 +66,7 @@ fn setup_terrain_scene(
     ));
 
     // Terrain
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf"),
     )));
 

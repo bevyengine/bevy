@@ -259,7 +259,7 @@ fn spawn_camera(commands: &mut Commands) {
 
 /// Spawns the glTF scene that contains the two rooms.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset(get_web_asset_url("two_rooms.glb")),
     )));
 }

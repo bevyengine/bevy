@@ -8,9 +8,9 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_camera::Camera;
+use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    prepass::{MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
@@ -18,7 +18,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::Res,
+    system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -28,12 +28,12 @@ use bevy_render::{
     },
     globals::GlobalsBuffer,
     render_resource::{
-        BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, ShaderType, SpecializedRenderPipelines,
+        BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, ShaderType, SpecializedRenderPipelines, StoreOp, TextureUsages,
     },
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
-    view::{Msaa, ViewTarget},
+    view::{prepare_view_targets, Msaa, ViewDepthTexture, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -72,7 +72,7 @@ pub mod pipeline;
 /// ````
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(DepthPrepass, MotionVectorPrepass)]
+#[require(MotionVectorPrepass)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
     ///
@@ -165,7 +165,13 @@ impl Plugin for MotionBlurPlugin {
             .add_systems(RenderStartup, pipeline::init_motion_blur_pipeline)
             .add_systems(
                 Render,
-                pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
+                (
+                    pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_view_depth_texture_usages_for_motion_blur
+                        .in_set(RenderSystems::PrepareViews)
+                        .after(prepare_view_targets)
+                        .ambiguous_with_all(),
+                ),
             );
 
         render_app.add_systems(
@@ -180,6 +186,7 @@ pub fn motion_blur(
         &ViewTarget,
         &MotionBlurPipelineId,
         &ViewPrepassTextures,
+        &ViewDepthTexture,
         &MotionBlurUniform,
         &Msaa,
     )>,
@@ -189,7 +196,8 @@ pub fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, motion_blur_uniform, msaa) = view.into_inner();
+    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
+        view.into_inner();
 
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
         return; // We can skip running motion blur in these cases.
@@ -202,9 +210,7 @@ pub fn motion_blur(
     let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
         return;
     };
-    let (Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) =
-        (&prepass_textures.motion_vectors, &prepass_textures.depth)
-    else {
+    let Some(prepass_motion_vectors_texture) = &prepass_textures.motion_vectors else {
         return;
     };
     let Some(globals_uniforms) = globals_buffer.buffer.binding() else {
@@ -225,7 +231,7 @@ pub fn motion_blur(
         &BindGroupEntries::sequential((
             post_process.source,
             &prepass_motion_vectors_texture.texture.default_view,
-            &prepass_depth_texture.texture.default_view,
+            depth.view(),
             &motion_blur_pipeline.sampler,
             settings_binding.clone(),
             globals_uniforms.clone(),
@@ -241,7 +247,10 @@ pub fn motion_blur(
             view: post_process.destination,
             depth_slice: None,
             resolve_target: None,
-            ops: Operations::default(),
+            ops: Operations {
+                load: LoadOp::Clear(Default::default()),
+                store: StoreOp::Store,
+            },
         })],
         depth_stencil_attachment: None,
         timestamp_writes: None,
@@ -255,4 +264,12 @@ pub fn motion_blur(
     render_pass.draw(0..3, 0..1);
 
     pass_span.end(&mut render_pass);
+}
+
+fn prepare_view_depth_texture_usages_for_motion_blur(
+    mut view_targets: Query<&mut Camera3d, With<MotionBlurUniform>>,
+) {
+    for mut camera in view_targets.iter_mut() {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
+    }
 }

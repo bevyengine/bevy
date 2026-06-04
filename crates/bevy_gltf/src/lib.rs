@@ -17,7 +17,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::prelude::*;
 //!
@@ -26,7 +26,7 @@
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
+//!         WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
 //!         Transform::from_xyz(2.0, 0.0, -5.0),
 //!     ));
@@ -42,7 +42,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::Gltf;
 //!
@@ -72,11 +72,11 @@
 //!     *loaded = true;
 //!
 //!     // Spawns the first scene in the file
-//!     commands.spawn(SceneRoot(gltf.scenes[0].clone()));
+//!     commands.spawn(WorldAssetRoot(gltf.scenes[0].clone()));
 //!
 //!     // Spawns the scene named "Lenses_low"
 //!     commands.spawn((
-//!         SceneRoot(gltf.named_scenes["Lenses_low"].clone()),
+//!         WorldAssetRoot(gltf.named_scenes["Lenses_low"].clone()),
 //!         Transform::from_xyz(1.0, 2.0, 3.0),
 //!     ));
 //! }
@@ -148,7 +148,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_mesh::MeshVertexAttribute;
+use bevy_mesh::{MeshAttributeCompressionFlags, MeshVertexAttribute};
 
 /// The glTF prelude.
 ///
@@ -163,10 +163,7 @@ use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensi
 pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
 
 /// Re-exports for GLTF
-pub mod gltf {
-    #[doc(hidden)]
-    pub use gltf::{Animation, Document, Gltf, Material, Mesh, Primitive, Scene, Texture};
-}
+pub use gltf;
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
@@ -237,6 +234,12 @@ pub struct GltfPlugin {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+
+    /// Mesh attribute compression flags for the loaded meshes.
+    pub mesh_attribute_compression: MeshAttributeCompressionFlags,
+
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
+    pub mesh_index_compression: bool,
 }
 
 impl Default for GltfPlugin {
@@ -246,6 +249,8 @@ impl Default for GltfPlugin {
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
+            mesh_attribute_compression: MeshAttributeCompressionFlags::empty(),
+            mesh_index_compression: false,
         }
     }
 }
@@ -302,6 +307,8 @@ impl Plugin for GltfPlugin {
             default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
+            default_mesh_attribute_compression: self.mesh_attribute_compression,
+            default_mesh_index_compression: self.mesh_index_compression,
         });
     }
 }

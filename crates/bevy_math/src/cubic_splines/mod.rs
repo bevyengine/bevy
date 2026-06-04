@@ -183,9 +183,8 @@ impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicHermite<P> {
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
-            .windows(2)
-            .map(|p| {
-                let (p0, v0, p1, v1) = (p[0].0, p[0].1, p[1].0, p[1].1);
+            .array_windows()
+            .map(|&[(p0, v0), (p1, v1)]| {
                 CubicSegment::coefficients([p0, v0, p1, v1], self.char_matrix())
             })
             .collect_vec();
@@ -478,8 +477,8 @@ impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBSpline<P> {
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
-            .windows(4)
-            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], self.char_matrix()))
+            .array_windows()
+            .map(|&p| CubicSegment::coefficients(p, self.char_matrix()))
             .collect_vec();
 
         if segments.is_empty() {
@@ -665,12 +664,12 @@ impl<P: VectorSpace<Scalar = f32>> CubicNurbs<P> {
 
         // Ensure the knots are non-descending (previous element is less than or equal
         // to the next)
-        if knots.windows(2).any(|win| win[0] > win[1]) {
+        if knots.array_windows().any(|[a, b]| a > b) {
             return Err(CubicNurbsError::DescendingKnots);
         }
 
         // Ensure the knots are non-constant
-        if knots.windows(2).all(|win| win[0] == win[1]) {
+        if knots.array_windows().all(|[a, b]| a == b) {
             return Err(CubicNurbsError::ConstantKnots);
         }
 
@@ -788,24 +787,18 @@ impl<P: VectorSpace<Scalar = f32>> RationalGenerator<P> for CubicNurbs<P> {
     fn to_curve(&self) -> Result<RationalCurve<P>, Self::Error> {
         let segments = self
             .control_points
-            .windows(4)
-            .zip(self.weights.windows(4))
-            .zip(self.knots.windows(8))
+            .array_windows()
+            .zip(self.weights.array_windows())
+            .zip(self.knots.array_windows())
             .filter(|(_, knots)| knots[4] - knots[3] > 0.0)
-            .map(|((points, weights), knots)| {
+            .map(|((&points, &weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
                 // and i+4) and its characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
-                let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");
-                let matrix = Self::generate_matrix(coefficient_knots);
-                RationalSegment::coefficients(
-                    points.try_into().expect("Point windows are of length 4"),
-                    weights.try_into().expect("Weight windows are of length 4"),
-                    span,
-                    matrix,
-                )
+                let matrix = Self::generate_matrix(knots);
+                RationalSegment::coefficients(points, weights, span, matrix)
             })
             .collect_vec();
         if segments.is_empty() {
@@ -865,13 +858,9 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .points
-            .windows(2)
-            .map(|points| {
-                let a = points[0];
-                let b = points[1];
-                CubicSegment {
-                    coeff: [a, b - a, P::default(), P::default()],
-                }
+            .array_windows()
+            .map(|&[a, b]| CubicSegment {
+                coeff: [a, b - a, P::default(), P::default()],
             })
             .collect_vec();
 

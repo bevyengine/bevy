@@ -20,13 +20,6 @@ use bevy_render::{
 pub(super) static DEFAULT_CHROMATIC_ABERRATION_LUT_DATA: [u8; 12] =
     [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 
-/// The default chromatic aberration intensity amount, in a fraction of the
-/// window size.
-const DEFAULT_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.02;
-
-/// The default maximum number of samples for chromatic aberration.
-const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
-
 #[derive(Resource)]
 pub(crate) struct DefaultChromaticAberrationLut(pub(crate) Handle<Image>);
 
@@ -79,8 +72,8 @@ impl Default for ChromaticAberration {
     fn default() -> Self {
         Self {
             color_lut: None,
-            intensity: DEFAULT_CHROMATIC_ABERRATION_INTENSITY,
-            max_samples: DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES,
+            intensity: 0.02,
+            max_samples: 8,
         }
     }
 }
@@ -97,8 +90,8 @@ impl ExtractComponent for ChromaticAberration {
     fn extract_component(
         chromatic_aberration: QueryItem<'_, '_, Self::QueryData>,
     ) -> Option<Self::Out> {
-        // Skip the postprocessing phase entirely if the intensity is zero.
-        if chromatic_aberration.intensity > 0.0 {
+        // Skip the postprocessing phase entirely if the intensity is negligible.
+        if chromatic_aberration.intensity > 1e-4 {
             Some(chromatic_aberration.clone())
         } else {
             None
@@ -112,13 +105,8 @@ impl ExtractComponent for ChromaticAberration {
 /// each of these fields.
 #[derive(ShaderType, Default)]
 pub struct ChromaticAberrationUniform {
-    /// The intensity of the effect, in a fraction of the screen.
     pub(super) intensity: f32,
-    /// A cap on the number of samples of the source texture that the shader
-    /// will perform.
     pub(super) max_samples: u32,
-    /// Padding data.
     pub(super) unused_1: u32,
-    /// Padding data.
     pub(super) unused_2: u32,
 }

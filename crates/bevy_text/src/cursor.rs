@@ -1,6 +1,6 @@
 use bevy_color::{
-    palettes::css::{GREEN, RED},
-    Alpha as _, Color,
+    palettes::tailwind::{SKY_300, SKY_400, SLATE_700},
+    Color,
 };
 use bevy_ecs::component::Component;
 
@@ -16,13 +16,27 @@ pub struct TextCursorStyle {
     pub color: Color,
     /// Background color of selected text
     pub selection_color: Color,
+    /// Background color of unfocused selected text
+    ///
+    /// In many applications, this is completely transparent.
+    /// This reduces visual clutter of de-emphasized text inputs.
+    pub unfocused_selection_color: Color,
+    /// If some, overrides the color of selected text
+    pub selected_text_color: Option<Color>,
+    /// Corner radius of selection highlight rectangles, normalized relative to the selection height.
+    ///
+    /// Values are clamped between `0.0` and `0.5`.
+    pub selection_radius: f32,
 }
 
 impl Default for TextCursorStyle {
     fn default() -> Self {
         Self {
-            color: RED.into(),
-            selection_color: Color::from(GREEN).with_alpha(0.5),
+            color: Color::from(SLATE_700),
+            selection_color: Color::from(SKY_300),
+            unfocused_selection_color: Color::from(SKY_400),
+            selected_text_color: None,
+            selection_radius: 0.,
         }
     }
 }

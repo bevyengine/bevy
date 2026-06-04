@@ -15,12 +15,15 @@ use bevy_material::{
     OpaqueRendererMethod,
 };
 use bevy_mesh::VertexBufferLayout;
-use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
+use bevy_mesh::{
+    Mesh, MeshAttributeCompressionFlags, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
+    MeshVertexBufferLayouts,
+};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::erased_render_asset::ErasedRenderAssets;
+use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
 use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
 use bevy_utils::default;
-use core::any::{Any, TypeId};
+use core::any::TypeId;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`meshlet_main_opaque_pass`](`super::meshlet_main_opaque_pass`).
 #[derive(Component, Deref, DerefMut, Default)]
@@ -43,6 +46,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     mut views: Query<
         (
             &mut MeshletViewMaterialsMainOpaquePass,
+            &ExtractedCamera,
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
@@ -66,6 +70,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
 
     for (
         mut materials,
+        camera,
         view,
         tonemapping,
         dither,
@@ -78,8 +83,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         has_irradiance_volumes,
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -126,7 +131,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -165,79 +170,84 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 continue;
             }
 
-            let erased_key = ErasedMaterialPipelineKey {
-                mesh_key: ErasedMeshPipelineKey::new(view_key),
-                material_key: material.properties.material_key.clone(),
-                type_id: material_id.type_id(),
-            };
-            let material_pipeline_specializer = MaterialPipelineSpecializer {
-                pipeline: material_pipeline.clone(),
-                properties: material.properties.clone(),
-            };
-            let Ok(material_pipeline_descriptor) =
-                material_pipeline_specializer.specialize(erased_key, fake_vertex_buffer_layout)
-            else {
-                continue;
-            };
-            let material_fragment = material_pipeline_descriptor.fragment.unwrap();
-
-            let mut shader_defs = material_fragment.shader_defs;
-            shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
-
-            let layout = mesh_pipeline.get_view_layout(view_key.into());
-            let layout = vec![
-                layout.main_layout.clone(),
-                layout.binding_array_layout.clone(),
-                resource_manager.material_shade_bind_group_layout.clone(),
-                material
-                    .properties
-                    .material_layout
-                    .as_ref()
-                    .unwrap()
-                    .clone(),
-            ];
-
-            let pipeline_descriptor = RenderPipelineDescriptor {
-                label: material_pipeline_descriptor.label,
-                layout,
-                immediate_size: 0,
-                vertex: VertexState {
-                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
-                    shader_defs: shader_defs.clone(),
-                    entry_point: material_pipeline_descriptor.vertex.entry_point,
-                    buffers: Vec::new(),
-                },
-                primitive: PrimitiveState::default(),
-                depth_stencil: Some(DepthStencilState {
-                    format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: Some(false),
-                    depth_compare: Some(CompareFunction::Equal),
-                    stencil: StencilState::default(),
-                    bias: DepthBiasState::default(),
-                }),
-                multisample: MultisampleState::default(),
-                fragment: Some(FragmentState {
-                    shader: match material.properties.get_shader(MeshletFragmentShader) {
-                        Some(shader) => shader.clone(),
-                        None => meshlet_pipelines.meshlet_mesh_material.clone(),
-                    },
-                    shader_defs,
-                    entry_point: material_fragment.entry_point,
-                    targets: material_fragment.targets,
-                }),
-                zero_initialize_workgroup_memory: false,
-            };
             let type_id = material_id.type_id();
             let Some(material_bind_group_allocator) = material_bind_group_allocators.get(&type_id)
             else {
                 continue;
             };
+
+            let pipeline_id = if let Some(&id) = cache.get(&(view_key, type_id)) {
+                id
+            } else {
+                let erased_key = ErasedMaterialPipelineKey {
+                    mesh_key: ErasedMeshPipelineKey::new(view_key),
+                    material_key: material.properties.material_key.clone(),
+                    type_id,
+                };
+                let material_pipeline_specializer = MaterialPipelineSpecializer {
+                    pipeline: material_pipeline.clone(),
+                    properties: material.properties.clone(),
+                };
+                let Ok(material_pipeline_descriptor) =
+                    material_pipeline_specializer.specialize(erased_key, fake_vertex_buffer_layout)
+                else {
+                    continue;
+                };
+                let material_fragment = material_pipeline_descriptor.fragment.unwrap();
+
+                let mut shader_defs = material_fragment.shader_defs;
+                shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
+
+                let layout = mesh_pipeline.get_view_layout(view_key.into());
+                let layout = vec![
+                    layout.main_layout,
+                    layout.binding_array_layout,
+                    resource_manager.material_shade_bind_group_layout.clone(),
+                    material
+                        .properties
+                        .material_layout
+                        .as_ref()
+                        .unwrap()
+                        .clone(),
+                ];
+
+                let pipeline_descriptor = RenderPipelineDescriptor {
+                    label: material_pipeline_descriptor.label,
+                    layout,
+                    immediate_size: 0,
+                    vertex: VertexState {
+                        shader: meshlet_pipelines.meshlet_mesh_material.clone(),
+                        shader_defs: shader_defs.clone(),
+                        entry_point: material_pipeline_descriptor.vertex.entry_point,
+                        buffers: Vec::new(),
+                    },
+                    primitive: PrimitiveState::default(),
+                    depth_stencil: Some(DepthStencilState {
+                        format: TextureFormat::Depth16Unorm,
+                        depth_write_enabled: Some(false),
+                        depth_compare: Some(CompareFunction::Equal),
+                        stencil: StencilState::default(),
+                        bias: DepthBiasState::default(),
+                    }),
+                    multisample: MultisampleState::default(),
+                    fragment: Some(FragmentState {
+                        shader: match material.properties.get_shader(MeshletFragmentShader) {
+                            Some(shader) => shader.clone(),
+                            None => meshlet_pipelines.meshlet_mesh_material.clone(),
+                        },
+                        shader_defs,
+                        entry_point: material_fragment.entry_point,
+                        targets: material_fragment.targets,
+                    }),
+                    zero_initialize_workgroup_memory: false,
+                };
+
+                let pipeline_id = pipeline_cache.queue_render_pipeline(pipeline_descriptor);
+                cache.insert((view_key, type_id), pipeline_id);
+                pipeline_id
+            };
+
             let material_id = instance_manager.get_material_id(material_id);
-
-            let pipeline_id = *cache.entry((view_key, type_id)).or_insert_with(|| {
-                pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
-            });
-
             let Some(material_bind_group) =
                 material_bind_group_allocator.get(material.binding.group)
             else {
@@ -294,8 +304,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -318,8 +328,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
             let Some(material) = render_materials.get(material_id) else {
                 continue;
             };
-            let Some(material_bind_group_allocator) =
-                material_bind_group_allocators.get(&material_id.type_id())
+            let type_id = material_id.type_id();
+            let Some(material_bind_group_allocator) = material_bind_group_allocators.get(&type_id)
             else {
                 continue;
             };
@@ -340,93 +350,94 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 continue;
             }
 
-            let erased_key = ErasedMaterialPipelineKey {
-                mesh_key: ErasedMeshPipelineKey::new(view_key),
-                material_key: material.properties.material_key.clone(),
-                type_id: material_id.type_id(),
-            };
-            let material_pipeline_specializer = PrepassPipelineSpecializer {
-                pipeline: prepass_pipeline.clone(),
-                properties: material.properties.clone(),
-            };
-            let Ok(material_pipeline_descriptor) =
-                material_pipeline_specializer.specialize(erased_key, fake_vertex_buffer_layout)
-            else {
-                continue;
-            };
-            let material_fragment = material_pipeline_descriptor.fragment.unwrap();
-
-            let mut shader_defs = material_fragment.shader_defs;
-            shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
-
-            let view_layout = if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-                prepass_pipeline.view_layout_motion_vectors.clone()
+            let pipeline_id = if let Some(&id) = cache.get(&(view_key, type_id)) {
+                id
             } else {
-                prepass_pipeline.view_layout_no_motion_vectors.clone()
-            };
+                let erased_key = ErasedMaterialPipelineKey {
+                    mesh_key: ErasedMeshPipelineKey::new(view_key),
+                    material_key: material.properties.material_key.clone(),
+                    type_id,
+                };
+                let material_pipeline_specializer = PrepassPipelineSpecializer {
+                    pipeline: prepass_pipeline.clone(),
+                    properties: material.properties.clone(),
+                };
+                let Ok(material_pipeline_descriptor) =
+                    material_pipeline_specializer.specialize(erased_key, fake_vertex_buffer_layout)
+                else {
+                    continue;
+                };
+                let material_fragment = material_pipeline_descriptor.fragment.unwrap();
 
-            let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-                material
-                    .properties
-                    .get_shader(MeshletDeferredFragmentShader)
-                    .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
-            } else {
-                material
-                    .properties
-                    .get_shader(MeshletPrepassFragmentShader)
-                    .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
-            };
+                let mut shader_defs = material_fragment.shader_defs;
+                shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
-            let entry_point = if fragment_shader == meshlet_pipelines.meshlet_mesh_material {
-                material_fragment.entry_point.clone()
-            } else {
-                None
-            };
+                let view_layout = if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+                    prepass_pipeline.view_layout_motion_vectors.clone()
+                } else {
+                    prepass_pipeline.view_layout_no_motion_vectors.clone()
+                };
 
-            let pipeline_descriptor = RenderPipelineDescriptor {
-                label: material_pipeline_descriptor.label,
-                layout: vec![
-                    view_layout,
-                    prepass_pipeline.empty_layout.clone(),
-                    resource_manager.material_shade_bind_group_layout.clone(),
+                let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
                     material
                         .properties
-                        .material_layout
-                        .as_ref()
-                        .unwrap()
-                        .clone(),
-                ],
-                vertex: VertexState {
-                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
-                    shader_defs: shader_defs.clone(),
-                    entry_point: material_pipeline_descriptor.vertex.entry_point,
+                        .get_shader(MeshletDeferredFragmentShader)
+                        .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
+                } else {
+                    material
+                        .properties
+                        .get_shader(MeshletPrepassFragmentShader)
+                        .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
+                };
+
+                let entry_point = if fragment_shader == meshlet_pipelines.meshlet_mesh_material {
+                    material_fragment.entry_point.clone()
+                } else {
+                    None
+                };
+
+                let pipeline_descriptor = RenderPipelineDescriptor {
+                    label: material_pipeline_descriptor.label,
+                    layout: vec![
+                        view_layout,
+                        prepass_pipeline.empty_layout.clone(),
+                        resource_manager.material_shade_bind_group_layout.clone(),
+                        material
+                            .properties
+                            .material_layout
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                    ],
+                    vertex: VertexState {
+                        shader: meshlet_pipelines.meshlet_mesh_material.clone(),
+                        shader_defs: shader_defs.clone(),
+                        entry_point: material_pipeline_descriptor.vertex.entry_point,
+                        ..default()
+                    },
+                    primitive: PrimitiveState::default(),
+                    depth_stencil: Some(DepthStencilState {
+                        format: TextureFormat::Depth16Unorm,
+                        depth_write_enabled: Some(false),
+                        depth_compare: Some(CompareFunction::Equal),
+                        stencil: StencilState::default(),
+                        bias: DepthBiasState::default(),
+                    }),
+                    fragment: Some(FragmentState {
+                        shader: fragment_shader,
+                        shader_defs,
+                        entry_point,
+                        targets: material_fragment.targets,
+                    }),
                     ..default()
-                },
-                primitive: PrimitiveState::default(),
-                depth_stencil: Some(DepthStencilState {
-                    format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: Some(false),
-                    depth_compare: Some(CompareFunction::Equal),
-                    stencil: StencilState::default(),
-                    bias: DepthBiasState::default(),
-                }),
-                fragment: Some(FragmentState {
-                    shader: fragment_shader,
-                    shader_defs,
-                    entry_point,
-                    targets: material_fragment.targets,
-                }),
-                ..default()
+                };
+
+                let pipeline_id = pipeline_cache.queue_render_pipeline(pipeline_descriptor);
+                cache.insert((view_key, type_id), pipeline_id);
+                pipeline_id
             };
 
             let material_id = instance_manager.get_material_id(material_id);
-
-            let pipeline_id = *cache
-                .entry((view_key, material_id.type_id()))
-                .or_insert_with(|| {
-                    pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
-                });
-
             let Some(material_bind_group) =
                 material_bind_group_allocator.get(material.binding.group)
             else {
@@ -481,5 +492,6 @@ fn fake_vertex_buffer_layout(layouts: &mut MeshVertexBufferLayouts) -> MeshVerte
                 },
             ],
         },
+        MeshAttributeCompressionFlags::empty(),
     ))
 }

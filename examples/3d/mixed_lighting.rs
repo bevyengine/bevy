@@ -5,7 +5,7 @@ use bevy::{
     pbr::Lightmap,
     picking::{backend::HitData, pointer::PointerInteraction},
     prelude::*,
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
@@ -165,14 +165,14 @@ fn spawn_camera(commands: &mut Commands) {
 /// The scene is loaded from a glTF file.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(SceneRoot(
+        .spawn(WorldAssetRoot(
             asset_server.load(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/MixedLightingExample/MixedLightingExample.gltf"),
             ),
         ))
         .observe(
-            |_: On<SceneInstanceReady>,
+            |_: On<WorldInstanceReady>,
              mut lighting_mode_changed_writer: MessageWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.

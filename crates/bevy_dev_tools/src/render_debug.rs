@@ -4,9 +4,8 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     mip_generation::experimental::depth::ViewDepthPyramid,
-    oit::OrderIndependentTransparencySettingsOffset,
     schedule::{Core3d, Core3dSystems},
-    tonemapping::tonemapping,
+    upscaling::upscaling,
     FullscreenShader,
 };
 use bevy_ecs::{
@@ -25,7 +24,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
@@ -35,17 +33,16 @@ use bevy_render::{
         TextureSampleType, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-    texture::{FallbackImage, GpuImage},
-    view::{Msaa, ViewTarget, ViewUniformOffset},
+    texture::FallbackImage,
+    view::{ExtractedView, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
+use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
-    Bluenoise, MeshPipelineSet, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
-    MeshViewBindGroup, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset,
+    MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ViewKeyCache,
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
@@ -72,7 +69,7 @@ impl Plugin for RenderDebugOverlayPlugin {
 
         render_app.add_systems(
             RenderStartup,
-            init_render_debug_overlay_pipeline.after(MeshPipelineSet),
+            init_render_debug_overlay_pipeline.after(MeshPipelineSystems),
         );
     }
 
@@ -94,8 +91,9 @@ impl Plugin for RenderDebugOverlayPlugin {
             .add_systems(
                 Core3d,
                 render_debug_overlay
-                    .after(tonemapping)
-                    .in_set(Core3dSystems::PostProcess),
+                    .after(Core3dSystems::PostProcess)
+                    .before(ui_pass)
+                    .before(upscaling),
             );
     }
 }
@@ -404,7 +402,7 @@ fn init_render_debug_overlay_pipeline(
 struct RenderDebugOverlayPipelineKey {
     mode: RenderDebugMode,
     view_layout_key: MeshPipelineViewLayoutKey,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
@@ -501,8 +499,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
         let mesh_view_layout_descriptor = self
             .mesh_view_layouts
             .get_view_layout(key.view_layout_key)
-            .main_layout
-            .clone();
+            .main_layout;
 
         RenderPipelineDescriptor {
             label: Some("debug_overlay_pipeline".into()),
@@ -516,7 +513,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                 shader_defs,
                 entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -533,48 +530,26 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
 fn prepare_debug_overlay_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
+    view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
     pipeline: Res<RenderDebugOverlayPipeline>,
-    images: Res<RenderAssets<GpuImage>>,
-    blue_noise: Res<Bluenoise>,
-    views: Query<(
-        Entity,
-        &ViewTarget,
-        &RenderDebugOverlay,
-        &Msaa,
-        Option<&bevy_core_pipeline::prepass::ViewPrepassTextures>,
-        Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
-        Has<bevy_pbr::ExtractedAtmosphere>,
-    )>,
+    views: Query<(Entity, &ExtractedView, &RenderDebugOverlay)>,
 ) {
-    for (entity, target, config, msaa, prepass_textures, has_oit, has_atmosphere) in &views {
+    for (entity, view, config) in &views {
         if !config.enabled {
             continue;
         }
-
-        let mut view_layout_key = MeshPipelineViewLayoutKey::from(*msaa)
-            | MeshPipelineViewLayoutKey::from(prepass_textures);
-
-        if has_oit {
-            view_layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
-        }
-        if has_atmosphere {
-            view_layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
-        }
-
-        if let Some(gpu_image) = images.get(&blue_noise.texture)
-            && gpu_image.texture.depth_or_array_layers() > 1
-        {
-            view_layout_key |= MeshPipelineViewLayoutKey::STBN;
-        }
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
-                view_layout_key,
-                texture_format: target.main_texture_format(),
+                view_layout_key: (*view_key).into(),
+                target_format: view.target_format,
             },
         );
 
@@ -629,15 +604,6 @@ fn render_debug_overlay(
         &RenderDebugOverlayPipelineId,
         &RenderDebugOverlayUniformOffset,
         &MeshViewBindGroup,
-        &ViewUniformOffset,
-        &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
-        &ViewLightProbesUniformOffset,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
-        Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
-        Option<&OrderIndependentTransparencySettingsOffset>,
         Option<&ViewDepthPyramid>,
     )>,
     pipeline_cache: Res<PipelineCache>,
@@ -646,23 +612,8 @@ fn render_debug_overlay(
     fallback_image: Res<FallbackImage>,
     mut ctx: RenderContext,
 ) {
-    let (
-        target,
-        config,
-        pipeline_id,
-        uniform_offset,
-        mesh_view_bind_group,
-        view_uniform_offset,
-        view_lights_offset,
-        view_fog_offset,
-        view_light_probes_offset,
-        view_ssr_offset,
-        view_contact_shadows_offset,
-        view_environment_map_offset,
-        has_oit,
-        view_oit_offset,
-        depth_pyramid,
-    ) = view.into_inner();
+    let (target, config, pipeline_id, uniform_offset, mesh_view_bind_group, depth_pyramid) =
+        view.into_inner();
 
     if !config.enabled {
         return;
@@ -717,20 +668,11 @@ fn render_debug_overlay(
 
     render_pass.set_pipeline(pipeline);
 
-    let mut dynamic_offsets = vec![
-        view_uniform_offset.offset,
-        view_lights_offset.offset,
-        view_fog_offset.offset,
-        **view_light_probes_offset,
-        **view_ssr_offset,
-        **view_contact_shadows_offset,
-        **view_environment_map_offset,
-    ];
-    if has_oit && let Some(view_oit_offset) = view_oit_offset {
-        dynamic_offsets.push(view_oit_offset.offset);
-    }
-
-    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &dynamic_offsets);
+    render_pass.set_bind_group(
+        0,
+        &mesh_view_bind_group.main,
+        &mesh_view_bind_group.main_offsets,
+    );
     render_pass.set_bind_group(1, &debug_bind_group, &[uniform_offset.offset]);
 
     render_pass.draw(0..3, 0..1);

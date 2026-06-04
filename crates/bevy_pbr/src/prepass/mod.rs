@@ -26,7 +26,7 @@ use bevy_material::{
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
 use bevy_math::{Affine3A, Mat4, Vec4};
-use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
+use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{DirtySpecializations, PendingQueues},
@@ -255,6 +255,10 @@ pub struct PrepassPipeline {
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
 
+    /// Whether mesh metadata will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub metadata_use_uniform_buffers: bool,
+
     pub depth_clip_control_supported: bool,
 
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
@@ -331,6 +335,9 @@ pub fn init_prepass_pipeline(
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
         default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
         skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
+        metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
+            &render_device.limits(),
+        ),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         empty_layout: BindGroupLayoutDescriptor::new("prepass_empty_layout", &[]),
@@ -451,6 +458,13 @@ impl PrepassPipeline {
         }
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         if emulate_unclipped_depth {
@@ -468,11 +482,25 @@ impl PrepassPipeline {
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_A".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_A_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
+            {
+                shader_defs.push("VERTEX_UVS_B_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
         }
         if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -483,6 +511,13 @@ impl PrepassPipeline {
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
             if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
                 shader_defs.push("VERTEX_NORMALS".into());
+                if layout
+                    .0
+                    .get_attribute_compression()
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+                {
+                    shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             } else if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
                 warn!(
@@ -491,6 +526,13 @@ impl PrepassPipeline {
             }
             if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
+                if layout
+                    .0
+                    .get_attribute_compression()
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+                {
+                    shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
         }
@@ -533,6 +575,9 @@ impl PrepassPipeline {
                 | MeshPipelineKey::DEFERRED_PREPASS,
         ) {
             shader_defs.push("PREPASS_FRAGMENT".into());
+        }
+        if self.metadata_use_uniform_buffers {
+            shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
         }
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
@@ -977,12 +1022,13 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 }
 
+                // Check for material instance, mesh, and material. If any of
+                // these fail, it's probably because the relevant asset hasn't
+                // loaded yet. In that case, add the entity to the list of
+                // pending mesh materials and bail.
                 let Some(material_instance) =
                     render_material_instances.instances.get(visible_entity)
                 else {
-                    // We couldn't fetch the material instance, probably because
-                    // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending prepass mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -991,18 +1037,12 @@ pub(crate) fn specialize_prepass_material_meshes(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
-                    // We couldn't fetch the mesh, probably because it hasn't
-                    // loaded yet. Add the entity to the list of pending prepass
-                    // mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
-                    // We couldn't fetch the material instance, probably because
-                    // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending prepass mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1264,11 +1304,12 @@ pub fn queue_prepass_material_meshes(
                 continue;
             };
 
+            // Check for material instance, mesh, and material. If any of these
+            // fail, it's probably because the relevant asset hasn't loaded yet.
+            // In that case, add the entity to the list of pending mesh
+            // materials and bail.
             let Some(material_instance) = render_material_instances.instances.get(visible_entity)
             else {
-                // We couldn't fetch the material, probably because the material
-                // hasn't been loaded yet. Add the entity to the list of pending
-                // prepass mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
@@ -1276,18 +1317,12 @@ pub fn queue_prepass_material_meshes(
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
-                // We couldn't fetch the mesh, probably because it hasn't been
-                // loaded yet. Add the entity to the list of pending prepass
-                // mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
-                // We couldn't fetch the material, probably because the material
-                // hasn't been loaded yet. Add the entity to the list of pending
-                // prepass mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));

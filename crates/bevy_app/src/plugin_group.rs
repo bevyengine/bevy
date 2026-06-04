@@ -4,8 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_platform::collections::hash_map::Entry;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdMap, TypeIdMapEntry as Entry};
 use core::any::TypeId;
 use log::{debug, warn};
 
@@ -38,11 +37,15 @@ use log::{debug, warn};
 /// # pub struct TickratePlugin;
 /// # impl Plugin for TickratePlugin { fn build(&self, _: &mut App) {} }
 /// #
+/// # pub fn bullet_time_plugin(_: &mut App) {}
+/// #
 /// # mod features {
 /// #   use bevy_app::*;
 /// #   #[derive(Default)]
 /// #   pub struct ForcePlugin;
 /// #   impl Plugin for ForcePlugin { fn build(&self, _: &mut App) {} }
+/// #
+/// #   pub fn force_debug_plugin(_: &mut App) {}
 /// # }
 /// #
 /// # mod web {
@@ -68,6 +71,8 @@ use log::{debug, warn};
 /// #   #[derive(Default)]
 /// #   pub struct InternalPlugin;
 /// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
+/// #
+/// #   pub fn internal_plugin(_: &mut App) {}
 /// # }
 /// #
 /// plugin_group! {
@@ -95,9 +100,17 @@ use log::{debug, warn};
 ///         #[plugin_group]
 ///         audio:::AudioPlugins,
 ///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
-///         // must be last.
+///         // must be after all other plugins.
 ///         #[doc(hidden)]
-///         internal:::InternalPlugin
+///         internal:::InternalPlugin,
+///         // Can end with a "fn block" for plugin function members of the group.
+///         @fn {
+///             :bullet_time_plugin,
+///             #[cfg(feature = "external_forces")]
+///             features:::force_debug_plugin,
+///             #[doc(hidden)]
+///             internal:::internal_plugin,
+///         }
 ///     }
 ///     /// You may add doc comments after the plugin group as well. They will be appended after
 ///     /// the documented list of plugins.
@@ -129,6 +142,24 @@ macro_rules! plugin_group {
                     $($hidden_plugin_path:ident::)* : $hidden_plugin_name:ident
                 ),+
             )?
+            $(
+                $(,)? @fn {
+                    $(
+                        $(#[cfg(feature = $fn_plugin_feature:literal)])?
+                        $(#[custom($fn_plugin_meta:meta)])*
+                        $($fn_plugin_path:ident::)* : $fn_plugin_name:ident
+                    ),*
+                    $(
+                        $(,)?$(
+                            #[doc(hidden)]
+                            $(#[cfg(feature = $fn_hidden_plugin_feature:literal)])?
+                            $(#[custom($fn_hidden_plugin_meta:meta)])*
+                            $($fn_hidden_plugin_path:ident::)* : $fn_hidden_plugin_name:ident
+                        ),+
+                    )?
+                    $(,)?
+                }
+            )?
 
             $(,)?
         }
@@ -136,14 +167,18 @@ macro_rules! plugin_group {
     } => {
         $(#[$group_meta])*
         ///
-        $(#[doc = concat!(
-            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+        $(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_name), "`](" $(, ::core::stringify!($plugin_path), "::")*, ::core::stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
-       $($(#[doc = concat!(
-            " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
+       $($(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($plugin_group_name), "`](" $(, ::core::stringify!($plugin_group_path), "::")*, ::core::stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
         )])+)?
+        $($(#[doc = ::core::concat!(
+            " - [`", ::core::stringify!($fn_plugin_name), "`](" $(, ::core::stringify!($fn_plugin_path), "::")*, ::core::stringify!($fn_plugin_name), ")"
+            $(, " - with feature `", $fn_plugin_feature, "`")?
+        )])*)?
         $(
             ///
             $(#[doc = $post_doc])+
@@ -159,7 +194,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_path::)*$plugin_name>();
                         };
 
@@ -171,7 +206,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_group_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_group_path::)*$plugin_group_name>();
                         };
 
@@ -183,13 +218,27 @@ macro_rules! plugin_group {
                     $(#[$hidden_plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
                         };
 
                         group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
                     }
                 )+)?
+                $($(
+                    $(#[cfg(feature = $fn_plugin_feature)])?
+                    $(#[$fn_plugin_meta])*
+                    {
+                        group = group.add($($fn_plugin_path::)*$fn_plugin_name);
+                    }
+                )*)?
+                $($($(
+                    $(#[cfg(feature = $fn_hidden_plugin_feature)])?
+                    $(#[$fn_hidden_plugin_meta])*
+                    {
+                        group = group.add($($fn_hidden_plugin_path::)*$fn_hidden_plugin_name);
+                    }
+                )+)?)?
 
                 group
             }
@@ -368,7 +417,7 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.remove(&plugin_id).unwrap(),
+                plugins.shift_remove(&plugin_id).unwrap(),
                 self.order.len(),
             );
 
@@ -517,7 +566,7 @@ impl PluginGroupBuilder {
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.remove(ty)
+            if let Some(entry) = self.plugins.shift_remove(ty)
                 && entry.enabled
             {
                 debug!("added plugin: {}", entry.plugin.name());
@@ -578,6 +627,9 @@ mod tests {
     impl Plugin for PluginC {
         fn build(&self, _: &mut App) {}
     }
+
+    fn plugin_d(_: &mut App) {}
+    fn plugin_e(_: &mut App) {}
 
     #[derive(PartialEq, Debug)]
     struct PluginWithData(u32);
@@ -901,5 +953,50 @@ mod tests {
     #[test]
     fn construct_nested_plugin_groups() {
         PluginGroupC {}.build();
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupD {
+            :PluginA
+            @fn {
+                #[doc(hidden)]
+                :plugin_d
+            }
+        }
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupE {
+            @fn {
+                :plugin_e
+            }
+        }
+    }
+    plugin_group! {
+        struct PluginGroupF {
+            :PluginB
+            #[plugin_group]
+            :PluginGroupD,
+            #[plugin_group]
+            :PluginGroupE,
+        }
+    }
+    #[test]
+    fn construct_nested_plugin_groups_with_plugin_functions() {
+        fn type_id_of<T: Plugin>(_: T) -> TypeId {
+            TypeId::of::<T>()
+        }
+
+        let group = PluginGroupF {}.build();
+
+        assert_eq!(
+            group.order,
+            vec![
+                TypeId::of::<PluginB>(),
+                TypeId::of::<PluginA>(),
+                type_id_of(plugin_d),
+                type_id_of(plugin_e),
+            ]
+        );
     }
 }

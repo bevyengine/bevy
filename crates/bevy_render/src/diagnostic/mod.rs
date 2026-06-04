@@ -164,14 +164,14 @@ pub trait RecordDiagnostics: Send + Sync {
         }
     }
 
-    /// Reads a f32 from the specified buffer and uploads it as a diagnostic.
+    /// Reads an `f32` from the specified buffer and uploads it as a diagnostic.
     ///
     /// The provided buffer slice must be 4 bytes long, and the buffer must have [`wgpu::BufferUsages::COPY_SRC`];
     fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
     where
         N: Into<Cow<'static, str>>;
 
-    /// Reads a u32 from the specified buffer and uploads it as a diagnostic.
+    /// Reads a `u32` from the specified buffer and uploads it as a diagnostic.
     ///
     /// The provided buffer slice must be 4 bytes long, and the buffer must have [`wgpu::BufferUsages::COPY_SRC`];
     fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)

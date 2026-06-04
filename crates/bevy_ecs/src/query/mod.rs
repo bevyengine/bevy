@@ -157,6 +157,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~170s on CI")]
     fn query_filtered_exactsizeiterator_len() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
@@ -302,7 +303,7 @@ mod tests {
             sorted.sort();
             assert!(expected.contains(&sorted),
                     "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
-                    &sorted, &expected, &values);
+                    sorted, expected, values);
         });
     }
 
@@ -850,5 +851,71 @@ mod tests {
         let mut world = World::new();
         let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
         let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23930
+    #[test]
+    fn query_data_derive_empty() {
+        #[derive(QueryData)]
+        struct QueryDataA {}
+
+        #[derive(QueryData)]
+        struct QueryDataB();
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataC {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataD();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataE {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataF();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataG {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataH();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataI {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataJ();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataK {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataL();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataM {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataN();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataO {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataP();
     }
 }

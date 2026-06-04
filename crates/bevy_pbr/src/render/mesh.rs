@@ -1,6 +1,7 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
-    material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
+    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    resources::prepare_atmosphere_buffers,
     skin::skin_uniforms_from_world,
 };
 use alloc::sync::Arc;
@@ -15,7 +16,7 @@ use bevy_camera::{
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -28,15 +29,15 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
 use bevy_math::{Affine3, Affine3Ext, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
-    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
-    VertexAttributeDescriptor,
+    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
+    MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
@@ -45,6 +46,7 @@ use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
 };
+use bevy_render::mesh::MeshMetadataFallbackBuffer;
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -64,10 +66,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
-    view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
-        ViewUniformOffset,
-    },
+    view::{self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -75,13 +74,15 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::iter;
-use core::mem::{offset_of, size_of};
+use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
-use tracing::{error, info_span, warn};
+#[cfg(feature = "trace")]
+use tracing::info_span;
+use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -97,16 +98,18 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_render::camera::{DirtySpecializations, TemporalJitter};
+use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter};
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
-use bevy_render::view::{ExtractedView, RenderShadowMapVisibleEntities, RenderVisibleEntities};
+use bevy_render::view::{
+    texture_format_from_code, texture_format_to_code, ExtractedView,
+    RenderShadowMapVisibleEntities, RenderVisibleEntities,
+};
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_tasks::ComputeTaskPool;
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -141,7 +144,7 @@ impl MeshRenderPlugin {
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct MeshPipelineSet;
+pub struct MeshPipelineSystems;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
@@ -156,7 +159,8 @@ impl Plugin for MeshRenderPlugin {
                     ShaderDefVal::UInt(
                         "MAX_CASCADES_PER_LIGHT".into(),
                         MAX_CASCADES_PER_LIGHT as u32,
-                    )
+                    ),
+                    ShaderDefVal::UInt("MAX_RECT_LIGHTS".into(), MAX_RECT_LIGHTS as u32,),
                 ]
             });
         load_shader_library!(app, "mesh_view_bindings.wgsl");
@@ -213,7 +217,7 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers)
-                            .after(write_atmosphere_buffer),
+                            .after(prepare_atmosphere_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSystems::Cleanup)
                             .after(RenderSystems::Render),
@@ -318,7 +322,7 @@ impl Plugin for MeshRenderPlugin {
                 RenderStartup,
                 (init_mesh_pipeline_view_layouts, init_mesh_pipeline)
                     .chain()
-                    .in_set(MeshPipelineSet),
+                    .in_set(MeshPipelineSystems),
             );
         }
 
@@ -358,9 +362,9 @@ pub fn check_views_need_specialization(
     mut dirty_specializations: ResMut<DirtySpecializations>,
     mut views: Query<(
         &ExtractedView,
+        Option<&ExtractedCamera>,
         &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
+        (Option<&Tonemapping>, Option<&DebandDither>),
         Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusion>,
         (
@@ -377,16 +381,19 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
-        Has<OrderIndependentTransparencySettings>,
-        Has<ExtractedAtmosphere>,
-        Has<ScreenSpaceReflectionsUniform>,
+        (
+            Has<OrderIndependentTransparencySettings>,
+            Has<ExtractedAtmosphere>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<ViewContactShadowsUniformOffset>,
+        ),
     )>,
 ) {
     for (
         view,
+        camera,
         msaa,
-        tonemapping,
-        dither,
+        (tonemapping, dither),
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
@@ -395,13 +402,11 @@ pub fn check_views_need_specialization(
         projection,
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
-        has_oit,
-        has_atmosphere,
-        has_ssr,
+        (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -443,6 +448,10 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
+        if has_contact_shadows {
+            view_key |= MeshPipelineKey::CONTACT_SHADOWS;
+        }
+
         if view.invert_culling {
             view_key |= MeshPipelineKey::INVERT_CULLING;
         }
@@ -467,7 +476,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !view.hdr {
+        if !camera.is_some_and(|camera| camera.hdr) {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -546,6 +555,8 @@ pub struct MeshUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// The index of the mesh metadata buffer.
+    pub metadata_index: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -615,6 +626,10 @@ pub struct MeshInputUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    pub metadata_index: u32,
+    pub pad1: u32,
+    pub pad2: u32,
+    pub pad3: u32,
 }
 
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
@@ -653,6 +668,7 @@ impl MeshUniform {
         current_skin_index: Option<u32>,
         morph_descriptor_index: Option<MorphDescriptorIndex>,
         tag: Option<u32>,
+        metadata_index: Option<u32>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -684,6 +700,7 @@ impl MeshUniform {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
                 None => u32::MAX,
             },
+            metadata_index: metadata_index.unwrap_or(0),
         }
     }
 }
@@ -832,11 +849,7 @@ pub struct RenderMeshInstanceSharedFlat {
     asset_id: MeshAssetIdFlat,
     material_bindings_index: MaterialBindingId,
     lightmap_slab_index: LightmapSlabIndexFlat,
-    // FIXME: Remove this. This should be a field on `Mesh`.
-    model_space_center: Vec3,
     tag: u32,
-    // FIXME: Remove this. This should be recomputed on demand, not cached here.
-    world_space_center: Vec3,
     current_uniform_index: u32,
     flags: RenderMeshInstanceFlags,
 }
@@ -855,7 +868,6 @@ impl_atomic_pod!(
         lightmap_slab_index_flat,
         set_lightmap_slab_index_flat
     ),
-    field(model_space_center: Vec3, model_space_center, set_model_space_center),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),
 );
@@ -893,15 +905,12 @@ impl RenderMeshInstanceSharedFlatBlob {
 #[derive(Clone, Copy, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct RenderMeshInstanceGpuFlat {
-    // FIXME: Remove this. This should be recomputed on demand, not cached here.
-    world_space_center: Vec3,
     current_uniform_index: u32,
 }
 
 impl_atomic_pod!(
     RenderMeshInstanceGpuFlat,
     RenderMeshInstanceGpuFlatBlob,
-    field(world_space_center: Vec3, world_space_center, set_world_space_center),
     field(current_uniform_index: u32, current_uniform_index, set_current_uniform_index),
 );
 
@@ -1102,7 +1111,6 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         no_cpu_culling: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         Self::new(
             previous_transform,
@@ -1112,7 +1120,6 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             no_cpu_culling,
-            aabb,
         )
     }
 
@@ -1124,7 +1131,6 @@ impl RenderMeshInstanceSharedFlat {
         material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         Self::new(
             previous_transform,
@@ -1134,7 +1140,6 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             false,
-            aabb,
         )
     }
 
@@ -1146,7 +1151,6 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         no_cpu_culling: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -1163,13 +1167,10 @@ impl RenderMeshInstanceSharedFlat {
         RenderMeshInstanceSharedFlat {
             asset_id: mesh.id().into(),
             material_bindings_index,
-            model_space_center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
             tag: tag.map_or(0, |i| **i),
             flags: mesh_instance_flags,
             // Filled in later.
             lightmap_slab_index: LightmapSlabIndexFlat::default(),
-            // Filled in later.
-            world_space_center: Vec3::ZERO,
             // Filled in later.
             current_uniform_index: 0,
         }
@@ -1251,20 +1252,12 @@ impl RenderMeshInstancesCpu {
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
-        self.get(&entity).map(|render_mesh_instance| {
-            let world_from_local = &render_mesh_instance.transforms.world_from_local;
-            let center = world_from_local
-                .matrix3
-                .mul_vec3(render_mesh_instance.shared.model_space_center())
-                + world_from_local.translation;
-
-            RenderMeshQueueData {
+        self.get(&entity)
+            .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 render_layers: render_mesh_instance.render_layers.clone(),
-                center,
                 current_uniform_index: InputUniformIndex::default(),
-            }
-        })
+            })
     }
 
     /// Inserts the given flags into the render mesh instance data for the given
@@ -1287,7 +1280,6 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 render_layers: render_mesh_instance.render_layers.clone(),
-                center: render_mesh_instance.gpu_specific.world_space_center(),
                 current_uniform_index: InputUniformIndex(
                     render_mesh_instance.gpu_specific.current_uniform_index(),
                 ),
@@ -1453,7 +1445,7 @@ impl RenderMeshInstanceGpuBuilder {
         // `collect_meshes_for_gpu_building` will add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
+        let mesh_material_binding_id = if let Some(mesh_material) = mesh_material {
             render_material_bindings.get(&mesh_material).copied()?
         } else {
             // Use a dummy material binding ID.
@@ -1498,6 +1490,11 @@ impl RenderMeshInstanceGpuBuilder {
             None => u32::MAX,
         };
 
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&self.shared.asset_id.into())
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start)
+            .unwrap_or(0);
+
         // Create the mesh input uniform.
         let material_slot = u32::from(self.shared.material_bindings_index.slot);
         debug_assert!(
@@ -1523,18 +1520,13 @@ impl RenderMeshInstanceGpuBuilder {
             material_and_lightmap_bind_group_slot,
             tag: self.shared.tag,
             morph_descriptor_index,
+            metadata_index,
+            ..Default::default()
         };
-
-        let world_from_local = &self.world_from_local;
-        let center = world_from_local
-            .matrix3
-            .mul_vec3(self.shared.model_space_center)
-            + world_from_local.translation;
 
         Some(RenderMeshInstanceGpuPrepared {
             shared: self.shared,
             mesh_input_uniform,
-            center,
             render_layers: self.render_layers,
         })
     }
@@ -1546,8 +1538,6 @@ pub struct RenderMeshInstanceGpuPrepared {
     shared: RenderMeshInstanceSharedFlat,
     /// The data that will be uploaded to the GPU as a [`MeshInputUniform`].
     mesh_input_uniform: MeshInputUniform,
-    /// The world-space center of the mesh instance, used for culling and sorting.
-    center: Vec3,
     /// The render layers that this mesh instance belongs to.
     render_layers: Option<RenderLayers>,
 }
@@ -1589,9 +1579,6 @@ impl RenderMeshInstanceGpuPrepared {
                 self.shared.write_to_blob(&existing_instance.shared);
                 existing_instance
                     .gpu_specific
-                    .set_world_space_center(self.center);
-                existing_instance
-                    .gpu_specific
                     .set_current_uniform_index(current_uniform_index);
                 existing_instance.render_layers = self.render_layers.clone();
             }
@@ -1607,7 +1594,6 @@ impl RenderMeshInstanceGpuPrepared {
                 });
                 self.shared.write_to_blob(&new_instance.shared);
                 RenderMeshInstanceGpuFlat {
-                    world_space_center: self.center,
                     current_uniform_index,
                 }
                 .write_to_blob(&new_instance.gpu_specific);
@@ -1687,11 +1673,6 @@ pub struct RenderMeshQueueData<'a> {
     pub shared: &'a RenderMeshInstanceSharedFlatBlob,
     /// The render layers that this mesh instance belongs to.
     pub render_layers: Option<RenderLayers>,
-    /// The representative position of the mesh instance in world-space.
-    ///
-    /// This world-space center is used as a spatial proxy for view-dependent
-    /// operations such as distance computation and render-order sorting.
-    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
     /// instance.
     pub current_uniform_index: InputUniformIndex,
@@ -1812,7 +1793,6 @@ pub fn extract_meshes_for_cpu_building(
             Has<NoAutomaticBatching>,
             Option<&VisibilityRange>,
             Option<&RenderLayers>,
-            Option<&Aabb>,
         )>,
     >,
 ) {
@@ -1833,7 +1813,6 @@ pub fn extract_meshes_for_cpu_building(
             no_automatic_batching,
             visibility_range,
             render_layers,
-            aabb,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1855,9 +1834,8 @@ pub fn extract_meshes_for_cpu_building(
 
             let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
 
-            let material_bindings_index = render_material_bindings
-                .get(&mesh_material)
-                .copied()
+            let material_bindings_index = mesh_material
+                .and_then(|mesh_material| render_material_bindings.get(&mesh_material).copied())
                 .unwrap_or_default();
 
             let shared = RenderMeshInstanceSharedFlat::for_cpu_building(
@@ -1867,19 +1845,19 @@ pub fn extract_meshes_for_cpu_building(
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
-                aabb,
             );
 
             let world_from_local = transform.affine();
+            let previous_world_from_local = previous_transform
+                .map(|previous_transform| previous_transform.0)
+                .unwrap_or(world_from_local);
+
             queue.push((
                 entity,
                 RenderMeshInstanceCpu {
                     transforms: MeshTransforms {
                         world_from_local: world_from_local.into(),
-                        previous_world_from_local: (previous_transform
-                            .map(|t| t.0)
-                            .unwrap_or(world_from_local))
-                        .into(),
+                        previous_world_from_local: previous_world_from_local.into(),
                         flags: mesh_flags.bits(),
                     },
                     shared: (&shared).into(),
@@ -2175,7 +2153,6 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         no_cpu_culling,
-        aabb,
     );
 
     // Calculate the lightmap UV rect, if applicable.
@@ -2525,6 +2502,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             changed
                                 .drain(..)
@@ -2563,6 +2541,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             for (entity, mesh_instance_builder, mesh_culling_builder) in
                                 changed_cpu_culling
@@ -2623,9 +2602,6 @@ pub fn collect_meshes_for_gpu_building(
                                 // only fields that changed are POD fields.
 
                                 prepared.shared.write_to_blob(&render_mesh_instance.shared);
-                                render_mesh_instance
-                                    .gpu_specific
-                                    .set_world_space_center(prepared.center);
 
                                 let current_uniform_index =
                                     render_mesh_instance.gpu_specific.current_uniform_index();
@@ -2735,6 +2711,10 @@ pub struct MeshPipeline {
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
+
+    /// Whether mesh metadata will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub metadata_use_uniform_buffers: bool,
 }
 
 fn init_mesh_pipeline(
@@ -2763,16 +2743,16 @@ fn init_mesh_pipeline(
             &render_adapter,
         ),
         skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
+        metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
+            &render_device.limits(),
+        ),
     };
 
     commands.insert_resource(res);
 }
 
 impl MeshPipeline {
-    pub fn get_view_layout(
-        &self,
-        layout_key: MeshPipelineViewLayoutKey,
-    ) -> &MeshPipelineViewLayout {
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -2847,7 +2827,6 @@ impl GetBatchData for MeshPipeline {
     type Param = (
         SRes<RenderMeshInstances>,
         SRes<RenderLightmaps>,
-        SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
         SRes<SkinUniforms>,
         SRes<MorphIndices>,
@@ -2858,7 +2837,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
+        (mesh_instances, lightmaps, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
             Self::Param,
         >,
         (_entity, main_entity): (Entity, MainEntity),
@@ -2874,17 +2853,21 @@ impl GetBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
-        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())?;
+        let mesh_asset_id = mesh_instance.mesh_asset_id();
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&mesh_asset_id) {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_asset_id)?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
         let morph_descriptor_index = morph_indices.morph_descriptor_index(main_entity);
         let material_bind_group_index = mesh_instance.material_bindings_index();
+
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_asset_id)
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
 
         Some((
             MeshUniform::new(
@@ -2895,6 +2878,7 @@ impl GetBatchData for MeshPipeline {
                 current_skin_index,
                 morph_descriptor_index,
                 Some(mesh_instance.tag()),
+                metadata_index,
             ),
             mesh_instance.should_batch().then_some((
                 MeshBatchSetCompareData {
@@ -2912,7 +2896,7 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, mesh_allocator, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<(
         NonMaxU32,
@@ -2946,7 +2930,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
+        (mesh_instances, lightmaps, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
             Self::Param,
         >,
         main_entity: MainEntity,
@@ -2958,15 +2942,19 @@ impl GetFullBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let mesh_asset_id = mesh_instance.mesh_asset_id();
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&mesh_asset_id) {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
         let morph_descriptor_index = morph_indices.morph_descriptor_index(main_entity);
+
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_asset_id)
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
@@ -2976,11 +2964,12 @@ impl GetFullBatchData for MeshPipeline {
             current_skin_index,
             morph_descriptor_index,
             Some(mesh_instance.tag()),
+            metadata_index,
         ))
     }
 
     fn get_binned_index(
-        (mesh_instances, _, _, _, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
@@ -3037,35 +3026,35 @@ bitflags::bitflags! {
         const MORPH_TARGETS                     = BaseMeshPipelineKey::MORPH_TARGETS.bits();
 
         // Flag bits
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const DEPTH_PREPASS                     = 1 << 3;
-        const NORMAL_PREPASS                    = 1 << 4;
-        const DEFERRED_PREPASS                  = 1 << 5;
-        const MOTION_VECTOR_PREPASS             = 1 << 6;
-        const MAY_DISCARD                       = 1 << 7; // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const DEPTH_PREPASS                     = 1 << 2;
+        const NORMAL_PREPASS                    = 1 << 3;
+        const DEFERRED_PREPASS                  = 1 << 4;
+        const MOTION_VECTOR_PREPASS             = 1 << 5;
+        const MAY_DISCARD                       = 1 << 6; // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = 1 << 8;
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
-        const UNCLIPPED_DEPTH_ORTHO             = 1 << 10; // Disables depth clipping for use with directional light shadow views
+        const ENVIRONMENT_MAP                   = 1 << 7;
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 8;
+        const UNCLIPPED_DEPTH_ORTHO             = 1 << 9; // Disables depth clipping for use with directional light shadow views
                                                             // Emulated via fragment shader depth on hardware that doesn't support it natively
                                                             // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
-        const TEMPORAL_JITTER                   = 1 << 11;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
-        const LIGHTMAPPED                       = 1 << 13;
-        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 14;
-        const IRRADIANCE_VOLUME                 = 1 << 15;
-        const VISIBILITY_RANGE_DITHER           = 1 << 16;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
-        const HAS_PREVIOUS_SKIN                 = 1 << 18;
-        const HAS_PREVIOUS_MORPH                = 1 << 19;
-        const OIT_ENABLED                       = 1 << 20;
-        const DISTANCE_FOG                      = 1 << 21;
-        const ATMOSPHERE                        = 1 << 22;
-        const INVERT_CULLING                    = 1 << 23;
-        const PREPASS_READS_MATERIAL            = 1 << 24;
-        const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
+        const TEMPORAL_JITTER                   = 1 << 10;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 11;
+        const LIGHTMAPPED                       = 1 << 12;
+        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 13;
+        const IRRADIANCE_VOLUME                 = 1 << 14;
+        const VISIBILITY_RANGE_DITHER           = 1 << 15;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
+        const HAS_PREVIOUS_SKIN                 = 1 << 17;
+        const HAS_PREVIOUS_MORPH                = 1 << 18;
+        const OIT_ENABLED                       = 1 << 19;
+        const DISTANCE_FOG                      = 1 << 20;
+        const ATMOSPHERE                        = 1 << 21;
+        const INVERT_CULLING                    = 1 << 22;
+        const PREPASS_READS_MATERIAL            = 1 << 23;
+        const CONTACT_SHADOWS                   = 1 << 24;
+        const LAST_FLAG                         = Self::CONTACT_SHADOWS.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
                                                 | Self::NORMAL_PREPASS.bits()
@@ -3091,6 +3080,7 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_GAUSSIAN      = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
@@ -3105,13 +3095,16 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH   = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS
+            << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
             Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
-            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
+            Self::COLOR_TARGET_FORMAT_RESERVED_BITS.bits();
     }
 }
 
@@ -3122,7 +3115,7 @@ impl MeshPipelineKey {
     const BLEND_MASK_BITS: u64 = 0b111;
     const BLEND_SHIFT_BITS: u64 = Self::MSAA_MASK_BITS.count_ones() as u64 + Self::MSAA_SHIFT_BITS;
 
-    const TONEMAP_METHOD_MASK_BITS: u64 = 0b111;
+    const TONEMAP_METHOD_MASK_BITS: u64 = 0b1111;
     const TONEMAP_METHOD_SHIFT_BITS: u64 =
         Self::BLEND_MASK_BITS.count_ones() as u64 + Self::BLEND_SHIFT_BITS;
 
@@ -3139,18 +3132,34 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
+    const COLOR_TARGET_FORMAT_MASK_BITS: u64 = view::COLOR_TARGET_FORMAT_MASK_BITS as u64;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            MeshPipelineKey::HDR
-        } else {
-            MeshPipelineKey::NONE
-        }
+    /// Create a pipeline key from the view's color target format.
+    #[inline]
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
+            .expect("Texture format is not supported by the pipeline") as u64;
+        Self::from_bits_retain(
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+        )
+    }
+
+    /// Color target format of the main pass for this pipeline key.
+    #[inline]
+    pub fn target_format(&self) -> TextureFormat {
+        let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
+            & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
+        texture_format_from_code(code)
+            .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -3319,28 +3328,63 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+            {
+                shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_A".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_A_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
+            {
+                shader_defs.push("VERTEX_UVS_B_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+            {
+                shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
         }
 
@@ -3364,6 +3408,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
+        if cfg!(feature = "area_light_luts") {
+            shader_defs.push("AREA_LIGHT_LUTS".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![
@@ -3374,6 +3424,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
         };
+
+        if self.metadata_use_uniform_buffers {
+            shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
+        }
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
@@ -3389,12 +3443,21 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
+        if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
+            shader_defs.push("CONTACT_SHADOWS".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
+        if key.contains(MeshPipelineKey::OIT_ENABLED)
+            && matches!(
+                pass,
+                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
+            )
+        {
             label = "oit_mesh_pipeline".into();
             // TODO tail blending would need alpha blending
             blend = None;
@@ -3525,6 +3588,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL {
+                shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -3608,11 +3673,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.target_format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
@@ -3681,8 +3742,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 /// If GPU mesh preprocessing isn't in use, these are global to the scene. If
 /// GPU mesh preprocessing is in use, these are specific to a single phase.
 pub struct MeshPhaseBindGroups {
-    model_only: Option<BindGroup>,
-    skinned: Option<MeshBindGroupPair>,
+    /// Map metadata slab id to model-only bind group.
+    model_only: HashMap<MeshSlabId, BindGroup>,
+    /// Map metadata slab id to skinned bind group.
+    skinned: HashMap<MeshSlabId, MeshBindGroupPair>,
     /// Bind groups for meshes with morph targets.
     morph_targets: MeshMorphTargetBindGroups,
     lightmaps: HashMap<LightmapSlabIndex, BindGroup>,
@@ -3692,7 +3755,7 @@ pub struct MeshPhaseBindGroups {
 ///
 /// If storage buffers aren't available on this platform, we use a single bind
 /// group per mesh. If they are available, however, we use a single bind group
-/// per morph target slab ID (managed by the mesh allocator).
+/// per metadata slab ID and per morph target slab ID (managed by the mesh allocator).
 pub enum MeshMorphTargetBindGroups {
     /// Maps a mesh asset ID to the bind group for that mesh.
     ///
@@ -3701,9 +3764,9 @@ pub enum MeshMorphTargetBindGroups {
     /// single bind group per morphable mesh.
     Uniform(HashMap<AssetId<Mesh>, MeshBindGroupPair>),
 
-    /// Maps a morph target slab ID that the mesh allocator manages to the bind
+    /// Maps a metadata slab ID + morph target slab ID pair that the mesh allocator manages to the bind
     /// groups for morph displacements in that slab.
-    Storage(HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>),
+    Storage(HashMap<(MeshSlabId, MeshSlabId), MeshMorphTargetStorageBindGroups>),
 }
 
 /// The bind groups associated with a single morph displacements slab.
@@ -3755,8 +3818,8 @@ impl MeshPhaseBindGroups {
     /// explicitly.
     pub fn new(render_device: &RenderDevice) -> MeshPhaseBindGroups {
         MeshPhaseBindGroups {
-            model_only: None,
-            skinned: None,
+            model_only: HashMap::default(),
+            skinned: HashMap::default(),
             morph_targets: if skins_use_uniform_buffers(&render_device.limits()) {
                 MeshMorphTargetBindGroups::Uniform(HashMap::default())
             } else {
@@ -3767,8 +3830,8 @@ impl MeshPhaseBindGroups {
     }
 
     pub fn reset(&mut self) {
-        self.model_only = None;
-        self.skinned = None;
+        self.model_only.clear();
+        self.skinned.clear();
         self.morph_targets.clear();
         self.lightmaps.clear();
     }
@@ -3776,6 +3839,7 @@ impl MeshPhaseBindGroups {
     /// Get the appropriate `BindGroup` for `RenderMesh` with the given keys.
     pub fn get(
         &self,
+        metadata_slab_id: MeshSlabId,
         lightmap: Option<LightmapSlabIndex>,
         is_skinned: bool,
         morph: MeshMorphBindGroupKey,
@@ -3794,7 +3858,9 @@ impl MeshPhaseBindGroups {
                     None
                 }
             },
-            (_, MeshMorphBindGroupKey::Storage(slab_id), _) => match &self.morph_targets {
+            (_, MeshMorphBindGroupKey::Storage(metadata_and_morph_slab_ids), _) => match &self
+                .morph_targets
+            {
                 MeshMorphTargetBindGroups::Uniform(..) => {
                     error!(
                         "Tried to look up a mesh morph target bind group using a slab ID, but \
@@ -3803,7 +3869,7 @@ impl MeshPhaseBindGroups {
                     None
                 }
                 MeshMorphTargetBindGroups::Storage(slab_to_bind_group) => {
-                    let slab_bind_group = slab_to_bind_group.get(&slab_id)?;
+                    let slab_bind_group = slab_to_bind_group.get(&metadata_and_morph_slab_ids)?;
                     if is_skinned {
                         slab_bind_group
                             .skinned
@@ -3819,12 +3885,14 @@ impl MeshPhaseBindGroups {
             },
             (true, MeshMorphBindGroupKey::NoMorphTargets, _) => self
                 .skinned
-                .as_ref()
+                .get(&metadata_slab_id)
                 .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
             (false, MeshMorphBindGroupKey::NoMorphTargets, Some(lightmap_slab)) => {
                 self.lightmaps.get(&lightmap_slab)
             }
-            (false, MeshMorphBindGroupKey::NoMorphTargets, None) => self.model_only.as_ref(),
+            (false, MeshMorphBindGroupKey::NoMorphTargets, None) => {
+                self.model_only.get(&metadata_slab_id)
+            }
         }
     }
 }
@@ -3853,9 +3921,9 @@ pub enum MeshMorphBindGroupKey {
     /// The mesh has morph targets, and the current platform does support
     /// storage buffers.
     ///
-    /// In this case, there's a bind group per morph displacement slab (managed
+    /// In this case, there's a bind group per metadata slab and per morph target slab (managed
     /// by the mesh allocator).
-    Storage(MeshSlabId),
+    Storage((MeshSlabId, MeshSlabId)),
 }
 
 /// Creates the per-mesh bind groups for each type of mesh and each phase.
@@ -3876,6 +3944,7 @@ pub fn prepare_mesh_bind_groups(
     mesh_allocator: Res<MeshAllocator>,
     render_morph_target_allocator: Res<RenderMorphTargetAllocator>,
     mut render_lightmaps: ResMut<RenderLightmaps>,
+    metadata_fallback_buffer: Res<MeshMetadataFallbackBuffer>,
 ) {
     // CPU mesh preprocessing path.
     if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
@@ -3895,6 +3964,7 @@ pub fn prepare_mesh_bind_groups(
             &mesh_allocator,
             &render_morph_target_allocator,
             &mut render_lightmaps,
+            &metadata_fallback_buffer,
         );
 
         commands.insert_resource(MeshBindGroups::CpuPreprocessing(
@@ -3928,6 +3998,7 @@ pub fn prepare_mesh_bind_groups(
                 &mesh_allocator,
                 &render_morph_target_allocator,
                 &mut render_lightmaps,
+                &metadata_fallback_buffer,
             );
 
             gpu_preprocessing_mesh_bind_groups.insert(*phase_type_id, mesh_phase_bind_groups);
@@ -3951,31 +4022,103 @@ fn prepare_mesh_bind_groups_for_phase(
     mesh_allocator: &MeshAllocator,
     render_morph_target_allocator: &RenderMorphTargetAllocator,
     render_lightmaps: &mut RenderLightmaps,
+    metadata_fallback_buffer: &MeshMetadataFallbackBuffer,
 ) -> MeshPhaseBindGroups {
     let layouts = &mesh_pipeline.mesh_layouts;
-
     // TODO: Reuse allocations.
-    let mut groups = MeshPhaseBindGroups {
-        model_only: Some(layouts.model_only(render_device, pipeline_cache, &model)),
-        ..MeshPhaseBindGroups::new(render_device)
-    };
+    let mut groups = MeshPhaseBindGroups::new(render_device);
 
-    // Create the skinned mesh bind group with the current and previous buffers
-    // (the latter being for motion vector computation).
-    let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
-    groups.skinned = Some(MeshBindGroupPair {
-        motion_vectors: layouts.skinned_motion(
-            render_device,
-            pipeline_cache,
-            &model,
-            skin,
-            prev_skin,
-        ),
-        no_motion_vectors: layouts.skinned(render_device, pipeline_cache, &model, skin),
-    });
+    for metadata_slab_id in mesh_allocator.metadata_slabs() {
+        let metadata_buffer = mesh_allocator
+            .buffer_for_slab(metadata_slab_id)
+            .unwrap_or(&metadata_fallback_buffer.buffer);
+        groups.model_only.insert(
+            metadata_slab_id,
+            layouts.model_only(render_device, pipeline_cache, &model, metadata_buffer),
+        );
 
-    // Create the morphed bind groups just like we did for the skinned bind
-    // group.
+        // Create the skinned mesh bind group with the current and previous buffers
+        // (the latter being for motion vector computation).
+        let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
+        groups.skinned.insert(
+            metadata_slab_id,
+            MeshBindGroupPair {
+                motion_vectors: layouts.skinned_motion(
+                    render_device,
+                    pipeline_cache,
+                    &model,
+                    metadata_buffer,
+                    skin,
+                    prev_skin,
+                ),
+                no_motion_vectors: layouts.skinned(
+                    render_device,
+                    pipeline_cache,
+                    &model,
+                    metadata_buffer,
+                    skin,
+                ),
+            },
+        );
+
+        // Create the morphed bind groups with storage buffers.
+        if weights_uniform.current_buffer.buffer().is_some() {
+            match (render_morph_target_allocator, &mut groups.morph_targets) {
+                (
+                    RenderMorphTargetAllocator::Image {
+                        mesh_id_to_image: _,
+                    },
+                    &mut MeshMorphTargetBindGroups::Uniform(ref mut _morph_targets),
+                ) => {
+                    // We will create it later in `prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms`,
+                    // since the `MeshMorphTargetBindGroups::Uniform` is per-mesh instead of per-slab.
+                }
+
+                (
+                    &RenderMorphTargetAllocator::Storage,
+                    &mut MeshMorphTargetBindGroups::Storage(
+                        ref mut morph_target_storage_bind_groups,
+                    ),
+                ) => {
+                    prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
+                        &model,
+                        layouts,
+                        render_device,
+                        pipeline_cache,
+                        skins_uniform,
+                        weights_uniform,
+                        mesh_allocator,
+                        morph_target_storage_bind_groups,
+                        (metadata_slab_id, metadata_buffer),
+                    );
+                }
+
+                _ => {
+                    error!(
+                    "Mismatched render morph target allocator and mesh morph target bind groups"
+                );
+                }
+            }
+        }
+
+        // Create lightmap bindgroups. There will be one bindgroup for each slab.
+        let bindless_supported = render_lightmaps.bindless_supported;
+        for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
+            groups.lightmaps.insert(
+                LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+                layouts.lightmapped(
+                    render_device,
+                    pipeline_cache,
+                    &model,
+                    metadata_buffer,
+                    lightmap_slab,
+                    bindless_supported,
+                ),
+            );
+        }
+    }
+
+    // Create the morphed bind groups with uniforms.
     if weights_uniform.current_buffer.buffer().is_some() {
         match (render_morph_target_allocator, &mut groups.morph_targets) {
             (
@@ -3992,23 +4135,16 @@ fn prepare_mesh_bind_groups_for_phase(
                     weights_uniform,
                     mesh_id_to_image,
                     morph_targets,
+                    mesh_allocator,
+                    metadata_fallback_buffer,
                 );
             }
 
             (
                 &RenderMorphTargetAllocator::Storage,
-                &mut MeshMorphTargetBindGroups::Storage(ref mut morph_target_storage_bind_groups),
+                &mut MeshMorphTargetBindGroups::Storage(ref mut _morph_target_storage_bind_groups),
             ) => {
-                prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
-                    &model,
-                    layouts,
-                    render_device,
-                    pipeline_cache,
-                    skins_uniform,
-                    weights_uniform,
-                    mesh_allocator,
-                    morph_target_storage_bind_groups,
-                );
+                // We already filled it above in the loop.
             }
 
             _ => {
@@ -4017,21 +4153,6 @@ fn prepare_mesh_bind_groups_for_phase(
                 );
             }
         }
-    }
-
-    // Create lightmap bindgroups. There will be one bindgroup for each slab.
-    let bindless_supported = render_lightmaps.bindless_supported;
-    for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
-        groups.lightmaps.insert(
-            LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
-            layouts.lightmapped(
-                render_device,
-                pipeline_cache,
-                &model,
-                lightmap_slab,
-                bindless_supported,
-            ),
-        );
     }
 
     groups
@@ -4051,6 +4172,8 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
     weights_uniform: &MorphUniforms,
     mesh_id_to_image: &HashMap<AssetId<Mesh>, MorphTargetImage>,
     morph_targets: &mut HashMap<AssetId<Mesh>, MeshBindGroupPair>,
+    mesh_allocator: &MeshAllocator,
+    metadata_fallback_buffer: &MeshMetadataFallbackBuffer,
 ) {
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     let weights = weights_uniform
@@ -4070,6 +4193,10 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
         let Some(morph_targets_image) = mesh_id_to_image.get(&id) else {
             continue;
         };
+        let metadata_buffer = mesh_allocator
+            .mesh_metadata_slice(&id)
+            .map(|slice| slice.buffer)
+            .unwrap_or(&metadata_fallback_buffer.buffer);
         let targets = MorphTargetsResource::Texture(&morph_targets_image.texture_view);
         let bind_group_pair = if is_skinned(&gpu_mesh.layout) {
             MeshBindGroupPair {
@@ -4077,6 +4204,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     render_device,
                     pipeline_cache,
                     model,
+                    metadata_buffer,
                     skin,
                     weights,
                     targets,
@@ -4088,6 +4216,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     render_device,
                     pipeline_cache,
                     model,
+                    metadata_buffer,
                     skin,
                     weights,
                     targets,
@@ -4100,6 +4229,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     render_device,
                     pipeline_cache,
                     model,
+                    metadata_buffer,
                     weights,
                     prev_weights,
                     targets,
@@ -4109,6 +4239,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     render_device,
                     pipeline_cache,
                     model,
+                    metadata_buffer,
                     weights,
                     targets,
                     maybe_morph_descriptors,
@@ -4130,7 +4261,11 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
-    morph_target_storage_bind_groups: &mut HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>,
+    morph_target_storage_bind_groups: &mut HashMap<
+        (MeshSlabId, MeshSlabId),
+        MeshMorphTargetStorageBindGroups,
+    >,
+    (metadata_slab_id, metadata_buffer): (MeshSlabId, &Buffer),
 ) {
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     let weights = weights_uniform
@@ -4149,13 +4284,14 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
         };
         let targets = MorphTargetsResource::Storage(buffer);
         morph_target_storage_bind_groups.insert(
-            morph_target_slab_id,
+            (metadata_slab_id, morph_target_slab_id),
             MeshMorphTargetStorageBindGroups {
                 skinned: Some(MeshBindGroupPair {
                     motion_vectors: layouts.morphed_skinned_motion(
                         render_device,
                         pipeline_cache,
                         model,
+                        metadata_buffer,
                         skin,
                         weights,
                         targets,
@@ -4167,6 +4303,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
                         render_device,
                         pipeline_cache,
                         model,
+                        metadata_buffer,
                         skin,
                         weights,
                         targets,
@@ -4178,6 +4315,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
                         render_device,
                         pipeline_cache,
                         model,
+                        metadata_buffer,
                         weights,
                         prev_weights,
                         targets,
@@ -4187,6 +4325,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
                         render_device,
                         pipeline_cache,
                         model,
+                        metadata_buffer,
                         weights,
                         targets,
                         maybe_morph_descriptors,
@@ -4200,50 +4339,22 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewContactShadowsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
-        Read<MeshViewBindGroup>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
-    );
+    type ViewQuery = (Read<MeshViewBindGroup>,);
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (
-            view_uniform,
-            view_lights,
-            view_fog,
-            view_light_probes,
-            view_ssr,
-            view_contact_shadows,
-            view_environment_map,
-            mesh_view_bind_group,
-            maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, '_, Self::ViewQuery>,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform.offset,
-            view_lights.offset,
-            view_fog.offset,
-            **view_light_probes,
-            **view_ssr,
-            **view_contact_shadows,
-            **view_environment_map,
-        ];
-        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
-            offsets.push(layers_count_offset.offset);
-        }
-        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+        pass.set_bind_group(
+            I,
+            &mesh_view_bind_group.main,
+            &mesh_view_bind_group.main_offsets,
+        );
 
         RenderCommandResult::Success
     }
@@ -4299,6 +4410,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
         SRes<MeshAllocator>,
         SRes<RenderLightmaps>,
+        SRes<MeshMetadataFallbackBuffer>,
     );
     type ViewQuery = Has<MotionVectorPrepass>;
     type ItemQuery = ();
@@ -4316,6 +4428,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             morph_indices,
             mesh_allocator,
             lightmaps,
+            metadata_fallback_buffer,
         ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -4330,6 +4443,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             return RenderCommandResult::Success;
         };
 
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_asset_id);
+        let metadata_slab_id = mesh_slabs
+            .and_then(|slabs| slabs.metadata_slab_id)
+            .unwrap_or(metadata_fallback_buffer.slab_id);
         let skins_use_uniform_buffers = skins_use_uniform_buffers(&render_device.limits());
 
         let current_skin_byte_offset = skin_uniforms.skin_byte_offset(*entity);
@@ -4337,7 +4454,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Determine which morph bind group key we need, if any. If the platform
         // doesn't support storage buffers, there's a separate bind group per
         // mesh. Otherwise, if the platform does support storage buffers,
-        // there's one bind group per morph target displacement slab (managed by
+        // there's one bind group per metadata slab and per morph target slab (managed by
         // the mesh allocator).
         let (current_morph_index, prev_morph_index, morph_bind_group_key);
         match *morph_indices {
@@ -4356,15 +4473,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             MorphIndices::Storage { .. } => {
                 current_morph_index = None;
                 prev_morph_index = None;
-                morph_bind_group_key = match mesh_allocator
-                    .mesh_slabs(&mesh_asset_id)
-                    .and_then(|mesh_slabs| mesh_slabs.morph_target_slab_id)
-                {
-                    Some(morph_target_slab_id) => {
-                        MeshMorphBindGroupKey::Storage(morph_target_slab_id)
-                    }
-                    None => MeshMorphBindGroupKey::NoMorphTargets,
-                };
+                morph_bind_group_key =
+                    match mesh_slabs.and_then(|mesh_slabs| mesh_slabs.morph_target_slab_id) {
+                        Some(morph_target_slab_id) => {
+                            MeshMorphBindGroupKey::Storage((metadata_slab_id, morph_target_slab_id))
+                        }
+                        None => MeshMorphBindGroupKey::NoMorphTargets,
+                    };
             }
         };
 
@@ -4389,6 +4504,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
 
         let Some(bind_group) = mesh_phase_bind_groups.get(
+            metadata_slab_id,
             lightmap_slab_index,
             is_skinned,
             morph_bind_group_key,

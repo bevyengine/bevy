@@ -79,7 +79,7 @@ pub trait Command: Send + 'static {
         }
     }
 
-    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
+    /// Takes a [`Command`] that returns a Result and uses the fallback error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     #[inline]
     fn handle_error(self) -> impl Command<Out = ()>
@@ -88,7 +88,7 @@ pub trait Command: Send + 'static {
     {
         move |world: &mut World| {
             if let Some(error) = self.apply(world).to_err() {
-                world.default_error_handler()(
+                world.fallback_error_handler()(
                     error,
                     ErrorContext::Command {
                         name: DebugName::type_name::<Self>(),

@@ -49,7 +49,7 @@ use bevy_render::{
 };
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSet};
+use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSystems};
 
 pub mod render;
 
@@ -85,7 +85,7 @@ impl Plugin for VolumetricFogPlugin {
             .init_gpu_resource::<VolumetricFogUniformBuffer>()
             .add_systems(
                 RenderStartup,
-                init_volumetric_fog_pipeline.after(MeshPipelineSet),
+                init_volumetric_fog_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(

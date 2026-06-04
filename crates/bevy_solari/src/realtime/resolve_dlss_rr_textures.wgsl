@@ -4,20 +4,20 @@ enable wgpu_ray_query;
 #import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_render::view::View
 #import bevy_solari::gbuffer_utils::gpixel_resolve
-#import bevy_solari::realtime_bindings::{gbuffer, depth_buffer, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors}
+#import bevy_solari::realtime_bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors}
 
 @compute @workgroup_size(8, 8, 1)
 fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_id = global_id.xy;
     if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
 
-    textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
+    textureStore(specular_motion_vectors, pixel_id, textureLoad(motion_vectors, pixel_id, 0));
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
         textureStore(diffuse_albedo, pixel_id, vec4(0.0));
         textureStore(specular_albedo, pixel_id, vec4(0.5));
-        textureStore(normal_roughness, pixel_id, vec4(0.0));
+        textureStore(normal_roughness, pixel_id, vec4(0.0, 0.0, 1.0, 0.0));
         return;
     }
 

@@ -1,17 +1,17 @@
-use crate::ComputedTextBlock;
 use crate::FontCx;
+use crate::FontSource;
+use crate::TextFont;
 use bevy_asset::Asset;
 use bevy_asset::AssetId;
 use bevy_asset::Assets;
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
-use smol_str::SmolStr;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -29,49 +29,169 @@ use smol_str::SmolStr;
 pub struct Font {
     /// Content of a font file as bytes
     pub data: Blob<u8>,
-    /// Font family name.
-    /// If the font file is a collection with multiple families, the first family name from the last font is used.
-    pub family_name: SmolStr,
+    /// Alias used to identify the asset in the when referenced by handle.
+    pub alias: String,
 }
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn try_from_bytes(font_data: Vec<u8>, family_name: &str) -> Font {
+    pub fn from_bytes(font_data: Vec<u8>) -> Font {
         Self {
             data: Blob::from(font_data),
-            family_name: family_name.into(),
+            alias: String::new(),
         }
     }
 }
 
-/// Add new font assets to the internal font collection.
+/// Add new font assets to the internal font collection, and set any associated `TextFont`'s changed.
+/// If any fonts are removed, the font collection is completely rebuilt, the generic families are remapped, and all `TextFont`s are set changed.
+///
+/// Font asset changes are track locally instead of waiting for asset events. Text layout also builds the atlas images, and waiting for asset events would
+/// delay the image updates by a frame.
 pub fn load_font_assets_into_font_collection(
-    fonts: Res<Assets<Font>>,
+    mut fonts: ResMut<Assets<Font>>,
     mut loaded_fonts: Local<HashSet<AssetId<Font>>>,
     mut font_cx: ResMut<FontCx>,
-    mut text_block_query: Query<&mut ComputedTextBlock>,
+    mut text_font_query: Query<&mut TextFont>,
 ) {
-    let mut new_fonts_added = false;
+    let font_removed = loaded_fonts.iter().any(|id| !fonts.contains(*id));
+    let new_asset_ids: Vec<_> = if font_removed {
+        // If any font asset has been removed, clear the font collection and queue the remaining fonts to be reinserted into the collection.
+        font_cx.collection.clear();
+        loaded_fonts.clear();
+        loaded_fonts.extend(fonts.ids());
+        loaded_fonts.iter().copied().collect()
+    } else {
+        fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect()
+    };
 
-    loaded_fonts.retain(|id| fonts.contains(*id));
-
-    for (id, font) in fonts.iter() {
-        if loaded_fonts.insert(id) {
-            font_cx.0.collection.register_fonts(
-                font.data.clone(),
-                Some(FontInfoOverride {
-                    family_name: Some(font.family_name.as_str()),
-                    ..Default::default()
-                }),
-            );
-            new_fonts_added = true;
-        }
+    if new_asset_ids.is_empty() && !font_removed {
+        return;
     }
 
-    // Whenever new fonts are added, update all text blocks so they use the new fonts.
-    if new_fonts_added {
-        for mut block in text_block_query.iter_mut() {
-            block.needs_rerender = true;
+    let mut new_family_ids = Vec::new();
+    for asset_id in &new_asset_ids {
+        let font = fonts
+            .get_mut_untracked(*asset_id)
+            .expect("Each AssetId should have a corresponding asset");
+
+        font.alias = format!("asset_id:{asset_id:?}");
+
+        // Each font is registered twice in Parley's FontContext collection, once under its embedded family name,
+        // and once under an alias generated from the asset id.
+        // This to allow look ups by the embedded family name while also ensuring that font asset handles
+        // accurately resolve to the correct font asset.
+        new_family_ids.extend(
+            font_cx
+                .collection
+                .register_fonts(font.data.clone(), None)
+                .iter()
+                .map(|(family_id, _)| *family_id),
+        );
+
+        font_cx.collection.register_fonts(
+            font.data.clone(),
+            Some(FontInfoOverride {
+                family_name: Some(font.alias.as_str()),
+                ..Default::default()
+            }),
+        );
+    }
+
+    if font_removed {
+        font_cx.restore_generic_families();
+    }
+
+    for mut text_font in text_font_query.iter_mut() {
+        if font_removed
+            || match &text_font.font {
+                FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                FontSource::Family(name) => font_cx
+                    .collection
+                    .family_id(name)
+                    .is_some_and(|id| new_family_ids.contains(&id)),
+                generic_source => {
+                    let generic_family = match generic_source {
+                        FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
+                        FontSource::Serif => parley::GenericFamily::Serif,
+                        FontSource::SansSerif => parley::GenericFamily::SansSerif,
+                        FontSource::Cursive => parley::GenericFamily::Cursive,
+                        FontSource::Fantasy => parley::GenericFamily::Fantasy,
+                        FontSource::Monospace => parley::GenericFamily::Monospace,
+                        FontSource::SystemUi => parley::GenericFamily::SystemUi,
+                        FontSource::UiSerif => parley::GenericFamily::UiSerif,
+                        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif,
+                        FontSource::UiMonospace => parley::GenericFamily::UiMonospace,
+                        FontSource::UiRounded => parley::GenericFamily::UiRounded,
+                        FontSource::Emoji => parley::GenericFamily::Emoji,
+                        FontSource::Math => parley::GenericFamily::Math,
+                        FontSource::FangSong => parley::GenericFamily::FangSong,
+                    };
+                    font_cx
+                        .collection
+                        .generic_families(generic_family)
+                        .any(|id| new_family_ids.contains(&id))
+                }
+            }
+        {
+            text_font.set_changed();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, Update};
+    use bevy_asset::Assets;
+
+    use super::*;
+
+    #[test]
+    fn font_asset_registration_and_cleanup() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<FontCx>()
+            .add_systems(Update, load_font_assets_into_font_collection);
+
+        let font_handle = app
+            .world_mut()
+            .resource_mut::<Assets<Font>>()
+            .add(Font::from_bytes(
+                include_bytes!("FiraMono-subset.ttf").to_vec(),
+            ));
+
+        app.update();
+        let world = app.world_mut();
+
+        let font_alias = world
+            .resource::<Assets<Font>>()
+            .get(&font_handle)
+            .expect("The font asset was just added above.")
+            .alias
+            .clone();
+        assert_eq!(font_alias, format!("asset_id:{:?}", font_handle.id()));
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id("Fira Mono")
+            .is_some());
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id(&font_alias)
+            .is_some());
+
+        world
+            .resource_mut::<Assets<Font>>()
+            .remove(font_handle.id());
+
+        app.update();
+        let world = app.world_mut();
+
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id(&font_alias)
+            .is_none());
     }
 }

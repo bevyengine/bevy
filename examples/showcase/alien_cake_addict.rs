@@ -64,7 +64,7 @@ struct Bonus {
     entity: Option<Entity>,
     i: usize,
     j: usize,
-    handle: Handle<Scene>,
+    handle: Handle<WorldAsset>,
 }
 
 #[derive(Resource, Default)]
@@ -142,7 +142,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     commands.spawn((
                         DespawnOnExit(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                        SceneRoot(cell_scene.clone()),
+                        WorldAssetRoot(cell_scene.clone()),
                     ));
                     Cell { height }
                 })
@@ -164,7 +164,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     rotation: Quat::from_rotation_y(-PI / 2.),
                     ..default()
                 },
-                SceneRoot(
+                WorldAssetRoot(
                     asset_server
                         .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
                 ),
@@ -347,7 +347,7 @@ fn spawn_bonus(
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
                     game.bonus.j as f32,
                 ),
-                SceneRoot(game.bonus.handle.clone()),
+                WorldAssetRoot(game.bonus.handle.clone()),
                 children![(
                     PointLight {
                         color: Color::srgb(1.0, 1.0, 0.0),

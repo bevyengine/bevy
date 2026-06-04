@@ -3,7 +3,7 @@
 #import bevy_pbr::mesh_types::Mesh
 #import bevy_render::view::View
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
-#import bevy_pbr::utils::octahedral_decode_signed
+#import bevy_render::utils::octahedral_decode_signed
 
 struct BvhNode {
     aabbs: array<MeshletAabbErrorOffset, 8>,

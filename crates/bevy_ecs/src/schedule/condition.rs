@@ -819,6 +819,60 @@ pub mod common_conditions {
         }
     }
 
+    /// Generates a [`SystemCondition`]-satisfying closure that returns `true`
+    /// if the resource exists and satisfies a closure.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, PartialEq)]
+    /// # struct Counter(i16);
+    /// # #[derive(Resource)]
+    /// # struct ShouldRun(String);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// app.add_systems(
+    ///     // `resource_exists_and` will only return true
+    ///     // if the given resource exists and satisfies the given condition
+    ///     increment.run_if(resource_exists_and(|should_run: &ShouldRun| should_run.0.is_ascii())),
+    /// );
+    ///
+    /// fn increment(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// world.insert_resource(Counter(0));
+    ///
+    /// // `ShouldRun` hasn't been added, so `increment` can't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// world.insert_resource(ShouldRun(String::from("bevy")));
+    ///
+    /// // `ShouldRun` exists and satisfies the run conditions, so `increment` can run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// world.get_resource_mut::<ShouldRun>().unwrap().0 = String::from("bevy ❤");
+    ///
+    /// // `ShouldRun` exists but has non-ASCII characters and thus
+    /// // does not satisfy the run conditions, so `increment` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    pub fn resource_exists_and<T>(
+        condition: impl Fn(&T) -> bool,
+    ) -> impl FnMut(Option<Res<T>>) -> bool
+    where
+        T: Resource,
+    {
+        move |res: Option<Res<T>>| match res {
+            Some(res) => condition(&res),
+            None => false,
+        }
+    }
+
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
@@ -1634,7 +1688,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
+    use crate::error::{BevyError, ErrorContext, FallbackErrorHandler};
     use crate::{
         change_detection::{Res, ResMut},
         component::Component,
@@ -2031,7 +2085,7 @@ mod tests {
     #[test]
     fn run_if_error_contains_system() {
         let mut world = World::new();
-        world.insert_resource(DefaultErrorHandler(my_error_handler));
+        world.insert_resource(FallbackErrorHandler(my_error_handler));
 
         #[derive(Resource)]
         struct MyResource;

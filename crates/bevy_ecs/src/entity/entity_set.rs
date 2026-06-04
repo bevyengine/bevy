@@ -10,7 +10,7 @@ use core::{
     fmt::{Debug, Formatter},
     hash::{BuildHasher, Hash},
     iter::{self, FusedIterator},
-    option, result,
+    option, ptr, result,
 };
 
 use super::{Entity, UniqueEntityEquivalentSlice};
@@ -58,7 +58,7 @@ pub trait ContainsEntity {
 /// To obtain hash values forming the same total order as [`Entity`], any [`Hasher`] used must be
 /// deterministic and concerning [`Entity`], collisionless.
 /// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account for
-/// determinism when [`BuildHasher`] is unspecified,.
+/// determinism when [`BuildHasher`] is unspecified.
 ///
 /// [`Hash`]: core::hash::Hash
 /// [`Hasher`]: core::hash::Hasher
@@ -143,12 +143,12 @@ unsafe impl<T: EntityEquivalent> EntityEquivalent for Arc<T> {}
 /// As a consequence, [`into_iter()`] on `EntitySet` will always produce another `EntitySet`.
 ///
 /// Implementing this trait allows for unique query iteration over a list of entities.
-/// See [`iter_many_unique`] and [`iter_many_unique_mut`]
+/// See [`iter_many_unique`] and [`iter_many_unique_mut`].
 ///
 /// Note that there is no guarantee of the [`IntoIterator`] impl being deterministic,
 /// it might return different iterators when called multiple times.
 /// Neither is there a guarantee that the comparison trait impls of `EntitySet` match that
-/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements)
+/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements).
 ///
 /// [`Self::IntoIter`]: IntoIterator::IntoIter
 /// [`into_iter()`]: IntoIterator::into_iter
@@ -342,9 +342,10 @@ pub trait FromEntitySetIterator<A: EntityEquivalent>: FromIterator<A> {
 impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator<T>
     for HashSet<T, S>
 {
+    #[inline]
     fn from_entity_set_iter<I: EntitySet<Item = T>>(set_iter: I) -> Self {
         let iter = set_iter.into_iter();
-        let set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
+        let set = HashSet::with_capacity_and_hasher(iter.size_hint().0, S::default());
         iter.fold(set, |mut set, e| {
             // SAFETY: Every element in self is unique.
             unsafe {
@@ -358,14 +359,17 @@ impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator
 /// An iterator that yields unique entities.
 ///
 /// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is known to uphold uniqueness.
+#[repr(transparent)]
 pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
     iter: I,
 }
 
 impl<I: EntitySetIterator> UniqueEntityIter<I> {
     /// Constructs a `UniqueEntityIter` from an [`EntitySetIterator`].
-    pub fn from_entity_set_iterator<S>(iter: I) -> Self {
-        Self { iter }
+    #[inline]
+    pub const fn from_entity_set_iter(iter: I) -> Self {
+        // SAFETY: iter implements `EntitySetIterator`.
+        unsafe { Self::from_iter_unchecked(iter) }
     }
 }
 
@@ -375,8 +379,31 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// # Safety
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
-    pub unsafe fn from_iterator_unchecked(iter: I) -> Self {
+    #[inline]
+    pub const unsafe fn from_iter_unchecked(iter: I) -> Self {
         Self { iter }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    #[inline]
+    pub const unsafe fn from_iter_ref_unchecked(iter: &I) -> &Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &*ptr::from_ref(iter).cast() }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    #[inline]
+    pub const unsafe fn from_iter_mut_unchecked(iter: &mut I) -> &mut Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &mut *ptr::from_mut(iter).cast() }
     }
 
     /// Returns the inner `I`.
@@ -385,7 +412,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     }
 
     /// Returns a reference to the inner `I`.
-    pub fn as_inner(&self) -> &I {
+    pub const fn as_inner(&self) -> &I {
         &self.iter
     }
 
@@ -395,7 +422,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     ///
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
-    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+    pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
 }
@@ -415,6 +442,7 @@ impl<I: Iterator<Item: EntityEquivalent>> Iterator for UniqueEntityIter<I> {
 impl<I: ExactSizeIterator<Item: EntityEquivalent>> ExactSizeIterator for UniqueEntityIter<I> {}
 
 impl<I: DoubleEndedIterator<Item: EntityEquivalent>> DoubleEndedIterator for UniqueEntityIter<I> {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()
     }
@@ -506,7 +534,7 @@ mod tests {
 
         // SAFETY: SpawnBatchIter is `EntitySetIterator`,
         let mut unique_entity_iter =
-            unsafe { UniqueEntityIter::from_iterator_unchecked(spawn_batch.iter()) };
+            unsafe { UniqueEntityIter::from_iter_unchecked(spawn_batch.iter()) };
 
         let entity_set = unique_entity_iter
             .by_ref()

@@ -77,7 +77,10 @@ impl App {
         })
     }
 
-    pub fn run<B: Backend>(mut self, terminal: &mut Terminal<B>) -> Result<()> {
+    pub fn run<B: Backend>(mut self, terminal: &mut Terminal<B>) -> Result<()>
+    where
+        B::Error: 'static + Send + Sync,
+    {
         while !self.exit {
             terminal
                 .draw(|frame| self.render(frame))

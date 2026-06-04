@@ -6,17 +6,21 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::Without,
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{ParamSet, Query},
 };
 use bevy_math::{Affine2, Rect, Vec2};
+use bevy_reflect::Reflect;
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
-    UiTransform, Val2,
+    ui_layout_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
+    UiGlobalTransform, UiSystems, UiTransform, Val2,
 };
 
+use crate::update_scrollbar_thumb;
+
 /// Which side of the parent element the popover element should be placed.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 pub enum PopoverSide {
     /// The popover element should be placed above the parent.
     Top,
@@ -45,7 +49,7 @@ impl PopoverSide {
 /// axis that is perpendicular to the direction of the popover side. So for example, if the popup is
 /// positioned below the parent, then the [`PopoverAlign`] variant controls the horizontal alignment
 /// of the popup.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 pub enum PopoverAlign {
     /// The starting edge of the popover element should be aligned to the starting edge of the
     /// parent.
@@ -62,7 +66,7 @@ pub enum PopoverAlign {
 /// sufficient space to display the popup without being clipped by the window edge. If any position
 /// has sufficient room, it will pick the first one; if there are none, then it will pick the least
 /// bad one.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 pub struct PopoverPlacement {
     /// The side of the parent entity where the popover element should be placed.
     pub side: PopoverSide,
@@ -77,7 +81,8 @@ pub struct PopoverPlacement {
 
 /// Component which is inserted into a popover element to make it dynamically position relative to
 /// an parent element.
-#[derive(Component, PartialEq, Default)]
+#[derive(Component, PartialEq, Default, Reflect)]
+#[reflect(Component)]
 pub struct Popover {
     /// List of potential positions for the popover element relative to the parent.
     pub positions: Vec<PopoverPlacement>,
@@ -95,7 +100,7 @@ impl Clone for Popover {
     }
 }
 
-fn position_popover(
+pub(crate) fn position_popover(
     mut q_popover: Query<(
         Entity,
         &mut Node,
@@ -305,7 +310,13 @@ pub struct PopoverPlugin;
 
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, position_popover.in_set(UiSystems::PostLayout));
+        app.add_systems(
+            PostUpdate,
+            position_popover
+                .in_set(UiSystems::Layout)
+                .after(ui_layout_system)
+                .before(update_scrollbar_thumb),
+        );
     }
 }
 

@@ -253,7 +253,7 @@ fn spawn_light_textures(
         Transform::from_translation(Vec3::new(0.0, 1.8, 0.01)).with_scale(Vec3::splat(0.1)),
         Selection::PointLight,
         children![
-            SceneRoot(
+            WorldAssetRoot(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
             ),
             (

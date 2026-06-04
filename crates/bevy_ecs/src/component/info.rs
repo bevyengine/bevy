@@ -220,6 +220,8 @@ pub struct ComponentDescriptor {
     // actually Send + Sync
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
+    // SAFETY: This must always have `size()` that is a multiple of `align()`.
+    // `BlobArray` relies on that to calculate byte offsets as a multiple of `size()`.
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
@@ -264,6 +266,7 @@ impl ComponentDescriptor {
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
@@ -273,6 +276,10 @@ impl ComponentDescriptor {
     }
 
     /// Create a new `ComponentDescriptor`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `layout` does not have a `size()` that is a multiple of its `alignment()`.
     ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
@@ -287,6 +294,11 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
         relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
+        assert_eq!(
+            layout.pad_to_align(),
+            layout,
+            "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
+        );
         Self {
             name: name.into().into(),
             storage_type,
@@ -314,6 +326,7 @@ impl ComponentDescriptor {
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,

@@ -6,7 +6,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, uniform_hemisphere_inverse_pdf, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::brdf::evaluate_diffuse_brdf
+#import bevy_solari::brdf::{evaluate_diffuse_brdf, F_AB}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic, isnan}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
@@ -72,7 +72,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 #endif
 
-    combined_reservoir.unbiased_contribution_weight *= trace_point_visibility(surface.world_position, combined_reservoir.sample_point_world_position);
+    combined_reservoir.unbiased_contribution_weight *= trace_point_visibility(surface.world_position + (surface.world_normal * RAY_T_MIN), combined_reservoir.sample_point_world_position);
 
     // More stability, less accuracy (shadows extend further out than they should)
 #ifdef BIASED_RESAMPLING
@@ -80,7 +80,9 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 
     let wo = normalize(view.world_position - surface.world_position);
-    let brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
+    let NdotV = max(dot(surface.world_normal, wo), 0.0001);
+    let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
+    let brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material, F_ab);
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure * brdf, 0.0);
@@ -91,7 +93,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     var reservoir = empty_reservoir();
 
     let ray_direction = sample_uniform_hemisphere(world_normal, rng);
-    let ray = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+    let ray = trace_ray(world_position + (world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
 
     if ray.kind == RAY_QUERY_INTERSECTION_NONE {
         return reservoir;
@@ -99,7 +101,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 
     let sample_point = resolve_ray_hit_full(ray);
 
-    if all(sample_point.material.emissive != vec3(0.0)) {
+    if any(sample_point.material.emissive != vec3(0.0)) {
         return reservoir;
     }
 
@@ -125,20 +127,18 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
+    var point_temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
 
-    // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
-    // or if all temporal history should assumed to be invalid
-    if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.main_pass_viewport.zw) || bool(constants.reset) {
+    if bool(constants.reset) {
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    let permuted_temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.main_pass_viewport.zw);
-    var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
-
-    // If permuted reprojection failed (tends to happen on object edges), try point reprojection
-    if all(temporal.reservoir.radiance == vec3(0.0)) {
-        temporal = load_temporal_reservoir_inner(vec2<u32>(temporal_pixel_id_float), depth, world_position, world_normal);
+    if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.main_pass_viewport.zw) {
+        point_temporal_pixel_id = pixel_id;
     }
+
+    let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id, constants.frame_index, view.main_pass_viewport.zw);
+    var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
 
     temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
 
@@ -161,15 +161,13 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
-    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, SPATIAL_REUSE_RADIUS_PIXELS, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
-            search_radius /= 2.0;
             continue;
         }
 
@@ -245,12 +243,14 @@ fn merge_reservoirs(
     // Radiances for resampling
     let canonical_sample_wi = normalize(canonical_reservoir.sample_point_world_position - canonical_world_position);
     let other_sample_wi = normalize(other_reservoir.sample_point_world_position - canonical_world_position);
-    let canonical_sample_radiance = canonical_reservoir.radiance * saturate(dot(canonical_sample_wi, canonical_world_normal));
-    let other_sample_radiance = other_reservoir.radiance * saturate(dot(other_sample_wi, canonical_world_normal));
 
     // Target functions for resampling and MIS
-    let canonical_target_function_canonical_sample = luminance(canonical_sample_radiance * canonical_diffuse_brdf);
-    let canonical_target_function_other_sample = luminance(other_sample_radiance * canonical_diffuse_brdf);
+    let canonical_target_function_canonical_sample = luminance(
+        canonical_reservoir.radiance * saturate(dot(canonical_sample_wi, canonical_world_normal)) * canonical_diffuse_brdf
+    );
+    let canonical_target_function_other_sample = luminance(
+        other_reservoir.radiance * saturate(dot(other_sample_wi, canonical_world_normal)) * canonical_diffuse_brdf
+    );
 
     // Extra target functions for MIS
     let other_target_function_canonical_sample = luminance(
@@ -275,8 +275,8 @@ fn merge_reservoirs(
     );
 
     // Don't merge samples with huge jacobians, as it explodes the variance
-    if canonical_target_function_other_sample_jacobian > 1.2 {
-        return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance, canonical_sample_wi);
+    if canonical_target_function_other_sample_jacobian > 1.2 || other_target_function_canonical_sample_jacobian > 1.2 {
+        return ReservoirMergeResult(canonical_reservoir, canonical_reservoir.radiance, canonical_sample_wi);
     }
 
     // Resampling weight for canonical sample
@@ -306,7 +306,7 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function_other_sample, canonical_target_function_other_sample > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, other_sample_radiance, other_sample_wi);
+        return ReservoirMergeResult(combined_reservoir, other_reservoir.radiance, other_sample_wi);
     } else {
         combined_reservoir.sample_point_world_position = canonical_reservoir.sample_point_world_position;
         combined_reservoir.sample_point_world_normal = canonical_reservoir.sample_point_world_normal;
@@ -315,6 +315,6 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function_canonical_sample, canonical_target_function_canonical_sample > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance, canonical_sample_wi);
+        return ReservoirMergeResult(combined_reservoir, canonical_reservoir.radiance, canonical_sample_wi);
     }
 }

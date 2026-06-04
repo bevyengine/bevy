@@ -1,4 +1,6 @@
-use bevy_app::Plugin;
+use core::marker::PhantomData;
+
+use bevy_app::{AppLabel, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -189,7 +191,9 @@ pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct TemporaryRenderEntity;
+pub struct TemporaryEntity<L: AppLabel + Clone + Eq + Copy + Default>(PhantomData<L>);
+
+pub type TemporaryRenderEntity = TemporaryEntity<crate::RenderApp>;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
 #[derive(Debug)]
@@ -248,9 +252,9 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-pub(crate) fn despawn_temporary_render_entities(
+pub(crate) fn despawn_temporary_entities<L: AppLabel + Copy + Default + Eq>(
     world: &mut World,
-    state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
+    state: &mut SystemState<Query<Entity, With<TemporaryEntity<L>>>>,
     mut local: Local<Vec<Entity>>,
 ) {
     let query = state.get(world).unwrap();

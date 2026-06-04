@@ -212,10 +212,14 @@ where
                 match topology {
                     PrimitiveTopology::TriangleList => match indices {
                         Indices::U16(indices) => {
-                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
+                            for [a, b, _] in indices.as_chunks_mut().0 {
+                                core::mem::swap(a, b);
+                            }
                         }
                         Indices::U32(indices) => {
-                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
+                            for [a, b, _] in indices.as_chunks_mut().0 {
+                                core::mem::swap(a, b);
+                            }
                         }
                     },
                     _ => {

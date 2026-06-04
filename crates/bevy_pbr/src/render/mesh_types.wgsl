@@ -24,6 +24,8 @@ struct Mesh {
     // User supplied index to identify the mesh instance
     tag: u32,
     morph_descriptor_index: u32,
+    /// The index of the mesh metadata buffer.
+    metadata_index: u32,
 };
 
 #ifdef SKINNED

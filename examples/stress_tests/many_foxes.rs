@@ -6,12 +6,14 @@ use std::{f32::consts::PI, time::Duration};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    gltf::GltfPlugin,
     light::CascadeShadowConfigBuilder,
+    mesh::MeshAttributeCompressionFlags,
     post_process::motion_blur::MotionBlur,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 #[derive(FromArgs, Resource)]
@@ -28,6 +30,10 @@ struct Args {
     /// enable motion blur.
     #[argh(switch)]
     motion_blur: bool,
+
+    /// whether to enable vertex compression.
+    #[argh(switch)]
+    vertex_compression: bool,
 }
 
 #[derive(Resource)]
@@ -47,15 +53,26 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
+                        present_mode: PresentMode::AutoNoVsync,
+                        resolution: WindowResolution::new(1920, 1080)
+                            .with_scale_factor_override(1.0),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(GltfPlugin {
+                    mesh_attribute_compression: if args.vertex_compression {
+                        MeshAttributeCompressionFlags::all()
+                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                    } else {
+                        MeshAttributeCompressionFlags::empty()
+                    },
                     ..default()
                 }),
-                ..default()
-            }),
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
@@ -179,7 +196,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder
                     .spawn((
-                        SceneRoot(fox_handle.clone()),
+                        WorldAssetRoot(fox_handle.clone()),
                         Transform::from_xyz(x, 0.0, z)
                             .with_scale(Vec3::splat(0.01))
                             .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
@@ -249,7 +266,7 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,

@@ -48,6 +48,7 @@ fn main() {
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
+    .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -88,6 +89,7 @@ enum Scene {
     ViewportCoords,
     OuterColor,
     BoxedContent,
+    EditableText,
 }
 
 impl std::str::FromStr for Scene {
@@ -127,7 +129,8 @@ impl Next for Scene {
             Scene::Transformations => Scene::ViewportCoords,
             Scene::ViewportCoords => Scene::OuterColor,
             Scene::OuterColor => Scene::BoxedContent,
-            Scene::BoxedContent => Scene::Image,
+            Scene::BoxedContent => Scene::EditableText,
+            Scene::EditableText => Scene::Image,
         }
     }
 }
@@ -144,14 +147,59 @@ fn switch_scene(
 }
 
 mod image {
+    use bevy::color::palettes::css::DARK_GREY;
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Image)));
-        commands.spawn((
-            ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            DespawnOnExit(super::Scene::Image),
-        ));
+        commands
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceAround,
+                align_items: AlignItems::Stretch,
+                ..default()
+            })
+            .with_children(|parent| {
+                for [b, p] in [[0, 0], [10, 0], [0, 10], [10, 10]] {
+                    for image_path in ["branding/icon.png", "branding/bevy_logo_dark.png"] {
+                        parent
+                            .spawn(Node {
+                                justify_content: JustifyContent::SpaceAround,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                for visual_box in [
+                                    VisualBox::BorderBox,
+                                    VisualBox::PaddingBox,
+                                    VisualBox::ContentBox,
+                                ] {
+                                    parent.spawn((
+                                        ImageNode {
+                                            image: asset_server.load(image_path),
+                                            visual_box,
+                                            ..default()
+                                        },
+                                        Node {
+                                            border: px(b).all(),
+                                            padding: px(p).all(),
+                                            width: px(100.),
+                                            ..default()
+                                        },
+                                        DespawnOnExit(super::Scene::Image),
+                                        Outline {
+                                            color: DARK_GREY.into(),
+                                            width: px(2.),
+                                            ..default()
+                                        },
+                                    ));
+                                }
+                            });
+                    }
+                }
+            });
     }
 }
 
@@ -502,7 +550,7 @@ mod text {
                         hinting,
                         Text::new("FontWeight(100)_"),
                         TextFont {
-                            font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                            font: "Mona Sans".into(),
                             font_size: FontSize::Px(25.),
                             weight: FontWeight(100),
                             ..default()
@@ -511,9 +559,7 @@ mod text {
                             (
                                 TextSpan::new("FontWeight(500)_"),
                                 TextFont {
-                                    font: asset_server
-                                        .load("fonts/MonaSans-VariableFont.ttf")
-                                        .into(),
+                                    font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
                                     weight: FontWeight(500),
                                     ..default()
@@ -522,9 +568,7 @@ mod text {
                             (
                                 TextSpan::new("FontWeight(900)"),
                                 TextFont {
-                                    font: asset_server
-                                        .load("fonts/MonaSans-VariableFont.ttf")
-                                        .into(),
+                                    font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
                                     weight: FontWeight(900),
                                     ..default()
@@ -994,48 +1038,77 @@ mod slice {
                 Node {
                     width: percent(100),
                     height: percent(100),
-                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::SpaceAround,
+                    align_content: AlignContent::Center,
                     ..default()
                 },
                 DespawnOnExit(super::Scene::Slice),
             ))
             .with_children(|parent| {
-                for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
-                    parent.spawn((
-                        Button,
-                        ImageNode {
-                            image: image.clone(),
-                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                for visual_box in [
+                    VisualBox::BorderBox,
+                    VisualBox::PaddingBox,
+                    VisualBox::ContentBox,
+                ] {
+                    parent
+                        .spawn(Node {
+                            justify_content: JustifyContent::SpaceAround,
                             ..default()
-                        },
-                        Node {
-                            width: px(w),
-                            height: px(h),
-                            ..default()
-                        },
-                    ));
-                }
+                        })
+                        .with_children(|parent| {
+                            for [w, h] in [[200.0, 200.0], [300.0, 200.0], [150., 200.0]] {
+                                parent.spawn((
+                                    Button,
+                                    ImageNode {
+                                        image: image.clone(),
+                                        image_mode: NodeImageMode::Sliced(slicer.clone()),
+                                        visual_box,
+                                        ..default()
+                                    },
+                                    Node {
+                                        width: px(w),
+                                        height: px(h),
+                                        border: px(20.).all(),
+                                        padding: px(20.).all(),
+                                        ..default()
+                                    },
+                                    Outline {
+                                        width: px(2.),
+                                        ..default()
+                                    },
+                                ));
+                            }
 
-                parent.spawn((
-                    ImageNode {
-                        image: asset_server
-                            .load("textures/fantasy_ui_borders/panel-border-010.png"),
-                        image_mode: NodeImageMode::Sliced(TextureSlicer {
-                            border: BorderRect::all(22.0),
-                            center_scale_mode: SliceScaleMode::Stretch,
-                            sides_scale_mode: SliceScaleMode::Stretch,
-                            max_corner_scale: 1.0,
-                        }),
-                        ..Default::default()
-                    },
-                    Node {
-                        width: px(100),
-                        height: px(100),
-                        ..default()
-                    },
-                    BackgroundColor(bevy::color::palettes::css::NAVY.into()),
-                ));
+                            parent.spawn((
+                                ImageNode {
+                                    image: asset_server
+                                        .load("textures/fantasy_ui_borders/panel-border-010.png"),
+                                    image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                        border: BorderRect::all(22.0),
+                                        center_scale_mode: SliceScaleMode::Stretch,
+                                        sides_scale_mode: SliceScaleMode::Stretch,
+                                        max_corner_scale: 1.0,
+                                    }),
+                                    visual_box,
+                                    ..Default::default()
+                                },
+                                Node {
+                                    width: px(200),
+                                    height: px(200),
+                                    border: px(20.).all(),
+                                    padding: px(20.).all(),
+                                    ..default()
+                                },
+                                Outline {
+                                    color: bevy::color::palettes::css::DARK_CYAN.into(),
+                                    width: px(2.),
+                                    ..default()
+                                },
+                                BackgroundColor(bevy::color::palettes::css::NAVY.into()),
+                            ));
+                        });
+                }
             });
     }
 }
@@ -1808,14 +1881,14 @@ mod boxed_content {
                                 Node::default(),
                                 Text::new(format!("{heading} justify")),
                                 TextFont::from_font_size(FontSize::Px(14.)),
-                                TextLayout::new_with_justify(Justify::Center),
+                                TextLayout::justify(Justify::Center),
                             ));
 
                             builder.spawn((
                                 Node::default(),
                                 Text::new("This text has\nno border or padding."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 Outline {
                                     width: px(2),
                                     color: Color::WHITE,
@@ -1830,7 +1903,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\na border but no padding."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1846,7 +1919,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\npadding but no border."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 Outline {
                                     width: px(2),
                                     color: Color::WHITE,
@@ -1862,7 +1935,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\nborder and padding."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1878,7 +1951,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\na left border and no padding."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1894,7 +1967,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\na right border and no padding."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1910,7 +1983,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\npadding on its top and right."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1926,7 +1999,7 @@ mod boxed_content {
                                 },
                                 Text::new("This text has\npadding on its bottom and left."),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1945,7 +2018,7 @@ mod boxed_content {
                                     "This text has\npadding on its top and left\nand a border on its bottom and right.",
                                 ),
                                 TextFont::from_font_size(FontSize::Px(10.)),
-                                TextLayout::new_with_justify(text_justify),
+                                TextLayout::justify(text_justify),
                                 BorderColor::all(RED),
                                 Outline {
                                     width: px(2),
@@ -1956,5 +2029,83 @@ mod boxed_content {
                         });
                 }
             });
+    }
+}
+
+mod editable_text {
+    use bevy::color::palettes::css::YELLOW;
+    use bevy::prelude::*;
+    use bevy::text::EditableText;
+    use bevy::text::TextEdit;
+    use bevy::ui::widget::TextScroll;
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::EditableText)));
+        commands.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                width: vw(100),
+                height: vh(100),
+                row_gap: px(25.),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::EditableText),
+            children![
+                (
+                    EditableText {
+                        pending_edits: vec![TextEdit::Insert("Single line EditableText".into())],
+                        ..default()
+                    },
+                    Node {
+                        width: px(200.),
+                        border: px(2).all(),
+                        ..default()
+                    },
+                    BorderColor::all(YELLOW),
+                ),
+                (
+                    EditableText {
+                        pending_edits: vec![
+                            TextEdit::Insert(
+                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
+                                    .into()
+                            ),
+                            TextEdit::TextStart(false),
+                        ],
+                        visible_lines: Some(8.),
+                        ..default()
+                    },
+                    TextScroll::default(),
+                    Node {
+                        width: px(350.),
+                        border: px(2).all(),
+                        ..default()
+                    },
+                    BorderColor::all(YELLOW),
+                ),
+                (
+                    EditableText {
+                        pending_edits: vec![
+                            TextEdit::Insert(
+                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
+                                    .into()
+                            ),
+                            TextEdit::TextEnd(true),
+                        ],
+                        visible_lines: Some(8.),
+                        ..default()
+                    },
+                    TextScroll::default(),
+                    Node {
+                        width: px(350.),
+                        border: px(2).all(),
+                        ..default()
+                    },
+                    BorderColor::all(YELLOW),
+                ),
+            ],
+        ));
     }
 }

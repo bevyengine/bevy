@@ -89,7 +89,7 @@ enum ExampleModel {
 #[derive(Resource)]
 struct ExampleAssets {
     // The glTF scene containing the colored floor.
-    main_scene: Handle<Scene>,
+    main_scene: Handle<WorldAsset>,
 
     // The 3D texture containing the irradiance volume.
     irradiance_volume: Handle<Image>,
@@ -101,7 +101,7 @@ struct ExampleAssets {
     main_sphere_material: Handle<StandardMaterial>,
 
     // The glTF scene containing the animated fox.
-    fox: Handle<Scene>,
+    fox: Handle<WorldAsset>,
 
     // The graph containing the animation that the fox will play.
     fox_animation_graph: Handle<AnimationGraph>,
@@ -228,7 +228,7 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
 }
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
-    commands.spawn(SceneRoot(assets.main_scene.clone()));
+    commands.spawn(WorldAssetRoot(assets.main_scene.clone()));
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
@@ -236,7 +236,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         Camera3d::default(),
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
         Skybox {
-            image: assets.skybox.clone(),
+            image: Some(assets.skybox.clone()),
             brightness: 150.0,
             ..default()
         },
@@ -281,7 +281,7 @@ fn spawn_voxel_cube_parent(commands: &mut Commands) {
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
-        SceneRoot(assets.fox.clone()),
+        WorldAssetRoot(assets.fox.clone()),
         Visibility::Hidden,
         Transform::from_scale(Vec3::splat(FOX_SCALE)),
         MainObject,
@@ -369,8 +369,11 @@ fn rotate_camera(
 fn change_main_object(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-    mut sphere_query: Query<&mut Visibility, (With<MainObject>, With<Mesh3d>, Without<SceneRoot>)>,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
+    mut sphere_query: Query<
+        &mut Visibility,
+        (With<MainObject>, With<Mesh3d>, Without<WorldAssetRoot>),
+    >,
+    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<WorldAssetRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;

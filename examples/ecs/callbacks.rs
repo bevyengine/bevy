@@ -42,6 +42,38 @@ fn setup_callbacks(mut commands: Commands) {
     commands.spawn(trivial_callback);
     commands.spawn(ordinary_system_callback);
     commands.spawn(exclusive_callback);
+
+    // It is also possible to register systems that are already boxed.
+
+    let boxed_trivial_system = Box::new(IntoSystem::into_system(|| {
+        println!("This is the boxed trivial callback system");
+    }));
+
+    let boxed_trivial_callback = Callback {
+        system_id: commands.register_boxed_system(boxed_trivial_system),
+    };
+
+    let boxed_ordinary_system = Box::new(IntoSystem::into_system(|query: Query<&Callback>| {
+        let n_callbacks = query.iter().len();
+        println!("This is the boxed ordinary callback system. There are currently {n_callbacks} callbacks in the world.");
+    }));
+
+    let boxed_ordinary_system_callback = Callback {
+        system_id: commands.register_boxed_system(boxed_ordinary_system),
+    };
+
+    let boxed_exclusive_system = Box::new(IntoSystem::into_system(|world: &mut World| {
+        let n_entities = world.entities().len();
+        println!("This is the boxed exclusive callback system. There are currently {n_entities} entities in the world.");
+    }));
+
+    let boxed_exclusive_callback = Callback {
+        system_id: commands.register_boxed_system(boxed_exclusive_system),
+    };
+
+    commands.spawn(boxed_trivial_callback);
+    commands.spawn(boxed_ordinary_system_callback);
+    commands.spawn(boxed_exclusive_callback);
 }
 
 // In many cases, you might want to use an observer to detect when a callback should run,

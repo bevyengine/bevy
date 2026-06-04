@@ -210,10 +210,7 @@ impl Plugin for EasyScreenRecordPlugin {
                 let mut setup = None;
                 let mut file: Option<File> = None;
                 let mut frame = 0;
-                loop {
-                    let Ok(next) = rx.recv() else {
-                        break;
-                    };
+                while let Ok(next) = rx.recv() {
                     match next {
                         RecordCommand::Start(path, preset, tune) => {
                             if let Some(parent) = path.parent() {

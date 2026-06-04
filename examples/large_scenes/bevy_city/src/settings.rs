@@ -3,18 +3,18 @@ use bevy::{
     camera_controller::free_camera::FreeCameraState,
     feathers::{
         self,
-        controls::{button, checkbox, ButtonProps},
+        controls::{FeathersButton, FeathersCheckbox},
         theme::{ThemeBackgroundColor, ThemedText},
     },
     pbr::wireframe::WireframeConfig,
     prelude::*,
     ui::Checked,
-    ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
+    ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
 use rand::RngExt;
 
+use crate::assets::CityAssets;
 use crate::generate_city::{spawn_city, CityRoot};
-use crate::{assets::CityAssets, CitySpawned};
 
 #[derive(Resource)]
 pub struct Settings {
@@ -37,53 +37,48 @@ impl Default for Settings {
     }
 }
 
-pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
-    commands.spawn((
+pub fn settings_ui() -> impl Scene {
+    bsn! {
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            padding: UiRect::all(Val::Px(8.0)),
-            ..default()
-        },
-        ThemeBackgroundColor(feathers::tokens::WINDOW_BG),
-        observe(
-            |_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
-                free_camera_state.enabled = false;
-            },
-        ),
-        observe(
-            |_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
-                free_camera_state.enabled = true;
-            },
-        ),
-        children![(
+            top: px(10),
+            right: px(10),
+            padding: px(8),
+        }
+        ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
+        on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+            free_camera_state.enabled = false;
+        })
+        on(|_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+            free_camera_state.enabled = true;
+        })
+        Children [(
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Start,
                 row_gap: px(8),
-                ..default()
-            },
-            children![
-                (Text("Settings".to_owned())),
+            }
+            Children [
+                Text("Settings"),
                 (
-                    checkbox(Checked, Spawn((Text::new("Simulate Cars"), ThemedText))),
-                    observe(checkbox_self_update),
-                    observe(
-                        |change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
-                            settings.simulate_cars = change.value;
-                        }
-                    )
+                    @FeathersCheckbox {
+                        @caption: bsn! { Text("Simulate Cars") ThemedText }
+                    }
+                    Checked
+                    on(checkbox_self_update)
+                    on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
+                        settings.simulate_cars = change.value;
+                    })
                 ),
                 (
-                    checkbox(
-                        Checked,
-                        Spawn((Text::new("Shadow maps enabled"), ThemedText))
-                    ),
-                    observe(checkbox_self_update),
-                    observe(
+                    @FeathersCheckbox {
+                        @caption: bsn! { Text("Shadow maps enabled") ThemedText }
+                    }
+                    Checked
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut directional_lights: Query<&mut DirectionalLight>| {
@@ -96,12 +91,12 @@ pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
                     )
                 ),
                 (
-                    checkbox(
-                        Checked,
-                        Spawn((Text::new("Contact shadows enabled"), ThemedText))
-                    ),
-                    observe(checkbox_self_update),
-                    observe(
+                    @FeathersCheckbox {
+                        @caption: bsn! { Text("Contact shadows enabled") ThemedText }
+                    }
+                    Checked
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut directional_lights: Query<&mut DirectionalLight>| {
@@ -114,9 +109,11 @@ pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
                     )
                 ),
                 (
-                    checkbox((), Spawn((Text::new("Wireframe Enabled"), ThemedText))),
-                    observe(checkbox_self_update),
-                    observe(
+                    @FeathersCheckbox {
+                        @caption: bsn! { Text("Wireframe Enabled") ThemedText }
+                    }
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut wireframe_config: ResMut<WireframeConfig>| {
@@ -126,9 +123,12 @@ pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
                     )
                 ),
                 (
-                    checkbox(Checked, Spawn((Text::new("CPU culling"), ThemedText))),
-                    observe(checkbox_self_update),
-                    observe(
+                    @FeathersCheckbox {
+                        @caption: bsn! { Text("CPU culling") ThemedText }
+                    }
+                    Checked
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut commands: Commands,
@@ -146,12 +146,10 @@ pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
                     )
                 ),
                 (
-                    button(
-                        ButtonProps::default(),
-                        (),
-                        Spawn((Text::new("Regenerate City"), ThemedText))
-                    ),
-                    observe(
+                    @FeathersButton {
+                        @caption: bsn! { Text("Regenerate City") ThemedText }
+                    }
+                    on(
                         |_activate: On<Activate>,
                          mut commands: Commands,
                          city_root: Single<Entity, With<CityRoot>>,
@@ -166,6 +164,6 @@ pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
                     )
                 ),
             ]
-        )],
-    ));
+        )]
+    }
 }

@@ -160,6 +160,9 @@ pub enum Tonemapping {
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     BlenderFilmic,
+    /// Designed to faithfully reproduce base color under neutral lighting. Suitable for e-commerce, architecture and CAD applications.
+    /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
+    PbrNeutral,
 }
 
 impl Tonemapping {
@@ -186,6 +189,7 @@ bitflags! {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
+    target_format: TextureFormat,
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
     flags: TonemappingPipelineKeyFlags,
@@ -264,6 +268,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
+            Tonemapping::PbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -273,7 +278,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -354,6 +359,7 @@ pub fn prepare_view_tonemapping_pipelines(
         );
 
         let key = TonemappingPipelineKey {
+            target_format: view.target_format,
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
@@ -390,6 +396,7 @@ pub fn get_lut_bindings<'a>(
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
         | Tonemapping::AgX
+        | Tonemapping::PbrNeutral
         | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,

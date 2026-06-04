@@ -15,7 +15,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
     let mut families: Vec<String> = font_system
-        .0
+        .context
         .collection
         .family_names()
         .map(ToOwned::to_owned)
@@ -71,9 +71,9 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                                 (
                                     Text::new(&family),
                                     TextFont { font, ..default() },
-                                    TextLayout::new_with_no_wrap()
+                                    TextLayout::no_wrap()
                                 ),
-                                (Text::new(family), TextLayout::new_with_no_wrap()),
+                                (Text::new(family), TextLayout::no_wrap()),
                             ],
                         ));
                     }

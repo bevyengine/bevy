@@ -32,14 +32,14 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -116,10 +116,10 @@ pub enum GltfError {
     InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
-    ReadAssetBytesError(#[from] ReadAssetBytesError),
+    ReadAssetBytesError(#[from] Box<ReadAssetBytesError>),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    AssetLoadError(#[from] Box<AssetLoadError>),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
@@ -162,6 +162,10 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    /// Default Mesh attribute compression flags for the loaded meshes.
+    pub default_mesh_attribute_compression: MeshAttributeCompressionFlags,
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
+    pub default_mesh_index_compression: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -174,12 +178,12 @@ pub struct GltfLoader {
 /// # use bevy_asset::{AssetServer, Handle};
 /// # use bevy_gltf::*;
 /// # let asset_server: AssetServer = panic!();
-/// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
-///     "my.gltf",
-///     |s: &mut GltfLoaderSettings| {
-///         s.load_cameras = false;
-///     }
-/// );
+/// let gltf_handle: Handle<Gltf> = asset_server.load_builder().with_settings(
+///         |s: &mut GltfLoaderSettings| {
+///             s.load_cameras = false;
+///         }
+///     )
+///     .load("my.gltf");
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
@@ -215,6 +219,12 @@ pub struct GltfLoaderSettings {
     pub convert_coordinates: Option<GltfConvertCoordinates>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
+    /// Mesh attribute compression flags for the loaded meshes.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_attribute_compression`](crate::GltfPlugin::mesh_attribute_compression).
+    pub mesh_attribute_compression: Option<MeshAttributeCompressionFlags>,
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_index_compression`](crate::GltfPlugin::mesh_index_compression).
+    pub mesh_index_compression: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -231,6 +241,8 @@ impl Default for GltfLoaderSettings {
             validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
+            mesh_attribute_compression: None,
+            mesh_index_compression: None,
         }
     }
 }
@@ -672,7 +684,9 @@ impl GltfLoader {
         let mut named_materials = <HashMap<_, _>>::default();
         // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
         if !settings.load_materials.is_empty() {
-            // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+            // NOTE: materials must be loaded after textures because image load() calls will happen
+            // before load_builder().with_settings().load(), preventing is_srgb from being set
+            // properly.
             for material in gltf.materials() {
                 let (label, gltf_material) = load_material(
                     &material,
@@ -860,7 +874,17 @@ impl GltfLoader {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle = load_context.add_labeled_asset(
+                    primitive_label.to_string(),
+                    mesh.compressed_mesh(
+                        settings
+                            .mesh_attribute_compression
+                            .unwrap_or(loader.default_mesh_attribute_compression),
+                        settings
+                            .mesh_index_compression
+                            .unwrap_or(loader.default_mesh_index_compression),
+                    ),
+                );
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,
@@ -1117,7 +1141,7 @@ impl GltfLoader {
                 );
             }
 
-            let loaded_scene = scene_load_context.finish(Scene::new(world));
+            let loaded_scene = scene_load_context.finish(WorldAsset::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
                 loaded_scene,
@@ -1500,13 +1524,6 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::result_large_err,
-        reason = "`GltfError` is only barely past the threshold for large errors."
-    )
-)]
 fn load_node(
     gltf_node: &Node,
     child_spawner: &mut ChildSpawner,
@@ -1926,7 +1943,10 @@ async fn load_buffers(
                             .path()
                             .resolve_embed_str(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
-                        load_context.read_asset_bytes(buffer_path).await?
+                        load_context
+                            .read_asset_bytes(buffer_path)
+                            .await
+                            .map_err(Box::new)?
                     }
                 };
                 buffer_data.push(buffer_bytes);
@@ -2015,7 +2035,7 @@ impl ImageOrPath {
                 sampler_descriptor,
                 render_asset_usages,
             } => load_context
-                .loader()
+                .load_builder()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
@@ -2117,7 +2137,7 @@ mod test {
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_reflect::TypePath;
-    use bevy_scene::ScenePlugin;
+    use bevy_world_serialization::WorldSerializationPlugin;
 
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
@@ -2130,7 +2150,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));
@@ -2557,7 +2577,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));

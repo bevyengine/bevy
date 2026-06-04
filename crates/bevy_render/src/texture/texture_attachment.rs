@@ -108,7 +108,7 @@ impl DepthAttachment {
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         let first_call = self
             .is_first_call
-            .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
+            .fetch_and(store != StoreOp::Store, Ordering::Relaxed);
 
         RenderPassDepthStencilAttachment {
             view: &self.view,
@@ -123,6 +123,12 @@ impl DepthAttachment {
             }),
             stencil_ops: None,
         }
+    }
+
+    /// Marks this depth attachment as unused this frame so that it'll be
+    /// cleared at first use.
+    pub fn prepare_for_new_frame(&self) {
+        self.is_first_call.store(true, Ordering::Relaxed);
     }
 }
 

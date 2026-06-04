@@ -11,7 +11,8 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
+use bevy_scene::prelude::*;
+use bevy_ui::{px, BackgroundColor, BorderRadius, Node, PositionType};
 use bevy_ui_render::ui_material::MaterialNode;
 
 use crate::{
@@ -20,10 +21,12 @@ use crate::{
     palette,
 };
 
-/// Marker identifying a color swatch.
-#[derive(Component, Default, Clone, Reflect)]
+/// A color swatch widget.
+///
+/// This is spawnable by inheriting it as a "scene component".
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-pub struct ColorSwatch;
+pub struct FeathersColorSwatch;
 
 /// Component that contains the value of the color swatch. This is copied to the child element
 /// background.
@@ -38,19 +41,48 @@ pub struct ColorSwatchValue(pub Color);
 #[reflect(Component, Clone, Default)]
 pub struct ColorSwatchFg;
 
+impl FeathersColorSwatch {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                height: size::ROW_HEIGHT,
+                min_width: size::ROW_HEIGHT,
+                border_radius: px(5),
+            }
+            FeathersColorSwatch
+            ColorSwatchValue
+            AlphaPattern
+            MaterialNode::<AlphaPatternMaterial>
+            Children [(
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px(0),
+                    bottom: px(0),
+                    right: px(0),
+                    border_radius: px(5),
+                }
+                ColorSwatchFg
+                BackgroundColor({palette::ACCENT.with_alpha(0.5)})
+            )]
+        }
+    }
+}
+
 /// Template function to spawn a color swatch.
 ///
 /// # Arguments
 /// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-pub fn color_swatch<B: Bundle>(overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the color_swatch() BSN function")]
+pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
     (
         Node {
             height: size::ROW_HEIGHT,
             min_width: size::ROW_HEIGHT,
-            border_radius: BorderRadius::all(Val::Px(5.0)),
+            border_radius: BorderRadius::all(px(5)),
             ..Default::default()
         },
-        ColorSwatch,
+        FeathersColorSwatch,
         ColorSwatchValue::default(),
         AlphaPattern,
         MaterialNode::<AlphaPatternMaterial>(Handle::default()),
@@ -58,11 +90,11 @@ pub fn color_swatch<B: Bundle>(overrides: B) -> impl Bundle {
         children![(
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                right: Val::Px(0.),
-                border_radius: BorderRadius::all(Val::Px(5.0)),
+                left: px(0),
+                top: px(0),
+                bottom: px(0),
+                right: px(0),
+                border_radius: BorderRadius::all(px(5)),
                 ..Default::default()
             },
             ColorSwatchFg,

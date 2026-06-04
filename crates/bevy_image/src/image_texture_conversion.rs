@@ -112,12 +112,7 @@ impl Image {
                     width as usize * height as usize * format.pixel_size().unwrap_or(0),
                 );
 
-                for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilized
-                    // https://github.com/rust-lang/rust/issues/74985
-                    let r = pixel[0];
-                    let g = pixel[1];
-                    let b = pixel[2];
+                for [r, g, b] in image.into_raw().as_chunks().0 {
                     let a = 1f32;
 
                     local_data.extend_from_slice(&r.to_le_bytes());
@@ -191,8 +186,8 @@ impl Image {
             TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
                 ImageBuffer::from_raw(width, height, {
                     let mut data = data;
-                    for bgra in data.chunks_exact_mut(4) {
-                        bgra.swap(0, 2);
+                    for [b, _, r, _] in data.as_chunks_mut().0 {
+                        core::mem::swap(b, r);
                     }
                     data
                 })

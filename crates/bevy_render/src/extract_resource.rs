@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{component::Mutable, prelude::*};
 pub use bevy_render_macros::ExtractResource;
 use bevy_utils::once;
 
@@ -38,7 +38,9 @@ impl<R: ExtractResource<F>, F> Default for ExtractResourcePlugin<R, F> {
     }
 }
 
-impl<R: ExtractResource<F>, F: 'static + Send + Sync> Plugin for ExtractResourcePlugin<R, F> {
+impl<R: ExtractResource<F, Mutability = Mutable>, F: 'static + Send + Sync> Plugin
+    for ExtractResourcePlugin<R, F>
+{
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R, F>);
@@ -52,7 +54,7 @@ impl<R: ExtractResource<F>, F: 'static + Send + Sync> Plugin for ExtractResource
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-pub fn extract_resource<R: ExtractResource<F>, F>(
+pub fn extract_resource<R: ExtractResource<F, Mutability = Mutable>, F>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,

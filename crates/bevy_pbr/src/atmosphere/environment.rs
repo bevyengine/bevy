@@ -13,6 +13,7 @@ use bevy_ecs::{
     query::{With, Without},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
+    template::FromTemplate,
 };
 use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
@@ -33,7 +34,7 @@ use crate::perlin_worley_noise::PerlinWorleyNoiseTexture;
 use crate::GpuScatteringMedium;
 
 // Render world representation of an environment map light for the atmosphere
-#[derive(Component, ExtractComponent, Clone)]
+#[derive(Component, ExtractComponent, Clone, FromTemplate)]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,

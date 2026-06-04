@@ -71,7 +71,7 @@ use core::any::TypeId;
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(Justify::Center)
+///     TextLayout::justify(Justify::Center)
 /// ));
 ///
 /// // With spans
@@ -331,10 +331,7 @@ pub fn update_text2d_layout(
             ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
-            Ok(()) => {
-                text_layout_info.scale_factor = scale_factor;
-                text_layout_info.size *= scale_factor.recip();
-            }
+            Ok(()) => {}
         }
     }
 }
@@ -357,9 +354,14 @@ pub fn calculate_bounds_text2d(
     >,
 ) {
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+        let inverse_scale_factor = layout_info.scale_factor.recip();
         let size = Vec2::new(
-            text_bounds.width.unwrap_or(layout_info.size.x),
-            text_bounds.height.unwrap_or(layout_info.size.y),
+            text_bounds
+                .width
+                .unwrap_or(layout_info.size.x * inverse_scale_factor),
+            text_bounds
+                .height
+                .unwrap_or(layout_info.size.y * inverse_scale_factor),
         );
 
         let x1 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.x;
@@ -392,6 +394,10 @@ mod tests {
     const SECOND_TEXT: &str = "Another, longer sample text.";
 
     fn setup() -> (App, Entity) {
+        setup_with_scale_factor(1.)
+    }
+
+    fn setup_with_scale_factor(scale_factor: f32) -> (App, Entity) {
         let mut app = App::new();
         app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
@@ -421,7 +427,7 @@ mod tests {
                 computed: ComputedCameraValues {
                     target_info: Some(RenderTargetInfo {
                         physical_size: UVec2::splat(1000),
-                        scale_factor: 1.,
+                        scale_factor,
                     }),
                     ..Default::default()
                 },
@@ -435,9 +441,7 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| {
-                Font::try_from_bytes(bytes.to_vec(), "bevy default font")
-            }
+            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec()) }
         );
 
         let world = app.world_mut();
@@ -445,7 +449,7 @@ mod tests {
         let mut fonts = world.resource_mut::<Assets<Font>>();
 
         let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
-        font.family_name = "Fira Mono".into();
+        font.alias = "Fira Mono".into();
         let data = font.into_inner().data.clone();
 
         world
@@ -522,5 +526,30 @@ mod tests {
         approx::assert_abs_diff_eq!(first_aabb.half_extents.y, second_aabb.half_extents.y);
         assert!(FIRST_TEXT.len() < SECOND_TEXT.len());
         assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
+    }
+
+    #[test]
+    fn calculate_bounds_text2d_uses_logical_size() {
+        let (mut app, entity) = setup_with_scale_factor(2.);
+
+        app.update();
+
+        let entity_ref = app
+            .world()
+            .get_entity(entity)
+            .expect("Could not find entity");
+        let layout_info = entity_ref
+            .get::<TextLayoutInfo>()
+            .expect("Text should have layout info");
+        let aabb = entity_ref.get::<Aabb>().expect("Text should have an AABB");
+
+        approx::assert_abs_diff_eq!(
+            aabb.half_extents.x * 2.,
+            layout_info.size.x / layout_info.scale_factor
+        );
+        approx::assert_abs_diff_eq!(
+            aabb.half_extents.y * 2.,
+            layout_info.size.y / layout_info.scale_factor
+        );
     }
 }

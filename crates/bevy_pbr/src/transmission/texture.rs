@@ -4,18 +4,18 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, ToExtents};
+use bevy_image::ToExtents;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
     render_resource::{
         FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView,
+        TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     texture::TextureCache,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
 };
 
 use crate::{ScreenSpaceTransmission, Transmissive3d};
@@ -75,12 +75,6 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
@@ -88,7 +82,7 @@ pub fn prepare_core_3d_transmission_textures(
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format,
+                    format: view.target_format,
                     usage,
                     view_formats: &[],
                 };

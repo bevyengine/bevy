@@ -7,7 +7,7 @@ pub mod prelude {
     pub use crate::{
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
-        BevyDefault as _, Image, ImageFormat, ImagePlugin, TextureAtlasBuilder, TextureError,
+        Image, ImageFormat, ImagePlugin, TextureAtlasBuilder, TextureError,
     };
 }
 

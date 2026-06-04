@@ -826,8 +826,9 @@ struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 pub struct GpuAtmosphere {
     //TODO: rename to Planet later?
     pub ground_albedo: Vec3,
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
+    pub world_to_atmosphere: Mat4,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -837,8 +838,9 @@ pub fn prepare_atmosphere_uniforms(
     for (entity, atmosphere) in atmospheres {
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
-            bottom_radius: atmosphere.bottom_radius,
-            top_radius: atmosphere.top_radius,
+            inner_radius: atmosphere.inner_radius,
+            outer_radius: atmosphere.outer_radius,
+            world_to_atmosphere: atmosphere.world_to_atmosphere,
         });
     }
     Ok(())
@@ -882,12 +884,7 @@ impl AtmosphereTransformsOffset {
 
 pub(super) fn prepare_atmosphere_transforms(
     views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &ExtractedAtmosphere,
-            &GpuAtmosphereSettings,
-        ),
+        (Entity, &ExtractedView, &GpuAtmosphere),
         (With<ExtractedAtmosphere>, With<Camera3d>),
     >,
     render_device: Res<RenderDevice>,
@@ -904,11 +901,13 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view, atmosphere, settings) in &views {
+    for (entity, view, gpu_atmosphere) in &views {
         // Camera position in atmosphere space
+        let cam_world = view.world_from_view.translation();
         let cam_pos = Vec3A::from(
-            view.world_from_view.translation() * settings.scene_units_to_m
-                + Vec3::new(0.0, atmosphere.bottom_radius, 0.0),
+            gpu_atmosphere
+                .world_to_atmosphere
+                .transform_point3(cam_world),
         );
 
         // Up is the local planet surface normal.
@@ -1001,11 +1000,10 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     let temporal_alpha = settings.cloud_shadow_temporal_alpha;
     let light_rotation_cut_deg = settings.cloud_shadow_temporal_light_rotation_cut_deg;
 
-    let scene_units_to_m = settings.scene_units_to_m;
-    let bottom_radius = atmosphere.bottom_radius;
+    let inner_radius = atmosphere.inner_radius;
     let camera_pos = view.world_from_view.translation();
-    let world_pos = camera_pos * scene_units_to_m + Vec3::new(0.0, bottom_radius, 0.0);
-    let min_radius = bottom_radius + 1.0;
+    let world_pos = atmosphere.world_to_atmosphere.transform_point3(camera_pos);
+    let min_radius = inner_radius + 1.0;
     let r = world_pos.length();
     let anchor = if r < min_radius {
         world_pos.normalize_or_zero() * min_radius
@@ -1443,20 +1441,7 @@ pub(crate) struct AtmosphereData {
     pub settings: GpuAtmosphereSettings,
 }
 
-pub fn init_atmosphere_buffer(mut commands: Commands) {
-    commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(AtmosphereData {
-            atmosphere: GpuAtmosphere {
-                ground_albedo: Vec3::ZERO,
-                bottom_radius: 0.0,
-                top_radius: 0.0,
-            },
-            settings: GpuAtmosphereSettings::default(),
-        }),
-    });
-}
-
-#[derive(Resource)]
+#[derive(Component)]
 pub struct AtmosphereBuffer {
     pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
@@ -1474,19 +1459,32 @@ impl Default for CloudShadowTemporalParamsBuffer {
     }
 }
 
-pub(crate) fn write_atmosphere_buffer(
+pub(crate) fn prepare_atmosphere_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<(&GpuAtmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
-    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+    mut views: Query<
+        (
+            Entity,
+            &GpuAtmosphere,
+            &GpuAtmosphereSettings,
+            Option<&mut AtmosphereBuffer>,
+        ),
+        With<ExtractedAtmosphere>,
+    >,
+    mut commands: Commands,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
-        return;
-    };
-
-    atmosphere_buffer.buffer.set(AtmosphereData {
-        atmosphere: atmosphere.clone(),
-        settings: settings.clone(),
-    });
-    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+        let data = AtmosphereData {
+            atmosphere: atmosphere.clone(),
+            settings: settings.clone(),
+        };
+        if let Some(mut atmosphere_buffer) = existing_buffer {
+            atmosphere_buffer.buffer.set(data);
+            atmosphere_buffer.buffer.write_buffer(&device, &queue);
+        } else {
+            let mut buffer = StorageBuffer::from(data);
+            buffer.write_buffer(&device, &queue);
+            commands.entity(entity).insert(AtmosphereBuffer { buffer });
+        }
+    }
 }

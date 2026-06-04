@@ -38,11 +38,7 @@ type PrepassViewQueryData = (
         Option<&'static PreviousViewUniformOffset>,
         Option<&'static MainPassResolutionOverride>,
     ),
-    (
-        Has<OcclusionCulling>,
-        Has<NoIndirectDrawing>,
-        Has<DeferredPrepass>,
-    ),
+    (Has<OcclusionCulling>, Has<NoIndirectDrawing>),
 );
 
 pub fn early_prepass(
@@ -63,7 +59,7 @@ pub fn early_prepass(
             view_prev_uniform_offset,
             resolution_override,
         ),
-        (_, _, has_deferred),
+        (_, _),
     ) = view.into_inner();
 
     run_prepass_system(
@@ -79,7 +75,6 @@ pub fn early_prepass(
         background_motion_vectors_bind_group,
         view_prev_uniform_offset,
         resolution_override,
-        has_deferred,
         &opaque_prepass_phases,
         &alpha_mask_prepass_phases,
         &pipeline_cache,
@@ -106,7 +101,7 @@ pub fn late_prepass(
             view_prev_uniform_offset,
             resolution_override,
         ),
-        (occlusion_culling, no_indirect_drawing, has_deferred),
+        (occlusion_culling, no_indirect_drawing),
     ) = view.into_inner();
 
     if !occlusion_culling || no_indirect_drawing {
@@ -126,7 +121,6 @@ pub fn late_prepass(
         background_motion_vectors_bind_group,
         view_prev_uniform_offset,
         resolution_override,
-        has_deferred,
         &opaque_prepass_phases,
         &alpha_mask_prepass_phases,
         &pipeline_cache,
@@ -153,20 +147,12 @@ fn run_prepass_system(
     background_motion_vectors_bind_group: Option<&BackgroundMotionVectorsBindGroup>,
     view_prev_uniform_offset: Option<&PreviousViewUniformOffset>,
     resolution_override: Option<&MainPassResolutionOverride>,
-    has_deferred: bool,
     opaque_prepass_phases: &ViewBinnedRenderPhases<Opaque3dPrepass>,
     alpha_mask_prepass_phases: &ViewBinnedRenderPhases<AlphaMask3dPrepass>,
     pipeline_cache: &PipelineCache,
     ctx: &mut RenderContext,
     label: &'static str,
 ) {
-    // If we're using deferred rendering, there will be a deferred prepass
-    // instead of this one. Just bail out so we don't have to bother looking at
-    // the empty bins.
-    if has_deferred {
-        return;
-    }
-
     let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
         opaque_prepass_phases.get(&extracted_view.retained_view_entity),
         alpha_mask_prepass_phases.get(&extracted_view.retained_view_entity),
@@ -259,6 +245,7 @@ fn run_prepass_system(
     if deferred_prepass.is_none()
         && let Some(prepass_depth_texture) = &view_prepass_textures.depth
     {
+        // TODO: Copy depth texture fails for WebGL2, https://github.com/bevyengine/bevy/issues/9710
         ctx.command_encoder().copy_texture_to_texture(
             view_depth_texture.texture.as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),

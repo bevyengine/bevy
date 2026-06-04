@@ -12,10 +12,7 @@ impl Prepare for BenchCheckCommand {
         let jobs = args.build_jobs();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check --benches {jobs...} --target-dir ../target --manifest-path ./benches/Cargo.toml"
-            ),
+            cmd!(sh, "cargo check -p benches --benches {jobs...}"),
             "Failed to check the benches.",
         )]
     }

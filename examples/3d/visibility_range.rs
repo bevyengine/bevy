@@ -125,7 +125,7 @@ fn setup(
     // Spawn the two HLODs.
 
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -133,7 +133,7 @@ fn setup(
     ));
 
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),

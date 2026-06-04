@@ -64,6 +64,7 @@ impl Storages {
     }
 }
 
+/// Guards against allocator panics. Needs to be `mem::forget`en on success.
 struct AbortOnPanic;
 
 impl Drop for AbortOnPanic {

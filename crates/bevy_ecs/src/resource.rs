@@ -1,13 +1,12 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
-use core::ops::{Deref, DerefMut};
 use log::warn;
 
 use crate::{
-    component::{Component, ComponentId, Mutable},
+    component::{Component, ComponentId},
     entity::Entity,
     lifecycle::HookContext,
-    storage::SparseSet,
+    storage::SparseArray,
     world::DeferredWorld,
 };
 #[cfg(feature = "bevy_reflect")]
@@ -85,28 +84,36 @@ use bevy_platform::cell::SyncUnsafeCell;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component<Mutability = Mutable> {}
+pub trait Resource: Component {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
-pub struct ResourceEntities(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
+pub struct ResourceEntities(SyncUnsafeCell<SparseArray<ComponentId, Entity>>);
 
-impl Deref for ResourceEntities {
-    type Target = SparseSet<ComponentId, Entity>;
+impl ResourceEntities {
+    /// Returns an iterator over all registered resource components and their corresponding entity.
+    ///
+    /// This must scan the entire array of components to find non-empty values,
+    /// which may be slow even if there are few resources.
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, Entity)> {
+        self.deref().iter().map(|(id, entity)| (id, *entity))
+    }
 
-    fn deref(&self) -> &Self::Target {
+    /// Returns the entity for the given resource component, or `None` if there is no entity.
+    #[inline]
+    pub fn get(&self, id: ComponentId) -> Option<Entity> {
+        self.deref().get(id).copied()
+    }
+
+    #[inline]
+    fn deref(&self) -> &SparseArray<ComponentId, Entity> {
         // SAFETY: There are no other mutable references to the map.
         // The underlying `SyncUnsafeCell` is never exposed outside this module,
         // so mutable references are only created by the resource hooks.
         // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
         // and that would conflict with the `DeferredWorld` passed to the resource hook.
         unsafe { &*self.0.get() }
-    }
-}
-
-impl DerefMut for ResourceEntities {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.get_mut()
     }
 }
 
@@ -134,7 +141,7 @@ impl IsResource {
             .unwrap()
             .resource_component_id();
 
-        if let Some(&original_entity) = world.resource_entities.get(resource_component_id) {
+        if let Some(original_entity) = world.resource_entities.get(resource_component_id) {
             if !world.entities().contains(original_entity) {
                 let name = world
                     .components()
@@ -160,8 +167,8 @@ impl IsResource {
                     .components()
                     .get_name(resource_component_id)
                     .expect("resource is registered");
-                warn!("Tried inserting the resource {} while one already exists.
-                Resources are unique components stored on a single entity.
+                warn!("Tried inserting the resource {} while one already exists. \
+                Resources are unique components stored on a single entity. \
                 Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
             }
         } else {
@@ -182,7 +189,7 @@ impl IsResource {
             .resource_component_id();
 
         if let Some(resource_entity) = world.resource_entities.get(resource_component_id)
-            && *resource_entity == context.entity
+            && resource_entity == context.entity
         {
             // SAFETY: We have exclusive world access (as long as we don't make structural changes).
             let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
@@ -208,14 +215,18 @@ pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOU
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+
     use crate::{
         change_detection::MaybeLocation,
         entity::Entity,
+        lifecycle::HookContext,
         ptr::OwningPtr,
         resource::{IsResource, Resource},
-        world::World,
+        world::{DeferredWorld, World},
     };
     use alloc::vec::Vec;
+    use bevy_ecs_macros::Component;
     use bevy_platform::prelude::String;
 
     #[test]
@@ -233,27 +244,38 @@ mod tests {
 
         let mut world = World::new();
         let start = world.entities().count_spawned();
-        world.init_resource::<TestResource1>();
+        let id1 = world.init_resource::<TestResource1>();
         assert_eq!(world.entities().count_spawned(), start + 1);
         world.insert_resource(TestResource2(String::from("Foo")));
         assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
-        let id = world.register_resource::<TestResource3>();
+        let id3 = world.register_component::<TestResource3>();
         assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.
             unsafe {
-                world.insert_resource_by_id(id, ptr, MaybeLocation::caller());
+                world.insert_resource_by_id(id3, ptr, MaybeLocation::caller());
             }
         });
         assert_eq!(world.entities().count_spawned(), start + 3);
-        assert!(world.remove_resource_by_id(id));
+        let e3 = world.resource_entities().get(id3).unwrap();
+        assert!(world.remove_resource_by_id(id3));
         // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
         assert_eq!(world.entities().count_spawned(), start + 3);
+        OwningPtr::make(20_u8, |ptr| {
+            // SAFETY: id was just initialized and corresponds to a resource.
+            unsafe {
+                world.insert_resource_by_id(id3, ptr, MaybeLocation::caller());
+            }
+        });
+        assert_eq!(e3, world.resource_entities().get(id3).unwrap());
         // again, the entity is stable: see previous explanation
+        let e1 = world.resource_entities().get(id1).unwrap();
         world.remove_resource::<TestResource1>();
         assert_eq!(world.entities().count_spawned(), start + 3);
+        world.init_resource::<TestResource1>();
+        assert_eq!(e1, world.resource_entities().get(id1).unwrap());
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
         assert_eq!(world.entities().count_spawned(), start + 3);
@@ -308,5 +330,46 @@ mod tests {
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_component_features() {
+        static ON_ADD_CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Resource)]
+        #[component(immutable, on_add)]
+        struct TestResource;
+        impl TestResource {
+            fn on_add(_: DeferredWorld, _: HookContext) {
+                ON_ADD_CALLED.store(true, Relaxed);
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert!(ON_ADD_CALLED.load(Relaxed));
+        assert!(world.get_resource::<TestResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_require_features() {
+        #[derive(Component, Default)]
+        struct RequiredComponent;
+
+        #[derive(Resource)]
+        #[require(RequiredComponent)]
+        struct TestResource;
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert_eq!(
+            world
+                .query::<(&TestResource, &RequiredComponent)>()
+                .iter(&world)
+                .count(),
+            1
+        );
     }
 }

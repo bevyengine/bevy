@@ -243,7 +243,7 @@ impl<'w> EntityMut<'w> {
     /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
     /// ```
     ///
-    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
+    /// Note that this does an O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
     pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,

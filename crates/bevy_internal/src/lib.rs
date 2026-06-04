@@ -31,6 +31,8 @@ pub use bevy_audio as audio;
 pub use bevy_camera as camera;
 #[cfg(feature = "bevy_camera_controller")]
 pub use bevy_camera_controller as camera_controller;
+#[cfg(feature = "bevy_clipboard")]
+pub use bevy_clipboard as clipboard;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
@@ -78,8 +80,6 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
-#[cfg(feature = "bevy_scene2")]
-pub use bevy_scene2 as scene2;
 #[cfg(feature = "bevy_settings")]
 pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
@@ -108,3 +108,5 @@ pub use bevy_utils as utils;
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
+#[cfg(feature = "bevy_world_serialization")]
+pub use bevy_world_serialization as world_serialization;

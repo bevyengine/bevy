@@ -15,13 +15,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load_with_settings(
-        "textures/fantasy_ui_borders/numbered_slices.png",
-        |settings: &mut ImageLoaderSettings| {
+    let image = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| {
             // Need to use nearest filtering to avoid bleeding between the slices with tiling
             settings.sampler = ImageSampler::nearest();
-        },
-    );
+        })
+        .load("textures/fantasy_ui_borders/numbered_slices.png");
 
     let slicer = TextureSlicer {
         // `numbered_slices.png` is 48 pixels square. `BorderRect::square(16.)` insets the slicing line from each edge by 16 pixels, resulting in nine slices that are each 16 pixels square.

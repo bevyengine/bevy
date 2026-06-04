@@ -84,7 +84,7 @@ impl BlitPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct BlitPipelineKey {
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
     pub blend_state: Option<BlendState>,
     pub samples: u32,
     /// Color space of the source texture. When `Some(Srgb)` or `Some(Oklab)`, the blit converts
@@ -111,7 +111,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],

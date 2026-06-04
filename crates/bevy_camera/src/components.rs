@@ -95,8 +95,8 @@ pub enum CompositingSpace {
     /// Gamma-encoded blending. Matches most image editors. Uses default sRGB target.
     #[default]
     Srgb,
-    /// Linear light blending. Physically correct. Requires [`Hdr`].
+    /// Linear light blending. Physically correct.
     Linear,
-    /// Perceptually uniform blending. Often smoother gradients. Requires [`Hdr`].
+    /// Perceptually uniform blending. Often smoother gradients. Requires [`Hdr`] because its value can be outside [0, 1].
     Oklab,
 }

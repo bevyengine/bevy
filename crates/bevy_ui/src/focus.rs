@@ -5,7 +5,7 @@ use crate::{
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{ContainsEntity, Entity},
+    entity::{ContainsEntity, Entity, EntityHashMap},
     hierarchy::ChildOf,
     prelude::{Component, With},
     query::{QueryData, Without},
@@ -14,7 +14,6 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 
@@ -187,7 +186,7 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
+    let camera_cursor_positions: EntityHashMap<Vec2> = camera_query
         .iter()
         .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
@@ -349,17 +348,19 @@ pub fn clip_check_recursive(
     clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
 ) -> bool {
-    if let Ok(child_of) = child_of_query.get(entity) {
-        let parent = child_of.0;
-        if let Ok((computed_node, transform, node)) = clipping_query.get(parent)
-            && !computed_node
+    if let Ok(child_of) = child_of_query.get(entity)
+        && let Ok((computed_node, transform, node)) = clipping_query.get(child_of.0)
+        && !node.overflow.is_visible()
+    {
+        if transform.try_inverse().is_none_or(|affine| {
+            !computed_node
                 .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
-                .contains(transform.inverse().transform_point2(point))
-        {
-            // The point is clipped and should be ignored by picking
+                .contains(affine.transform_point2(point))
+        }) {
+            // The point is clipped (or transform not invertible) → ignore for picking
             return false;
         }
-        return clip_check_recursive(point, parent, clipping_query, child_of_query);
+        return clip_check_recursive(point, child_of.0, clipping_query, child_of_query);
     }
     // Reached root, point unclipped by all ancestors
     true

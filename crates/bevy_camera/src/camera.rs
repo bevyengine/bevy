@@ -6,7 +6,9 @@ use super::{
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
+};
 use bevy_image::Image;
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
@@ -22,6 +24,39 @@ use wgpu_types::{BlendState, TextureUsages};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
+///
+/// <div class="warning">
+///
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
+/// Please see the example code (which assumes a single camera and window)
+///
+/// ```no_run
+/// # use bevy_camera::{Camera, Projection, Viewport};
+/// # use bevy_transform::prelude::Transform;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_math::UVec2;
+/// # use bevy_window::Window;
+/// # use bevy_utils::default;
+///
+/// fn update_viewport(
+///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
+///    windows: Query<&Window>
+/// ) {
+///     let Ok((mut camera, _, _)) = camera_query.single_mut() else { return; };
+///
+///     let window = windows.single().expect("Window not found");
+///     let scale = window.resolution.scale_factor();
+///
+///     camera.viewport = Some(Viewport {
+///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(),
+///         physical_size: (UVec2::new(100, 100).as_vec2() * scale).as_uvec2(),
+///         ..default()
+///     });
+/// }
+/// ```
+///
+/// </div>
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Clone)]
 pub struct Viewport {
@@ -776,6 +811,51 @@ impl Camera {
     }
 }
 
+/// The entity that Bevy uses to resolve visibility ranges when no specific
+/// camera is applicable.
+///
+/// For efficiency, Bevy currently renders point and spot light shadow maps only
+/// once per frame, regardless of the number of cameras in use, rather than
+/// rendering the shadow maps anew for each camera each frame. Most of the time,
+/// this optimization doesn't change the result relative to a rendering that
+/// rendered such shadow maps separately for each camera. However, there's one
+/// exception: visibility ranges. Visibility ranges cause meshes to be visible
+/// or invisible depending on the distance from the mesh to the camera. When
+/// rendering a shadow map for a point or spot light, Bevy must therefore select
+/// an entity to use as the reference point for the purposes of visibility
+/// ranges. This entity is called the *LOD origin*.
+///
+/// Placing this component on an entity makes that entity the origin from which
+/// LOD distances are computed for the purposes of shadow mapping of point and
+/// spot lights. Typically, you place this component on a camera, but you may
+/// place it on another entity if you wish.
+///
+/// The exact algorithm that Bevy uses to determine the LOD origin is as
+/// follows. Once the LOD origin is determined, all further steps are skipped.
+///
+/// 1. If an entity has this [`ShadowLodOrigin`] component, then it's the LOD
+///    origin. If there's more than one entity with the [`ShadowLodOrigin`]
+///    component, one is chosen arbitrarily in a manner that's stable from frame to
+///    frame.
+///
+/// 2. If a camera renders to a window (that is, the camera's [`RenderTarget`]
+///    is [`RenderTarget::Window`]), then that camera is the shadow LOD origin. If
+///    there's more than one such camera that renders to a window, then one is
+///    chosen arbitrarily in a manner that's stable from frame to frame.
+///
+/// 3. A camera is chosen to be the LOD origin arbitrarily from all cameras in
+///    the scene in a manner that's stable from frame to frame.
+///
+/// This algorithm means that, in most cases, you don't need to add this
+/// [`ShadowLodOrigin`] component explicitly to the scene; usually, Bevy chooses
+/// the right origin automatically. You only need to use this component
+/// explicitly if you have multiple cameras rendering to the window: e.g. in a
+/// split-screen game.
+#[derive(Clone, Copy, Default, Component, Debug, Reflect)]
+#[reflect(Clone, Default, Component)]
+#[require(Transform)]
+pub struct ShadowLodOrigin;
+
 /// Control how this [`Camera`] outputs once rendering is completed.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum CameraOutputMode {
@@ -837,9 +917,7 @@ impl RenderTarget {
             None
         }
     }
-}
 
-impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
@@ -884,7 +962,20 @@ pub enum NormalizedRenderTarget {
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
 /// See `ManualTextureViews` in `bevy_camera` for more details.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromTemplate,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 

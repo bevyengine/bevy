@@ -29,7 +29,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
-    use bevy_reflect::{FromType, ReflectFromPtr};
+    use bevy_reflect::{CreateTypeData, ReflectFromPtr};
     use core::ops::{Deref, DerefMut};
 
     use crate::{
@@ -341,7 +341,7 @@ mod tests {
             ticks,
         };
 
-        let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
+        let reflect_from_ptr = <ReflectFromPtr as CreateTypeData<i32>>::create_type_data(());
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.

@@ -2,7 +2,7 @@
 
 use bevy_ecs::{lifecycle::HookContext, prelude::*, world::DeferredWorld};
 
-use crate::InputFocus;
+use crate::{FocusCause, InputFocus};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
@@ -25,6 +25,6 @@ pub struct AutoFocus;
 
 fn on_auto_focus_added(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     if let Some(mut input_focus) = world.get_resource_mut::<InputFocus>() {
-        input_focus.set(entity);
+        input_focus.set(entity, FocusCause::Navigated);
     }
 }

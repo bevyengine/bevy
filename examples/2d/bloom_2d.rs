@@ -209,6 +209,7 @@ fn next_tonemap(tonemapping: &Tonemapping) -> Tonemapping {
         Tonemapping::Reinhard => Tonemapping::ReinhardLuminance,
         Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
         Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
-        Tonemapping::TonyMcMapface => Tonemapping::None,
+        Tonemapping::TonyMcMapface => Tonemapping::PbrNeutral,
+        Tonemapping::PbrNeutral => Tonemapping::None,
     }
 }

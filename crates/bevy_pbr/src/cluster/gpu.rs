@@ -440,8 +440,8 @@ impl ViewClusteringReadbackData {
     }
 }
 
-/// Decodes a u32 produced by `f32_bits_to_sortable_u32` (in
-/// `cluster_z_slice.wgsl`) back into f32 bits.
+/// Decodes a `u32` produced by `f32_bits_to_sortable_u32` (in
+/// `cluster_z_slice.wgsl`) back into `f32` bits.
 ///
 /// The encode flips the sign bit for positive floats and all bits for
 /// negative floats, so the decode must inspect the *encoded* sign bit

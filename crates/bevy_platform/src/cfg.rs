@@ -212,14 +212,14 @@ macro_rules! define_alias {
                 $(#[$p_meta])*
                 #[doc(inline)]
                 ///
-                #[doc = concat!("This macro passes the provided code because `#[cfg(", stringify!($meta), ")]` is currently active.")]
+                #[doc = ::core::concat!("This macro passes the provided code because `#[cfg(", ::core::stringify!($meta), ")]` is currently active.")]
                 pub use $crate::enabled as $p;
             }
             _ => {
                 $(#[$p_meta])*
                 #[doc(inline)]
                 ///
-                #[doc = concat!("This macro suppresses the provided code because `#[cfg(", stringify!($meta), ")]` is _not_ currently active.")]
+                #[doc = ::core::concat!("This macro suppresses the provided code because `#[cfg(", ::core::stringify!($meta), ")]` is _not_ currently active.")]
                 pub use $crate::disabled as $p;
             }
         }

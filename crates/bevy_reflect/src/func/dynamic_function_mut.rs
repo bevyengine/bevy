@@ -346,7 +346,7 @@ impl<'env> DynamicFunctionMut<'env> {
 /// [overloaded]: DynamicFunctionMut::with_overload
 impl<'env> Debug for DynamicFunctionMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicFunctionMut({:?})", &self.internal)
+        write!(f, "DynamicFunctionMut({:?})", self.internal)
     }
 }
 

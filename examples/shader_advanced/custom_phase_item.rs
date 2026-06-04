@@ -4,7 +4,7 @@
 //! [`bevy_render::render_phase::BinnedRenderPhase`] functionality with a
 //! custom [`RenderCommand`] to allow inserting arbitrary GPU drawing logic
 //! into Bevy's pipeline. This is not the only way to add custom rendering code
-//! into Bevy—render nodes are another, lower-level method—but it does allow
+//! into Bevy — render nodes are another, lower-level method — but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
@@ -288,7 +288,7 @@ fn queue_custom_phase_item(
             // handling that Bevy has for meshes (preprocessing, indirect
             // draws, etc.)
             //
-            // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
+            // The asset ID is arbitrary; we simply use [`AssetId::default`],
             // but you can use anything you like. Note that the asset ID need
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
@@ -300,7 +300,7 @@ fn queue_custom_phase_item(
                     slabs: MeshSlabs::default(),
                 },
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: AssetId::<Mesh>::default().untyped(),
                 },
                 (*render_entity, *main_entity),
                 InputUniformIndex::default(),
@@ -352,7 +352,7 @@ impl FromWorld for CustomPhasePipeline {
                     // Ordinarily, you'd want to check whether the view has the
                     // HDR format and substitute the appropriate texture format
                     // here, but we omit that for simplicity.
-                    format: TextureFormat::bevy_default(),
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

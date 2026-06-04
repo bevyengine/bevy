@@ -1,6 +1,8 @@
 //! The Feathers standard color palette.
 use bevy_color::Color;
 
+/// <div style="background-color: transparent; width: 10px; padding: 10px; border: 1px solid;"></div>
+pub const TRANSPARENT: Color = Color::oklcha(0.0, 0.0, 0.0, 0.0);
 /// <div style="background-color: #000000; width: 10px; padding: 10px; border: 1px solid;"></div>
 pub const BLACK: Color = Color::oklcha(0.0, 0.0, 0.0, 1.0);
 /// <div style="background-color: #1F1F24; width: 10px; padding: 10px; border: 1px solid;"></div> - window background

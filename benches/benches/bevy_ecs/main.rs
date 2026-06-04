@@ -15,6 +15,7 @@ mod fragmentation;
 mod iteration;
 mod observers;
 mod param;
+mod resources;
 mod scheduling;
 mod world;
 
@@ -28,6 +29,7 @@ criterion_main!(
     iteration::benches,
     fragmentation::benches,
     observers::benches,
+    resources::benches,
     scheduling::benches,
     world::benches,
     param::benches,

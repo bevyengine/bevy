@@ -153,7 +153,7 @@ impl DiagnosticsOverlay {
 ///
 /// Initially the [`DiagnosticsOverlayPlane`] will be positioned at the
 /// [`GlobalZIndex`] of [`INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX`].
-/// You are free to edit the z index of the plane or have your ui hierarchies
+/// You are free to edit the z index of the plane or have your UI hierarchies
 /// be relative to it.
 #[derive(Component)]
 pub struct DiagnosticsOverlayPlane;
@@ -222,7 +222,7 @@ pub struct DiagnosticsOverlayPlugin;
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
-        app.add_systems(Startup, build_plane);
+        app.add_systems(PreStartup, build_plane);
         app.add_systems(
             Update,
             rebuild_diagnostics_list
