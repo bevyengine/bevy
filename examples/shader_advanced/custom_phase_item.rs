@@ -4,7 +4,7 @@
 //! [`bevy_render::render_phase::BinnedRenderPhase`] functionality with a
 //! custom [`RenderCommand`] to allow inserting arbitrary GPU drawing logic
 //! into Bevy's pipeline. This is not the only way to add custom rendering code
-//! into Bevy—render nodes are another, lower-level method—but it does allow
+//! into Bevy — render nodes are another, lower-level method — but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
