@@ -173,7 +173,7 @@ impl Mul<MouseScrollPixelsPerLine> for f32 {
 impl Div<MouseScrollPixelsPerLine> for f32 {
     type Output = f32;
     fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
-        self * rhs.0
+        self / rhs.0
     }
 }
 
