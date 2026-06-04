@@ -446,8 +446,8 @@ pub trait ContextExt<T>: Sized {
     /// fn fallible() -> Result<(), BevyError> {
     ///     // Produces a `BevyError` with the message
     ///     // "failed to parse number: invalid digit found in string"
-    ///     let _parsed: usize = "I am not a number"
-    ///         .parse()
+    ///     let _parsed = "I am not a number"
+    ///         .parse::<usize>()
     ///         .context("failed to parse number")?;
     ///
     ///     Ok(())
