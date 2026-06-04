@@ -8,13 +8,14 @@ pull_requests: [23413, 23880, 23808, 23905, 24008]
 
 ### BSN (Bevy Scene Notation)
 
-The new scene system is modular and supports custom scene formats, but Bevy ships with its own format: BSN.
+BSN is an ergonomic Rust-like scene syntax which can be defined in Rust code via the `bsn!` macro _and_ in `.bsn` asset files. If you were ever bothered by the verbosity and complexity of spawning complex collections of entities in Bevy, you will probably enjoy what BSN has to offer. BSN can be used to spawn anything in the ECS. This benefits all scenarios, but it is worth calling out explicitly that this makes Bevy UI code significantly easier to read and write.
 
-BSN is an ergonomic Rust-like scene syntax which can be defined in Rust code via the `bsn!` macro _and_ in `.bsn` asset files. If you were ever bothered by the verbosity and complexity of setting up and spawning scenes in Bevy, you will probably enjoy what BSN has to offer. BSN can be used to spawn anything in the ECS, but it notably makes Bevy UI code significantly easier to read and write.
+Note that while **Bevy 0.19** supports scene assets, we aren't yet shipping a first-party `.bsn` asset loader. **Bevy 0.19** focuses on the code-driven workflow, and we plan to roll out the asset driven workflow in the next release.
 
-Note that **Bevy 0.19* supports scene assets, but we aren't yet shipping a first-party `.bsn` asset loader. **Bevy 0.19** focuses on the code-driven workflow, and we plan to roll out the asset driven workflow in the next release.
+The new scene system is flexible and format-independent: BSN is our recommended default format, but third parties are free to build their own, and we plan to make formats like `glTF` directly compatible. 
 
 A `bsn!` expression is essentially a list of components to add to an entity:
+
 ```rust
 bsn! {
     Player {
@@ -29,6 +30,7 @@ So far this looks and behaves much like Bevy's existing `Bundle` (which is _just
 ### Optional Fields
 
 In BSN, you don't need to specify every field, or use `..Default::default()`. You only need to set the fields you care about, and the rest will have their default values:
+
 ```rust
 #[derive(Component, Default, Clone)]
 struct Player {
@@ -44,6 +46,7 @@ bsn! {
 ```
 
 You can also just specify the type name if you want all the fields to take on their default values:
+
 ```rust
 bsn! {
     Player
@@ -61,6 +64,7 @@ bsn! {
 ### BSN Relationships
 
 BSN has first-class support for ECS Relationships. You can spawn related entities (such as children) inline:
+
 ```rust
 bsn! {
     Player
@@ -72,6 +76,7 @@ bsn! {
 ```
 
 This also works for custom relationships:
+
 ```rust
 bsn! {
     Player
@@ -85,6 +90,7 @@ bsn! {
 ### Scene Functions
 
 You can define reusable BSN functions like this:
+
 ```rust
 fn player() -> impl Scene {
     bsn! {
@@ -95,6 +101,7 @@ fn player() -> impl Scene {
 ```
 
 These can accept and use parameters:
+
 ```rust
 fn player(name: &str) -> impl Scene {
     bsn! {
@@ -107,6 +114,7 @@ fn player(name: &str) -> impl Scene {
 ### Scenes are Composable Patches
 
 A BSN expression is a "patch", it does not write a "full" instance of every type it defines. This means you can layer scenes on top of each other:
+
 ```rust
 fn button() -> impl Scene {
     bsn! {
@@ -128,6 +136,7 @@ fn my_button() -> impl Scene {
 ### Scene Assets and Caching
 
 While **Bevy 0.19** doesn't ship with an official `.bsn` asset loader, it _does_ already support scene asset dependencies:
+
 ```rust
 commands.queue_spawn_scene(bsn! {
     :"player.bsn"
@@ -146,6 +155,7 @@ We're [working](https://github.com/bevyengine/bevy/pull/23576) on an official `.
 ### Scene Lists
 
 `bsn!` / `Scene` corresponds to a single entity. `bsn_list!` / `SceneList` is the same idea, but applied to lists of entities:
+
 ```rust
 fn players() -> impl SceneList {
     bsn_list! [
@@ -156,6 +166,7 @@ fn players() -> impl SceneList {
 ```
 
 The "BSN relationship syntax" seen above (ex: `Children []`) uses `SceneList`. This means you can pass scene lists as arguments to your scenes:
+
 ```rust
 fn widget(children: impl SceneList) -> impl Scene {
     bsn! {
@@ -165,9 +176,10 @@ fn widget(children: impl SceneList) -> impl Scene {
 }
 ```
 
-### Events
+### Observing Events
 
-`bsn!` entities can easily observe events:
+`bsn!` entities can easily observe events, making it easy to embed "callback-style" behaviors in your scenes:
+
 ```rust
 fn button() -> impl Scene {
     bsn! {
@@ -184,6 +196,7 @@ fn button() -> impl Scene {
 A BSN expression actually defines "templates" for components rather than the actual components themselves. A `Template` is essentially a fancy constructor for a type, which produces an output type (such as a Component). Critically, `Template` has access to the `World`, the current entity, and the "scene spawn context". This enables powerful behaviors, such as loading assets from a given asset path and producing asset handles (ex: `Handle<Image>`).
 
 The "old" approach to spawning via bundles required passing in every ECS dependency into a bundle function and manually using that dependency to produce the final value:
+
 ```rust
 fn player(asset_server: &AssetServer) -> impl Bundle {
     (
@@ -208,6 +221,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 This gets _quite_ nasty when spawning complex deeply nested scenes with many dependencies.
 
 BSN makes this all much easier:
+
 ```rust
 fn player() -> impl Scene {
     bsn! {
@@ -230,6 +244,7 @@ This does mean that BSN requires types to have a `Template`. This is accomplishe
 ### Inline Asset Templates
 
 BSN ships with support for "inline assets" via the `asset_value` template:
+
 ```rust
 fn cube() -> impl Scene {
     bsn! {
@@ -239,6 +254,7 @@ fn cube() -> impl Scene {
 ```
 
 Compare that to what was necessary before!
+
 ```rust
 fn setup(meshes: Res<Assets<Meshes>>) -> impl Bundle {
     let handle = meshes.add(Cuboid::new(1., 1., 1.));
@@ -249,6 +265,7 @@ fn setup(meshes: Res<Assets<Meshes>>) -> impl Bundle {
 ### Entity Reference Syntax
 
 BSN has special "entity reference syntax" to define an Entity's `Name` component:
+
 ```rust
 bsn! {
     #FirstPlayer
@@ -257,6 +274,7 @@ bsn! {
 ```
 
 This is essentially the same as:
+
 ```rust
 bsn! {
     Name("FirstPlayer")
@@ -265,6 +283,7 @@ bsn! {
 ```
 
 However "entity reference syntax" also enables referencing that entity elsewhere in the scene:
+
 ```rust
 #[derive(Component, FromTemplate)]
 struct Reference(Entity);
@@ -278,6 +297,7 @@ bsn! {
 ```
 
 You can access _any_ entity reference defined in a given `bsn! {}` scope anywhere else in that scope:
+
 ```rust
 bsn! {
     References {
@@ -293,6 +313,7 @@ bsn! {
 ```
 
 In the context of `bsn_list!`, this enables defining graph structures:
+
 ```rust
 bsn_list! [
     (#A PointsTo(#B)),
@@ -303,6 +324,7 @@ bsn_list! [
 ### Implicit Into
 
 Most values in "field position" support "implicit `.into()`". This means types that can convert into other types can generally skip manual conversion:
+
 ```rust
 #[derive(Component, Default, Clone)]
 struct Foo(String);
@@ -329,7 +351,10 @@ Node { border: px(2) }
 
 ### Scene Components
 
-BSN makes it possible to associate a `Scene` with a `Component` via the `SceneComponent` derive:
+It has almost been a Bevy developer right of passage to define something like a `Player` component, which has complex behaviors that rely on some larger "scene", and then ask questions like "how to I spawn this all together?" and "how do I write code that can safely assume the whole scene is present?". Bevy developers have solved these problems in a variety of creative ways, but there has never been an easy recommended / idiomatic upstream solution.
+
+BSN solves this problem by making it possible to associate a `Scene` with a `Component` via the `SceneComponent` derive:
+
 ```rust
 #[derive(SceneComponent, Default, Clone)]
 struct Player {
@@ -350,6 +375,7 @@ impl Player {
 ```
 
 Scene components can then be spawned like this:
+
 ```rust
 world.spawn_scene(bsn! {
     @Player { score: 10 }
@@ -359,6 +385,7 @@ world.spawn_scene(bsn! {
 Scene Components must be spawned this way (as a "scene component"), and will log errors if they are spawned directly (ex: via `world.spawn(Player::default())`). Critically, this provides the guarantee that if the `Player` component is present, the full scene will also be present. As a developer this means you can write code that queries for `Player` and assume that it will have both a `LeftHand` and a `RightHand` child. This was a major missing piece in the Bevy data model!
 
 Scene Components can also define "props" which are passed into the scene function and can inform BSN outputs:
+
 ```rust
 #[derive(SceneComponent, Default, Clone)]
 #[scene(PlayerProps)]
@@ -393,10 +420,21 @@ bsn! {
 }
 ```
 
+The `SceneComponent` derive also supports shorthand for scene assets:
 
-### Scene Spawn Systems
+```rust
+#[derive(SceneComponent, Default, Clone)]
+#[scene("player.bsn")]
+struct Player {
+    score: usize
+}
+```
 
-**Bevy 0.19** ships with helpers to easily spawn scene functions. This is a _fully self-contained_ Bevy app that spawns a 3D scene:
+Again, note that **Bevy 0.19** does not ship with a `.bsn` asset loader. We're working on it!
+
+### Scene Spawning Systems
+
+**Bevy 0.19** ships with a helper to easily spawn scene functions. This is a _fully self-contained_ Bevy app that spawns a 2D scene:
 
 ```rust
 use bevy::prelude::*;
@@ -410,12 +448,10 @@ fn main() {
 
 fn level() -> impl SceneList {
     bsn_list![
-        (Camera3d Transform::from_xyz(0., 1., 8.)),
-        (PointLight Transform::from_xyz(2., 4., 2.)),
-        (
-            Mesh3d(asset_value(Cuboid::new(1., 1., 1.)))
-            MeshMaterial3d::<StandardMaterial>
-        ),
+        Camera2d,
+        Sprite { image: "player.png" }
     ]
 }
 ```
+
+`.spawn()` will turn any function that returns a `Scene` or a `SceneList` into a system that spawns that scene.
