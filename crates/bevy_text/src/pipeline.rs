@@ -427,8 +427,8 @@ pub fn resolve_font_source<'a>(
                     .as_str(),
             )))
         }
-        FontSource::Named(family) => FontFamily::named(family.as_str()),
-        FontSource::Names(source) => FontFamily::Source(Cow::Borrowed(source.as_str())),
+        FontSource::Family(family) => FontFamily::named(family.as_str()),
+        FontSource::Families(source) => FontFamily::Source(Cow::Borrowed(source.as_str())),
         FontSource::List(list) => FontFamily::List(Cow::Owned(
             list.iter()
                 .map(|family| match family {

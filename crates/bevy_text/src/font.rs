@@ -109,11 +109,11 @@ pub fn load_font_assets_into_font_collection(
         if font_removed
             || match &text_font.font {
                 FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
-                FontSource::Named(name) => font_cx
+                FontSource::Family(name) => font_cx
                     .collection
                     .family_id(name)
                     .is_some_and(|id| new_family_ids.contains(&id)),
-                FontSource::Names(source) => FontFamilyName::parse_css_list(source.as_str())
+                FontSource::Families(source) => FontFamilyName::parse_css_list(source.as_str())
                     .map_while(Result::ok)
                     .any(|family| match family {
                         FontFamilyName::Named(name) => font_cx
