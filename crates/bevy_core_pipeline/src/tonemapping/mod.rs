@@ -160,7 +160,9 @@ pub enum Tonemapping {
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     BlenderFilmic,
-    /// Designed to faithfully reproduce base color under neutral lighting. Suitable for e-commerce, architecture and CAD applications.
+    /// Not neutral. Highly saturated colours and tends to produce a very high contrast image.
+    /// Tends to crush dark colours which can make it harder to see details in dark areas.
+    /// Designed for e-commerce to faithfully reproduce the colours of brand's logos when used with low brightness lights.
     /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
     KhronosPbrNeutral,
 }
