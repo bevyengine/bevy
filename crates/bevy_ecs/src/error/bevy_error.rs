@@ -446,8 +446,8 @@ pub trait ContextExt<T>: Sized {
     /// fn fallible() -> Result<(), BevyError> {
     ///     // Produces a `BevyError` with the message
     ///     // "failed to parse number: invalid digit found in string"
-    ///     let _parsed = "I am not a number"
-    ///         .parse::<usize>()
+    ///     let _parsed: usize = "I am not a number"
+    ///         .parse()
     ///         .context("failed to parse number")?;
     ///
     ///     Ok(())
@@ -478,10 +478,9 @@ pub trait ContextExt<T>: Sized {
     where
         C: Display;
 }
-
 impl<T, E> ContextExt<T> for Result<T, E>
 where
-    Box<dyn Error + Send + Sync + 'static>: From<E>,
+    E: Into<BevyError>,
 {
     fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
     where
@@ -490,32 +489,7 @@ where
         match self {
             Ok(v) => Ok(v),
             Err(error) => {
-                let mut error: Box<dyn Error + Send + Sync + 'static> = error.into();
-                let msg = context().to_string();
-                if let Some(ctx) = error.downcast_mut::<ContextError>() {
-                    ctx.messages.push(msg);
-                    Err(error.into())
-                } else {
-                    let error = ContextError {
-                        messages: alloc::vec![error.to_string(), msg],
-                        error,
-                    };
-
-                    Err(error.into())
-                }
-            }
-        }
-    }
-}
-
-impl<T> ContextExt<T> for Result<T, BevyError> {
-    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
-    where
-        C: Display,
-    {
-        match self {
-            Ok(v) => Ok(v),
-            Err(mut error) => {
+                let mut error = error.into();
                 let msg = context().to_string();
                 if let Some(ctx) = error.inner.error.downcast_mut::<ContextError>() {
                     ctx.messages.push(msg);
