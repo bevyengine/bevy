@@ -239,7 +239,9 @@ impl BevyError {
                         if line.contains("__rust_begin_short_backtrace") {
                             break;
                         }
-                        if line.contains("bevy_ecs::observer::Observers::invoke::{closure") {
+                        if line.contains("bevy_ecs::observer::Observers::invoke::")
+                            && line.contains("closure")
+                        {
                             break;
                         }
                     }
@@ -727,8 +729,8 @@ mod tests {
         let expected_lines = alloc::vec![
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
-            "<bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0} as core::ops::function::FnOnce<()>>::call_once",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
+            "core::ops::function::FnOnce::call_once",
         ];
 
         for expected in expected_lines {
@@ -749,7 +751,7 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && line.contains("core::ops::function::FnOnce<()>")
+            && line.contains("core::ops::function::FnOnce")
         {
             skip = true;
         }
