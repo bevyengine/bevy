@@ -17,8 +17,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
-    EditableText, EditableTextFilter, FontSourceTemplate, FontWeight, TextEdit, TextEditChange,
-    TextFont,
+    EditableText, EditableTextFilter, FontSourceTemplate, TextEdit, TextEditChange, TextFont,
 };
 use bevy_ui::{px, widget::Text, AlignItems, AlignSelf, Display, JustifyContent, Node, UiRect};
 use bevy_ui_widgets::{SelectAllOnFocus, ValueChange};
@@ -104,7 +103,6 @@ impl FeathersNumberInput {
                                 TextFont {
                                     font: FontSourceTemplate::Handle(fonts::REGULAR),
                                     font_size: size::COMPACT_FONT,
-                                    weight: FontWeight::NORMAL,
                                 }
                                 PropagateOver<TextFont>
                                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)

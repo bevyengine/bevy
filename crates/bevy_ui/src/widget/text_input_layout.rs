@@ -82,7 +82,6 @@ pub fn update_editable_text_content_size(
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
-            || fonts.is_changed()
             || rem_size.is_changed())
         {
             continue;
@@ -91,11 +90,12 @@ pub fn update_editable_text_content_size(
         let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
-            let font_context = &mut font_cx.0;
+            let resolved_font = resolve_font_source(&text_font, fonts.as_ref()).ok()?;
+            let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
+            match resolved_font {
                 parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
                     query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
                 }
@@ -174,10 +174,8 @@ pub fn update_editable_text_styles(
     for (mut editable_text, text_font, line_height, target, text_layout) in
         editable_text_query.iter_mut()
     {
-        let editor = editable_text.editor_mut();
-
-        if f32::EPSILON < (target.scale_factor() - editor.get_scale()).abs() {
-            editor.set_scale(target.scale_factor());
+        if f32::EPSILON < (target.scale_factor() - editable_text.editor.get_scale()).abs() {
+            editable_text.editor.set_scale(target.scale_factor());
         }
 
         if text_font.is_changed()
@@ -187,17 +185,20 @@ pub fn update_editable_text_styles(
                 FontSize::Vw(_) | FontSize::Vh(_) | FontSize::VMin(_) | FontSize::VMax(_)
             ) && target.is_changed()
         {
-            editor.edit_styles().insert(StyleProperty::FontSize(
-                text_font.font_size.eval(target.logical_size(), rem_size.0),
-            ));
+            editable_text
+                .editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(
+                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                ));
         }
 
         if text_font.is_changed() {
-            let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
+            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
                 continue;
             };
 
-            let family = font_family.into_owned();
+            let family = resolved_font.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
@@ -300,7 +301,7 @@ pub fn update_editable_text_layout(
 
         let mut driver = editable_text
             .editor
-            .driver(&mut font_cx.0, &mut layout_cx.0);
+            .driver(font_cx.as_mut(), layout_cx.as_mut());
 
         driver.refresh_layout();
 
