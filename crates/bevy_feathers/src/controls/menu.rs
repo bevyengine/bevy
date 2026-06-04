@@ -223,7 +223,7 @@ impl FeathersMenuPopup {
             )
             GlobalZIndex(100)
             Popover {
-                positions: {vec![
+                positions: vec![
                     PopoverPlacement {
                         side: PopoverSide::Bottom,
                         align: PopoverAlign::Start,
@@ -234,7 +234,7 @@ impl FeathersMenuPopup {
                         align: PopoverAlign::Start,
                         gap: 2.0,
                     },
-                ]},
+                ],
                 window_margin: 10.0,
             }
             OverrideClip

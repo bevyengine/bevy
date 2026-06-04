@@ -2183,4 +2183,23 @@ mod tests {
         let indirect_ent = world.spawn_scene(indirect).unwrap();
         assert!(indirect_ent.get::<Callback>().unwrap().callback == id2);
     }
+
+    #[test]
+    fn direct_macro_values_in_bsn() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Default, Clone)]
+        struct Foo {
+            value: Vec<usize>,
+        }
+        let entity = world
+            .spawn_scene(bsn! {
+                Foo {
+                    value: vec! [ 10usize ],
+                }
+            })
+            .unwrap();
+        assert_eq!(entity.get::<Foo>().unwrap().value, vec![10usize]);
+    }
 }
