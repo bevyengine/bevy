@@ -306,7 +306,7 @@ pub fn run_freecamera_controller(
 
     let scroll = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
-        MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / **mouse_scroll_conversion,
+        MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / *mouse_scroll_conversion,
     };
     // By using exponentiation we ensure that this scales up and down smoothly
     // regardless of the amount of scrolling processed per frame

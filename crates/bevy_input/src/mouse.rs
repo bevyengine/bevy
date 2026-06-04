@@ -1,5 +1,7 @@
 //! The mouse input functionality.
 
+use core::ops::{Div, Mul};
+
 use crate::{touch::TouchPhase, ButtonInput, ButtonState};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectMessage;
@@ -11,6 +13,8 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_math::Vec2;
+use derive_more::{Deref, DerefMut};
+
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
@@ -140,7 +144,7 @@ pub enum MouseScrollUnit {
 }
 
 /// Describes the quantity of [`MouseScrollUnit::Pixel`]s per [`MouseScrollUnit::Line`]
-#[derive(Debug, Clone, Copy, PartialEq, Resource)]
+#[derive(Debug, Clone, Copy, PartialEq, Resource, Deref, DerefMut)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -159,13 +163,33 @@ impl Default for MouseScrollPixelsPerLine {
     }
 }
 
-impl core::ops::Deref for MouseScrollPixelsPerLine {
-    type Target = f32;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl Mul<f32> for MouseScrollPixelsPerLine {
+    type Output = f32;
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
     }
 }
 
+impl Div<f32> for MouseScrollPixelsPerLine {
+    type Output = f32;
+    fn div(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+impl Mul<MouseScrollPixelsPerLine> for Vec2 {
+    type Output = Vec2;
+    fn mul(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+impl Div<MouseScrollPixelsPerLine> for Vec2 {
+    type Output = Vec2;
+    fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self / rhs.0
+    }
+}
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
@@ -265,6 +289,31 @@ impl Default for AccumulatedMouseScroll {
         Self {
             unit: MouseScrollUnit::Line,
             delta: Vec2::ZERO,
+        }
+    }
+}
+
+impl AccumulatedMouseScroll {
+    /// Converts the units to [`MouseScrollUnit::Line`]
+    pub fn to_lines(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Line {
+            AccumulatedMouseScroll {
+                unit: MouseScrollUnit::Line,
+                delta: self.delta / *conversion_ratio,
+            }
+        } else {
+            *self
+        }
+    }
+    /// Converts the units to [`MouseScrollUnit::Pixel`]
+    pub fn to_pixels(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Pixel {
+            AccumulatedMouseScroll {
+                unit: MouseScrollUnit::Line,
+                delta: self.delta * *conversion_ratio,
+            }
+        } else {
+            *self
         }
     }
 }
