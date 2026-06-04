@@ -163,17 +163,17 @@ impl Default for MouseScrollPixelsPerLine {
     }
 }
 
-impl Mul<f32> for MouseScrollPixelsPerLine {
+impl Mul<MouseScrollPixelsPerLine> for f32 {
     type Output = f32;
-    fn mul(self, rhs: f32) -> Self::Output {
-        self.0 * rhs
+    fn mul(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
     }
 }
 
-impl Div<f32> for MouseScrollPixelsPerLine {
+impl Div<MouseScrollPixelsPerLine> for f32 {
     type Output = f32;
-    fn div(self, rhs: f32) -> Self::Output {
-        self.0 * rhs
+    fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
     }
 }
 
