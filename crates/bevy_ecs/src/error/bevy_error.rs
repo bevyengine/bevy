@@ -1,4 +1,4 @@
-use alloc::boxed::Box;
+use alloc::{boxed::Box, string::ToString};
 use core::{
     error::Error,
     fmt::{Debug, Display},
@@ -192,6 +192,11 @@ impl BevyError {
         self.inner.error.downcast_ref::<E>()
     }
 
+    /// Attempts to downcast the internal error to a mutable reference to the given type.
+    pub fn downcast_mut<E: Error + 'static>(&mut self) -> Option<&mut E> {
+        self.inner.error.downcast_mut::<E>()
+    }
+
     fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "backtrace")]
         {
@@ -201,7 +206,7 @@ impl BevyError {
                 // TODO: Cache
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
-                let backtrace_str = alloc::string::ToString::to_string(backtrace);
+                let backtrace_str = backtrace.to_string();
                 let mut skip_next_location_line = false;
                 for line in backtrace_str.split('\n') {
                     if !full_backtrace {
@@ -219,18 +224,22 @@ impl BevyError {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains("<bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
+                        if line.contains(
+                            "bevy_ecs::error::bevy_error::BevyError as core::convert::From",
+                        ) {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains("<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
+                        if line.contains("core::ops::try_trait::FromResidual")
+                            && line.contains("::from_residual")
+                        {
                             skip_next_location_line = true;
                             continue;
                         }
                         if line.contains("__rust_begin_short_backtrace") {
                             break;
                         }
-                        if line.contains("bevy_ecs::observer::Observers::invoke::{{closure}}") {
+                        if line.contains("bevy_ecs::observer::Observers::invoke::{closure") {
                             break;
                         }
                     }
@@ -311,7 +320,7 @@ impl BevyError {
 }
 
 /// Extension methods for annotating errors with a [`Severity`].
-pub trait ResultSeverityExt<T, E> {
+pub trait ResultSeverityExt<T, E>: Sized {
     /// Overrides the [`Severity`] of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
@@ -362,6 +371,48 @@ pub trait ResultSeverityExt<T, E> {
     ///
     /// If you don't need to inspect the error, use [`Result::with_severity`](ResultSeverityExt::with_severity)
     fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
+
+    /// Overrides the severity of the error with [`Severity::Ignore`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Ignore)`
+    fn ignore(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Ignore)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Trace`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Trace)`
+    fn trace(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Trace)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Info`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Info)`
+    fn info(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Info)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Warning`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Warning)`
+    fn warn(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Warning)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Error`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Error)`
+    fn error(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Error)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Panic`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Panic)`
+    fn panic(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Panic)
+    }
 }
 
 impl<T, E> ResultSeverityExt<T, E> for Result<T, E>
@@ -379,6 +430,129 @@ where
         })
     }
 }
+
+/// Extension methods for adding additional context messages to a [`BevyError`]
+pub trait ContextExt<T>: Sized {
+    /// Annotate the error with a context message.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ContextExt};
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     // Produces a `BevyError` with the message
+    ///     // "failed to parse number: invalid digit found in string"
+    ///     let _parsed: usize = "I am not a number"
+    ///         .parse()
+    ///         .context("failed to parse number")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    fn context<C>(self, context: C) -> Result<T, BevyError>
+    where
+        C: Display,
+    {
+        self.with_context(move || context)
+    }
+
+    /// Annotate the error with a context message from a closure
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ContextExt};
+    /// # use std::fs;
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     let path = "some_file.txt";
+    ///     let _message = fs::read_to_string(path)
+    ///         .with_context(|| format!("failed to read {path}"))?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Display;
+}
+
+impl<T, E> ContextExt<T> for Result<T, E>
+where
+    E: Into<BevyError>,
+{
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Display,
+    {
+        match self {
+            Ok(v) => Ok(v),
+            Err(error) => {
+                let mut error = error.into();
+                let msg = context().to_string();
+                if let Some(ctx) = error.downcast_mut::<ContextError>() {
+                    ctx.messages.push(msg);
+                    Err(error)
+                } else {
+                    let error = ContextError {
+                        messages: alloc::vec![error.to_string(), msg],
+                    };
+
+                    Err(error.into())
+                }
+            }
+        }
+    }
+}
+
+impl<T> ContextExt<T> for Option<T> {
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Display,
+    {
+        match self {
+            Some(v) => Ok(v),
+            None => {
+                let error = ContextError {
+                    messages: alloc::vec![context().to_string()],
+                };
+
+                Err(error.into())
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct ContextError {
+    messages: alloc::vec::Vec<alloc::string::String>,
+}
+
+impl Display for ContextError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self.messages {
+            messages if messages.len() == 2 => {
+                write!(f, "{}: {}", messages[1].trim(), messages[0].trim())?;
+            }
+            messages if messages.len() == 1 => write!(f, "{}", messages[0].trim())?,
+            messages if messages.is_empty() => {} // nop
+            messages => {
+                // The most recent message is the last one in the `Vec`
+                // so we need to reverse the iterator
+                let mut reversed = messages.iter().rev();
+                // `messages.len()` is at least 3
+                let first = reversed.next().unwrap().trim();
+
+                write!(f, "{first}\n\nCaused by:")?;
+                for message in reversed {
+                    let message = message.trim();
+                    write!(f, "\n\t{message}")?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Error for ContextError {}
 
 // NOTE: writing the impl this way gives us From<&str> ... nice!
 impl<E> From<E> for BevyError
@@ -510,6 +684,8 @@ macro_rules! bail {
 #[cfg(test)]
 mod tests {
     use crate::error::BevyError;
+    use crate::error::ContextExt;
+    use alloc::string::ToString;
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
@@ -551,8 +727,8 @@ mod tests {
         let expected_lines = alloc::vec![
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
-            "core::ops::function::FnOnce::call_once",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
+            "<bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0} as core::ops::function::FnOnce<()>>::call_once",
         ];
 
         for expected in expected_lines {
@@ -573,7 +749,7 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "core::ops::function::FnOnce::call_once"
+            && line.contains("core::ops::function::FnOnce<()>")
         {
             skip = true;
         }
@@ -648,5 +824,35 @@ mod tests {
             )
         });
         t(|| bail!("Format string {}", 1 + 2));
+    }
+
+    #[test]
+    fn context() {
+        let empty = None::<i32>;
+        let as_result = empty.context("Didn't have anything!");
+        assert!(as_result
+            .unwrap_err()
+            .to_string()
+            .starts_with("Didn't have anything!\n"));
+
+        let err: Result<i32, BevyError> =
+            Err(BevyError::new(crate::error::Severity::Debug, "Oh no!"));
+        let mut with_context = err.context("Failed");
+
+        assert!(with_context
+            .as_ref()
+            .unwrap_err()
+            .to_string()
+            .starts_with("Failed: Oh no!\n"));
+
+        with_context = with_context.context("Something went wrong");
+        assert!(with_context.unwrap_err().to_string().starts_with(
+            "Something went wrong
+
+Caused by:
+\tFailed
+\tOh no!
+"
+        ));
     }
 }
