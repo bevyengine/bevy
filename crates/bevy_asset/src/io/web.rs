@@ -56,6 +56,7 @@ use tracing::warn;
 /// ```
 #[derive(Default)]
 pub struct WebAssetPlugin {
+    /// Set this if you have seen the warning about URL safety enough times.
     pub silence_startup_warning: bool,
 }
 

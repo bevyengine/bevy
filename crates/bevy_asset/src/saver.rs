@@ -1,3 +1,9 @@
+//! Tools to save processed [`Asset`]s to a byte format that can then be written with [`AssetWriter`].
+//!
+//! See [`AssetSaver`] for details.
+//!
+//! [`AssetWriter`]: crate::io::AssetWriter
+
 use crate::{
     io::{AssetWriterError, MissingAssetSourceError, MissingAssetWriterError, Writer},
     meta::{AssetAction, AssetMeta, AssetMetaDyn, Settings},
