@@ -2,7 +2,7 @@
 name = "bevy_anti_alias"
 version = "0.19.0-dev"
 edition = "2024"
-description = "Provides various anti aliasing implementations for Bevy Engine"
+description = "Provides various anti-aliasing implementations for Bevy Engine"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"

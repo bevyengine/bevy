@@ -85,7 +85,7 @@ impl Plugin for WebAssetPlugin {
     }
 }
 
-/// Asset reader that treats paths as urls to load assets from.
+/// Asset reader that treats paths as URLs to load assets from.
 pub enum WebAssetReader {
     /// Unencrypted connections.
     Http,

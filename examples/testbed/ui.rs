@@ -563,7 +563,7 @@ mod text {
                         hinting,
                         Text::new("FontWeight(100)_"),
                         TextFont {
-                            font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                            font: "Mona Sans".into(),
                             font_size: FontSize::Px(25.),
                             weight: FontWeight(100),
                             ..default()
@@ -572,9 +572,7 @@ mod text {
                             (
                                 TextSpan::new("FontWeight(500)_"),
                                 TextFont {
-                                    font: asset_server
-                                        .load("fonts/MonaSans-VariableFont.ttf")
-                                        .into(),
+                                    font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
                                     weight: FontWeight(500),
                                     ..default()
@@ -583,9 +581,7 @@ mod text {
                             (
                                 TextSpan::new("FontWeight(900)"),
                                 TextFont {
-                                    font: asset_server
-                                        .load("fonts/MonaSans-VariableFont.ttf")
-                                        .into(),
+                                    font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
                                     weight: FontWeight(900),
                                     ..default()

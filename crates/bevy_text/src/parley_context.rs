@@ -3,6 +3,7 @@ use crate::{FontSmoothing, FontSource, GenericFontFamily};
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::resource::Resource;
+use bevy_platform::collections::HashMap;
 use parley::FontContext;
 use parley::LayoutContext;
 use swash::scale::ScaleContext;
@@ -33,7 +34,13 @@ impl TextBrush {
 ///
 /// This resource is a wrapper around [`parley::FontContext`].
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct FontCx(pub FontContext);
+pub struct FontCx {
+    /// A font database/cache (wrapper around a Fontique [`Collection`](parley::fontique::Collection) and [`SourceCache`](parley::fontique::SourceCache)).
+    #[deref]
+    pub context: FontContext,
+    /// Backup, used to restore the generic family mappings after the font [`Collection`](parley::fontique::Collection) is cleared.
+    generic_families: HashMap<GenericFontFamily, String>,
+}
 
 impl FontCx {
     /// Get the family name associated with a [`FontSource`].
@@ -48,11 +55,10 @@ impl FontCx {
         };
 
         let family_id = self
-            .0
             .collection
             .generic_families(generic_family.into())
             .next();
-        family_id.and_then(|id| self.0.collection.family_name(id))
+        family_id.and_then(|id| self.collection.family_name(id))
     }
 
     /// Sets the fallback font for a given generic family.
@@ -65,7 +71,7 @@ impl FontCx {
     /// These methods will return an error if the provided family name does not already exist in the font collection.
     pub fn set_generic_family(
         &mut self,
-        generic: impl Into<parley::GenericFamily>,
+        generic_family: GenericFontFamily,
         family_name: &str,
     ) -> Result<(), TextError> {
         self.collection
@@ -73,7 +79,9 @@ impl FontCx {
             .ok_or(TextError::NoSuchFontFamily(family_name.to_string()))
             .map(|id| {
                 self.collection
-                    .set_generic_families(generic.into(), core::iter::once(id));
+                    .set_generic_families(generic_family.into(), core::iter::once(id));
+                self.generic_families
+                    .insert(generic_family.into(), family_name.to_string());
             })
     }
 
@@ -140,6 +148,17 @@ impl FontCx {
     /// Sets the fangsong generic family mapping.
     pub fn set_fang_song_family(&mut self, family_name: &str) -> Result<(), TextError> {
         self.set_generic_family(GenericFontFamily::FangSong, family_name)
+    }
+
+    /// Call after clearing the font `Collection` to restore the generic family mappings.
+    pub fn restore_generic_families(&mut self) {
+        for (generic_family, family_name) in core::mem::take(&mut self.generic_families).iter() {
+            if let Err(err) = self.set_generic_family(*generic_family, family_name) {
+                bevy_log::warn!(
+                    "Failed to restore generic font family mapping: {generic_family:?} -> {family_name}, {err}"
+                );
+            }
+        }
     }
 }
 

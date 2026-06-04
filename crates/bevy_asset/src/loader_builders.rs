@@ -284,7 +284,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: error.into(),
+                        error: Box::new(error.into()),
                     })?
             } else {
                 self.load_context
@@ -293,7 +293,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: error.into(),
+                        error: Box::new(error.into()),
                     })?
             };
             let meta = loader.default_meta();
@@ -306,7 +306,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                 .await
                 .map_err(|error| LoadDirectError::LoadError {
                     dependency: path.clone(),
-                    error,
+                    error: Box::new(error),
                 })?;
             (meta, loader, ReaderRef::Boxed(reader))
         };
@@ -330,13 +330,6 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
 
     /// Same as [`Self::load_value_internal`], but with a generic to ensure the returned handle type
     /// is correct.
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        expect(
-            clippy::result_large_err,
-            reason = "we need to give the user the correct error type"
-        )
-    )]
     async fn load_typed_value_internal<A: Asset>(
         self,
         path: AssetPath<'static>,
@@ -349,12 +342,12 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .downcast::<A>()
                     .map_err(|_| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: AssetLoadError::RequestedHandleTypeMismatch {
+                        error: Box::new(AssetLoadError::RequestedHandleTypeMismatch {
                             path,
                             requested: TypeId::of::<A>(),
                             actual_asset_name: loader.asset_type_name(),
                             loader_name: loader.type_path(),
-                        },
+                        }),
                     })
             })
     }

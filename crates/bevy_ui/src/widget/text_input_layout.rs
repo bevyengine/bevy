@@ -8,6 +8,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
+    reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::Ref,
 };
@@ -15,6 +16,8 @@ use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
@@ -27,7 +30,8 @@ use smallvec::SmallVec;
 use swash::FontRef;
 use taffy::MaybeMath;
 
-#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Component, Clone, Copy, PartialEq, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
@@ -90,7 +94,6 @@ pub fn update_editable_text_content_size(
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
-            || fonts.is_changed()
             || rem_size.is_changed())
         {
             continue;
@@ -99,12 +102,12 @@ pub fn update_editable_text_content_size(
         let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
-            let font_context = &mut font_cx.0;
+            let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
 
-            match &resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
+            match &resolve_font_source(&text_font, fonts.as_ref()).ok()? {
                 parley::FontFamily::Source(source) => {
                     query.set_families(
                         parley::FontFamilyName::parse_css_list(source)
@@ -191,10 +194,8 @@ pub fn update_editable_text_styles(
     for (mut editable_text, text_font, line_height, target, text_layout) in
         editable_text_query.iter_mut()
     {
-        let editor = editable_text.editor_mut();
-
-        if f32::EPSILON < (target.scale_factor() - editor.get_scale()).abs() {
-            editor.set_scale(target.scale_factor());
+        if f32::EPSILON < (target.scale_factor() - editable_text.editor.get_scale()).abs() {
+            editable_text.editor.set_scale(target.scale_factor());
         }
 
         if text_font.is_changed()
@@ -204,17 +205,20 @@ pub fn update_editable_text_styles(
                 FontSize::Vw(_) | FontSize::Vh(_) | FontSize::VMin(_) | FontSize::VMax(_)
             ) && target.is_changed()
         {
-            editor.edit_styles().insert(StyleProperty::FontSize(
-                text_font.font_size.eval(target.logical_size(), rem_size.0),
-            ));
+            editable_text
+                .editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(
+                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                ));
         }
 
         if text_font.is_changed() {
-            let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
+            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
                 continue;
             };
 
-            let family = font_family.into_owned();
+            let family = resolved_font.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
@@ -317,7 +321,7 @@ pub fn update_editable_text_layout(
 
         let mut driver = editable_text
             .editor
-            .driver(&mut font_cx.0, &mut layout_cx.0);
+            .driver(font_cx.as_mut(), layout_cx.as_mut());
 
         driver.refresh_layout();
 

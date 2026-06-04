@@ -12,6 +12,7 @@ use bevy_ecs::system::ResMut;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
+use parley::fontique::FontInfoOverride;
 use parley::FontFamilyName;
 use smol_str::SmolStr;
 
@@ -31,98 +32,173 @@ use smol_str::SmolStr;
 pub struct Font {
     /// Content of a font file as bytes
     pub data: Blob<u8>,
-    /// Font family name used to resolve this asset when referenced by handle.
-    /// If the font file is a collection with multiple families, this is the family name from the
-    /// first font face in the collection.
-    pub family_name: SmolStr,
+    /// Alias used to identify the asset in the when referenced by handle.
+    pub alias: String,
 }
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn from_bytes(font_data: Vec<u8>, family_name: &str) -> Font {
+    pub fn from_bytes(font_data: Vec<u8>) -> Font {
         Self {
             data: Blob::from(font_data),
-            family_name: family_name.into(),
+            alias: String::new(),
         }
     }
 }
 
-/// Add new font assets to the internal font collection.
+/// Add new font assets to the internal font collection, and set any associated `TextFont`'s changed.
+/// If any fonts are removed, the font collection is completely rebuilt, the generic families are remapped, and all `TextFont`s are set changed.
+///
+/// Font asset changes are track locally instead of waiting for asset events. Text layout also builds the atlas images, and waiting for asset events would
+/// delay the image updates by a frame.
 pub fn load_font_assets_into_font_collection(
     mut fonts: ResMut<Assets<Font>>,
     mut loaded_fonts: Local<HashSet<AssetId<Font>>>,
     mut font_cx: ResMut<FontCx>,
     mut text_font_query: Query<&mut TextFont>,
 ) {
-    loaded_fonts.retain(|id| fonts.contains(*id));
+    let font_removed = loaded_fonts.iter().any(|id| !fonts.contains(*id));
+    let new_asset_ids: Vec<_> = if font_removed {
+        // If any font asset has been removed, clear the font collection and queue the remaining fonts to be reinserted into the collection.
+        font_cx.collection.clear();
+        loaded_fonts.clear();
+        loaded_fonts.extend(fonts.ids());
+        loaded_fonts.iter().copied().collect()
+    } else {
+        fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect()
+    };
 
-    let new_asset_ids: Vec<_> = fonts.ids().filter(|id| loaded_fonts.insert(*id)).collect();
-
-    if new_asset_ids.is_empty() {
+    if new_asset_ids.is_empty() && !font_removed {
         return;
     }
 
     let mut new_family_ids = Vec::new();
-    for asset_id in new_asset_ids.iter() {
-        let font_data = fonts
-            .get(*asset_id)
-            .expect("AssetId should have a corresponding asset")
-            .data
-            .clone();
+    for asset_id in &new_asset_ids {
+        let font = fonts
+            .get_mut_untracked(*asset_id)
+            .expect("Each AssetId should have a corresponding asset");
 
-        let new_fonts = font_cx.collection.register_fonts(font_data, None);
+        font.alias = format!("asset_id:{asset_id:?}");
 
-        if let Some((_, family_id)) = new_fonts
-            .iter()
-            .flat_map(|(family_id, fonts)| {
-                fonts
-                    .iter()
-                    .map(move |font_info| (font_info.index(), *family_id))
-            })
-            .min_by_key(|(index, _)| *index)
-            && let Some(family_name) = font_cx.0.collection.family_name(family_id)
-            && let Some(font) = fonts.get_mut_untracked(*asset_id)
-        {
-            font.family_name = family_name.into();
-            new_family_ids.extend(new_fonts.iter().map(|(family_id, _)| *family_id));
-        }
+        // Each font is registered twice in Parley's FontContext collection, once under its embedded family name,
+        // and once under an alias generated from the asset id.
+        // This to allow look ups by the embedded family name while also ensuring that font asset handles
+        // accurately resolve to the correct font asset.
+        new_family_ids.extend(
+            font_cx
+                .collection
+                .register_fonts(font.data.clone(), None)
+                .iter()
+                .map(|(family_id, _)| *family_id),
+        );
+
+        font_cx.collection.register_fonts(
+            font.data.clone(),
+            Some(FontInfoOverride {
+                family_name: Some(font.alias.as_str()),
+                ..Default::default()
+            }),
+        );
+    }
+
+    if font_removed {
+        font_cx.restore_generic_families();
     }
 
     for mut text_font in text_font_query.iter_mut() {
-        if match &text_font.font {
-            FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
-            FontSource::Named(name) => font_cx
-                .collection
-                .family_id(name.as_str())
-                .is_some_and(|id| new_family_ids.contains(&id)),
-            FontSource::Names(source) => FontFamilyName::parse_css_list(source.as_str())
-                .map_while(Result::ok)
-                .any(|family| match family {
-                    FontFamilyName::Named(name) => font_cx
+        if font_removed
+            || match &text_font.font {
+                FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                FontSource::Named(name) => font_cx
+                    .collection
+                    .family_id(name)
+                    .is_some_and(|id| new_family_ids.contains(&id)),
+                FontSource::Names(source) => FontFamilyName::parse_css_list(source.as_str())
+                    .map_while(Result::ok)
+                    .any(|family| match family {
+                        FontFamilyName::Named(name) => font_cx
+                            .collection
+                            .family_id(name.as_ref())
+                            .is_some_and(|id| new_family_ids.contains(&id)),
+                        FontFamilyName::Generic(generic_family) => font_cx
+                            .collection
+                            .generic_families(generic_family)
+                            .any(|id| new_family_ids.contains(&id)),
+                    }),
+                FontSource::List(items) => items.iter().any(|family| match family {
+                    FontItem::Named(name) => font_cx
                         .collection
-                        .family_id(name.as_ref())
+                        .family_id(name.as_str())
                         .is_some_and(|id| new_family_ids.contains(&id)),
-                    FontFamilyName::Generic(generic_family) => font_cx
+                    FontItem::Generic(generic_family) => font_cx
                         .collection
-                        .generic_families(generic_family)
+                        .generic_families((*generic_family).into())
                         .any(|id| new_family_ids.contains(&id)),
                 }),
-            FontSource::List(items) => items.iter().any(|family| match family {
-                FontItem::Named(name) => font_cx
+                &FontSource::Generic(generic_family) => font_cx
                     .collection
-                    .family_id(name.as_str())
-                    .is_some_and(|id| new_family_ids.contains(&id)),
-                FontItem::Generic(generic_family) => font_cx
-                    .collection
-                    .generic_families((*generic_family).into())
+                    .generic_families(generic_family.into())
                     .any(|id| new_family_ids.contains(&id)),
-            }),
-            FontSource::Generic(generic_family) => font_cx
-                .collection
-                .generic_families((*generic_family).into())
-                .any(|id| new_family_ids.contains(&id)),
-        } {
+            }
+        {
             text_font.set_changed();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, Update};
+    use bevy_asset::Assets;
+
+    use super::*;
+
+    #[test]
+    fn font_asset_registration_and_cleanup() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<FontCx>()
+            .add_systems(Update, load_font_assets_into_font_collection);
+
+        let font_handle = app
+            .world_mut()
+            .resource_mut::<Assets<Font>>()
+            .add(Font::from_bytes(
+                include_bytes!("FiraMono-subset.ttf").to_vec(),
+            ));
+
+        app.update();
+        let world = app.world_mut();
+
+        let font_alias = world
+            .resource::<Assets<Font>>()
+            .get(&font_handle)
+            .expect("The font asset was just added above.")
+            .alias
+            .clone();
+        assert_eq!(font_alias, format!("asset_id:{:?}", font_handle.id()));
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id("Fira Mono")
+            .is_some());
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id(&font_alias)
+            .is_some());
+
+        world
+            .resource_mut::<Assets<Font>>()
+            .remove(font_handle.id());
+
+        app.update();
+        let world = app.world_mut();
+
+        assert!(world
+            .resource_mut::<FontCx>()
+            .collection
+            .family_id(&font_alias)
+            .is_none());
     }
 }

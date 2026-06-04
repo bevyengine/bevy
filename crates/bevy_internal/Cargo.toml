@@ -91,7 +91,7 @@ area_light_luts = ["bevy_pbr?/area_light_luts", "ktx2", "bevy_image/zstd"]
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_alias/dlss", "bevy_solari?/dlss"]
 
-# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+# Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = [
   "bevy_anti_alias?/force_disable_dlss",
   "bevy_solari?/force_disable_dlss",
@@ -384,7 +384,7 @@ reflect_auto_register_static = [
   "bevy_render?/reflect_auto_register",
 ]
 
-# Enables bevy_reflect to access documentation comments of rust code at runtime
+# Enables bevy_reflect to access documentation comments of Rust code at runtime
 reflect_documentation = ["bevy_reflect/reflect_documentation"]
 
 # Enable custom cursor support
