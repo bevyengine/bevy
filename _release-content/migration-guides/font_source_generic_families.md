@@ -20,4 +20,3 @@ TextFont {
 ```
 
 `FontCx::set_generic_family` now takes a `GenericFontFamily` instead of a `parley::GenericFamily`.
-
