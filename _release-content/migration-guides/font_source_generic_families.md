@@ -3,7 +3,7 @@ title: "`FontSource` generic family variants"
 pull_requests: [24378]
 ---
 
-The generic font family variants on `FontSource`, such as `FontSource::SansSerif` and `FontSource::Monospace`, have been replaced by a new `GenericFontFamily` enum. Use the corresponding `FontSource` constructor methods, or convert `GenericFontFamily` into a `FontSource`. 
+The generic font family variants on `FontSource`, such as `FontSource::SansSerif` and `FontSource::Monospace`, have been replaced by a new `GenericFontFamily` enum. Use the corresponding `FontSource` constructor methods, or convert `GenericFontFamily` into a `FontSource`.
 
 ```rust
 // Old
