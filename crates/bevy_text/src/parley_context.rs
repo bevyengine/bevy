@@ -81,7 +81,7 @@ impl FontCx {
                 self.collection
                     .set_generic_families(generic_family.into(), core::iter::once(id));
                 self.generic_families
-                    .insert(generic_family.into(), family_name.to_string());
+                    .insert(generic_family, family_name.to_string());
             })
     }
 
