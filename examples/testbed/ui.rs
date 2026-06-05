@@ -744,7 +744,7 @@ mod font_lists {
                         ..default()
                     },
                     children![
-                        Text::new("FontSource::Names"),
+                        Text::new("FontSource::Families"),
                         (
                             Node {
                                 flex_direction: FlexDirection::Row,
