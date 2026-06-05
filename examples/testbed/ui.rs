@@ -759,10 +759,10 @@ mod font_lists {
                                     .map(|start| {
                                         FONT_NAMES
                                             .iter()
+                                            .copied()
                                             .cycle()
                                             .skip(start)
                                             .take(FONT_NAMES.len())
-                                            .map(|font_name| format!("{font_name}"))
                                             .collect::<Vec<_>>()
                                             .join(", ")
                                     })
@@ -781,7 +781,7 @@ mod font_lists {
                                             TextLayout::no_wrap(),
                                             Outline::default(),
                                         )
-                                    })
+                                    }),
                             )),
                         )
                     ]
@@ -808,13 +808,13 @@ mod font_lists {
                                     .map(|start| {
                                         FONT_NAMES
                                             .iter()
+                                            .copied()
                                             .cycle()
                                             .skip(start)
                                             .take(FONT_NAMES.len())
-                                            .map(|&font_name| font_name.into())
                                             .collect::<Vec<_>>()
                                     })
-                                    .map(|list: Vec<&str>| {
+                                    .map(|list| {
                                         (
                                             Text::new(list.join("\n")),
                                             TextFont {
@@ -829,7 +829,7 @@ mod font_lists {
                                             TextLayout::no_wrap(),
                                             Outline::default(),
                                         )
-                                    })
+                                    }),
                             )),
                         )
                     ]
