@@ -1,6 +1,6 @@
 ---
 title: Resources as Components
-pull_requests: [20934, 22910, 22911, 22919, 22930]
+pull_requests: [20934, 22910, 22911, 22919, 22930, 24424]
 ---
 
 ## `#[derive(Resource)]` implements the `Component` trait
@@ -154,7 +154,7 @@ Since resources may now be immutable, the following now carry a `Mutability = Mu
 - `TemplateContext::resource_mut`
 - as well as `ExtractResourcePlugin`
 
-If you're calling these in a generic context, you need to add this bound to your own type parameters:
+If you are calling these in a generic context and the resource is always mutable, you need to add this bound to your type parameter:
 
 ```rust
 // 0.18
@@ -167,6 +167,11 @@ fn my_generic_system<R: Resource<Mutability = Mutable>>(mut res: ResMut<R>) {
     …
 }
 ```
+
+If the bound cannot be added, there are a couple of options:
+
+- If the resource is only sometimes mutable OR the API should not be unsafe, use `World::modify_resource` and `World::modify_resource_by_id`. They behave exactly like their component counterparts.
+- If your API can be made unsafe, use the `UnsafeWorldCell::*_assume_mutable` methods and make sure that the safety conditions are satisfied. `UnsafeWorldCell::get_resource_mut_assume_mutable` has been provided for this explicit purpose. It is also possible to use the `*_assume_mutable` component methods, but you will first have to retrieve the resource entity from `ResourceEntities`.
 
 ## Miscellaneous
 
