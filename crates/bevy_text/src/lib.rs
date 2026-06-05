@@ -67,9 +67,9 @@ pub use text_edit::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, FontHinting, FontItem, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight,
-        FontWidth, GenericFontFamily, Justify, LineBreak, Strikethrough, StrikethroughColor,
-        TextColor, TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
+        Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
+        GenericFontFamily, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
+        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 

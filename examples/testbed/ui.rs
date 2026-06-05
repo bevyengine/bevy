@@ -257,7 +257,7 @@ mod text {
                     content.with_child((
                         Text::new("Font from css font list"),
                         TextFont {
-                            font: FontSource::names(
+                            font: FontSource::families(
                                 "'Comic Sans', Arial, 'Noto Sans', sans-serif, 'fonts/FiraSans-Bold.ttf'",
                             ),
                             ..Default::default()
@@ -770,7 +770,7 @@ mod font_lists {
                                         (
                                             Text::new(list.replace(", ", "\n")),
                                             TextFont {
-                                                font: FontSource::names(list),
+                                                font: FontSource::families(list),
                                                 font_size: FontSize::Px(16.),
                                                 ..default()
                                             },
@@ -818,11 +818,7 @@ mod font_lists {
                                         (
                                             Text::new(list.join("\n")),
                                             TextFont {
-                                                font: FontSource::list(
-                                                    list.iter().map(|name| {
-                                                        FontItem::Named((*name).into())
-                                                    }),
-                                                ),
+                                                font: FontSource::list(list.iter().copied()),
                                                 font_size: FontSize::Px(16.),
                                                 ..default()
                                             },

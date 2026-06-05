@@ -1,5 +1,4 @@
 use crate::FontCx;
-use crate::FontItem;
 use crate::FontSource;
 use crate::TextFont;
 use bevy_asset::Asset;
@@ -14,7 +13,6 @@ use bevy_reflect::TypePath;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
 use parley::FontFamilyName;
-use smol_str::SmolStr;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -125,16 +123,38 @@ pub fn load_font_assets_into_font_collection(
                             .generic_families(generic_family)
                             .any(|id| new_family_ids.contains(&id)),
                     }),
-                FontSource::List(items) => items.iter().any(|family| match family {
-                    FontItem::Named(name) => font_cx
-                        .collection
-                        .family_id(name.as_str())
-                        .is_some_and(|id| new_family_ids.contains(&id)),
-                    FontItem::Generic(generic_family) => font_cx
-                        .collection
-                        .generic_families((*generic_family).into())
-                        .any(|id| new_family_ids.contains(&id)),
-                }),
+                FontSource::List(_) => {
+                    text_font
+                        .font
+                        .flatten()
+                        .into_iter()
+                        .any(|family| match family {
+                            FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                            FontSource::Family(name) => font_cx
+                                .collection
+                                .family_id(name.as_str())
+                                .is_some_and(|id| new_family_ids.contains(&id)),
+                            FontSource::Families(source) => {
+                                FontFamilyName::parse_css_list(source.as_str())
+                                    .map_while(Result::ok)
+                                    .any(|family| match family {
+                                        FontFamilyName::Named(name) => font_cx
+                                            .collection
+                                            .family_id(name.as_ref())
+                                            .is_some_and(|id| new_family_ids.contains(&id)),
+                                        FontFamilyName::Generic(generic_family) => font_cx
+                                            .collection
+                                            .generic_families(generic_family)
+                                            .any(|id| new_family_ids.contains(&id)),
+                                    })
+                            }
+                            FontSource::List(_) => false,
+                            &FontSource::Generic(generic_family) => font_cx
+                                .collection
+                                .generic_families(generic_family.into())
+                                .any(|id| new_family_ids.contains(&id)),
+                        })
+                }
                 &FontSource::Generic(generic_family) => font_cx
                     .collection
                     .generic_families(generic_family.into())

@@ -19,10 +19,10 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
-    EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
-    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
-    TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    add_glyph_to_atlas, get_glyph_atlas_info, EditableText, EditableTextGeneration, Font,
+    FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak,
+    LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
+    TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -107,10 +107,10 @@ pub fn update_editable_text_content_size(
                 .collection
                 .query(&mut font_context.source_cache);
 
-            match &resolve_font_source(&text_font, fonts.as_ref()).ok()? {
+            match text_font.font.resolve_font_family(fonts.as_ref()).ok()? {
                 parley::FontFamily::Source(source) => {
                     query.set_families(
-                        parley::FontFamilyName::parse_css_list(source)
+                        parley::FontFamilyName::parse_css_list(&source)
                             .map_while(Result::ok)
                             .collect::<SmallVec<[_; 4]>>()
                             .iter()
@@ -118,7 +118,7 @@ pub fn update_editable_text_content_size(
                     );
                 }
                 parley::FontFamily::Single(family) => {
-                    query.set_families([query_family(family)]);
+                    query.set_families([query_family(&family)]);
                 }
                 parley::FontFamily::List(families) => {
                     query.set_families(families.iter().map(query_family));
@@ -214,11 +214,11 @@ pub fn update_editable_text_styles(
         }
 
         if text_font.is_changed() {
-            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
+            let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref()) else {
                 continue;
             };
 
-            let family = resolved_font.into_owned();
+            let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
