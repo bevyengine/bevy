@@ -162,8 +162,8 @@ pub enum Tonemapping {
     BlenderFilmic,
     /// Despite its name, it is not considered to be neutral.
     /// Highly saturated colors and tends to produce a very high contrast image.
-    /// Tends to crush dark colors which can make it harder to see details in dark areas.
-    /// Designed for e-commerce to faithfully reproduce the colors of brand's logos when used with low brightness lights.
+    /// Suffers from significant [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect), and tends to crush grays and desaturated colors.
+    /// Designed for e-commerce to faithfully reproduce the colors of brand's logos when used with low brightness grayscale lighting.
     /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
     KhronosPbrNeutral,
 }
