@@ -135,7 +135,7 @@ fn my_button() -> impl Scene {
 
 ### Scene Assets and Caching
 
-While **Bevy 0.19** doesn't ship with an official `.bsn` asset loader, it _does_ already support scene asset dependencies:
+While **Bevy 0.19** doesn't ship with an official `.bsn` asset loader, it _does_ already functionally support scene asset dependencies. We just don't yet include any built-in loaders for them:
 
 ```rust
 commands.queue_spawn_scene(bsn! {
@@ -146,11 +146,11 @@ commands.queue_spawn_scene(bsn! {
 })
 ```
 
-This will spawn a scene that includes the `"player.bsn"` scene asset and patches the "x position" to be `10`. BSN is dependency-aware: if you use `queue_spawn_scene` instead of `spawn_scene`, it will wait to spawn the scene until all dependencies have loaded. `spawn_scene` will always try to spawn the scene immediately ... if it has scene dependencies that aren't loaded yet it will fail.
+This (if there was a `.bsn` asset loader) would spawn a scene that includes the `"player.bsn"` scene asset and patches the "x position" to be `10`. BSN is dependency-aware: if you use `queue_spawn_scene` instead of `spawn_scene`, it will wait to spawn the scene until all dependencies have loaded. `spawn_scene` will always try to spawn the scene immediately ... if it has scene dependencies that aren't loaded yet it will fail.
 
-Also note the `:`, which is "caching" syntax. This will pre-compute the `"player.bsn"` scene and cache the results for reuse. This makes spawning much cheaper, as it only needs to resolve whatever is layered "on top" of the cached scene.
+Also note the `:`, which is "caching" syntax. When first loaded, this will resolve the `"player.bsn"` scene and cache the results for reuse. This makes spawning multiple instances of the scene much cheaper, as it only needs to resolve whatever is layered "on top" of the cached scene.
 
-We're [working](https://github.com/bevyengine/bevy/pull/23576) on an official `.bsn` asset loader, and we also plan on porting Bevy's glTF loader to the new scene system (so you can depend on `"my_scene.gltf"` just like you would a `my_scene.bsn` file). The new scene system already supports assets, so if you're feeling adventurous you can try implementing your own Bevy scene format while you wait for ours!
+We're [working](https://github.com/bevyengine/bevy/pull/23576) on an official `.bsn` asset loader, and we also plan on porting Bevy's glTF loader to the new scene system (so you can depend on `"my_scene.gltf"` just like you would a `my_scene.bsn` file). The `bsn!` macro and spawning system already supports scene assets, so if you're feeling adventurous you can try implementing your own Bevy scene format while you wait for ours!
 
 ### Scene Lists
 
@@ -161,6 +161,17 @@ fn players() -> impl SceneList {
     bsn_list! [
         (#Player1 Team::Blue),
         (#Player2 Team::Red),
+    ]
+}
+```
+
+Entities in a `bsn_list!` are comma separated, and the parentheses to visually indicate entity boundaries are optional:
+
+```rust
+fn players() -> impl SceneList {
+    bsn_list! [
+        #Player1 Team::Blue,
+        #Player2 Team::Red,
     ]
 }
 ```
@@ -382,7 +393,7 @@ world.spawn_scene(bsn! {
 })
 ```
 
-Scene Components must be spawned this way (as a "scene component"), and will log errors if they are spawned directly (ex: via `world.spawn(Player::default())`). Critically, this provides the guarantee that if the `Player` component is present, the full scene will also be present. As a developer this means you can write code that queries for `Player` and assume that it will have both a `LeftHand` and a `RightHand` child. This was a major missing piece in the Bevy data model!
+Scene Components must be spawned this way (as a "scene component"), and will log errors if they are spawned directly (ex: via `world.spawn(Player::default())`). Critically, this provides the guarantee that if the `Player` component is present, the full scene will also be present at spawn time. As a developer this means you can write code that queries for `Player` and assume that it will have both a `LeftHand` and a `RightHand` child (provided they haven't been removed since being spawned). This was a major missing piece in the Bevy data model!
 
 Scene Components can also define "props" which are passed into the scene function and can inform BSN outputs:
 
@@ -414,11 +425,15 @@ impl Player {
 
 bsn! {
     @Player {
+        // this is a "prop"
         @alignment: Alignment::Good,
+        // this is a normal field
         score: 10,
     }
 }
 ```
+
+"Props" are evaluated first (before component field patches). Logically, they are evaluated immediately / in-place and the SceneComponent's scene is immediately applied to the current scene. This means the scene they produce can be patched. This _also_ means that you cannot patch "props", as they do not exist later in the scene.
 
 The `SceneComponent` derive also supports shorthand for scene assets:
 
@@ -431,6 +446,20 @@ struct Player {
 ```
 
 Again, note that **Bevy 0.19** does not ship with a `.bsn` asset loader. We're working on it!
+
+The `SceneComponent` derive looks for the `Player::scene` function by default, but you can specify a custom function too:
+
+```rust
+#[derive(SceneComponent, Default, Clone)]
+#[scene(player)]
+struct Player {
+    score: usize
+}
+
+fn player() -> impl Scene {
+    bsn! { Player }
+}
+```
 
 ### Scene Spawning Systems
 
