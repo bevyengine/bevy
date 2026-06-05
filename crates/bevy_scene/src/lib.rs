@@ -2202,4 +2202,25 @@ mod tests {
             .unwrap();
         assert_eq!(entity.get::<Foo>().unwrap().value, vec![10usize]);
     }
+
+    #[test]
+    fn scene_with_optional_components() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Default, Clone)]
+        struct Foo;
+
+        let optional_component = Some(bsn! {
+            Foo
+        });
+
+        let entity = world
+            .spawn_scene(bsn! {
+                #MAYBE_FOO
+                {optional_component}
+            })
+            .unwrap();
+        assert!(entity.get::<Foo>().is_some());
+    }
 }
