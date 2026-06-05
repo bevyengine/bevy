@@ -2219,7 +2219,7 @@ wasm = false
 
 [package.metadata.example.async_bridge]
 name = "Async Bridge"
-description = "An example showing how to offload work to background async tasks using the AsyncBridge primitive."
+description = "An example showing how to offload work to background async tasks using the `AsyncBridge` primitive."
 category = "Async Tasks"
 wasm = false
 
