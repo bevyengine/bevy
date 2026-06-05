@@ -258,7 +258,7 @@ mod text {
                         Text::new("Font from css font list"),
                         TextFont {
                             font: FontSource::families(
-                                "'Comic Sans', Arial, 'Noto Sans', sans-serif, 'fonts/FiraSans-Bold.ttf'",
+                                "'Comic Sans', Arial, 'Noto Sans', sans-serif",
                             ),
                             ..Default::default()
                         },
