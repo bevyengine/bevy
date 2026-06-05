@@ -1,68 +1,54 @@
-//! The objective here is to coordinate two participants that want to share World access:
+//! `bevy_async` allows async tasks to synchronize with the main Bevy schedule, allowing futures to
+//! access the ECS. This crate provides a "bridge" that performs this synchronization.
 //!
-//! - The main Bevy schedule
-//! - Futures and async tasks running on other threads
+//! # How does bridging occur?
 //!
-//! This is done through the bridge primitive introduced in this crate
+//! Users need to:
 //!
+//! - Create a "sync point" type. This is a marker type to indicate which sync point will be used
+//!   when accessing the ECS. This should generally just be as simple as `struct MySyncPoint;`.
+//! - Add an [`async_world_sync_point`] system somewhere in your schedule. For example, adding
+//!   `app.add_systems(Update, async_world_sync_point::<MySyncPoint>);` will allow your async tasks
+//!   to access the ECS during the [`Update`] schedule. This system can also have ordering
+//!   constraints to ensure its place in the schedule.
+//! - Users call [`AsyncWorld::system_state`] to create the state they need to access the ECS. This
+//!   state should be reused whenever possible - features like [`Local`] or [`Changed`] rely on the
+//!   state being preserved between usages, and queries remain cached which can be more performant.
+//!   [`AsyncWorld::system_state`] can be called inside or **outside** the async task.
+//! - Inside the async task, call [`AsyncSystemState::bridge`] with the sync point type you'd like
+//!   to use and the closure to run ECS access with, and then await this future.
 //!
-//! Invariants of this crate:
+//! # Alternatives
 //!
-//! - Normal rust safety invariants for &mut World (aliasing)
-//! - At most one future has world access at a time
-//! - Futures only access the world while the scoped pointer (managed by the bridge driver) is live
-//! - `SystemState` is always initialized before use
-//! - Deferred ops are only applied after every future finishes polling and releases world access
-//! - The driver can't deadlock
-//! - All futures that want world access can eventually complete (assuming fair scheduling by the async runtime)
-//! - If the world is dropped, futures don't leak and eventually finish (in an error state)
+//! It is possible to access the ECS **without** this crate (in limited ways). For example, you can
+//! use a channel as demonstrated in the [`async_channel_pattern`] example, or you can simply
+//! [`check_ready`] on the [`Task`] as demonstrated in the [`async_compute`] example.
 //!
+//! ## Advantages to using this crate
 //!
-//! The protocol:
+//! This crate:
 //!
-//! Futures (tasks on worker threads)
-//! - enqueue requests (create signal guard clones: one kept, one sent)
+//! - Provides an out-of-the-box solution for all ECS accesses. The alternatives above require
+//!   manual setup (e.g., you need to create your own channel, your own systems), and requires you
+//!   to "hard-code" what ECS access you use (the system that provides the ECS access needs to
+//!   decide whether it will provide `&mut World` or only specific accesses).
+//! - Allows the closure with ECS access to borrow from the async task itself. Most other solutions
+//!   require passing `'static` types, which prevents borrowing data from the async task.
+//! - Allows you to await ECS access, allowing other futures to run concurrently, and
+//!   (more importantly) allow later code to happen after the ECS access.
+//! - Allows you to reuse the [`AsyncSystemState`] which maintains [`SystemParam`] state, including
+//!   [`QueryState`]. This allows tools like [`Changed`] to work correctly across multiple ECS
+//!   accesses.
 //!
-//! - Driver([`async_world_sync_point`]) (exclusive system, world-owning thread)
-//!   1. Drain request queue for this sync point
-//!   2. Publish World pointer (via `scoped_static_storage`). Future access scope begins
-//!   3. Wake all drained futures
-//!
-//!  -> Futures race for locks (non-blocking)
-//!
-//!  -> Success: acquire both locks, do work, complete
-//!
-//!  -> Failure: signal driver (Drop signal guard), re-enqueue later
-//!
-//!  -> Direct access: non-queued future polled during scope,
-//!  bypasses queue, acquires locks, completes (no signal)
-//!   4. Wait for all signal guards to drop + scope mutex released
-//!   5. Unpublish pointer, scope ends.
-//!   6. Apply any deferred ops from `SystemState` of polled futures
-//!   7. Loop (up to [`AsyncTickBudget`]) or return
-//!   8. Schedule resumes (normal systems run)
-//!
-//!
-//! Dual locking:
-//!
-//! The published World pointer lock is managed by the `ScopedStatic` primitive in `scoped_static_storage` (only one future can lock this at a time)
-//! `SystemState` locks are managed by the `SystemStateCell` primitive of this crate (futures using different `SystemState` types can work in parallel)
-//!
-//!
-//! Preventing driver deadlocks when futures panic:
-//!
-//! If a future panics while holding locks, rust's panic unwinding drops destructors in reverse scope order
-//! - First, the `SystemState` `MutexGuard` drops (releasing the lock)
-//! - Second, the World pointer's scope `MutexGuard` drops (releasing the lock)
-//! - Finally, the guard signal constructed by the future during `poll()` drops, and the driver is notified
-//!
-//! How futures can fail cleanly:
-//!
-//! If the [`AsyncWorld`] cannot be reached ([`bevy_platform::sync::Weak::upgrade`] fails during `poll()`), the world has been dropped and the future cannot complete.
-//!
-//! If `SystemState`s are invalid, they can't be used and the future cannot complete
-//!
-//! Regardless, the future returns Ready(Err) and completes permanently
+//! [`Update`]: bevy_app::Update
+//! [`Local`]: bevy_ecs::system::Local
+//! [`Changed`]: bevy_ecs::query::Changed
+//! [`async_channel_pattern`]: https://github.com/bevyengine/bevy/blob/main/examples/async_tasks/async_channel_pattern.rs
+//! [`check_ready`]: bevy_tasks::futures::check_ready
+//! [`Task`]: bevy_tasks::Task
+//! [`async_compute`]: https://github.com/bevyengine/bevy/blob/main/examples/async_tasks/async_compute.rs
+//! [`QueryState`]: bevy_ecs::query::QueryState
+//! [`SystemParam`]: bevy_ecs::system::SystemParam
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://!bevy.org/assets/icon.png",
