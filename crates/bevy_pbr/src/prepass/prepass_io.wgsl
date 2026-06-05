@@ -18,9 +18,13 @@ struct UncompressedVertex {
 #ifdef VERTEX_NORMALS
     @location(3) normal: vec3<f32>,
 #endif
+
 #ifdef VERTEX_TANGENTS
     @location(4) tangent: vec4<f32>,
+#else ifdef VERTEX_PACKED_AXIS_ANGLE_TBN
+    @location(4) tangent: vec4<f32>,
 #endif
+
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef SKINNED
@@ -39,26 +43,20 @@ struct UncompressedVertex {
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
+
+#ifdef VERTEX_PACKED_AXIS_ANGLE_TBN
+    @location(0) compressed_position_angle: vec4<f32>,
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+    @location(3) compressed_axis: vec2<f32>,
+#endif
+
+#else // VERTEX_PACKED_AXIS_ANGLE_TBN
+
 #ifdef VERTEX_POSITIONS_COMPRESSED
     @location(0) compressed_position: vec4<f32>,
 #else
     @location(0) position: vec3<f32>,
 #endif
-#ifdef VERTEX_UVS_A
-#ifdef VERTEX_UVS_A_COMPRESSED
-    @location(1) compressed_uv: vec2<f32>,
-#else
-    @location(1) uv: vec2<f32>,
-#endif
-#endif
-#ifdef VERTEX_UVS_B
-#ifdef VERTEX_UVS_B_COMPRESSED
-    @location(2) compressed_uv_b: vec2<f32>,
-#else
-    @location(2) uv_b: vec2<f32>,
-#endif
-#endif
-
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef VERTEX_NORMALS
 #ifdef VERTEX_NORMALS_COMPRESSED
@@ -75,6 +73,23 @@ struct Vertex {
 #endif
 #endif
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
+
+#endif // VERTEX_PACKED_AXIS_ANGLE_TBN
+
+#ifdef VERTEX_UVS_A
+#ifdef VERTEX_UVS_A_COMPRESSED
+    @location(1) compressed_uv: vec2<f32>,
+#else
+    @location(1) uv: vec2<f32>,
+#endif
+#endif
+#ifdef VERTEX_UVS_B
+#ifdef VERTEX_UVS_B_COMPRESSED
+    @location(2) compressed_uv_b: vec2<f32>,
+#else
+    @location(2) uv_b: vec2<f32>,
+#endif
+#endif
 
 #ifdef SKINNED
     @location(5) joint_indices: vec4<u32>,
@@ -96,6 +111,24 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
     let mesh_metadata = bevy_pbr::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
+
+#ifdef VERTEX_PACKED_AXIS_ANGLE_TBN
+    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position_angle, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+    var normal: vec3f;
+    var tangent: vec4f;
+    bevy_render::utils::decompress_vertex_axis_angle_to_normal_tangent(
+        vertex_in.compressed_axis,
+        vertex_in.compressed_position_angle.w,
+        &normal,
+        &tangent,
+    );
+    uncompressed_vertex.normal = normal;
+    uncompressed_vertex.tangent = tangent;
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
+
+#else // VERTEX_PACKED_AXIS_ANGLE_TBN
+
 #ifdef VERTEX_POSITIONS_COMPRESSED
     uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
 #else
@@ -117,6 +150,9 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 #endif
 #endif
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
+
+#endif // VERTEX_PACKED_AXIS_ANGLE_TBN
+
 #ifdef VERTEX_UVS_A
 #ifdef VERTEX_UVS_A_COMPRESSED
     let uv_min_and_extents_a = mesh_metadata.uv_channels_min_and_extents[0];

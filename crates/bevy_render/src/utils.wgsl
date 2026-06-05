@@ -17,6 +17,16 @@ fn decompress_vertex_uv(compressed_uv: vec2<f32>, uv_min_and_extents: vec4<f32>)
     return uv_min_and_extents.xy + uv_min_and_extents.zw * compressed_uv;
 }
 
+fn decompress_vertex_axis_angle_to_normal_tangent(
+    octahedral_axis: vec2f,
+    angle: f32,
+    out_normal: ptr<function,vec3f>,
+    out_tangent: ptr<function,vec4f>,
+) {
+    let axis = octahedral_decode_signed(octahedral_axis);
+    axis_angle_to_normal_tangent(axis, 2.0 * bevy_render::maths::PI * angle, out_normal, out_tangent);
+}
+
 // For decoding normals or unit direction vectors from octahedral coordinates. Input is [-1, 1].
 fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     var n = vec3(v.xy, 1.0 - abs(v.x) - abs(v.y));
@@ -48,4 +58,33 @@ fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
 fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
     let f = v * 2.0 - 1.0;
     return octahedral_decode_signed(f);
+}
+
+fn axis_angle_to_normal_tangent(
+    axis: vec3f,
+    angle: f32,
+    out_normal: ptr<function,vec3f>,
+    out_tangent: ptr<function,vec4f>,
+) {
+    let sign = select(-1.0, 1.0, angle >= 0.0);
+    let angle_h = angle * 0.5 * sign;
+    let c = cos(angle_h);
+    let s = sin(angle_h);
+    let v = axis * s;
+    let rotation = vec4f(v.x, v.y, v.z, c);
+    let x2 = rotation.x + rotation.x;
+    let y2 = rotation.y + rotation.y;
+    let z2 = rotation.z + rotation.z;
+    let xx = rotation.x * x2;
+    let xy = rotation.x * y2;
+    let xz = rotation.x * z2;
+    let yy = rotation.y * y2;
+    let yz = rotation.y * z2;
+    let zz = rotation.z * z2;
+    let wx = rotation.w * x2;
+    let wy = rotation.w * y2;
+    let wz = rotation.w * z2;
+
+    *out_tangent = vec4f(1.0 - (yy + zz), xy + wz, xz - wy, sign);
+    *out_normal = vec3f(xz + wy, yz - wx, 1.0 - (xx + yy));
 }
