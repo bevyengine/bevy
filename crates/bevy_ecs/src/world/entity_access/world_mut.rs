@@ -14,9 +14,10 @@ use crate::{
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
-    resource::Resource,
+    resource::{Resource, ResourceEntities},
     storage::{SparseSets, Table},
-    template::{EntityScopes, ScopedEntities, Template, TemplateContext},
+    system::EntityCommands,
+    template::{SceneEntityReferences, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -375,7 +376,7 @@ impl<'w> EntityWorldMut<'w> {
     /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
     /// ```
     ///
-    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
+    /// Note that this does an O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
     pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
@@ -730,6 +731,21 @@ impl<'w> EntityWorldMut<'w> {
                 f(&mut this, res)
             })
         })
+    }
+
+    /// Retrieves this world's [`ResourceEntities`].
+    #[inline]
+    #[track_caller]
+    pub fn resource_entities(&self) -> &ResourceEntities {
+        self.world.resource_entities()
+    }
+
+    /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    #[inline]
+    #[track_caller]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let component_id = self.world.component_id::<R>()?;
+        self.world.resource_entities().get(component_id)
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1600,9 +1616,8 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         func: impl FnOnce(&mut TemplateContext) -> crate::error::Result<T>,
     ) -> crate::error::Result<T> {
-        let mut scoped_entities = ScopedEntities::new(0);
-        let entity_scopes = EntityScopes::default();
-        let mut context = TemplateContext::new(self, &mut scoped_entities, &entity_scopes);
+        let mut scene_entities = SceneEntityReferences::default();
+        let mut context = TemplateContext::new(self, &mut scene_entities);
         func(&mut context)
     }
 
@@ -1875,6 +1890,17 @@ impl<'w> EntityWorldMut<'w> {
         // This will run even in case the closure `f` unwinds.
         let guard = Guard { entity_mut: self };
         f(guard.entity_mut.world)
+    }
+
+    /// Creates a new [`EntityCommands`] instance that writes commands
+    /// Use [`EntityWorldMut::flush`] to apply all queued commands
+    #[inline]
+    pub fn entity_commands(&mut self) -> EntityCommands<'_> {
+        let id = self.id();
+        EntityCommands {
+            entity: id,
+            commands: self.world.commands(),
+        }
     }
 
     /// Updates the internal entity location to match the current location in the internal

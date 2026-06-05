@@ -1807,14 +1807,15 @@ impl<I> SortedRenderPhase<I>
 where
     I: SortedPhaseItem,
 {
-    /// Adds a [`PhaseItem`] to this render phase.
+    /// Adds a [`PhaseItem`] to this render phase, which will persist between
+    /// frames until removed.
     #[inline]
-    pub fn add(&mut self, item: I) {
+    pub fn add_retained(&mut self, item: I) {
         self.items.insert((item.entity(), item.main_entity()), item);
     }
 
-    /// Adds a [`PhaseItem`] which will be automatically removed after this
-    /// frame to this phase.
+    /// Adds a [`PhaseItem`] to this render phase, which will be automatically
+    /// removed after this frame.
     #[inline]
     pub fn add_transient(&mut self, item: I) {
         let key = (item.entity(), item.main_entity());

@@ -93,8 +93,8 @@ fn demo_root() -> impl Scene {
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
-            :demo_column_1,
-            :demo_column_2,
+            demo_column_1(),
+            demo_column_2(),
         ]
     }
 }
@@ -122,24 +122,26 @@ fn demo_column_1() -> impl Scene {
                 }
                 Children [
                     (
-                        :FeathersButton {
-                            @caption: {bsn! { Text("Normal") ThemedText }}
+                        @FeathersButton {
+                            @caption: bsn! { Text("Normal") ThemedText }
                         }
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Normal")
                         on(|_activate: On<Activate>| {
                             info!("Normal button clicked!");
                         })
                         AutoFocus
                     ),
                     (
-                        :FeathersButton {
-                            @caption: {bsn! { Text("Disabled") ThemedText }},
+                        @FeathersButton {
+                            @caption: bsn! { Text("Disabled") ThemedText },
                         }
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Disabled")
                         InteractionDisabled
                         DemoDisabledButton
                         on(|_activate: On<Activate>| {
@@ -147,10 +149,11 @@ fn demo_column_1() -> impl Scene {
                         })
                     ),
                     (
-                        :FeathersButton {
-                            @caption: {bsn! { Text("Primary") ThemedText }},
+                        @FeathersButton {
+                            @caption: bsn! { Text("Primary") ThemedText },
                             @variant: ButtonVariant::Primary,
                         }
+                        AccessibleLabel("Primary")
                         Node {
                             flex_grow: 1.0,
                         }
@@ -159,39 +162,40 @@ fn demo_column_1() -> impl Scene {
                         })
                     ),
                     (
-                        :FeathersMenu
+                        @FeathersMenu
                         Children [
                             (
-                                :FeathersMenuButton {
-                                    @caption: {bsn! { Text("Menu") ThemedText }}
+                                @FeathersMenuButton {
+                                    @caption: bsn! { Text("Menu") ThemedText }
                                 }
+                                AccessibleLabel("Menu Example")
                                 Node {
                                     flex_grow: 1.0,
                                 }
                             ),
                             (
-                                :FeathersMenuPopup
+                                @FeathersMenuPopup
                                 Children [
                                     (
-                                        :FeathersMenuItem {
-                                            @caption: {bsn! { Text("MenuItem 1") ThemedText }}
+                                        @FeathersMenuItem {
+                                            @caption: bsn! { Text("MenuItem 1") ThemedText }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 1 clicked!");
                                         })
                                     ),
                                     (
-                                        :FeathersMenuItem {
-                                            @caption: {bsn! { Text("MenuItem 2") ThemedText }}
+                                        @FeathersMenuItem {
+                                            @caption: bsn! { Text("MenuItem 2") ThemedText }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 2 clicked!");
                                         })
                                     ),
-                                    :FeathersMenuDivider,
+                                    @FeathersMenuDivider,
                                     (
-                                        :FeathersMenuItem {
-                                            @caption: {bsn! { Text("MenuItem 3") ThemedText }}
+                                        @FeathersMenuItem {
+                                            @caption: bsn! { Text("MenuItem 3") ThemedText }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 3 clicked!");
@@ -213,38 +217,41 @@ fn demo_column_1() -> impl Scene {
                 }
                 Children [
                     (
-                        :FeathersButton {
-                            @caption: {bsn! { Text("Left") ThemedText }},
+                        @FeathersButton {
+                            @caption: bsn! { Text("Left") ThemedText },
                             @corners: RoundedCorners::Left,
                         }
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Left")
                         on(|_activate: On<Activate>| {
                             info!("Left button clicked!");
                         })
                     ),
                     (
-                        :FeathersButton {
-                            @caption: {bsn! { Text("Center") ThemedText }},
+                        @FeathersButton {
+                            @caption: bsn! { Text("Center") ThemedText },
                             @corners: RoundedCorners::None,
                         }
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Center")
                         on(|_activate: On<Activate>| {
                             info!("Center button clicked!");
                         })
                     ),
                     (
-                        :FeathersButton {
-                            @caption: {bsn! { Text("Right") ThemedText }},
+                        @FeathersButton {
+                            @caption: bsn! { Text("Right") ThemedText },
                             @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
                         Node {
                             flex_grow: 1.0,
                         }
+                        AccessibleLabel("Right")
                         on(|_activate: On<Activate>| {
                             info!("Right button clicked!");
                         })
@@ -252,7 +259,7 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
-                :FeathersButton
+                @FeathersButton
                 on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
                     ovr.0 = if ovr.0.is_some() {
                         None
@@ -264,10 +271,11 @@ fn demo_column_1() -> impl Scene {
                 Children [ (Text("Toggle override") ThemedText) ]
             ),
             (
-                :FeathersCheckbox {
-                    @caption: {bsn! { Text("Checkbox") ThemedText }}
+                @FeathersCheckbox {
+                    @caption: bsn! { Text("Checkbox") ThemedText }
                 }
                 Checked
+                AccessibleLabel("Checkbox Example")
                 on(
                     |change: On<ValueChange<bool>>,
                         query: Query<Entity, With<DemoDisabledButton>>,
@@ -289,10 +297,11 @@ fn demo_column_1() -> impl Scene {
                 )
             ),
             (
-                :FeathersCheckbox {
-                    @caption: {bsn! { Text("Fast Click Checkbox") ThemedText }}
+                @FeathersCheckbox {
+                    @caption: bsn! { Text("Fast Click Checkbox") ThemedText }
                 }
                 ActivateOnPress
+                AccessibleLabel("Fast Click Checkbox Example")
                 on(
                     |change: On<ValueChange<bool>>,
                      mut commands: Commands| {
@@ -307,20 +316,22 @@ fn demo_column_1() -> impl Scene {
                 )
             ),
             (
-                :FeathersCheckbox {
-                    @caption: {bsn! { Text("Disabled") ThemedText }},
+                @FeathersCheckbox {
+                    @caption: bsn! { Text("Disabled") ThemedText },
                 }
                 InteractionDisabled
+                AccessibleLabel("Disabled Checkbox Example")
                 on(|_change: On<ValueChange<bool>>| {
                     warn!("Disabled checkbox clicked!");
                 })
             ),
             (
-                :FeathersCheckbox {
-                    @caption: {bsn! { Text("Checked+Disabled") ThemedText }}
+                @FeathersCheckbox {
+                    @caption: bsn! { Text("Checked+Disabled") ThemedText }
                 }
                 InteractionDisabled
                 Checked
+                AccessibleLabel("Disabled and Checked Checkbox Example")
                 on(|_change: On<ValueChange<bool>>| {
                     warn!("Disabled checkbox clicked!");
                 })
@@ -344,23 +355,23 @@ fn demo_column_1() -> impl Scene {
                         on(radio_self_update)
                         Children [
                             (
-                                :FeathersRadio {
-                                    @caption: {bsn! { Text("One") ThemedText }}
+                                @FeathersRadio {
+                                    @caption: bsn! { Text("One") ThemedText }
                                 }
                                 Checked
                             ),
-                            :FeathersRadio {
-                                @caption: {bsn! { Text("Two") ThemedText }}
+                            @FeathersRadio {
+                                @caption: bsn! { Text("Two") ThemedText }
                             },
                             (
-                                :FeathersRadio {
-                                    @caption: {bsn! { Text("Fast Click") ThemedText }}
+                                @FeathersRadio {
+                                    @caption: bsn! { Text("Fast Click") ThemedText }
                                 }
                                 ActivateOnPress
                             ),
                             (
-                                :FeathersRadio {
-                                    @caption: {bsn! { Text("Disabled") ThemedText }}
+                                @FeathersRadio {
+                                    @caption: bsn! { Text("Disabled") ThemedText }
                                 }
                                 InteractionDisabled
                             ),
@@ -377,15 +388,15 @@ fn demo_column_1() -> impl Scene {
                     column_gap: px(8),
                 }
                 Children [
-                    (:FeathersToggleSwitch on(checkbox_self_update)),
-                    (:FeathersToggleSwitch ActivateOnPress on(checkbox_self_update)),
-                    (:FeathersToggleSwitch InteractionDisabled on(checkbox_self_update)),
-                    (:FeathersToggleSwitch InteractionDisabled Checked on(checkbox_self_update)),
-                    (:FeathersDisclosureToggle on(checkbox_self_update)),
+                    (@FeathersToggleSwitch on(checkbox_self_update)),
+                    (@FeathersToggleSwitch ActivateOnPress on(checkbox_self_update)),
+                    (@FeathersToggleSwitch InteractionDisabled on(checkbox_self_update)),
+                    (@FeathersToggleSwitch InteractionDisabled Checked on(checkbox_self_update)),
+                    (@FeathersDisclosureToggle on(checkbox_self_update)),
                 ]
             ),
             (
-                :FeathersSlider {
+                @FeathersSlider {
                     @max: 100.0,
                     @value: 20.0,
                 }
@@ -402,19 +413,19 @@ fn demo_column_1() -> impl Scene {
                     column_gap: px(4),
                 }
                 Children [
-                    :label("Srgba"),
+                    label("Srgba"),
                     // Spacer
-                    :flex_spacer,
+                    flex_spacer(),
                     // Text input
                     (
-                        :FeathersTextInputContainer
+                        @FeathersTextInputContainer
                         Node {
                             flex_grow: 0.
                             padding: { px(4).left() },
                         }
                         Children [
                             (
-                                :FeathersTextInput {
+                                @FeathersTextInput {
                                     @visible_width: 10f32,
                                     @max_characters: 9usize,
                                 }
@@ -426,48 +437,52 @@ fn demo_column_1() -> impl Scene {
                             )
                         ]
                     )
-                    (:FeathersColorSwatch SwatchType::Rgb),
+                    (@FeathersColorSwatch SwatchType::Rgb),
                 ]
             ),
             (
-                :FeathersColorPlane::RedBlue
+                @FeathersColorPlane::RedBlue
                 on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.red = change.value.x;
                     color.rgb_color.blue = change.value.y;
                 })
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::Red
                 }
+                AccessibleLabel("Red Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.red = change.value;
                 })
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::Green
                 }
+                AccessibleLabel("Green Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.green = change.value;
                 })
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::Blue
                 }
+                AccessibleLabel("Blue Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.blue = change.value;
                 })
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::Alpha
                 }
+                AccessibleLabel("Alpha Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.alpha = change.value;
                 })
@@ -480,33 +495,36 @@ fn demo_column_1() -> impl Scene {
                     justify_content: JustifyContent::SpaceBetween,
                 }
                 Children [
-                    :label("Hsl"),
-                    (:FeathersColorSwatch SwatchType::Hsl)
+                    label("Hsl"),
+                    (@FeathersColorSwatch SwatchType::Hsl)
                 ]
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::HslHue
                 }
+                AccessibleLabel("Hue Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.hue = change.value;
                 })
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::HslSaturation
                 }
+                AccessibleLabel("Saturation Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.saturation = change.value;
                 })
             ),
             (
-                :FeathersColorSlider {
+                @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::HslLightness
                 }
+                AccessibleLabel("Lightness Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.lightness = change.value;
                 })
@@ -529,64 +547,64 @@ fn demo_column_2() -> impl Scene {
         }
         Children [
             (
-                :pane Children [
-                    :pane_header Children [
-                        :FeathersToolButton {
+                pane() Children [
+                    pane_header() Children [
+                        @FeathersToolButton {
                             @variant: ButtonVariant::Primary,
                         } Children [
                             (Text("\u{0398}") ThemedText)
                         ],
-                        :pane_header_divider,
-                        :FeathersToolButton {
+                        pane_header_divider(),
+                        @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BC}") ThemedText)
                         ],
-                        :FeathersToolButton {
+                        @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BD}") ThemedText)
                         ],
-                        :FeathersToolButton {
+                        @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BE}") ThemedText)
                         ],
-                        :pane_header_divider,
-                        :FeathersToolButton {
+                        pane_header_divider(),
+                        @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
-                            :icon(icons::CHEVRON_DOWN)
+                            icon(icons::CHEVRON_DOWN)
                         ],
-                        :flex_spacer,
-                        :FeathersToolButton {
+                        flex_spacer(),
+                        @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
-                            :icon(icons::X)
+                            icon(icons::X)
                         ],
                     ],
                     (
-                        :pane_body Children [
-                            :label_dim("A standard editor pane"),
-                            :subpane Children [
-                                :subpane_header Children [
+                        pane_body() Children [
+                            label_dim("A standard editor pane"),
+                            subpane() Children [
+                                subpane_header() Children [
                                     (Text("Left") ThemedText),
                                     (Text("Center") ThemedText),
                                     (Text("Right") ThemedText)
                                 ],
-                                :subpane_body Children [
-                                    :label_dim("A standard sub-pane"),
-                                    :group
+                                subpane_body() Children [
+                                    label_dim("A standard sub-pane"),
+                                    group()
                                     Children [
-                                        :group_header Children [
+                                        group_header() Children [
                                             (Text("Group") ThemedText),
                                         ],
-                                        :group_body
+                                        group_body()
                                         Children [
-                                            :label("A standard group"),
-                                            :label_small("Scalar property"),
+                                            label("A standard group"),
+                                            label_small("Scalar property"),
                                             (
-                                                :FeathersNumberInput
+                                                @FeathersNumberInput
                                                 DemoScalarField
                                                 Node {
                                                     flex_grow: 1.0,
@@ -600,9 +618,9 @@ fn demo_column_2() -> impl Scene {
                                                     }
                                                 })
                                             ),
-                                            :label_small("Scalar property (copy)"),
+                                            label_small("Scalar property (copy)"),
                                             (
-                                                :FeathersNumberInput
+                                                @FeathersNumberInput
                                                 DemoScalarField
                                                 Node {
                                                     flex_grow: 1.0,
@@ -616,7 +634,7 @@ fn demo_column_2() -> impl Scene {
                                                     }
                                                 })
                                             ),
-                                            :label_small("Vec3 property"),
+                                            label_small("Vec3 property"),
                                             Node {
                                                 display: Display::Flex,
                                                 flex_direction: FlexDirection::Row,
@@ -626,7 +644,7 @@ fn demo_column_2() -> impl Scene {
                                             }
                                             Children [
                                                 (
-                                                    :FeathersNumberInput {
+                                                    @FeathersNumberInput {
                                                         @sigil_color: tokens::TEXT_INPUT_X_AXIS,
                                                         @label_text: "X",
                                                     }
@@ -644,7 +662,7 @@ fn demo_column_2() -> impl Scene {
                                                     })
                                                 ),
                                                 (
-                                                    :FeathersNumberInput {
+                                                    @FeathersNumberInput {
                                                         @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
                                                         @label_text: "Y",
                                                     }
@@ -661,7 +679,7 @@ fn demo_column_2() -> impl Scene {
                                                     })
                                                 ),
                                                 (
-                                                    :FeathersNumberInput {
+                                                    @FeathersNumberInput {
                                                         @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                                         @label_text: "Z",
                                                     }

@@ -5,7 +5,7 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::presample_light_tiles
 
 #import bevy_pbr::rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_}
-#import bevy_pbr::utils::{octahedral_encode, octahedral_decode}
+#import bevy_render::utils::{octahedral_encode, octahedral_decode}
 #import bevy_render::view::View
 #import bevy_solari::sampling::{generate_random_light_sample, LightSample, ResolvedLightSample}
 #import bevy_solari::realtime_bindings::{light_tile_samples, light_tile_resolved_samples, view, constants, ResolvedLightSamplePacked}
