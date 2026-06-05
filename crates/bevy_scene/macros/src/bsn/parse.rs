@@ -387,6 +387,8 @@ impl Parse for BsnUnnamedField {
 /// Parses tuple arguments into a list of [`TokenStream`]s. This avoids
 /// fully parsing Rust expressions, which makes this less strict and cheaper to parse.
 /// This also allows autocomplete to work, even if the tokens aren't a valid rust expression.
+///
+/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a TokenStream.
 fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
     let content;
     parenthesized!(content in input);
