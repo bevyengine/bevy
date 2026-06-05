@@ -362,7 +362,7 @@ Node { border: px(2) }
 
 ## Scene Components
 
-It has almost been a Bevy developer right of passage to define something like a `Player` component, which has complex behaviors that rely on some larger "scene", and then ask questions like "how to I spawn this all together?" and "how do I write code that can safely assume the whole scene is present?". Bevy developers have solved these problems in a variety of creative ways, but there has never been an easy recommended / idiomatic upstream solution.
+It has almost been a Bevy developer rite of passage to define something like a `Player` component, which has complex behaviors that rely on some larger "scene", and then ask questions like "how do I spawn this all together?" and "how do I write code that can safely assume the whole scene is present?". Bevy developers have solved these problems in a variety of creative ways, but there has never been an easy recommended / idiomatic upstream solution.
 
 BSN solves this problem by making it possible to associate a `Scene` with a `Component` via the `SceneComponent` derive:
 
