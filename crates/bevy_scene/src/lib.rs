@@ -99,8 +99,8 @@
 //! - **Queued**: [`World::queue_spawn_scene`] and [`Commands::queue_spawn_scene`]
 //!   register the scene's dependencies and wait for them to load before resolving and spawning.
 //!   When the dependencies are loaded (or there are no dependencies), the scene will spawn during
-//!   that frame's [`SpawnScene`] schedule, between [`Update`](bevy_app::main_schedule::Update) and
-//!   [`PostUpdate`](bevy_app::main_schedule::PostUpdate).
+//!   that frame's [`SpawnScene`] schedule, between [`Update`](bevy_app::Update) and
+//!   [`PostUpdate`](bevy_app::PostUpdate).
 //!
 //! In all cases, your `*_spawn_scene` method call should wrap an invocation of the [`bsn!`] macro,
 //! or call a function which returns a [`Scene`].
@@ -1090,7 +1090,6 @@ mod tests {
     use crate::{prelude::*, ScenePatch};
     use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
-    use bevy_asset::io::embedded::GetAssetServer;
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
     use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
     use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
