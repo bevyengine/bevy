@@ -11,7 +11,7 @@ In this particular case, we found that rendering complex scenes on Mac and iOS w
 Looking into it, the lack of bindless rendering support was to blame.
 Bindless rendering is how modern engines handle scenes with many different materials efficiently: shaders index into shared pools of textures and buffers rather than rebinding them per draw call.
 
-Both Metal (Apple's GPU API) and DX12 (an older Windows API) have partial bindless support:
+Both Metal (Apple's GPU API) and DX12 (a Windows graphics API) have partial bindless support:
 they permit texture binding arrays but not buffer binding arrays.
 Historically, Bevy required both to enable bindless, which excluded Metal entirely, even for materials that never use buffer arrays.
 
