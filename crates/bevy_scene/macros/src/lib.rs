@@ -356,7 +356,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// small scenes that are shared across contexts (like styles),
 /// or one-off scenes that do not require reuse.
 ///
-/// /// ## Formatting BSN
+/// ## Formatting BSN
 ///
 /// Whitespace, parentheses, and comments have no effect on the generated scene —
 /// they exist purely to help you organize and read your code.
