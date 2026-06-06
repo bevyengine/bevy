@@ -602,11 +602,18 @@ fn transform_gizmo_drag(
                     Some(inc) => {
                         let mut snapped = state.start_transform.scale;
                         match axis {
-                            TransformGizmoAxis::X => snapped.x = snap_value(new_scale.x, inc),
-                            TransformGizmoAxis::Y => snapped.y = snap_value(new_scale.y, inc),
-                            TransformGizmoAxis::Z => snapped.z = snap_value(new_scale.z, inc),
+                            TransformGizmoAxis::X => {
+                                snapped.x = snap_value(new_scale.x, inc).max(inc);
+                            }
+                            TransformGizmoAxis::Y => {
+                                snapped.y = snap_value(new_scale.y, inc).max(inc);
+                            }
+                            TransformGizmoAxis::Z => {
+                                snapped.z = snap_value(new_scale.z, inc).max(inc);
+                            }
                             TransformGizmoAxis::View => {
                                 snapped = Vec3::splat(snap_value(new_scale.x, inc));
+                                snapped = snapped.max(Vec3::splat(inc));
                             }
                         }
                         snapped

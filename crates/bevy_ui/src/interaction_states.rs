@@ -4,8 +4,11 @@ use bevy_ecs::{
     component::Component,
     lifecycle::{Add, Remove},
     observer::On,
+    reflect::ReflectComponent,
     world::DeferredWorld,
 };
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 
 /// A component indicating that a widget is disabled and should be "grayed out".
 /// This is used to prevent user interaction with the widget. It should not, however, prevent
@@ -15,7 +18,8 @@ use bevy_ecs::{
 /// the `InteractionDisabled` component should be added to the root entity of the widget - the
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct InteractionDisabled;
 
 pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: DeferredWorld) {
@@ -37,15 +41,18 @@ pub(crate) fn on_remove_disabled(
 
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Pressed;
 
 /// Component that indicates that a widget can be checked.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Checkable;
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Checked;
 
 pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld) {
