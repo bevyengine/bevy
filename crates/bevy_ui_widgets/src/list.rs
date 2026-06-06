@@ -343,42 +343,22 @@ pub fn listbox_update_selection(
             }
         };
 
-        // Gather all enabled list items that are descendants of the found ListBox.
-        let enabled_rows = q_children
-            .iter_descendants(listbox)
-            .filter_map(|child_id| match q_listitems.get(child_id) {
-                Ok((has_selected, false)) => Some((child_id, has_selected)),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-
-        if enabled_rows.is_empty() {
-            return;
-        }
-
-        // If the changed row isn't one of the enabled rows in this listbox, ignore.
-        if !enabled_rows.iter().any(|(id, _)| *id == row) {
-            return;
-        }
-
-        // Determine currently selected row (if any).
-        let current_selected = enabled_rows
-            .iter()
-            .find(|(_, checked)| *checked)
-            .map(|(id, _)| *id);
-
-        // If the selection hasn't changed, do nothing.
-        if current_selected == Some(row) {
-            return;
-        }
-
-        // Update Selected component: insert for the new row, remove for others.
-        for (id, _) in enabled_rows {
-            if id == row {
-                commands.entity(id).insert(Selected);
+        // Update selection
+        for child in q_children.iter_descendants(listbox) {
+            let Ok((selected, interaction_disabled)) = q_listitems.get(child) else {
+                continue;
+            };
+            if interaction_disabled {
+                continue;
+            }
+            if child == row {
+                if !selected {
+                    commands.entity(child).insert(Selected);
+                }
             } else {
-                commands.entity(id).remove::<Selected>();
+                if selected {
+                    commands.entity(child).remove::<Selected>();
+                }
             }
         }
-    }
 }
