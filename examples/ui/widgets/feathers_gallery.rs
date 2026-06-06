@@ -10,6 +10,7 @@ use bevy::{
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         display::{icon, label, label_dim, label_small},
+        feedback::{FeathersToast, ToastPosition, ToastVariant},
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
@@ -699,6 +700,90 @@ fn demo_column_2() -> impl Scene {
                                         ],
                                     ]
                                 ],
+                            ],
+                            :subpane Children [
+                                :subpane_header Children [ Text("Feedback") ThemedText ],
+                                :subpane_body Children [
+                                    :label_dim("Spawns toasts in their respective positions"),
+                                    Node {
+                                        display: Display::Flex,
+                                        flex_direction: FlexDirection::Row,
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::Start,
+                                        column_gap: px(1),
+                                    }
+                                    Children [
+                                        (
+                                            :FeathersButton {
+                                                @caption: {bsn!{ Text("Top left") ThemedText }},
+                                                @corners: RoundedCorners::Left,
+                                            }
+                                            Node {
+                                                flex_grow: 1.0,
+                                            }
+                                            on(|_: On<Activate>, mut commands: Commands| {
+                                                commands.spawn_scene(bsn! {
+                                                    :FeathersToast {
+                                                        @message: "Error toast in top left",
+                                                        @variant: ToastVariant::Error,
+                                                        @position: ToastPosition::TopLeft,
+                                                    }
+                                                });
+                                            })
+                                        ), (
+                                            :FeathersButton {
+                                                @caption: {bsn!{ Text("Top right") ThemedText }},
+                                                @corners: RoundedCorners::None,
+                                            }
+                                            Node {
+                                                flex_grow: 1.0,
+                                            }
+                                            on(|_: On<Activate>, mut commands: Commands| {
+                                                commands.spawn_scene(bsn! {
+                                                    :FeathersToast {
+                                                        @message: "Info toast in top right",
+                                                        @variant: ToastVariant::Info,
+                                                        @position: ToastPosition::TopRight,
+                                                    }
+                                                });
+                                            })
+                                        ), (
+                                            :FeathersButton {
+                                                @caption: {bsn!{ Text("Bottom right") ThemedText }},
+                                                @corners: RoundedCorners::None,
+                                            }
+                                            Node {
+                                                flex_grow: 1.0,
+                                            }
+                                            on(|_: On<Activate>, mut commands: Commands| {
+                                                commands.spawn_scene(bsn! {
+                                                    :FeathersToast {
+                                                        @message: "Success toast in bottom right",
+                                                        @variant: ToastVariant::Success,
+                                                        @position: ToastPosition::BottomRight,
+                                                    }
+                                                });
+                                            })
+                                        ), (
+                                            :FeathersButton {
+                                                @caption: {bsn!{ Text("Bottom left") ThemedText }},
+                                                @corners: RoundedCorners::Right,
+                                            }
+                                            Node {
+                                                flex_grow: 1.0,
+                                            }
+                                            on(|_: On<Activate>, mut commands: Commands| {
+                                                commands.spawn_scene(bsn! {
+                                                    :FeathersToast {
+                                                        @message: "Warning toast in bottom left",
+                                                        @variant: ToastVariant::Warning,
+                                                        @position: ToastPosition::BottomLeft,
+                                                    }
+                                                });
+                                            })
+                                        ),
+                                    ]
+                                ]
                             ]
                         ]
                     ),

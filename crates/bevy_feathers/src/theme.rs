@@ -18,6 +18,8 @@ use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
 use smol_str::SmolStr;
 
+use crate::constants;
+
 /// A design token for the theme. This serves as the lookup key for the theme properties.
 #[derive(Clone, PartialEq, Eq, Hash, Reflect, Default)]
 pub struct ThemeToken(SmolStr);
@@ -52,6 +54,8 @@ impl core::fmt::Debug for ThemeToken {
 pub struct ThemeProps {
     /// Map of design tokens to colors.
     pub color: HashMap<ThemeToken, Color>,
+    /// Map of design tokens to icons.
+    pub icons: HashMap<ThemeToken, &'static str>,
     // Other style property types to be added later.
 }
 
@@ -71,6 +75,20 @@ impl UiTheme {
                 warn_once!("Theme color {} not found.", token);
                 // Return a bright obnoxious color to make the error obvious.
                 palettes::basic::FUCHSIA.into()
+            }
+        }
+    }
+
+    /// Lookup an icon by by design token. If the theme does not have an entry for that token,
+    /// logs a warning and returns [`constants::icons::X`].
+    /// TODO: Should we add a separate icon indicating missing icons e.g. a question mark?
+    pub fn icon(&self, token: &ThemeToken) -> &'static str {
+        let icon = self.0.icons.get(token);
+        match icon {
+            Some(i) => i,
+            None => {
+                warn_once!("Theme icon {} not found.", token);
+                constants::icons::X
             }
         }
     }

@@ -17,6 +17,15 @@ pub const TEXT_MAIN: ThemeToken = ThemeToken::new_static("feathers.text.main");
 /// Dim text
 pub const TEXT_DIM: ThemeToken = ThemeToken::new_static("feathers.text.dim");
 
+/// Info color
+pub const INFO: ThemeToken = ThemeToken::new_static("feathers.info");
+/// Success color
+pub const SUCCESS: ThemeToken = ThemeToken::new_static("feathers.success");
+/// Warning color
+pub const WARNING: ThemeToken = ThemeToken::new_static("feathers.warning");
+/// Error color
+pub const ERROR: ThemeToken = ThemeToken::new_static("feathers.error");
+
 // Normal buttons
 
 /// Regular button background
@@ -370,3 +379,18 @@ pub const GROUP_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.group
 pub const GROUP_BODY_BG: ThemeToken = ThemeToken::new_static("feathers.group.body.bg");
 /// Group body border
 pub const GROUP_BODY_BORDER: ThemeToken = ThemeToken::new_static("feathers.group.body.border");
+
+// Toast
+
+/// Toast background
+pub const TOAST_BG: ThemeToken = ThemeToken::new_static("feathers.toast.bg");
+/// Toast text
+pub const TOAST_TEXT: ThemeToken = ThemeToken::new_static("feathers.toast.text");
+/// Toast info icon
+pub const TOAST_INFO_ICON: ThemeToken = ThemeToken::new_static("feathers.toast.icon.info");
+/// Toast success icon
+pub const TOAST_SUCCESS_ICON: ThemeToken = ThemeToken::new_static("feathers.toast.icon.success");
+/// Toast warning icon
+pub const TOAST_WARNING_ICON: ThemeToken = ThemeToken::new_static("feathers.toast.icon.warning");
+/// Toast error icon
+pub const TOAST_ERROR_ICON: ThemeToken = ThemeToken::new_static("feathers.toast.icon.error");
