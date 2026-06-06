@@ -41,7 +41,7 @@ impl WakeWaiter {
         }
         #[cfg(not(feature = "std"))]
         {
-            // No-op on std, since we are only using local futures we should tick them
+            // No-op on no_std, since we are only using local futures we should tick them
             // prior to reaching this point.
             return;
         }

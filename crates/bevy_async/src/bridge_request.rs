@@ -4,38 +4,73 @@ use bevy_ecs::prelude::{IntoSystemSet, SystemSet, World};
 use bevy_ecs::schedule::InternedSystemSet;
 use bevy_platform::sync::Arc;
 
-/// Drives the queued bridge work for `SyncPoint`.
+/// An exclusive system that drives the queued bridge work for `SyncPoint`.
 ///
 /// Every queued bridge request is guaranteed to be *woken*. That wake guarantees the corresponding
 /// async future gets a chance to poll.
 /// It does *not* however guarantee the poll will finish its ECS work, because that
-/// poll may still fail to finish it's work for a *variety* of reasons, i.e. it is unable to acquire
-/// the typed `SystemState` lock and returns `Poll::Pending`.
+/// poll may still fail to finish its work for a *variety* of reasons, i.e. it is unable to acquire
+/// the typed [`SystemState`] lock and returns [`Poll::Pending`].
 ///
-/// For [`bevy_tasks::TaskPool::spawn_local`] we *are* actually guaranteed that the poll will finish
-/// it's ECS work, because it's single threaded, so you can use `spawn_local` if you want
+/// For [`TaskPool::spawn_local`] we *are* actually guaranteed that the poll will finish
+/// its ECS work, because it's single threaded, so you can use [`TaskPool::spawn_local`] if you want
 /// determinism.
 ///
-/// This function attempts to tick queued work several times, up to `MaxAsyncTicksPerSyncPoint`.
-/// If one internal tick finds no work, we opportunistically tick the local global task pool and
-/// try once more before returning early.
+/// This function attempts to tick queued work several times, up to [`AsyncTickBudget`]. If one
+/// internal tick finds no work, we opportunistically tick the local global task pool and try once
+/// more before returning early.
 ///
 /// We tick queued work multiple times for two reasons. The first is that serial `.await` calls
-/// should try to all be completed within the same `SyncPoint` such as
+/// should try to all be completed within the same `SyncPoint` such as:
+///
 /// ```rust,ignore
-/// let health = task_1.run(|health: Single<&Health, With<Player>>| {
+/// let health = task.run(|health: Single<&Health, With<Player>>| {
 ///     health.0
 /// }).await;
 /// if health == 0 {
 ///     return;
 /// }
-/// task_1.run(|commands: Commands| {
+/// task.run(|commands: Commands| {
 ///     commands.trigger(PlayerDoesAttack);
 /// }).await;
 /// ```
-/// The second reason is spoken of prior. Poll may fail to finish for a variety of reasons and
+///
+/// The second reason was mentioned earlier: poll may fail to finish for a variety of reasons and
 /// should be given several chances before giving up.
+///
+/// The `SyncPoint` is an arbitrary, user-defined type that acts as a "label" for a sync point.
+/// Async tasks must use the same type in [`AsyncSystemState::bridge`] to use this sync point. This
+/// allows bridging to different points in the ECS schedule so the actions apply at correct points.
+///
+/// [`SystemState`]: bevy_ecs::system::SystemState
+/// [`Poll::Pending`]: core::task::Poll::Pending
+/// [`TaskPool::spawn_local`]: bevy_tasks::TaskPool::spawn_local
+/// [`AsyncSystemState::bridge`]: crate::AsyncSystemState::bridge
 pub fn async_world_sync_point<SyncPoint: 'static>(world: &mut World) {
+    // The protocol:
+    //
+    // Futures (tasks on worker threads)
+    // - enqueue requests (create signal guard clones: one kept, one sent)
+    //
+    // - Driver(`async_world_sync_point`) (exclusive system, world-owning thread)
+    //   1. Drain request queue for this sync point
+    //   2. Publish World pointer (via `scoped_static_storage`). Future access scope begins
+    //   3. Wake all drained futures
+    //
+    //  -> Futures race for locks (non-blocking)
+    //
+    //  -> Success: acquire both locks, do work, complete
+    //
+    //  -> Failure: signal driver (Drop signal guard), re-enqueue later
+    //
+    //  -> Direct access: non-queued future polled during scope,
+    //  bypasses queue, acquires locks, completes (no signal)
+    //   4. Wait for all signal guards to drop + scope mutex released
+    //   5. Unpublish pointer, scope ends.
+    //   6. Apply any deferred ops from `SystemState` of polled futures
+    //   7. Loop (up to `AsyncTickBudget`) or return
+    //   8. Schedule resumes (normal systems run)
+
     // Derive the stable interned system-set key used to look up requests queued
     // for this exact sync point type.
     let sync_point = async_world_sync_point::<SyncPoint>
