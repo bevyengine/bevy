@@ -7,6 +7,9 @@
 
 use crate::sync::atomic::{AtomicPtr, Ordering};
 
+#[cfg(target_arch = "aarch64")]
+use crate::sync::atomic::AtomicU64;
+
 use core::{
     fmt,
     ops::{Add, AddAssign, Sub, SubAssign},
@@ -14,6 +17,9 @@ use core::{
 };
 
 static ELAPSED_GETTER: AtomicPtr<()> = AtomicPtr::new(unset_getter as *mut _);
+
+#[cfg(target_arch = "aarch64")]
+static CNTFRQ: AtomicU64 = AtomicU64::new(0);
 
 /// Fallback implementation of `Instant` suitable for a `no_std` environment.
 ///
@@ -166,15 +172,48 @@ fn unset_getter() -> Duration {
         }
         #[cfg(target_arch = "aarch64")] => {
             // SAFETY: standard technique for getting a nanosecond counter of aarch64
-            let nanos = unsafe {
+            let (freq, ticks) = unsafe {
+                let mut freq = CNTFRQ.load(Ordering::Relaxed);
+                if freq == 0 {
+                    core::arch::asm!("mrs {}, cntfrq_el0", out(reg) freq);
+                    if let Err(existing) = CNTFRQ.compare_exchange(0, freq, Ordering::Release, Ordering::Relaxed) {
+                        freq = existing;
+                    }
+                }
+
                 let mut ticks: u64;
                 core::arch::asm!("mrs {}, cntvct_el0", out(reg) ticks);
-                ticks
+
+                (freq, ticks)
             };
+
+            #[rustfmt::skip]
+            let nanos = (ticks / freq).saturating_mul(1_000_000_000) +
+                        (ticks % freq).saturating_mul(1_000_000_000) / freq;
+
             Duration::from_nanos(nanos)
         }
         _ => {
             panic!("An elapsed time getter has not been provided to `Instant`. Please use `Instant::set_elapsed(...)` before calling `Instant::now()`")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::thread::sleep;
+
+    use super::*;
+
+    #[test]
+    fn test_unset_getter() {
+        let dur1 = unset_getter();
+
+        sleep(Duration::from_millis(500));
+
+        let dur2 = unset_getter();
+
+        assert!(dur2 > dur1);
+        assert!(dur2 - dur1 >= Duration::from_millis(500));
     }
 }
