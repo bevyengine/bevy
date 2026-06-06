@@ -10,8 +10,9 @@
 //! account the directional light color and direction.
 //!
 //! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
-//! [`bevy_transform::components::GlobalTransform`], and add [`AtmosphereSettings`] to each
-//! 3D camera that should render it. Detailed documentation is on the [`Atmosphere`] component.
+//! [`bevy_transform::components::GlobalTransform`], optionally add [`CloudLayer`] for volumetric
+//! clouds, and add [`AtmosphereSettings`] to each 3D camera that should render it. Detailed
+//! documentation is on the [`Atmosphere`] component.
 //!
 //! Placement and scene scale come from the entity's transform. With several atmospheres in one
 //! scene, each camera picks the atmosphere whose origin is closest in world space.
@@ -52,15 +53,15 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Changed, QueryItem, With},
+    query::{Changed, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Commands, Query},
+    system::{Commands, Query},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
 use bevy_math::{Mat4, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
+    extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     renderer::RenderDevice,
     sync_component::{SyncComponent, SyncComponentPlugin},
@@ -130,7 +131,6 @@ impl Plugin for AtmospherePlugin {
 
         app.add_plugins((
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
-            ExtractComponentPlugin::<CloudLayer>::default(),
             SyncComponentPlugin::<AtmosphereSettings>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
@@ -250,13 +250,14 @@ impl Plugin for AtmospherePlugin {
 }
 
 /// For each camera with [`AtmosphereSettings`], picks the nearest [`Atmosphere`] by world-space
-/// distance to its origin, copies it as [`ExtractedAtmosphere`], and builds [`GpuAtmosphereSettings`].
+/// distance to its origin, copies it as [`ExtractedAtmosphere`], optionally copies [`CloudLayer`],
+/// and builds [`GpuAtmosphereSettings`].
 pub fn extract_atmosphere(
     mut commands: Commands,
-    atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform)>>,
+    atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform, Option<&CloudLayer>)>>,
     cameras: Extract<Query<(RenderEntity, &AtmosphereSettings, &GlobalTransform), With<Camera3d>>>,
 ) {
-    let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform)> =
+    let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform, Option<&CloudLayer>)> =
         atmosphere_entities.iter().collect();
 
     if candidates.is_empty() {
@@ -267,6 +268,7 @@ pub fn extract_atmosphere(
             commands
                 .entity(render_entity)
                 .remove::<GpuAtmosphereSettings>();
+            commands.entity(render_entity).remove::<CloudLayer>();
         }
         return;
     }
@@ -275,7 +277,7 @@ pub fn extract_atmosphere(
         let cam_world = cam_global.translation();
         let selected = candidates
             .iter()
-            .min_by(|(ea, _, gt_a), (eb, _, gt_b)| {
+            .min_by(|(ea, _, gt_a, _), (eb, _, gt_b, _)| {
                 let da = cam_world.distance(gt_a.translation());
                 let db = cam_world.distance(gt_b.translation());
                 da.total_cmp(&db).then_with(|| ea.cmp(eb))
@@ -283,6 +285,7 @@ pub fn extract_atmosphere(
             .expect("checked non-empty above");
         let atmo = selected.1;
         let gt = selected.2;
+        let cloud_layer = selected.3;
 
         let extracted = ExtractedAtmosphere {
             inner_radius: atmo.inner_radius,
@@ -295,6 +298,13 @@ pub fn extract_atmosphere(
         commands
             .entity(render_entity)
             .insert(GpuAtmosphereSettings::from(settings.clone()));
+        if let Some(cloud_layer) = cloud_layer {
+            commands
+                .entity(render_entity)
+                .insert(cloud_layer.clone());
+        } else {
+            commands.entity(render_entity).remove::<CloudLayer>();
+        }
     }
 }
 
@@ -544,7 +554,9 @@ pub enum AtmosphereMode {
 }
 
 /// Component that adds a volumetric cloud layer to the atmosphere.
-/// Add this component to a 3D camera with [`AtmosphereSettings`] to enable clouds.
+///
+/// Add this component to an [`Atmosphere`] entity to enable volumetric clouds for cameras
+/// that select that atmosphere.
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[reflect(Clone, Default)]
 pub struct CloudLayer {
@@ -598,14 +610,4 @@ impl Default for CloudLayer {
 
 impl SyncComponent for CloudLayer {
     type Target = Self;
-}
-
-impl ExtractComponent for CloudLayer {
-    type QueryData = Read<CloudLayer>;
-    type QueryFilter = With<Camera3d>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
-    }
 }

@@ -82,9 +82,8 @@ fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut planet_atmosphere: Query<(&mut Atmosphere, &mut GlobalTransform)>,
     mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
-    mut cloud_layers: Query<&mut CloudLayer>,
+    mut atmosphere_entities: Query<(Entity, Option<&mut CloudLayer>), With<Atmosphere>>,
     mut commands: Commands,
-    cameras: Query<Entity, With<Camera3d>>,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
@@ -121,15 +120,15 @@ fn atmosphere_controls(
     }
 
     if keyboard_input.just_pressed(KeyCode::KeyC) {
-        if cloud_layers.iter().count() > 0 {
-            // Remove cloud layer
-            for entity in &cameras {
+        let has_clouds = atmosphere_entities.iter().any(|(_, cloud_layer)| cloud_layer.is_some());
+        let entities: Vec<Entity> = atmosphere_entities.iter().map(|(entity, _)| entity).collect();
+        if has_clouds {
+            for entity in entities {
                 commands.entity(entity).remove::<CloudLayer>();
             }
             println!("Cloud layer disabled");
         } else {
-            // Add cloud layer
-            for entity in &cameras {
+            for entity in entities {
                 commands.entity(entity).insert(CloudLayer::default());
             }
             println!("Cloud layer enabled");
@@ -137,16 +136,22 @@ fn atmosphere_controls(
     }
 
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
-        for mut cloud_layer in &mut cloud_layers {
-            cloud_layer.cloud_density = (cloud_layer.cloud_density - time.delta_secs()).max(0.0);
-            println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+        for (_, cloud_layer) in atmosphere_entities.iter_mut() {
+            if let Some(mut cloud_layer) = cloud_layer {
+                cloud_layer.cloud_density =
+                    (cloud_layer.cloud_density - time.delta_secs()).max(0.0);
+                println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+            }
         }
     }
 
     if keyboard_input.pressed(KeyCode::ArrowRight) {
-        for mut cloud_layer in &mut cloud_layers {
-            cloud_layer.cloud_density = (cloud_layer.cloud_density + time.delta_secs()).min(100.0);
-            println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+        for (_, cloud_layer) in atmosphere_entities.iter_mut() {
+            if let Some(mut cloud_layer) = cloud_layer {
+                cloud_layer.cloud_density =
+                    (cloud_layer.cloud_density + time.delta_secs()).min(100.0);
+                println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+            }
         }
     }
 
@@ -167,8 +172,10 @@ fn atmosphere_controls(
     }
 
     // Animate clouds by updating noise offset
-    for mut cloud_layer in &mut cloud_layers {
-        // cloud_layer.noise_offset.x += time.delta_secs() * 100.0;
+    for (_, cloud_layer) in atmosphere_entities.iter_mut() {
+        if let Some(_cloud_layer) = cloud_layer {
+            // _cloud_layer.noise_offset.x += time.delta_secs() * 100.0;
+        }
     }
 }
 
@@ -194,16 +201,8 @@ fn setup_camera_fog(
     });
 
     // Spawn earth atmosphere
-    commands.spawn(Atmosphere::earth(earth_medium));
-
     commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Can be adjusted to change the scene scale and rendering quality
-        AtmosphereSettings {
-            rendering_method: AtmosphereMode::Raymarched,
-            ..default()
-        },
+        Atmosphere::earth(earth_medium),
         // Add a volumetric cloud layer using 3D FBM noise
         // Physically realistic parameters (units: m^-1 per unit density):
         // - Density is normalized to [0, 1] in the shader
@@ -224,6 +223,16 @@ fn setup_camera_fog(
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 16_000.0, // Smaller scale = higher-frequency breakup
             detail_strength: 1.0,
+        },
+    ));
+
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Can be adjusted to change the scene scale and rendering quality
+        AtmosphereSettings {
+            rendering_method: AtmosphereMode::Raymarched,
+            ..default()
         },
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
