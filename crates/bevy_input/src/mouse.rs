@@ -296,7 +296,7 @@ impl Default for AccumulatedMouseScroll {
 impl AccumulatedMouseScroll {
     /// Converts the units to [`MouseScrollUnit::Line`]
     pub fn to_lines(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
-        if self.unit == MouseScrollUnit::Line {
+        if self.unit == MouseScrollUnit::Pixel {
             AccumulatedMouseScroll {
                 unit: MouseScrollUnit::Line,
                 delta: self.delta / *conversion_ratio,
@@ -307,9 +307,9 @@ impl AccumulatedMouseScroll {
     }
     /// Converts the units to [`MouseScrollUnit::Pixel`]
     pub fn to_pixels(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
-        if self.unit == MouseScrollUnit::Pixel {
+        if self.unit == MouseScrollUnit::Line {
             AccumulatedMouseScroll {
-                unit: MouseScrollUnit::Line,
+                unit: MouseScrollUnit::Pixel,
                 delta: self.delta * *conversion_ratio,
             }
         } else {
