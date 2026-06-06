@@ -47,6 +47,30 @@ use bevy_platform::sync::Arc;
 /// [`TaskPool::spawn_local`]: bevy_tasks::TaskPool::spawn_local
 /// [`AsyncSystemState::bridge`]: crate::AsyncSystemState::bridge
 pub fn async_world_sync_point<SyncPoint: 'static>(world: &mut World) {
+    // The protocol:
+    //
+    // Futures (tasks on worker threads)
+    // - enqueue requests (create signal guard clones: one kept, one sent)
+    //
+    // - Driver(`async_world_sync_point`) (exclusive system, world-owning thread)
+    //   1. Drain request queue for this sync point
+    //   2. Publish World pointer (via `scoped_static_storage`). Future access scope begins
+    //   3. Wake all drained futures
+    //
+    //  -> Futures race for locks (non-blocking)
+    //
+    //  -> Success: acquire both locks, do work, complete
+    //
+    //  -> Failure: signal driver (Drop signal guard), re-enqueue later
+    //
+    //  -> Direct access: non-queued future polled during scope,
+    //  bypasses queue, acquires locks, completes (no signal)
+    //   4. Wait for all signal guards to drop + scope mutex released
+    //   5. Unpublish pointer, scope ends.
+    //   6. Apply any deferred ops from `SystemState` of polled futures
+    //   7. Loop (up to `AsyncTickBudget`) or return
+    //   8. Schedule resumes (normal systems run)
+
     // Derive the stable interned system-set key used to look up requests queued
     // for this exact sync point type.
     let sync_point = async_world_sync_point::<SyncPoint>
