@@ -80,7 +80,7 @@ impl<'a> Display for AssetPath<'a> {
 }
 
 /// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq, Reflect, Copy, Clone)]
 pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
     #[error("Asset source must not contain a `#` character")]
@@ -118,7 +118,7 @@ impl<'a> AssetPath<'a> {
     /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
     /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
     ///
-    /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
+    /// Prefer [`AssetPath::try_parse_static`] for static strings, as this will prevent allocations
     /// and reference counting for [`AssetPath::into_owned`].
     ///
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
@@ -131,6 +131,27 @@ impl<'a> AssetPath<'a> {
             },
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
+        })
+    }
+
+    /// Creates a new [`AssetPath`] from a string in the asset path format:
+    /// * An asset at the root: `"scene.gltf"`
+    /// * An asset nested in some folders: `"some/path/scene.gltf"`
+    /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
+    ///
+    /// Unlike [`AssetPath::try_parse`], the input string must have a static lifetime. This will
+    /// prevent allocations and reference counting for [`AssetPath::into_owned`].
+    ///
+    /// Returns a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
+    pub fn try_parse_static(
+        asset_path: &'static str,
+    ) -> Result<AssetPath<'static>, ParseAssetPathError> {
+        let (source, path, label) = Self::parse_internal(asset_path)?;
+        Ok(AssetPath::<'static> {
+            source: source.into(),
+            path: CowArc::Static(path),
+            label: label.map(CowArc::Static),
         })
     }
 
