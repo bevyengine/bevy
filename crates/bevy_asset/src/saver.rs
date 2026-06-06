@@ -569,8 +569,10 @@ pub enum SaveAssetError {
     MissingSource(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingWriter(#[from] MissingAssetWriterError),
+    /// Encountered an [`AssetWriterError`] while saving the asset.
     #[error(transparent)]
     WriterError(#[from] AssetWriterError),
+    /// Failed to save the asset due to an error from the saver.
     #[error("Failed to save asset due to error from saver: {0}")]
     SaverError(Arc<BevyError>),
 }

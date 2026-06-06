@@ -1,3 +1,7 @@
+//! Adds the `http` and `https` asset sources to the app.
+//!
+//! See [`WebAssetPlugin`] for details.
+
 use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;

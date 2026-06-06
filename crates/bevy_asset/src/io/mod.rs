@@ -312,8 +312,10 @@ impl<T: AssetReader> ErasedAssetReader for T {
     }
 }
 
+/// A convenience type for an [`AsyncWrite`] object plus the traits it needs to satisfy.
 pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 
+/// A convenience type for a stream of pathnames plus the traits it needs to satisfy.
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.

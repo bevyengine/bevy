@@ -238,6 +238,8 @@ impl Dir {
     }
 }
 
+/// A struct for iteration over subdirectory and asset paths of a [`Dir`].
+/// It will return full pathnames.
 pub struct DirStream {
     dir: Dir,
     index: usize,
@@ -613,7 +615,7 @@ impl AssetWriter for MemoryAssetWriter {
 }
 
 #[cfg(test)]
-pub mod test {
+mod test {
     use super::Dir;
     use std::path::Path;
 
