@@ -211,6 +211,21 @@ macro_rules! scene_impl {
 
 all_tuples!(scene_impl, 0, 12, P);
 
+impl<P> Scene for Option<P>
+where
+    P: Scene,
+{
+    #[inline]
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|optional_scene| optional_scene.resolve(context, scene))
+            .unwrap_or(Ok(()))
+    }
+}
+
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
 /// Functionally, a [`TemplatePatch`] scene will initialize a [`Default`] value of the patched

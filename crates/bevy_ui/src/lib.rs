@@ -254,7 +254,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
             (
-                widget::update_editable_text_layout,
+                widget::update_editable_text_layout.before(bevy_asset::AssetEventSystems),
                 widget::scroll_editable_text,
             )
                 .chain()
