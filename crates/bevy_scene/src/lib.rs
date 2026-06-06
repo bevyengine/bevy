@@ -2217,7 +2217,7 @@ mod tests {
 
         let entity = world
             .spawn_scene(bsn! {
-                #MAYBE_FOO
+                #MaybeFoo
                 {optional_component}
             })
             .unwrap();
