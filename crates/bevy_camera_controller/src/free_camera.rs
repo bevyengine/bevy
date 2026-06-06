@@ -304,7 +304,7 @@ pub fn run_freecamera_controller(
         return;
     }
 
-    let scroll = accumulated_mouse_scroll.to_lines(mouse_scroll_conversion);
+    let scroll = accumulated_mouse_scroll.to_lines(&mouse_scroll_conversion).delta.y;
     // By using exponentiation we ensure that this scales up and down smoothly
     // regardless of the amount of scrolling processed per frame
     state.speed_multiplier *= exp(config.scroll_factor * scroll);

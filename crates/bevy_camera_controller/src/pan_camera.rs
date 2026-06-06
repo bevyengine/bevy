@@ -243,7 +243,7 @@ fn run_pancamera_controller(
     }
 
     // (with mouse wheel)
-    let mouse_scroll = accumulated_mouse_scroll.to_lines(mouse_scroll_conversion);
+    let mouse_scroll = accumulated_mouse_scroll.to_lines(&mouse_scroll_conversion).delta.y;
     zoom_amount += mouse_scroll * controller.zoom_speed;
 
     controller.zoom_factor =
