@@ -21,7 +21,6 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseScrollPixelsPerLine,
-    MouseScrollUnit,
 };
 use bevy_input::touch::Touches;
 use bevy_input::ButtonInput;
