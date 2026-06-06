@@ -223,7 +223,6 @@ impl Plugin for UiPlugin {
             .add_observer(interaction_states::on_remove_checkable)
             .add_observer(interaction_states::on_add_checked)
             .add_observer(interaction_states::on_remove_checked)
-            .add_observer(interaction_states::on_remove_checked)
             .add_observer(interaction_states::on_add_selectable)
             .add_observer(interaction_states::on_remove_selectable)
             .add_observer(interaction_states::on_add_selected)

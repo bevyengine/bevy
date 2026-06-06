@@ -97,7 +97,7 @@ pub struct Selectable;
 #[derive(Component, Default, Debug, Clone)]
 pub struct Selected;
 
-pub(crate) fn on_add_selectable(add: On<Add, Selected>, mut world: DeferredWorld) {
+pub(crate) fn on_add_selectable(add: On<Add, Selectable>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     let selected = entity.get::<Selected>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -105,7 +105,7 @@ pub(crate) fn on_add_selectable(add: On<Add, Selected>, mut world: DeferredWorld
     }
 }
 
-pub(crate) fn on_remove_selectable(add: On<Add, Selected>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_selectable(add: On<Add, Selectable>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {

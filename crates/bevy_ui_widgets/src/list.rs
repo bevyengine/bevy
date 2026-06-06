@@ -320,45 +320,44 @@ pub fn listbox_update_selection(
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    {
-        let change = value_change.event();
-        let row = change.value;
+    let change = value_change.event();
+    let row = change.value;
 
-        // Find the ListBox that this change applies to. Prefer the event source if it's a ListBox,
-        // otherwise walk the ancestors of the row to find the containing ListBox.
-        let listbox = if q_listbox.contains(change.source) {
-            change.source
-        } else {
-            // requires: q_parents: Query<&ChildOf>
-            let mut found = None;
-            for ancestor in q_parents.iter_ancestors(row) {
-                if q_listbox.contains(ancestor) {
-                    found = Some(ancestor);
-                    break;
-                }
-            }
-            match found {
-                Some(lb) => lb,
-                None => return, // no containing ListBox found
-            }
-        };
-
-        // Update selection
-        for child in q_children.iter_descendants(listbox) {
-            let Ok((selected, interaction_disabled)) = q_listitems.get(child) else {
-                continue;
-            };
-            if interaction_disabled {
-                continue;
-            }
-            if child == row {
-                if !selected {
-                    commands.entity(child).insert(Selected);
-                }
-            } else {
-                if selected {
-                    commands.entity(child).remove::<Selected>();
-                }
+    // Find the ListBox that this change applies to. Prefer the event source if it's a ListBox,
+    // otherwise walk the ancestors of the row to find the containing ListBox.
+    let listbox = if q_listbox.contains(change.source) {
+        change.source
+    } else {
+        // requires: q_parents: Query<&ChildOf>
+        let mut found = None;
+        for ancestor in q_parents.iter_ancestors(row) {
+            if q_listbox.contains(ancestor) {
+                found = Some(ancestor);
+                break;
             }
         }
+        match found {
+            Some(lb) => lb,
+            None => return, // no containing ListBox found
+        }
+    };
+
+    // Update selection
+    for child in q_children.iter_descendants(listbox) {
+        let Ok((selected, interaction_disabled)) = q_listitems.get(child) else {
+            continue;
+        };
+        if interaction_disabled {
+            continue;
+        }
+        if child == row {
+            if !selected {
+                commands.entity(child).insert(Selected);
+            }
+        } else {
+            if selected {
+                commands.entity(child).remove::<Selected>();
+            }
+        }
+    }
 }
