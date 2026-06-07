@@ -393,6 +393,32 @@ mod tests {
     }
 
     #[test]
+    fn test_remove_and_reinsert_propagate() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let parent = app.world_mut().spawn(Propagate(TestValue(1))).id();
+
+        let child = app.world_mut().spawn_empty().insert(ChildOf(parent)).id();
+
+        app.update();
+
+        app.world_mut()
+            .entity_mut(parent)
+            .remove::<Propagate<TestValue>>()
+            .insert(Propagate(TestValue(1)));
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&TestValue>()
+                .get_many(app.world(), [parent, child]),
+            Ok([&TestValue(1), &TestValue(1)])
+        );
+    }
+
+    #[test]
     fn test_remove_orphan() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
