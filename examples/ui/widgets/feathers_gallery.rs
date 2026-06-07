@@ -19,10 +19,11 @@ use bevy::{
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
-    ui::{Checked, InteractionDisabled},
+    ui::{Checked, InteractionDisabled, Selected},
     ui_widgets::{
-        checkbox_self_update, radio_self_update, slider_self_update, Activate, ActivateOnPress,
-        RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
+        checkbox_self_update, listbox_update_selection, radio_self_update, slider_self_update,
+        Activate, ActivateOnPress, RadioGroup, SliderPrecision, SliderStep, SliderValue,
+        ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -704,6 +705,33 @@ fn demo_column_2() -> impl Scene {
                     ),
                 ]
             ),
+            subpane() Children [
+                subpane_header() Children [
+                    (Text("List") ThemedText),
+                ],
+                subpane_body() Children [
+                    @FeathersListView {
+                        @rows: {bsn_list![
+                            @FeathersListRow Children [(Text("First World") ThemedText)],
+                            @FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
+                            @FeathersListRow Children [(Text("Third Degree") ThemedText)],
+                            @FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
+                            @FeathersListRow Children [(Text("Fifth Column") ThemedText)],
+                            @FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
+                            @FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
+                            @FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
+                            @FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
+                            @FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
+                            @FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
+                            @FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
+                        ]}
+                    }
+                    Node {
+                        max_height: px(130)
+                    }
+                    on(listbox_update_selection)
+                ],
+            ]
         ]
     }
 }
