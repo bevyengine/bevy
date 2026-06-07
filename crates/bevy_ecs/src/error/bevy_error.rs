@@ -106,6 +106,7 @@ impl BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
                 severity,
+                context: alloc::vec![],
                 #[cfg(feature = "backtrace")]
                 backtrace,
             }),
@@ -184,20 +185,12 @@ impl BevyError {
 
     /// Checks if the internal error is of the given type.
     pub fn is<E: Error + 'static>(&self) -> bool {
-        if let Some(context) = self.inner.error.downcast_ref::<ContextError>() {
-            context.error.is::<E>()
-        } else {
-            self.inner.error.is::<E>()
-        }
+        self.inner.error.is::<E>()
     }
 
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
-        if let Some(context) = self.inner.error.downcast_ref::<ContextError>() {
-            context.error.downcast_ref::<E>()
-        } else {
-            self.inner.error.downcast_ref::<E>()
-        }
+        self.inner.error.downcast_ref::<E>()
     }
 
     fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -263,6 +256,7 @@ impl BevyError {
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
+    context: alloc::vec::Vec<alloc::string::String>,
     severity: Severity,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
@@ -484,16 +478,8 @@ where
             Ok(v) => Ok(v),
             Err(error) => {
                 let mut error = error.into();
-                let msg = context().to_string();
-                if let Some(ctx) = error.inner.error.downcast_mut::<ContextError>() {
-                    ctx.messages.push(msg);
-                } else {
-                    error.inner.error = ContextError {
-                        messages: alloc::vec![error.inner.error.to_string(), msg],
-                        error: error.inner.error,
-                    }
-                    .into();
-                }
+                let message = context().to_string();
+                error.inner.context.push(message);
                 Err(error)
             }
         }
@@ -509,51 +495,12 @@ impl<T> ContextExt<T> for Option<T> {
             Some(v) => Ok(v),
             None => {
                 let message = context().to_string();
-                let error = ContextError {
-                    messages: alloc::vec![message.clone()],
-                    error: message.into(),
-                };
 
-                Err(error.into())
+                Err(message.into())
             }
         }
     }
 }
-
-#[derive(Debug)]
-struct ContextError {
-    messages: alloc::vec::Vec<alloc::string::String>,
-    error: Box<dyn Error + Send + Sync + 'static>,
-}
-
-impl Display for ContextError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match &self.messages {
-            messages if messages.len() == 2 => {
-                write!(f, "{}: {}", messages[1].trim(), messages[0].trim())?;
-            }
-            messages if messages.len() == 1 => write!(f, "{}", messages[0].trim())?,
-            messages if messages.is_empty() => {} // nop
-            messages => {
-                // The most recent message is the last one in the `Vec`
-                // so we need to reverse the iterator
-                let mut reversed = messages.iter().rev();
-                // `messages.len()` is at least 3
-                let first = reversed.next().unwrap().trim();
-
-                write!(f, "{first}\n\nCaused by:")?;
-                for message in reversed {
-                    let message = message.trim();
-                    write!(f, "\n\t{message}")?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl Error for ContextError {}
 
 // NOTE: writing the impl this way gives us From<&str> ... nice!
 impl<E> From<E> for BevyError
@@ -566,6 +513,7 @@ where
             inner: Box::new(InnerBevyError {
                 error: error.into(),
                 severity: Severity::Panic,
+                context: alloc::vec![],
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
@@ -575,7 +523,25 @@ where
 
 impl Display for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{}", self.inner.error)?;
+        match &self.inner.context {
+            context if context.is_empty() => writeln!(f, "{}", self.inner.error)?,
+            context if context.len() == 1 => {
+                writeln!(f, "{}: {}", context[0].trim(), self.inner.error)?;
+            }
+            context => {
+                // The most recent message is the last one in the `Vec`
+                // so we need to reverse the iterator
+                let error = self.inner.error.to_string();
+                let mut reversed = context.iter().rev().chain(core::iter::once(&error));
+                let first = reversed.next().unwrap().trim();
+
+                writeln!(f, "{first}\n\nCaused by:")?;
+                for message in reversed {
+                    let message = message.trim();
+                    writeln!(f, "\t{message}")?;
+                }
+            }
+        }
         self.format_backtrace(f)?;
         Ok(())
     }
