@@ -5,10 +5,10 @@ pull_requests: [23436]
 ---
 
 In an ideal world, Bevy users could write a single application and ship it everywhere, with every last one of the messy cross-platform differences beautifully abstracted away.
-That can be a bit hard though.
-In this particular case, we found that rendering complex scenes on Mac and iOS was markedly slower than it should have been.
 
-Looking into it, the lack of bindless rendering support was to blame.
+However, users were reporting that rendering complex scenes on Mac and iOS was markedly slower than on comparable hardware.
+
+The reason for this was straightforward enough: no bindless rendering support.
 Bindless rendering is how modern engines handle scenes with many different materials efficiently: shaders index into shared pools of textures and buffers rather than rebinding them per draw call.
 
 Both Metal (Apple's GPU API) and DX12 (a Windows graphics API) have partial bindless support:
@@ -18,10 +18,10 @@ Historically, Bevy required both to enable bindless, which excluded Metal entire
 Most materials, including `StandardMaterial`, do not need buffer array support.
 To ensure those materials take the fast path, Bevy now checks the actual needs of each material.
 If you only need texture arrays, your material can be rendered efficiently across Bevy's desktop platforms.
-If you use `#[uniform(..., binding_array(...))]`, expect unusually poor performance when using Metal or DX12.
+If you use `#[uniform(..., binding_array(...))]`, expect performance degradation on Metal or DX12.
 
 We've also fixed two important correctness bugs in the process.
-First, we discovered that the sampler limit check was testing the wrong metric: `max_samplers_per_shader_stage` counts binding slots, but the relevant limit is `max_binding_array_sampler_elements_per_shader_stage`, the array element count (a mismatch that could silently exceed hardware limits).
+First, we discovered that the sampler limit check was testing the wrong metric: `max_samplers_per_shader_stage` counts binding slots, but the relevant limit is `max_binding_array_sampler_elements_per_shader_stage`, the array element count (a mismatch that could incorrectly disable bindless).
 Second, Bevy now also skips creating binding array slots for resource types a material doesn't use, staying within Metal's hard 31 argument buffer slot limit and reducing overhead on all platforms.
 
 Benchmarked on Bistro Exterior (698 materials), 5-minute runs:
