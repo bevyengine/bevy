@@ -1189,9 +1189,11 @@ mod tests {
 
         let root = world.spawn_scene(b()).unwrap();
         let position = root.get::<Position>().unwrap();
+        // Overridden by a
         assert_eq!(position.x, 2.);
-        assert_eq!(position.y, 2.);
-        assert_eq!(position.z, 2.);
+        // Remains from b
+        assert_eq!(position.y, 1.);
+        assert_eq!(position.z, 1.);
     }
 
     #[test]
