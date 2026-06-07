@@ -15,7 +15,10 @@ use bevy_material::{
     OpaqueRendererMethod,
 };
 use bevy_mesh::VertexBufferLayout;
-use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
+use bevy_mesh::{
+    Mesh, MeshAttributeCompressionFlags, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
+    MeshVertexBufferLayouts,
+};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
 use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
@@ -489,5 +492,6 @@ fn fake_vertex_buffer_layout(layouts: &mut MeshVertexBufferLayouts) -> MeshVerte
                 },
             ],
         },
+        MeshAttributeCompressionFlags::empty(),
     ))
 }

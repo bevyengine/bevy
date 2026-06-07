@@ -1,13 +1,13 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnListRoot, BsnRelatedSceneList, BsnRoot, BsnScene,
-    BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneListItem, BsnSceneListItems, BsnType,
-    BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
+    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
+    BsnType, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{parse::Parse, punctuated::Punctuated, ExprTuple, Ident, Index, Lit, Member, Path};
+use syn::{parse::Parse, ExprTuple, Ident, Index, Lit, Member, Path};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -260,7 +260,7 @@ impl BsnEntry {
                 let args = args.to_tokens(ctx);
                 quote! {
                     let value = _scene.get_or_insert_template::<#type_path>(_context);
-                    *value = #type_path::#function(#args);
+                    *value = #type_path::#function #args;
                 }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
@@ -271,7 +271,7 @@ impl BsnEntry {
                 let args = args.to_tokens(ctx);
                 quote! {
                     let value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                    *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function(#args);
+                    *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
                 }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
@@ -648,40 +648,12 @@ impl BsnTokenStream for BsnSceneListItems {
     }
 }
 
-impl BsnTokenStream for BsnSceneFnArg {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let bevy_ecs = ctx.bevy_ecs;
-        match self {
-            BsnSceneFnArg::Expr(expr) => quote! {#expr},
-            BsnSceneFnArg::Name(ident) => {
-                let index = ctx.entity_refs.get(ident.to_string());
-                let invocation = ctx.invocation_index.clone();
-                quote! {
-                    #bevy_ecs::template::EntityTemplate::SceneEntityReference(
-                        #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id)
-                    )
-                }
-            }
-        }
-    }
-}
-
-impl BsnTokenStream for BsnSceneFnArgs {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let mut args: Punctuated<_, syn::Token![,]> = Punctuated::new();
-        // rebuilding the punctuated is required because ctx needs to be passed
-        for arg in self.0.iter().flatten() {
-            args.push(arg.to_tokens(ctx));
-        }
-        quote! {#args}
-    }
-}
 impl BsnSceneFn {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_scene = ctx.bevy_scene;
         let args = self.args.to_tokens(ctx);
-        let path = self.path.clone();
-        quote! {#bevy_scene::SceneScope(#path(#args))}
+        let path = &self.path;
+        quote! {#bevy_scene::SceneScope(#path #args)}
     }
 }
 
@@ -708,6 +680,30 @@ impl ToTokens for BsnType {
     }
 }
 
+impl BsnTokenStream for BsnFnArgs {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let args = self.0.iter().map(|a| a.to_tokens(ctx));
+        quote! { (#(#args),*) }
+    }
+}
+
+impl BsnTokenStream for BsnFnArg {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let bevy_ecs = ctx.bevy_ecs;
+        match self {
+            BsnFnArg::EntityName(ident) => {
+                let index = ctx.entity_refs.get(ident.to_string());
+                let invocation = ctx.invocation_index.clone();
+                quote! {
+                    #bevy_ecs::template::EntityTemplate::SceneEntityReference(
+                        #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id)
+                    )
+                }
+            }
+            BsnFnArg::Tokens(token_stream) => token_stream.clone(),
+        }
+    }
+}
 impl ToTokens for BsnValue {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {

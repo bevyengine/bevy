@@ -182,7 +182,8 @@ pub fn remove_resource<R: Resource>() -> impl Command {
 }
 
 /// A [`Command`] that runs the system corresponding to the given [`SystemId`].
-pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
+pub fn run_system<O: 'static>(id: impl Into<SystemId<(), O>> + Send) -> impl Command {
+    let id = id.into();
     move |world: &mut World| -> Result {
         world.run_system(id)?;
         Ok(())
@@ -191,10 +192,14 @@ pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
 
 /// A [`Command`] that runs the system corresponding to the given [`SystemId`]
 /// and provides the given input value.
-pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command
+pub fn run_system_with<I>(
+    id: impl Into<SystemId<I>> + Send,
+    input: I::Inner<'static>,
+) -> impl Command
 where
     I: SystemInput<Inner<'static>: Send> + 'static,
 {
+    let id = id.into();
     move |world: &mut World| -> Result {
         world.run_system_with(id, input)?;
         Ok(())

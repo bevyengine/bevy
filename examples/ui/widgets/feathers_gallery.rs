@@ -19,10 +19,11 @@ use bevy::{
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
-    ui::{Checked, InteractionDisabled},
+    ui::{Checked, InteractionDisabled, Selected},
     ui_widgets::{
-        checkbox_self_update, radio_self_update, slider_self_update, Activate, ActivateOnPress,
-        RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
+        checkbox_self_update, listbox_update_selection, radio_self_update, slider_self_update,
+        Activate, ActivateOnPress, RadioGroup, SliderPrecision, SliderStep, SliderValue,
+        ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -123,7 +124,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: {bsn! { Text("Normal") ThemedText }}
+                            @caption: bsn! { Text("Normal") ThemedText }
                         }
                         Node {
                             flex_grow: 1.0,
@@ -136,7 +137,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: {bsn! { Text("Disabled") ThemedText }},
+                            @caption: bsn! { Text("Disabled") ThemedText },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -150,7 +151,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: {bsn! { Text("Primary") ThemedText }},
+                            @caption: bsn! { Text("Primary") ThemedText },
                             @variant: ButtonVariant::Primary,
                         }
                         AccessibleLabel("Primary")
@@ -166,7 +167,7 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersMenuButton {
-                                    @caption: {bsn! { Text("Menu") ThemedText }}
+                                    @caption: bsn! { Text("Menu") ThemedText }
                                 }
                                 AccessibleLabel("Menu Example")
                                 Node {
@@ -178,7 +179,7 @@ fn demo_column_1() -> impl Scene {
                                 Children [
                                     (
                                         @FeathersMenuItem {
-                                            @caption: {bsn! { Text("MenuItem 1") ThemedText }}
+                                            @caption: bsn! { Text("MenuItem 1") ThemedText }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 1 clicked!");
@@ -186,7 +187,7 @@ fn demo_column_1() -> impl Scene {
                                     ),
                                     (
                                         @FeathersMenuItem {
-                                            @caption: {bsn! { Text("MenuItem 2") ThemedText }}
+                                            @caption: bsn! { Text("MenuItem 2") ThemedText }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 2 clicked!");
@@ -195,7 +196,7 @@ fn demo_column_1() -> impl Scene {
                                     @FeathersMenuDivider,
                                     (
                                         @FeathersMenuItem {
-                                            @caption: {bsn! { Text("MenuItem 3") ThemedText }}
+                                            @caption: bsn! { Text("MenuItem 3") ThemedText }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 3 clicked!");
@@ -218,7 +219,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: {bsn! { Text("Left") ThemedText }},
+                            @caption: bsn! { Text("Left") ThemedText },
                             @corners: RoundedCorners::Left,
                         }
                         Node {
@@ -231,7 +232,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: {bsn! { Text("Center") ThemedText }},
+                            @caption: bsn! { Text("Center") ThemedText },
                             @corners: RoundedCorners::None,
                         }
                         Node {
@@ -244,7 +245,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: {bsn! { Text("Right") ThemedText }},
+                            @caption: bsn! { Text("Right") ThemedText },
                             @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
@@ -272,7 +273,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: {bsn! { Text("Checkbox") ThemedText }}
+                    @caption: bsn! { Text("Checkbox") ThemedText }
                 }
                 Checked
                 AccessibleLabel("Checkbox Example")
@@ -298,7 +299,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: {bsn! { Text("Fast Click Checkbox") ThemedText }}
+                    @caption: bsn! { Text("Fast Click Checkbox") ThemedText }
                 }
                 ActivateOnPress
                 AccessibleLabel("Fast Click Checkbox Example")
@@ -317,7 +318,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: {bsn! { Text("Disabled") ThemedText }},
+                    @caption: bsn! { Text("Disabled") ThemedText },
                 }
                 InteractionDisabled
                 AccessibleLabel("Disabled Checkbox Example")
@@ -327,7 +328,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: {bsn! { Text("Checked+Disabled") ThemedText }}
+                    @caption: bsn! { Text("Checked+Disabled") ThemedText }
                 }
                 InteractionDisabled
                 Checked
@@ -356,22 +357,22 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersRadio {
-                                    @caption: {bsn! { Text("One") ThemedText }}
+                                    @caption: bsn! { Text("One") ThemedText }
                                 }
                                 Checked
                             ),
                             @FeathersRadio {
-                                @caption: {bsn! { Text("Two") ThemedText }}
+                                @caption: bsn! { Text("Two") ThemedText }
                             },
                             (
                                 @FeathersRadio {
-                                    @caption: {bsn! { Text("Fast Click") ThemedText }}
+                                    @caption: bsn! { Text("Fast Click") ThemedText }
                                 }
                                 ActivateOnPress
                             ),
                             (
                                 @FeathersRadio {
-                                    @caption: {bsn! { Text("Disabled") ThemedText }}
+                                    @caption: bsn! { Text("Disabled") ThemedText }
                                 }
                                 InteractionDisabled
                             ),
@@ -704,6 +705,33 @@ fn demo_column_2() -> impl Scene {
                     ),
                 ]
             ),
+            subpane() Children [
+                subpane_header() Children [
+                    (Text("List") ThemedText),
+                ],
+                subpane_body() Children [
+                    @FeathersListView {
+                        @rows: {bsn_list![
+                            @FeathersListRow Children [(Text("First World") ThemedText)],
+                            @FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
+                            @FeathersListRow Children [(Text("Third Degree") ThemedText)],
+                            @FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
+                            @FeathersListRow Children [(Text("Fifth Column") ThemedText)],
+                            @FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
+                            @FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
+                            @FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
+                            @FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
+                            @FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
+                            @FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
+                            @FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
+                        ]}
+                    }
+                    Node {
+                        max_height: px(130)
+                    }
+                    on(listbox_update_selection)
+                ],
+            ]
         ]
     }
 }

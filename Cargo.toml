@@ -71,7 +71,9 @@ ref_as_ptr = "warn"
 # see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
 too_long_first_doc_paragraph = "allow"
 
-std_instead_of_core = "warn"
+# currently falsely fires on std::io, even tho core::io is unstable
+# https://github.com/rust-lang/rust-clippy/issues/13158#issuecomment-4373196346
+std_instead_of_core = "allow"
 std_instead_of_alloc = "warn"
 alloc_instead_of_core = "warn"
 
