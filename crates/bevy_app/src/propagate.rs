@@ -161,6 +161,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
     mut removed: RemovedComponents<Propagate<C>>,
     relationship: Query<&R>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
+    sources: Query<(), With<Propagate<C>>>,
 ) {
     for (entity, source) in &changed {
         commands
@@ -170,7 +171,9 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
 
     // set `Inherited::<C>` based on ancestry when `Propagate::<C>` is removed
     for removed in removed.read() {
-        if let Ok(mut commands) = commands.get_entity(removed) {
+        if !sources.contains(removed)
+            && let Ok(mut commands) = commands.get_entity(removed)
+        {
             if let Some(inherited) = relationship
                 .get(removed)
                 .ok()
