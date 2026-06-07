@@ -51,6 +51,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if (tile.tileset_index == 0xffffu || !tile.visible) {
         discard;
     }
+    var dx = dpdx(tile_uv);
+    var dy = dpdy(tile_uv);
 
     if (tile.mirror_h) {
         local_uv.x = 1 - local_uv.x;
@@ -62,9 +64,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if (tile.mirror_d) {
         local_uv = local_uv.yx;
+        dx = dx.yx;
+        dy = dy.yx;
     }
 
-    let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
+
+    let tex_color = textureSampleGrad(tileset, tileset_sampler, local_uv, tile.tileset_index, dx, dy);
     let final_color = tex_color * tile.color;
 
     if (final_color.a < 0.001) {
