@@ -6,16 +6,18 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     observer::On,
     query::With,
+    reflect::{ReflectComponent, ReflectEvent},
     relationship::Relationship,
     system::{Commands, Query, Res},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::{FocusLost, FocusedInput, InputFocus};
 use bevy_log::warn;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
-    EditableText, EditableTextFilter, FontSourceTemplate, FontWeight, TextEdit, TextEditChange,
-    TextFont,
+    EditableText, EditableTextFilter, FontSourceTemplate, TextEdit, TextEditChange, TextFont,
 };
 use bevy_ui::{px, widget::Text, AlignItems, AlignSelf, Display, JustifyContent, Node, UiRect};
 use bevy_ui_widgets::{SelectAllOnFocus, ValueChange};
@@ -50,6 +52,8 @@ use crate::{
 // TODO: Add text_input field validation when it becomes available.
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersNumberInputProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersNumberInput;
 
 /// Props used to construct a [`FeathersNumberInput`] scene.
@@ -77,7 +81,7 @@ impl Default for FeathersNumberInputProps {
 impl FeathersNumberInput {
     fn scene(props: FeathersNumberInputProps) -> impl Scene {
         bsn! {
-            :@FeathersTextInputContainer
+            @FeathersTextInputContainer
             ThemeBorderColor({props.sigil_color})
             FeathersNumberInput
             template_value(props.number_format)
@@ -99,7 +103,6 @@ impl FeathersNumberInput {
                                 TextFont {
                                     font: FontSourceTemplate::Handle(fonts::REGULAR),
                                     font_size: size::COMPACT_FONT,
-                                    weight: FontWeight::NORMAL,
                                 }
                                 PropagateOver<TextFont>
                                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
@@ -125,7 +128,8 @@ impl FeathersNumberInput {
 
 /// Used to indicate what format of numbers we are editing. This primarily affects the type
 /// of [`ValueChange`] event that is emitted.
-#[derive(Component, Default, Clone, Copy)]
+#[derive(Component, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub enum NumberFormat {
     /// A 32-bit float
     #[default]
@@ -139,15 +143,15 @@ pub enum NumberFormat {
 }
 
 /// Represents numbers in different formats.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 pub enum NumberInputValue {
-    /// An f32 value
+    /// An `f32` value
     F32(f32),
-    /// An f64 value
+    /// An `f64` value
     F64(f64),
-    /// An i32 value
+    /// An `i32` value
     I32(i32),
-    /// An i64 value
+    /// An `i64` value
     I64(i64),
 }
 
@@ -163,7 +167,8 @@ impl core::fmt::Display for NumberInputValue {
 }
 
 /// Event which can be sent to the number input widget to update the displayed value.
-#[derive(Clone, EntityEvent)]
+#[derive(Clone, EntityEvent, Reflect)]
+#[reflect(Event, Clone)]
 pub struct UpdateNumberInput {
     /// Target widget
     pub entity: Entity,

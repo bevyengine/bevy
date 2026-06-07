@@ -62,6 +62,7 @@ fn setup(mut commands: Commands) {
                 allow_newlines: true,
                 ..default()
             },
+            TextLayout::no_wrap(),
             TextCursorStyle::default(),
             TabIndex(0),
             BackgroundColor(DARK_GREY.into()),

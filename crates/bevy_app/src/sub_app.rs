@@ -247,6 +247,18 @@ impl SubApp {
         self.world.register_system(system)
     }
 
+    /// See [`App::register_tracked_system`].
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> bevy_ecs::system::SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.world.register_tracked_system(system)
+    }
+
     /// See [`App::configure_sets`].
     #[track_caller]
     pub fn configure_sets<M>(

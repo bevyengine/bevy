@@ -28,25 +28,30 @@
 
 mod button;
 mod checkbox;
+mod list;
 mod menu;
 mod observe;
 pub mod popover;
 mod radio;
+mod scrollarea;
 mod scrollbar;
 mod slider;
 mod text_input;
 
 pub use button::*;
 pub use checkbox::*;
+pub use list::*;
 pub use menu::*;
 pub use observe::*;
 pub use radio::*;
+pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
 pub use text_input::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
-use bevy_ecs::{entity::Entity, event::EntityEvent};
+use bevy_ecs::{entity::Entity, event::EntityEvent, reflect::ReflectEvent};
+use bevy_reflect::Reflect;
 
 use crate::popover::PopoverPlugin;
 
@@ -61,8 +66,10 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(PopoverPlugin)
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
+            .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(RadioGroupPlugin)
+            .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
             .add(EditableTextInputPlugin)
@@ -70,14 +77,16 @@ impl PluginGroup for UiWidgetsPlugins {
 }
 
 /// Notification sent by a button or menu item.
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct Activate {
     /// The activated entity.
     pub entity: Entity,
 }
 
 /// Notification sent by a widget that edits a scalar value.
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct ValueChange<T> {
     /// The id of the widget that produced this value.
     #[event_target]

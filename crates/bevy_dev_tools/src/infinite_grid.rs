@@ -398,7 +398,7 @@ fn queue_infinite_grids(
             if !plane_check(transform, view.world_from_view.translation()) {
                 continue;
             }
-            phase.add(Transparent3d {
+            phase.add_retained(Transparent3d {
                 pipeline: pipeline_id,
                 entity: (*render_entity, *main_entity),
                 draw_function: draw_function_id,

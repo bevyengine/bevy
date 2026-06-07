@@ -126,33 +126,33 @@ pub trait Saturation: Sized {
 
 /// Trait with methods for converting colors to non-color types
 pub trait ColorToComponents {
-    /// Convert to an f32 array
+    /// Convert to an `f32` array
     fn to_f32_array(self) -> [f32; 4];
-    /// Convert to an f32 array without the alpha value
+    /// Convert to an `f32` array without the alpha value
     fn to_f32_array_no_alpha(self) -> [f32; 3];
-    /// Convert to a Vec4
+    /// Convert to a `Vec4`
     fn to_vec4(self) -> Vec4;
-    /// Convert to a Vec3
+    /// Convert to a `Vec3`
     fn to_vec3(self) -> Vec3;
-    /// Convert from an f32 array
+    /// Convert from an `f32` array
     fn from_f32_array(color: [f32; 4]) -> Self;
-    /// Convert from an f32 array without the alpha value
+    /// Convert from an `f32` array without the alpha value
     fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
-    /// Convert from a Vec4
+    /// Convert from a `Vec4`
     fn from_vec4(color: Vec4) -> Self;
-    /// Convert from a Vec3
+    /// Convert from a `Vec3`
     fn from_vec3(color: Vec3) -> Self;
 }
 
 /// Trait with methods for converting colors to packed non-color types
 pub trait ColorToPacked {
-    /// Convert to [u8; 4] where that makes sense (Srgba is most relevant)
+    /// Convert to `[u8; 4]` where that makes sense (Srgba is most relevant)
     fn to_u8_array(self) -> [u8; 4];
-    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    /// Convert to `[u8; 3]` where that makes sense (Srgba is most relevant)
     fn to_u8_array_no_alpha(self) -> [u8; 3];
-    /// Convert from [u8; 4] where that makes sense (Srgba is most relevant)
+    /// Convert from `[u8; 4]` where that makes sense (Srgba is most relevant)
     fn from_u8_array(color: [u8; 4]) -> Self;
-    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    /// Convert to `[u8; 3]` where that makes sense (Srgba is most relevant)
     fn from_u8_array_no_alpha(color: [u8; 3]) -> Self;
 }
 

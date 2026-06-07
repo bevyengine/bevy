@@ -42,7 +42,6 @@ bevy_ecs::define_label!(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
     AppLabel,
-    APP_LABEL_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
@@ -129,6 +128,10 @@ impl Default for App {
             message_update_system
                 .in_set(bevy_ecs::message::MessageUpdateSystems)
                 .run_if(bevy_ecs::message::message_update_condition),
+        );
+        app.add_systems(
+            crate::Last,
+            bevy_ecs::system::despawn_unused_registered_systems,
         );
         app.add_message::<AppExit>();
 
@@ -380,6 +383,24 @@ impl App {
         O: 'static,
     {
         self.main_mut().register_system(system)
+    }
+
+    /// Registers a system and returns a tracked [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`]. The system entity will be automatically
+    /// queued for despawn when the last clone of the returned handle is dropped.
+    ///
+    /// See [`World::register_tracked_system`] for more details.
+    ///
+    /// [`SystemHandle`]: bevy_ecs::system::SystemHandle
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> bevy_ecs::system::SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.main_mut().register_tracked_system(system)
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
@@ -1525,6 +1546,11 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
+/// A [`SystemSet`] for systems that should run before app exit (but
+/// after an [`AppExit`] message has been sent).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnAppExitSystems;
+
 /// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
@@ -2083,5 +2109,22 @@ mod tests {
         let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_messages().count(), 0);
+    }
+
+    #[test]
+    fn auto_despawn_unused_registered_systems() {
+        let mut app = App::new();
+
+        fn my_system() {}
+
+        let handle = app.register_tracked_system(my_system);
+        let entity = handle.entity();
+
+        app.update();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        drop(handle);
+        app.update();
+        assert!(app.world().get_entity(entity).is_err());
     }
 }
