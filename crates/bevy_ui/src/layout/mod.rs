@@ -211,7 +211,7 @@ pub fn ui_layout_system(
         );
 
         let Ok((_, _, _, computed_target)) = node_query.get(ui_root_entity) else {
-            warn!("UI root not found");
+            warn!("UI root {ui_root_entity} not found");
             continue;
         };
 
