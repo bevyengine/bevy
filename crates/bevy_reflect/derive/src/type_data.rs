@@ -1,7 +1,6 @@
-use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parenthesized, token, Expr, Token};
+use syn::{parenthesized, token, Expr, Path, Token};
 
 /// A `TypeData` registration.
 ///
@@ -9,24 +8,38 @@ use syn::{parenthesized, token, Expr, Token};
 /// `#[reflect(Default, Hash(custom_hash_fn))]`.
 #[derive(Clone)]
 pub(crate) struct TypeDataRegistration {
-    ident: Ident,
-    reflect_ident: Ident,
+    path: Path,
+    reflect_path: Path,
     args: Punctuated<Expr, Token![,]>,
 }
 
 impl TypeDataRegistration {
-    /// The shortened ident of the registration.
+    /// The original path of the registration.
     ///
-    /// This would be `Default` in `#[reflect(Default)]`.
-    pub fn ident(&self) -> &Ident {
-        &self.ident
+    /// If the last ident in the path is already prefixed with `Reflect`,
+    /// then this should be the same as the path returned by [`Self::reflect_path`].
+    ///
+    /// Examples:
+    /// - `#[reflect(Foo)]` would give `Foo`
+    /// - `#[reflect(ReflectFoo)]` would give `ReflectFoo`
+    /// - `#[reflect(crate::foo::Foo)]` would give `crate::foo::Foo`
+    /// - `#[reflect(crate::foo::ReflectFoo)]` would give `crate::foo::ReflectFoo`
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
-    /// The full reflection ident of the registration.
+    /// The reflected type data path of the registration.
     ///
-    /// This would be `ReflectDefault` in `#[reflect(Default)]`.
-    pub fn reflect_ident(&self) -> &Ident {
-        &self.reflect_ident
+    /// If the last ident in the path is already prefixed with `Reflect`,
+    /// then this should be the same as the path returned by [`Self::path`].
+    ///
+    /// Examples:
+    /// - `#[reflect(Foo)]` would give `ReflectFoo`
+    /// - `#[reflect(ReflectFoo)]` would give `ReflectFoo`
+    /// - `#[reflect(crate::foo::Foo)]` would give `crate::foo::ReflectFoo`
+    /// - `#[reflect(crate::foo::ReflectFoo)]` would give `crate::foo::ReflectFoo`
+    pub fn reflect_path(&self) -> &Path {
+        &self.reflect_path
     }
 
     /// The optional arguments of the type data.
@@ -37,8 +50,8 @@ impl TypeDataRegistration {
 
 impl Parse for TypeDataRegistration {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident = input.parse::<Ident>()?;
-        let reflect_ident = crate::ident::get_reflect_ident(&ident);
+        let path = input.parse::<Path>()?;
+        let reflect_path = crate::ident::get_reflect_path(&path);
 
         let args = if input.peek(token::Paren) {
             let content;
@@ -49,8 +62,8 @@ impl Parse for TypeDataRegistration {
         };
 
         Ok(Self {
-            ident,
-            reflect_ident,
+            path,
+            reflect_path,
             args,
         })
     }
