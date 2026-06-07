@@ -402,7 +402,6 @@ mod tests {
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let parent = app.world_mut().spawn(Propagate(TestValue(1))).id();
-
         let child = app.world_mut().spawn_empty().insert(ChildOf(parent)).id();
 
         app.update();
@@ -411,6 +410,7 @@ mod tests {
             .entity_mut(parent)
             .remove::<Propagate<TestValue>>()
             .insert(Propagate(TestValue(2)));
+
         app.update();
 
         assert_eq!(
