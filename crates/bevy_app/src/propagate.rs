@@ -407,14 +407,14 @@ mod tests {
         app.world_mut()
             .entity_mut(parent)
             .remove::<Propagate<TestValue>>()
-            .insert(Propagate(TestValue(1)));
+            .insert(Propagate(TestValue(2)));
         app.update();
 
         assert_eq!(
             app.world_mut()
                 .query::<&TestValue>()
                 .get_many(app.world(), [parent, child]),
-            Ok([&TestValue(1), &TestValue(1)])
+            Ok([&TestValue(2), &TestValue(2)])
         );
     }
 
