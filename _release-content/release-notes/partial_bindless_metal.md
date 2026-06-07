@@ -6,14 +6,14 @@ pull_requests: [23436]
 
 In an ideal world, Bevy users could write a single application and ship it everywhere, with every last one of the messy cross-platform differences beautifully abstracted away.
 
-However, users were reporting that rendering complex scenes on Mac and iOS was markedly slower than on comparable hardware.
+However, users were reporting that rendering complex scenes on Mac and iOS was markedly slower than on comparable non-Apple hardware.
 
 The reason for this was straightforward enough: no bindless rendering support.
 Bindless rendering is how modern engines handle scenes with many different materials efficiently: shaders index into shared pools of textures and buffers rather than rebinding them per draw call.
 
 Both Metal (Apple's GPU API) and DX12 (a Windows graphics API) have partial bindless support:
 they permit texture binding arrays but not buffer binding arrays.
-Historically, Bevy required both to enable bindless, which excluded Metal entirely, even for materials that never use buffer arrays.
+Historically, Bevy required support for both features before it would use bindless, which excluded Metal entirely, even for materials that never use buffer arrays.
 
 Most materials, including `StandardMaterial`, do not need buffer array support.
 To ensure those materials take the fast path, Bevy now checks the actual needs of each material.
