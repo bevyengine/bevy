@@ -24,7 +24,7 @@ use bevy_utils::default;
 
 mod node;
 
-pub(crate) use node::fxaa;
+pub use node::fxaa;
 
 #[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 #[reflect(PartialEq, Hash, Clone)]

@@ -374,7 +374,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check for typos
-        uses: crate-ci/typos@7c572958218557a3272c2d6719629443b5cc26fd # v1.45.2
+        uses: crate-ci/typos@aca895bf05aec0cb7dffa6f94495e923224d9f17 # v1.46.2
       - name: Typos info
         if: failure()
         run: |
@@ -592,3 +592,10 @@ jobs:
         shell: bash
         run: |
           cargo run --package export-content -- --check
+      # TODO: remove once no open PR modifies this
+      - name: Check release-content/ has no files
+        shell: bash
+        run: |
+          if [ -d release-content ]; then
+            exit 1
+          fi

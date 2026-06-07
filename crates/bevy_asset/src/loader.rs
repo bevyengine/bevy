@@ -292,9 +292,12 @@ impl ErasedLoadedAsset {
 
     /// Cast this loaded asset as the given type. If the type does not match,
     /// the original type-erased asset is returned.
-    #[expect(
-        clippy::result_large_err,
-        reason = "Returning the passed in ErasedLoadedAsset"
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        expect(
+            clippy::result_large_err,
+            reason = "Returning the passed in ErasedLoadedAsset"
+        )
     )]
     pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
         match self.value.downcast::<A>() {
@@ -346,7 +349,7 @@ pub enum LoadDirectError {
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
         dependency: AssetPath<'static>,
-        error: AssetLoadError,
+        error: Box<AssetLoadError>,
     },
 }
 
@@ -657,7 +660,7 @@ impl<'a> LoadContext<'a> {
             .await
             .map_err(|error| LoadDirectError::LoadError {
                 dependency: path.clone(),
-                error,
+                error: Box::new(error),
             })?;
         let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
