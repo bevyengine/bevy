@@ -177,6 +177,8 @@ impl RawCommandQueue {
             consume_command_and_get_size: |command, world, cursor| {
                 *cursor += size_of::<C>();
 
+                // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
+                // but also because applying the command may cause the command queue to reallocate.
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
@@ -246,6 +248,8 @@ impl RawCommandQueue {
         }
 
         while local_cursor < stop {
+            // We must re-read the pointer to the allocation before each command
+            // as the previous might have cause a reallocation.
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe {
