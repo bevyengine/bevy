@@ -150,6 +150,7 @@ extern crate std;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_asset;
 
+pub mod asset_changed;
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -170,7 +171,6 @@ pub mod prelude {
     };
 }
 
-mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
