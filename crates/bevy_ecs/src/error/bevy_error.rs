@@ -227,24 +227,18 @@ impl BevyError {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains(
-                            "bevy_ecs::error::bevy_error::BevyError as core::convert::From",
-                        ) {
+                        if line.contains("<bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains("core::ops::try_trait::FromResidual")
-                            && line.contains("::from_residual")
-                        {
+                        if line.contains("<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
                             skip_next_location_line = true;
                             continue;
                         }
                         if line.contains("__rust_begin_short_backtrace") {
                             break;
                         }
-                        if line.contains("bevy_ecs::observer::Observers::invoke::")
-                            && line.contains("closure")
-                        {
+                        if line.contains("bevy_ecs::observer::Observers::invoke::{{closure}}") {
                             break;
                         }
                     }
@@ -756,7 +750,7 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && line.contains("core::ops::function::FnOnce")
+            && &line[6..] == "core::ops::function::FnOnce::call_once"
         {
             skip = true;
         }
