@@ -33,7 +33,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let ior_specular = deferred_types::pack_4bit_ior_specular(in.material.ior, in.material.specular_weight);
     let ior_specular_props = f32(ior_specular) / 15.0;
-    var props = deferred_types::pack_unorm3x4_unorm_20_(vec4(
+    var props = deferred_types::unpack_unorm3x4_plus_unorm_20_(vec4(
         ior_specular_props,
         in.material.metallic,
         diffuse_occlusion,
@@ -64,7 +64,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     }
 
     // Utilize the emissive channel to transmit the lightmap data. To ensure
-    // it matches the output in forward shading, pre-multiply it with the 
+    // it matches the output in forward shading, pre-multiply it with the
     // calculated diffuse color.
     let base_color = in.material.base_color.rgb;
     let metallic = in.material.metallic;
@@ -108,7 +108,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     }
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
-    let ior_specular_props = u32(rounds(props.g * 15.0));
+    let ior_specular_props = u32(round(props.r * 15.0));
     let ior_specular = deferred_types::unpack_4bit_ior_specular(ior_specular_props);
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
