@@ -67,24 +67,16 @@ fn axis_angle_to_normal_tangent(
     out_tangent: ptr<function,vec4f>,
 ) {
     let sign = select(-1.0, 1.0, angle >= 0.0);
-    let angle_h = angle * 0.5 * sign;
-    let c = cos(angle_h);
-    let s = sin(angle_h);
+    let angle_abs = angle * sign;
+    let c = cos(angle_abs);
+    let s = sin(angle_abs);
     let v = axis * s;
-    let rotation = vec4f(v.x, v.y, v.z, c);
-    let x2 = rotation.x + rotation.x;
-    let y2 = rotation.y + rotation.y;
-    let z2 = rotation.z + rotation.z;
-    let xx = rotation.x * x2;
-    let xy = rotation.x * y2;
-    let xz = rotation.x * z2;
-    let yy = rotation.y * y2;
-    let yz = rotation.y * z2;
-    let zz = rotation.z * z2;
-    let wx = rotation.w * x2;
-    let wy = rotation.w * y2;
-    let wz = rotation.w * z2;
+    let omc = axis * (1.0 - c);
 
-    *out_tangent = vec4f(1.0 - (yy + zz), xy + wz, xz - wy, sign);
-    *out_normal = vec3f(xz + wy, yz - wx, 1.0 - (xx + yy));
+    let tangent = omc.xxx * axis + vec3f(c, v.z, -v.y);
+    // let bitangent = omc.yyy * axis + vec3f(-v.z, c, v.x);
+    let normal = omc.zzz * axis + vec3f(v.y, -v.x, c);
+
+    *out_tangent = vec4f(tangent, sign);
+    *out_normal = normal;
 }

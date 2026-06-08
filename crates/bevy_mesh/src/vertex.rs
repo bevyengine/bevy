@@ -3,7 +3,7 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
 use bevy_math::{
     bounding::{Aabb2d, Aabb3d, BoundingVolume},
-    ops, vec2, vec3, vec4, Mat3, Quat, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+    ops, vec2, vec3, Mat3, Quat, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
@@ -1208,27 +1208,15 @@ pub fn normal_tangent_to_axis_angle(normal: Vec3, tangent_signed: Vec4) -> (Vec3
 /// The range of angle is [-2pi, 2pi], where the sign represents the handedness of the tangent.
 pub fn axis_angle_to_normal_tangent(axis: Vec3, angle: f32) -> (Vec3, Vec4) {
     let sign = if angle >= 0.0 { 1.0 } else { -1.0 };
-    // References the source code of `Mat3::from_quat(Quat::from_axis_angle(axis, angle))`
-    let angle = angle * 0.5 * sign;
-    let c = ops::cos(angle);
-    let s = ops::sin(angle);
+    let angle_abs = angle * sign;
+    let c = ops::cos(angle_abs);
+    let s = ops::sin(angle_abs);
     let v = axis * s;
-    let rotation = vec4(v.x, v.y, v.z, c);
-    let x2 = rotation.x + rotation.x;
-    let y2 = rotation.y + rotation.y;
-    let z2 = rotation.z + rotation.z;
-    let xx = rotation.x * x2;
-    let xy = rotation.x * y2;
-    let xz = rotation.x * z2;
-    let yy = rotation.y * y2;
-    let yz = rotation.y * z2;
-    let zz = rotation.z * z2;
-    let wx = rotation.w * x2;
-    let wy = rotation.w * y2;
-    let wz = rotation.w * z2;
+    let omc = axis * (1.0 - c);
 
-    let tangent = vec3(1.0 - (yy + zz), xy + wz, xz - wy);
-    let normal = vec3(xz + wy, yz - wx, 1.0 - (xx + yy));
+    let tangent = omc.xxx() * axis + vec3(c, v.z, -v.y);
+    // let bitangent = omc.yyy() * axis + vec3(-v.z, c, v.x);
+    let normal = omc.zzz() * axis + vec3(v.y, -v.x, c);
 
     (normal, tangent.extend(sign))
 }
