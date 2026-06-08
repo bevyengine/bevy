@@ -36,6 +36,7 @@ mod radio;
 mod scrollarea;
 mod scrollbar;
 mod slider;
+mod spinbox;
 mod text_input;
 
 pub use button::*;
@@ -47,6 +48,7 @@ pub use radio::*;
 pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
+pub use spinbox::*;
 pub use text_input::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
@@ -72,6 +74,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(SpinBoxPlugin)
             .add(EditableTextInputPlugin)
     }
 }
