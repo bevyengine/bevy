@@ -1,9 +1,9 @@
-use crate::Reflect;
+use crate::{Reflect, TypeData};
 use alloc::boxed::Box;
 use bevy_platform::collections::{hash_map::Iter, HashMap};
 
 /// Contains data relevant to the automatic reflect powered (de)serialization of a type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TypeData)]
 pub struct SerializationData {
     skipped_fields: HashMap<usize, SkippedField>,
 }

@@ -22,17 +22,16 @@ macro_rules! impl_reflect_for_atomic {
 
             impl GetTypeRegistration for $ty {
                 fn get_type_registration() -> TypeRegistration {
-                    let mut registration = TypeRegistration::of::<Self>();
-                    registration.register_type_data::<ReflectFromPtr, Self>();
-                    registration.register_type_data::<ReflectFromReflect, Self>();
-                    registration.register_type_data::<ReflectDefault, Self>();
+                    let registration = TypeRegistration::of::<Self>()
+                        .register_type_data::<ReflectFromPtr, Self>()
+                        .register_type_data::<ReflectFromReflect, Self>()
+                        .register_type_data::<ReflectDefault, Self>();
 
                     // Serde only supports atomic types when the "std" feature is enabled
                     #[cfg(feature = "std")]
-                    {
-                        registration.register_type_data::<crate::type_registry::ReflectSerialize, Self>();
-                        registration.register_type_data::<crate::type_registry::ReflectDeserialize, Self>();
-                    }
+                    let registration = registration
+                        .register_type_data::<crate::type_registry::ReflectSerialize, Self>()
+                        .register_type_data::<crate::type_registry::ReflectDeserialize, Self>();
 
                     registration
                 }

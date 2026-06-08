@@ -2,7 +2,10 @@
 
 use bevy::{
     prelude::*,
-    reflect::{CreateTypeData, TypeRegistry},
+    reflect::{
+        CreateTypeData, OnInsertTypeData, OnRegisterTypeData, TypeData, TypeRegistration,
+        TypeRegistry,
+    },
 };
 
 // It's recommended to read this example from top to bottom.
@@ -40,8 +43,8 @@ fn main() {
 
     // Let's create a type data struct for `Damageable` that we can associate with `Zombie`!
 
-    // Firstly, type data must be cloneable.
-    #[derive(Clone)]
+    // Firstly, the simplest way to create type data is to derive `TypeData`.
+    #[derive(TypeData)]
     // Next, they are usually named with the `Reflect` prefix (we'll see why in a bit).
     struct ReflectDamageable {
         // Type data can contain whatever you want, but it's common to include function pointers
@@ -196,6 +199,80 @@ fn main() {
     // and `Box<dyn Reflect>` into `Box<dyn MyTrait>`, respectively.
     let value: &dyn Health = reflect_health.get(value.as_reflect()).unwrap();
     assert_eq!(value.health(), 50);
+
+    // One final thing you can do with type data is define callbacks for when they are inserted or registered.
+    // We'll create a new type data struct and give it a set of callbacks to see what this looks like.
+    struct MyTypeData;
+
+    // We can add callbacks directly to type data, which will always be invoked.
+    impl TypeData for MyTypeData {
+        // This callback runs when the type data is inserted into a `TypeRegistration`.
+        // We can use it to insert other type data into the same registration.
+        fn on_insert(&self) -> Option<OnInsertTypeData> {
+            Some(OnInsertTypeData::new(|_registration| {
+                println!("called TypeData::on_insert");
+            }))
+        }
+
+        // This callback runs when the `TypeRegistration` is registered (or is already registered).
+        // We can use it to register other types we know we'll need.
+        fn on_register(&self) -> Option<OnRegisterTypeData> {
+            Some(OnRegisterTypeData::new(|_registry| {
+                println!("called TypeData::on_register");
+            }))
+        }
+    }
+
+    // We can also register callbacks on `CreateTypeData`.
+    // These will only be run when using a method like `TypeRegistry::register_type_data`
+    // or `TypeRegistration::register_type_data`.
+    // However, it has the benefit of providing access to the type we're registering, `T`, as well as any input.
+    impl<T: Reflect> CreateTypeData<T, String> for MyTypeData {
+        fn create_type_data(_: String) -> Self {
+            Self
+        }
+
+        // This callback runs when the type data is inserted into a `TypeRegistration`.
+        // We can use it to insert other type data into the same registration.
+        fn on_insert(input: &String) -> Option<OnInsertTypeData> {
+            let input = input.clone();
+            Some(OnInsertTypeData::new(move |_registration| {
+                println!("called CreateTypeData::on_insert with input: {input}");
+            }))
+        }
+
+        // This callback runs when the `TypeRegistration` is registered (or is already registered).
+        // We can use it to register other types we know we'll need.
+        fn on_register(input: &String) -> Option<OnRegisterTypeData> {
+            let input = input.clone();
+            Some(OnRegisterTypeData::new(move |_registry| {
+                println!("called CreateTypeData::on_register with input: {input}");
+            }))
+        }
+    }
+
+    println!("i32:");
+    let registration = TypeRegistration::of::<i32>();
+    // This should invoke `TypeData::on_insert`:
+    let registration = registration.insert_data(MyTypeData);
+
+    let mut registry = TypeRegistry::empty();
+    // This should invoke `TypeData::on_register`:
+    registry.add_registration(registration);
+
+    println!("u32:");
+    registry.register::<u32>();
+    // This should invoke both `TypeData` and `CreateTypeData` callbacks:
+    registry.register_type_data_with::<u32, MyTypeData, _>(String::from("HELLO!"));
+
+    println!("f32:");
+    // But again, note that `CreateTypeData` callbacks are not automatically invoked when used directly
+    let data =
+        <MyTypeData as CreateTypeData<f32, String>>::create_type_data(String::from("HELLO!"));
+    let registration = TypeRegistration::of::<f32>().insert_data(data);
+    registry.add_registration(registration);
+
+    // ========================================================================================== //
 
     // Lastly, here's a list of some useful type data provided by Bevy that you might want to register for your types:
     // - `ReflectDefault` for types that implement `Default`

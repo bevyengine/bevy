@@ -6,7 +6,7 @@ use core::{any::TypeId, marker::PhantomData};
 
 use bevy_utils::TypeIdMap;
 
-use crate::{Reflect, TypePath};
+use crate::{Reflect, TypeData, TypePath};
 
 /// Provides a mechanism for converting values of one type to another.
 ///
@@ -32,7 +32,7 @@ use crate::{Reflect, TypePath};
 ///     .downcast::<String>()
 ///     .unwrap();
 /// ```
-#[derive(Default)]
+#[derive(Default, TypeData)]
 pub struct ReflectConvert {
     /// A mapping from the type to be converted *from* to its associated
     /// [`Converter`].
@@ -257,10 +257,9 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.add_registration(i32::get_type_registration());
         registry.add_registration(String::get_type_registration());
-        registry
-            .get_mut(TypeId::of::<i32>())
-            .unwrap()
-            .insert(ReflectConvert::default());
+        registry.registration_scope(TypeId::of::<i32>(), |mut registration| {
+            registration.insert_data(ReflectConvert::default());
+        });
 
         let reflect_convert = registry
             .get_type_data::<ReflectConvert>(TypeId::of::<i32>())

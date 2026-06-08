@@ -30,8 +30,8 @@ use bevy_log::warn;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
-    TypeRegistry,
+    CreateTypeData, FromReflect, OnInsertTypeData, PartialReflect, ReflectMut, TypeData, TypeInfo,
+    TypePath, TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -162,7 +162,7 @@ pub trait SettingsGroup: Resource {
 }
 
 /// Reflected data from a [`SettingsGroup`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSettingsGroup {
     /// The name of the logical section within the settings file.
     settings_group_name: &'static str,
@@ -181,8 +181,10 @@ impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSet
         }
     }
 
-    fn insert_dependencies(type_registration: &mut TypeRegistration) {
-        type_registration.register_type_data::<ReflectResource, T>();
+    fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+        Some(OnInsertTypeData::new(|mut registration| {
+            registration.register_type_data::<ReflectResource, T>();
+        }))
     }
 }
 

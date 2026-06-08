@@ -13,13 +13,15 @@ use crate::{
     reflect::from_reflect_with_fallback,
     world::{DeferredWorld, World},
 };
-use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{
+    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeData, TypePath, TypeRegistry,
+};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
 ///
 /// A [`ReflectEvent`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectEvent(ReflectEventFns);
 
 /// The raw function pointers needed to make up a [`ReflectEvent`].

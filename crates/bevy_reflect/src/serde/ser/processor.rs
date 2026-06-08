@@ -53,11 +53,7 @@ use crate::{PartialReflect, TypeRegistry};
 /// # struct Mesh;
 /// #
 /// # struct ReflectHandle;
-/// # impl TypeData for ReflectHandle {
-/// #     fn clone_type_data(&self) -> Box<dyn TypeData> {
-/// #         unimplemented!()
-/// #     }
-/// # }
+/// # impl TypeData for ReflectHandle {}
 /// # impl ReflectHandle {
 /// #     fn downcast_handle_untyped(&self, handle: &(dyn Any + 'static)) -> Option<UntypedHandle> {
 /// #         unimplemented!()

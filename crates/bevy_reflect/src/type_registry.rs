@@ -1,8 +1,9 @@
+use crate::type_data::{OnInsertTypeData, OnRegisterTypeData};
 use crate::{
     convert::ReflectConvert, serde::Serializable, FromReflect, Reflect, TypeData, TypeInfo,
     TypePath, Typed,
 };
-use alloc::{boxed::Box, string::String};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -203,7 +204,7 @@ impl TypeRegistry {
     where
         T: GetTypeRegistration,
     {
-        if self.register_internal(TypeId::of::<T>(), T::get_type_registration) {
+        if self.register_internal(TypeId::of::<T>(), T::get_type_registration, false) {
             T::register_type_dependencies(self);
         }
     }
@@ -258,7 +259,7 @@ impl TypeRegistry {
     /// Returns `true` if the registration was added and `false` if it already exists.
     pub fn add_registration(&mut self, registration: TypeRegistration) -> bool {
         let type_id = registration.type_id();
-        self.register_internal(type_id, || registration)
+        self.register_internal(type_id, || registration, false)
     }
 
     /// Registers the type described by `registration`.
@@ -271,14 +272,7 @@ impl TypeRegistry {
     /// This method will _not_ register type dependencies.
     /// Use [`register`](Self::register) to register a type with its dependencies.
     pub fn overwrite_registration(&mut self, registration: TypeRegistration) {
-        Self::update_registration_indices(
-            &registration,
-            &mut self.short_path_to_id,
-            &mut self.type_path_to_id,
-            &mut self.ambiguous_names,
-        );
-        self.registrations
-            .insert(registration.type_id(), registration);
+        self.register_internal(registration.type_id(), || registration, true);
     }
 
     /// Internal method to register a type with a given [`TypeId`] and [`TypeRegistration`].
@@ -292,18 +286,29 @@ impl TypeRegistry {
         &mut self,
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
+        overwrite: bool,
     ) -> bool {
-        if self.registrations.contains_key(&type_id) {
+        if !overwrite && self.registrations.contains_key(&type_id) {
             return false;
         }
-        let registration = get_registration();
+
+        let mut registration = get_registration();
+
         Self::update_registration_indices(
             &registration,
             &mut self.short_path_to_id,
             &mut self.type_path_to_id,
             &mut self.ambiguous_names,
         );
+
+        let callbacks = registration.flush_on_register_callbacks();
+
         self.registrations.insert(type_id, registration);
+
+        for callback in callbacks {
+            callback.call(self);
+        }
+
         true
     }
 
@@ -342,14 +347,7 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
     pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) {
-        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
-            panic!(
-                "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
-                T = T::type_path(),
-                D = core::any::type_name::<D>(),
-            )
-        });
-        data.insert(D::create_type_data(()));
+        self.register_type_data_with::<T, D, ()>(());
     }
 
     /// Registers the type data `D` with parameter `P` for type `T`.
@@ -365,15 +363,37 @@ impl TypeRegistry {
         &mut self,
         params: P,
     ) {
-        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+        let registration = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
-                "attempted to call `TypeRegistry::register_type_data_with` for type `{T}` with data `{D}` and params `{P}` without registering `{T}` first",
+                "attempted to register type data `{D}` with params `{P}` for type `{T}` without registering `{T}` first",
                 T = T::type_path(),
                 D = ::core::any::type_name::<D>(),
                 P = ::core::any::type_name::<P>(),
             )
         });
-        data.insert(D::create_type_data(params));
+
+        let on_create_data_insert = <D as CreateTypeData<T, P>>::on_insert(&params);
+        let on_create_data_register = <D as CreateTypeData<T, P>>::on_register(&params);
+        let data = D::create_type_data(params);
+
+        let on_register = data.on_register();
+
+        registration.insert_internal(
+            TypeId::of::<D>(),
+            Box::new(data),
+            on_create_data_insert,
+            // Set to `None` since we already handle the `on_register` callback in this method
+            None,
+            true,
+        );
+
+        if let Some(on_register) = on_register {
+            on_register.call(self);
+        }
+
+        if let Some(on_register) = on_create_data_register {
+            on_register.call(self);
+        }
     }
 
     /// Registers a fallible conversion from type T to U with the reflection
@@ -398,13 +418,21 @@ impl TypeRegistry {
         U: Reflect + TypePath,
         F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
     {
-        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+        let registration = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
                 U = U::type_path(),
             )
         });
-        data.get_or_insert_data_with(ReflectConvert::default)
+
+        // We know `ReflectConvert` doesn't have any type data callbacks,
+        // so we're safe to register it directly like this
+        registration
+            .data
+            .entry(TypeId::of::<ReflectConvert>())
+            .or_insert_with(|| Box::new(ReflectConvert::default()))
+            .downcast_mut::<ReflectConvert>()
+            .expect("ReflectConvert is always registered")
             .register_type_conversion(function);
     }
 
@@ -425,13 +453,21 @@ impl TypeRegistry {
         T: Reflect + TypePath,
         U: Reflect + TypePath + From<T>,
     {
-        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+        let registration = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
                 U = U::type_path(),
             )
         });
-        data.get_or_insert_data_with(ReflectConvert::default)
+
+        // We know `ReflectConvert` doesn't have any type data callbacks,
+        // so we're safe to register it directly like this
+        registration
+            .data
+            .entry(TypeId::of::<ReflectConvert>())
+            .or_insert_with(|| Box::new(ReflectConvert::default()))
+            .downcast_mut::<ReflectConvert>()
+            .expect("ReflectConvert is always registered")
             .register_type_conversion::<T, U, _>(|input| Ok(input.into()));
     }
 
@@ -453,8 +489,39 @@ impl TypeRegistry {
     /// the given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
+    ///
+    /// If you need to insert new type data into this [`TypeRegistration`],
+    /// use [`Self::registration_scope`] instead.
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
+    }
+
+    /// Provides scoped access to the [`TypeRegistration`] of the type with
+    /// the given [`TypeId`] as a [`TypeRegistrationMut`].
+    ///
+    /// This allows for [`TypeData`] to be inserted into the [`TypeRegistration`],
+    /// and for any registration callbacks associated with that type data to take effect afterwards.
+    ///
+    /// If you do not need to insert any new type data, [`Self::get_mut`] is preferred.
+    ///
+    /// Returns true if the registration was found, false otherwise.
+    pub fn registration_scope(
+        &mut self,
+        type_id: TypeId,
+        f: impl FnOnce(TypeRegistrationMut<'_>),
+    ) -> bool {
+        let Some(registration) = self.registrations.get_mut(&type_id) else {
+            return false;
+        };
+
+        f(TypeRegistrationMut::new(registration));
+
+        let callbacks = registration.flush_on_register_callbacks();
+        for callback in callbacks {
+            callback.call(self);
+        }
+
+        true
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
@@ -603,6 +670,206 @@ impl TypeRegistryArc {
     }
 }
 
+macro_rules! type_registration_methods {
+    ($self:ident => $registration:expr) => {
+        /// Returns the [`TypeId`] of the type.
+        #[inline]
+        pub fn type_id(&$self) -> TypeId {
+            $registration.type_info.type_id()
+        }
+
+        /// Returns a reference to the registration's [`TypeInfo`]
+        pub fn type_info(&$self) -> &'static TypeInfo {
+            $registration.type_info
+        }
+
+        /// Returns a reference to the value of type `T` in this registration's
+        /// [type data].
+        ///
+        /// Returns `None` if no such value exists.
+        ///
+        /// For a dynamic version of this method, see [`data_by_id`].
+        ///
+        /// [type data]: TypeData
+        /// [`data_by_id`]: Self::data_by_id
+        pub fn data<T: TypeData>(&$self) -> Option<&T> {
+            $registration.data
+                .get(&TypeId::of::<T>())
+                .and_then(|value| value.downcast_ref())
+        }
+
+        /// Returns a reference to the value with the given [`TypeId`] in this registration's
+        /// [type data].
+        ///
+        /// Returns `None` if no such value exists.
+        ///
+        /// For a static version of this method, see [`data`].
+        ///
+        /// [type data]: TypeData
+        /// [`data`]: Self::data
+        pub fn data_by_id(&$self, type_id: TypeId) -> Option<&dyn TypeData> {
+            $registration.data.get(&type_id).map(Deref::deref)
+        }
+
+        /// Returns a mutable reference to the value of type `T` in this registration's
+        /// [type data].
+        ///
+        /// Returns `None` if no such value exists.
+        ///
+        /// For a dynamic version of this method, see [`data_mut_by_id`].
+        ///
+        /// [type data]: TypeData
+        /// [`data_mut_by_id`]: Self::data_mut_by_id
+        pub fn data_mut<T: TypeData>(&mut $self) -> Option<&mut T> {
+            $registration.data
+                .get_mut(&TypeId::of::<T>())
+                .and_then(|value| value.downcast_mut())
+        }
+
+        /// Returns a mutable reference to the value with the given [`TypeId`] in this registration's
+        /// [type data].
+        ///
+        /// Returns `None` if no such value exists.
+        ///
+        /// For a static version of this method, see [`data_mut`].
+        ///
+        /// [type data]: TypeData
+        /// [`data_mut`]: Self::data_mut
+        pub fn data_mut_by_id(&mut $self, type_id: TypeId) -> Option<&mut dyn TypeData> {
+            $registration.data.get_mut(&type_id).map(DerefMut::deref_mut)
+        }
+
+        /// Returns true if this registration contains the given [type data].
+        ///
+        /// For a dynamic version of this method, see [`contains_by_id`].
+        ///
+        /// [type data]: TypeData
+        /// [`contains_by_id`]: Self::contains_by_id
+        pub fn contains<T: TypeData>(&$self) -> bool {
+            $registration.data.contains_key(&TypeId::of::<T>())
+        }
+
+        /// Returns true if this registration contains the given [type data] with [`TypeId`].
+        ///
+        /// For a static version of this method, see [`contains`].
+        ///
+        /// [type data]: TypeData
+        /// [`contains`]: Self::contains
+        pub fn contains_by_id(&$self, type_id: TypeId) -> bool {
+            $registration.data.contains_key(&type_id)
+        }
+
+        /// The total count of [type data] in this registration.
+        ///
+        /// [type data]: TypeData
+        pub fn len(&$self) -> usize {
+            $registration.data.len()
+        }
+
+        /// Returns true if this registration has no [type data].
+        ///
+        /// [type data]: TypeData
+        pub fn is_empty(&$self) -> bool {
+            $registration.data.is_empty()
+        }
+
+        /// Returns an iterator over all [type data] in this registration.
+        ///
+        /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
+        ///
+        /// [type data]: TypeData
+        pub fn iter(&$self) -> impl ExactSizeIterator<Item = (TypeId, &dyn TypeData)> {
+            $registration.data.iter().map(|(id, data)| (*id, data.deref()))
+        }
+
+        /// Returns a mutable iterator over all [type data] in this registration.
+        ///
+        /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
+        ///
+        /// [type data]: TypeData
+        pub fn iter_mut(&mut $self) -> impl ExactSizeIterator<Item = (TypeId, &mut dyn TypeData)> {
+            $registration.data
+                .iter_mut()
+                .map(|(id, data)| (*id, data.deref_mut()))
+        }
+    };
+}
+
+macro_rules! type_data_insertion_methods {
+    ($self:ident => $registration:expr; [$($mut:tt)?] $self_ty:ty => $return_ty:ty) => {
+        /// Inserts an instance of `T` into this registration's [type data] map.
+        /// If another instance of `T` was previously inserted, it is replaced.
+        ///
+        /// If this is the first time `T` is being inserted,
+        /// this method will also trigger the [`TypeData::on_insert`] callbacks for `T`,
+        /// as well as queue up its [`TypeData::on_register`] callback.
+        ///
+        /// See also [`Self::register_type_data`] for type data that can be instantiated
+        /// automatically using [`CreateTypeData`].
+        ///
+        /// [type data]: TypeData
+        pub fn insert_data<T: TypeData>($($mut)? $self: $self_ty, data: T) -> $return_ty {
+            $registration.insert_internal(TypeId::of::<T>(), Box::new(data), None, None, true);
+            $self
+        }
+
+        /// Inserts the [`TypeData`] instance of `T` created for `V`.
+        /// If another instance of `T` was previously inserted, it is replaced.
+        ///
+        /// If this is the first time `T` is being inserted,
+        /// this method will also trigger the [`TypeData::on_insert`] and [`CreateTypeData::on_insert`] callbacks for `T`,
+        /// as well as queue up its [`TypeData::on_register`] and [`CreateTypeData::on_register`] callbacks.
+        ///
+        /// To register [`TypeData`] that requires input (i.e. it doesn't take `()` as its input),
+        /// see [`Self::register_type_data_with`].
+        #[inline]
+        pub fn register_type_data<T: CreateTypeData<V>, V>($self: $self_ty) -> $return_ty {
+            $self.register_type_data_with::<T, V, ()>(())
+        }
+
+        /// Inserts the [`TypeData`] instance of `T` created for `V` with some input `I`.
+        /// If another instance of `T` was previously inserted, it is replaced.
+        ///
+        /// If this is the first time `T` is being inserted,
+        /// this method will also trigger the [`TypeData::on_insert`] and [`CreateTypeData::on_insert`] callbacks for `T`,
+        /// as well as queue up its [`TypeData::on_register`] and [`CreateTypeData::on_register`] callbacks.
+        ///
+        /// To register [`TypeData`] that doesn't require input (i.e. it expects `()`),
+        /// see [`Self::register_type_data`].
+        #[inline]
+        pub fn register_type_data_with<T: CreateTypeData<V, I>, V, I>(
+            $($mut)? $self: $self_ty,
+            input: I,
+        ) -> $return_ty {
+            let on_insert = <T as CreateTypeData<V, I>>::on_insert(&input);
+            let on_register = <T as CreateTypeData<V, I>>::on_register(&input);
+            let data = T::create_type_data(input);
+
+            let has_deps = on_insert.is_some() || data.on_insert().is_some();
+
+            if !$registration.insert_internal(
+                TypeId::of::<T>(),
+                Box::new(data),
+                on_insert,
+                on_register,
+                true,
+            ) {
+                return $self;
+            }
+
+            if !has_deps {
+                #[expect(
+                    deprecated,
+                    reason = "Will continue to call function until fully removed"
+                )]
+                <T as CreateTypeData<V, I>>::insert_dependencies(&mut $registration);
+            }
+
+            $self
+        }
+    };
+}
+
 /// Runtime storage for type metadata, registered into the [`TypeRegistry`].
 ///
 /// An instance of `TypeRegistration` can be created using the [`TypeRegistration::of`] method,
@@ -618,12 +885,12 @@ impl TypeRegistryArc {
 ///
 /// ```
 /// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, CreateTypeData};
-/// let mut registration = TypeRegistration::of::<Option<String>>();
+/// let registration = TypeRegistration::of::<Option<String>>();
 ///
 /// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
 /// assert_eq!("Option<String>", registration.type_info().type_path_table().short_path());
 ///
-/// registration.insert::<ReflectDefault>(CreateTypeData::<Option<String>>::create_type_data(()));
+/// let registration = registration.insert_data::<ReflectDefault>(CreateTypeData::<Option<String>>::create_type_data(()));
 /// assert!(registration.data::<ReflectDefault>().is_some())
 /// ```
 ///
@@ -631,6 +898,17 @@ impl TypeRegistryArc {
 pub struct TypeRegistration {
     data: TypeIdMap<Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
+    /// The `on_register` callbacks waiting to be applied.
+    ///
+    /// These are generally the ones from [`CreateTypeData::on_register`]
+    /// since the [`TypeData::on_register`] callbacks can be accessed dynamically from `data`.
+    #[expect(
+        clippy::box_collection,
+        reason = "We intentionally box the `Vec` to save 16 bytes per registration. \
+        And since these don't need to be accessed as often or in performance-sensitive code, \
+        we can spare the extra layer of indirection"
+    )]
+    pending_callbacks: Option<Box<Vec<OnRegisterTypeData>>>,
 }
 
 impl Debug for TypeRegistration {
@@ -647,18 +925,8 @@ impl TypeRegistration {
         Self {
             data: Default::default(),
             type_info: T::type_info(),
+            pending_callbacks: None,
         }
-    }
-
-    /// Returns the [`TypeId`] of the type.
-    #[inline]
-    pub fn type_id(&self) -> TypeId {
-        self.type_info.type_id()
-    }
-
-    /// Returns a reference to the registration's [`TypeInfo`]
-    pub fn type_info(&self) -> &'static TypeInfo {
-        self.type_info
     }
 
     /// Inserts an instance of `T` into this registration's [type data].
@@ -670,6 +938,10 @@ impl TypeRegistration {
     /// That will need to be done manually using [`CreateTypeData::insert_dependencies`].
     ///
     /// [type data]: TypeData
+    #[deprecated(
+        since = "0.20.0",
+        note = "This method will be removed in a future release. Use `TypeRegistry::insert_data` or `TypeRegistry::register_type_data` instead."
+    )]
     pub fn insert<T: TypeData>(&mut self, data: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
@@ -678,166 +950,106 @@ impl TypeRegistration {
     /// exist, it will insert a new instance using `get_data` and then return it.
     ///
     /// [type data]: TypeData
+    #[deprecated(
+        since = "0.20.0",
+        note = "This method will be removed in a future release. Use `TypeRegistry::contains` in conjunction with either `TypeRegistry::insert_data` or `TypeRegistry::register_type_data` instead."
+    )]
     pub fn get_or_insert_data_with<T: TypeData>(&mut self, get_data: impl FnOnce() -> T) -> &mut T {
-        let boxed_data = self
-            .data
-            .entry(TypeId::of::<T>())
-            .or_insert_with(|| Box::new(get_data()));
-        boxed_data.downcast_mut::<T>().unwrap()
+        self.insert_internal(TypeId::of::<T>(), Box::new(get_data()), None, None, false);
+        self.data_mut::<T>().expect("data was just inserted")
     }
 
-    /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
-    /// [`TypeData`] dependencies for that combination of `T` and `V`.
+    /// Internal method for inserting type data.
     ///
-    /// To register [`TypeData`] that requires input (i.e. it doesn't take `()` as its input),
-    /// see [`TypeRegistration::register_type_data_with`].
-    #[inline]
-    pub fn register_type_data<T: CreateTypeData<V>, V>(&mut self) {
-        self.insert(T::create_type_data(()));
-        T::insert_dependencies(self);
+    /// Avoids generics in an effort to reduce binary size costs due to monomorphization.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_id`: The `TypeId` of the type data
+    /// * `data`: The type data itself
+    /// * `on_insert`: An optional `CreateTypeData::on_insert` callback
+    /// * `on_register`: An optional `CreateTypeData::on_register` callback
+    /// * `overwrite`: Indicates whether overwrites are allowed (but does not re-trigger callbacks)
+    fn insert_internal(
+        &mut self,
+        type_id: TypeId,
+        data: Box<dyn TypeData>,
+        on_insert: Option<OnInsertTypeData>,
+        on_register: Option<OnRegisterTypeData>,
+        overwrite: bool,
+    ) -> bool {
+        let entry = self.data.entry(type_id);
+        match entry {
+            indexmap::map::Entry::Vacant(entry) => {
+                if let Some(on_insert) = entry.insert(data).on_insert() {
+                    on_insert.call(TypeRegistrationMut::new(self));
+                }
+                if let Some(on_insert) = on_insert {
+                    on_insert.call(TypeRegistrationMut::new(self));
+                }
+                if let Some(on_register) = on_register {
+                    self.pending_callbacks
+                        .get_or_insert_default()
+                        .push(on_register);
+                }
+                true
+            }
+            indexmap::map::Entry::Occupied(mut entry) => {
+                if overwrite {
+                    entry.insert(data);
+                }
+                // We don't handle callbacks here to avoid cycles and since in most cases
+                // doing so would simply be unnecessarily duplicated effort
+                false
+            }
+        }
     }
 
-    /// Inserts the [`TypeData`] instance of `T` created for `V` with some input `I`,
-    /// and inserts any [`TypeData`] dependencies for that combination of `T`, `V`, and `I`.
+    /// Collects all `on_register` callbacks from registered [`TypeData`].
     ///
-    /// To register [`TypeData`] that doesn't require input (i.e. it expects `()`),
-    /// see [`TypeRegistration::register_type_data`].
-    #[inline]
-    pub fn register_type_data_with<T: CreateTypeData<V, I>, V, I>(&mut self, input: I) {
-        self.insert(T::create_type_data(input));
-        T::insert_dependencies(self);
+    /// This includes all pending callbacks and callbacks from inserted type data.
+    /// It should therefore only be used when the this [`TypeRegistration`] is first registered into a [`TypeRegistry`].
+    fn flush_on_register_callbacks(&mut self) -> Vec<OnRegisterTypeData> {
+        let pending_callbacks = self.pending_callbacks.take();
+
+        self.iter()
+            .filter_map(|(_, data)| data.on_register())
+            .chain(
+                pending_callbacks
+                    .into_iter()
+                    .flat_map(|callbacks| callbacks.into_iter()),
+            )
+            .collect()
     }
 
-    /// Returns a reference to the value of type `T` in this registration's
-    /// [type data].
-    ///
-    /// Returns `None` if no such value exists.
-    ///
-    /// For a dynamic version of this method, see [`data_by_id`].
-    ///
-    /// [type data]: TypeData
-    /// [`data_by_id`]: Self::data_by_id
-    pub fn data<T: TypeData>(&self) -> Option<&T> {
-        self.data
-            .get(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_ref())
-    }
-
-    /// Returns a reference to the value with the given [`TypeId`] in this registration's
-    /// [type data].
-    ///
-    /// Returns `None` if no such value exists.
-    ///
-    /// For a static version of this method, see [`data`].
-    ///
-    /// [type data]: TypeData
-    /// [`data`]: Self::data
-    pub fn data_by_id(&self, type_id: TypeId) -> Option<&dyn TypeData> {
-        self.data.get(&type_id).map(Deref::deref)
-    }
-
-    /// Returns a mutable reference to the value of type `T` in this registration's
-    /// [type data].
-    ///
-    /// Returns `None` if no such value exists.
-    ///
-    /// For a dynamic version of this method, see [`data_mut_by_id`].
-    ///
-    /// [type data]: TypeData
-    /// [`data_mut_by_id`]: Self::data_mut_by_id
-    pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
-        self.data
-            .get_mut(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_mut())
-    }
-
-    /// Returns a mutable reference to the value with the given [`TypeId`] in this registration's
-    /// [type data].
-    ///
-    /// Returns `None` if no such value exists.
-    ///
-    /// For a static version of this method, see [`data_mut`].
-    ///
-    /// [type data]: TypeData
-    /// [`data_mut`]: Self::data_mut
-    pub fn data_mut_by_id(&mut self, type_id: TypeId) -> Option<&mut dyn TypeData> {
-        self.data.get_mut(&type_id).map(DerefMut::deref_mut)
-    }
-
-    /// Returns true if this registration contains the given [type data].
-    ///
-    /// For a dynamic version of this method, see [`contains_by_id`].
-    ///
-    /// [type data]: TypeData
-    /// [`contains_by_id`]: Self::contains_by_id
-    pub fn contains<T: TypeData>(&self) -> bool {
-        self.data.contains_key(&TypeId::of::<T>())
-    }
-
-    /// Returns true if this registration contains the given [type data] with [`TypeId`].
-    ///
-    /// For a static version of this method, see [`contains`].
-    ///
-    /// [type data]: TypeData
-    /// [`contains`]: Self::contains
-    pub fn contains_by_id(&self, type_id: TypeId) -> bool {
-        self.data.contains_key(&type_id)
-    }
-
-    /// The total count of [type data] in this registration.
-    ///
-    /// [type data]: TypeData
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-
-    /// Returns true if this registration has no [type data].
-    ///
-    /// [type data]: TypeData
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    /// Returns an iterator over all [type data] in this registration.
-    ///
-    /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
-    ///
-    /// [type data]: TypeData
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (TypeId, &dyn TypeData)> {
-        self.data.iter().map(|(id, data)| (*id, data.deref()))
-    }
-
-    /// Returns a mutable iterator over all [type data] in this registration.
-    ///
-    /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
-    ///
-    /// [type data]: TypeData
-    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (TypeId, &mut dyn TypeData)> {
-        self.data
-            .iter_mut()
-            .map(|(id, data)| (*id, data.deref_mut()))
-    }
+    type_data_insertion_methods!(self => self; [mut] Self => Self);
+    type_registration_methods!(self => self);
 }
 
-impl Clone for TypeRegistration {
-    fn clone(&self) -> Self {
-        let mut data = TypeIdMap::default();
-        for (id, type_data) in &self.data {
-            data.insert(*id, (*type_data).clone_type_data());
-        }
+/// A wrapper around a mutable reference to a [`TypeRegistration`] that allows for type data
+/// to be inserted mutably.
+///
+/// See [`TypeRegistry::registration_scope`] for how to access this.
+pub struct TypeRegistrationMut<'a> {
+    registration: &'a mut TypeRegistration,
+}
 
-        TypeRegistration {
-            data,
-            type_info: self.type_info,
-        }
+impl<'a> TypeRegistrationMut<'a> {
+    // Private to prevent users from side-stepping the insertion-restrictions,
+    // and thus potentially forgetting to trigger all the relevant type data callbacks.
+    fn new(registration: &'a mut TypeRegistration) -> Self {
+        Self { registration }
     }
+
+    type_data_insertion_methods!(self => self.registration; [] &mut Self => &mut Self);
+    type_registration_methods!(self => self.registration);
 }
 
 /// A struct used to serialize reflected instances of a type.
 ///
 /// A `ReflectSerialize` for type `T` can be obtained via
 /// [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSerialize {
     get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
@@ -880,7 +1092,7 @@ impl ReflectSerialize {
 ///
 /// A `ReflectDeserialize` for type `T` can be obtained via
 /// [`CreateTypeData::create_type_data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectDeserialize {
     /// Function used by [`ReflectDeserialize::deserialize`] to
     /// perform deserialization.
@@ -943,7 +1155,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserial
 ///
 /// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
     from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
@@ -1085,11 +1297,10 @@ mod test {
         #[derive(Reflect)]
         struct Foo;
 
-        #[derive(Clone)]
+        #[derive(Clone, TypeData)]
         struct DataA(i32);
 
-        let mut registration = TypeRegistration::of::<Foo>();
-        registration.insert(DataA(123));
+        let registration = TypeRegistration::of::<Foo>().insert_data(DataA(123));
 
         let mut iter = registration.iter();
 
@@ -1105,11 +1316,10 @@ mod test {
         #[derive(Reflect)]
         struct Foo;
 
-        #[derive(Clone)]
+        #[derive(Clone, TypeData)]
         struct DataA(i32);
 
-        let mut registration = TypeRegistration::of::<Foo>();
-        registration.insert(DataA(123));
+        let mut registration = TypeRegistration::of::<Foo>().insert_data(DataA(123));
 
         {
             let mut iter = registration.iter_mut();

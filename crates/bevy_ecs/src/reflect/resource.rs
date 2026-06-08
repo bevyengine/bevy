@@ -5,7 +5,7 @@
 //! See the module doc for [`reflect::component`](`crate::reflect::component`).
 
 use crate::{reflect::ReflectComponent, resource::Resource};
-use bevy_reflect::{CreateTypeData, FromReflect, TypePath, TypeRegistration};
+use bevy_reflect::{CreateTypeData, FromReflect, OnInsertTypeData, TypeData, TypePath};
 
 /// A struct that marks a reflected [`Resource`] of a type.
 ///
@@ -27,7 +27,7 @@ use bevy_reflect::{CreateTypeData, FromReflect, TypePath, TypeRegistration};
 ///
 /// A [`ReflectResource`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectResource;
 
 impl<R: Resource + FromReflect + TypePath> CreateTypeData<R> for ReflectResource {
@@ -35,7 +35,9 @@ impl<R: Resource + FromReflect + TypePath> CreateTypeData<R> for ReflectResource
         ReflectResource
     }
 
-    fn insert_dependencies(type_registration: &mut TypeRegistration) {
-        type_registration.register_type_data::<ReflectComponent, R>();
+    fn on_insert(_: &()) -> Option<OnInsertTypeData> {
+        Some(OnInsertTypeData::new(|mut registration| {
+            registration.register_type_data::<ReflectComponent, R>();
+        }))
     }
 }
