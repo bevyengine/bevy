@@ -221,7 +221,10 @@ use bevy_ecs::{
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
-use std::{boxed::Box, collections::{BTreeMap, BTreeSet, VecDeque}};
+use std::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet, VecDeque},
+};
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
