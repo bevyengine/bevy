@@ -130,7 +130,7 @@ fn dialog_barrier_on_spawn(add: On<Add, ModalDialog>, mut commands: Commands) {
         });
 }
 
-/// Plugin that adds the observers for the [`CoreDialog`] widget.
+/// Plugin that adds the observers for the [`ModalDialog`] widget.
 pub struct ModalDialogPlugin;
 
 impl Plugin for ModalDialogPlugin {
