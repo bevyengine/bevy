@@ -307,7 +307,7 @@
 //! Enums are special-cased to allow for better implicit defaults: [`bsn!`] requires that enums have defaults for all variant arms, not just the type as a whole.
 //!
 //! When [`bsn!`] encounters a Enum, it will try to get the default value for the variant using static methods like `default_{variant_lower}`.
-//! To help with setting up these methods, theres a pseudod-`derive` called [`VariantDefaults`](bevy_ecs::VariantDefaults).
+//! To help with setting up these methods, theres a pseudo-`derive` called [`VariantDefaults`](bevy_ecs::VariantDefaults).
 //! It works like a normal `derive` macro, but without a matching Trait. It just generates a impl block with the `default_{variant_lower}` static methods.
 //!
 //! Deriving [`FromTemplate`] also implies/works like [`VariantDefaults`](bevy_ecs::VariantDefaults).
@@ -353,7 +353,7 @@
 //! while `current` retains the value from `enemy()`. Tuples of [`Scene`]s also implement
 //! [`Scene`], so patches from multiple sources merge into a single [`ResolvedScene`].
 //!
-//!  For programmatic patching outside of [`bsn!`], see the [`PatchFromTemplate`] and
+//! For programmatic patching outside of [`bsn!`], see the [`PatchFromTemplate`] and
 //! [`PatchTemplate`] traits.
 //!
 //! ## Scene Caching
@@ -973,7 +973,7 @@ use bevy_ecs::prelude::*;
 /// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
 /// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
 /// | `@MySceneComp { @prop: val1, name: val2 }` | Include a [`SceneComponent`] with both a `prop` and a field                                                    |
-/// | `:"scene.bsn"`                             | <div class="warning">Asset format no yet implemented!</div> Include a cached scene asset file                  |
+/// | `:"scene.bsn"`                             | <div class="warning">Asset format not yet implemented!</div> Include a cached scene asset file                  |
 /// | `:scene()`<br>`:@MySceneComp`              | <div class="warning">Caching for scene includes not yet implemented!</div> Include a cached scene function     |
 /// | **Named entity references**                |                                                                                                                |
 /// | `#MyName`                                  | Becomes `Name("MyName")` when used as a `part` of a scene                                                      |
@@ -984,7 +984,7 @@ use bevy_ecs::prelude::*;
 /// | `on(my_observer)`                          | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a function |
 /// | **Relationships**                          |                                                                                                                |
 /// | `Children []`                              | Spawns each entry as a child of this entity, see **Scene Lists** below for details                             |
-/// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts a [`Entity`] or a `#Name` reference ([`EntityTemplate`])    |
+/// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts an [`Entity`] or a `#Name` reference ([`EntityTemplate`])    |
 /// | `MyRel []`                                 | Like `Children`, but uses any `RelationshipTarget` component                                                   |
 ///
 /// [`context`]: bevy_ecs::template::TemplateContext
@@ -1016,7 +1016,7 @@ use bevy_ecs::prelude::*;
 /// | `true` or `false`                | Bool          | Boolean, type: [`bool`]                                                                 |
 /// | `"somename"`                     | String        | Text, types: `String` or `&'static str`                                                 |
 /// | `"mypicture.png"`                | Asset path    | Asset, when used in a field which expects a [`Handle`] to the matching `Asset` type     |
-/// | `some(1)`                        | Function call | Calls a function with the provided arguments                                            |
+/// | `some_function(1)`                        | Function call | Calls a function with the provided arguments                                            |
 /// | `GREEN`                          | Constant      | Fixed value, must be in scope                                                           |
 /// | `std::f32::consts::PI`           | Constant      | Fixed value, uses full path so doesn't need to be in scope                              |
 /// | **Expression syntax**            |               |                                                                                         |
