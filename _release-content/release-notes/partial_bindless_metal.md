@@ -11,14 +11,14 @@ However, users were reporting that rendering complex scenes on Mac and iOS was m
 The reason for this was straightforward enough: no bindless rendering support.
 Bindless rendering is how modern engines handle scenes with many different materials efficiently: shaders index into shared pools of textures and buffers rather than rebinding them per draw call.
 
-Both Metal (Apple's GPU API) and DX12 (a Windows graphics API) have partial bindless support:
+Metal (Apple's GPU API) has partial bindless support:
 they permit texture binding arrays but not buffer binding arrays.
 Historically, Bevy required support for both features before it would use bindless, which excluded Metal entirely, even for materials that never use buffer arrays.
 
 Most materials, including `StandardMaterial`, do not need buffer array support.
 To ensure those materials take the fast path, Bevy now checks the actual needs of each material.
 If you only need texture arrays, your material can be rendered efficiently across Bevy's desktop platforms.
-If you use `#[uniform(..., binding_array(...))]`, expect performance degradation on Metal or DX12.
+If you use `#[uniform(..., binding_array(...))]`, expect performance degradation on Metal.
 
 We've also fixed two important correctness bugs in the process.
 First, we discovered that the sampler limit check was testing the wrong metric: `max_samplers_per_shader_stage` counts binding slots, but the relevant limit is `max_binding_array_sampler_elements_per_shader_stage`, the array element count (a mismatch that could incorrectly disable bindless).
