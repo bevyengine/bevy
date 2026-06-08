@@ -42,7 +42,7 @@ fn evaluate_and_sample_brdf(
     let NdotV = dot(world_normal, wo);
     if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
     let F0_metal = material.base_color;
-    let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
+    let F0_dielectric = calculate_F0_dielectric(1.5, vec3(1.0));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
     let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
     let diffuse_weight = 1.0 - specular_weight;
@@ -99,7 +99,7 @@ fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, 
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
     let F0_metal = material.base_color;
-    let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
+    let F0_dielectric = calculate_F0_dielectric(1.5, vec3(1.0));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
     return rho.diffuse / PI * NdotL;
 }
@@ -113,7 +113,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
 
     let F0_metal = material.base_color;
-    let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
+    let F0_dielectric = calculate_F0_dielectric(1.5, vec3(1.0));
 
     if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         if abs(NdotH - 1.0) < 0.0001 {
@@ -137,7 +137,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
     let NdotV = max(dot(world_normal, wo), 0.0001);
     let F0_metal = material.base_color;
-    let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
+    let F0_dielectric = calculate_F0_dielectric(1.5, vec3(1.0));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
     let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
     let diffuse_weight = 1.0 - specular_weight;

@@ -3,7 +3,7 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::specular_gi
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0_dielectric}
 #import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
@@ -220,7 +220,9 @@ fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mir
     let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface_world_position)) + primary_surface_world_position;
     let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_frame_position);
 
-    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
+    let F0_metallic = ray_hit.material.base_color;
+    let F0_dielectric = calculate_F0_dielectric(1.5, vec3(1.0));
+    let F0 = mix(F0_dielectric, F0_metallic, ray_hit.material.metallic);
     let wo = normalize(view.world_position - virtual_position);
     let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
 
