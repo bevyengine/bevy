@@ -291,15 +291,13 @@ fn calculate_diffuse_color(
         (1.0 - diffuse_transmission);
 }
 
-// Remapping [0,1] reflectance to F0 for dielectrics
-fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
-    return 0.16 * reflectance * reflectance;
-}
-
-// Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.md.html#materialsystem/parameterization/remapping
-fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
-    return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
+// Reflectance at normal incidence for dielectrics is computed from IOR, then optionally tinted (non-physically).
+fn calculate_F0_dielectric(ior: f32, specular_tint: vec3<f32>) -> vec3<f32> {
+    // Physical reflectance at normal incidence
+    var f0 = max(0.0, (ior - 1.0) / (ior + 1.0));
+    f0 *= f0;
+    // Artistic tint
+    return min(f0 * specular_tint, vec3<f32>(1.0));
 }
 
 #ifdef CONTACT_SHADOWS
@@ -349,13 +347,13 @@ fn apply_pbr_lighting(
 
     let emissive = in.material.emissive;
 
-    // calculate non-linear roughness from linear perceptualRoughness
     let metallic = in.material.metallic;
+    let specular_weight = in.material.specular_weight;
+
+    // calculate non-linear roughness from linear perceptualRoughness
     let perceptual_roughness = in.material.perceptual_roughness;
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let ior = in.material.ior;
     let thickness = in.material.thickness;
-    let reflectance = in.material.reflectance;
     let diffuse_transmission = in.material.diffuse_transmission;
     let specular_transmission = in.material.specular_transmission;
 
@@ -377,6 +375,10 @@ fn apply_pbr_lighting(
     let clearcoat_N = in.clearcoat_N;
     let clearcoat_NdotV = max(dot(clearcoat_N, in.V), 0.0001);
     let clearcoat_R = reflect(-in.V, clearcoat_N);
+    // Correct the base layer's IOR to account for the change of interface from air (IOR = 1) to the clearcoat layer (IOR = 1.5).
+    let ior = in.material.ior / mix(1.0, 1.5, clearcoat);
+#else
+    let ior = in.material.ior;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     let diffuse_color = calculate_diffuse_color(
@@ -392,7 +394,13 @@ fn apply_pbr_lighting(
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
 
-    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
+    let F0_dielectric = calculate_F0_dielectric(ior, in.material.specular_tint);
+
+    // Reflectance at normal incidence for pure metals is the base color
+    let F0_metallic = output_color.rgb;
+
+    let F0 = mix(F0_dielectric, F0_metallic, metallic);
+
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
@@ -411,8 +419,9 @@ fn apply_pbr_lighting(
     lighting_input.V = in.V;
     lighting_input.diffuse_color = diffuse_color;
     lighting_input.metallic = metallic;
-    lighting_input.F0_dielectric = calculate_F0_dielectric(reflectance);
-    lighting_input.F0_metallic = output_color.rgb;
+    lighting_input.specular_weight = specular_weight;
+    lighting_input.F0_dielectric = F0_dielectric;
+    lighting_input.F0_metallic = F0_metallic;
     lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
@@ -440,6 +449,7 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
     transmissive_lighting_input.metallic = 0.0;
+    transmissive_lighting_input.specular_weight = 1.0;
     transmissive_lighting_input.F0_dielectric = vec3(0.0);
     transmissive_lighting_input.F0_metallic = vec3(0.0);
     transmissive_lighting_input.F_ab = vec2(0.1);
@@ -849,7 +859,7 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
 
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
-    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
+    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, specular_weight, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
     if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {
         // We reuse the `atmospheric_fog()` function here, as it's fundamentally
