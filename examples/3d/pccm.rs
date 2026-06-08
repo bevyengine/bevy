@@ -118,7 +118,6 @@ fn spawn_inner_cube(
     let cube_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         metallic: 1.0,
-        reflectance: 1.0,
         perceptual_roughness: 0.0,
         ..default()
     });

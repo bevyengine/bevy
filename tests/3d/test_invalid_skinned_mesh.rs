@@ -83,7 +83,7 @@ fn setup_environment(
         Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(100.0, 100.0).normal(Dir3::Z))),
         MeshMaterial3d(material_assets.add(StandardMaterial {
             base_color: Color::srgb(0.05, 0.05, 0.15),
-            reflectance: 0.2,
+            specular: 0.4,
             ..default()
         })),
     ));
@@ -149,7 +149,7 @@ fn setup_meshes(
 
     let background_material_handle = material_assets.add(StandardMaterial {
         base_color: Color::srgb(0.05, 0.15, 0.05),
-        reflectance: 0.2,
+        specular: 0.4,
         ..default()
     });
 

@@ -39,7 +39,7 @@ fn setup(
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.5, 0.5, 0.5),
         perceptual_roughness: 1.0,
-        reflectance: 0.0,
+        specular_tint: Color::linear_rgb(0.0, 0.0, 0.0),
         ..default()
     });
     commands.spawn((
@@ -62,7 +62,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.4, 0.4, 0.4),
             perceptual_roughness: 1.0,
-            reflectance: 0.0,
+            specular_tint: Color::linear_rgb(0.0, 0.0, 0.0),
             ..default()
         })),
         SphereMarker,
