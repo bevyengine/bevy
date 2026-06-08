@@ -10,18 +10,6 @@ use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_m
 
 /// Parsed data from the `KHR_materials_specular` extension.
 ///
-/// We currently don't parse `specularFactor` and `specularTexture`, since
-/// they're incompatible with Filament.
-///
-/// Note that the map is a *specular map*, not a *reflectance map*. In Bevy and
-/// Filament terms, the reflectance values in the specular map range from [0.0,
-/// 0.5], rather than [0.0, 1.0]. This is an unfortunate
-/// `KHR_materials_specular` specification requirement that stems from the fact
-/// that glTF is specified in terms of a specular strength model, not the
-/// reflectance model that Filament and Bevy use. A workaround, which is noted
-/// in the [`StandardMaterial`](https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html) documentation, is to set the reflectance value
-/// to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
-///
 /// See the specification:
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
 #[derive(Default)]
