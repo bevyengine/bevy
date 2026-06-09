@@ -192,6 +192,16 @@ pub struct GpuRectLight {
     range: f32,
 }
 
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+bitflags::bitflags! {
+    #[repr(transparent)]
+    struct AmbientLightFlags: u32 {
+        const AFFECTS_LIGHTMAPPED_MESHES        = 1 << 0;
+        const NONE                              = 0;
+        const UNINITIALIZED                     = 0xFFFF;
+    }
+}
+
 #[derive(Copy, Clone, Debug, ShaderType)]
 pub struct GpuLights {
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
@@ -205,7 +215,7 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
-    ambient_light_affects_lightmapped_meshes: u32,
+    ambient_light_flags: u32,
     n_rect_lights: u32,
     rect_lights: [GpuRectLight; MAX_RECT_LIGHTS],
 }
@@ -1879,6 +1889,12 @@ pub fn prepare_lights(
             num_directional_cascades_enabled_for_this_view += num_cascades;
         }
 
+        let mut ambient_light_flags = AmbientLightFlags::NONE;
+
+        if ambient_light.affects_lightmapped_meshes {
+            ambient_light_flags |= AmbientLightFlags::AFFECTS_LIGHTMAPPED_MESHES;
+        }
+
         let mut gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
             ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_f32_array())
@@ -1896,8 +1912,7 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
-            ambient_light_affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes
-                as u32,
+            ambient_light_flags: ambient_light_flags.bits(),
             n_rect_lights: 0,
             rect_lights: [GpuRectLight::default(); MAX_RECT_LIGHTS],
         };
@@ -2455,7 +2470,7 @@ pub(crate) fn specialize_shadows(
             continue;
         };
 
-        match prepass_specialize(world, key, &item.layout, &item.properties) {
+        match prepass_specialize(world, &key, &item.layout, &item.properties) {
             Ok(pipeline_id) => {
                 world
                     .resource_mut::<SpecializedShadowMaterialPipelineCache>()

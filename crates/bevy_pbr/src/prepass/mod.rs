@@ -1192,7 +1192,7 @@ pub(crate) fn specialize_prepass_material_meshes(
             continue;
         };
 
-        match prepass_specialize(world, key, &item.layout, &item.properties) {
+        match prepass_specialize(world, &key, &item.layout, &item.properties) {
             Ok(pipeline_id) => {
                 world
                     .resource_mut::<SpecializedPrepassMaterialPipelineCache>()

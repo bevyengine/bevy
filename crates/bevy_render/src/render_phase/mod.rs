@@ -2243,10 +2243,6 @@ mod tests {
     /// operations, then verify that the data structure is consistent and that
     /// all invariants are upheld.
     #[test]
-    #[expect(
-        non_local_definitions,
-        reason = "`derive(Arbitrary)` generates an impl here"
-    )]
     fn render_multidrawable_batch_set() {
         use super::RenderMultidrawableBatchSet;
 

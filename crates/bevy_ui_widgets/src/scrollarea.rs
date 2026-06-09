@@ -1,9 +1,13 @@
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    component::Component, hierarchy::ChildOf, observer::On, query::With, reflect::ReflectComponent,
-    system::Query,
+    component::Component,
+    hierarchy::ChildOf,
+    observer::On,
+    query::With,
+    reflect::ReflectComponent,
+    system::{Query, Res},
 };
-use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::mouse::MouseScrollPixelsPerLine;
 use bevy_math::{Affine2, Vec2};
 use bevy_picking::events::{Pointer, Scroll};
 use bevy_reflect::Reflect;
@@ -21,6 +25,7 @@ pub struct ScrollArea;
 fn scrollarea_on_scroll(
     mut scroll: On<Pointer<Scroll>>,
     mut q_scroll_area: Query<(&Node, &ComputedNode, &mut ScrollPosition), With<ScrollArea>>,
+    scroll_conversion_ratio: Res<MouseScrollPixelsPerLine>,
 ) {
     if let Ok((node, computed_node, mut scroll_pos)) = q_scroll_area.get_mut(scroll.entity) {
         scroll.propagate(false);
@@ -30,11 +35,8 @@ fn scrollarea_on_scroll(
         let can_scroll_x = node.overflow.x == OverflowAxis::Scroll;
         let can_scroll_y = node.overflow.y == OverflowAxis::Scroll;
 
-        let scroll_delta = Vec2::new(scroll.x, scroll.y)
-            * match scroll.unit {
-                MouseScrollUnit::Line => MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR,
-                MouseScrollUnit::Pixel => 1.0,
-            };
+        let scroll_delta = scroll.to_lines(&scroll_conversion_ratio);
+        let scroll_delta = Vec2::new(scroll_delta.x, scroll_delta.y);
 
         let max_range = (content_size - visible_size).max(Vec2::ZERO);
 

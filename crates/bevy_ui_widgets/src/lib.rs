@@ -30,6 +30,7 @@ mod button;
 mod checkbox;
 mod list;
 mod menu;
+mod modal;
 mod observe;
 pub mod popover;
 mod radio;
@@ -42,6 +43,7 @@ pub use button::*;
 pub use checkbox::*;
 pub use list::*;
 pub use menu::*;
+pub use modal::*;
 pub use observe::*;
 pub use radio::*;
 pub use scrollarea::*;
@@ -63,16 +65,17 @@ pub struct UiWidgetsPlugins;
 impl PluginGroup for UiWidgetsPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(PopoverPlugin)
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
+            .add(EditableTextInputPlugin)
             .add(ListBoxPlugin)
             .add(MenuPlugin)
+            .add(ModalDialogPlugin)
+            .add(PopoverPlugin)
             .add(RadioGroupPlugin)
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
-            .add(EditableTextInputPlugin)
     }
 }
 
