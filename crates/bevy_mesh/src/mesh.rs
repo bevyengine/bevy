@@ -308,7 +308,7 @@ impl MeshCompressionArgs {
             compress_indices: true,
             quantize_attributes: MeshAttributeQuantization {
                 attributes: (&[
-                    // Unorm8 is chosen by default, as glTF vertex color is unorm8/unorm16 and HDR vertex color isn't common.
+                    // Unorm8 is chosen by default as glTF vertex color is clamped to [0, 1] and HDR vertex color isn't common.
                     (Mesh::ATTRIBUTE_COLOR.id, AttributeQuantization::Unorm8),
                     (
                         Mesh::ATTRIBUTE_JOINT_WEIGHT.id,
@@ -1194,7 +1194,7 @@ impl Mesh {
     }
 
     /// Quantize `Float32x4` colors to the type of `quantization`.
-    /// [`AttributeQuantization::Unorm8`] or [`AttributeQuantization::Float16`] (if you need HDR colors) is recommended.
+    /// [`AttributeQuantization::Unorm8`] is recommended if you don't need higher precision or floating-point range.
     pub fn quantize_colors(
         &mut self,
         quantization: AttributeQuantization,
