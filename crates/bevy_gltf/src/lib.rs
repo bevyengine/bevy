@@ -303,7 +303,7 @@ impl Plugin for GltfPlugin {
             default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
-            default_mesh_compression: self.mesh_compression,
+            default_mesh_compression: self.mesh_compression.clone(),
         });
     }
 }

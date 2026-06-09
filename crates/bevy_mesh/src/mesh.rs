@@ -274,7 +274,7 @@ pub struct Mesh {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct MeshAttributeQuantization {
-    pub attributes: alloc::borrow::Cow<'static, [(MeshVertexAttribute, AttributeQuantization)]>,
+    pub attributes: alloc::borrow::Cow<'static, [(MeshVertexAttributeId, AttributeQuantization)]>,
 }
 
 /// Mesh compression arguments used in [`Mesh::compressed_mesh`].
@@ -309,8 +309,11 @@ impl MeshCompressionArgs {
             quantize_attributes: MeshAttributeQuantization {
                 attributes: (&[
                     // Unorm8 is chosen by default, as glTF vertex color is unorm8/unorm16 and HDR vertex color isn't common.
-                    (Mesh::ATTRIBUTE_COLOR, AttributeQuantization::Unorm8),
-                    (Mesh::ATTRIBUTE_JOINT_WEIGHT, AttributeQuantization::Unorm16),
+                    (Mesh::ATTRIBUTE_COLOR.id, AttributeQuantization::Unorm8),
+                    (
+                        Mesh::ATTRIBUTE_JOINT_WEIGHT.id,
+                        AttributeQuantization::Unorm16,
+                    ),
                 ])
                     .into(),
             },
@@ -1056,7 +1059,7 @@ impl Mesh {
     pub fn compress_positions(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_POSITION;
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
+            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
         };
         if values.is_empty() {
             return Err(MeshVertexCompressionError::EmptyAttribute(attr));
@@ -1083,7 +1086,7 @@ impl Mesh {
         ok: impl Fn(&mut Mesh, Aabb2d),
     ) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
+            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
         };
         if values.is_empty() {
             return Err(MeshVertexCompressionError::EmptyAttribute(attr));
@@ -1126,7 +1129,7 @@ impl Mesh {
     pub fn compress_normals(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_NORMAL;
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
+            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
         };
         attr.format = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_normals() else {
@@ -1148,7 +1151,7 @@ impl Mesh {
     pub fn compress_tangents(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_TANGENT;
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
+            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
         };
         attr.format = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_tangents() else {
@@ -1168,22 +1171,25 @@ impl Mesh {
     /// Quantize `Float32`, `Float32x2` or `Float32x4` vertex attribute to the type of `quantization`.
     pub fn quantize_float32_attribute(
         &mut self,
-        mut attr: MeshVertexAttribute,
+        attr_id: impl Into<MeshVertexAttributeId>,
         quantization: AttributeQuantization,
     ) -> Result<&mut Mesh, MeshVertexCompressionError> {
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
+        let attr_id = attr_id.into();
+        let Some(MeshAttributeData { attribute, values }) =
+            self.attributes.as_mut().unwrap().get_mut(&attr_id)
+        else {
+            return Err(MeshVertexCompressionError::MissingAttribute(attr_id));
         };
-        let Some(values) = values.create_quantized_values(quantization) else {
+        let Some(quantized_values) = values.create_quantized_values(quantization) else {
             return Err(
                 MeshVertexCompressionError::UnsupportedAttributeForQuantizing {
-                    attr,
-                    provided: values.into(),
+                    attr: *attribute,
+                    provided: (&*values).into(),
                 },
             );
         };
-        attr.format = quantization.vertex_format::<4>();
-        self.insert_attribute(attr, values);
+        attribute.format = quantization.vertex_format::<4>();
+        *values = quantized_values;
         Ok(self)
     }
 
@@ -3011,7 +3017,7 @@ impl MeshDeserializer {
 #[derive(Error, Debug, Clone)]
 pub enum MeshVertexCompressionError {
     #[error("Vertex attribute {0:?} doesn't exist")]
-    MissingAttribute(MeshVertexAttribute),
+    MissingAttribute(MeshVertexAttributeId),
     #[error("Vertex attribute {0:?} must not be empty")]
     EmptyAttribute(MeshVertexAttribute),
     #[error("Vertex attribute {attr:?} must have format {expected:?} before compressing/quantizing, but got {provided:?}")]

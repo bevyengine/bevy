@@ -873,7 +873,8 @@ impl GltfLoader {
                     mesh.compressed_mesh(
                         settings
                             .mesh_compression
-                            .unwrap_or(loader.default_mesh_compression),
+                            .clone()
+                            .unwrap_or(loader.default_mesh_compression.clone()),
                     ),
                 );
                 primitives.push(super::GltfPrimitive::new(
