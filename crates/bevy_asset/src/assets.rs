@@ -733,11 +733,16 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
 /// An error returned when an [`AssetIndex`] has an invalid generation.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum InvalidGenerationError {
+    /// The generation of this [`AssetIndex`] does not match the current generation.
+    /// That means its index entry has been replaced.
     #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
     Occupied {
+        /// The index being looked up.
         index: AssetIndex,
+        /// The generation currently at that index.
         current_generation: u32,
     },
+    /// This index entry has been removed.
     #[error("AssetIndex {index:?} has been removed")]
     Removed { index: AssetIndex },
 }
