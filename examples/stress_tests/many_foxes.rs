@@ -8,7 +8,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     gltf::GltfPlugin,
     light::CascadeShadowConfigBuilder,
-    mesh::MeshAttributeCompressionFlags,
+    mesh::MeshCompressionArgs,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -65,11 +65,10 @@ fn main() {
                     ..default()
                 })
                 .set(GltfPlugin {
-                    mesh_attribute_compression: if args.vertex_compression {
-                        MeshAttributeCompressionFlags::all()
-                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                    mesh_compression: if args.vertex_compression {
+                        MeshCompressionArgs::all()
                     } else {
-                        MeshAttributeCompressionFlags::empty()
+                        MeshCompressionArgs::none()
                     },
                     ..default()
                 }),

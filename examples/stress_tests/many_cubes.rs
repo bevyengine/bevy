@@ -20,7 +20,7 @@ use bevy::{
         ops::{cbrt, sqrt},
         DVec2, DVec3,
     },
-    mesh::MeshAttributeCompressionFlags,
+    mesh::MeshCompressionArgs,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     render::{
@@ -431,11 +431,7 @@ fn init_materials(
 
 fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
     if args.vertex_compression {
-        mesh.into().compressed_mesh(
-            MeshAttributeCompressionFlags::all()
-                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16),
-            true,
-        )
+        mesh.into().compressed_mesh(MeshCompressionArgs::all())
     } else {
         mesh.into()
     }
