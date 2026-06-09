@@ -119,6 +119,8 @@ pub struct MouseMotion {
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
+///
+/// To convert this value to the other unit use the [`Resource`] [`MouseScrollPixelsPerLine`]
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -144,6 +146,11 @@ pub enum MouseScrollUnit {
 }
 
 /// Describes the quantity of [`MouseScrollUnit::Pixel`]s per [`MouseScrollUnit::Line`]
+///
+/// Different platforms sometimes have different ratios between mouse scroll in pixels and mouse
+/// scroll in lines. Currently you have to set the values for different platforms yourself, although
+/// in future this will be handled automatically. The default of 100.0 pixels per line is a best
+/// guess of what it may be on your platform.
 #[derive(Debug, Clone, Copy, PartialEq, Resource, Deref, DerefMut)]
 #[cfg_attr(
     feature = "bevy_reflect",
