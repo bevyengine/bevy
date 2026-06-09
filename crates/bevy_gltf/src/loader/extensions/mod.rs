@@ -25,10 +25,8 @@ use {bevy_animation::AnimationClip, bevy_platform::collections::HashSet};
 use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
-    khr_materials_anisotropy::AnisotropyExtension,
-    khr_materials_clearcoat::ClearcoatExtension,
-    khr_materials_dispersion::DispersionExtension,
-    khr_materials_specular::SpecularExtension,
+    khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
+    khr_materials_dispersion::DispersionExtension, khr_materials_specular::SpecularExtension,
 };
 
 /// Stores the `ErasedGltfExtensionHandler` implementations so that they
