@@ -1363,6 +1363,12 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
+    ///
+    /// Note: Exclusive fullscreen is not available on all platforms (for example
+    /// Wayland does not expose video mode switching to clients). When the selected
+    /// monitor or video mode cannot be resolved, the window falls back to
+    /// [`WindowMode::BorderlessFullscreen`] on the same monitor selection and a
+    /// warning is logged.
     Fullscreen(MonitorSelection, VideoModeSelection),
 }
 

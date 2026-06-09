@@ -6,10 +6,10 @@
     pbr_functions,
     rgb9e5,
     mesh_view_bindings::view,
-    utils::{octahedral_encode, octahedral_decode},
     prepass_io::FragmentOutput,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
+#import bevy_render::utils::{octahedral_encode, octahedral_decode}
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput

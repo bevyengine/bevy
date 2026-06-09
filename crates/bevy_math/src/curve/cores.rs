@@ -367,7 +367,7 @@ impl<T> UnevenCore<T> {
         timed_samples
             // Using `total_cmp` is fine because no NANs remain and because deduplication uses
             // `PartialEq` anyway (so -0.0 and 0.0 will be considered equal later regardless).
-            .sort_by(|(t0, _), (t1, _)| t0.total_cmp(t1));
+            .sort_unstable_by(|(t0, _), (t1, _)| t0.total_cmp(t1));
         timed_samples.dedup_by_key(|(t, _)| *t);
 
         if timed_samples.len() < 2 {
@@ -448,7 +448,7 @@ impl<T> UnevenCore<T> {
             .map(f)
             .zip(self.samples)
             .collect_vec();
-        timed_samples.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        timed_samples.sort_unstable_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
         timed_samples.dedup_by_key(|(t, _)| *t);
         (self.times, self.samples) = timed_samples.into_iter().unzip();
         self
@@ -589,7 +589,7 @@ impl<T> ChunkedUnevenCore<T> {
             });
         }
 
-        if values.len() % times.len() != 0 {
+        if !values.len().is_multiple_of(times.len()) {
             return Err(ChunkedUnevenCoreError::NonDivisibleLengths {
                 values_len: values.len(),
                 times_len: times.len(),

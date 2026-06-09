@@ -613,6 +613,7 @@ pub mod set;
 pub mod structs;
 pub mod tuple;
 pub mod tuple_struct;
+mod type_data;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -683,6 +684,7 @@ pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
+pub use type_data::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
@@ -709,6 +711,7 @@ pub mod __macro_exports {
         pub use ::alloc::{
             borrow::{Cow, ToOwned},
             boxed::Box,
+            format,
             string::ToString,
         };
     }
@@ -4040,6 +4043,43 @@ bevy_reflect::tests::Test {
         assert_eq!(point, Point(external_crate::Vector2([1, 2])));
     }
 
+    #[test]
+    fn should_register_fully_qualified_type_data() {
+        mod foo {
+            pub mod bar {
+                use crate::CreateTypeData;
+
+                #[derive(Clone)]
+                pub struct ReflectBaz;
+
+                impl<T> CreateTypeData<T> for ReflectBaz {
+                    fn create_type_data(_: ()) -> Self {
+                        Self
+                    }
+                }
+            }
+        }
+
+        #[derive(Reflect)]
+        #[reflect(foo::bar::Baz)]
+        struct AutoPrefix;
+
+        #[derive(Reflect)]
+        #[reflect(foo::bar::ReflectBaz)]
+        struct ManualPrefix;
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<AutoPrefix>();
+        registry.register::<ManualPrefix>();
+
+        assert!(registry
+            .get_type_data::<foo::bar::ReflectBaz>(TypeId::of::<AutoPrefix>())
+            .is_some());
+        assert!(registry
+            .get_type_data::<foo::bar::ReflectBaz>(TypeId::of::<ManualPrefix>())
+            .is_some());
+    }
+
     #[cfg(feature = "auto_register")]
     mod auto_register_reflect {
         use super::*;
@@ -4118,8 +4158,8 @@ bevy_reflect::tests::Test {
             #[derive(Clone)]
             struct ReflectA;
 
-            impl<T> FromType<T> for ReflectA {
-                fn from_type() -> Self {
+            impl<T> CreateTypeData<T> for ReflectA {
+                fn create_type_data(_input: ()) -> Self {
                     ReflectA
                 }
 

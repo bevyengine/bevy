@@ -123,6 +123,8 @@ pub struct EnvironmentMapLight {
     /// World space rotation applied to the environment light cubemaps.
     /// This is useful for users who require a different axis, such as the Z-axis, to serve
     /// as the vertical axis.
+    ///
+    /// Note: This only has an effect if attached to a view.
     pub rotation: Quat,
 
     /// Whether the light from this environment map contributes diffuse lighting
