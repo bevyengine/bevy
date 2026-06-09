@@ -271,15 +271,14 @@ pub struct Mesh {
 }
 
 /// Quantization arguments of the mesh.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct MeshAttributeQuantization {
-    pub color: Option<AttributeQuantization>,
-    pub joint_weight: Option<AttributeQuantization>,
+    pub attributes: alloc::borrow::Cow<'static, [(MeshVertexAttribute, AttributeQuantization)]>,
 }
 
 /// Mesh compression arguments used in [`Mesh::compressed_mesh`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct MeshCompressionArgs {
     /// Whether to compress indices to [`Indices::U16`] when possible.
@@ -293,25 +292,27 @@ pub struct MeshCompressionArgs {
 
 impl MeshCompressionArgs {
     /// None of compression/quantization is enabled.
-    pub const fn none() -> Self {
+    pub fn none() -> Self {
         Self {
             compress_indices: false,
             quantize_attributes: MeshAttributeQuantization {
-                color: None,
-                joint_weight: None,
+                attributes: (&[]).into(),
             },
             compress_attributes: MeshAttributeCompressionFlags::empty(),
         }
     }
 
     /// All compression is enabled, with colors quantized to unorm8 and joint weights quantized to unorm16.
-    pub const fn all() -> Self {
+    pub fn all() -> Self {
         Self {
             compress_indices: true,
             quantize_attributes: MeshAttributeQuantization {
-                // Unorm8 is chosen by default, as glTF vertex color is unorm8/unorm16 and HDR vertex color isn't common.
-                color: Some(AttributeQuantization::Unorm8),
-                joint_weight: Some(AttributeQuantization::Unorm16),
+                attributes: (&[
+                    // Unorm8 is chosen by default, as glTF vertex color is unorm8/unorm16 and HDR vertex color isn't common.
+                    (Mesh::ATTRIBUTE_COLOR, AttributeQuantization::Unorm8),
+                    (Mesh::ATTRIBUTE_JOINT_WEIGHT, AttributeQuantization::Unorm16),
+                ])
+                    .into(),
             },
             compress_attributes: MeshAttributeCompressionFlags::all(),
         }
@@ -1061,11 +1062,13 @@ impl Mesh {
             return Err(MeshVertexCompressionError::EmptyAttribute(attr));
         }
         let Some(aabb) = Self::compute_aabb(values) else {
-            return Err(MeshVertexCompressionError::UnmatchedAttributeFormat {
-                attr,
-                expected: attr.format,
-                provided: values.into(),
-            });
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected: attr.format,
+                    provided: values.into(),
+                },
+            );
         };
         attr.format = VertexFormat::Snorm16x4;
         self.insert_attribute(attr, values.create_compressed_positions(aabb).unwrap());
@@ -1086,11 +1089,13 @@ impl Mesh {
             return Err(MeshVertexCompressionError::EmptyAttribute(attr));
         }
         let Some(uv_range) = Self::compute_uv_range(values) else {
-            return Err(MeshVertexCompressionError::UnmatchedAttributeFormat {
-                attr,
-                expected: attr.format,
-                provided: values.into(),
-            });
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected: attr.format,
+                    provided: values.into(),
+                },
+            );
         };
         attr.format = VertexFormat::Unorm16x2;
         self.insert_attribute(attr, values.create_compressed_uvs(uv_range).unwrap());
@@ -1125,11 +1130,13 @@ impl Mesh {
         };
         attr.format = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_normals() else {
-            return Err(MeshVertexCompressionError::UnmatchedAttributeFormat {
-                attr,
-                expected: attr.format,
-                provided: values.into(),
-            });
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected: attr.format,
+                    provided: values.into(),
+                },
+            );
         };
         self.insert_attribute(attr, values);
         self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_NORMAL;
@@ -1145,14 +1152,38 @@ impl Mesh {
         };
         attr.format = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_tangents() else {
-            return Err(MeshVertexCompressionError::UnmatchedAttributeFormat {
-                attr,
-                expected: attr.format,
-                provided: values.into(),
-            });
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected: attr.format,
+                    provided: values.into(),
+                },
+            );
         };
         self.insert_attribute(attr, values);
         self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_TANGENT;
+        Ok(self)
+    }
+
+    /// Quantize `Float32`, `Float32x2` or `Float32x4` vertex attribute to the type of `quantization`.
+    pub fn quantize_float32_attribute(
+        &mut self,
+        mut attr: MeshVertexAttribute,
+        quantization: AttributeQuantization,
+    ) -> Result<&mut Mesh, MeshVertexCompressionError> {
+        let Some(values) = self.attribute(attr) else {
+            return Err(MeshVertexCompressionError::MissingAttribute(attr));
+        };
+        let Some(values) = values.create_quantized_values(quantization) else {
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForQuantizing {
+                    attr,
+                    provided: values.into(),
+                },
+            );
+        };
+        attr.format = quantization.vertex_format::<4>();
+        self.insert_attribute(attr, values);
         Ok(self)
     }
 
@@ -1162,20 +1193,7 @@ impl Mesh {
         &mut self,
         quantization: AttributeQuantization,
     ) -> Result<&mut Mesh, MeshVertexCompressionError> {
-        let mut attr = Mesh::ATTRIBUTE_COLOR;
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
-        };
-        let Some(values) = values.create_quantized_values(quantization) else {
-            return Err(MeshVertexCompressionError::UnmatchedAttributeFormat {
-                attr,
-                expected: attr.format,
-                provided: values.into(),
-            });
-        };
-        attr.format = quantization.vertex_format::<4>();
-        self.insert_attribute(attr, values);
-        Ok(self)
+        self.quantize_float32_attribute(Mesh::ATTRIBUTE_COLOR, quantization)
     }
 
     /// Quantize `Float32x4` joint weights to the type of `quantization`.
@@ -1184,20 +1202,7 @@ impl Mesh {
         &mut self,
         quantization: AttributeQuantization,
     ) -> Result<&mut Mesh, MeshVertexCompressionError> {
-        let mut attr = Mesh::ATTRIBUTE_JOINT_WEIGHT;
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr));
-        };
-        let Some(values) = values.create_quantized_values(quantization) else {
-            return Err(MeshVertexCompressionError::UnmatchedAttributeFormat {
-                attr,
-                expected: attr.format,
-                provided: values.into(),
-            });
-        };
-        attr.format = quantization.vertex_format::<4>();
-        self.insert_attribute(attr, values);
-        Ok(self)
+        self.quantize_float32_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, quantization)
     }
 
     /// If indices are u32 and vertex count <= 65535, indices will be converted to u16, otherwise this does nothing.
@@ -1249,11 +1254,8 @@ impl Mesh {
         {
             let _ = self.compress_uv1();
         }
-        if let Some(quantization) = args.quantize_attributes.color {
-            let _ = self.quantize_colors(quantization);
-        }
-        if let Some(quantization) = args.quantize_attributes.joint_weight {
-            let _ = self.quantize_joint_weights(quantization);
+        for (attr, quantization) in args.quantize_attributes.attributes.iter().copied() {
+            let _ = self.quantize_float32_attribute(attr, quantization);
         }
         if args.compress_indices {
             self.compress_indices();
@@ -3013,9 +3015,14 @@ pub enum MeshVertexCompressionError {
     #[error("Vertex attribute {0:?} must not be empty")]
     EmptyAttribute(MeshVertexAttribute),
     #[error("Vertex attribute {attr:?} must have format {expected:?} before compressing/quantizing, but got {provided:?}")]
-    UnmatchedAttributeFormat {
+    UnsupportedAttributeForCompression {
         attr: MeshVertexAttribute,
         expected: VertexFormat,
+        provided: VertexFormat,
+    },
+    #[error("Vertex attribute {attr:?} must have format `Float32`, `Float32x2` or `Float32x4` before quantizing, but got {provided:?}")]
+    UnsupportedAttributeForQuantizing {
+        attr: MeshVertexAttribute,
         provided: VertexFormat,
     },
 }
