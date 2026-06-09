@@ -24,6 +24,8 @@ use bevy_text::ComputedTextBlock;
 
 use bevy_text::FontCx;
 
+use bevy_log::warn;
+
 mod convert;
 pub mod debug;
 pub mod ui_surface;
@@ -208,7 +210,10 @@ pub fn ui_layout_system(
             ui_root_entity,
         );
 
-        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
+        let Ok((_, _, _, computed_target)) = node_query.get(ui_root_entity) else {
+            warn!("UI root {ui_root_entity} not found");
+            continue;
+        };
 
         ui_surface.compute_layout(
             ui_root_entity,

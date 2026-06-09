@@ -3,6 +3,8 @@ flowchart LR
     lRGB(<a href='https://en.wikipedia.org/wiki/Rgb'>Linear<br/>sRGB</a>)
     Oklab(<a href='https://oklch.com/'>Oklab</a>)
     Oklch(<a href='https://oklch.com/'>Oklch</a>)
+    Okhsl(<a href='https://bottosson.github.io/posts/colorpicker'>Okhsl</a>)
+    Okhsv(<a href='https://bottosson.github.io/posts/colorpicker'>Okhsv</a>)
     XYZ(<a href='https://en.wikipedia.org/wiki/XYZ_color'>XYZ</a>)
     Lab(<a href='https://en.wikipedia.org/wiki/Lab_color'>Lab</a>)
     Lch(<a href='https://en.wikipedia.org/wiki/CIELAB_color_space#Cylindrical_model'>Lch</a>)
@@ -13,6 +15,8 @@ flowchart LR
     GPU <--> lRGB
     lRGB <--<a href='https://bottosson.github.io/posts/oklab/#converting-from-linear-srgb-to-oklab'>Conversion</a>--> Oklab
     Oklab <--<a href='https://bottosson.github.io/posts/oklab/#the-oklab-color-space'>Conversion</a>--> Oklch
+    Oklab <--<a href='https://bottosson.github.io/posts/colorpicker'>Conversion</a>--> Okhsl
+    Oklab <--<a href='https://bottosson.github.io/posts/colorpicker'>Conversion</a>--> Okhsv
     lRGB <--<a href='http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html'>Conversion</a>--> XYZ
     XYZ <--<a href='http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_Lab.html'>Conversion</a>--> Lab
     Lab <--<a href='http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html'>Conversion</a>--> Lch

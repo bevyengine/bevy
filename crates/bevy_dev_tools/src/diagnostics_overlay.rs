@@ -90,7 +90,7 @@ impl DiagnosticsOverlay {
         }
     }
 
-    /// Create a [`DiagnosticsOverlay`] with the diagnostcs from [`FrameTimeDiagnosticsPlugin`]
+    /// Create a [`DiagnosticsOverlay`] with the diagnostics from [`FrameTimeDiagnosticsPlugin`]
     pub fn fps() -> Self {
         Self {
             title: Cow::Owned("Fps".to_owned()),
