@@ -658,7 +658,7 @@ impl<T> ChunkedUnevenCore<T> {
 fn filter_sort_dedup_times(times: impl IntoIterator<Item = f32>) -> Vec<f32> {
     // Filter before sorting/deduplication so that NAN doesn't interfere with them.
     let mut times = times.into_iter().filter(|t| t.is_finite()).collect_vec();
-    times.sort_by(f32::total_cmp);
+    times.sort_unstable_by(f32::total_cmp);
     times.dedup();
     times
 }
