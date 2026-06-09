@@ -465,6 +465,7 @@ pub trait AsAssetId: Component {
 ///
 /// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
+    /// Apply the `visit` closure to every asset dependency.
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
 

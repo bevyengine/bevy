@@ -19,10 +19,11 @@ use bevy::{
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
-    ui::{Checked, InteractionDisabled},
+    ui::{Checked, InteractionDisabled, Selected},
     ui_widgets::{
-        checkbox_self_update, radio_self_update, slider_self_update, Activate, ActivateOnPress,
-        RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
+        checkbox_self_update, listbox_update_selection, radio_self_update, slider_self_update,
+        Activate, ActivateOnPress, RadioGroup, RequestClose, SliderPrecision, SliderStep,
+        SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -259,16 +260,40 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
-                @FeathersButton
-                on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
-                    ovr.0 = if ovr.0.is_some() {
-                        None
-                    } else {
-                        Some(EntityCursor::System(SystemCursorIcon::Wait))
-                    };
-                    info!("Override cursor button clicked!");
-                })
-                Children [ (Text("Toggle override") ThemedText) ]
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
+                }
+                Children [
+                    (
+                        @FeathersButton {
+                            @caption: bsn! { Text("Toggle override") ThemedText },
+                        }
+                        Node {
+                            flex_grow: 1.0,
+                        }
+                        on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                            ovr.0 = if ovr.0.is_some() {
+                                None
+                            } else {
+                                Some(EntityCursor::System(SystemCursorIcon::Wait))
+                            };
+                            info!("Override cursor button clicked!");
+                        })
+                    ),
+                    (
+                        @FeathersButton {
+                            @caption: bsn! { Text("Quit\u{2026}") ThemedText },
+                        }
+                        Node {
+                            flex_grow: 1.0,
+                        }
+                        on(spawn_quit_dialog)
+                    ),
+                ]
             ),
             (
                 @FeathersCheckbox {
@@ -551,37 +576,31 @@ fn demo_column_2() -> impl Scene {
                     pane_header() Children [
                         @FeathersToolButton {
                             @variant: ButtonVariant::Primary,
-                        } Children [
-                            (Text("\u{0398}") ThemedText)
-                        ],
+                            @caption: bsn! { Text("\u{0398}") ThemedText }
+                        },
                         pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                        } Children [
-                            (Text("\u{00BC}") ThemedText)
-                        ],
+                            @caption: bsn! { Text("\u{00BC}") ThemedText }
+                        },
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                        } Children [
-                            (Text("\u{00BD}") ThemedText)
-                        ],
+                            @caption: bsn! { Text("\u{00BD}") ThemedText }
+                        },
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                        } Children [
-                            (Text("\u{00BE}") ThemedText)
-                        ],
+                            @caption: bsn! { Text("\u{00BE}") ThemedText }
+                        },
                         pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                        } Children [
-                            icon(icons::CHEVRON_DOWN)
-                        ],
+                            @caption: bsn! { icon(icons::CHEVRON_DOWN) }
+                        },
                         flex_spacer(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                        } Children [
-                            icon(icons::X)
-                        ],
+                            @caption: bsn! { icon(icons::X) }
+                        },
                     ],
                     (
                         pane_body() Children [
@@ -704,6 +723,33 @@ fn demo_column_2() -> impl Scene {
                     ),
                 ]
             ),
+            subpane() Children [
+                subpane_header() Children [
+                    (Text("List") ThemedText),
+                ],
+                subpane_body() Children [
+                    @FeathersListView {
+                        @rows: {bsn_list![
+                            @FeathersListRow Children [(Text("First World") ThemedText)],
+                            @FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
+                            @FeathersListRow Children [(Text("Third Degree") ThemedText)],
+                            @FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
+                            @FeathersListRow Children [(Text("Fifth Column") ThemedText)],
+                            @FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
+                            @FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
+                            @FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
+                            @FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
+                            @FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
+                            @FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
+                            @FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
+                        ]}
+                    }
+                    Node {
+                        max_height: px(130)
+                    }
+                    on(listbox_update_selection)
+                ],
+            ]
         ]
     }
 }
@@ -821,4 +867,49 @@ fn handle_hex_color_change(
     {
         colors.rgb_color = color;
     }
+}
+
+fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
+    commands
+        .entity(activate.event_target())
+        .queue_spawn_related_scenes::<Children>(bsn_list! (
+            @FeathersDialog {
+                @width: px(320),
+                @contents: bsn_list! {
+                    @FeathersDialogHeader Children [
+                        Text("Quit Feathers Gallery") ThemedText,
+                        @FeathersDialogClose
+                    ],
+                    @FeathersDialogBody Children [
+                        Text("Are you really sure you want to quit? I mean, really, really sure?")
+                        ThemedText
+                    ],
+                    @FeathersDialogFooter Children [
+                        (
+                            @FeathersButton {
+                                @caption: bsn! { Text("Cancel") ThemedText },
+                            }
+                            AccessibleLabel("Cancel")
+                            on(|activate: On<Activate>, mut commands: Commands| {
+                                commands.trigger(RequestClose { source: activate.event_target() });
+                            })
+                        ),
+                        (
+                            @FeathersButton {
+                                @caption: bsn! { Text("Exit Application") ThemedText },
+                                @variant: ButtonVariant::Primary,
+                            }
+                            AccessibleLabel("Exit Application")
+                            on(|_activate: On<Activate>, mut exit: MessageWriter<AppExit>| {
+                                exit.write(AppExit::Success);
+                            })
+                        ),
+
+                    ],
+                }
+            }
+            on(|close: On<RequestClose>, mut commands: Commands| {
+                commands.entity(close.event_target()).despawn();
+            })
+        ));
 }
