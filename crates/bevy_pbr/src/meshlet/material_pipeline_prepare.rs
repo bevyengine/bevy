@@ -219,6 +219,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                         shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                         shader_defs: shader_defs.clone(),
                         entry_point: material_pipeline_descriptor.vertex.entry_point,
+                        constants: material_pipeline_descriptor.vertex.constants,
                         buffers: Vec::new(),
                     },
                     primitive: PrimitiveState::default(),
@@ -238,6 +239,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                         shader_defs,
                         entry_point: material_fragment.entry_point,
                         targets: material_fragment.targets,
+                        constants: material_fragment.constants,
                     }),
                     zero_initialize_workgroup_memory: false,
                 };
@@ -413,6 +415,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
                         shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                         shader_defs: shader_defs.clone(),
                         entry_point: material_pipeline_descriptor.vertex.entry_point,
+                        constants: material_pipeline_descriptor.vertex.constants,
                         ..default()
                     },
                     primitive: PrimitiveState::default(),
@@ -428,6 +431,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
                         shader_defs,
                         entry_point,
                         targets: material_fragment.targets,
+                        constants: material_fragment.constants,
                     }),
                     ..default()
                 };
