@@ -76,7 +76,7 @@ wgpu-types = { version = "29.0.3", default-features = false, features = [
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 futures-lite = "2.0.1"
-guillotiere = "0.6.0"
+guillotiere = "0.7.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.5.0", optional = true }
