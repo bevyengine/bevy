@@ -1756,7 +1756,7 @@ mod tests {
                 AnimationTargetId::from_names(name_path.iter()),
                 "{:?} {:?}",
                 str_path,
-                &name_path
+                name_path
             );
         }
     }

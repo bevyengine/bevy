@@ -440,8 +440,8 @@ impl ViewClusteringReadbackData {
     }
 }
 
-/// Decodes a u32 produced by `f32_bits_to_sortable_u32` (in
-/// `cluster_z_slice.wgsl`) back into f32 bits.
+/// Decodes a `u32` produced by `f32_bits_to_sortable_u32` (in
+/// `cluster_z_slice.wgsl`) back into `f32` bits.
 ///
 /// The encode flips the sign bit for positive floats and all bits for
 /// negative floats, so the decode must inspect the *encoded* sign bit
@@ -612,6 +612,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
                         shader_location: 0,
                     }],
                 }],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -623,6 +624,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
                     // Disable writing.
                     write_mask: ColorWrites::empty(),
                 })],
+                constants: vec![],
             }),
             ..default()
         }

@@ -4043,6 +4043,43 @@ bevy_reflect::tests::Test {
         assert_eq!(point, Point(external_crate::Vector2([1, 2])));
     }
 
+    #[test]
+    fn should_register_fully_qualified_type_data() {
+        mod foo {
+            pub mod bar {
+                use crate::CreateTypeData;
+
+                #[derive(Clone)]
+                pub struct ReflectBaz;
+
+                impl<T> CreateTypeData<T> for ReflectBaz {
+                    fn create_type_data(_: ()) -> Self {
+                        Self
+                    }
+                }
+            }
+        }
+
+        #[derive(Reflect)]
+        #[reflect(foo::bar::Baz)]
+        struct AutoPrefix;
+
+        #[derive(Reflect)]
+        #[reflect(foo::bar::ReflectBaz)]
+        struct ManualPrefix;
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<AutoPrefix>();
+        registry.register::<ManualPrefix>();
+
+        assert!(registry
+            .get_type_data::<foo::bar::ReflectBaz>(TypeId::of::<AutoPrefix>())
+            .is_some());
+        assert!(registry
+            .get_type_data::<foo::bar::ReflectBaz>(TypeId::of::<ManualPrefix>())
+            .is_some());
+    }
+
     #[cfg(feature = "auto_register")]
     mod auto_register_reflect {
         use super::*;

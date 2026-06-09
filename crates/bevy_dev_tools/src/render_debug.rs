@@ -519,6 +519,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             primitive: bevy_render::render_resource::PrimitiveState::default(),
             depth_stencil: None,

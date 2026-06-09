@@ -71,7 +71,9 @@ ref_as_ptr = "warn"
 # see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
 too_long_first_doc_paragraph = "allow"
 
-std_instead_of_core = "warn"
+# currently falsely fires on std::io, even tho core::io is unstable
+# https://github.com/rust-lang/rust-clippy/issues/13158#issuecomment-4373196346
+std_instead_of_core = "allow"
 std_instead_of_alloc = "warn"
 alloc_instead_of_core = "warn"
 
@@ -261,7 +263,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# COLLECTION: Recommended defaults for no_std applications.
+# COLLECTION: Recommended defaults for `no_std` applications.
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -273,7 +275,7 @@ sprite_picking = ["bevy_internal/sprite_picking"]
 # Provides an implementation for picking UI
 ui_picking = ["bevy_internal/ui_picking"]
 
-# Provides a debug overlay for bevy UI
+# Provides a debug overlay for Bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 
 # Force dynamic linking, which improves iterative compile times
@@ -300,7 +302,7 @@ bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 # Provides post process effects such as depth of field, bloom, chromatic aberration.
 bevy_post_process = ["bevy_internal/bevy_post_process"]
 
-# Provides various anti aliasing solutions
+# Provides various anti-aliasing solutions
 bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
@@ -496,7 +498,7 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
+# For KTX2 Zstandard decompression using pure Rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
 zstd_rust = ["bevy_internal/zstd_rust"]
 
 # For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
@@ -583,7 +585,7 @@ area_light_luts = ["bevy_internal/area_light_luts"]
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_internal/dlss"]
 
-# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+# Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
@@ -669,7 +671,7 @@ schedule_data = ["bevy_internal/schedule_data"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
-# Enables processing meshes into meshlet meshes for bevy_pbr
+# Enables processing meshes into meshlet meshes for `bevy_pbr`
 meshlet_processor = ["bevy_internal/meshlet_processor"]
 
 # Enable built in global state machines
@@ -681,7 +683,7 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
-# Enables bevy_reflect to access documentation comments of rust code at runtime
+# Enables `bevy_reflect` to access documentation comments of Rust code at runtime
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration
@@ -3121,6 +3123,17 @@ doc-scrape-examples = true
 [package.metadata.example.shader_defs]
 name = "Shader Defs"
 description = "A shader that uses \"shaders defs\" (a bevy tool to selectively toggle parts of a shader)"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "pipeline_constants"
+path = "examples/shader/pipeline_constants.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pipeline_constants]
+name = "Pipeline Constants"
+description = "Demonstrates pipeline-overridable constants (WGSL `override`) by compiling the same shader into multiple variants with different posterization levels"
 category = "Shaders"
 wasm = true
 

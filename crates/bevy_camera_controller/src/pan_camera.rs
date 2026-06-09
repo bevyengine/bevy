@@ -9,7 +9,7 @@ use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
-use bevy_input::mouse::{AccumulatedMouseScroll, MouseButton, MouseScrollUnit};
+use bevy_input::mouse::{AccumulatedMouseScroll, MouseButton, MouseScrollPixelsPerLine};
 use bevy_input::ButtonInput;
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer};
@@ -167,6 +167,7 @@ fn run_pancamera_controller(
     time: Res<Time<Real>>,
     key_input: Res<ButtonInput<KeyCode>>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+    mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
     mut query: Query<(&mut Transform, &mut PanCamera), With<Camera>>,
 ) {
     let dt = time.delta_secs();
@@ -240,12 +241,10 @@ fn run_pancamera_controller(
     }
 
     // (with mouse wheel)
-    let mouse_scroll = match accumulated_mouse_scroll.unit {
-        MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
-        MouseScrollUnit::Pixel => {
-            accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
-        }
-    };
+    let mouse_scroll = accumulated_mouse_scroll
+        .to_lines(&mouse_scroll_conversion)
+        .delta
+        .y;
     zoom_amount += mouse_scroll * controller.zoom_speed;
 
     controller.zoom_factor =

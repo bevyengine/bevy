@@ -90,7 +90,7 @@ impl DiagnosticsOverlay {
         }
     }
 
-    /// Create a [`DiagnosticsOverlay`] with the diagnostcs from [`FrameTimeDiagnosticsPlugin`]
+    /// Create a [`DiagnosticsOverlay`] with the diagnostics from [`FrameTimeDiagnosticsPlugin`]
     pub fn fps() -> Self {
         Self {
             title: Cow::Owned("Fps".to_owned()),
@@ -153,7 +153,7 @@ impl DiagnosticsOverlay {
 ///
 /// Initially the [`DiagnosticsOverlayPlane`] will be positioned at the
 /// [`GlobalZIndex`] of [`INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX`].
-/// You are free to edit the z index of the plane or have your ui hierarchies
+/// You are free to edit the z index of the plane or have your UI hierarchies
 /// be relative to it.
 #[derive(Component)]
 pub struct DiagnosticsOverlayPlane;

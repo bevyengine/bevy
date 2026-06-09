@@ -423,7 +423,7 @@ pub(crate) const fn align_byte_size(value: u32) -> u32 {
     RenderDevice::align_copy_bytes_per_row(value as usize) as u32
 }
 
-/// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+/// Get the size of an image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
 pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
     extent.height * align_byte_size(extent.width * pixel_size) * extent.depth_or_array_layers
 }

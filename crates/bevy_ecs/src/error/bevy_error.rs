@@ -87,6 +87,31 @@ impl BevyError {
         Self::from(error).with_severity(severity)
     }
 
+    /// Constructs a new [`BevyError`] with the given [`Severity`].
+    ///
+    /// Like [`BevyError::new`], but if the `backtrace` cargo feature is enabled
+    /// it will use the supplied backtrace instead of capturing a new one.
+    #[cfg(feature = "std")]
+    pub fn new_with_backtrace<E>(
+        severity: Severity,
+        error: E,
+        backtrace: std::backtrace::Backtrace,
+    ) -> Self
+    where
+        Box<dyn Error + Sync + Send>: From<E>,
+    {
+        #[cfg(not(feature = "backtrace"))]
+        drop(backtrace);
+        BevyError {
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
+                severity,
+                #[cfg(feature = "backtrace")]
+                backtrace,
+            }),
+        }
+    }
+
     /// Creates a new [`BevyError`] with the [`Severity::Ignore`] severity.
     ///
     /// This is a shorthand for <code>[BevyError::new(Severity::Ignore, error)](BevyError::new)</code>.
@@ -224,7 +249,7 @@ impl BevyError {
 }
 
 /// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// a "fat pointer", which reduces the size of our `Result` by a `usize`. This does introduce an extra indirection, but error handling is a "cold path".
 /// We don't need to optimize it to that degree.
 /// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but that's not a huge priority right now and the code simplicity
 /// of the current impl is nice.
@@ -286,7 +311,7 @@ impl BevyError {
 }
 
 /// Extension methods for annotating errors with a [`Severity`].
-pub trait ResultSeverityExt<T, E> {
+pub trait ResultSeverityExt<T, E>: Sized {
     /// Overrides the [`Severity`] of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
@@ -302,7 +327,7 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// For more fine grained control see [`Result::map_severity`]
+    /// For more fine grained control see [`Result::map_severity`](ResultSeverityExt::map_severity)
     fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
 
     /// Overrides the [`Severity`] of the error if this result is `Err`.
@@ -335,8 +360,50 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// If you don't need to inspect the error, use [`Result::with_severity`]
+    /// If you don't need to inspect the error, use [`Result::with_severity`](ResultSeverityExt::with_severity)
     fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
+
+    /// Overrides the severity of the error with [`Severity::Ignore`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Ignore)`
+    fn ignore(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Ignore)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Trace`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Trace)`
+    fn trace(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Trace)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Info`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Info)`
+    fn info(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Info)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Warning`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Warning)`
+    fn warn(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Warning)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Error`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Error)`
+    fn error(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Error)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Panic`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Panic)`
+    fn panic(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Panic)
+    }
 }
 
 impl<T, E> ResultSeverityExt<T, E> for Result<T, E>
@@ -406,9 +473,7 @@ pub fn bevy_error_panic_hook(
 ) -> impl Fn(&std::panic::PanicHookInfo) {
     move |info| {
         if SKIP_NORMAL_BACKTRACE.replace(false) {
-            if let Some(payload) = info.payload().downcast_ref::<&str>() {
-                std::println!("{payload}");
-            } else if let Some(payload) = info.payload().downcast_ref::<alloc::string::String>() {
+            if let Some(payload) = info.payload_as_str() {
                 std::println!("{payload}");
             }
             return;
