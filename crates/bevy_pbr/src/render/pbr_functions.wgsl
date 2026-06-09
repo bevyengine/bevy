@@ -247,8 +247,9 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     // The `KHR_materials_anisotropy` spec states:
     //
     // > This heuristic can probably be improved upon
-    let a = pow(2.0, pow(2.0, 1.0 - anisotropy * (1.0 - roughness)));
-    bent_normal = normalize(mix(bent_normal, N, a));
+    let bendFactor = 1.0 - anisotropy * (1.0 - roughness);
+    let bendFactorPow4 = bendFactor * bendFactor * bendFactor * bendFactor;
+    bent_normal = normalize(mix(bent_normal, N, bendFactorPow4));
 
     // The `KHR_materials_anisotropy` spec states:
     //
