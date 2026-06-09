@@ -763,7 +763,7 @@ fn apply_pbr_lighting(
     // If we are lightmapped, disable the ambient contribution if requested.
     // This is to avoid double-counting ambient light. (It might be part of the lightmap)
 #ifdef LIGHTMAP
-    let enable_ambient = view_bindings::lights.ambient_light_affects_lightmapped_meshes != 0u;
+    let enable_ambient = (view_bindings::lights.ambient_light_flags & mesh_view_types::AMBIENT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT) != 0u;
 #else   // LIGHTMAP
     let enable_ambient = true;
 #endif  // LIGHTMAP
