@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_cfg))]
+﻿#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -103,7 +103,7 @@
 //! | `KHR_lights_punctual`             | ✅        |                                     |
 //! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
 //! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
-//! | `KHR_materials_dispersion`        | ❌        |                                     |
+//! | `KHR_materials_dispersion`        | ✅        |                                     |
 //! | `KHR_materials_emissive_strength` | ✅        |                                     |
 //! | `KHR_materials_ior`               | ✅        |                                     |
 //! | `KHR_materials_iridescence`       | ❌        |                                     |

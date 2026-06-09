@@ -850,7 +850,7 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
 
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
-    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
+    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, in.material.dispersion, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
     if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u
         && in.material.attenuation_distance != 0.0 {
