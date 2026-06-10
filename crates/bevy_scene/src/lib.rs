@@ -2855,7 +2855,7 @@ mod tests {
         struct Foo {
             value: usize,
         }
-        let value = 10;
+        let value = 10usize;
         let entity = world.spawn_scene(bsn! { Foo { value } }).unwrap();
         assert_eq!(entity.get::<Foo>().unwrap().value, 10);
 
@@ -2878,9 +2878,30 @@ mod tests {
             }
         }
 
-        let value = 10;
+        let value = 10usize;
         let entity = world.spawn_scene(bsn! { @Bar { @value } }).unwrap();
         assert_eq!(entity.get::<Bar>().unwrap().value, 10);
+
+        #[derive(Component, Default, Clone)]
+        struct Baz {
+            value: X,
+        }
+
+        #[derive(Default, Clone)]
+        struct X;
+
+        #[derive(Default, Clone)]
+        struct Y;
+
+        impl Into<X> for Y {
+            fn into(self) -> X {
+                X
+            }
+        }
+
+        let value = Y;
+        // ensure implicit Into works
+        let _ = world.spawn_scene(bsn! { Baz { value } }).unwrap();
     }
 
     #[test]

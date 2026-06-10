@@ -549,7 +549,7 @@ impl BsnType {
             None => {
                 if is_name_shorthand {
                     assignments.push(quote! {
-                        #(#base_path.)*#member = #member;
+                        #(#base_path.)*#member = #member.into();
                     });
                 } else {
                     assignments.push(quote! {
