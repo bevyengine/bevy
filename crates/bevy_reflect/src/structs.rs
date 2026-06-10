@@ -79,7 +79,7 @@ pub trait Struct: PartialReflect {
     /// Creates a new [`DynamicStruct`] from this struct.
     fn to_dynamic_struct(&self) -> DynamicStruct {
         let mut dynamic_struct = DynamicStruct::default();
-        dynamic_struct.set_represented_type(self.get_represented_type_info());
+        dynamic_struct.set_represented_type(self.runtime_type_info());
         for (name, value) in self.iter_fields() {
             dynamic_struct.insert_boxed(name, value.to_dynamic());
         }
@@ -88,7 +88,7 @@ pub trait Struct: PartialReflect {
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
-        self.get_represented_type_info()?.as_struct().ok()
+        self.runtime_type_info()?.as_struct().ok()
     }
 }
 
@@ -761,7 +761,7 @@ where
 pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_struct(
         dyn_struct
-            .get_represented_type_info()
+            .runtime_type_info()
             .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );

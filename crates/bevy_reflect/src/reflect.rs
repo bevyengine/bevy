@@ -502,7 +502,7 @@ impl dyn PartialReflect {
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
-        self.get_represented_type_info()
+        self.runtime_type_info()
             .is_some_and(|t| t.type_path() == T::type_path())
     }
 

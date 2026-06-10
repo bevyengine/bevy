@@ -141,7 +141,7 @@ pub trait Enum: PartialReflect {
     ///
     /// [`TypeInfo`]: crate::TypeInfo
     fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
-        self.get_represented_type_info()?.as_enum().ok()
+        self.runtime_type_info()?.as_enum().ok()
     }
 }
 

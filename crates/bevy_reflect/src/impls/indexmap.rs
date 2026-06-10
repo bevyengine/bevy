@@ -60,7 +60,7 @@ where
 
     fn to_dynamic_map(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
-        dynamic_map.set_represented_type(PartialReflect::get_represented_type_info(self));
+        dynamic_map.set_represented_type(PartialReflect::runtime_type_info(self));
         for (k, v) in self {
             let key = K::from_reflect(k).unwrap_or_else(|| {
                 panic!(

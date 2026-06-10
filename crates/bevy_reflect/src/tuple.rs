@@ -61,14 +61,14 @@ pub trait Tuple: PartialReflect {
     /// Creates a new [`DynamicTuple`] from this tuple.
     fn to_dynamic_tuple(&self) -> DynamicTuple {
         DynamicTuple {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
-        self.get_represented_type_info()?.as_tuple().ok()
+        self.runtime_type_info()?.as_tuple().ok()
     }
 }
 

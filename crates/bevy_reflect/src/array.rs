@@ -74,14 +74,14 @@ pub trait Array: PartialReflect {
     /// Creates a new [`DynamicArray`] from this array.
     fn to_dynamic_array(&self) -> DynamicArray {
         DynamicArray {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             values: self.iter().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
-        self.get_represented_type_info()?.as_array().ok()
+        self.runtime_type_info()?.as_array().ok()
     }
 }
 

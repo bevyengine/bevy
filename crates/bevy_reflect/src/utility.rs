@@ -56,7 +56,7 @@ mod sealed {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError, Type};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -78,7 +78,9 @@ mod sealed {
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// # impl PartialReflect for Foo {
-/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn comptime_type(&self) -> Type { todo!() }
+/// #     fn runtime_type(&self) -> Option<Type> { todo!() }
+/// #     fn runtime_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
 /// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
 /// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
@@ -144,7 +146,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, tuple_struct::TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, tuple_struct::TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo, Type};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -165,7 +167,9 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// # impl<T: PartialReflect + TypePath> PartialReflect for Foo<T> {
-/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn comptime_type(&self) -> Type { todo!() }
+/// #     fn runtime_type(&self) -> Option<Type> { todo!() }
+/// #     fn runtime_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
 /// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
 /// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }

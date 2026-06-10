@@ -44,7 +44,7 @@ macro_rules! impl_reflect_for_hashmap {
 
                 fn to_dynamic_map(&self) -> $crate::map::DynamicMap {
                     let mut dynamic_map = $crate::map::DynamicMap::default();
-                    dynamic_map.set_represented_type($crate::reflect::PartialReflect::get_represented_type_info(self));
+                    dynamic_map.set_represented_type($crate::reflect::PartialReflect::runtime_type_info(self));
                     for (k, v) in self {
                         let key = K::from_reflect(k).unwrap_or_else(|| {
                             panic!(
