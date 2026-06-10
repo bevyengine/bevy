@@ -39,14 +39,20 @@ impl Observers {
     pub(crate) fn get_observers_mut(&mut self, event_key: EventKey) -> &mut CachedObservers {
         use crate::lifecycle::*;
 
-        match event_key {
-            ADD => &mut self.add,
-            INSERT => &mut self.insert,
-            DISCARD => &mut self.discard,
-            REMOVE => &mut self.remove,
-            DESPAWN => &mut self.despawn,
-            _ => self.cache.entry(event_key).or_default(),
+        // We can't use a constant match expression due to Entity having a manual `PartialEq` impl.
+        // see https://doc.rust-lang.org/stable/std/marker/trait.StructuralPartialEq.html
+        if event_key == ADD {
+            return &mut self.add;
+        } else if event_key == INSERT {
+            return &mut self.insert;
+        } else if event_key == DISCARD {
+            return &mut self.discard;
+        } else if event_key == REMOVE {
+            return &mut self.remove;
+        } else if event_key == DESPAWN {
+            return &mut self.despawn;
         }
+        self.cache.entry(event_key).or_default()
     }
 
     /// Attempts to get the observers for the given `event_key`.
@@ -62,27 +68,39 @@ impl Observers {
     pub fn try_get_observers(&self, event_key: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
-        match event_key {
-            ADD => Some(&self.add),
-            INSERT => Some(&self.insert),
-            DISCARD => Some(&self.discard),
-            REMOVE => Some(&self.remove),
-            DESPAWN => Some(&self.despawn),
-            _ => self.cache.get(&event_key),
+        // We can't use a constant match expression due to Entity having a manual `PartialEq` impl.
+        // see https://doc.rust-lang.org/stable/std/marker/trait.StructuralPartialEq.html
+        if event_key == ADD {
+            return Some(&self.add);
+        } else if event_key == INSERT {
+            return Some(&self.insert);
+        } else if event_key == DISCARD {
+            return Some(&self.discard);
+        } else if event_key == REMOVE {
+            return Some(&self.remove);
+        } else if event_key == DESPAWN {
+            return Some(&self.despawn);
         }
+        self.cache.get(&event_key)
     }
 
     pub(crate) fn is_archetype_cached(event_key: EventKey) -> Option<ArchetypeFlags> {
         use crate::lifecycle::*;
 
-        match event_key {
-            ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
-            INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
-            DISCARD => Some(ArchetypeFlags::ON_DISCARD_OBSERVER),
-            REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
-            DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
-            _ => None,
+        // We can't use a constant match expression due to Entity having a manual `PartialEq` impl.
+        // see https://doc.rust-lang.org/stable/std/marker/trait.StructuralPartialEq.html
+        if event_key == ADD {
+            return Some(ArchetypeFlags::ON_ADD_OBSERVER);
+        } else if event_key == INSERT {
+            return Some(ArchetypeFlags::ON_INSERT_OBSERVER);
+        } else if event_key == DISCARD {
+            return Some(ArchetypeFlags::ON_DISCARD_OBSERVER);
+        } else if event_key == REMOVE {
+            return Some(ArchetypeFlags::ON_REMOVE_OBSERVER);
+        } else if event_key == DESPAWN {
+            return Some(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
+        None
     }
 
     pub(crate) fn update_archetype_flags(

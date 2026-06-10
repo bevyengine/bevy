@@ -5,6 +5,7 @@ use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
 use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
+use crate::entity::EntityAllocator;
 use crate::lifecycle::ComponentHooks;
 use crate::{
     component::{
@@ -14,57 +15,10 @@ use crate::{
     resource::Resource,
 };
 
-/// Generates [`ComponentId`]s.
-#[derive(Debug, Default)]
-pub struct ComponentIds {
-    next: bevy_platform::sync::atomic::AtomicUsize,
-}
-
-impl ComponentIds {
-    /// Peeks the next [`ComponentId`] to be generated without generating it.
-    pub fn peek(&self) -> ComponentId {
-        ComponentId(
-            self.next
-                .load(bevy_platform::sync::atomic::Ordering::Relaxed),
-        )
-    }
-
-    /// Generates and returns the next [`ComponentId`].
-    pub fn next(&self) -> ComponentId {
-        ComponentId(
-            self.next
-                .fetch_add(1, bevy_platform::sync::atomic::Ordering::Relaxed),
-        )
-    }
-
-    /// Peeks the next [`ComponentId`] to be generated without generating it.
-    pub fn peek_mut(&mut self) -> ComponentId {
-        ComponentId(*self.next.get_mut())
-    }
-
-    /// Generates and returns the next [`ComponentId`].
-    pub fn next_mut(&mut self) -> ComponentId {
-        let id = self.next.get_mut();
-        let result = ComponentId(*id);
-        *id += 1;
-        result
-    }
-
-    /// Returns the number of [`ComponentId`]s generated.
-    pub fn len(&self) -> usize {
-        self.peek().0
-    }
-
-    /// Returns true if and only if no ids have been generated.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
 /// A [`Components`] wrapper that enables additional features, like registration.
 pub struct ComponentsRegistrator<'w> {
     pub(super) components: &'w mut Components,
-    pub(super) ids: &'w mut ComponentIds,
+    pub(super) ids: &'w mut EntityAllocator,
     pub(super) recursion_check_stack: Vec<ComponentId>,
 }
 
@@ -81,9 +35,9 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// # Safety
     ///
-    /// The [`Components`] and [`ComponentIds`] must match.
+    /// The [`Components`] and [`ComponentId`]s must match.
     /// For example, they must be from the same world.
-    pub unsafe fn new(components: &'w mut Components, ids: &'w mut ComponentIds) -> Self {
+    pub unsafe fn new(components: &'w mut Components, ids: &'w mut EntityAllocator) -> Self {
         Self {
             components,
             ids,
@@ -201,7 +155,7 @@ impl<'w> ComponentsRegistrator<'w> {
             return registrator.register(self);
         }
 
-        let id = self.ids.next_mut();
+        let id = ComponentId::new(self.ids.alloc());
         // SAFETY: The component is not currently registered, and the id is fresh.
         unsafe {
             self.register_component_unchecked(
@@ -255,9 +209,7 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(id.0)
-                .debug_checked_unwrap()
-                .as_mut()
+                .get_mut(&id)
                 .debug_checked_unwrap()
         };
 
@@ -288,7 +240,7 @@ impl<'w> ComponentsRegistrator<'w> {
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let id = self.ids.next_mut();
+        let id = ComponentId::new(self.ids.alloc());
         // SAFETY: The id is fresh.
         unsafe {
             self.components.register_component_inner(id, descriptor);
@@ -350,7 +302,7 @@ impl<'w> ComponentsRegistrator<'w> {
             return registrator.register(self);
         }
 
-        let id = self.ids.next_mut();
+        let id = ComponentId::new(self.ids.alloc());
         // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.components
@@ -447,7 +399,7 @@ impl Debug for QueuedComponents {
 #[derive(Clone, Copy)]
 pub struct ComponentsQueuedRegistrator<'w> {
     components: &'w Components,
-    ids: &'w ComponentIds,
+    ids: &'w EntityAllocator,
 }
 
 impl Deref for ComponentsQueuedRegistrator<'_> {
@@ -463,9 +415,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     ///
     /// # Safety
     ///
-    /// The [`Components`] and [`ComponentIds`] must match.
+    /// The [`Components`] and [`ComponentId`]s must match.
     /// For example, they must be from the same world.
-    pub unsafe fn new(components: &'w Components, ids: &'w ComponentIds) -> Self {
+    pub unsafe fn new(components: &'w Components, ids: &'w EntityAllocator) -> Self {
         Self { components, ids }
     }
 
@@ -489,7 +441,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             .entry(type_id)
             .or_insert_with(|| {
                 // SAFETY: The id was just generated.
-                unsafe { QueuedRegistration::new(self.ids.next(), descriptor, func) }
+                unsafe {
+                    QueuedRegistration::new(ComponentId::new(self.ids.alloc()), descriptor, func)
+                }
             })
             .id
     }
@@ -500,7 +454,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         descriptor: ComponentDescriptor,
         func: fn(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor),
     ) -> ComponentId {
-        let id = self.ids.next();
+        let id = ComponentId::new(self.ids.alloc());
         self.components
             .queued
             .write()

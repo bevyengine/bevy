@@ -23,6 +23,7 @@ criterion_main!(
     bundles::benches,
     change_detection::benches,
     components::benches,
+    resources::benches,
     empty_archetypes::benches,
     entity_cloning::benches,
     events::benches,

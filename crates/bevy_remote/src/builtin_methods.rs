@@ -2014,10 +2014,10 @@ fn get_resource_entity_pair(
         .components()
         .get_id(type_id)
         .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
-    let entity = world
-        .resource_entities()
-        .get(component_id)
-        .ok_or(anyhow!("Resource entity does not exist."))?;
+    let entity = component_id.id();
+    if !world.entities().contains_spawned(entity) {
+        return Err(anyhow!("Resource entity does not exist."));
+    }
     Ok((entity, component_id))
 }
 
