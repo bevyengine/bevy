@@ -2,7 +2,7 @@ use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     enums::{DynamicEnum, VariantInfo, VariantType},
-    type_info::impl_type_methods,
+    ty::impl_type_methods,
     Generics, PartialReflect, Type, TypePath,
 };
 use alloc::{boxed::Box, format, string::String};

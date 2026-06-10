@@ -6,7 +6,7 @@ use variadics_please::all_tuples;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
+    ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
     GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
