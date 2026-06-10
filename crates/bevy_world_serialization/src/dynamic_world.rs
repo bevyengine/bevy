@@ -114,7 +114,7 @@ impl DynamicWorld {
 
             // Apply/ add each component to the given entity.
             for component in &dynamic_entity.components {
-                let type_info = component.get_represented_type_info().ok_or_else(|| {
+                let type_info = component.runtime_type_info().ok_or_else(|| {
                     WorldInstanceSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
                     }
@@ -160,7 +160,7 @@ impl DynamicWorld {
         // Insert resources after all entities have been added to the world.
         // This ensures the entities are available for the resources to reference during mapping.
         for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+            let type_info = resource.runtime_type_info().ok_or_else(|| {
                 WorldInstanceSpawnError::NoRepresentedType {
                     type_path: resource.reflect_type_path().to_string(),
                 }
