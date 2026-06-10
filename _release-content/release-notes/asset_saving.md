@@ -4,15 +4,17 @@ authors: ["@andriyDev"]
 pull_requests: [22622]
 ---
 
-Bevy has had an `AssetSaver` trait since 0.12.
+Bevy has had an [`AssetSaver`] trait since 0.12.
 However, it was only ever intended for use inside asset processing pipelines, not for saving assets at runtime.
-This left a frustrating gap: if you wanted to save a procedurally generated mesh, a baked lightmap, or the output of an in-editor workflow, there was no supported path to do it.
+This left a frustrating gap: there was no supported way to save a procedurally generated mesh, a baked lightmap, or the output of an in-editor workflow.
 
-Now there is. `save_using_saver` lets you save any asset to disk using an `AssetSaver` implementation of your choice.
+Now there is.
 
-## 1. Building the `SavedAsset`
+[`save_using_saver`] lets you save any asset to disk using an [`AssetSaver`] implementation of your choice.
 
-For simple assets with no sub-assets, use `SavedAsset::from_asset`:
+## 1. Building the [`SavedAsset`]
+
+For simple assets with no sub-assets, use [`SavedAsset::from_asset`]:
 
 ```rust
 let main_asset = InlinedBook {
@@ -21,7 +23,7 @@ let main_asset = InlinedBook {
 let saved_asset = SavedAsset::from_asset(&main_asset);
 ```
 
-For assets that reference other assets (sub-assets), use `SavedAssetBuilder`:
+For assets that reference other assets (sub-assets), use [`SavedAssetBuilder`]:
 
 ```rust
 let asset_path: AssetPath<'static> = "my/file/path.whatever".into();
@@ -40,10 +42,10 @@ let main_asset = Book {
 let saved_asset = builder.build(&main_asset);
 ```
 
-`SavedAsset` borrows rather than owns its assets.
+[`SavedAsset`] borrows rather than owns its assets.
 That means you can build and save in the same async block — no need to transfer ownership first.
 
-## 2. Calling `save_using_saver`
+## 2. Calling [`save_using_saver`]
 
 ```rust
 save_using_saver(
@@ -55,6 +57,11 @@ save_using_saver(
 ).await.unwrap();
 ```
 
-`save_using_saver` is async.
-Generally, you'll want to spawn it with `IoTaskPool::get().spawn(...)`.
-You'll also need to implement `AssetSaver` for `MyAssetSaver` to define the serialization format.
+[`save_using_saver`] is async; generally, you'll want to spawn it with `IoTaskPool::get().spawn(...)`.
+You'll also need to implement [`AssetSaver`] for `MyAssetSaver` to define the serialization format.
+
+[`save_using_saver`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/fn.save_using_saver.html
+[`SavedAssetBuilder`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAssetBuilder.html
+[`AssetSaver`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/trait.AssetSaver.html
+[`SavedAsset`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAsset.html
+[`SavedAsset::from_asset`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAsset.html#method.from_asset

@@ -2,7 +2,7 @@
 title: "Render Recovery"
 authors: ["@atlv24", "@kfc35"]
 pull_requests: [22761, 23350, 23349, 23433, 23458, 23444, 23459, 23461, 23463, 22714, 22759, 16481, 24131]
---- 
+---
 
 GPU errors previously had no recovery path — a driver crash, an out-of-memory condition, or a device loss would silently hang or crash the app.
 This was particularly frustrating in long-lived applications (like art installations)

@@ -4,30 +4,30 @@ authors: ["@viridia", "@jordanhalase"]
 pull_requests: [23645, 23707, 23788, 23787, 23804, 23817, 23842, 23744, 23820, 23830, 23869, 23883, 23890, 23993]
 ---
 
-*TODO: Add screenshots of the new Feathers widgets (text input, number input, dropdown, pane/group decorators).*
+Bevy Feathers, our opinionated UI widget collection designed with the (future) Bevy editor in mind, has added several new widgets this cycle:
 
-Bevy Feathers, our opinionated UI widget collection designed with the Bevy editor in mind, has added several new widgets this cycle:
-
-- Text input (see the dedicated release note for far more details)
-- Number input
-- Dropdown menu button and menu divider
+- [Text input] (see the dedicated release note for far more details)
+- [Number input]
+- [Dropdown menu] button and [menu divider]
 - Disclosure toggle (chevron expand/collapse)
 - Icon and label (display primitives)
 - Pane, subpane, and group (decorative frames for editors)
 
 Existing widgets have also been polished for readability and functionality.
 Style tokens are added for mouse pressed in checked and unchecked states, multiple radio groups are now easier to manage with
-`radio_self_update`, and a new `FocusCause` field has been added to the `FocusGained` event to let widgets distinguish whether a user
+[`radio_self_update`], and a new [`FocusCause`] field has been added to the [`FocusGained`] event to let widgets distinguish whether a user
 clicked or navigated into it.
 
-For full usage and an interactive demo, try out the [`feathers_gallery`] example.
+For full usage and an interactive demo, try out the updated [`feathers_gallery`] example.
 
-[`feathers_gallery`]: https://github.com/bevyengine/bevy/blob/main/examples/ui/widgets/feathers_gallery.rs
+![feathers gallery](feathers.jpg)
+
+[`feathers_gallery`]: https://bevy.org/examples/ui-user-interface/feathers/
 
 ## Feathers + BSN = ❤️
 
 The Feathers widgets are migrating to BSN, Bevy's next-generation scene system.
-The new widgets above are BSN-only from the start; the older widgets (button, checkbox, slider, and friends) now have a `bsn!` definition (their original APIs have been deprecated).
+The new widgets above are BSN-only from the start; the older widgets (button, checkbox, slider, and friends) now have a [`bsn!`] definition (their original APIs have been deprecated).
 
 BSN is a better foundation for widgets than the old spawn-function approach.
 UI controls are inherently multi-entity assemblages — a slider isn't one node, it's a track, a fill, a thumb, and a label wired together.
@@ -54,4 +54,12 @@ bsn! {
 }
 ```
 
-In the future, the same BSN syntax used in the `bsn!` macro will be portable to `.bsn` files, letting devs choose and rapidly swap between code-first and asset-driven workflows when defining UI.
+In the future, the same BSN syntax used in the [`bsn!`] macro will be portable to `.bsn` files, letting devs choose and rapidly swap between code-first and asset-driven workflows when defining UI.
+
+[Text input]: https://docs.rs/bevy/0.19.0/bevy/feathers/controls/text_input/struct.FeathersTextInput.html
+[Number input]: https://docs.rs/bevy/0.19.0/bevy/feathers/controls/number_input/struct.FeathersNumberInput.html
+[Dropdown menu]: https://docs.rs/bevy/0.19.0/bevy/feathers/controls/menu/struct.FeathersMenu.html
+[`bsn!`]: https://docs.rs/bevy/0.19.0/bevy/scene/macros/macro.bsn.html
+[`radio_self_update`]: https://docs.rs/bevy/0.19.0/bevy/ui_widgets/radio/fn.radio_self_update.html
+[`FocusCause`]: https://docs.rs/bevy/0.19.0/bevy/input_focus/gained_and_lost/enum.FocusCause.html
+[`FocusGained`]: https://docs.rs/bevy/0.19.0/bevy/input_focus/gained_and_lost/struct.FocusGained.html

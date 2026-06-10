@@ -8,14 +8,14 @@ implementing `Reader::seekable`, which will cast the `Reader` to `&mut dyn Seeka
 supports `AsyncSeek` (`SeekableReader: Reader + AsyncSeek`).
 
 ```rust
-// If MyReader implements `AsyncSeek` 
+// If MyReader implements `AsyncSeek`
 impl Reader for MyReader {
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
         Ok(self)
     }
 }
 
-// If MyReader does not implement `AsyncSeek` 
+// If MyReader does not implement `AsyncSeek`
 impl Reader for MyReader {
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
         None

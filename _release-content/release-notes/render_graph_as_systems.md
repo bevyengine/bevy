@@ -1,7 +1,7 @@
 ---
 title: Render Graph as Systems
-authors: [ "@tychedelia" ]
-pull_requests: [ 22144 ]
+authors: ["@tychedelia"]
+pull_requests: [22144]
 ---
 
 Bevy's `RenderGraph` architecture has been replaced with schedules. Render passes are now regular systems that run in
@@ -61,7 +61,7 @@ rendering better leverage familiar Bevy patterns, allowing the above to be expre
 ```rust
 fn my_custom_render_system(mut ctx: RenderContext, res_a: Res<A>) {
     let encoder = ctx.command_encoder();
-    // do some rendering things 
+    // do some rendering things
 }
 
 pub struct MyRenderPlugin;
