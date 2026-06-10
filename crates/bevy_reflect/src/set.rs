@@ -80,7 +80,7 @@ pub trait Set: PartialReflect {
     /// Returns an error if any value cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_set(&self) -> Result<DynamicSet, ReflectCloneError> {
         let mut set = DynamicSet::default();
-        set.set_represented_type(self.get_represented_type_info());
+        set.set_represented_type(self.runtime_type_info());
         for value in self.iter() {
             set.insert_boxed(value.to_dynamic()?);
         }

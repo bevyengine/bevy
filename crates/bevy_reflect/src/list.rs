@@ -111,7 +111,7 @@ pub trait List: PartialReflect {
     /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_list(&self) -> Result<DynamicList, ReflectCloneError> {
         Ok(DynamicList {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             values: self
                 .iter()
                 .map(PartialReflect::to_dynamic)
@@ -121,7 +121,7 @@ pub trait List: PartialReflect {
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
-        self.get_represented_type_info()?.as_list().ok()
+        self.runtime_type_info()?.as_list().ok()
     }
 }
 

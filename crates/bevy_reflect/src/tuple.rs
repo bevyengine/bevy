@@ -63,7 +63,7 @@ pub trait Tuple: PartialReflect {
     /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
         Ok(DynamicTuple {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             fields: self
                 .iter_fields()
                 .map(PartialReflect::to_dynamic)
@@ -73,7 +73,7 @@ pub trait Tuple: PartialReflect {
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
-        self.get_represented_type_info()?.as_tuple().ok()
+        self.runtime_type_info()?.as_tuple().ok()
     }
 }
 

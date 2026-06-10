@@ -76,7 +76,7 @@ pub trait Array: PartialReflect {
     /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_array(&self) -> Result<DynamicArray, ReflectCloneError> {
         Ok(DynamicArray {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             values: self
                 .iter()
                 .map(PartialReflect::to_dynamic)
@@ -86,7 +86,7 @@ pub trait Array: PartialReflect {
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
-        self.get_represented_type_info()?.as_array().ok()
+        self.runtime_type_info()?.as_array().ok()
     }
 }
 

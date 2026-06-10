@@ -210,7 +210,7 @@ impl DynamicEnum {
     /// Returns an error if any field of the active variant cannot be converted via
     /// [`PartialReflect::to_dynamic`].
     pub fn try_from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Result<Self, ReflectCloneError> {
-        let type_info = value.get_represented_type_info();
+        let type_info = value.runtime_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
                 value.variant_index(),

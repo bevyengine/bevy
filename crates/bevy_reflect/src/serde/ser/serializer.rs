@@ -104,7 +104,7 @@ impl<P: ReflectSerializerProcessor> Serialize for ReflectSerializer<'_, P> {
         let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
             self.value
-                .get_represented_type_info()
+                .runtime_type_info()
                 .ok_or_else(|| {
                     if self.value.is_dynamic() {
                         make_custom_error(format_args!(
@@ -236,7 +236,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
     {
         #[cfg(feature = "debug_stack")]
         {
-            if let Some(info) = self.value.get_represented_type_info() {
+            if let Some(info) = self.value.runtime_type_info() {
                 TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
             }
         }

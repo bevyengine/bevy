@@ -63,7 +63,7 @@ pub trait TupleStruct: PartialReflect {
     /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_tuple_struct(&self) -> Result<DynamicTupleStruct, ReflectCloneError> {
         Ok(DynamicTupleStruct {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             fields: self
                 .iter_fields()
                 .map(PartialReflect::to_dynamic)
@@ -73,7 +73,7 @@ pub trait TupleStruct: PartialReflect {
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
-        self.get_represented_type_info()?.as_tuple_struct().ok()
+        self.runtime_type_info()?.as_tuple_struct().ok()
     }
 }
 
@@ -527,7 +527,7 @@ pub fn tuple_struct_debug(
 ) -> core::fmt::Result {
     let mut debug = f.debug_tuple(
         dyn_tuple_struct
-            .get_represented_type_info()
+            .runtime_type_info()
             .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );

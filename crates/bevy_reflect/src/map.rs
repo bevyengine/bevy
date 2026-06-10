@@ -85,7 +85,7 @@ pub trait Map: PartialReflect {
     /// Returns an error if any key or value cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
         let mut map = DynamicMap::default();
-        map.set_represented_type(self.get_represented_type_info());
+        map.set_represented_type(self.runtime_type_info());
         for (key, value) in self.iter() {
             map.insert_boxed(key.to_dynamic()?, value.to_dynamic()?);
         }
@@ -110,7 +110,7 @@ pub trait Map: PartialReflect {
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
-        self.get_represented_type_info()?.as_map().ok()
+        self.runtime_type_info()?.as_map().ok()
     }
 }
 
@@ -205,7 +205,7 @@ macro_rules! hash_error {
                 type_path
             )
         } else {
-            match (*$key).get_represented_type_info() {
+            match (*$key).runtime_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
                 ::core::option::Option::None => $crate::__macro_exports::alloc_utils::format!("the dynamic type `{}` does not support hashing", type_path),
                 // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
