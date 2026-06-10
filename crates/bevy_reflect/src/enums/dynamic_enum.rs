@@ -12,6 +12,7 @@ use crate::{
 };
 
 use alloc::{boxed::Box, string::String};
+use bevy_reflect::Type;
 use core::fmt::Formatter;
 use derive_more::derive::From;
 
@@ -291,8 +292,18 @@ impl Enum for DynamicEnum {
 
 impl PartialReflect for DynamicEnum {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.represented_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]

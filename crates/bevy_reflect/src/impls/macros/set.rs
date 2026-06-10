@@ -70,8 +70,19 @@ macro_rules! impl_reflect_for_hashset {
                 V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
-                    Some(<Self as $crate::info::Typed>::type_info())
+                #[inline]
+                fn runtime_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                    <Self as $crate::info::MaybeTyped>::maybe_type_info()
+                }
+
+                #[inline]
+                fn comptime_type(&self) -> $crate::ty::Type {
+                    $crate::ty::Type::of::<Self>()
+                }
+
+                #[inline]
+                fn runtime_type(&self) -> Option<$crate::ty::Type> {
+                    Some($crate::ty::Type::of::<Self>())
                 }
 
                 #[inline]

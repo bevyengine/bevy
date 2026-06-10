@@ -4046,6 +4046,49 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_return_remote_type_info() {
+        mod external_crate {
+            use alloc::string::String;
+
+            #[derive(Debug, Default)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let info = MyType::type_info();
+        assert!(info.is::<MyType>());
+
+        let data: Box<dyn Reflect> = Box::new(MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        }));
+        assert_eq!(data.comptime_type(), Type::of::<MyType>());
+        assert_eq!(data.runtime_type(), Some(Type::of::<MyType>()));
+
+        // === Struct Container === //
+        #[derive(Reflect, Debug)]
+        #[reflect(from_reflect = false)]
+        struct ContainerStruct {
+            #[reflect(remote = MyType)]
+            their_type: external_crate::TheirType,
+        }
+
+        let info = ContainerStruct::type_info();
+        assert!(info.is::<ContainerStruct>());
+
+        let field = info.as_struct().unwrap().field("their_type").unwrap();
+        assert!(field.type_info().unwrap().is::<MyType>());
+    }
+
+    #[test]
     fn should_register_fully_qualified_type_data() {
         mod foo {
             pub mod bar {

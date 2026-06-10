@@ -102,12 +102,21 @@ pub trait Typed: Reflect + TypePath {
 )]
 pub trait DynamicTyped {
     /// See [`Typed::type_info`].
-    fn reflect_type_info(&self) -> &'static TypeInfo;
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `DynamicTyped::comptime_type_info` instead"
+    )]
+    fn reflect_type_info(&self) -> &'static TypeInfo {
+        self.comptime_type_info()
+    }
+
+    /// Returns the compile-time [`TypeInfo`] as given by [`Typed::type_info`].
+    fn comptime_type_info(&self) -> &'static TypeInfo;
 }
 
 impl<T: Typed> DynamicTyped for T {
     #[inline]
-    fn reflect_type_info(&self) -> &'static TypeInfo {
+    fn comptime_type_info(&self) -> &'static TypeInfo {
         Self::type_info()
     }
 }
