@@ -2894,8 +2894,8 @@ mod tests {
         #[derive(Default, Clone)]
         struct Y;
 
-        impl Into<X> for Y {
-            fn into(self) -> X {
+        impl From<Y> for X {
+            fn from(_: Y) -> Self {
                 X
             }
         }
