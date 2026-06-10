@@ -961,6 +961,7 @@ use bevy_ecs::prelude::*;
 /// | `CompA(val)`<br>`CompA(val, val)`          | Tuple Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)  |
 /// | `CompA { name: val }`                      | Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)        |
 /// | `mymodule::CompA { name: val }`            | Same as above, but referring to the component by module path                                                   |
+/// | `CompA { name }`                           | Component with Rust's "field assignment shorthand". Evaluates to `CompA { name: name.into() }`                 |
 /// | `MyEnum::Variant`                          | Enum Component `MyEnum` with the `Variant` variant                                                             |
 /// | `template_value(component)`                | Insert the component value from a variable `component`                                                         |
 /// | `template_value(CompA::from_str("foo"))`   | Insert the component value by immediately calling the constructor                                              |
