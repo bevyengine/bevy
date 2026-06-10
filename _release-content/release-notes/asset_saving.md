@@ -63,5 +63,5 @@ You'll also need to implement [`AssetSaver`] for `MyAssetSaver` to define the se
 [`save_using_saver`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/fn.save_using_saver.html
 [`SavedAssetBuilder`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAssetBuilder.html
 [`AssetSaver`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/trait.AssetSaver.html
-[`SavedAsset`]:  https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAsset.html
+[`SavedAsset`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAsset.html
 [`SavedAsset::from_asset`]: https://docs.rs/bevy/0.19.0/bevy/asset/saver/struct.SavedAsset.html#method.from_asset

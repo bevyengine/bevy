@@ -42,9 +42,9 @@ If you don't care about that, `bypass_change_detection()` gives you the raw `&mu
 Vroom!
 
 [SIMD]: https://en.wikipedia.org/wiki/Single_instruction,_multiple_data
-[`contiguous_iter_mut`]: 
-[`contiguous_iter`]: 
-[`Transform`]: 
-[`Query`]: 
-[`ContiguousMut<T>`]: 
-[`Mut<T>`]: 
+[`contiguous_iter_mut`]: https://docs.rs/bevy/0.19.0/bevy/prelude/struct.Query.html#method.contiguous_iter_mut
+[`contiguous_iter`]: https://docs.rs/bevy/0.19.0/bevy/prelude/struct.Query.html#method.contiguous_iter
+[`Transform`]: https://docs.rs/bevy/0.19.0/bevy/transform/components/struct.Transform.html
+[`Query`]: https://docs.rs/bevy/0.19.0/bevy/ecs/system/struct.Query.html
+[`ContiguousMut<T>`]: https://docs.rs/bevy/0.19.0/bevy/ecs/change_detection/struct.ContiguousMut.html
+[`Mut<T>`]: https://docs.rs/bevy/0.19.0/bevy/ecs/change_detection/struct.Mut.html
