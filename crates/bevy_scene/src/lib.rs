@@ -193,10 +193,8 @@
 //! their descendants:
 //!
 //! ```ignore
-//! let i=0;
 //! bsn! {
 //!     #Root
-//!     Name({format!("Entity {i}")})
 //!     Children [
 //!         Reference(#Root)
 //!     ]
