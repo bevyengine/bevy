@@ -10,13 +10,13 @@ use core::any::{Any, TypeId};
 /// Generally, for any given type, this value can be retrieved in one of four ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`DynamicTyped::reflect_type_info`]
+/// 2. [`DynamicTyped::comptime_type_info`]
 /// 3. [`PartialReflect::runtime_type_info`]
 /// 4. [`TypeRegistry::get_type_info`]
 ///
 /// Each returns a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::reflect_type_info`].
+/// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::comptime_type_info`].
 /// If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::runtime_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
 /// [`TypeRegistry::get_type_info`].
@@ -26,7 +26,7 @@ use core::any::{Any, TypeId};
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
 /// [`Typed::type_info`]: crate::info::Typed::type_info
-/// [`DynamicTyped::reflect_type_info`]: crate::info::DynamicTyped::reflect_type_info
+/// [`DynamicTyped::comptime_type_info`]: crate::info::DynamicTyped::comptime_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`PartialReflect::runtime_type_info`]: crate::PartialReflect::runtime_type_info
 /// [type path]: crate::type_path::TypePath::type_path
