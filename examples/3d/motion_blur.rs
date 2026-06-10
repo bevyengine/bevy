@@ -180,7 +180,7 @@ fn spawn_barriers(
     let capsule = meshes.add(Capsule3d::default());
     let matl = materials.add(StandardMaterial {
         base_color: Color::srgb_u8(255, 87, 51),
-        reflectance: 1.0,
+        specular_tint: Color::linear_rgb(4.0, 4.0, 4.0),
         ..default()
     });
     let mut spawn_with_offset = |offset: f32| {

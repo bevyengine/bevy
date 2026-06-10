@@ -40,7 +40,7 @@ fn setup(
     let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
     let cube_material_handle = materials.add(StandardMaterial {
         base_color: Color::srgb(0.8, 0.7, 0.6),
-        reflectance: 0.02,
+        specular: 0.04,
         unlit: false,
         ..default()
     });
@@ -86,7 +86,7 @@ fn setup(
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle),
-        reflectance: 0.02,
+        specular: 0.04,
         unlit: false,
         ..default()
     });

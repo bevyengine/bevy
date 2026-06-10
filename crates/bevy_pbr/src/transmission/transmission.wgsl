@@ -23,7 +23,7 @@ fn ior_corrected_roughness(roughness: f32, ior: f32) -> f32 {
     return roughness * clamp(ior * 2.0 - 2.0, 0.0, 1.0);
 }
 
-fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, specular_weight: f32, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refraction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
@@ -61,7 +61,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let MinusNdotT = dot(-N, T);
 
     // Calculate 1.0 - fresnel factor (how much light is _NOT_ reflected, i.e. how much is transmitted)
-    let F = vec3(1.0) - lighting::fresnel(F0, MinusNdotT);
+    let F = vec3(1.0) - specular_weight * lighting::F_Schlick_vec(F0, 1.0, MinusNdotT);
 
     // Calculate final color by applying fresnel multiplied specular transmissive color to a mix of background color and transmitted specular environment light
     return F * specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);

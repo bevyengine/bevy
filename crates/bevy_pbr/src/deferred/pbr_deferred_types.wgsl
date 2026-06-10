@@ -52,6 +52,45 @@ fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
 }
 
+
+#ifdef WEBGL2
+// Pack ior and specular strength into 4 bits.
+// With so little space, specular is made binary, and all values except specular = 0.0 are mapped to 1
+// IOR values outside [1.33, 2.33] are clamped.
+fn pack_4bit_ior_specular(ior: f32, specular: f32) -> u32 {
+    var ior_remapped = saturate(ior - 1.33);
+    // give more range to lower values
+    ior_remapped = sqrt(ior_remapped);
+    let ior3 = u32(ior_remapped * 7.0 + 0.5);
+    return (u32(specular > 0.0) << 3u) | ior3;
+}
+
+fn unpack_4bit_ior_specular(v: u32) -> vec2<f32> {
+    let specular = f32(v >> 3u);
+    var ior = f32(v & 0x7u) / 7.0;
+    ior = ior * ior + 1.33;
+    return vec2<f32>(ior, specular);
+}
+#endif // WEBGL2
+
+// Pack ior and specular strength into 8 bits. Allocation is IOR: 5 bits / specular: 3 bits
+// IOR values outside [1.0. 3.0] are clamped
+fn pack_8bit_ior_specular(ior: f32, specular: f32) -> u32 {
+    var ior_remapped = saturate((ior - 1.0) / 2.0);
+    // give more range to lower values
+    ior_remapped = sqrt(ior_remapped);
+    let ior5 = u32(ior_remapped * 31.0 + 0.5);
+    let specular3 = u32(saturate(specular) * 7.0 + 0.5);
+    return (specular3 << 5u) | ior5;
+}
+
+fn unpack_8bit_ior_specular(v: u32) -> vec2<f32> {
+    let specular = f32(v >> 5u) / 7.0;
+    var ior = f32(v & 0x1Fu) / 31.0;
+    ior = ior * ior * 2.0 + 1.0;
+    return vec2<f32>(ior, specular);
+}
+
 // The builtin one didn't work in webgl.
 // "'unpackUnorm4x8' : no matching overloaded function found"
 // https://github.com/gfx-rs/naga/issues/2006

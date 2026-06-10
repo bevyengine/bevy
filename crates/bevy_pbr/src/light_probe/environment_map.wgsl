@@ -329,9 +329,8 @@ fn compute_multiscatter(
     F0: vec3<f32>,
     F_ab: vec2<f32>,
     Ems: f32,
-    specular_occlusion: f32,
 ) -> MultiscatterResult {
-    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
+    let FssEss = (F0 * F_ab.x + F_ab.y);
     let Favg = F0 + (1.0 - F0) / 21.0;
     let FmsEms = FssEss * Favg / (1.0 - Ems * Favg) * Ems;
     let Edss = 1.0 - (FssEss + FmsEms);
@@ -352,6 +351,7 @@ fn environment_map_light(
     let F_ab = (*input).F_ab;
     let F0_dielectric = (*input).F0_dielectric;
     let F0_metallic = (*input).F0_metallic;
+    let specular_weight = (*input).specular_weight;
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
@@ -369,18 +369,14 @@ fn environment_map_light(
         return out;
     }
 
-    // No real world material has specular values under 0.02, so we use this range as a
-    // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
-    // See: https://google.github.io/filament/Filament.md.html#specularocclusion
     let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
-    let specular_occlusion = saturate(dot(F0_surface, vec3(50.0 * 0.33)));
 
     // Compute per-material (dielectric and metallic separately) then mix the results.
     // We can't use F0 directly as the multiscattering term is nonlinear.
     let Ems = 1.0 - (F_ab.x + F_ab.y);
 
-    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_occlusion);
-    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, specular_occlusion);
+    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems);
+    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems);
 
     let FssEss = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic);
     let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
@@ -392,7 +388,7 @@ fn environment_map_light(
         out.diffuse = vec3(0.0);
     }
 
-    out.specular = FssEss * radiances.radiance;
+    out.specular = specular_weight * FssEss * radiances.radiance;
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     environment_map_light_clearcoat(

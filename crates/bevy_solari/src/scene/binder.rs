@@ -132,7 +132,7 @@ pub fn prepare_raytracing_scene_bindings(
             perceptual_roughness: material.perceptual_roughness,
             emissive: material.emissive.to_vec3(),
             metallic: material.metallic,
-            reflectance: material.reflectance,
+            reflectance: 1.0, // material.reflectance,
             _padding: Default::default(),
         });
 

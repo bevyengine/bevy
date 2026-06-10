@@ -237,7 +237,6 @@ fn create_reflective_material(
     materials.add(StandardMaterial {
         base_color: WHITE.into(),
         metallic: 1.0,
-        reflectance: 1.0,
         perceptual_roughness: 0.0,
         ..default()
     })

@@ -107,7 +107,7 @@ fn setup(
             // We want only reflected specular light here, so we set the base
             // color as black.
             base_color: Color::BLACK,
-            reflectance: 1.0,
+            specular: 2.0,
             specular_tint: Color::hsva(app_status.hue, 1.0, 1.0, 1.0),
             // The object must not be metallic, or else the reflectance is
             // ignored per the Filament spec:
@@ -199,13 +199,10 @@ fn toggle_specular_map(
         // Adjust the tint type.
         match app_status.tint_type {
             TintType::Solid => {
-                material.reflectance = 1.0;
+                material.specular_tint = Color::linear_rgb(2.0, 2.0, 2.0);
                 material.specular_tint_texture = None;
             }
             TintType::Map => {
-                // Set reflectance to 2.0 to spread out the map's reflectance
-                // range from the default [0.0, 0.5] to [0.0, 1.0].
-                material.reflectance = 2.0;
                 // As the tint map is multiplied by the tint color, we set the
                 // latter to white so that only the map has an effect.
                 material.specular_tint = WHITE.into();

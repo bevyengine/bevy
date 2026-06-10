@@ -1500,9 +1500,7 @@ fn load_material(
         anisotropy_channel: anisotropy.anisotropy_channel,
         #[cfg(feature = "pbr_anisotropy_texture")]
         anisotropy_texture: anisotropy.anisotropy_texture,
-        // From the `KHR_materials_specular` spec:
-        // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-        reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+        specular: specular.specular_factor.unwrap_or(1.0) as f32,
         #[cfg(feature = "pbr_specular_textures")]
         specular_channel: specular.specular_channel,
         #[cfg(feature = "pbr_specular_textures")]

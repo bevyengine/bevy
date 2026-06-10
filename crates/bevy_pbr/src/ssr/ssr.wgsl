@@ -61,7 +61,7 @@ struct BrdfSample {
 
 fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec2<f32>, N: vec3<f32>) -> BrdfSample {
     var brdf_sample: BrdfSample;
-    
+
     // Use VNDF sampling for the half-vector.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
@@ -186,7 +186,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let tangent_to_world = orthonormalize(N);
 
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let F0 = pbr_functions::calculate_F0(pbr_input.material.base_color.rgb, pbr_input.material.metallic, pbr_input.material.reflectance);
+
+    let F0_dielectric = pbr_functions::calculate_F0_dielectric(pbr_input.material.ior, pbr_input.material.specular_tint);
+    let F0_metallic = pbr_input.material.base_color.rgb;
+    let F0 = mix(F0_dielectric, F0_metallic, pbr_input.material.metallic);
 
     // Get some random numbers. If the spatio-temporal blue noise (STBN) texture
     // is available (i.e. not the 1x1 placeholder), we use it. Otherwise, we
@@ -220,7 +223,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Sample the BRDF.
     let N_tangent = vec3(0.0, 0.0, 1.0);
     let V_tangent = V * tangent_to_world;
-    
+
     let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
     let R_stochastic = tangent_to_world * brdf_sample.wi;
     let brdf_sample_value_over_pdf = brdf_sample.value_over_pdf;
@@ -238,7 +241,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Unpack values required for environment mapping.
     let base_color = pbr_input.material.base_color.rgb;
     let metallic = pbr_input.material.metallic;
-    let reflectance = pbr_input.material.reflectance;
+    let ior = pbr_input.material.ior;
+    let specular_tint = pbr_input.material.specular_tint;
     let specular_transmission = pbr_input.material.specular_transmission;
     let diffuse_transmission = pbr_input.material.diffuse_transmission;
 
@@ -263,7 +267,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     );
     let NdotV = max(dot(N, V), 0.0001);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
-    let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
+    let F0_dielectric = pbr_functions::calculate_F0_dielectric(ior, specular_tint);
 
     // Don't add stochastic noise to hits that sample the prefiltered env map.
     // The prefiltered env map already accounts for roughness.

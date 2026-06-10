@@ -81,6 +81,9 @@ struct LightingInput {
     // The 0-1 metallic factor of the material.
     metallic: f32,
 
+    // Specular weight for dielectric materials
+    specular_weight: f32,
+
     // Specular reflectance at the normal incidence angle.
     F0_dielectric: vec3<f32>,
     F0_metallic: vec3<f32>,
@@ -315,13 +318,6 @@ fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
     return f0 + (f90 - f0) * pow(1.0 - VdotH, 5.0);
 }
 
-fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
-    // f_90 suitable for ambient occlusion
-    // see https://google.github.io/filament/Filament.md.html#lighting/occlusion
-    let f90 = saturate(dot(f0, vec3<f32>(50.0 * 0.33)));
-    return F_Schlick_vec(f0, f90, LdotH);
-}
-
 // Given distribution, visibility, and Fresnel term, calculates the final
 // specular light.
 //
@@ -419,7 +415,7 @@ fn specular(
     // Calculate visibility.
     let V = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     // Calculate the Fresnel term.
-    let F = fresnel(F0, LdotH);
+    let F = F_Schlick_vec(F0, 1.0, LdotH);
 
     // Calculate the specular light.
     let Fr = specular_multiscatter(D, V, F, F0, (*input).F_ab, specular_intensity);
@@ -486,7 +482,7 @@ fn specular_anisotropy(
 
     let Da = D_GGX_anisotropic(at, ab, NdotH, TdotH, BdotH);
     let Va = V_GGX_anisotropic(at, ab, NdotL, NdotV, BdotV, TdotV, TdotL, BdotL);
-    let Fa = fresnel(F0, LdotH);
+    let Fa = F_Schlick_vec(F0, 1.0, LdotH);
 
     // Calculate the specular light.
     let Fr = specular_multiscatter(Da, Va, Fa, F0, (*input).F_ab, specular_intensity);
@@ -651,6 +647,8 @@ fn point_light(
     let distance = sqrt(distance_square);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
+    let specular_weight = (*input).specular_weight;
+
     // Base layer
 
     let a = (*input).layers[LAYER_BASE].roughness;
@@ -667,7 +665,11 @@ fn point_light(
     var specular_derived_input = derive_lighting_input(N, V, L_spec);
 
     let normalizationFactor = a / a_prime;
-    let specular_intensity = normalizationFactor * normalizationFactor;
+    var specular_intensity = normalizationFactor * normalizationFactor;
+
+    // Scale the specular reflectance for dialectrics (following KHR_materials_specular).
+    // Contrary to only scaling F0 this scales the whole Fresnel response and can also cut grazing reflections (F90).
+    specular_intensity *= mix(specular_weight, 1.0, (*input).metallic);
 
     let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
 
@@ -737,6 +739,10 @@ fn point_light(
     var derived_input = derive_lighting_input(N, V, L);
     var diffuse = vec3(0.0);
     if (enable_diffuse) {
+        // KHR_materials_specular describes how the specular strength also influences the diffuse reflectance.
+        // We can't reproduce it however because we (following Filament) do not explicitly couple the diffuse and
+        // specular reflectances like glTF does, and have no term for specular compensation.
+        // See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coupling-diffuse-and-specular-reflection.
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
@@ -855,10 +861,14 @@ fn directional_light(
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
+    // Scale the specular reflectance for dialectrics (following KHR_materials_specular).
+    // Contrary to only scaling F0 this scales the whole Fresnel response and can also cut grazing reflections (F90).
+    let specular_intensity = (*input).specular_weight;
+
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular_anisotropy(input, &derived_input, L, roughness, 1.0);
+    let specular_light = specular_anisotropy(input, &derived_input, L, roughness, specular_intensity);
 #else   // STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular(input, &derived_input, roughness, 1.0);
+    let specular_light = specular(input, &derived_input, roughness, specular_intensity);
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT

@@ -242,7 +242,7 @@ fn setup(
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
-            reflectance: 0.18,
+            specular_tint: Color::linear_rgb(0.77, 0.77, 0.77),
             ..Color::srgb_u8(0, 80, 0).into()
         })),
         Transform::from_xyz(0.0, -1.0, 0.0),
