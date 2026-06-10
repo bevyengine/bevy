@@ -1056,6 +1056,11 @@ impl Mesh {
 
     /// Compress positions and apply [`MeshAttributeCompressionFlags::COMPRESS_POSITION`].
     /// See [`MeshAttributeCompressionFlags`] for the details.
+    ///
+    /// Return an error if [`Mesh::ATTRIBUTE_POSITION`] is missing or is empty or is not Float32x3.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_positions(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_POSITION;
         let Some(values) = self.attribute(attr) else {
@@ -1108,6 +1113,11 @@ impl Mesh {
 
     /// Compress UV0 and apply [`MeshAttributeCompressionFlags::COMPRESS_UV0`].
     /// See [`MeshAttributeCompressionFlags`] for the details.
+    ///
+    /// Return an error if [`Mesh::ATTRIBUTE_UV_0`] is missing or is empty or is not Float32x2.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_uv0(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         self.compress_uvs(Mesh::ATTRIBUTE_UV_0, |mesh, uv_range| {
             mesh.final_uv_ranges[0] = Some(uv_range);
@@ -1117,6 +1127,11 @@ impl Mesh {
 
     /// Compress UV1 and apply [`MeshAttributeCompressionFlags::COMPRESS_UV1`].
     /// See [`MeshAttributeCompressionFlags`] for the details.
+    ///
+    /// Return an error if [`Mesh::ATTRIBUTE_UV_1`] is missing or is empty or is not Float32x2.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_uv1(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         self.compress_uvs(Mesh::ATTRIBUTE_UV_1, |mesh, uv_range| {
             mesh.final_uv_ranges[1] = Some(uv_range);
@@ -1126,6 +1141,11 @@ impl Mesh {
 
     /// Compress normals and apply [`MeshAttributeCompressionFlags::COMPRESS_NORMAL`].
     /// See [`MeshAttributeCompressionFlags`] for the details.
+    ///
+    /// Return an error if [`Mesh::ATTRIBUTE_NORMAL`] is missing or is not Float32x3.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_normals(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_NORMAL;
         let Some(values) = self.attribute(attr) else {
@@ -1148,6 +1168,11 @@ impl Mesh {
 
     /// Compress tangents and apply [`MeshAttributeCompressionFlags::COMPRESS_TANGENT`].
     /// See [`MeshAttributeCompressionFlags`] for the details.
+    ///
+    /// Return an error if [`Mesh::ATTRIBUTE_TANGENT`] is missing or is not Float32x4.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_tangents(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_TANGENT;
         let Some(values) = self.attribute(attr) else {
@@ -1168,7 +1193,12 @@ impl Mesh {
         Ok(self)
     }
 
-    /// Quantize `Float32`, `Float32x2` or `Float32x4` vertex attribute to the type of `quantization`.
+    /// Quantize `Float32`, `Float32x2` or `Float32x4` vertex attribute to the format of `quantization`.
+    ///
+    /// Return an error if `attr_id` is missing or is not `Float32`, `Float32x2` or `Float32x4`.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn quantize_float32_attribute(
         &mut self,
         attr_id: impl Into<MeshVertexAttributeId>,
@@ -1193,7 +1223,7 @@ impl Mesh {
         Ok(self)
     }
 
-    /// Quantize `Float32x4` colors to the type of `quantization`.
+    /// Quantize `Float32x4` colors to the format of `quantization` using [`Mesh::quantize_float32_attribute`].
     /// [`AttributeQuantization::Unorm8`] is recommended if you don't need higher precision or floating-point range.
     pub fn quantize_colors(
         &mut self,
@@ -1202,7 +1232,7 @@ impl Mesh {
         self.quantize_float32_attribute(Mesh::ATTRIBUTE_COLOR, quantization)
     }
 
-    /// Quantize `Float32x4` joint weights to the type of `quantization`.
+    /// Quantize `Float32x4` joint weights to the format of `quantization` using [`Mesh::quantize_float32_attribute`].
     /// [`AttributeQuantization::Unorm16`] is recommended.
     pub fn quantize_joint_weights(
         &mut self,
@@ -1229,6 +1259,9 @@ impl Mesh {
 
     /// Compress the mesh with [`MeshCompressionArgs`] using `Mesh::compress_*` and `Mesh::quantize_*` methods.
     /// Any failed compression is just ignored.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compressed_mesh(mut self, args: MeshCompressionArgs) -> Mesh {
         if args
             .compress_attributes

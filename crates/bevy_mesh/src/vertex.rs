@@ -259,7 +259,7 @@ pub enum AttributeQuantization {
 
 impl AttributeQuantization {
     /// Create a [`VertexAttributeValues`] with `values` quantized to the format of this quantization.
-    pub fn quantize_f32_values<const N: usize>(
+    pub(crate) fn quantize_f32_values<const N: usize>(
         &self,
         values: &[[f32; N]],
     ) -> VertexAttributeValues {
@@ -310,11 +310,6 @@ impl AttributeQuantization {
                 }
             }
         }
-    }
-
-    /// Get the vertex format of this quantization with N components.
-    pub fn vertex_format<const N: usize>(&self) -> VertexFormat {
-        (&self.quantize_f32_values::<N>(&[])).into()
     }
 }
 
@@ -593,6 +588,8 @@ impl VertexAttributeValues {
         }
     }
 
+    /// Create a new `VertexAttributeValues` with Float32 values quantized to the format of `quantization`.
+    /// Return None if the values are not Float32, Float32x2 or Float32x4.
     pub(crate) fn create_quantized_values(
         &self,
         quantization: AttributeQuantization,
