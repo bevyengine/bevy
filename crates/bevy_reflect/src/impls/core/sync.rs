@@ -50,8 +50,18 @@ macro_rules! impl_reflect_for_atomic {
 
             impl PartialReflect for $ty {
                 #[inline]
-                fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-                    Some(<Self as Typed>::type_info())
+                fn runtime_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                    <Self as $crate::info::MaybeTyped>::maybe_type_info()
+                }
+
+                #[inline]
+                fn comptime_type(&self) -> $crate::ty::Type {
+                    $crate::ty::Type::of::<Self>()
+                }
+
+                #[inline]
+                fn runtime_type(&self) -> Option<$crate::ty::Type> {
+                    Some($crate::ty::Type::of::<Self>())
                 }
                 #[inline]
                 fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {

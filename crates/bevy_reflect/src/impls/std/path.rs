@@ -12,6 +12,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use bevy_platform::prelude::*;
+use bevy_reflect::{MaybeTyped, Type};
 use bevy_reflect_derive::{impl_reflect_opaque, impl_type_path};
 use core::any::Any;
 use core::fmt;
@@ -30,8 +31,19 @@ impl_reflect_opaque!(::std::path::PathBuf(
 ));
 
 impl PartialReflect for &'static Path {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -57,6 +69,18 @@ impl PartialReflect for &'static Path {
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            self.clone_from(value);
+            Ok(())
+        } else {
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
+        }
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -99,18 +123,6 @@ impl PartialReflect for &'static Path {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
-        }
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-            Ok(())
-        } else {
-            Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            })
         }
     }
 }
@@ -169,8 +181,19 @@ impl FromReflect for &'static Path {
 }
 
 impl PartialReflect for Cow<'static, Path> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -196,6 +219,18 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            self.clone_from(value);
+            Ok(())
+        } else {
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
+        }
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -243,18 +278,6 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-            Ok(())
-        } else {
-            Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            })
-        }
     }
 }
 

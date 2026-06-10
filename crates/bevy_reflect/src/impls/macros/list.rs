@@ -62,8 +62,18 @@ macro_rules! impl_reflect_for_veclike {
 
             impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::reflect::PartialReflect for $ty {
                 #[inline]
-                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
-                    Some(<Self as $crate::info::Typed>::type_info())
+                fn runtime_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                    <Self as $crate::info::MaybeTyped>::maybe_type_info()
+                }
+
+                #[inline]
+                fn comptime_type(&self) -> $crate::ty::Type {
+                    $crate::ty::Type::of::<Self>()
+                }
+
+                #[inline]
+                fn runtime_type(&self) -> Option<$crate::ty::Type> {
+                    Some($crate::ty::Type::of::<Self>())
                 }
 
                 fn into_partial_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect> {

@@ -6,7 +6,7 @@ use crate::{
     TypePath, TypeRegistration, Typed,
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_reflect::ReflectCloneError;
+use bevy_reflect::{ReflectCloneError, Type};
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
@@ -83,8 +83,19 @@ impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
