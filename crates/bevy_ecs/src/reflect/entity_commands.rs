@@ -361,7 +361,7 @@ fn insert_reflect_with_registry_ref(
     component: Box<dyn PartialReflect>,
 ) {
     let type_info = component
-        .get_represented_type_info()
+        .runtime_type_info()
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
