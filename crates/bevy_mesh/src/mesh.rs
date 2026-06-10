@@ -1188,7 +1188,7 @@ impl Mesh {
                 },
             );
         };
-        attribute.format = quantization.vertex_format::<4>();
+        attribute.format = (&quantized_values).into();
         *values = quantized_values;
         Ok(self)
     }
