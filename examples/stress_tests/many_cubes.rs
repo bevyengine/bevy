@@ -93,9 +93,9 @@ struct Args {
     #[argh(switch)]
     motion_blur: bool,
 
-    /// whether to enable vertex compression.
+    /// whether to enable mesh compression.
     #[argh(switch)]
-    vertex_compression: bool,
+    mesh_compression: bool,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -430,7 +430,7 @@ fn init_materials(
 }
 
 fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
-    if args.vertex_compression {
+    if args.mesh_compression {
         mesh.into().compressed_mesh(MeshCompressionArgs::all())
     } else {
         mesh.into()

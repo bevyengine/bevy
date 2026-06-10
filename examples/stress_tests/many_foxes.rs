@@ -31,9 +31,9 @@ struct Args {
     #[argh(switch)]
     motion_blur: bool,
 
-    /// whether to enable vertex compression.
+    /// whether to enable mesh compression.
     #[argh(switch)]
-    vertex_compression: bool,
+    mesh_compression: bool,
 }
 
 #[derive(Resource)]
@@ -65,7 +65,7 @@ fn main() {
                     ..default()
                 })
                 .set(GltfPlugin {
-                    mesh_compression: if args.vertex_compression {
+                    mesh_compression: if args.mesh_compression {
                         MeshCompressionArgs::all()
                     } else {
                         MeshCompressionArgs::none()
