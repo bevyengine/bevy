@@ -959,6 +959,7 @@ use bevy_ecs::prelude::*;
 /// | `CompA(val)`<br>`CompA(val, val)`          | Tuple Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)  |
 /// | `CompA { name: val }`                      | Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)        |
 /// | `mymodule::CompA { name: val }`            | Same as above, but referring to the component by module path                                                   |
+/// | `CompA { name }`                           | Component with Rust's "field assignment shorthand". Evaluates to `CompA { name: name.into() }`                 |
 /// | `MyEnum::Variant`                          | Enum Component `MyEnum` with the `Variant` variant                                                             |
 /// | `template_value(component)`                | Insert the component value from a variable `component`                                                         |
 /// | `template_value(CompA::from_str("foo"))`   | Insert the component value by immediately calling the constructor                                              |
@@ -2837,11 +2838,69 @@ mod tests {
         let entity = world
             .spawn_scene(bsn! {
                 Foo {
-                    value: vec! [ 10usize ],
+                    value: vec! [ 10 ],
                 }
             })
             .unwrap();
-        assert_eq!(entity.get::<Foo>().unwrap().value, vec![10usize]);
+        assert_eq!(entity.get::<Foo>().unwrap().value, vec![10]);
+    }
+
+    #[test]
+    fn field_name_shorthand() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Default, Clone)]
+        struct Foo {
+            value: usize,
+        }
+        let value = 10usize;
+        let entity = world.spawn_scene(bsn! { Foo { value } }).unwrap();
+        assert_eq!(entity.get::<Foo>().unwrap().value, 10);
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(BarProps)]
+        struct Bar {
+            value: usize,
+        }
+
+        #[derive(Default)]
+        struct BarProps {
+            value: usize,
+        }
+
+        impl Bar {
+            fn scene(props: BarProps) -> impl Scene {
+                bsn! {Bar {
+                    value: {props.value}
+                }}
+            }
+        }
+
+        let value = 10usize;
+        let entity = world.spawn_scene(bsn! { @Bar { @value } }).unwrap();
+        assert_eq!(entity.get::<Bar>().unwrap().value, 10);
+
+        #[derive(Component, Default, Clone)]
+        struct Baz {
+            value: X,
+        }
+
+        #[derive(Default, Clone)]
+        struct X;
+
+        #[derive(Default, Clone)]
+        struct Y;
+
+        impl From<Y> for X {
+            fn from(_: Y) -> Self {
+                X
+            }
+        }
+
+        let value = Y;
+        // ensure implicit Into works
+        let _ = world.spawn_scene(bsn! { Baz { value } }).unwrap();
     }
 
     #[test]
