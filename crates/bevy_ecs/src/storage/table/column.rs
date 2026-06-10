@@ -47,6 +47,9 @@ impl Column {
 
     /// Swap-remove and drop the removed element, but the component at `row` must not be the last element.
     ///
+    /// # Panics
+    /// Panics if the component's drop function panics. The data will still have been successfully swapped.
+    ///
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
@@ -57,8 +60,6 @@ impl Column {
         last_element_index: usize,
         row: TableRow,
     ) {
-        self.data
-            .swap_remove_and_drop_unchecked_nonoverlapping(row.index(), last_element_index);
         self.added_ticks
             .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         self.changed_ticks
@@ -66,6 +67,8 @@ impl Column {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         });
+        self.data
+            .swap_remove_and_drop_unchecked_nonoverlapping(row.index(), last_element_index);
     }
 
     /// Swap-remove the provided row.
@@ -73,6 +76,9 @@ impl Column {
     /// If `DROP` is `true`, the removed element will be dropped as needed.
     ///
     /// If `DROP` is `false`, the removed element will be forgotten.
+    ///
+    /// # Panics
+    /// Panics if the component drop function panics.
     ///
     /// # Safety
     /// - `last_element_index` must be the index of the last element.
@@ -83,6 +89,13 @@ impl Column {
         last_element_index: usize,
         row: TableRow,
     ) {
+        self.added_ticks
+            .swap_remove_unchecked(row.index(), last_element_index);
+        self.changed_ticks
+            .swap_remove_unchecked(row.index(), last_element_index);
+        self.changed_by.as_mut().map(|changed_by| {
+            changed_by.swap_remove_unchecked(row.index(), last_element_index);
+        });
         if DROP {
             self.data
                 .swap_remove_and_drop_unchecked(row.index(), last_element_index);
@@ -91,13 +104,6 @@ impl Column {
                 .data
                 .swap_remove_unchecked(row.index(), last_element_index);
         }
-        self.added_ticks
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.changed_ticks
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.changed_by.as_mut().map(|changed_by| {
-            changed_by.swap_remove_unchecked(row.index(), last_element_index);
-        });
     }
 
     /// Swap-remove and forgets the removed element, but the component at `row` must not be the last element.
@@ -188,6 +194,9 @@ impl Column {
 
     /// Overwrites component data to the column at given row. The previous value is dropped.
     ///
+    /// # Panics
+    /// Panics if the drop function panics.
+    ///
     /// # Safety
     /// - There must be a valid initialized value stored at `row`.
     /// - `row.as_usize()` must be in bounds.
@@ -200,12 +209,12 @@ impl Column {
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
-        self.data.replace_unchecked(row.index(), data);
         *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
+        self.data.replace_unchecked(row.index(), data);
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -277,6 +286,9 @@ impl Column {
 
     /// Clear all the components from this column.
     ///
+    /// # Panics
+    /// Panics if the component's drop function panics.
+    ///
     /// # Safety
     /// - `len` must match the actual length of the column
     /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
@@ -292,6 +304,9 @@ impl Column {
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
     /// The owner of this [`Column`] must call this method with the correct information.
     ///
+    /// # Panics
+    /// Panics if the component's drop function panics.
+    ///
     /// # Safety
     /// - `len` is indeed the length of the column
     /// - `cap` is indeed the capacity of the column
@@ -299,13 +314,16 @@ impl Column {
     pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize) {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);
-        self.data.drop(cap, len);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.drop(cap, len));
+        self.data.drop(cap, len);
     }
 
     /// Drops the last component in this column.
+    ///
+    /// # Panics
+    /// Panics if the component's drop function panics.
     ///
     /// # Safety
     /// - `last_element_index` is indeed the index of the last element

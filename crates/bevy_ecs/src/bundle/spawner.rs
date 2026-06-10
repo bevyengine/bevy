@@ -107,7 +107,8 @@ impl<'w> BundleSpawner<'w> {
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
-            bundle_info.write_components(
+            // No component existed beforehand, therefore no drop can have panicked
+            let _ = bundle_info.write_components(
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,

@@ -126,6 +126,9 @@ impl<'a> BundleWriter<'a> {
     /// Runs with [`RelationshipHookMode::Run`] by default.
     /// Use [`write_with_relationship_hook_insert_mode`](Self::write_with_relationship_hook_insert_mode) if you need more flexibility.
     ///
+    /// # Panics
+    /// Panics if any of the overwritten components panic while being dropped.
+    ///
     /// # Safety
     ///
     /// `entity` must be from the same world that all [`Self::push_component`] or [`Self::push_component_by_id`] calls since the last
@@ -154,17 +157,25 @@ impl<'a> BundleWriter<'a> {
         // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
+            struct DropGuard<'a>(BundleWriter<'a>);
+            impl Drop for DropGuard<'_> {
+                fn drop(&mut self) {
+                    self.0 .0.component_ids.clear();
+                    self.0 .0.alloc.reset();
+                }
+            }
+            let guard = DropGuard(self);
             entity.insert_by_ids_internal(
-                &self.0.component_ids,
-                self.0
+                &guard.0 .0.component_ids,
+                guard
+                    .0
+                     .0
                     .component_ptrs
                     .drain(..)
                     .map(|ptr| OwningPtr::new(ptr)),
                 relationship_hook_insert_mode,
             );
         }
-        self.0.component_ids.clear();
-        self.0.alloc.reset();
     }
 
     /// Returns true if there are currently no components.

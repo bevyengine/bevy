@@ -1,6 +1,8 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bevy_ptr::ConstNonNull;
 use core::ptr::NonNull;
+use core::{any::Any, panic::AssertUnwindSafe};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
@@ -24,6 +26,12 @@ pub(crate) struct BundleRemover<'w> {
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
     pub(crate) relationship_hook_mode: RelationshipHookMode,
+}
+
+pub(crate) struct BundleRemoveResult<T> {
+    pub new_location: EntityLocation,
+    pub data: T,
+    pub panic_payload: Result<(), Box<dyn Any + Send>>,
 }
 
 impl<'w> BundleRemover<'w> {
@@ -133,7 +141,7 @@ impl<'w> BundleRemover<'w> {
             &Components,
             &[ComponentId],
         ) -> (bool, T),
-    ) -> (EntityLocation, T) {
+    ) -> BundleRemoveResult<T> {
         // Hooks
         // SAFETY: all bundle components exist in World
         unsafe {
@@ -202,6 +210,11 @@ impl<'w> BundleRemover<'w> {
             self.bundle_info.as_ref().explicit_components(),
         );
 
+        // Component's drop functions may panic.
+        // We mustn't leave the world in an inconsistent state if that happens.
+        // Catch any such panics, finish the removal, and rethrow the first one.
+        let mut panic_payload = Ok(());
+
         // Handle sparse set removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
@@ -212,14 +225,21 @@ impl<'w> BundleRemover<'w> {
                 if let Some(StorageType::SparseSet) =
                     self.old_archetype.as_ref().get_storage_type(component_id)
                 {
-                    world
+                    let sparse_set = world
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
                         // Set exists because the component existed on the entity
-                        .unwrap()
-                        // If it was already forgotten, it would not be in the set.
-                        .remove(entity);
+                        .unwrap();
+
+                    let maybe_panic =
+                        bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
+                            sparse_set.remove(entity);
+                        }));
+
+                    if panic_payload.is_ok() & maybe_panic.is_err() {
+                        panic_payload = maybe_panic;
+                    }
                 }
             }
         }
@@ -278,6 +298,10 @@ impl<'w> BundleRemover<'w> {
                 }
             };
 
+            if panic_payload.is_ok() & move_result.panic.is_err() {
+                panic_payload = move_result.panic;
+            }
+
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
             let new_location = unsafe {
                 self.new_archetype
@@ -317,7 +341,11 @@ impl<'w> BundleRemover<'w> {
                 .update_existing_location(entity.index(), Some(new_location));
         }
 
-        (new_location, pre_remove_result)
+        BundleRemoveResult {
+            new_location,
+            data: pre_remove_result,
+            panic_payload,
+        }
     }
 }
 

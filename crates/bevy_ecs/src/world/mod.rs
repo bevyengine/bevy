@@ -2593,7 +2593,7 @@ impl World {
                     };
                     move_as_ptr!(first_bundle);
                     // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                    unsafe {
+                    let (_, panic) = unsafe {
                         cache.inserter.insert(
                             first_entity,
                             first_location,
@@ -2603,6 +2603,7 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    bevy_utils::resume_caught_unwind(panic);
 
                     for (entity, bundle) in batch_iter {
                         match cache.inserter.entities().get_spawned(entity) {
@@ -2623,7 +2624,7 @@ impl World {
                                 }
                                 move_as_ptr!(bundle);
                                 // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                                unsafe {
+                                let (_, panic) = unsafe {
                                     cache.inserter.insert(
                                         entity,
                                         location,
@@ -2633,6 +2634,7 @@ impl World {
                                         RelationshipHookMode::Run,
                                     )
                                 };
+                                bevy_utils::resume_caught_unwind(panic);
                             }
                             Err(err) => {
                                 panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
@@ -2745,7 +2747,7 @@ impl World {
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - `apply_effect` is never called on this bundle.
                     // - `first_bundle` is not be accessed or dropped after this.
-                    unsafe {
+                    let (_, panic) = unsafe {
                         cache.inserter.insert(
                             first_entity,
                             first_location,
@@ -2755,6 +2757,8 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    bevy_utils::resume_caught_unwind(panic);
+
                     break Some(cache);
                 }
                 invalid_entities.push(first_entity);
@@ -2787,7 +2791,7 @@ impl World {
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - `apply_effect` is never called on this bundle.
                     // - `bundle` is not be accessed or dropped after this.
-                    unsafe {
+                    let (_, panic) = unsafe {
                         cache.inserter.insert(
                             entity,
                             location,
@@ -2797,6 +2801,7 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    bevy_utils::resume_caught_unwind(panic);
                 } else {
                     invalid_entities.push(entity);
                 }
@@ -2960,7 +2965,7 @@ impl World {
                     // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
                     //   and the caller ensures that the value is not accessed or dropped after this function
                     //   returns.
-                    let (bundle, _) = value.partial_move(|bundle| unsafe {
+                    let (bundle, (_, panic)) = value.partial_move(|bundle| unsafe {
                         bundle_inserter.insert(
                             self.entity,
                             location,
@@ -2980,6 +2985,8 @@ impl World {
                     // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
                     // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
                     unsafe { R::apply_effect(bundle, &mut entity_mut) };
+
+                    bevy_utils::resume_caught_unwind(panic);
                 }
             }
         }
@@ -4031,7 +4038,7 @@ mod tests {
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
-        panic,
+        panic::AssertUnwindSafe,
         sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
     use std::{println, sync::Mutex};
@@ -4146,6 +4153,67 @@ mod tests {
                 DropLogItem::Create(1),
                 DropLogItem::Drop(0),
                 DropLogItem::Drop(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn panic_in_component_drop() {
+        let helper = DropTestHelper::new();
+
+        let mut world = World::new();
+
+        let e1 = world.spawn(helper.make_component(true, 0)).id();
+        let e2 = world.spawn(helper.make_component(true, 1)).id();
+
+        // Panic despawning component not last in table
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.despawn(e1);
+        }))
+        .unwrap_err();
+
+        // Panic despawning component last in table
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.despawn(e2);
+        }))
+        .unwrap_err();
+
+        let mut e3 = world.spawn(helper.make_component(true, 2));
+        let e3_id = e3.id();
+        let old_loc = e3.location();
+        // Drop old component through override
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            e3.insert((helper.make_component(true, 3), Foo));
+        }))
+        .unwrap_err();
+        assert_ne!(e3.location(), old_loc);
+        assert_eq!(e3.location(), world.entity(e3_id).location());
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.entity_mut(e3_id).remove::<MayPanicInDrop>();
+        }))
+        .unwrap_err();
+
+        world.spawn(helper.make_component(true, 4));
+        // Panic during world drop
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            drop(world);
+        }));
+
+        let drop_log = helper.finish(res);
+
+        assert_eq!(
+            &*drop_log,
+            [
+                DropLogItem::Create(0),
+                DropLogItem::Create(1),
+                DropLogItem::Drop(0),
+                DropLogItem::Drop(1),
+                DropLogItem::Create(2),
+                DropLogItem::Create(3),
+                DropLogItem::Drop(2),
+                DropLogItem::Drop(3),
+                DropLogItem::Create(4),
+                DropLogItem::Drop(4),
             ]
         );
     }

@@ -180,11 +180,17 @@ impl ComponentSparseSet {
     }
 
     /// Removes all of the values stored within.
+    ///
+    /// # Panics
+    /// Panics if the component drop function panics.
     pub(crate) fn clear(&mut self) {
-        // SAFETY: This is using the size of the ComponentSparseSet.
-        unsafe { self.dense.clear(self.len()) };
+        let len = self.len();
         self.entities.clear();
         self.sparse.clear();
+        // In case dropping a component panics, we have already marked this set as empty.
+        // This means we skip dropping the remaining components, but do not drop any twice.
+        // SAFETY: This is using the size of the ComponentSparseSet.
+        unsafe { self.dense.clear(len) };
     }
 
     /// Returns the number of component values in the sparse set.
@@ -201,6 +207,9 @@ impl ComponentSparseSet {
 
     /// Inserts the `entity` key and component `value` pair into this sparse
     /// set.
+    ///
+    /// # Panics
+    /// Panics if a value was already present and the drop function panics.
     ///
     /// # Aborts
     /// - Aborts the process if the insertion forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
@@ -416,6 +425,9 @@ impl ComponentSparseSet {
     }
 
     /// Removes (and drops) the entity's component value from the sparse set.
+    ///
+    /// # Panics
+    /// Panics if the component's drop function panics.
     ///
     /// Returns `true` if `entity` had a component value in the sparse set.
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
