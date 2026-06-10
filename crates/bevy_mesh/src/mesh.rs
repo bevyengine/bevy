@@ -3102,7 +3102,10 @@ mod tests {
     #[cfg(feature = "serialize")]
     use super::SerializedMesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
-    use crate::{AttributeQuantization, MeshAttributeCompressionFlags, PrimitiveTopology};
+    use crate::{
+        AttributeQuantization, MeshAttributeCompressionFlags, MeshVertexAttribute,
+        PrimitiveTopology,
+    };
     use bevy_asset::RenderAssetUsages;
     use bevy_math::bounding::{Aabb2d, Aabb3d};
     use bevy_math::primitives::Triangle3d;
@@ -3776,7 +3779,7 @@ mod tests {
         let VertexAttributeValues::Float16x4(color_f16) =
             mesh_color_f16.attribute(Mesh::ATTRIBUTE_COLOR).unwrap()
         else {
-            panic!("Color attribute is not compressed to Float16x4")
+            panic!("Color attribute is not quantized to Float16x4")
         };
         assert!(color_f16
             .iter()
@@ -3850,5 +3853,81 @@ mod tests {
             mesh.indices(),
             Some(&Indices::U16(vec![0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2]))
         );
+    }
+
+    #[test]
+    fn quantize_mesh_float32_attributes() {
+        let f4 = MeshVertexAttribute::new("f32x4", 10, wgpu_types::VertexFormat::Float32x4);
+        let f2 = MeshVertexAttribute::new("f32x2", 11, wgpu_types::VertexFormat::Float32x2);
+        let f1 = MeshVertexAttribute::new("f32x1", 12, wgpu_types::VertexFormat::Float32);
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            f4,
+            vec![
+                [1.0, 0.0, -2.0, 0.0],
+                [0.0, 5.0, 0.0, 0.0],
+                [0.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.1, -0.9, 0.0, 0.0],
+                [0.1, 0.2, -0.7, 0.0],
+                [0.1, 0.2, 0.4, 0.3],
+            ],
+        )
+        .with_inserted_attribute(
+            f2,
+            vec![
+                [10.0, 0.0],
+                [0.0, 1.0],
+                [-2.0, 0.0],
+                [-0.5, 0.0],
+                [0.1, 0.9],
+                [0.1, 0.2],
+                [0.1, 0.2],
+            ],
+        )
+        .with_inserted_attribute(f1, vec![10.0, 0.0, 2.0, 0.0, 0.1, 0.1, 0.1]);
+
+        mesh.quantize_float32_attribute(f4, AttributeQuantization::Unorm16)
+            .unwrap();
+        assert_eq!(
+            mesh.attribute(f4),
+            Some(&VertexAttributeValues::Unorm16x4(vec![
+                [65535, 0, 0, 0],
+                [0, 65535, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 65535],
+                [6554, 0, 0, 0],
+                [6554, 13107, 0, 0],
+                [6554, 13107, 26214, 19661]
+            ]))
+        );
+
+        mesh.quantize_float32_attribute(f2, AttributeQuantization::Snorm8)
+            .unwrap();
+        assert_eq!(
+            mesh.attribute(f2),
+            Some(&VertexAttributeValues::Snorm8x2(vec![
+                [127, 0],
+                [0, 127],
+                [-127, 0],
+                [-64, 0],
+                [13, 114],
+                [13, 25],
+                [13, 25]
+            ]))
+        );
+
+        mesh.quantize_float32_attribute(f1, AttributeQuantization::Float16)
+            .unwrap();
+        let VertexAttributeValues::Float16(f16_values) = mesh.attribute(f1).unwrap() else {
+            panic!("Attribute f1 is not quantized to Float16")
+        };
+        assert!(f16_values
+            .iter()
+            .zip([10.0, 0.0, 2.0, 0.0, 0.1, 0.1, 0.1].map(half::f16::from_f32))
+            .all(|(a, b)| approx::relative_eq!(a.to_f32(), b.to_f32())));
     }
 }
