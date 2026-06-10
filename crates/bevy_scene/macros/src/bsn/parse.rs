@@ -358,6 +358,7 @@ impl Parse for BsnNamedField {
             false
         };
         let name = input.parse::<Ident>()?;
+        let mut is_name_shorthand = false;
         let value = if input.peek(Colon) {
             input.parse::<Colon>()?;
 
@@ -367,12 +368,14 @@ impl Parse for BsnNamedField {
                 Some(input.parse::<BsnValue>()?)
             }
         } else {
+            is_name_shorthand = true;
             None
         };
         Ok(BsnNamedField {
             name,
             value,
             is_prop,
+            is_name_shorthand,
         })
     }
 }

@@ -91,6 +91,8 @@ pub struct BsnTuple(pub Vec<BsnValue>);
 #[derive(Debug)]
 pub struct BsnNamedField {
     pub is_prop: bool,
+    /// This is a `Struct { field }` shorthand for `Struct { field: field }`
+    pub is_name_shorthand: bool,
     pub name: Ident,
     /// This is an Option to enable autocomplete when the field name is being typed
     /// To improve autocomplete further we'll need to forgo a lot of the syn parsing
