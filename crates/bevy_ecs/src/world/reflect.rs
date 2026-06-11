@@ -199,11 +199,8 @@ impl World {
         resource_id: ComponentId,
         reflected_resource: Box<dyn PartialReflect>,
     ) {
-        if let Some(entity) = self.resource_entities().get(resource_id) {
-            self.entity_mut(entity).insert_reflect(reflected_resource);
-        } else {
-            self.spawn_empty().insert_reflect(reflected_resource);
-        }
+        let entity = self.get_or_spawn_resource_entity(resource_id);
+        self.entity_mut(entity).insert_reflect(reflected_resource);
     }
 }
 

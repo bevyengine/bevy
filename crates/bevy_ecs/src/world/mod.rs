@@ -1939,6 +1939,24 @@ impl World {
             .register_component_with_descriptor(descriptor)
     }
 
+    /// Returns the [`Entity`] that stores the resource identified by `resource_id`, spawning and
+    /// registering a fresh one if the resource does not exist yet.
+    ///
+    /// This method must be used whenever you are attempting to access a resource entity by id
+    /// that may not have been initialized yet, in order to ensure appropriate initialization.
+    ///
+    /// When a resource entity is spawned, it is marked with [`IsResource`],
+    /// which allows for it to be accessed through the resource APIs (such as [`get_resource`](World::get_resource)).
+    /// When a resource entity already exists, it is expected to already be marked with [`IsResource`];
+    /// failure to do so may result in surprising downstream bugs.
+    pub fn get_or_spawn_resource_entity(&mut self, resource_id: ComponentId) -> Entity {
+        if let Some(entity) = self.resource_entities.get(resource_id) {
+            entity
+        } else {
+            self.spawn(IsResource::new(resource_id)).id()
+        }
+    }
+
     fn insert_resource_if_not_exists_with_caller<R: Resource>(
         &mut self,
         func: impl FnOnce(&mut World) -> R,
@@ -1963,13 +1981,14 @@ impl World {
 
         let resource = func(self);
         move_as_ptr!(resource);
-        let mut entity_mut = self.spawn_with_caller(resource, caller);
-        // Mark this entity as holding a resource so it is registered in the resource cache
-        // and reachable through the resource APIs.
-        // This is added here, rather than as a required component of the resource type,
-        // so that the same type can still be inserted as an ordinary component on other entities
-        // See #24591, #24592 for the regressions that approach caused.
-        entity_mut.insert(IsResource::new(resource_id));
+        let entity = self.get_or_spawn_resource_entity(resource_id);
+        let mut entity_mut = self.entity_mut(entity);
+        entity_mut.insert_with_caller(
+            resource,
+            InsertMode::Replace,
+            caller,
+            RelationshipHookMode::Run,
+        );
         (resource_id, entity_mut)
     }
 
@@ -3058,39 +3077,22 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
-        // if the resource already exists, we replace it on the same entity
-        if let Some(entity) = self.resource_entities.get(component_id) {
-            let mut entity_mut = self
-                .get_entity_mut(entity)
-                .expect("ResourceCache is in sync");
-            // SAFETY: pointer valid for this component id per precondition
-            unsafe {
-                entity_mut.insert_by_id_with_caller(
-                    component_id,
-                    value,
-                    InsertMode::Replace,
-                    caller,
-                    RelationshipHookMode::Run,
-                )
-            };
-        } else {
-            let mut entity_mut = self.spawn_empty();
-            // SAFETY: pointer valid for this component id per precondition
-            unsafe {
-                entity_mut.insert_by_id_with_caller(
-                    component_id,
-                    value,
-                    InsertMode::Replace,
-                    caller,
-                    RelationshipHookMode::Run,
-                )
-            };
-            // Mark this entity as holding a resource so it is registered in the resource
-            // cache and reachable through the resource APIs. This is added here, rather
-            // than as a required component of the resource type, so that the same type can
-            // still be inserted as an ordinary component on other entities (see #24591, #24592).
-            entity_mut.insert(IsResource::new(component_id));
-        }
+        // Reuse the existing resource entity if there is one, otherwise spawn a fresh one
+        // (already marked with `IsResource`) so the type is registered as a resource.
+        let entity = self.get_or_spawn_resource_entity(component_id);
+        let mut entity_mut = self
+            .get_entity_mut(entity)
+            .expect("ResourceCache is in sync");
+        // SAFETY: pointer valid for this component id per precondition
+        unsafe {
+            entity_mut.insert_by_id_with_caller(
+                component_id,
+                value,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            )
+        };
     }
 
     /// Inserts new `!Send` data with the given `value`. Will replace the value if it already

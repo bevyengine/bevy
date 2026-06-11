@@ -743,6 +743,14 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    ///
+    /// # Warning
+    ///
+    /// Do not use this method when initializing new resources.
+    /// Most of the time, you can just call [`World::insert_resource`](World::insert_resource) or a similar method
+    /// to ensure the resource is properly registered and its entity is properly initialized.
+    ///
+    /// If you need something lower level, reach for [`World::get_or_spawn_resource_entity`] instead.
     #[inline]
     #[track_caller]
     pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {

@@ -87,6 +87,11 @@ use bevy_platform::cell::SyncUnsafeCell;
 pub trait Resource: Component {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
+///
+/// To initialize a new resource entity, call [`World::get_or_spawn_resource_entity`]
+/// with the resource's `ComponentId`.
+///
+/// [`World::get_or_spawn_resource_entity`]: crate::world::World::get_or_spawn_resource_entity
 #[derive(Default)]
 pub struct ResourceEntities(SyncUnsafeCell<SparseArray<ComponentId, Entity>>);
 
@@ -101,6 +106,12 @@ impl ResourceEntities {
     }
 
     /// Returns the entity for the given resource component, or `None` if there is no entity.
+    ///
+    /// # Warning
+    ///
+    /// When attempting to initialize resource entities, do not call this method directly.
+    /// Instead, use [`World::get_or_spawn_resource_entity`](crate::world::World::get_or_spawn_resource_entity),
+    /// which will ensure that the entity is properly initialized and marked with [`IsResource`].
     #[inline]
     pub fn get(&self, id: ComponentId) -> Option<Entity> {
         self.deref().get(id).copied()
@@ -117,15 +128,33 @@ impl ResourceEntities {
     }
 }
 
-/// A marker component for entities that have a Resource component.
+/// A marker component for entities that have a component which is being used as a [`Resource`].
+///
+/// While [`Resource`], as a trait, indicates that a component *may* be used as a resource,
+/// [`IsResource`] indicates that a component *is* being used as a resource on that entity,
+/// and can be accessed via [`ResourceEntities`], ordinary [`Res`] / [`ResMut`] system parameters,
+/// or [`World::resource`] calls.
+///
+/// Components which implement [`Resource`] are not necessarily resources:
+/// they only become resources when they are inserted via resource insertion paths
+/// such as [`World::insert_resource`].
 ///
 /// This type is automatically inserted during resource insertion,
-/// via the [`World::insert_resource_by_id`] method and
-/// the more common methods which call it.
+/// via the [`World::insert_resource`] method and
+/// related methods.
+/// All of these paths ultimately rely on [`World::get_or_spawn_resource_entity`] to initialize the resource entity,
+/// inserting this component.
+/// As part of that insertion, the resource is registered in [`ResourceEntities`]
+/// via the `on_insert` hook for this component.
 ///
-/// You should never have to manually insert this component.
+/// You should never have to manually insert, remove or edit this component,
+/// and doing so can lead to very surprising bugs.
 ///
-/// [`World::insert_resource_by_id`]: crate::world::World::insert_resource_by_id
+/// [`Res`]: crate::system::Res
+/// [`ResMut`]: crate::system::ResMut
+/// [`World::resource`]: crate::world::World::resource
+/// [`World::insert_resource`]: crate::world::World::insert_resource
+/// [`World::get_or_spawn_resource_entity`]: crate::world::World::get_or_spawn_resource_entity
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
 #[component(on_insert, on_discard, on_despawn)]

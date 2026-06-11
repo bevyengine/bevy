@@ -183,11 +183,7 @@ impl DynamicWorld {
             let resource_id = reflect_component.register_component(world);
 
             // check if the resource already exists, if not spawn it, otherwise override the value
-            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
-                entity
-            } else {
-                world.spawn_empty().id()
-            };
+            let entity = world.get_or_spawn_resource_entity(resource_id);
 
             SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                 reflect_component.apply_or_insert_mapped(
