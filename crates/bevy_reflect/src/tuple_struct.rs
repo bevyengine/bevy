@@ -61,14 +61,14 @@ pub trait TupleStruct: PartialReflect {
     /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
     fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
         DynamicTupleStruct {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
-        self.get_represented_type_info()?.as_tuple_struct().ok()
+        self.runtime_type_info()?.as_tuple_struct().ok()
     }
 }
 
@@ -298,8 +298,18 @@ impl TupleStruct for DynamicTupleStruct {
 
 impl PartialReflect for DynamicTupleStruct {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.represented_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -512,7 +522,7 @@ pub fn tuple_struct_debug(
 ) -> core::fmt::Result {
     let mut debug = f.debug_tuple(
         dyn_tuple_struct
-            .get_represented_type_info()
+            .runtime_type_info()
             .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );

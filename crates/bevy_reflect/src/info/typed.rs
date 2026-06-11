@@ -27,7 +27,7 @@ use crate::{
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError, Type};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -55,7 +55,9 @@ use crate::{
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// # impl PartialReflect for MyStruct {
-/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn comptime_type(&self) -> Type { todo!() }
+/// #     fn runtime_type(&self) -> Option<Type> { todo!() }
+/// #     fn runtime_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
 /// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
 /// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
@@ -102,12 +104,21 @@ pub trait Typed: Reflect + TypePath {
 )]
 pub trait DynamicTyped {
     /// See [`Typed::type_info`].
-    fn reflect_type_info(&self) -> &'static TypeInfo;
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `DynamicTyped::comptime_type_info` instead"
+    )]
+    fn reflect_type_info(&self) -> &'static TypeInfo {
+        self.comptime_type_info()
+    }
+
+    /// Returns the compile-time [`TypeInfo`] as given by [`Typed::type_info`].
+    fn comptime_type_info(&self) -> &'static TypeInfo;
 }
 
 impl<T: Typed> DynamicTyped for T {
     #[inline]
-    fn reflect_type_info(&self) -> &'static TypeInfo {
+    fn comptime_type_info(&self) -> &'static TypeInfo {
         Self::type_info()
     }
 }

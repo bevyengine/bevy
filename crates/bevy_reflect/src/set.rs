@@ -78,7 +78,7 @@ pub trait Set: PartialReflect {
     /// Creates a new [`DynamicSet`] from this set.
     fn to_dynamic_set(&self) -> DynamicSet {
         let mut set = DynamicSet::default();
-        set.set_represented_type(self.get_represented_type_info());
+        set.set_represented_type(self.runtime_type_info());
         for value in self.iter() {
             set.insert_boxed(value.to_dynamic());
         }
@@ -258,8 +258,18 @@ impl Set for DynamicSet {
 
 impl PartialReflect for DynamicSet {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.represented_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]

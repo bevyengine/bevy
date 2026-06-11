@@ -160,14 +160,14 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| s.get_represented_type_info());
+                bencher.iter(|| s.runtime_type_info());
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| s.get_represented_type_info());
+                bencher.iter(|| s.runtime_type_info());
             },
         );
     }

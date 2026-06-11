@@ -109,14 +109,14 @@ pub trait List: PartialReflect {
     /// Creates a new [`DynamicList`] from this list.
     fn to_dynamic_list(&self) -> DynamicList {
         DynamicList {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             values: self.iter().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
-        self.get_represented_type_info()?.as_list().ok()
+        self.runtime_type_info()?.as_list().ok()
     }
 }
 
@@ -252,8 +252,18 @@ impl List for DynamicList {
 
 impl PartialReflect for DynamicList {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.represented_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
