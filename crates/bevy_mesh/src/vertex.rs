@@ -3,7 +3,7 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
 use bevy_math::{
     bounding::{Aabb2d, Aabb3d, BoundingVolume},
-    vec2, Vec2, Vec3, Vec3A, Vec3Swizzles,
+    ops, vec2, vec3, Mat3, Quat, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
@@ -1155,8 +1155,10 @@ pub fn octahedral_encode_signed(v: Vec3) -> Vec2 {
 
 /// Encode tangent vectors as octahedral coordinates with range [-1, 1]. The sign is encoded in y component. Use [`octahedral_decode_tangent`] to decode.
 pub fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
-    // Bias to ensure that encoding as unorm16 preserves the sign. See https://github.com/godotengine/godot/pull/73265
-    let bias = 1.0 / 32767.0;
+    // Bias to ensure that encoding as snorm16 preserves the sign.
+    let bits = 16.;
+    let bias = 1. / (ops::powf(2.0, bits - 1.) - 1.);
+
     let mut n_xy = octahedral_encode_signed(v);
     // Map y to always be positive.
     n_xy.y = n_xy.y * 0.5 + 0.5;
@@ -1184,12 +1186,48 @@ pub fn octahedral_decode_tangent(v: Vec2) -> (Vec3, f32) {
     (octahedral_decode_signed(f), sign)
 }
 
+/// Convert the normal and tangent to the equivalent axis-angle representation.
+/// The range of angle is [-2pi, 2pi], where the sign represents the handedness of the tangent.
+pub fn normal_tangent_to_axis_angle(normal: Vec3, tangent_signed: Vec4) -> (Vec3, f32) {
+    // Bias to ensure that encoding as snorm16 preserves the sign.
+    let bits = 16.;
+    let bias = 1. / (ops::powf(2.0, bits - 1.) - 1.);
+
+    let tangent = tangent_signed.xyz();
+    let bitangent = normal.cross(tangent);
+    let (axis, angle) =
+        Quat::from_mat3(&Mat3::from_cols(tangent, bitangent, normal)).to_axis_angle();
+    let angle = angle
+        .rem_euclid(2.0 * core::f32::consts::PI)
+        .max(bias * 2.0 * core::f32::consts::PI);
+
+    (axis, angle * tangent_signed.w)
+}
+
+/// Convert the axis-angle representation back to normal and tangent.
+/// The range of angle is [-2pi, 2pi], where the sign represents the handedness of the tangent.
+pub fn axis_angle_to_normal_tangent(axis: Vec3, angle: f32) -> (Vec3, Vec4) {
+    let sign = if angle >= 0.0 { 1.0 } else { -1.0 };
+    let angle_abs = angle * sign;
+    let c = ops::cos(angle_abs);
+    let s = ops::sin(angle_abs);
+    let v = axis * s;
+    let omc = axis * (1.0 - c);
+
+    let tangent = omc.xxx() * axis + vec3(c, v.z, -v.y);
+    // let bitangent = omc.yyy() * axis + vec3(-v.z, c, v.x);
+    let normal = omc.zzz() * axis + vec3(v.y, -v.x, c);
+
+    (normal, tangent.extend(sign))
+}
+
 #[cfg(test)]
 mod tests {
-    use bevy_math::{vec2, vec3, Vec4Swizzles};
+    use bevy_math::{vec2, vec3, Mat3, Quat, Vec3, Vec4, Vec4Swizzles};
 
     use crate::{
-        octahedral_decode_signed, octahedral_decode_tangent,
+        axis_angle_to_normal_tangent, normal_tangent_to_axis_angle, octahedral_decode_signed,
+        octahedral_decode_tangent,
         vertex::{octahedral_encode_signed, octahedral_encode_tangent},
     };
 
@@ -1198,18 +1236,21 @@ mod tests {
         let vectors = [
             vec3(1.0, 2.0, 3.0).normalize().extend(1.0),
             vec3(1.0, 0.0, 0.0).extend(-1.0),
+            vec3(0.0, 1.0, 0.0).extend(-1.0),
             vec3(0.0, 0.0, -1.0).extend(1.0),
             vec3(0.0, 0.0, -1.0).extend(-1.0),
         ];
         let expected_encoded_normals = [
             vec2(0.16666667, 0.33333334),
             vec2(1.0, 0.0),
+            vec2(0.0, 1.0),
             vec2(-1.0, -1.0),
             vec2(-1.0, -1.0),
         ];
         let expected_encoded_tangents = [
             vec2(0.16666667, 0.6666667),
             vec2(1.0, -0.5),
+            vec2(0.0, -1.0),
             vec2(-1.0, 3.051851e-5),
             vec2(-1.0, -3.051851e-5),
         ];
@@ -1224,6 +1265,77 @@ mod tests {
             assert!(encoded_tangent.distance(expected_encoded_tangents[i]) < 1e-8);
             assert_eq!(v.w, decoded_sign);
             assert!(decoded_tangent.distance(v.xyz()) < 1e-4);
+        }
+    }
+
+    pub fn axis_angle_to_normal_tangent_glam(axis: Vec3, angle: f32) -> (Vec3, Vec4) {
+        let sign = if angle >= 0.0 { 1.0 } else { -1.0 };
+        let tbn = Mat3::from_quat(Quat::from_axis_angle(axis, angle * sign));
+        (tbn.col(2), tbn.col(0).extend(sign))
+    }
+
+    #[test]
+    fn normal_tangent_axis_angle_encode_decode() {
+        let normal_tangent = [
+            (vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0).extend(1.0)),
+            (vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0).extend(-1.0)),
+            (vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0).extend(1.0)),
+            (vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0).extend(-1.0)),
+            (vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0).extend(1.0)),
+            (vec3(1.0, 0.0, 0.0), vec3(0.0, -1.0, 0.0).extend(1.0)),
+            (
+                vec3(1.0, 1.0, 1.0).normalize(),
+                vec3(1.0, -1.0, 0.0).normalize().extend(1.0),
+            ),
+            (
+                vec3(1.0, 2.0, 0.0).normalize(),
+                vec3(0.0, 0.0, 1.0).extend(-1.0),
+            ),
+            (
+                vec3(0.0, 1.0, 1.0).normalize(),
+                vec3(1.0, 0.0, 0.0).extend(1.0),
+            ),
+            (
+                vec3(-1.0, 1.0, 1.0).normalize(),
+                vec3(1.0, 1.0, 0.0).normalize().extend(-1.0),
+            ),
+            (
+                vec3(3.0, 1.0, 2.0).normalize(),
+                vec3(0.0, 1.0, -0.5).normalize().extend(1.0),
+            ),
+        ];
+
+        #[expect(
+            clippy::approx_constant,
+            reason = "The values are taken from the test results"
+        )]
+        let expected_axis_angle = [
+            (vec3(0.7071068, 0.0, 0.7071068), 3.1415927),
+            (vec3(0.7071068, 0.0, 0.7071068), -3.1415927),
+            (vec3(1.0, 0.0, 0.0), 3.051851e-5),
+            (vec3(1.0, 0.0, 0.0), -3.051851e-5),
+            (vec3(0.57735026, 0.57735026, 0.57735026), 4.1887903),
+            (vec3(0.57735026, -0.57735026, 0.57735026), 4.1887903),
+            (vec3(-0.7429061, 0.3077218, -0.5944728), 1.2171159),
+            (vec3(0.64793617, 0.40044653, 0.64793617), -3.9033751),
+            (vec3(-1.0, 0.0, 0.0), 0.7853981),
+            (vec3(-0.7429061, -0.3077218, 0.5944728), -1.2171159),
+            (vec3(0.22525999, 0.6253928, 0.7470889), 1.6242763),
+        ];
+
+        for (i, &(normal, tangent)) in normal_tangent.iter().enumerate() {
+            let (axis, angle) = normal_tangent_to_axis_angle(normal, tangent);
+            assert_eq!(angle.signum(), tangent.w.signum());
+            assert!(axis.distance(expected_axis_angle[i].0) < 1e-8);
+
+            let (decoded_normal, decoded_tangent) = axis_angle_to_normal_tangent(axis, angle);
+            let (decoded_normal_glam, decoded_tangent_glam) =
+                axis_angle_to_normal_tangent_glam(axis, angle);
+
+            assert!(decoded_normal.distance(normal) < 1e-3);
+            assert!(decoded_tangent.distance(tangent) < 1e-3);
+            assert!(decoded_normal_glam.distance(normal) < 1e-3);
+            assert!(decoded_tangent_glam.distance(tangent) < 1e-3);
         }
     }
 }

@@ -66,8 +66,7 @@ fn main() {
                 })
                 .set(GltfPlugin {
                     mesh_attribute_compression: if args.vertex_compression {
-                        MeshAttributeCompressionFlags::all()
-                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                        MeshAttributeCompressionFlags::all_with_color_unorm8()
                     } else {
                         MeshAttributeCompressionFlags::empty()
                     },

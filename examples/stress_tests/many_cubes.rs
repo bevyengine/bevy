@@ -432,8 +432,7 @@ fn init_materials(
 fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
     if args.vertex_compression {
         mesh.into().compressed_mesh(
-            MeshAttributeCompressionFlags::all()
-                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16),
+            MeshAttributeCompressionFlags::all_with_color_float16(),
             true,
         )
     } else {
