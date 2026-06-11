@@ -2,6 +2,7 @@
 
 mod khr_materials_anisotropy;
 mod khr_materials_clearcoat;
+mod khr_materials_dispersion;
 mod khr_materials_specular;
 
 use alloc::sync::Arc;
@@ -25,7 +26,7 @@ use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
-    khr_materials_specular::SpecularExtension,
+    khr_materials_dispersion::DispersionExtension, khr_materials_specular::SpecularExtension,
 };
 
 /// Stores the `ErasedGltfExtensionHandler` implementations so that they
