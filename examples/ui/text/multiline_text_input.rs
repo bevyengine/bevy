@@ -4,10 +4,14 @@ use bevy::color::palettes::css::DARK_SLATE_GRAY;
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin};
-use bevy::input_focus::{AutoFocus, FocusedInput};
+use bevy::input_focus::{AutoFocus, FocusCause, FocusedInput, InputFocus};
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle};
-use bevy::ui_widgets::SelectAllOnFocus;
+use bevy::ui_widgets::{
+    popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
+    Activate, Button, MenuAction, MenuButton, MenuEvent, MenuFocusState, MenuItem, MenuPopup,
+    SelectAllOnFocus,
+};
 
 fn main() {
     App::new()
@@ -27,6 +31,9 @@ struct FontSizeInput;
 
 #[derive(Component)]
 struct SelectionRadiusInput;
+
+#[derive(Component)]
+struct JustifyLabel;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
@@ -352,6 +359,132 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 cursor_style.selection_radius = radius.clamp(0., 0.5);
                             },
                         );
+
+                    parent
+                        .spawn(Node::default())
+                        .observe(
+                            |on: On<MenuEvent>,
+                             mut popup: Single<
+                                (&mut Node, &mut MenuFocusState),
+                                With<MenuPopup>,
+                            >,
+                             button: Single<Entity, With<MenuButton>>,
+                             mut focus: ResMut<InputFocus>| {
+                                match on.action {
+                                    MenuAction::Open(direction) => {
+                                        popup.0.display = Display::Flex;
+                                        *popup.1 = MenuFocusState::Opening(direction);
+                                    }
+                                    MenuAction::Toggle => {
+                                        if popup.0.display == Display::None {
+                                            popup.0.display = Display::Flex;
+                                            *popup.1 = MenuFocusState::Opening(
+                                                bevy::input_focus::tab_navigation::NavAction::First,
+                                            );
+                                        } else {
+                                            popup.0.display = Display::None;
+                                        }
+                                    }
+                                    MenuAction::CloseAll => {
+                                        popup.0.display = Display::None;
+                                    }
+                                    MenuAction::FocusRoot => {
+                                        focus.set(*button, FocusCause::Navigated);
+                                    }
+                                }
+                            },
+                        )
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Node {
+                                    border: px(2.).all(),
+                                    padding: px(8.).horizontal(),
+                                    ..default()
+                                },
+                                Button,
+                                MenuButton,
+                                TabIndex(4),
+                                BackgroundColor(DARK_SLATE_GRAY.into()),
+                                BorderColor::all(SLATE_300),
+                                children![(
+                                    Text::new("Justify::Left"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                        font_size: FontSize::Px(24.),
+                                        ..default()
+                                    },
+                                    JustifyLabel,
+                                )],
+                            ));
+
+                            parent
+                                .spawn((
+                                    Node {
+                                        display: Display::None,
+                                        flex_direction: FlexDirection::Column,
+                                        min_width: percent(100.),
+                                        border: px(2.).all(),
+                                        position_type: PositionType::Absolute,
+                                        ..default()
+                                    },
+                                    MenuPopup::default(),
+                                    Popover {
+                                        positions: vec![PopoverPlacement {
+                                            side: PopoverSide::Top,
+                                            align: PopoverAlign::End,
+                                            gap: 2.,
+                                        }],
+                                        ..default()
+                                    },
+                                    GlobalZIndex(1),
+                                    BackgroundColor(DARK_SLATE_GRAY.into()),
+                                    BorderColor::all(SLATE_300),
+                                ))
+                                .with_children(|parent| {
+                                    for (label, justify) in [
+                                        ("Justify::Left", Justify::Left),
+                                        ("Justify::Center", Justify::Center),
+                                        ("Justify::Right", Justify::Right),
+                                        ("Justify::Justified", Justify::Justified),
+                                        ("Justify::Start", Justify::Start),
+                                        ("Justify::End", Justify::End),
+                                    ] {
+                                        parent
+                                            .spawn((
+                                                Node {
+                                                    padding: px(8.).horizontal(),
+                                                    ..default()
+                                                },
+                                                MenuItem,
+                                                TabIndex(0),
+                                                children![(
+                                                    Text::new(label),
+                                                    TextFont {
+                                                        font: asset_server
+                                                            .load("fonts/FiraMono-Medium.ttf",)
+                                                            .into(),
+                                                        font_size: FontSize::Px(24.),
+                                                        ..default()
+                                                    },
+                                                )],
+                                            ))
+                                            .observe(
+                                                move |_: On<Activate>,
+                                                      mut layout: Single<
+                                                    &mut TextLayout,
+                                                    With<MultilineInput>,
+                                                >,
+                                                      mut selected: Single<
+                                                    &mut Text,
+                                                    With<JustifyLabel>,
+                                                >| {
+                                                    layout.justify = justify;
+                                                    selected.0 = label.into();
+                                                },
+                                            );
+                                    }
+                                });
+                        });
                 });
         });
 }

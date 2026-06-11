@@ -840,6 +840,7 @@ fn create_downsampling_pipelines(
             shader_defs: downsampling_first_shader_defs,
             entry_point: Some("downsample_first".into()),
             zero_initialize_workgroup_memory: false,
+            constants: vec![],
         });
 
     // Create the pipeline for the second pass, corresponding to mip levels [7,
@@ -853,6 +854,7 @@ fn create_downsampling_pipelines(
             shader_defs: downsampling_second_shader_defs,
             entry_point: Some("downsample_second".into()),
             zero_initialize_workgroup_memory: false,
+            constants: vec![],
         });
 
     (downsampling_first_pipeline, downsampling_second_pipeline)

@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{punctuated::Punctuated, Expr, Ident, Lit, LitStr, Path, Stmt, Token};
+use syn::{Ident, Lit, LitStr, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -51,18 +51,9 @@ pub enum BsnSceneListItem {
 }
 
 #[derive(Debug)]
-pub enum BsnSceneFnArg {
-    Expr(Expr),
-    Name(Ident),
-}
-
-#[derive(Debug)]
-pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
-
-#[derive(Debug)]
 pub struct BsnSceneFn {
     pub path: Path,
-    pub args: BsnSceneFnArgs,
+    pub args: BsnFnArgs,
 }
 
 #[derive(Debug)]
@@ -77,7 +68,7 @@ pub enum BsnScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
-    pub args: BsnSceneFnArgs,
+    pub args: BsnFnArgs,
 }
 
 #[derive(Debug)]
@@ -100,6 +91,8 @@ pub struct BsnTuple(pub Vec<BsnValue>);
 #[derive(Debug)]
 pub struct BsnNamedField {
     pub is_prop: bool,
+    /// This is a `Struct { field }` shorthand for `Struct { field: field }`
+    pub is_name_shorthand: bool,
     pub name: Ident,
     /// This is an Option to enable autocomplete when the field name is being typed
     /// To improve autocomplete further we'll need to forgo a lot of the syn parsing
@@ -121,3 +114,12 @@ pub enum BsnValue {
     Tuple(BsnTuple),
     Name(Ident),
 }
+
+#[derive(Debug)]
+pub enum BsnFnArg {
+    EntityName(Ident),
+    Tokens(TokenStream),
+}
+
+#[derive(Debug)]
+pub struct BsnFnArgs(pub Vec<BsnFnArg>);

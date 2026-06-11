@@ -3127,6 +3127,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "pipeline_constants"
+path = "examples/shader/pipeline_constants.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pipeline_constants]
+name = "Pipeline Constants"
+description = "Demonstrates pipeline-overridable constants (WGSL `override`) by compiling the same shader into multiple variants with different posterization levels"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
 doc-scrape-examples = true

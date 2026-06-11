@@ -498,7 +498,8 @@ pbr_input.material.uv_transform = uv_transform;
 #endif  // VERTEX_UVS
 
 #ifdef BINDLESS
-        var specular_transmission: f32 = pbr_bindings::material_array[slot].specular_transmission;
+        var specular_transmission: f32 =
+                pbr_bindings::material_array[material_indices[slot].material].specular_transmission;
 #else   // BINDLESS
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #endif  // BINDLESS

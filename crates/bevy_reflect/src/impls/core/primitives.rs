@@ -1,10 +1,10 @@
 use crate::{
     array::{Array, ArrayInfo, ArrayIter},
     error::ReflectCloneError,
+    info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::ApplyError,
-    type_info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
         TypeRegistration, TypeRegistry,

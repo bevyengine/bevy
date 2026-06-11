@@ -612,6 +612,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
                         shader_location: 0,
                     }],
                 }],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -623,6 +624,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
                     // Disable writing.
                     write_mask: ColorWrites::empty(),
                 })],
+                constants: vec![],
             }),
             ..default()
         }

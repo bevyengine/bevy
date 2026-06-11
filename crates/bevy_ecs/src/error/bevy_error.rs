@@ -322,7 +322,7 @@ impl BevyError {
 }
 
 /// Extension methods for annotating errors with a [`Severity`].
-pub trait ResultSeverityExt<T, E> {
+pub trait ResultSeverityExt<T, E>: Sized {
     /// Overrides the [`Severity`] of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
@@ -373,6 +373,48 @@ pub trait ResultSeverityExt<T, E> {
     ///
     /// If you don't need to inspect the error, use [`Result::with_severity`](ResultSeverityExt::with_severity)
     fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
+
+    /// Overrides the severity of the error with [`Severity::Ignore`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Ignore)`
+    fn ignore(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Ignore)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Trace`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Trace)`
+    fn trace(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Trace)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Info`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Info)`
+    fn info(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Info)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Warning`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Warning)`
+    fn warn(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Warning)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Error`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Error)`
+    fn error(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Error)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Panic`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Panic)`
+    fn panic(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Panic)
+    }
 }
 
 impl<T, E> ResultSeverityExt<T, E> for Result<T, E>

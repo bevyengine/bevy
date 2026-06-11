@@ -436,7 +436,6 @@ fn menubutton_on_key_event(
     mut commands: Commands,
 ) {
     if let Ok(disabled) = q_menu_button.get(event.focused_entity) {
-        event.propagate(false);
         if disabled {
             return;
         }
