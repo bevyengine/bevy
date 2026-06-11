@@ -1658,7 +1658,6 @@ impl Default for MeshCullingDataBuffer {
     fn default() -> Self {
         Self(AtomicSparseBufferVec::new(
             BufferUsages::STORAGE,
-            8,
             Arc::from("mesh culling data buffer"),
         ))
     }
