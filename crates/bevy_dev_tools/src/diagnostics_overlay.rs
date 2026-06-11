@@ -335,7 +335,7 @@ fn rebuild_diagnostics_list(
 }
 
 fn build_overlay(
-    event: On<Add, DiagnosticsOverlay>,
+    event: On<Add<DiagnosticsOverlay>>,
     mut commands: Commands,
     diagnostics_overlays: Query<&DiagnosticsOverlay>,
     diagnostics_overlay_plane: Single<Entity, With<DiagnosticsOverlayPlane>>,

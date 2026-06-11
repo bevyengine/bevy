@@ -50,10 +50,11 @@
 //! For example, [`Add`] corresponds to [`ADD`].
 //! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
+    bundle::Bundle,
     change_detection::{MaybeLocation, Tick},
     component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
-    event::{EntityComponentsTrigger, EntityEvent, EventKey},
+    event::{EntityComponentsTrigger, EntityEvent, EventKey, EventPattern},
     message::{
         Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
@@ -332,10 +333,24 @@ pub const DESPAWN: EventKey = EventKey(ComponentId::new(crate::component::DESPAW
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-#[doc(alias = "OnAdd")]
-pub struct Add {
+pub struct AddEvent {
     /// The entity this component was added to.
     pub entity: Entity,
+}
+
+/// [`EventPattern`] for an [`AddEvent`] on a given bundle of components.
+///
+/// # Note
+///
+/// All components specified in the [`Bundle`] are treated as an `OR` filter
+/// **not** an `AND` filter. For example, `Add<(A, B)>` will trigger if either
+/// component `A` or component `B` is added to an entity.
+#[doc(alias = "OnAdd")]
+pub struct Add<B: Bundle>(PhantomData<B>);
+
+impl<B: Bundle> EventPattern for Add<B> {
+    type Event = AddEvent;
+    type Components = B;
 }
 
 /// Trigger emitted when a component is inserted, regardless of whether or not the entity already
@@ -345,10 +360,24 @@ pub struct Add {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-#[doc(alias = "OnInsert")]
-pub struct Insert {
+pub struct InsertEvent {
     /// The entity this component was inserted into.
     pub entity: Entity,
+}
+
+/// [`EventPattern`] for an [`InsertEvent`] on a given bundle of components.
+///
+/// # Note
+///
+/// All components specified in the [`Bundle`] are treated as an `OR` filter
+/// **not** an `AND` filter. For example, `Insert<(A, B)>` will trigger if
+/// either component `A` or component `B` is inserted into an entity.
+#[doc(alias = "OnInsert")]
+pub struct Insert<B: Bundle>(PhantomData<B>);
+
+impl<B: Bundle> EventPattern for Insert<B> {
+    type Event = InsertEvent;
+    type Components = B;
 }
 
 /// Trigger emitted when a component is removed from an entity, regardless
@@ -360,12 +389,27 @@ pub struct Insert {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+
+pub struct DiscardEvent {
+    /// The entity that held this component before it was discarded.
+    pub entity: Entity,
+}
+
+/// [`EventPattern`] for a [`DiscardEvent`] on a given bundle of components.
+///
+/// # Note
+///
+/// All components specified in the [`Bundle`] are treated as an `OR` filter
+/// **not** an `AND` filter. For example, `Discard<(A, B)>` will trigger if
+/// either component `A` or component `B` are discarded from an entity.
 #[doc(alias = "OnDiscard")]
 #[doc(alias = "OnReplace")]
 #[doc(alias = "Replace")]
-pub struct Discard {
-    /// The entity that held this component before it was discarded.
-    pub entity: Entity,
+pub struct Discard<B: Bundle>(PhantomData<B>);
+
+impl<B: Bundle> EventPattern for Discard<B> {
+    type Event = DiscardEvent;
+    type Components = B;
 }
 
 /// Trigger emitted when a component is removed from an entity, and runs before the component is
@@ -375,10 +419,24 @@ pub struct Discard {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-#[doc(alias = "OnRemove")]
-pub struct Remove {
+pub struct RemoveEvent {
     /// The entity this component was removed from.
     pub entity: Entity,
+}
+
+/// [`EventPattern`] for a [`RemoveEvent`] on a given bundle of components.
+///
+/// # Note
+///
+/// All components specified in the [`Bundle`] are treated as an `OR` filter
+/// **not** an `AND` filter. For example, `Remove<(A, B)>` will trigger if
+/// either component `A` or component `B` are removed from an entity.
+#[doc(alias = "OnRemove")]
+pub struct Remove<B: Bundle>(PhantomData<B>);
+
+impl<B: Bundle> EventPattern for Remove<B> {
+    type Event = RemoveEvent;
+    type Components = B;
 }
 
 /// [`EntityEvent`] emitted for each component on an entity when it is despawned.
@@ -387,10 +445,24 @@ pub struct Remove {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-#[doc(alias = "OnDespawn")]
-pub struct Despawn {
+pub struct DespawnEvent {
     /// The entity that held this component before it was despawned.
     pub entity: Entity,
+}
+
+/// [`EventPattern`] for a [`DespawnEvent`] on a given bundle of components.
+///
+/// # Note
+///
+/// All components specified in the [`Bundle`] are treated as an `OR` filter
+/// **not** an `AND` filter. For example, `Despawn<(A, B)>` will trigger if
+/// either component `A` or component `B` are present on an entity that is despawned.
+#[doc(alias = "OnDespawn")]
+pub struct Despawn<B: Bundle>(PhantomData<B>);
+
+impl<B: Bundle> EventPattern for Despawn<B> {
+    type Event = DespawnEvent;
+    type Components = B;
 }
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].

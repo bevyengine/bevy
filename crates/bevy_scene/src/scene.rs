@@ -1,10 +1,9 @@
 use crate::{CachedSceneError, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     error::Result,
-    event::EntityEvent,
+    event::{EntityEvent, EventPattern},
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
@@ -514,10 +513,13 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
 /// This is typically initialized using the [`on()`] function, which returns an [`OnTemplate`].
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub struct OnTemplate<I, E, B, M>(pub I, pub PhantomData<fn() -> (E, B, M)>);
+pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 
-impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'static> Template
-    for OnTemplate<I, E, B, M>
+impl<I, E, M> Template for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
 {
     type Output = ();
 
@@ -531,12 +533,11 @@ impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'stat
     }
 }
 
-impl<
-        I: IntoObserverSystem<E, B, M> + Clone + Send + Sync,
-        E: EntityEvent,
-        B: Bundle,
-        M: 'static,
-    > Scene for OnTemplate<I, E, B, M>
+impl<I, E, M> Scene for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone + Send + Sync,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
 {
     fn resolve(
         self,
@@ -551,9 +552,12 @@ impl<
 /// Returns an [`OnTemplate`] that will create an [`Observer`] of a given [`EntityEvent`] on the current [`Scene`] entity.
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>(
-    observer: I,
-) -> OnTemplate<I, E, B, M> {
+pub fn on<I, E, M>(observer: I) -> OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M>,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+{
     OnTemplate(observer, PhantomData)
 }
 
