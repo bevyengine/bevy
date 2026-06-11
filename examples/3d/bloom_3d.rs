@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     math::ops,
-    post_process::bloom::{Bloom, BloomCompositeMode},
+    post_process::bloom::{Bloom, BloomCompositeMode, LensDirt},
     prelude::*,
 };
 use std::{
@@ -23,6 +23,7 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -32,7 +33,15 @@ fn setup_scene(
         },
         Tonemapping::TonyMcMapface, // 1. Using a tonemapper that desaturates to white is recommended
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        Bloom::NATURAL, // 2. Enable bloom for the camera
+        Bloom {
+            lens_dirt: LensDirt {
+                // https://opengameart.org/content/lens-dirt-texture-pack-3png
+                texture: Some(asset_server.load("textures/lens_dirt_texture.png")),
+                intensity: 1.0,
+                ..default()
+            },
+            ..default()
+        }, // 2. Enable bloom for the camera
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
@@ -136,6 +145,11 @@ fn update_bloom_settings(
             ));
             text.push_str(&format!("(I/K) Horizontal Scale: {:.2}\n", bloom.scale.x));
 
+            text.push_str(&format!(
+                "(O/L) Lens Dirt intensity: {:.2}\n",
+                bloom.lens_dirt.intensity
+            ));
+
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
             }
@@ -205,6 +219,15 @@ fn update_bloom_settings(
                 bloom.scale.x += dt * 2.0;
             }
             bloom.scale.x = bloom.scale.x.clamp(0.0, 8.0);
+
+            if keycode.pressed(KeyCode::KeyL) {
+                bloom.lens_dirt.intensity -= dt / 10.0;
+            }
+            if keycode.pressed(KeyCode::KeyO) {
+                bloom.lens_dirt.intensity += dt / 10.0;
+            }
+
+            bloom.lens_dirt.intensity = bloom.lens_dirt.intensity.clamp(0.0, 1.0);
         }
 
         (entity, None) => {

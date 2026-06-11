@@ -1,13 +1,19 @@
-use super::downsampling_pipeline::BloomUniforms;
+use bevy_asset::{Handle, HandleTemplate};
 use bevy_camera::{Camera, Hdr};
+use bevy_color::{Color, ColorToComponents};
 use bevy_ecs::{
+    error::Result as EcsResult,
     prelude::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
+    template::{FromTemplate, OptionTemplate, Template, TemplateContext},
 };
-use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
+use bevy_image::Image;
+use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, sync_component::SyncComponent};
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -27,7 +33,7 @@ use bevy_render::{extract_component::ExtractComponent, sync_component::SyncCompo
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 #[require(Hdr)]
 pub struct Bloom {
@@ -121,6 +127,15 @@ pub struct Bloom {
     /// anamorphic blur by using a large x-value. For large values, you may need to increase
     /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
     pub scale: Vec2,
+
+    /// Controls the lens dirt effect, which overlays a texture onto bloom highlights
+    /// to simulate dust or smudges on the camera lens (default: disabled).
+    ///
+    /// The dirt effect is applied during the final composite stage and only affects
+    /// regions where bloom is present.
+    ///
+    /// See [`LensDirt`] for configuration options.
+    pub lens_dirt: LensDirt,
 }
 
 impl Bloom {
@@ -141,6 +156,11 @@ impl Bloom {
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        lens_dirt: LensDirt {
+            texture: None,
+            intensity: 0.0,
+            tint: Color::WHITE,
+        },
     };
 
     /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
@@ -164,6 +184,11 @@ impl Bloom {
         composite_mode: BloomCompositeMode::Additive,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        lens_dirt: LensDirt {
+            texture: None,
+            intensity: 0.0,
+            tint: Color::WHITE,
+        },
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -179,12 +204,29 @@ impl Bloom {
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
         scale: Vec2::ONE,
+        lens_dirt: LensDirt {
+            texture: None,
+            intensity: 0.0,
+            tint: Color::WHITE,
+        },
     };
 }
 
 impl Default for Bloom {
     fn default() -> Self {
         Self::NATURAL
+    }
+}
+
+impl Template for Bloom {
+    type Output = Bloom;
+
+    fn build_template(&self, _context: &mut TemplateContext) -> EcsResult<Self::Output> {
+        Ok(self.clone())
+    }
+
+    fn clone_template(&self) -> Self {
+        self.clone()
     }
 }
 
@@ -213,11 +255,36 @@ pub struct BloomPrefilter {
     pub threshold_softness: f32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
-#[reflect(Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy, Default)]
+#[reflect(Clone, Hash, PartialEq, Default)]
 pub enum BloomCompositeMode {
+    #[default]
     EnergyConserving,
     Additive,
+}
+
+/// Controls a lens dirt effect that simulates physical imperfections on the camera lens.
+///
+/// Lens dirt overlays a texture (e.g., dust, smudges) onto bloom regions during final
+/// compositing. This creates a cinematic or stylized look.
+#[derive(Default, Clone, Reflect, FromTemplate)]
+#[reflect(Clone, Default)]
+pub struct LensDirt {
+    /// The lens dirt texture. Set to `Some` to enable the effect.
+    #[template(OptionTemplate<HandleTemplate<Image>>)]
+    pub texture: Option<Handle<Image>>,
+
+    /// How strongly the lens dirt appears (default: 1.0).
+    ///
+    /// Valid range: 0.0 to 1.0 where:
+    /// * 0.0 - No dirt visible
+    /// * 1.0 - Full dirt intensity
+    pub intensity: f32,
+
+    /// Color tint applied to the lens dirt (default: `Color::WHITE`).
+    ///
+    /// Use this to match the dirt effect to your scene's lighting or mood.
+    pub tint: Color,
 }
 
 impl SyncComponent for Bloom {
@@ -253,10 +320,13 @@ impl ExtractComponent for Bloom {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
+                    scale: bloom.scale,
                     aspect: AspectRatio::try_from_pixels(size.x, size.y)
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),
-                    scale: bloom.scale,
+                    lens_dirt_intensity: bloom.lens_dirt.intensity,
+                    lens_dirt_tint: bloom.lens_dirt.tint.to_linear().to_vec3(),
+                    padding: 0,
                 };
 
                 Some((bloom.clone(), uniform))
@@ -264,4 +334,18 @@ impl ExtractComponent for Bloom {
             _ => None,
         }
     }
+}
+
+/// The uniform struct extracted from [`Bloom`] attached to a Camera.
+/// Will be available for use in the Bloom shader.
+#[derive(Component, ShaderType, Clone)]
+pub struct BloomUniforms {
+    // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+    pub threshold_precomputations: Vec4,
+    pub viewport: Vec4,
+    pub scale: Vec2,
+    pub aspect: f32,
+    pub lens_dirt_intensity: f32,
+    pub lens_dirt_tint: Vec3,
+    pub padding: u32,
 }
