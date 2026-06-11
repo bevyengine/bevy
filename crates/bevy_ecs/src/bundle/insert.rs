@@ -39,11 +39,12 @@ impl<'w> BundleInserter<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
+        insert_mode: InsertMode,
     ) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
 
         // SAFETY: We just ensured this bundle exists
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
+        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick, insert_mode) }
     }
 
     /// Creates a new [`BundleInserter`].
@@ -57,7 +58,11 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         change_tick: Tick,
+        insert_mode: InsertMode,
     ) -> Self {
+        // `Keep` (`insert_if_new`) uses a distinct archetype edge that excludes required components
+        // pulled in only by already-present components (issue #24554).
+        let keep = insert_mode == InsertMode::Keep;
         // SAFETY: bundle exists per precondition
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         // SAFETY: same world
@@ -68,6 +73,7 @@ impl<'w> BundleInserter<'w> {
                 &world.components,
                 &world.observers,
                 archetype_id,
+                keep,
             )
         };
 
@@ -84,7 +90,7 @@ impl<'w> BundleInserter<'w> {
         let archetype_after_insert = unsafe {
             archetype
                 .edges()
-                .get_archetype_after_bundle_insert_internal(bundle_id)
+                .get_archetype_after_bundle_insert_internal(bundle_id, keep)
                 .debug_checked_unwrap()
                 .into()
         };
@@ -538,17 +544,24 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
+        // When `true`, build the `InsertMode::Keep` edge: required components pulled in only by
+        // components already present in the source archetype are excluded from the target.
+        keep: bool,
     ) -> (ArchetypeId, bool) {
-        if let Some(archetype_after_insert_id) = archetypes[archetype_id]
+        if let Some(edge) = archetypes[archetype_id]
             .edges()
-            .get_archetype_after_bundle_insert(self.id)
+            .get_archetype_after_bundle_insert_internal(self.id, keep)
         {
-            return (archetype_after_insert_id, false);
+            return (edge.archetype_id, false);
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
+        // Required-component ids transitively pulled in by the explicit components this insert
+        // actually adds. Required components only reachable from already-present explicit components
+        // are not in here, so they can be skipped under `InsertMode::Keep` (see issue #24554).
+        let mut required_by_added = Vec::new();
         let mut added = Vec::new();
         let mut existing = Vec::new();
 
@@ -562,6 +575,12 @@ impl BundleInfo {
                 added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
+                if keep {
+                    // This explicit component is newly added, so its (transitive) required
+                    // components are legitimately new and must remain in the `Keep` target.
+                    required_by_added
+                        .extend(component_info.required_components().all.keys().copied());
+                }
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),
@@ -571,6 +590,11 @@ impl BundleInfo {
 
         for (index, component_id) in self.iter_required_components().enumerate() {
             if !current_archetype.contains(component_id) {
+                // Under `Keep`, skip required components pulled in only by components already
+                // present in the source archetype — they must not be (re-)added (issue #24554).
+                if keep && !required_by_added.contains(&component_id) {
+                    continue;
+                }
                 added_required_components.push(self.required_component_constructors[index].clone());
                 added.push(component_id);
                 // SAFETY: component_id exists
@@ -591,6 +615,7 @@ impl BundleInfo {
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
                 self.id,
+                keep,
                 archetype_id,
                 bundle_status,
                 added_required_components,
@@ -648,6 +673,7 @@ impl BundleInfo {
                 .edges_mut()
                 .cache_archetype_after_bundle_insert(
                     self.id,
+                    keep,
                     new_archetype_id,
                     bundle_status,
                     added_required_components,
