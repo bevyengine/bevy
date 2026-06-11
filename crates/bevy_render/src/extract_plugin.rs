@@ -145,16 +145,17 @@ mod test {
     struct RenderComponentExtra;
 
     #[derive(Component, Clone, Debug, ExtractComponent)]
+    #[extract_app(RenderApp)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponentNoExtract;
 
-    impl SyncComponent for RenderComponent {
+    impl SyncComponent<RenderApp> for RenderComponent {
         type Target = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractComponent for RenderComponent {
+    impl ExtractComponent<RenderApp> for RenderComponent {
         type QueryData = &'static Self;
         type QueryFilter = ();
         type Out = (RenderComponent, RenderComponentExtra);

@@ -5,7 +5,7 @@ use bevy_platform::collections::HashMap;
 use bevy_render_macros::ExtractResource;
 use wgpu::TextureFormat;
 
-use crate::render_resource::TextureView;
+use crate::{render_resource::TextureView, RenderApp};
 
 /// A manually managed [`TextureView`] for use as a [`bevy_camera::RenderTarget`].
 #[derive(Debug, Clone)]
@@ -50,6 +50,7 @@ impl ManualTextureView {
 /// ```
 /// Bevy will then use the `ManualTextureViews` resource to find your texture view and render to it.
 #[derive(Default, Clone, Resource, ExtractResource)]
+#[extract_app(RenderApp)]
 pub struct ManualTextureViews(HashMap<ManualTextureViewHandle, ManualTextureView>);
 
 impl core::ops::Deref for ManualTextureViews {

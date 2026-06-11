@@ -51,6 +51,7 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
+#[extract_app(RenderApp)]
 struct CustomRenderedEntity;
 
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the

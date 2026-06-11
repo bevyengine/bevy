@@ -650,7 +650,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
     }
 }
 
-impl SyncComponent for DepthOfField {
+impl SyncComponent<RenderApp> for DepthOfField {
     type Target = (
         DepthOfField,
         DepthOfFieldUniform,
@@ -679,7 +679,7 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<<DepthOfField as SyncComponent>::Target>();
+            entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
 
             continue;
         };
