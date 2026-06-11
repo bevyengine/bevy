@@ -160,14 +160,14 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| s.get_represented_type_info());
+                bencher.iter(|| black_box(s.get_represented_type_info()));
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| s.get_represented_type_info());
+                bencher.iter(|| black_box(s.get_represented_type_info()));
             },
         );
     }
@@ -206,14 +206,14 @@ fn concrete_struct_to_dynamic_struct(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| s.to_dynamic_struct());
+                bencher.iter(|| black_box(s.to_dynamic_struct()));
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| s.to_dynamic_struct());
+                bencher.iter(|| black_box(s.to_dynamic_struct()));
             },
         );
     }
@@ -237,7 +237,7 @@ fn dynamic_struct_to_dynamic_struct(criterion: &mut Criterion) {
             BenchmarkId::from_parameter(field_count),
             &s,
             |bencher, s| {
-                bencher.iter(|| s.to_dynamic_struct());
+                bencher.iter(|| black_box(s.to_dynamic_struct()));
             },
         );
     }
@@ -347,7 +347,7 @@ fn dynamic_struct_get_field(criterion: &mut Criterion) {
                 }
 
                 let field = black_box("field_63");
-                bencher.iter(|| s.get_field::<()>(field));
+                bencher.iter(|| black_box(s.get_field::<()>(field)));
             },
         );
     }
