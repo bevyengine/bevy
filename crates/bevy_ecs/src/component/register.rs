@@ -275,9 +275,15 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// This can also be used to register resources and non-send data.
     ///
-    /// # Warning
+    /// # Note
     ///
-    /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
+    /// This only registers the type as a component, even if it is also a resource.
+    ///
+    /// To use it as a resource, insert it through
+    /// the resource APIs (such as [`World::insert_resource_by_id`](crate::world::World::insert_resource_by_id)),
+    /// which mark the backing entity with [`IsResource`](crate::resource::IsResource).
+    ///
+    /// You should not add that marker manually.
     ///
     /// # See also
     ///
@@ -560,10 +566,12 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
     /// See type level docs for details.
     ///
-    /// # Warning
+    /// # Note
     ///
-    /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
-    /// Otherwise it will not function as a resource.
+    /// This only makes the type known as a component. To use it as a resource, insert it through
+    /// the resource APIs (such as [`World::insert_resource_by_id`](crate::world::World::insert_resource_by_id)),
+    /// which mark the backing entity with [`IsResource`](crate::resource::IsResource). You should not
+    /// add that marker yourself.
     #[inline]
     pub fn queue_register_component_with_descriptor(
         &self,

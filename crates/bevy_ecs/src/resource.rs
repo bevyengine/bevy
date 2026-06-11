@@ -118,6 +118,14 @@ impl ResourceEntities {
 }
 
 /// A marker component for entities that have a Resource component.
+///
+/// This type is automatically inserted during resource insertion,
+/// via the [`World::insert_resource_by_id`] method and
+/// the more common methods which call it.
+///
+/// You should never have to manually insert this component.
+///
+/// [`World::insert_resource_by_id`]: crate::world::World::insert_resource_by_id
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
 #[component(on_insert, on_discard, on_despawn)]
@@ -216,7 +224,6 @@ pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOU
 #[cfg(test)]
 mod tests {
     use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
-    use std::println;
 
     use crate::{
         change_detection::MaybeLocation,
@@ -326,8 +333,9 @@ mod tests {
         );
 
         let id = world.spawn(TestResource).id();
-        // This spawned resource conflicts with the canonical resource, so it was cleaned up.
-        assert!(world.entity(id).get::<TestResource>().is_none());
+        // Spawning a resource type as a plain component is allowed: the entity keeps its own
+        // `TestResource`, is not marked with `IsResource`, and the canonical resource is untouched.
+        assert!(world.entity(id).get::<TestResource>().is_some());
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
