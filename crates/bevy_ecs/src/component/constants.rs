@@ -12,3 +12,7 @@ pub const REMOVE: usize = 3;
 pub const DESPAWN: usize = 4;
 /// `usize` of the [`IsResource`](crate::resource::IsResource) component used to mark entities with resources.
 pub const IS_RESOURCE: usize = 5;
+/// TODO
+pub const IS_UNIQUE: usize = 6;
+/// TODO
+pub const IS_HYBRID_RESOURCE: usize = 7;
