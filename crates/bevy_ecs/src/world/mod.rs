@@ -114,7 +114,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
-            entity_allocator: EntityAllocator::default(),
+            entity_allocator: EntityAllocator::new(0..u32::MAX),
             components: Default::default(),
             resource_entities: Default::default(),
             archetypes: Archetypes::new(),
