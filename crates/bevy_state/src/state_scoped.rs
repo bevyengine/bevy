@@ -1,3 +1,5 @@
+use std::vec::Vec;
+
 use alloc::boxed::Box;
 
 #[cfg(feature = "bevy_reflect")]
@@ -7,11 +9,12 @@ use bevy_ecs::{
     entity::Entity,
     entity_disabling::Disabled,
     hierarchy::Children,
-    lifecycle::{Insert, Remove},
+    lifecycle::Insert,
     message::MessageReader,
     observer::On,
     query::{Allow, With},
     system::{Commands, Query, Res},
+    world::World,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
@@ -759,6 +762,12 @@ pub fn enable_entities_on_enter_state<S: States>(
     }
 }
 
+/// Prevents parent state-driven [`Disabled`] propagation from affecting this entity
+/// and its subtree. Added automatically by [`EnabledIn`], [`DisabledIn`],
+/// [`EnabledIf`], and [`DisabledIf`]. Can also be added manually.
+#[derive(Component, Clone, Default)]
+pub struct StateOwnsDisabled;
+
 /// Entities marked with this component will be automatically enabled
 /// when the world is in the given state, and disabled otherwise.
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
@@ -803,6 +812,7 @@ pub fn enable_entities_on_enter_state<S: States>(
 ///
 /// See also [`EnabledIf`] and [`DisabledIn`].
 #[derive(Component, Clone)]
+#[require(StateOwnsDisabled)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct EnabledIn<S: States>(pub S);
 
@@ -830,13 +840,9 @@ pub fn update_enabled_in_state<S: States>(
     }
     for (entity, enabled_in) in &query {
         if transition.entered.as_ref() == Some(&enabled_in.0) {
-            commands
-                .entity(entity)
-                .remove_recursive::<Children, Disabled>();
+            enable_recursive(&mut commands, entity);
         } else if transition.exited.as_ref() == Some(&enabled_in.0) {
-            commands
-                .entity(entity)
-                .insert_recursive::<Children>(Disabled);
+            disable_recursive(&mut commands, entity);
         }
     }
 }
@@ -854,13 +860,9 @@ pub fn on_enabled_in_insert<S: States>(
     };
     let in_target_state = current_state.get() == &enabled_in.0;
     if in_target_state {
-        commands
-            .entity(entity)
-            .remove_recursive::<Children, Disabled>();
+        enable_recursive(&mut commands, entity);
     } else {
-        commands
-            .entity(entity)
-            .insert_recursive::<Children>(Disabled);
+        disable_recursive(&mut commands, entity);
     }
 }
 
@@ -908,6 +910,7 @@ pub fn on_enabled_in_insert<S: States>(
 ///
 /// See also [`DisabledIf`] and [`EnabledIn`].
 #[derive(Component, Clone)]
+#[require(StateOwnsDisabled)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct DisabledIn<S: States>(pub S);
 
@@ -935,13 +938,9 @@ pub fn update_disabled_in_state<S: States>(
     }
     for (entity, disabled_in) in &query {
         if transition.entered.as_ref() == Some(&disabled_in.0) {
-            commands
-                .entity(entity)
-                .insert_recursive::<Children>(Disabled);
+            disable_recursive(&mut commands, entity);
         } else if transition.exited.as_ref() == Some(&disabled_in.0) {
-            commands
-                .entity(entity)
-                .remove_recursive::<Children, Disabled>();
+            enable_recursive(&mut commands, entity);
         }
     }
 }
@@ -959,13 +958,9 @@ pub fn on_disabled_in_insert<S: States>(
     };
     let in_target_state = current_state.get() == &disabled_in.0;
     if in_target_state {
-        commands
-            .entity(entity)
-            .insert_recursive::<Children>(Disabled);
+        disable_recursive(&mut commands, entity);
     } else {
-        commands
-            .entity(entity)
-            .remove_recursive::<Children, Disabled>();
+        enable_recursive(&mut commands, entity);
     }
 }
 
@@ -1015,6 +1010,7 @@ pub fn on_disabled_in_insert<S: States>(
 ///
 /// See also [`DisabledIf`] and [`EnabledIn`].
 #[derive(Component)]
+#[require(StateOwnsDisabled)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct EnabledIf<S: States> {
     /// The predicate used to determine if the entity should be enabled for the given state.
@@ -1052,13 +1048,9 @@ pub fn update_enabled_if_state<S: States>(
             .as_ref()
             .is_some_and(|s| (enabled_if.predicate)(s));
         if should_enable {
-            commands
-                .entity(entity)
-                .remove_recursive::<Children, Disabled>();
+            enable_recursive(&mut commands, entity);
         } else {
-            commands
-                .entity(entity)
-                .insert_recursive::<Children>(Disabled);
+            disable_recursive(&mut commands, entity);
         }
     }
 }
@@ -1076,13 +1068,9 @@ pub fn on_enabled_if_insert<S: States>(
     };
     let should_enable = current_state.is_some_and(|s| (enabled_if.predicate)(s.get()));
     if should_enable {
-        commands
-            .entity(entity)
-            .remove_recursive::<Children, Disabled>();
+        enable_recursive(&mut commands, entity);
     } else {
-        commands
-            .entity(entity)
-            .insert_recursive::<Children>(Disabled);
+        disable_recursive(&mut commands, entity);
     }
 }
 
@@ -1132,6 +1120,7 @@ pub fn on_enabled_if_insert<S: States>(
 ///
 /// See also [`EnabledIf`] and [`DisabledIn`].
 #[derive(Component)]
+#[require(StateOwnsDisabled)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct DisabledIf<S: States> {
     /// The predicate used to determine if the entity should be disabled for the given state.
@@ -1169,13 +1158,9 @@ pub fn update_disabled_if_state<S: States>(
             .as_ref()
             .is_some_and(|s| (disabled_if.predicate)(s));
         if should_disable {
-            commands
-                .entity(entity)
-                .insert_recursive::<Children>(Disabled);
+            disable_recursive(&mut commands, entity);
         } else {
-            commands
-                .entity(entity)
-                .remove_recursive::<Children, Disabled>();
+            enable_recursive(&mut commands, entity);
         }
     }
 }
@@ -1193,22 +1178,10 @@ pub fn on_disabled_if_insert<S: States>(
     };
     let should_disable = (disabled_if.predicate)(current_state.get());
     if should_disable {
-        commands
-            .entity(entity)
-            .insert_recursive::<Children>(Disabled);
+        disable_recursive(&mut commands, entity);
     } else {
-        commands
-            .entity(entity)
-            .remove_recursive::<Children, Disabled>();
+        enable_recursive(&mut commands, entity);
     }
-}
-
-/// Removes [`Disabled`] component from an entity when its managing state-driven disabling components are removed.
-/// i.e. [`EnabledIf`], [`DisabledIf`], [`EnabledIn`], [`DisabledIn`]
-pub fn on_state_disabled_component_remove<C: Component>(on: On<Remove, C>, mut commands: Commands) {
-    commands
-        .entity(on.entity)
-        .remove_recursive::<Children, Disabled>();
 }
 
 #[cfg(test)]
