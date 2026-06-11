@@ -1,9 +1,8 @@
 ---
-title: "`Name::from<&str>` always heap-allocates"
+title: "`&str`s must now have a static lifetime to be converted to `Name`"
 pull_requests: [24544]
 ---
 
-* Removed `From<&str>` implementation for `Name` 
-* Added `From<&'static str>` implementation for `Name`
+A `From<&str>` implementation for `Name` has been replaced with a `From<&'static str>` implementation for `Name`. This was done to avoid unexpected allocations.
 
-`Name` is internally `Cow<'static, str>`, meaning we need to `.to_owned()`, thus heap-allocating new space in memory. By changing the implementation to `&'static str`, we do not need to `.to_owned()` anymore.
+If you do not mind the extra allocation, you can use `Name::new(non_static_str.to_owned())` for previous behavior.
