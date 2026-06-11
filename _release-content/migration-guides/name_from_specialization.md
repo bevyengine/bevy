@@ -1,5 +1,5 @@
 ---
-title: Feature that broke
+title: Name::from<&str> always heap-allocates
 pull_requests: [24544]
 ---
 
