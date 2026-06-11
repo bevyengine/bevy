@@ -176,7 +176,7 @@ impl<'w, 's> core::fmt::Display for NameOrEntityItem<'w, 's> {
 impl From<&'static str> for Name {
     #[inline(always)]
     fn from(name: &str) -> Self {
-        Name::new(name.to_owned())
+        Name::new(name)
     }
 }
 
