@@ -87,6 +87,11 @@ use bevy_platform::cell::SyncUnsafeCell;
 pub trait Resource: Component {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
+///
+/// To initialize a new resource entity, call [`World::get_or_spawn_resource_entity`]
+/// with the resource's `ComponentId`.
+///
+/// [`World::get_or_spawn_resource_entity`]: crate::world::World::get_or_spawn_resource_entity
 #[derive(Default)]
 pub struct ResourceEntities(SyncUnsafeCell<SparseArray<ComponentId, Entity>>);
 
@@ -101,6 +106,12 @@ impl ResourceEntities {
     }
 
     /// Returns the entity for the given resource component, or `None` if there is no entity.
+    ///
+    /// # Warning
+    ///
+    /// When attempting to initialize resource entities, do not call this method directly.
+    /// Instead, use [`World::get_or_spawn_resource_entity`](crate::world::World::get_or_spawn_resource_entity),
+    /// which will ensure that the entity is properly initialized and marked with [`IsResource`].
     #[inline]
     pub fn get(&self, id: ComponentId) -> Option<Entity> {
         self.deref().get(id).copied()
@@ -117,7 +128,33 @@ impl ResourceEntities {
     }
 }
 
-/// A marker component for entities that have a Resource component.
+/// A marker component for entities that have a component which is being used as a [`Resource`].
+///
+/// While [`Resource`], as a trait, indicates that a component *may* be used as a resource,
+/// [`IsResource`] indicates that a component *is* being used as a resource on that entity,
+/// and can be accessed via [`ResourceEntities`], ordinary [`Res`] / [`ResMut`] system parameters,
+/// or [`World::resource`] calls.
+///
+/// Components which implement [`Resource`] are not necessarily resources:
+/// they only become resources when they are inserted via resource insertion paths
+/// such as [`World::insert_resource`].
+///
+/// This type is automatically inserted during resource insertion,
+/// via the [`World::insert_resource`] method and
+/// related methods.
+/// All of these paths ultimately rely on [`World::get_or_spawn_resource_entity`] to initialize the resource entity,
+/// inserting this component.
+/// As part of that insertion, the resource is registered in [`ResourceEntities`]
+/// via the `on_insert` hook for this component.
+///
+/// You should never have to manually insert, remove or edit this component,
+/// and doing so can lead to very surprising bugs.
+///
+/// [`Res`]: crate::system::Res
+/// [`ResMut`]: crate::system::ResMut
+/// [`World::resource`]: crate::world::World::resource
+/// [`World::insert_resource`]: crate::world::World::insert_resource
+/// [`World::get_or_spawn_resource_entity`]: crate::world::World::get_or_spawn_resource_entity
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
 #[component(on_insert, on_discard, on_despawn)]
@@ -325,8 +362,9 @@ mod tests {
         );
 
         let id = world.spawn(TestResource).id();
-        // This spawned resource conflicts with the canonical resource, so it was cleaned up.
-        assert!(world.entity(id).get::<TestResource>().is_none());
+        // Spawning a resource type as a plain component is allowed: the entity keeps its own
+        // `TestResource`, is not marked with `IsResource`, and the canonical resource is untouched.
+        assert!(world.entity(id).get::<TestResource>().is_some());
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
@@ -370,6 +408,48 @@ mod tests {
                 .iter(&world)
                 .count(),
             1
+        );
+    }
+
+    #[test]
+    fn resources_inserted_as_components_are_not_resources() {
+        #[derive(Resource)]
+        struct TestResource;
+
+        let mut world = World::new();
+
+        world.spawn(TestResource);
+        assert!(
+            !world.contains_resource::<TestResource>(),
+            "Spawning a resource as a component should not make it available as a resource"
+        );
+
+        let e1 = world.spawn(()).id();
+        world.entity_mut(e1).insert(TestResource);
+
+        assert!(
+            !world.contains_resource::<TestResource>(),
+            "Inserting a resource as a component should not make it available as a resource"
+        );
+    }
+
+    #[test]
+    fn resources_inserted_as_a_component_do_not_replace_each_other() {
+        #[derive(Resource)]
+        struct TestResource;
+
+        let mut world = World::new();
+
+        let e1 = world.spawn(TestResource).id();
+        let e2 = world.spawn(TestResource).id();
+
+        assert!(
+            world.entity(e1).contains::<TestResource>(),
+            "e1 should have its TestResource component"
+        );
+        assert!(
+            world.entity(e2).contains::<TestResource>(),
+            "e2 should have its TestResource component"
         );
     }
 }

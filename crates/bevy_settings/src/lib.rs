@@ -497,7 +497,6 @@ fn apply_settings_to_world(
             // The resource does not exist, so create a default.
             let reflect_default = ty.data::<ReflectDefault>().unwrap();
             let mut default_value = reflect_default.default();
-            let mut res_entity = world.spawn_empty();
 
             if let Some(toml) = toml
                 && let Some(value) = toml.get(settings_group)
@@ -515,7 +514,13 @@ fn apply_settings_to_world(
             }
 
             // Now add the new resource to the world.
-            reflect_component.insert(&mut res_entity, default_value.as_partial_reflect(), types);
+            let resource_id = reflect_component.register_component(world);
+            let res_entity = world.get_or_spawn_resource_entity(resource_id);
+            reflect_component.insert(
+                &mut world.entity_mut(res_entity),
+                default_value.as_partial_reflect(),
+                types,
+            );
         }
     }
 }

@@ -1,28 +1,18 @@
 use bevy_ecs_macro_logic::component::{DeriveComponent, StorageAttribute, StorageTy};
-use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Path};
 
 pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
     let bevy_ecs: Path = crate::bevy_ecs_path();
-    let mut derive_component = match DeriveComponent::parse(ast, StorageAttribute::Disallowed) {
+    // A resource is just a `Component` that can also be stored as a singleton and registered in resource storage.
+    // The `IsResource` marker that makes it visible to the resource APIs is added by the
+    // `insert_resource`/`init_resource` pathways, *not* as a required component here, so
+    // that the same type can still be used as an ordinary component (see #24591, #24592).
+    let derive_component = match DeriveComponent::parse(ast, StorageAttribute::Disallowed) {
         Ok(value) => value,
         Err(e) => return e.into_compile_error(),
     };
-
-    let struct_name = &ast.ident;
-    let (_, type_generics, _) = &ast.generics.split_for_impl();
-
-    // We add the component_id existence check here to avoid recursive init during required components initialization.
-    derive_component.additional_requires.push(quote! {
-        let resource_component_id = if let #FQOption::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
-            id
-        } else {
-            required_components.components_registrator().register_component::<#struct_name #type_generics>()
-        };
-        required_components.register_required::<#bevy_ecs::resource::IsResource>(move || #bevy_ecs::resource::IsResource::new(resource_component_id));
-    });
 
     let component_impl = match derive_component.impl_component(ast, &bevy_ecs, StorageTy::SparseSet)
     {

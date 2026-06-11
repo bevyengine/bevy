@@ -113,12 +113,7 @@ impl WorldAsset {
                 .expect("ReflectComponent is depended on ReflectResource");
 
             // check if the resource already exists in the other world, if not spawn it
-            let destination_entity =
-                if let Some(entity) = world.resource_entities().get(component_id) {
-                    entity
-                } else {
-                    world.spawn_empty().id()
-                };
+            let destination_entity = world.get_or_spawn_resource_entity(component_id);
 
             reflect_component.copy(
                 &self.world,
