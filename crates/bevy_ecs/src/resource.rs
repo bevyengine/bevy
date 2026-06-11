@@ -216,6 +216,7 @@ pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOU
 #[cfg(test)]
 mod tests {
     use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+    use std::println;
 
     use crate::{
         change_detection::MaybeLocation,
@@ -370,6 +371,48 @@ mod tests {
                 .iter(&world)
                 .count(),
             1
+        );
+    }
+
+    #[test]
+    fn resources_inserted_as_components_are_not_resources() {
+        #[derive(Resource)]
+        struct TestResource;
+
+        let mut world = World::new();
+
+        world.spawn(TestResource);
+        assert!(
+            !world.contains_resource::<TestResource>(),
+            "Spawning a resource as a component should not make it available as a resource"
+        );
+
+        let e1 = world.spawn(()).id();
+        world.entity_mut(e1).insert(TestResource);
+
+        assert!(
+            !world.contains_resource::<TestResource>(),
+            "Inserting a resource as a component should not make it available as a resource"
+        );
+    }
+
+    #[test]
+    fn resources_inserted_as_a_component_do_not_replace_each_other() {
+        #[derive(Resource)]
+        struct TestResource;
+
+        let mut world = World::new();
+
+        let e1 = world.spawn(TestResource).id();
+        let e2 = world.spawn(TestResource).id();
+
+        assert!(
+            world.entity(e1).contains::<TestResource>(),
+            "e1 should have its TestResource component"
+        );
+        assert!(
+            world.entity(e2).contains::<TestResource>(),
+            "e2 should have its TestResource component"
         );
     }
 }
