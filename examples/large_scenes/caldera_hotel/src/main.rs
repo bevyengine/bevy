@@ -5,6 +5,7 @@ use std::{f32::consts::PI, time::Instant};
 
 use crate::light_consts::lux;
 use argh::FromArgs;
+use bevy::image::{ImageTextureDescriptor, ImageTextureViewFormats};
 use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
@@ -23,9 +24,7 @@ use bevy::{
     render::{
         batching::NoAutomaticBatching,
         occlusion_culling::OcclusionCulling,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
+        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
         view::NoIndirectDrawing,
     },
     window::{PresentMode, WindowResolution},
@@ -352,7 +351,7 @@ fn generate_random_compressed_texture_with_mipmaps(size: u32, bc4: bool, seed: u
     let data = (0..bytes).map(|i| uhash(i, seed) as u8).collect::<Vec<_>>();
 
     Image {
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             label: None,
             size: Extent3d {
                 width: size,
@@ -368,7 +367,7 @@ fn generate_random_compressed_texture_with_mipmaps(size: u32, bc4: bool, seed: u
             mip_level_count: mip_count,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
             address_mode_u: ImageAddressMode::Repeat,

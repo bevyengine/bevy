@@ -1,4 +1,5 @@
-use crate::{Image, ImageSampler};
+use crate::{Image, ImageSampler, ImageTextureDescriptor};
+use alloc::borrow::Cow;
 use bevy_asset::RenderAssetUsages;
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
@@ -20,20 +21,19 @@ use wgpu_types::{
 ///
 /// The caveats are:
 /// - The image representation is not valid across different versions of Bevy.
-/// - This conversion is lossy. The following information is not preserved:
-///   - texture descriptor and texture view descriptor labels
-///   - texture descriptor view formats
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedImage {
     data: Option<Vec<u8>>,
     data_order: SerializedTextureDataOrder,
-    texture_descriptor: TextureDescriptor<(), ()>,
+    texture_descriptor: ImageTextureDescriptor,
     sampler: ImageSampler,
     texture_view_descriptor: Option<SerializedTextureViewDescriptor>,
 }
 
+// TODO: Serialize and Deserialize have been added to `TextureViewDescriptor` in wgpu. Remove this once wgpu is updated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SerializedTextureViewDescriptor {
+    label: Option<Cow<'static, str>>,
     format: Option<TextureFormat>,
     dimension: Option<TextureViewDimension>,
     usage: Option<TextureUsages>,
@@ -46,9 +46,10 @@ struct SerializedTextureViewDescriptor {
 
 impl SerializedTextureViewDescriptor {
     fn from_texture_view_descriptor(
-        descriptor: TextureViewDescriptor<Option<&'static str>>,
+        descriptor: TextureViewDescriptor<Option<impl Into<Cow<'static, str>>>>,
     ) -> Self {
         Self {
+            label: descriptor.label.map(Into::into),
             format: descriptor.format,
             dimension: descriptor.dimension,
             usage: descriptor.usage,
@@ -60,10 +61,11 @@ impl SerializedTextureViewDescriptor {
         }
     }
 
-    fn into_texture_view_descriptor(self) -> TextureViewDescriptor<Option<&'static str>> {
+    fn into_texture_view_descriptor<L: From<Cow<'static, str>>>(
+        self,
+    ) -> TextureViewDescriptor<Option<L>> {
         TextureViewDescriptor {
-            // Not used for asset-based images other than debugging
-            label: None,
+            label: self.label.map(L::from),
             format: self.format,
             dimension: self.dimension,
             usage: self.usage,
@@ -76,6 +78,7 @@ impl SerializedTextureViewDescriptor {
     }
 }
 
+// TODO: Serialize and Deserialize have been added to `TextureDataOrder` in wgpu. Remove this once wgpu is updated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum SerializedTextureDataOrder {
     LayerMajor,
@@ -104,16 +107,7 @@ impl SerializedImage {
         Self {
             data: image.data,
             data_order: SerializedTextureDataOrder::from_texture_data_order(image.data_order),
-            texture_descriptor: TextureDescriptor {
-                label: (),
-                size: image.texture_descriptor.size,
-                mip_level_count: image.texture_descriptor.mip_level_count,
-                sample_count: image.texture_descriptor.sample_count,
-                dimension: image.texture_descriptor.dimension,
-                format: image.texture_descriptor.format,
-                usage: image.texture_descriptor.usage,
-                view_formats: (),
-            },
+            texture_descriptor: image.texture_descriptor,
             sampler: image.sampler,
             texture_view_descriptor: image.texture_view_descriptor.map(|descriptor| {
                 SerializedTextureViewDescriptor::from_texture_view_descriptor(descriptor)
@@ -127,22 +121,20 @@ impl SerializedImage {
             data: self.data,
             data_order: self.data_order.into_texture_data_order(),
             texture_descriptor: TextureDescriptor {
-                // Not used for asset-based images other than debugging
-                label: None,
+                label: self.texture_descriptor.label,
                 size: self.texture_descriptor.size,
                 mip_level_count: self.texture_descriptor.mip_level_count,
                 sample_count: self.texture_descriptor.sample_count,
                 dimension: self.texture_descriptor.dimension,
                 format: self.texture_descriptor.format,
                 usage: self.texture_descriptor.usage,
-                // Not used for asset-based images
-                view_formats: &[],
+                view_formats: self.texture_descriptor.view_formats,
             },
             sampler: self.sampler,
             texture_view_descriptor: self
                 .texture_view_descriptor
                 .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
-            asset_usage: RenderAssetUsages::RENDER_WORLD,
+            asset_usage: RenderAssetUsages::default(),
             copy_on_resize: false,
         }
     }
@@ -165,7 +157,7 @@ mod tests {
             TextureDimension::D2,
             vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::RENDER_WORLD,
+            RenderAssetUsages::default(),
         );
 
         let serialized_image = SerializedImage::from_image(image.clone());

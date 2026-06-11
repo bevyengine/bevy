@@ -41,7 +41,7 @@ impl AssetLoader for ExrTextureLoader {
         &self,
         reader: &mut dyn Reader,
         settings: &Self::Settings,
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(
@@ -64,7 +64,8 @@ impl AssetLoader for ExrTextureLoader {
         let mut buf = vec![0u8; total_bytes];
         decoder.read_image(buf.as_mut_slice())?;
 
-        Ok(Image::new(
+        let path = format!("{}", load_context.path().path().display());
+        let mut image = Image::new(
             Extent3d {
                 width,
                 height,
@@ -74,7 +75,9 @@ impl AssetLoader for ExrTextureLoader {
             buf,
             format,
             settings.asset_usage,
-        ))
+        );
+        image.texture_descriptor.label = Some(path.into());
+        Ok(image)
     }
 
     fn extensions(&self) -> &[&str] {

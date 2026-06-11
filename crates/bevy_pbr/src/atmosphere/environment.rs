@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
 };
-use bevy_image::Image;
+use bevy_image::{Image, ImageTextureViewDescriptor};
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
 use bevy_math::{Quat, UVec2};
 use bevy_render::{
@@ -215,7 +215,7 @@ pub fn prepare_atmosphere_probe_components(
             RenderAssetUsages::all(),
         );
 
-        environment_image.texture_view_descriptor = Some(TextureViewDescriptor {
+        environment_image.texture_view_descriptor = Some(ImageTextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
             ..Default::default()
         });

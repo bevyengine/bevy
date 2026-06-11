@@ -2,7 +2,7 @@ use crate::{AlphaMode2d, Material2d, Material2dPlugin, TileData};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, embedded_path, Asset, AssetPath, Handle, RenderAssetUsages};
 use bevy_color::ColorToPacked;
-use bevy_image::{Image, ImageSampler, ToExtents};
+use bevy_image::{Image, ImageSampler, ImageTextureDescriptor, ImageTextureViewFormats, ToExtents};
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
 use bevy_render::render_resource::*;
@@ -97,7 +97,7 @@ pub fn make_chunk_tile_data_image(size: &UVec2, data: &[PackedTileData]) -> Imag
     Image {
         data: Some(bytemuck::cast_slice(data).to_vec()),
         data_order: TextureDataOrder::default(),
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             size: size.to_extents(),
             dimension: TextureDimension::D2,
             format: TextureFormat::Rgba16Uint,
@@ -105,7 +105,7 @@ pub fn make_chunk_tile_data_image(size: &UVec2, data: &[PackedTileData]) -> Imag
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         sampler: ImageSampler::nearest(),
         texture_view_descriptor: None,

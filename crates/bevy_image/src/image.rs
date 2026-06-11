@@ -6,20 +6,21 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+use alloc::borrow::Cow;
 use bevy_app::{App, Plugin};
+use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
+use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_ecs::resource::Resource;
+use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-
-use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
-use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
-use bevy_ecs::resource::Resource;
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use thiserror::Error;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, MipmapFilterMode,
@@ -41,130 +42,6 @@ pub trait BevyDefault {
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
-    }
-}
-
-/// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
-pub trait TextureSrgbViewFormats {
-    /// Returns the srgb view formats for a type.
-    fn srgb_view_formats(&self) -> &'static [TextureFormat];
-}
-
-impl TextureSrgbViewFormats for TextureFormat {
-    /// Returns the srgb view formats if the format has an srgb variant, otherwise returns an empty slice.
-    ///
-    /// The return result covers all the results of [`TextureFormat::add_srgb_suffix`](wgpu_types::TextureFormat::add_srgb_suffix).
-    fn srgb_view_formats(&self) -> &'static [TextureFormat] {
-        match self {
-            TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-            TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-            TextureFormat::Bc1RgbaUnorm => &[TextureFormat::Bc1RgbaUnormSrgb],
-            TextureFormat::Bc2RgbaUnorm => &[TextureFormat::Bc2RgbaUnormSrgb],
-            TextureFormat::Bc3RgbaUnorm => &[TextureFormat::Bc3RgbaUnormSrgb],
-            TextureFormat::Bc7RgbaUnorm => &[TextureFormat::Bc7RgbaUnormSrgb],
-            TextureFormat::Etc2Rgb8Unorm => &[TextureFormat::Etc2Rgb8UnormSrgb],
-            TextureFormat::Etc2Rgb8A1Unorm => &[TextureFormat::Etc2Rgb8A1UnormSrgb],
-            TextureFormat::Etc2Rgba8Unorm => &[TextureFormat::Etc2Rgba8UnormSrgb],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B4x4,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B4x4,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B5x4,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B5x4,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B5x5,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B5x5,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B6x5,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B6x5,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B6x6,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B6x6,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B8x5,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B8x5,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B8x6,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B8x6,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B8x8,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B8x8,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x5,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x5,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x6,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x6,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x8,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x8,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x10,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B10x10,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B12x10,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B12x10,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B12x12,
-                channel: wgpu_types::AstcChannel::Unorm,
-            } => &[TextureFormat::Astc {
-                block: wgpu_types::AstcBlock::B12x12,
-                channel: wgpu_types::AstcChannel::UnormSrgb,
-            }],
-            _ => &[],
-        }
     }
 }
 
@@ -596,6 +473,16 @@ impl ToExtents for UVec3 {
     }
 }
 
+/// The type of [`TextureDescriptor::view_formats`] used in [`Image`].
+pub type ImageTextureViewFormats = SmallVec<[TextureFormat; 1]>;
+
+/// The type of [`TextureDescriptor`] used in [`Image`].
+pub type ImageTextureDescriptor =
+    TextureDescriptor<Option<Cow<'static, str>>, ImageTextureViewFormats>;
+
+/// The type of [`TextureViewDescriptor`] used in [`Image`].
+pub type ImageTextureViewDescriptor = TextureViewDescriptor<Option<Cow<'static, str>>>;
+
 /// An image, optimized for usage in rendering.
 ///
 /// ## Remote Inspection
@@ -628,7 +515,7 @@ pub struct Image {
     /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
     ///   If you use assets, the label is purely a debugging aid.
     /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
-    pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
+    pub texture_descriptor: ImageTextureDescriptor,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     /// Describes how the GPU texture should be interpreted.\
@@ -638,7 +525,7 @@ pub struct Image {
     /// ## Field Usage Notes
     /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
     ///   If you use assets, the label is purely a debugging aid.
-    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
+    pub texture_view_descriptor: Option<ImageTextureViewDescriptor>,
     /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
@@ -832,7 +719,7 @@ pub enum ImageSamplerBorderColor {
 )]
 pub struct ImageSamplerDescriptor {
     /// An optional label used to identify this sampler in logs.
-    pub label: Option<String>,
+    pub label: Option<Cow<'static, str>>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
     pub address_mode_u: ImageAddressMode,
     /// How to deal with out of bounds accesses in the v (i.e. y) direction.
@@ -1058,10 +945,10 @@ impl From<SamplerBorderColor> for ImageSamplerBorderColor {
     }
 }
 
-impl From<SamplerDescriptor<Option<&str>>> for ImageSamplerDescriptor {
-    fn from(value: SamplerDescriptor<Option<&str>>) -> Self {
+impl From<SamplerDescriptor<Option<&'static str>>> for ImageSamplerDescriptor {
+    fn from(value: SamplerDescriptor<Option<&'static str>>) -> Self {
         ImageSamplerDescriptor {
-            label: value.label.map(ToString::to_string),
+            label: value.label.map(Cow::Borrowed),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),
@@ -1138,7 +1025,7 @@ impl Image {
                 usage: TextureUsages::TEXTURE_BINDING
                     | TextureUsages::COPY_DST
                     | TextureUsages::COPY_SRC,
-                view_formats: &[],
+                view_formats: ImageTextureViewFormats::default(),
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
@@ -1263,10 +1150,9 @@ impl Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage,
-                view_formats: match view_format {
-                    Some(_) => format.srgb_view_formats(),
-                    None => &[],
-                },
+                view_formats: view_format
+                    .map(|format| ImageTextureViewFormats::from([format]))
+                    .unwrap_or_default(),
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: view_format.map(|f| TextureViewDescriptor {
@@ -2438,6 +2324,54 @@ impl CompressedImageFormats {
 /// the WGPU backend.
 #[derive(Resource)]
 pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
+
+/// Converts image `wgpu-types` descriptor to its `wgpu` equivalent.
+///
+/// This is needed when creating texture or texture view from [`Image`],
+/// as image descriptor contains owned label and owned view formats, which differs from wgpu's.
+pub trait ImageDescriptorAsWgpu<'a> {
+    /// The converted `wgpu` equivalent.
+    type Output;
+    /// Converts image descriptor to `wgpu` equivalent.
+    fn as_wgpu(&'a self) -> Self::Output;
+}
+
+impl<'a> ImageDescriptorAsWgpu<'a> for ImageTextureDescriptor {
+    type Output = TextureDescriptor<Option<&'a str>, &'a [TextureFormat]>;
+
+    fn as_wgpu(&'a self) -> Self::Output {
+        // TODO: Use `TextureDescriptor.map_label_and_view_formats` once wgpu is updated.
+        Self::Output {
+            label: self.label.as_deref(),
+            size: self.size,
+            mip_level_count: self.mip_level_count,
+            sample_count: self.sample_count,
+            dimension: self.dimension,
+            format: self.format,
+            usage: self.usage,
+            view_formats: &self.view_formats,
+        }
+    }
+}
+
+impl<'a> ImageDescriptorAsWgpu<'a> for ImageTextureViewDescriptor {
+    type Output = TextureViewDescriptor<Option<&'a str>>;
+
+    fn as_wgpu(&'a self) -> Self::Output {
+        // TODO: Use `TextureViewDescriptor.map_label` once wgpu is updated.
+        Self::Output {
+            label: self.label.as_deref(),
+            format: self.format,
+            dimension: self.dimension,
+            usage: self.usage,
+            aspect: self.aspect,
+            base_mip_level: self.base_mip_level,
+            mip_level_count: self.mip_level_count,
+            base_array_layer: self.base_array_layer,
+            array_layer_count: self.array_layer_count,
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {

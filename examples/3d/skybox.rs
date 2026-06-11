@@ -3,16 +3,14 @@
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 
+use bevy::image::ImageTextureViewDescriptor;
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     image::CompressedImageFormats,
     light::Skybox,
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
-    render::{
-        render_resource::{TextureViewDescriptor, TextureViewDimension},
-        renderer::RenderDevice,
-    },
+    render::{render_resource::TextureViewDimension, renderer::RenderDevice},
 };
 use std::f32::consts::PI;
 
@@ -161,7 +159,7 @@ fn asset_loaded(
             image
                 .reinterpret_stacked_2d_as_array(layers)
                 .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
-            image.texture_view_descriptor = Some(TextureViewDescriptor {
+            image.texture_view_descriptor = Some(ImageTextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..default()
             });
