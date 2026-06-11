@@ -52,7 +52,10 @@ use crate::{
     prelude::{Add, Despawn, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
+    resource::{
+        IsHybridResource, IsResource, IsUnique, Resource, ResourceEntities, IS_HYBRID_RESOURCE,
+        IS_RESOURCE, IS_UNIQUE,
+    },
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
     system::Commands,
@@ -172,6 +175,12 @@ impl World {
 
         let is_resource = self.register_component::<IsResource>();
         assert_eq!(IS_RESOURCE, is_resource);
+
+        let is_unique = self.register_component::<IsUnique>();
+        assert_eq!(IS_UNIQUE, is_unique);
+
+        let is_hybrid_resource = self.register_component::<IsHybridResource>();
+        assert_eq!(IS_HYBRID_RESOURCE, is_hybrid_resource);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();

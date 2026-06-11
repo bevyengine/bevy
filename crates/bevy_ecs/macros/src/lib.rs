@@ -589,6 +589,13 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     TokenStream::from(resource::derive_resource(&mut ast))
 }
 
+/// TODO: Documentation
+#[proc_macro_derive(HybridResource, attributes(component, require))]
+pub fn derive_hybrid_resource(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(resource::derive_hybrid_resource(&mut ast))
+}
+
 /// Cheat sheet for derive syntax,
 ///
 /// ## Group Override
