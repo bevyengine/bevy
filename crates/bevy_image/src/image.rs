@@ -2340,7 +2340,7 @@ impl<'a> ImageDescriptorAsWgpu<'a> for ImageTextureDescriptor {
     type Output = TextureDescriptor<Option<&'a str>, &'a [TextureFormat]>;
 
     fn as_wgpu(&'a self) -> Self::Output {
-        // TODO: Use `TextureDescriptor.map_label_and_view_formats` if it doesn't take view formats by value.
+        // TODO: Use `TextureDescriptor.map_label_and_view_formats` once wgpu is updated.
         Self::Output {
             label: self.label.as_deref(),
             size: self.size,
@@ -2358,7 +2358,7 @@ impl<'a> ImageDescriptorAsWgpu<'a> for ImageTextureViewDescriptor {
     type Output = TextureViewDescriptor<Option<&'a str>>;
 
     fn as_wgpu(&'a self) -> Self::Output {
-        // TODO: Use `TextureViewDescriptor.map_label` if it's added.
+        // TODO: Use `TextureViewDescriptor.map_label` once wgpu is updated.
         Self::Output {
             label: self.label.as_deref(),
             format: self.format,

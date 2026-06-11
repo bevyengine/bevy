@@ -30,7 +30,7 @@ pub struct SerializedImage {
     texture_view_descriptor: Option<SerializedTextureViewDescriptor>,
 }
 
-// TODO: Remove this if wgpu derives serde for this.
+// TODO: Serialize and Deserialize have been added to `TextureViewDescriptor` in wgpu. Remove this once wgpu is updated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SerializedTextureViewDescriptor {
     label: Option<Cow<'static, str>>,
@@ -78,7 +78,7 @@ impl SerializedTextureViewDescriptor {
     }
 }
 
-// TODO: Remove this if wgpu derives serde for this.
+// TODO: Serialize and Deserialize have been added to `TextureDataOrder` in wgpu. Remove this once wgpu is updated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum SerializedTextureDataOrder {
     LayerMajor,
