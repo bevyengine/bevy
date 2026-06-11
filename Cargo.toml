@@ -1263,6 +1263,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "specular_anti_aliasing"
+path = "examples/3d/specular_anti_aliasing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.specular_anti_aliasing]
+name = "Specular Anti-aliasing"
+description = "Demonstrates the geometric specular anti-aliasing toggle on StandardMaterial"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
 doc-scrape-examples = true
