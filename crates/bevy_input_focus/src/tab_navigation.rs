@@ -12,7 +12,7 @@
 //! Tabbable entities must be descendants of a [`TabGroup`] entity, which is a component that
 //! marks a tree of entities as containing tabbable elements. The order of tab groups
 //! is determined by the [`TabGroup::order`] field, with lower orders being tabbed first. Modal tab groups
-//! are used for ui elements that should only tab within themselves, such as modal dialog boxes.
+//! are used for UI elements that should only tab within themselves, such as modal dialog boxes.
 //!
 //! To enable automatic tabbing, add the
 //! [`TabNavigationPlugin`] and [`InputDispatchPlugin`](crate::InputDispatchPlugin) to your app.
@@ -102,6 +102,11 @@ impl TabGroup {
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Clone, PartialEq)
+)]
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     ///
@@ -323,10 +328,10 @@ impl TabNavigation<'_, '_> {
         tab_group_idx: usize,
     ) {
         if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
-            if let Some(tabindex) = tabindex {
-                if tabindex.0 >= 0 {
-                    out.push((entity, *tabindex, tab_group_idx));
-                }
+            if let Some(tabindex) = tabindex
+                && tabindex.0 >= 0
+            {
+                out.push((entity, *tabindex, tab_group_idx));
             }
             if let Some(children) = children {
                 for child in children.iter() {
@@ -336,11 +341,11 @@ impl TabNavigation<'_, '_> {
                     }
                 }
             }
-        } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent) {
-            if !tabgroup.modal {
-                for child in children.iter() {
-                    self.gather_focusable(out, *child, tab_group_idx);
-                }
+        } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent)
+            && !tabgroup.modal
+        {
+            for child in children.iter() {
+                self.gather_focusable(out, *child, tab_group_idx);
             }
         }
     }

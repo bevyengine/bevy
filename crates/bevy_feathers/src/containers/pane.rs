@@ -3,7 +3,6 @@ use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, AlignSelf, Display, FlexDirection, JustifyContent, Node, PositionType, UiRect,
-    Val,
 };
 
 use crate::{
@@ -33,15 +32,14 @@ pub fn pane_header() -> impl Scene {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
-            padding: UiRect::axes(Val::Px(6.0), Val::Px(6.0)),
+            padding: px(6),
             border: UiRect {
-                left: Val::Px(1.0),
-                top: Val::Px(1.0),
-                right: Val::Px(1.0),
-                bottom: Val::Px(0.0),
+                left: px(1),
+                top: px(1),
+                right: px(1),
             },
             min_height: size::HEADER_HEIGHT,
-            column_gap: Val::Px(6.0),
+            column_gap: px(6),
             border_radius: {RoundedCorners::Top.to_border_radius(4.0)},
         }
         ThemeBackgroundColor(tokens::PANE_HEADER_BG)
@@ -59,7 +57,7 @@ pub fn pane_header() -> impl Scene {
 pub fn pane_header_divider() -> impl Scene {
     bsn! {
         Node {
-            width: Val::Px(1.0),
+            width: px(1),
             align_self: AlignSelf::Stretch,
         }
         Children [(
@@ -69,8 +67,8 @@ pub fn pane_header_divider() -> impl Scene {
                 position_type: PositionType::Absolute,
                 left: px(0),
                 right: px(0),
-                top: {px(-6)},
-                bottom: {px(-6)},
+                top: px(-6),
+                bottom: px(-6),
             }
             ThemeBackgroundColor(tokens::PANE_HEADER_DIVIDER)
         )]
@@ -83,8 +81,8 @@ pub fn pane_body() -> impl Scene {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            row_gap: px(4.0),
-            padding: UiRect::axes(Val::Px(6.0), Val::Px(6.0)),
+            row_gap: px(4),
+            padding: px(6),
             border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
         ThemeBackgroundColor(tokens::PANE_BODY_BG)

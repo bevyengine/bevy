@@ -2,12 +2,8 @@
 
 use bevy::image::{ImageTextureDescriptor, ImageTextureViewFormats};
 use bevy::{
-    camera::visibility::RenderLayers,
-    camera::RenderTarget,
-    color::palettes::css::GRAY,
-    prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-    window::WindowResized,
+    camera::visibility::RenderLayers, camera::RenderTarget, color::palettes::css::GRAY, prelude::*,
+    render::render_resource::TextureFormat, window::WindowResized,
 };
 
 /// In-game resolution width.
@@ -81,31 +77,9 @@ fn setup_mesh(
 }
 
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let canvas_size = Extent3d {
-        width: RES_WIDTH,
-        height: RES_HEIGHT,
-        ..default()
-    };
-
     // This Image serves as a canvas representing the low-resolution game screen
-    let mut canvas = Image {
-        texture_descriptor: ImageTextureDescriptor {
-            label: None,
-            size: canvas_size,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: ImageTextureViewFormats::default(),
-        },
-        ..default()
-    };
-
-    // Fill image.data with zeroes
-    canvas.resize(canvas_size);
+    let canvas =
+        Image::new_target_texture(RES_WIDTH, RES_HEIGHT, TextureFormat::Bgra8UnormSrgb, None);
 
     let image_handle = images.add(canvas);
 
@@ -151,6 +125,6 @@ fn fit_canvas(
     for window_resized in resize_messages.read() {
         let h_scale = window_resized.width / RES_WIDTH as f32;
         let v_scale = window_resized.height / RES_HEIGHT as f32;
-        projection.scale = 1. / h_scale.min(v_scale).round();
+        projection.scale = 1. / h_scale.min(v_scale).floor();
     }
 }

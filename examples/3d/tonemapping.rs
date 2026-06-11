@@ -182,7 +182,7 @@ fn setup_image_viewer_scene(
             ..default()
         },
         TextColor(Color::BLACK),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             align_self: AlignSelf::Center,
             margin: UiRect::all(auto()),
@@ -311,7 +311,7 @@ fn toggle_tonemapping_method(
     } else if keys.just_pressed(KeyCode::Digit8) {
         **tonemapping = Tonemapping::BlenderFilmic;
     } else if keys.just_pressed(KeyCode::Digit9) {
-        **tonemapping = Tonemapping::PbrNeutral;
+        **tonemapping = Tonemapping::KhronosPbrNeutral;
     }
 
     **color_grading = (*per_method_settings
@@ -500,8 +500,8 @@ fn update_ui(
         }
     ));
     text.push_str(&format!(
-        "(9) {} PBR Neutral\n",
-        if tonemapping == Tonemapping::PbrNeutral {
+        "(9) {} Khronos PBR Neutral\n",
+        if tonemapping == Tonemapping::KhronosPbrNeutral {
             ">"
         } else {
             ""
@@ -598,7 +598,7 @@ impl Default for PerMethodSettings {
             Tonemapping::SomewhatBoringDisplayTransform,
             Tonemapping::TonyMcMapface,
             Tonemapping::BlenderFilmic,
-            Tonemapping::PbrNeutral,
+            Tonemapping::KhronosPbrNeutral,
         ] {
             settings.insert(
                 method,

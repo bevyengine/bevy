@@ -73,7 +73,7 @@ impl TextPipeline {
         bounds: TextBounds,
         scale_factor: f32,
         computed: &mut ComputedTextBlock,
-        font_system: &mut FontCx,
+        font_cx: &mut FontCx,
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
@@ -117,7 +117,7 @@ impl TextPipeline {
                 }
 
                 if matches!(text_font.font, FontSource::Handle(_))
-                    && resolve_font_source(&text_font.font, fonts).is_err()
+                    && resolve_font_source(text_font, fonts).is_err()
                 {
                     return Err(TextError::NoSuchFont);
                 }
@@ -161,10 +161,9 @@ impl TextPipeline {
 
             let text = self.text_buffer.as_str();
             let layout = &mut computed.layout;
-            let mut builder =
-                layout_cx
-                    .0
-                    .ranged_builder(&mut font_system.0, text, scale_factor, true);
+            let mut builder = layout_cx
+                .0
+                .ranged_builder(&mut (*font_cx), text, scale_factor, true);
 
             match linebreak {
                 LineBreak::AnyCharacter => {
@@ -191,9 +190,9 @@ impl TextPipeline {
                     continue;
                 }
 
-                let family = resolve_font_source(&section.text_font.font, fonts)?;
+                let resolved_family = resolve_font_source(section.text_font, fonts)?;
 
-                builder.push(StyleProperty::FontFamily(family), range.clone());
+                builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
                         section.index as u32,
@@ -224,6 +223,10 @@ impl TextPipeline {
                 );
                 builder.push(
                     StyleProperty::FontFeatures((&section.text_font.font_features).into()),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::FontVariations((&section.text_font.font_variations).into()),
                     range,
                 );
             }
@@ -314,11 +317,12 @@ impl TextPipeline {
 
         let layout = &mut computed.layout;
         layout_with_bounds(layout, bounds, justify);
+        layout_info.scale_factor = layout.scale();
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
-                    let section_index = glyph_run.style().brush.section_index as usize;
+                    let section_index = glyph_run.style().brush.section_index;
                     let font_smoothing = glyph_run.style().brush.font_smoothing;
                     let run = glyph_run.run();
                     let font = run.font();
@@ -381,18 +385,16 @@ impl TextPipeline {
                                 + atlas_info.offset,
                             atlas_info,
                             section_index,
-                            line_index,
+                            line_index: line_index as u32,
                         });
                     }
 
                     layout_info.run_geometry.push(RunGeometry {
                         section_index,
                         bounds: Rect::new(
-                            line.metrics().inline_min_coord + glyph_run.offset(),
+                            glyph_run.offset(),
                             line.metrics().block_min_coord,
-                            line.metrics().inline_min_coord
-                                + glyph_run.offset()
-                                + glyph_run.advance(),
+                            glyph_run.offset() + glyph_run.advance(),
                             line.metrics().block_max_coord,
                         ),
                         strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
@@ -410,16 +412,19 @@ impl TextPipeline {
     }
 }
 
-/// Resolve a [`FontSource`], producing a [`FontFamily`], by looking it up in the [`Assets<Font>`] collection.
+/// Resolve a [`TextFont`]'s [`FontSource`] to a font family.
 pub fn resolve_font_source<'a>(
-    font: &'a FontSource,
-    fonts: &Assets<Font>,
+    text_font: &'a TextFont,
+    fonts: &'a Assets<Font>,
 ) -> Result<FontFamily<'a>, TextError> {
-    Ok(match font {
+    Ok(match &text_font.font {
         FontSource::Handle(handle) => {
-            let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-            FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
-                font.family_name.as_str().to_owned(),
+            FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
+                fonts
+                    .get(handle.id())
+                    .ok_or(TextError::NoSuchFont)?
+                    .alias
+                    .as_str(),
             )))
         }
         FontSource::Family(family) => FontFamily::named(family.as_str()),
@@ -431,7 +436,6 @@ pub fn resolve_font_source<'a>(
                 to discover system fonts."
             );
             match generic {
-                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
                 FontSource::Serif => parley::GenericFamily::Serif.into(),
                 FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
                 FontSource::Cursive => parley::GenericFamily::Cursive.into(),
@@ -445,6 +449,7 @@ pub fn resolve_font_source<'a>(
                 FontSource::Emoji => parley::GenericFamily::Emoji.into(),
                 FontSource::Math => parley::GenericFamily::Math.into(),
                 FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
             }
         }
     })
@@ -467,10 +472,10 @@ pub struct TextLayoutInfo {
     ///
     /// The coordinates are unscaled and relative to the top left corner of the text layout.
     pub run_geometry: Vec<RunGeometry>,
-    /// The glyphs resulting size
+    /// The size of the text layout in physical pixels
     pub size: Vec2,
-    /// Cursor size and position for editing
-    pub cursor: Option<Rect>,
+    /// Cursor visibility, size and position for editing
+    pub cursor: Option<(bool, Rect)>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
     /// Underline rects for the active IME preedit/compose region.
@@ -497,7 +502,7 @@ impl TextLayoutInfo {
 #[derive(Default, Debug, Clone, Reflect)]
 pub struct RunGeometry {
     /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
-    pub section_index: usize,
+    pub section_index: u32,
     /// Bounding box around the text run.
     pub bounds: Rect,
     /// Y position of the strikethrough in the text layout.
@@ -590,5 +595,5 @@ pub(crate) fn trim_source_cache(mut font_cx: ResMut<FontCx>) {
     //
     // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
     // text that is dynamically measured for UI).
-    font_cx.0.source_cache.prune(2, false);
+    font_cx.source_cache.prune(2, false);
 }

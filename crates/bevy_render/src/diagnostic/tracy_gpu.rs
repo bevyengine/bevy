@@ -23,14 +23,11 @@ pub fn new_tracy_gpu_context(
             //
             // An issue was filed on the wgpu-profiler repository that the function
             // is copied from. https://github.com/Wumpf/wgpu-profiler/issues/107
-            //
-            // Once the root cause of the issue is located and fixed this should
-            // probably be moved back to not returning an option?
             return None;
         }
     };
 
-    let tracy_client = Client::running().unwrap();
+    let tracy_client = Client::running()?;
     tracy_client
         .new_gpu_context(
             Some("RenderQueue"),

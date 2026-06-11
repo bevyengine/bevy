@@ -145,6 +145,22 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to a pointer press within the text area.
     MoveToPoint(Vec2),
+    /// Selects the word at the given point.
+    ///
+    /// Typically generated in response to a double-click within the text area.
+    SelectWordAtPoint(Vec2),
+    /// Selects the line at the given point.
+    ///
+    /// A line here means a single row of glyphs, all sharing the same baseline.
+    ///
+    /// Typically generated in response to a triple-click within the text area.
+    SelectLineAtPoint(Vec2),
+    /// Selects the hard line at the given point.
+    ///
+    /// A “hard line” is the portion of text between explicit newline characters.
+    ///
+    /// Typically generated in response to a triple-click within the text area.
+    SelectedHardLineAtPoint(Vec2),
     /// Extends the current selection to the given point.
     ///
     /// Typically generated in response to dragging a pointer within the text area.
@@ -153,10 +169,6 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to shift-clicking within the text area.
     ShiftClickExtension(Vec2),
-    /// Select the word at the given point.
-    ///
-    /// Typically generated in response to a double click within the text area.
-    SelectWordAtPoint(Vec2),
     /// Set the IME preedit/composing text at the cursor, or clear it if `value` is empty.
     ///
     /// The preedit text is excluded from [`EditableText::value`](crate::EditableText::value).
@@ -274,11 +286,15 @@ impl TextEdit {
                 }
             }
             TextEdit::MoveToPoint(point) => driver.move_to_point(point.x, point.y),
+            TextEdit::SelectWordAtPoint(point) => driver.select_word_at_point(point.x, point.y),
+            TextEdit::SelectLineAtPoint(point) => driver.select_line_at_point(point.x, point.y),
+            TextEdit::SelectedHardLineAtPoint(point) => {
+                driver.select_hard_line_at_point(point.x, point.y);
+            }
             TextEdit::ExtendSelectionToPoint(point) => {
                 driver.extend_selection_to_point(point.x, point.y);
             }
             TextEdit::ShiftClickExtension(point) => driver.shift_click_extension(point.x, point.y),
-            TextEdit::SelectWordAtPoint(point) => driver.select_word_at_point(point.x, point.y),
             TextEdit::ImeSetCompose { value, cursor } => {
                 if value.is_empty() {
                     driver.clear_compose();

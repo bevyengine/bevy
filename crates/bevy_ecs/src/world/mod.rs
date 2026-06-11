@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
@@ -53,11 +48,10 @@ use crate::{
     error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
-    name::Name,
     observer::Observers,
-    prelude::{Add, ChildOf, Despawn, DetectChangesMut, Discard, Insert, Remove},
+    prelude::{Add, Despawn, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
-    relationship::{Relationship, RelationshipHookMode},
+    relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
@@ -65,13 +59,11 @@ use crate::{
     world::{
         command_queue::RawCommandQueue,
         error::{
-            EntityDespawnError, EntityMutableFetchError, EntityPathError, TryInsertBatchError,
-            TryRunScheduleError,
+            EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
-use alloc::string::ToString;
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
@@ -327,6 +319,7 @@ impl World {
     /// # Usage Notes
     /// In most cases, you don't need to call this method directly since component registration
     /// happens automatically during system initialization.
+    #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components_registrator().register_component::<T>()
     }
@@ -653,6 +646,7 @@ impl World {
     /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
     /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
     /// [`World::insert_resource`] instead.
+    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components_registrator().register_component::<R>()
     }
@@ -1477,231 +1471,93 @@ impl World {
         Ok(result)
     }
 
-    /// Returns the entity that matches the given path along [`Children`].
+    /// Temporarily removes a [`Resource`] `R` and
+    /// runs the provided closure on it, returning the result if `R` was available.
+    /// This will trigger the `Remove` and `Discard` component hooks without
+    /// causing an archetype move.
     ///
-    /// Segments of the path are defined by [`Name`] separated by /. Names will / in them will be
-    /// accounted for, unless they are the last segment, in which case the path will not be matched.
+    /// This is most useful with immutable resources, where removal and reinsertion
+    /// is the only way to modify a value.
     ///
-    /// E.g:
+    /// If you do not need to ensure the above hooks are triggered, and your resource
+    /// is mutable, prefer using [`get_resource_mut`](World::get_resource_mut).
     ///
-    /// "Root/Child/Grandchild" will match
+    /// # Examples
     ///
-    /// - ["Root", "Child", "Grandchild"]
-    /// - ["Root/Child", "Grandchild"]
-    ///
-    /// But not
-    ///
-    /// - ["Root/Child/Grandchild"]
-    ///
-    /// If multiple matching paths are found an error will be returned.
-    ///
-    /// ```
+    /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// # fn path_test() {
-    /// let mut world = World::new();
+    /// #
+    /// #[derive(Resource, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Bar(bool);
     ///
-    /// let root = world.spawn(Name::new("Root")).id();
-    /// let child = world.spawn((ChildOf(root), Name::new("Child"))).id();
-    /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
-    ///
-    /// assert_eq!(
-    ///     world.get_entity_from_path("Root/Child/Grandchild", None),
-    ///     Ok(grandchild)
-    /// );
-    /// assert_eq!(
-    ///     world.get_entity_from_path("Grandchild", None),
-    ///     Ok(grandchild)
-    /// );
-    /// # }
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Bar(false));
+    /// #
+    /// world.modify_resource(|bar: &mut Bar| {
+    ///     bar.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(world.get_resource::<Bar>(), Some(&Bar(true)));
     /// ```
-    ///
-    /// [`Name`]: crate::name::Name
-    /// [`Children`]: crate::hierarchy::Children
-    pub fn get_entity_from_path(
-        &self,
-        path: &str,
-        root: Option<Entity>,
-    ) -> Result<Entity, EntityPathError> {
-        self.get_entity_from_relationship_path::<ChildOf>(path, root)
-    }
+    #[inline]
+    #[track_caller]
+    pub fn modify_resource<R: Resource, S>(
+        &mut self,
+        f: impl FnOnce(&mut R) -> S,
+    ) -> Result<Option<S>, EntityMutableFetchError> {
+        let component_id = self.register_component::<R>();
+        if let Some(entity) = self.resource_entities.get(component_id) {
+            let mut world = DeferredWorld::from(&mut *self);
+            let result = world.modify_component_with_relationship_hook_mode(
+                entity,
+                RelationshipHookMode::Run,
+                f,
+            )?;
 
-    /// Returns the entity that matches the given path along `R::RelationshipTarget`.
-    ///
-    /// Segments of the path are defined by [`Name`] separated by /. Names will / in them will be
-    /// accounted for, unless they are the last segment, in which case the path will not be matched.
-    ///
-    /// E.g:
-    ///
-    /// "Root/Child/Grandchild" will match
-    ///
-    /// - ["Root", "Child", "Grandchild"]
-    /// - ["Root/Child", "Grandchild"]
-    ///
-    /// But not
-    ///
-    /// - ["Root/Child/Grandchild"]
-    ///
-    /// If multiple matching paths are found an error will be returned.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// # fn path_test() {
-    /// let mut world = World::new();
-    ///
-    /// let root = world.spawn(Name::new("Root")).id();
-    /// let child = world.spawn((ChildOf(root), Name::new("Child"))).id();
-    /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
-    ///
-    /// assert_eq!(
-    ///     world.get_entity_from_relationship_path::<ChildOf>("Root/Child/Grandchild", None),
-    ///     Ok(grandchild)
-    /// );
-    /// assert_eq!(
-    ///     world.get_entity_from_relationship_path::<ChildOf>("Grandchild", None),
-    ///     Ok(grandchild)
-    /// );
-    /// # }
-    /// ```
-    ///
-    /// [`Name`]: crate::name::Name
-    /// [`Children`]: crate::hierarchy::Children
-    pub fn get_entity_from_relationship_path<R: Relationship>(
-        &self,
-        path: &str,
-        root: Option<Entity>,
-    ) -> Result<Entity, EntityPathError> {
-        let mut components = self
-            .try_query::<(Entity, &Name)>()
-            // Since there are no entities with `Name` it's safe to assume the path can't be found
-            .ok_or(EntityPathError::NoMatchingPath(path.into()))?;
-        let components = components.query(self);
-
-        let top = path.split("/").last().ok_or(EntityPathError::EmptyPath)?;
-
-        let mut potential = components
-            .iter()
-            .filter(|(_, c)| c.as_str() == top)
-            .filter(|(entity, _)| {
-                self.get_relationship_path_from_entity::<R>(*entity, root)
-                    .is_ok_and(|p| path == p)
-            })
-            .map(|(entity, _)| entity);
-
-        let Some(entity) = potential.next() else {
-            return Err(EntityPathError::NoMatchingPath(path.into()));
-        };
-
-        if potential.peekable().next().is_some() {
-            Err(EntityPathError::AmbiguousPath(path.into()))
+            self.flush();
+            Ok(result)
         } else {
-            Ok(entity)
+            Ok(None)
         }
     }
 
-    /// Returns the path of an [`Entity`] following [`Children`]
+    /// Temporarily removes a [`Resource`] identified by the provided
+    /// [`ComponentId`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `Remove` and `Discard` component hooks without
+    /// causing an archetype move.
     ///
-    /// If a root is not specified the absolute path is returned.
+    /// This is most useful with immutable resources, where removal and reinsertion
+    /// is the only way to modify a value.
     ///
-    /// Each segment on the path is defined by [`Name`], if a [`Name`] does not exist on the base entity,
-    /// or one of it's ancestors an error will be returned.
+    /// If you do not need to ensure the above hooks are triggered, and your resource
+    /// is mutable, prefer using [`get_resource_mut_by_id`](World::get_resource_mut_by_id).
     ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # fn path_test() {
-    /// let mut world = World::new();
-    ///
-    /// let root = world.spawn(Name::new("Root")).id();
-    /// let child = world.spawn((ChildOf(root), Name::new("Child"))).id();
-    /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
-    ///
-    /// assert_eq!(
-    ///     world.get_path_from_entity(grandchild, None),
-    ///     Ok("Root/Child/Grandchild".into()),
-    /// );
-    /// assert_eq!(
-    ///     world.get_path_from_entity(grandchild, Some(child)),
-    ///     Ok("Grandchild".into())
-    /// );
-    /// # }
-    /// ```
-    ///
-    /// [`Name`]: crate::name::Name
-    /// [`Children`]: crate::hierarchy::Children
-    pub fn get_path_from_entity(
-        &self,
-        entity: Entity,
-        root: Option<Entity>,
-    ) -> Result<String, EntityPathError> {
-        self.get_relationship_path_from_entity::<ChildOf>(entity, root)
-    }
+    /// You should prefer the typed [`modify_resource`](World::modify_resource)
+    /// whenever possible.
+    #[inline]
+    #[track_caller]
+    pub fn modify_resource_by_id<S>(
+        &mut self,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> S,
+    ) -> Result<Option<S>, EntityMutableFetchError> {
+        if let Some(entity) = self.resource_entities.get(component_id) {
+            let mut world = DeferredWorld::from(&mut *self);
 
-    /// Returns the path of an [`Entity`] following `R::RelationshipTarget`.
-    ///
-    /// If a root is not specified the absolute path is returned.
-    ///
-    /// Each segment on the path is defined by [`Name`], if a [`Name`] does not exist on the base entity,
-    /// or one of it's ancestors an error will be returned.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # fn path_test() {
-    /// let mut world = World::new();
-    ///
-    /// let root = world.spawn(Name::new("Root")).id();
-    /// let child = world.spawn((ChildOf(root), Name::new("Child"))).id();
-    /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
-    ///
-    /// assert_eq!(
-    ///     world.get_relationship_path_from_entity::<ChildOf>(grandchild, None),
-    ///     Ok("Root/Child/Grandchild".into()),
-    /// );
-    /// assert_eq!(
-    ///     world.get_relationship_path_from_entity::<ChildOf>(grandchild, Some(child)),
-    ///     Ok("Grandchild".into())
-    /// );
-    /// # }
-    /// ```
-    ///
-    /// [`Name`]: crate::name::Name
-    /// [`Children`]: crate::hierarchy::Children
-    pub fn get_relationship_path_from_entity<R: Relationship>(
-        &self,
-        entity: Entity,
-        root: Option<Entity>,
-    ) -> Result<String, EntityPathError> {
-        let mut relationships = self
-            .try_query::<&R>()
-            .ok_or(EntityPathError::BrokenPath(entity))?;
-        let relationships = relationships.query(self);
-        let mut components = self
-            .try_query::<&Name>()
-            .ok_or(EntityPathError::BrokenPath(entity))?;
-        let components = components.query(self);
+            let result = world.modify_component_by_id_with_relationship_hook_mode(
+                entity,
+                component_id,
+                RelationshipHookMode::Run,
+                f,
+            )?;
 
-        // This is... not ideal, but I really can't think of a better way of doing it.
-        if let Some(root) = root
-            && !relationships.iter_ancestors(entity).any(|e| e == root)
-        {
-            return Err(EntityPathError::RootIsNotAncestor(root, entity));
+            self.flush();
+            Ok(result)
+        } else {
+            Ok(None)
         }
-
-        let mut path: Vec<String> = relationships
-            .iter_ancestors(entity)
-            .take_while(|entity| root.is_none_or(|root| root != *entity))
-            .map(|entity| components.get(entity).ok().map(ToString::to_string))
-            .collect::<Option<Vec<_>>>()
-            .ok_or(EntityPathError::BrokenPath(entity))?;
-
-        path.reverse();
-
-        let base_element = components
-            .get(entity)
-            .map_err(|_| EntityPathError::BrokenPath(entity))?;
-
-        path.push(base_element.to_string());
-
-        Ok(path.join("/"))
     }
 
     /// Despawns the given [`Entity`], if it exists.
@@ -2088,7 +1944,7 @@ impl World {
         func: impl FnOnce(&mut World) -> R,
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
-        let resource_id = self.register_resource::<R>();
+        let resource_id = self.register_component::<R>();
 
         if let Some(entity) = self.resource_entities.get(resource_id) {
             let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
@@ -2423,7 +2279,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -2456,7 +2312,7 @@ impl World {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
@@ -2480,7 +2336,7 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn get_resource_or_insert_with<R: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
@@ -2527,7 +2383,9 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+    pub fn get_resource_or_init<R: Resource<Mutability = Mutable> + FromWorld>(
+        &mut self,
+    ) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(R::from_world, caller);
@@ -2729,7 +2587,7 @@ impl World {
                         archetype_id: first_location.archetype_id,
                     };
                     move_as_ptr!(first_bundle);
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2759,7 +2617,7 @@ impl World {
                                     }
                                 }
                                 move_as_ptr!(bundle);
-                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                                 unsafe {
                                     cache.inserter.insert(
                                         entity,
@@ -2880,7 +2738,7 @@ impl World {
                     move_as_ptr!(first_bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - B::Effect: NoBundleEffect`
                     // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -2922,7 +2780,7 @@ impl World {
                     move_as_ptr!(bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - `B::Effect: NoBundleEffect`
                     // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -3015,7 +2873,7 @@ impl World {
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
-        let mut changed_by = entity_mut.get_changed_by::<R>()?;
+        let changed_by = entity_mut.get_changed_by::<R>()?;
         let value = entity_mut.take::<R>()?;
 
         // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
@@ -3027,7 +2885,6 @@ impl World {
             entity: Entity,
             component_id: ComponentId,
             value: ManuallyDrop<R>,
-            ticks: ComponentTicks,
             caller: MaybeLocation,
         }
         impl<R: Resource> Drop for ReinsertGuard<'_, R> {
@@ -3085,11 +2942,11 @@ impl World {
                     // SAFETY:
                     // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
                     let world = unsafe { entity_mut.world_mut() };
+                    let tick = world.change_tick();
                     // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
-                    let mut bundle_inserter = unsafe {
-                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
-                    };
+                    let mut bundle_inserter =
+                        unsafe { BundleInserter::new::<R>(world, location.archetype_id, tick) };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -3110,12 +2967,6 @@ impl World {
                     });
                     entity_mut.update_location();
 
-                    // Set the added tick to the original.
-                    entity_mut
-                        .get_mut::<R>()
-                        .unwrap()
-                        .set_last_added(self.ticks.added);
-
                     // SAFETY: We update the entity location afterwards.
                     unsafe { entity_mut.world_mut() }.flush();
 
@@ -3133,7 +2984,6 @@ impl World {
             entity,
             component_id,
             value: ManuallyDrop::new(value),
-            ticks,
             caller: changed_by,
         };
 
@@ -3142,7 +2992,7 @@ impl World {
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                changed_by: changed_by.as_mut(),
+                changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
@@ -3209,13 +3059,16 @@ impl World {
         } else {
             self.spawn_empty()
         };
-        entity_mut.insert_by_id_with_caller(
-            component_id,
-            value,
-            InsertMode::Replace,
-            caller,
-            RelationshipHookMode::Run,
-        );
+        // SAFETY: pointer valid for this component id per precondition
+        unsafe {
+            entity_mut.insert_by_id_with_caller(
+                component_id,
+                value,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            )
+        };
     }
 
     /// Inserts new `!Send` data with the given `value`. Will replace the value if it already
@@ -3629,7 +3482,7 @@ impl World {
         }
     }
 
-    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists and is mutable.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
@@ -4159,8 +4012,7 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
-        name::Name,
-        prelude::{ChildOf, Event, Mut, On, Res},
+        prelude::{DetectChanges, Event, Mut, On, Res},
         ptr::OwningPtr,
         resource::Resource,
         world::{error::EntityMutableFetchError, DeferredWorld},
@@ -4688,141 +4540,6 @@ mod tests {
     }
 
     #[test]
-    fn entity_path_usage() {
-        use crate::world::EntityPathError;
-
-        let mut world = World::new();
-
-        let root1 = world.spawn(Name::new("1")).id();
-        let child1_1 = world.spawn((ChildOf(root1), Name::new("1_1"))).id();
-        let grandchild1_1_1 = world.spawn((ChildOf(child1_1), Name::new("1_1_1"))).id();
-        let _child1_2 = world.spawn((ChildOf(root1), Name::new("1_2"))).id();
-
-        let root2 = world.spawn(Name::new("2")).id();
-        let child2_1 = world.spawn((ChildOf(root2), Name::new("2_1"))).id();
-        let grandchild2_1_1 = world.spawn((ChildOf(child2_1), Name::new("2_1_1"))).id();
-        let child2_2 = world.spawn((ChildOf(root2), Name::new("2_2"))).id();
-
-        // All entities contain a `Name`-component.
-        assert_eq!(
-            world.get_path_from_entity(grandchild1_1_1, None),
-            Ok("1/1_1/1_1_1".into())
-        );
-        assert_eq!(
-            world.get_entity_from_path("1/1_1/1_1_1", None),
-            Ok(grandchild1_1_1)
-        );
-        assert_eq!(
-            world.get_path_from_entity(grandchild1_1_1, Some(root1)),
-            Ok("1_1/1_1_1".into())
-        );
-        assert_eq!(
-            world.get_entity_from_path("1_1/1_1_1", Some(root1)),
-            Ok(grandchild1_1_1)
-        );
-        assert_eq!(
-            world.get_path_from_entity(child2_1, None),
-            Ok("2/2_1".into())
-        );
-        assert_eq!(world.get_entity_from_path("2/2_1", None), Ok(child2_1));
-        assert_eq!(
-            world.get_path_from_entity(child2_2, Some(root2)),
-            Ok("2_2".into())
-        );
-        assert_eq!(world.get_entity_from_path("2_2", Some(root2)), Ok(child2_2));
-        assert_eq!(
-            world.get_path_from_entity(child2_2, Some(root1)),
-            Err(EntityPathError::RootIsNotAncestor(root1, child2_2))
-        );
-        assert_eq!(
-            world.get_entity_from_path("2_2", Some(root1)),
-            Err(EntityPathError::NoMatchingPath("2_2".into()))
-        );
-        assert_eq!(
-            world.get_entity_from_path("arbitrary", Some(root1)),
-            Err(EntityPathError::NoMatchingPath("arbitrary".into())),
-        );
-
-        // Create a child with the name of a sibling.
-        let child1_1_duplicate = world.spawn((ChildOf(root1), Name::new("1_1"))).id();
-        assert_eq!(
-            world.get_path_from_entity(grandchild1_1_1, None),
-            Ok("1/1_1/1_1_1".into())
-        );
-        assert_eq!(
-            world.get_entity_from_path("1/1_1/1_1_1", None),
-            Ok(grandchild1_1_1),
-        );
-        assert_eq!(
-            world.get_path_from_entity(grandchild1_1_1, Some(child1_1)),
-            Ok("1_1_1".into())
-        );
-        assert_eq!(
-            world.get_entity_from_path("1_1_1", Some(child1_1)),
-            Ok(grandchild1_1_1)
-        );
-        world.despawn(child1_1_duplicate);
-
-        // Remove `Name` from a root.
-        world.entity_mut(root1).remove::<Name>();
-        assert_eq!(
-            world.get_path_from_entity(grandchild1_1_1, None),
-            Err(EntityPathError::BrokenPath(grandchild1_1_1))
-        );
-        assert_eq!(
-            world.get_entity_from_path("1/1_1/1_1_1", None),
-            Err(EntityPathError::NoMatchingPath("1/1_1/1_1_1".into()))
-        );
-        assert_eq!(
-            world.get_path_from_entity(grandchild1_1_1, Some(root1)),
-            Ok("1_1/1_1_1".into())
-        );
-        assert_eq!(
-            world.get_entity_from_path("1_1/1_1_1", Some(root1)),
-            Ok(grandchild1_1_1)
-        );
-        assert_eq!(
-            world.get_path_from_entity(child2_1, None),
-            Ok("2/2_1".into())
-        );
-        assert_eq!(world.get_entity_from_path("2/2_1", None), Ok(child2_1));
-
-        // Also remove `Name` from a child.
-        world.entity_mut(child2_1).remove::<Name>();
-        assert_eq!(
-            world.get_path_from_entity(child2_1, None),
-            Err(EntityPathError::BrokenPath(child2_1))
-        );
-        assert_eq!(
-            world.get_entity_from_path("2/2_1", None),
-            Err(EntityPathError::NoMatchingPath("2/2_1".into()))
-        );
-        assert_eq!(
-            world.get_path_from_entity(grandchild2_1_1, Some(child2_1)),
-            Ok("2_1_1".into())
-        );
-        assert_eq!(
-            world.get_entity_from_path("2_1_1", Some(child2_1)),
-            Ok(grandchild2_1_1)
-        );
-        assert_eq!(world.get_path_from_entity(root2, None), Ok("2".into()));
-        assert_eq!(world.get_entity_from_path("2", None), Ok(root2));
-
-        let root3 = world.spawn(Name::new("3/3_1")).id();
-        let child3_1 = world.spawn((Name::new("3_1"), ChildOf(root3))).id();
-
-        assert_eq!(world.get_entity_from_path("3/3_1/3_1", None), Ok(child3_1));
-
-        let root4 = world.spawn(Name::new("4")).id();
-        world.spawn((Name::new("4_1/4_1_1"), ChildOf(root4)));
-
-        assert_eq!(
-            world.get_entity_from_path("4/4_1/4_1_1", None),
-            Err(EntityPathError::NoMatchingPath("4/4_1/4_1_1".into()))
-        );
-    }
-
-    #[test]
     fn get_entity_mut() {
         let mut world = World::new();
 
@@ -4998,5 +4715,24 @@ mod tests {
         world.flush();
 
         assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn resource_scope_ticks() {
+        #[derive(Resource)]
+        struct R;
+
+        let mut world = World::new();
+        world.insert_resource(R);
+        world.resource_scope(|world, r: Mut<R>| {
+            assert_eq!(world.change_tick(), r.added());
+            assert_eq!(world.change_tick(), r.last_changed());
+            world.increment_change_tick();
+        });
+        assert_eq!(world.change_tick(), world.resource_ref::<R>().added());
+        assert_eq!(
+            world.change_tick(),
+            world.resource_ref::<R>().last_changed()
+        );
     }
 }

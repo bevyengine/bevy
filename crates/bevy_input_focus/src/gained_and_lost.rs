@@ -3,6 +3,7 @@
 
 use super::InputFocus;
 use bevy_ecs::prelude::*;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// The cause for a [`FocusGained`]
@@ -10,7 +11,8 @@ use bevy_reflect::Reflect;
 /// Sometimes widgets would like to know how their focus was gained so they can act accordingly.
 ///
 /// For example, a text input may want to select all text when navigated into, but not when pressed.
-#[derive(Reflect, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum FocusCause {
     /// The input was navigated into by the keyboard, gamepad, or default behavior when unknown.
     Navigated,
@@ -26,6 +28,11 @@ pub enum FocusCause {
 /// This event bubbles up the entity hierarchy, so if a child entity gains focus, its parents will also receive this event.
 #[derive(EntityEvent, Debug, Clone)]
 #[entity_event(auto_propagate)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Event, Debug, Clone)
+)]
 pub struct FocusGained {
     /// The entity that gained focus
     pub entity: Entity,
@@ -38,6 +45,11 @@ pub struct FocusGained {
 /// This event bubbles up the entity hierarchy, so if a child entity loses focus, its parents will also receive this event.
 #[derive(EntityEvent, Debug, Clone)]
 #[entity_event(auto_propagate)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Event, Debug, Clone)
+)]
 pub struct FocusLost {
     /// The entity that lost focus.
     pub entity: Entity,
