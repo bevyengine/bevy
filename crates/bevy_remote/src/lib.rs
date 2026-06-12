@@ -1064,8 +1064,12 @@ impl Serialize for BrpRequest {
         let mut map = serializer.serialize_map(None)?;
         map.serialize_entry("jsonrpc", "2.0")?;
         map.serialize_entry("method", &self.method)?;
-        map.serialize_entry("id", &self.id)?;
-        map.serialize_entry("params", &self.params)?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
+        if self.params.is_some() {
+            map.serialize_entry("params", &self.params)?;
+        }
         map.end()
     }
 }
@@ -1171,7 +1175,9 @@ impl Serialize for BrpResponse {
     {
         let mut map = serializer.serialize_map(None)?;
         map.serialize_entry("jsonrpc", "2.0")?;
-        map.serialize_entry("id", &self.id)?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
         match &self.payload {
             BrpPayload::Result(value) => {
                 map.serialize_entry("result", value)?;
