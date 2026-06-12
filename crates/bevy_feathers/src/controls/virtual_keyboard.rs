@@ -106,7 +106,7 @@ pub struct VirtualKeyPressed<T> {
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[deprecated(since = "0.19.0", note = "Use the virtual_keyboard() BSN function")]
-#[expect(deprecated, reason = "uses the deprecated button_bundle")]
+#[expect(deprecated, reason = "uses the deprecated button_bundle and observe")]
 pub fn virtual_keyboard_bundle<T>(
     keys: impl Iterator<Item = Vec<T>> + Send + Sync + 'static,
 ) -> impl Bundle
