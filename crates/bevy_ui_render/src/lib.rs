@@ -7,6 +7,7 @@
 
 //! Provides rendering functionality for `bevy_ui`.
 
+mod blur;
 pub mod box_shadow;
 mod gradient;
 mod pipeline;
@@ -74,6 +75,7 @@ use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 
+pub use blur::{BlurShaderPlugin, DEFAULT_MAX_BLUR_REGIONS_COUNT, BlurRegionCamera, BlurSetting, BlurRegion};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -274,6 +276,7 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
+        app.add_plugins(BlurShaderPlugin::<DEFAULT_MAX_BLUR_REGIONS_COUNT>);
     }
 }
 
