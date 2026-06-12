@@ -182,8 +182,8 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        events::*, hover::PointerCaptureMap, input::PointerInputPlugin, pointer::PointerButton,
+        DefaultPickingPlugins, InteractionPlugin, Pickable, PickingPlugin,
     };
 }
 
@@ -424,6 +424,7 @@ impl Plugin for InteractionPlugin {
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
             .init_resource::<PickingSettings>()
+            .init_resource::<hover::PointerCaptureMap>()
             .init_resource::<PointerState>()
             .add_message::<Pointer<Cancel>>()
             .add_message::<Pointer<Click>>()
