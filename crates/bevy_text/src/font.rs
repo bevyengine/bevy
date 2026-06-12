@@ -12,6 +12,7 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
+use parley::FontFamilyName;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -104,35 +105,36 @@ pub fn load_font_assets_into_font_collection(
 
     for mut text_font in text_font_query.iter_mut() {
         if font_removed
-            || match &text_font.font {
-                FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
-                FontSource::Family(name) => font_cx
-                    .collection
-                    .family_id(name)
-                    .is_some_and(|id| new_family_ids.contains(&id)),
-                generic_source => {
-                    let generic_family = match generic_source {
-                        FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                        FontSource::Serif => parley::GenericFamily::Serif,
-                        FontSource::SansSerif => parley::GenericFamily::SansSerif,
-                        FontSource::Cursive => parley::GenericFamily::Cursive,
-                        FontSource::Fantasy => parley::GenericFamily::Fantasy,
-                        FontSource::Monospace => parley::GenericFamily::Monospace,
-                        FontSource::SystemUi => parley::GenericFamily::SystemUi,
-                        FontSource::UiSerif => parley::GenericFamily::UiSerif,
-                        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif,
-                        FontSource::UiMonospace => parley::GenericFamily::UiMonospace,
-                        FontSource::UiRounded => parley::GenericFamily::UiRounded,
-                        FontSource::Emoji => parley::GenericFamily::Emoji,
-                        FontSource::Math => parley::GenericFamily::Math,
-                        FontSource::FangSong => parley::GenericFamily::FangSong,
-                    };
-                    font_cx
+            || text_font
+                .font
+                .flatten()
+                .into_iter()
+                .any(|source| match source {
+                    FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                    FontSource::Family(name) => font_cx
                         .collection
-                        .generic_families(generic_family)
-                        .any(|id| new_family_ids.contains(&id))
-                }
-            }
+                        .family_id(name.as_str())
+                        .is_some_and(|id| new_family_ids.contains(&id)),
+                    FontSource::Families(source) => FontFamilyName::parse_css_list(source.as_str())
+                        .map_while(Result::ok)
+                        .any(|family| match family {
+                            FontFamilyName::Named(name) => font_cx
+                                .collection
+                                .family_id(name.as_ref())
+                                .is_some_and(|id| new_family_ids.contains(&id)),
+                            FontFamilyName::Generic(generic_family) => font_cx
+                                .collection
+                                .generic_families(generic_family)
+                                .any(|id| new_family_ids.contains(&id)),
+                        }),
+                    &FontSource::Generic(generic_family) => font_cx
+                        .collection
+                        .generic_families(generic_family.into())
+                        .any(|id| new_family_ids.contains(&id)),
+                    FontSource::List(_) => {
+                        unreachable!("FontSource::flatten should not return lists")
+                    }
+                })
         {
             text_font.set_changed();
         }

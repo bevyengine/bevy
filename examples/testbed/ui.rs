@@ -35,6 +35,7 @@ fn main() {
     }))
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
+    .add_systems(OnEnter(Scene::FontLists), font_lists::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
     .add_systems(OnEnter(Scene::Borders), borders::setup)
     .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
@@ -74,6 +75,7 @@ enum Scene {
     #[default]
     Image,
     Text,
+    FontLists,
     Grid,
     Borders,
     BoxShadow,
@@ -111,7 +113,8 @@ impl Next for Scene {
     fn next(&self) -> Self {
         match self {
             Scene::Image => Scene::Text,
-            Scene::Text => Scene::Grid,
+            Scene::Text => Scene::FontLists,
+            Scene::FontLists => Scene::Grid,
             Scene::Grid => Scene::Borders,
             Scene::Borders => Scene::BoxShadow,
             Scene::BoxShadow => Scene::TextWrap,
@@ -221,7 +224,7 @@ mod text {
             Text::new("Hello World."),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: FontSize::Px(200.),
+                font_size: FontSize::Px(100.),
                 ..default()
             },
         ));
@@ -249,6 +252,16 @@ mod text {
                             ..default()
                         },
                         hinting,
+                    ));
+
+                    content.with_child((
+                        Text::new("Font from css font list"),
+                        TextFont {
+                            font: FontSource::families(
+                                "'Comic Sans', Arial, 'Noto Sans', sans-serif",
+                            ),
+                            ..Default::default()
+                        },
                     ));
 
                     content.with_child((
@@ -675,6 +688,154 @@ mod text {
                 }
             });
         });
+    }
+}
+
+mod font_lists {
+    use bevy::prelude::*;
+
+    const FONT_ASSETS: &[&str] = &[
+        "fonts/FiraSans-Bold.ttf",
+        "fonts/FiraMono-Medium.ttf",
+        "fonts/MonaSans-VariableFont.ttf",
+        "fonts/EBGaramond12-Regular.otf",
+    ];
+
+    const FONT_NAMES: &[&str] = &[
+        "Gabriola",
+        "Fira Sans",
+        "Fira Mono",
+        "Mona Sans",
+        "EB Garamond",
+    ];
+
+    #[derive(Resource)]
+    struct LoadedFontAssets {
+        _handles: Vec<Handle<Font>>,
+    }
+
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::FontLists)));
+        commands.insert_resource(LoadedFontAssets {
+            _handles: FONT_ASSETS
+                .iter()
+                .map(|font_asset| asset_server.load(*font_asset))
+                .collect(),
+        });
+        commands.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_self: AlignSelf::Center,
+                justify_self: JustifySelf::Center,
+                row_gap: px(25),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::FontLists),
+            children![
+                (
+                    Text::new("Font Lists"),
+                    TextFont::from_font_size(FontSize::Px(32.)),
+                    Underline,
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(6),
+                        ..default()
+                    },
+                    children![
+                        Text::new("FontSource::Families"),
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                padding: px(16).left(),
+                                column_gap: px(30),
+                                row_gap: px(30),
+                                ..default()
+                            },
+                            Children::spawn(SpawnIter(
+                                (0..FONT_NAMES.len())
+                                    .map(|start| {
+                                        FONT_NAMES
+                                            .iter()
+                                            .copied()
+                                            .cycle()
+                                            .skip(start)
+                                            .take(FONT_NAMES.len())
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    })
+                                    .map(|list| {
+                                        (
+                                            Text::new(list.replace(", ", "\n")),
+                                            TextFont {
+                                                font: FontSource::families(list),
+                                                font_size: FontSize::Px(16.),
+                                                ..default()
+                                            },
+                                            Node {
+                                                padding: px(4.).all(),
+                                                ..default()
+                                            },
+                                            TextLayout::no_wrap(),
+                                            Outline::default(),
+                                        )
+                                    }),
+                            )),
+                        )
+                    ]
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(6),
+                        ..default()
+                    },
+                    children![
+                        Text::new("FontSource::List"),
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                padding: px(16).left(),
+                                column_gap: px(30),
+                                row_gap: px(30),
+                                ..default()
+                            },
+                            Children::spawn(SpawnIter(
+                                (0..FONT_NAMES.len())
+                                    .map(|start| {
+                                        FONT_NAMES
+                                            .iter()
+                                            .copied()
+                                            .cycle()
+                                            .skip(start)
+                                            .take(FONT_NAMES.len())
+                                            .collect::<Vec<_>>()
+                                    })
+                                    .map(|list| {
+                                        (
+                                            Text::new(list.join("\n")),
+                                            TextFont {
+                                                font: FontSource::list(list.iter().copied()),
+                                                font_size: FontSize::Px(16.),
+                                                ..default()
+                                            },
+                                            Node {
+                                                padding: px(4.).all(),
+                                                ..default()
+                                            },
+                                            TextLayout::no_wrap(),
+                                            Outline::default(),
+                                        )
+                                    }),
+                            )),
+                        )
+                    ]
+                ),
+            ],
+        ));
     }
 }
 
