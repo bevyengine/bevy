@@ -12,7 +12,7 @@ enable wgpu_ray_query;
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
-#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs, gbuffer, depth_buffer, view, constants}
 #ifdef DLSS_RR_GUIDE_BUFFERS
 #import bevy_solari::realtime_bindings::{diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors, previous_view}
 #import bevy_solari::resolve_dlss_rr_textures::env_brdf_approx2
@@ -42,7 +42,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var wi: vec3<f32>;
     if surface.material.roughness > DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
         // Surface is very rough, reuse the ReSTIR GI reservoir
-        let gi_reservoir = gi_reservoirs_a[pixel_index];
+        let gi_reservoir = gi_reservoirs[pixel_index].a;
         wi = normalize(gi_reservoir.sample_point_world_position - surface.world_position);
         radiance = gi_reservoir.radiance * gi_reservoir.unbiased_contribution_weight;
     } else {

@@ -2,7 +2,7 @@ use super::{
     prepare::{SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_SIZE},
     SolariLighting,
 };
-use crate::scene::RaytracingSceneBindings;
+use crate::scene::{RaytracingSceneBindings, SolariFeatures};
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
@@ -189,25 +189,16 @@ pub fn solari_lighting(
             s.light_tile_resolved_samples.as_entire_binding(),
             &s.di_reservoirs_a,
             &s.di_reservoirs_b,
-            s.gi_reservoirs_a.as_entire_binding(),
-            s.gi_reservoirs_b.as_entire_binding(),
+            s.gi_reservoirs.as_entire_binding(),
             gbuffer,
-            depth_buffer,
-            motion_vectors,
             previous_gbuffer,
+            depth_buffer,
             previous_depth_buffer,
+            motion_vectors,
             view_uniforms_binding,
             previous_view_uniforms_binding,
-            s.world_cache_checksums.as_entire_binding(),
-            s.world_cache_life.as_entire_binding(),
-            s.world_cache_radiance.as_entire_binding(),
-            s.world_cache_geometry_data.as_entire_binding(),
-            s.world_cache_luminance_deltas.as_entire_binding(),
-            s.world_cache_active_cells_new_radiance.as_entire_binding(),
-            s.world_cache_a.as_entire_binding(),
+            s.world_cache.as_entire_binding(),
             s.world_cache_b.as_entire_binding(),
-            s.world_cache_active_cell_indices.as_entire_binding(),
-            s.world_cache_active_cells_count.as_entire_binding(),
         )),
     );
     let bind_group_world_cache_active_cells_dispatch = render_device.create_bind_group(
@@ -385,7 +376,8 @@ pub fn solari_lighting(
 
     diagnostics.record_u32(
         ctx.command_encoder(),
-        &s.world_cache_active_cells_count.slice(..),
+        &s.world_cache_b
+            .slice(1024 * size_of::<u32>() as u64..1025 * size_of::<u32>() as u64),
         "solari_lighting/world_cache_active_cells_count",
     );
 }
@@ -396,6 +388,7 @@ pub fn init_solari_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     scene_bindings: Res<RaytracingSceneBindings>,
     asset_server: Res<AssetServer>,
+    solari_features: Res<SolariFeatures>,
 ) {
     let bind_group_layout = BindGroupLayoutDescriptor::new(
         "solari_lighting_bind_group_layout",
@@ -408,22 +401,13 @@ pub fn init_solari_lighting_pipelines(
                 texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
                 texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
                 storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
+                texture_2d(TextureSampleType::Uint),
+                texture_depth_2d(),
                 texture_depth_2d(),
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                texture_2d(TextureSampleType::Uint),
-                texture_depth_2d(),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
             ),
@@ -467,6 +451,10 @@ pub fn init_solari_lighting_pipelines(
             WORLD_CACHE_SIZE as u32,
         )];
         shader_defs.extend_from_slice(&extra_shader_defs);
+
+        if solari_features.buffer_binding_array() {
+            shader_defs.push("BUFFER_BINDING_ARRAY".into());
+        }
 
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some(label.into()),
