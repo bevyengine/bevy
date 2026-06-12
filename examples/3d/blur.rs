@@ -10,7 +10,7 @@ use bevy::{
     },
     core_pipeline::tonemapping::Tonemapping,
     feathers::{
-        controls::{radio_bundle, slider_bundle, FeathersSliderProps},
+        controls::{FeathersRadio, FeathersSlider},
         dark_theme::create_dark_theme,
         theme::{ThemedText, UiTheme},
         FeathersPlugins,
@@ -19,7 +19,7 @@ use bevy::{
     ui::{Checked, InteractionDisabled},
     ui_render::{BlurRegion, BlurRegionCamera, BlurSetting, DEFAULT_MAX_BLUR_REGIONS_COUNT},
     ui_widgets::{
-        observe, RadioGroup, SliderPrecision, SliderRange, SliderStep, SliderValue, ValueChange,
+        RadioGroup, SliderPrecision, SliderRange, SliderStep, SliderValue, ValueChange,
     },
 };
 use std::f32::consts::PI;
@@ -36,8 +36,9 @@ fn main() {
 
 // Blur algorithm selection and parameters
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 enum Algorithm {
+    #[default]
     Gaussian,
     BoxBlur,
     DualKawase,
@@ -169,15 +170,15 @@ impl BlurDemoState {
 }
 
 /// Marks a radio button as selecting an algorithm.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Default)]
 struct AlgorithmRadio(Algorithm);
 
 /// Marks one of the two parameter sliders. The payload is the parameter slot.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Default)]
 struct ParamSlider(usize);
 
 /// Marks the text label above a parameter slider.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Default)]
 struct ParamLabel(usize);
 
 #[derive(Component)]
@@ -336,20 +337,24 @@ fn setup(
         ));
     }
 
-    commands.spawn((
+    commands.spawn_scene(ui_root(&state));
+}
+
+/// The full-screen UI: the control panel plus a large, nearly untinted blur
+/// region in the middle of the scene, so the character of each algorithm is easy
+/// to compare.
+fn ui_root(state: &BlurDemoState) -> impl Scene + use<> {
+    bsn! {
         Node {
             width: percent(100),
             height: percent(100),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
-        },
-        children![
-            control_panel(&state),
-            // A large, nearly untinted blur region in the middle of the scene, so
-            // the character of each algorithm is easy to compare.
+        }
+        Children [
+            control_panel(state),
             (
-                BlurRegion,
+                BlurRegion
                 Node {
                     width: percent(100),
                     height: percent(100),
@@ -357,27 +362,25 @@ fn setup(
                     align_items: AlignItems::FlexEnd,
                     padding: UiRect::all(px(14)),
                     border_radius: BorderRadius::all(px(36)),
-                    ..default()
-                },
-                BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.45)),
-                children![(
+                }
+                BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.45))
+                Children [(
                     TextFont {
                         font_size: FontSize::Px(15.0),
-                        ..default()
-                    },
-                    TextColor(Color::srgba(1.0, 1.0, 1.0, 0.85)),
-                )],
+                    }
+                    TextColor(Color::srgba(1.0, 1.0, 1.0, 0.85))
+                )]
             ),
-        ],
-    ));
+        ]
+    }
 }
 
 /// The blurred control panel: algorithm radio buttons and two parameter sliders.
-fn control_panel(state: &BlurDemoState) -> impl Bundle {
+fn control_panel(state: &BlurDemoState) -> impl Scene + use<> {
     let specs = state.algorithm.param_specs();
     let values = state.params[state.algorithm as usize];
 
-    (
+    bsn! {
         Node {
             position_type: PositionType::Absolute,
             left: px(10),
@@ -387,85 +390,87 @@ fn control_panel(state: &BlurDemoState) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             row_gap: px(10),
             border_radius: BorderRadius::all(px(28)),
-            ..default()
-        },
-        ZIndex(1),
-        BackgroundColor(Color::srgba(0.05, 0.08, 0.11, 0.25)),
-        BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.65)),
-        children![
+        }
+        ZIndex(1)
+        BackgroundColor(Color::srgba(0.05, 0.08, 0.11, 0.25))
+        BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.65))
+        Children [
             (
-                Text::new("Blur playground"),
+                Text("Blur playground")
                 TextFont {
                     font_size: FontSize::Px(26.0),
-                    ..default()
-                },
-                TextColor(Color::WHITE),
+                }
+                TextColor(Color::WHITE)
             ),
             (
                 Node {
                     flex_direction: FlexDirection::Column,
                     row_gap: px(4),
-                    ..default()
-                },
-                RadioGroup,
-                observe(algorithm_selected),
-                children![
+                }
+                RadioGroup
+                on(algorithm_selected)
+                Children [
                     // The demo starts on the gaussian algorithm, so it spawns checked.
-                    (algorithm_radio(Algorithm::Gaussian), Checked),
+                    (algorithm_radio(Algorithm::Gaussian) Checked),
                     algorithm_radio(Algorithm::BoxBlur),
                     algorithm_radio(Algorithm::DualKawase),
                     algorithm_radio(Algorithm::Bokeh),
-                ],
+                ]
             ),
             param_label(0, &specs[0]),
             param_slider(0, values[0], &specs[0]),
             param_label(1, &specs[1]),
             param_slider(1, values[1], &specs[1]),
-        ],
-    )
+        ]
+    }
 }
 
-fn algorithm_radio(algorithm: Algorithm) -> impl Bundle {
-    radio_bundle(
-        AlgorithmRadio(algorithm),
-        Spawn((Text::new(algorithm.label()), ThemedText)),
-    )
+fn algorithm_radio(algorithm: Algorithm) -> impl Scene {
+    let label = algorithm.label();
+    bsn! {
+        @FeathersRadio {
+            @caption: bsn! { Text(label) ThemedText }
+        }
+        AlgorithmRadio(algorithm)
+    }
 }
 
-fn param_label(slot: usize, spec: &Option<ParamSpec>) -> impl Bundle + use<> {
-    (
-        ParamLabel(slot),
-        Text::new(spec.as_ref().map_or("(unused)", |spec| spec.label)),
+fn param_label(slot: usize, spec: &Option<ParamSpec>) -> impl Scene + use<> {
+    let label = spec.as_ref().map_or("(unused)", |spec| spec.label);
+    bsn! {
+        ParamLabel(slot)
+        Text(label)
         TextFont {
             font_size: FontSize::Px(14.0),
-            ..default()
-        },
-        TextColor(Color::srgba(0.93, 0.97, 1.0, 0.92)),
-    )
+        }
+        TextColor(Color::srgba(0.93, 0.97, 1.0, 0.92))
+    }
 }
 
-fn param_slider(slot: usize, value: f32, spec: &Option<ParamSpec>) -> impl Bundle + use<> {
+fn param_slider(slot: usize, value: f32, spec: &Option<ParamSpec>) -> impl Scene + use<> {
     let (min, max, step) = spec
         .as_ref()
         .map_or((0.0, 1.0, 0.1), |spec| (spec.min, spec.max, spec.step));
 
-    (
-        slider_bundle(
-            FeathersSliderProps { value, min, max },
-            (SliderStep(step), step_precision(step), ParamSlider(slot)),
-        ),
-        observe(
-            move |change: On<ValueChange<f32>>,
-                  mut state: ResMut<BlurDemoState>,
-                  mut commands: Commands| {
-                commands
-                    .entity(change.source)
-                    .insert(SliderValue(change.value));
-                let algorithm = state.algorithm;
-                state.params[algorithm as usize][slot] = change.value;
-            },
-        ),
-    )
+    bsn! {
+        @FeathersSlider {
+            @value: value,
+            @min: min,
+            @max: max,
+        }
+        SliderStep(step)
+        SliderPrecision({ step_precision(step).0 })
+        ParamSlider(slot)
+        on(move |change: On<ValueChange<f32>>,
+                 mut state: ResMut<BlurDemoState>,
+                 mut commands: Commands| {
+            commands
+                .entity(change.source)
+                .insert(SliderValue(change.value));
+            let algorithm = state.algorithm;
+            state.params[algorithm as usize][slot] = change.value;
+        })
+    }
 }
 
 /// The number of decimals shown on a slider: whole numbers for integer-stepped
