@@ -75,7 +75,9 @@ use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 
-pub use blur::{BlurShaderPlugin, DEFAULT_MAX_BLUR_REGIONS_COUNT, BlurRegionCamera, BlurSetting, BlurRegion};
+pub use blur::{
+    BlurRegion, BlurRegionCamera, BlurSetting, BlurShaderPlugin, DEFAULT_MAX_BLUR_REGIONS_COUNT,
+};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;

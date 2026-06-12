@@ -3,7 +3,6 @@
 //! The control panel itself is a blur region: use it to switch between the blur
 //! algorithms (gaussian, box, dual kawase, bokeh) and tweak their parameters live.
 
-use std::f32::consts::PI;
 use bevy::{
     camera::Hdr,
     color::palettes::css::{
@@ -18,11 +17,12 @@ use bevy::{
     },
     prelude::*,
     ui::{Checked, InteractionDisabled},
+    ui_render::{BlurRegion, BlurRegionCamera, BlurSetting, DEFAULT_MAX_BLUR_REGIONS_COUNT},
     ui_widgets::{
         observe, RadioGroup, SliderPrecision, SliderRange, SliderStep, SliderValue, ValueChange,
     },
-    ui_render::{BlurRegion, BlurRegionCamera, BlurSetting, DEFAULT_MAX_BLUR_REGIONS_COUNT},
 };
+use std::f32::consts::PI;
 
 fn main() {
     App::new()

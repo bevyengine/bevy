@@ -30,8 +30,8 @@ use bevy_render::{
         FilterMode, FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
         Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages, TextureView,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     sync_component::SyncComponent,
@@ -47,7 +47,7 @@ use tracing::warn;
 /// The texture format used for intermediate blur render targets.
 const INTERMEDIATE_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 
-/// The default maximum number of blur regions per camera. This is a compile-time constant to allow the shader array sizes to be known at compile time; 
+/// The default maximum number of blur regions per camera. This is a compile-time constant to allow the shader array sizes to be known at compile time;
 /// if you need more regions, create a custom [`BlurRegionCamera`] with a larger `N` and register a matching `BlurShaderPlugin::<N>`.
 pub const DEFAULT_MAX_BLUR_REGIONS_COUNT: usize = 32;
 
@@ -152,16 +152,16 @@ impl BlurSetting {
             BlurSetting::Gaussian {
                 circle_of_confusion,
                 sigma_multiplier,
-            } => Vec4::new(circle_of_confusion.max(0.0), sigma_multiplier.max(0.001), 0.0, 0.0),
+            } => Vec4::new(
+                circle_of_confusion.max(0.0),
+                sigma_multiplier.max(0.001),
+                0.0,
+                0.0,
+            ),
             BlurSetting::DualKawase { offset, .. } => Vec4::new(offset.max(0.0), 0.0, 0.0, 0.0),
             BlurSetting::Bokeh { radius } => {
                 let radius = radius.clamp(1, 64);
-                Vec4::new(
-                    radius as f32,
-                    1.0 / bokeh_normalization(radius),
-                    0.0,
-                    0.0,
-                )
+                Vec4::new(radius as f32, 1.0 / bokeh_normalization(radius), 0.0, 0.0)
             }
         }
     }
@@ -208,10 +208,7 @@ impl<const N: usize> Plugin for BlurShaderPlugin<N> {
             ExtractComponentPlugin::<BlurRegionCamera<N>>::default(),
             UniformComponentPlugin::<BlurRegionUniform<N>>::default(),
         ))
-        .add_systems(
-            PostUpdate,
-            sync_blur_regions::<N>.after(UiSystems::Layout),
-        );
+        .add_systems(PostUpdate, sync_blur_regions::<N>.after(UiSystems::Layout));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -653,7 +650,12 @@ fn prepare_blur_regions_passes<const N: usize>(
     pipeline: Res<BlurRegionsPipeline<N>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    views: Query<(Entity, &ViewTarget, &ExtractedBlurSettings, &BlurRegionUniform<N>)>,
+    views: Query<(
+        Entity,
+        &ViewTarget,
+        &ExtractedBlurSettings,
+        &BlurRegionUniform<N>,
+    )>,
 ) {
     for (entity, view_target, settings, uniform) in &views {
         if uniform.current_regions_count == 0 {
