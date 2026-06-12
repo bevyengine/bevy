@@ -42,7 +42,7 @@ mod font_loader;
 mod glyph;
 mod parley_context;
 mod pipeline;
-mod scroll;
+pub mod scroll;
 mod text;
 mod text_access;
 mod text_edit;

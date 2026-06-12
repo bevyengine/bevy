@@ -199,6 +199,14 @@ pub enum TextEdit {
         /// The committed text to insert at the cursor.
         value: SmolStr,
     },
+    /// Scroll vertically by the given number of visual lines, increasing downwards.
+    ///
+    /// Fractional values scroll by the corresponding fraction of a visual line.
+    ScrollByLines(f32),
+    /// Scroll the minimum amount such that the given point is in view.
+    ScrollTo(Vec2),
+    /// Scroll by the given displacement
+    ScrollBy(Vec2),
 }
 
 impl TextEdit {
@@ -313,6 +321,7 @@ impl TextEdit {
                     driver.insert_or_replace_selection(text.as_str());
                 }
             }
+            _ => {}
         }
     }
 }
