@@ -112,7 +112,7 @@ pub enum BlurSetting {
     /// into bright, hard-edged discs instead of smearing out.
     ///
     /// Implemented as a separable convolution with a single-component complex
-    /// kernel whose magnitude approximates a disc (see BOKEH_KERNEL_A).
+    /// kernel whose magnitude approximates a disc (see `BOKEH_KERNEL_A`).
     /// Runs as a horizontal pass into two intermediate textures holding the
     /// complex response, then a vertical pass that resolves them to a color.
     /// The most expensive algorithm: cost scales linearly with `radius`.
@@ -270,7 +270,7 @@ impl ComputedBlurRegion {
 ///
 /// Regions are normally populated automatically from UI nodes tagged with
 /// [`BlurRegion`]. Regions can also be pushed manually with [`Self::blur`] and
-/// friends, from a system scheduled after sync_blur_regions in [`PostUpdate`]
+/// friends, from a system scheduled after `sync_blur_regions` in [`PostUpdate`]
 /// (the sync system rebuilds the region list each frame).
 #[derive(Component, Debug, Clone)]
 pub struct BlurRegionCamera<const N: usize> {
@@ -338,7 +338,7 @@ impl<const N: usize> BlurRegionCamera<N> {
         }
     }
 
-    /// Removes all blur regions. Called automatically every frame by sync_blur_regions.
+    /// Removes all blur regions. Called automatically every frame by `sync_blur_regions`.
     pub fn clear(&mut self) {
         self.current_regions_count = 0;
     }
