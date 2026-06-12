@@ -72,7 +72,10 @@ use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
+use crate::{
+    LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
+    PointLightShadowViewEntities,
+};
 
 use super::{ShadowView, ViewLightEntities};
 
@@ -524,7 +527,13 @@ pub fn clear_indirect_parameters_metadata(
 /// to frame, we avoid having to perform a CPU-side traversal of every mesh
 /// instance every frame.
 pub fn unpack_bins(
-    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    current_view: ViewQuery<
+        (
+            Option<&ViewLightEntities>,
+            Option<&PointLightShadowViewEntities>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
     view_query: Query<&ExtractedView, Without<SkipGpuPreprocess>>,
     light_query: Query<&LightEntity>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
@@ -546,9 +555,13 @@ pub fn unpack_bins(
 
     // Gather up all views.
     let view_entity = current_view.entity();
-    let shadow_cascade_views = current_view.into_inner();
-    let all_views =
-        gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
+    let (shadow_cascade_views, point_light_shadow_views) = current_view.into_inner();
+    let all_views = gather_shadow_cascades_for_view(
+        view_entity,
+        shadow_cascade_views,
+        point_light_shadow_views,
+        &light_query,
+    );
 
     // Don't run if the shaders haven't been compiled yet.
     if let Some(bin_unpacking_pipeline_id) = preprocess_pipelines.bin_unpacking.pipeline_id
@@ -600,7 +613,13 @@ pub fn unpack_bins(
 }
 
 pub fn early_gpu_preprocess(
-    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    current_view: ViewQuery<
+        (
+            Option<&ViewLightEntities>,
+            Option<&PointLightShadowViewEntities>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
     view_query: Query<
         (
             &ExtractedView,
@@ -630,9 +649,13 @@ pub fn early_gpu_preprocess(
     let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
     let view_entity = current_view.entity();
-    let shadow_cascade_views = current_view.into_inner();
-    let all_views =
-        gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
+    let (shadow_cascade_views, point_light_shadow_views) = current_view.into_inner();
+    let all_views = gather_shadow_cascades_for_view(
+        view_entity,
+        shadow_cascade_views,
+        point_light_shadow_views,
+        &light_query,
+    );
 
     // Run the compute passes.
     for view_entity in all_views {
@@ -795,6 +818,7 @@ pub fn early_gpu_preprocess(
 fn gather_shadow_cascades_for_view(
     view_entity: Entity,
     shadow_cascade_views: Option<&ViewLightEntities>,
+    point_light_shadow_views: Option<&PointLightShadowViewEntities>,
     light_query: &Query<&LightEntity>,
 ) -> SmallVec<[Entity; 8]> {
     let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
@@ -807,6 +831,19 @@ fn gather_shadow_cascades_for_view(
                 .filter(|light_entity| {
                     light_query.get(**light_entity).is_ok_and(|light_entity| {
                         matches!(*light_entity, LightEntity::Directional { .. })
+                    })
+                })
+                .copied(),
+        );
+    }
+    if let Some(point_light_shadow_views) = point_light_shadow_views {
+        all_views.extend(
+            point_light_shadow_views
+                .shadow_view_entities
+                .iter()
+                .filter(|light_entity| {
+                    light_query.get(**light_entity).is_ok_and(|light_entity| {
+                        matches!(*light_entity, LightEntity::Point { .. })
                     })
                 })
                 .copied(),

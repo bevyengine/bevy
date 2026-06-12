@@ -278,11 +278,14 @@ pub struct RetainedViewEntity {
 
     /// Another entity associated with the view entity.
     ///
-    /// This is currently used for shadow cascades. If there are multiple
+    /// This is used for shadow cascades. If there are multiple
     /// cameras, each camera needs to have its own set of shadow cascades. Thus
     /// the light and subview index aren't themselves enough to uniquely
     /// identify a shadow cascade: we need the camera that the cascade is
     /// associated with as well. This entity stores that camera.
+    ///
+    /// This is also used for point and spot shadow views that
+    /// are specific to a camera, configurable via `has_own_shadow_maps` per camera.
     ///
     /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
     pub auxiliary_entity: MainEntity,
