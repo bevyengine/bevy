@@ -1615,7 +1615,7 @@ wasm = true
 name = "blur"
 path = "examples/3d/blur.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_feathers"]
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.blur]
 name = "Blur"

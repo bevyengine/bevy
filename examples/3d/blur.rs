@@ -11,7 +11,7 @@ use bevy::{
     },
     core_pipeline::tonemapping::Tonemapping,
     feathers::{
-        controls::{radio, slider, SliderProps},
+        controls::{radio_bundle, slider_bundle, FeathersSliderProps},
         dark_theme::create_dark_theme,
         theme::{ThemedText, UiTheme},
         FeathersPlugins,
@@ -426,7 +426,7 @@ fn control_panel(state: &BlurDemoState) -> impl Bundle {
 }
 
 fn algorithm_radio(algorithm: Algorithm) -> impl Bundle {
-    radio(
+    radio_bundle(
         AlgorithmRadio(algorithm),
         Spawn((Text::new(algorithm.label()), ThemedText)),
     )
@@ -450,8 +450,8 @@ fn param_slider(slot: usize, value: f32, spec: &Option<ParamSpec>) -> impl Bundl
         .map_or((0.0, 1.0, 0.1), |spec| (spec.min, spec.max, spec.step));
 
     (
-        slider(
-            SliderProps { value, min, max },
+        slider_bundle(
+            FeathersSliderProps { value, min, max },
             (SliderStep(step), step_precision(step), ParamSlider(slot)),
         ),
         observe(

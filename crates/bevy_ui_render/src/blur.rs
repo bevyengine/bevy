@@ -391,12 +391,13 @@ pub struct BlurRegionUniform<const N: usize> {
 }
 
 impl<const N: usize> SyncComponent for BlurRegionCamera<N> {
-    type Out = (BlurRegionUniform<N>, ExtractedBlurSettings);
+    type Target = (BlurRegionUniform<N>, ExtractedBlurSettings);
 }
 
 impl<const N: usize> ExtractComponent for BlurRegionCamera<N> {
     type QueryData = &'static Self;
     type QueryFilter = ();
+    type Out = (BlurRegionUniform<N>, ExtractedBlurSettings);
 
     fn extract_component(camera: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some((
@@ -599,6 +600,7 @@ impl<const N: usize> SpecializedRenderPipeline for BlurRegionsPipeline<N> {
                 )],
                 entry_point: Some(key.pass.entry_point().into()),
                 targets,
+                constants: Vec::new(),
             }),
             ..default()
         }
