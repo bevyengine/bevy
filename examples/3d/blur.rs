@@ -18,9 +18,7 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_render::{BlurRegion, BlurRegionCamera, BlurSetting, DEFAULT_MAX_BLUR_REGIONS_COUNT},
-    ui_widgets::{
-        RadioGroup, SliderPrecision, SliderRange, SliderStep, SliderValue, ValueChange,
-    },
+    ui_widgets::{RadioGroup, SliderPrecision, SliderRange, SliderStep, SliderValue, ValueChange},
 };
 use std::f32::consts::PI;
 
