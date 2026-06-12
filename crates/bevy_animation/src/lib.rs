@@ -1571,7 +1571,7 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 mod tests {
     use crate::{
         self as bevy_animation,
-        prelude::{AnimatableCurve, AnimatableKeyframeCurve, AnimatedField},
+        prelude::{AnimatableCurve, AnimatableKeyframeCurve},
     };
     use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
@@ -1756,7 +1756,7 @@ mod tests {
                 AnimationTargetId::from_names(name_path.iter()),
                 "{:?} {:?}",
                 str_path,
-                &name_path
+                name_path
             );
         }
     }

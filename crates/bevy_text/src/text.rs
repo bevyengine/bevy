@@ -654,37 +654,38 @@ impl From<FontWeight> for parley::style::FontWeight {
     }
 }
 
+/// The visual width of a font as a ratio of its normal width, typically 0.5 to 2.0.
 /// `<https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>`
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
-pub struct FontWidth(u16);
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Reflect)]
+pub struct FontWidth(pub f32);
 
 impl FontWidth {
     /// 50% of normal width.
-    pub const ULTRA_CONDENSED: Self = Self(1);
+    pub const ULTRA_CONDENSED: Self = Self(0.5);
 
     /// 62.5% of normal width.
-    pub const EXTRA_CONDENSED: Self = Self(2);
+    pub const EXTRA_CONDENSED: Self = Self(0.625);
 
     /// 75% of normal width.
-    pub const CONDENSED: Self = Self(3);
+    pub const CONDENSED: Self = Self(0.75);
 
     /// 87.5% of normal width.
-    pub const SEMI_CONDENSED: Self = Self(4);
+    pub const SEMI_CONDENSED: Self = Self(0.875);
 
     /// 100% of normal width. This is the default.
-    pub const NORMAL: Self = Self(5);
+    pub const NORMAL: Self = Self(1.0);
 
     /// 112.5% of normal width.
-    pub const SEMI_EXPANDED: Self = Self(6);
+    pub const SEMI_EXPANDED: Self = Self(1.125);
 
     /// 125% of normal width.
-    pub const EXPANDED: Self = Self(7);
+    pub const EXPANDED: Self = Self(1.25);
 
     /// 150% of normal width.
-    pub const EXTRA_EXPANDED: Self = Self(8);
+    pub const EXTRA_EXPANDED: Self = Self(1.5);
 
     /// 200% of normal width.
-    pub const ULTRA_EXPANDED: Self = Self(9);
+    pub const ULTRA_EXPANDED: Self = Self(2.0);
 }
 
 impl Default for FontWidth {
@@ -695,17 +696,7 @@ impl Default for FontWidth {
 
 impl From<FontWidth> for parley::FontWidth {
     fn from(value: FontWidth) -> Self {
-        match value.0 {
-            1 => parley::FontWidth::ULTRA_CONDENSED,
-            2 => parley::FontWidth::EXTRA_CONDENSED,
-            3 => parley::FontWidth::CONDENSED,
-            4 => parley::FontWidth::SEMI_CONDENSED,
-            6 => parley::FontWidth::SEMI_EXPANDED,
-            7 => parley::FontWidth::EXPANDED,
-            8 => parley::FontWidth::EXTRA_EXPANDED,
-            9 => parley::FontWidth::ULTRA_EXPANDED,
-            _ => parley::FontWidth::NORMAL,
-        }
+        parley::FontWidth::from_ratio(value.0)
     }
 }
 
@@ -719,7 +710,7 @@ pub enum FontStyle {
     Italic,
     /// A typically sloped version of the regular face.
     ///
-    /// The contained f32 is the slant angle of the text, in degrees.
+    /// The contained `f32` is the slant angle of the text, in degrees.
     Oblique(Option<f32>),
 }
 
