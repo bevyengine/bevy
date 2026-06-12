@@ -62,7 +62,7 @@ const BOKEH_WEIGHT_REAL: f32 = 0.767583;
 const BOKEH_WEIGHT_IMAG: f32 = 1.862321;
 const BOKEH_KERNEL_SCALE: f32 = 1.4;
 
-/// Selects the blur algorithm and its parameters for a [`BlurRegionsCamera`].
+/// Selects the blur algorithm and its parameters for a [`BlurRegionCamera`].
 ///
 /// All algorithms can have their parameters changed freely at runtime. Different algorithms can provide different tradeoffs
 /// between cost and quality. The best choice depends on the blur size, the content being blurred, and personal taste.
@@ -112,7 +112,7 @@ pub enum BlurSetting {
     /// into bright, hard-edged discs instead of smearing out.
     ///
     /// Implemented as a separable convolution with a single-component complex
-    /// kernel whose magnitude approximates a disc (see [`BOKEH_KERNEL_A`]).
+    /// kernel whose magnitude approximates a disc (see BOKEH_KERNEL_A).
     /// Runs as a horizontal pass into two intermediate textures holding the
     /// complex response, then a vertical pass that resolves them to a color.
     /// The most expensive algorithm: cost scales linearly with `radius`.
@@ -215,7 +215,7 @@ impl<const N: usize> Plugin for BlurShaderPlugin<N> {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<BlurRegionsPipeline<N>>>()
+            .init_resource::<SpecializedRenderPipelines<BlurRegionPipeline<N>>>()
             .add_systems(RenderStartup, init_blur_pipeline::<N>)
             .add_systems(
                 Render,
@@ -270,7 +270,7 @@ impl ComputedBlurRegion {
 ///
 /// Regions are normally populated automatically from UI nodes tagged with
 /// [`BlurRegion`]. Regions can also be pushed manually with [`Self::blur`] and
-/// friends, from a system scheduled after [`sync_blur_regions`] in [`PostUpdate`]
+/// friends, from a system scheduled after sync_blur_regions in [`PostUpdate`]
 /// (the sync system rebuilds the region list each frame).
 #[derive(Component, Debug, Clone)]
 pub struct BlurRegionCamera<const N: usize> {
@@ -338,7 +338,7 @@ impl<const N: usize> BlurRegionCamera<N> {
         }
     }
 
-    /// Removes all blur regions. Called automatically every frame by [`sync_blur_regions`].
+    /// Removes all blur regions. Called automatically every frame by sync_blur_regions.
     pub fn clear(&mut self) {
         self.current_regions_count = 0;
     }
@@ -373,7 +373,7 @@ pub fn sync_blur_regions<const N: usize>(
 
 // Extraction
 
-/// The render world copy of [`BlurRegionsCamera::settings`], used to decide which
+/// The render world copy of [`BlurRegionCamera::settings`], used to decide which
 /// passes and intermediate textures each view needs.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ExtractedBlurSettings(pub BlurSetting);
@@ -411,7 +411,7 @@ impl<const N: usize> ExtractComponent for BlurRegionCamera<N> {
 // Pipelines
 
 #[derive(Resource)]
-pub struct BlurRegionsPipeline<const N: usize> {
+pub struct BlurRegionPipeline<const N: usize> {
     /// Layout for passes reading a single texture: gaussian, box, kawase
     /// down/upsample and the bokeh horizontal pass.
     single_input_layout: BindGroupLayout,
@@ -434,14 +434,14 @@ fn init_blur_pipeline<const N: usize>(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.insert_resource(BlurRegionsPipeline::<N>::new(
+    commands.insert_resource(BlurRegionPipeline::<N>::new(
         &render_device,
         fullscreen_shader.clone(),
         load_embedded_asset!(asset_server.as_ref(), "blur.wgsl"),
     ));
 }
 
-impl<const N: usize> BlurRegionsPipeline<N> {
+impl<const N: usize> BlurRegionPipeline<N> {
     fn new(
         render_device: &RenderDevice,
         fullscreen_shader: FullscreenShader,
@@ -548,15 +548,15 @@ impl BlurPass {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct BlurRegionsPipelineKey {
+pub struct BlurRegionPipelineKey {
     pass: BlurPass,
     /// The format of the view target; intermediate passes ignore this and render
     /// to [`INTERMEDIATE_TEXTURE_FORMAT`].
     target_format: TextureFormat,
 }
 
-impl<const N: usize> SpecializedRenderPipeline for BlurRegionsPipeline<N> {
-    type Key = BlurRegionsPipelineKey;
+impl<const N: usize> SpecializedRenderPipeline for BlurRegionPipeline<N> {
+    type Key = BlurRegionPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let layout = match key.pass {
@@ -610,7 +610,7 @@ impl<const N: usize> SpecializedRenderPipeline for BlurRegionsPipeline<N> {
 /// view's [`BlurSetting`]. Only the resources the selected algorithm actually
 /// needs are created.
 #[derive(Component)]
-pub enum BlurRegionsPasses {
+pub enum BlurRegionPasses {
     /// Two ping-pong passes over the view target: gaussian and box blur.
     Separable {
         horizontal: CachedRenderPipelineId,
@@ -646,8 +646,8 @@ pub struct BokehTextures {
 fn prepare_blur_regions_passes<const N: usize>(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlurRegionsPipeline<N>>>,
-    pipeline: Res<BlurRegionsPipeline<N>>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<BlurRegionPipeline<N>>>,
+    pipeline: Res<BlurRegionPipeline<N>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     views: Query<(
@@ -659,7 +659,7 @@ fn prepare_blur_regions_passes<const N: usize>(
 ) {
     for (entity, view_target, settings, uniform) in &views {
         if uniform.current_regions_count == 0 {
-            commands.entity(entity).remove::<BlurRegionsPasses>();
+            commands.entity(entity).remove::<BlurRegionPasses>();
             continue;
         }
 
@@ -668,7 +668,7 @@ fn prepare_blur_regions_passes<const N: usize>(
             pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                BlurRegionsPipelineKey {
+                BlurRegionPipelineKey {
                     pass,
                     target_format,
                 },
@@ -676,11 +676,11 @@ fn prepare_blur_regions_passes<const N: usize>(
         };
 
         let passes = match settings.0 {
-            BlurSetting::Gaussian { .. } => BlurRegionsPasses::Separable {
+            BlurSetting::Gaussian { .. } => BlurRegionPasses::Separable {
                 horizontal: specialize(BlurPass::GaussianHorizontal),
                 vertical: specialize(BlurPass::GaussianVertical),
             },
-            BlurSetting::BoxBlur { .. } => BlurRegionsPasses::Separable {
+            BlurSetting::BoxBlur { .. } => BlurRegionPasses::Separable {
                 horizontal: specialize(BlurPass::BoxHorizontal),
                 vertical: specialize(BlurPass::BoxVertical),
             },
@@ -713,7 +713,7 @@ fn prepare_blur_regions_passes<const N: usize>(
                     })
                     .collect();
 
-                BlurRegionsPasses::DualKawase {
+                BlurRegionPasses::DualKawase {
                     downsample,
                     upsample,
                     composite,
@@ -735,7 +735,7 @@ fn prepare_blur_regions_passes<const N: usize>(
                     view_formats: &[],
                 };
 
-                BlurRegionsPasses::Bokeh {
+                BlurRegionPasses::Bokeh {
                     horizontal,
                     vertical,
                     textures: Box::new(BokehTextures {
@@ -756,10 +756,10 @@ fn prepare_blur_regions_passes<const N: usize>(
 fn blur_regions_pass<const N: usize>(
     view: ViewQuery<(
         &ViewTarget,
-        &BlurRegionsPasses,
+        &BlurRegionPasses,
         &DynamicUniformIndex<BlurRegionUniform<N>>,
     )>,
-    blur_regions_pipeline: Res<BlurRegionsPipeline<N>>,
+    blur_regions_pipeline: Res<BlurRegionPipeline<N>>,
     pipeline_cache: Res<PipelineCache>,
     blur_regions_uniforms: Res<ComponentUniforms<BlurRegionUniform<N>>>,
     mut render_context: RenderContext,
@@ -772,7 +772,7 @@ fn blur_regions_pass<const N: usize>(
     let uniform_offset = uniform_index.index();
 
     match passes {
-        BlurRegionsPasses::Separable {
+        BlurRegionPasses::Separable {
             horizontal,
             vertical,
         } => {
@@ -808,7 +808,7 @@ fn blur_regions_pass<const N: usize>(
                 );
             }
         }
-        BlurRegionsPasses::DualKawase {
+        BlurRegionPasses::DualKawase {
             downsample,
             upsample,
             composite,
@@ -885,7 +885,7 @@ fn blur_regions_pass<const N: usize>(
                 &[color_attachment(post_process.destination)],
             );
         }
-        BlurRegionsPasses::Bokeh {
+        BlurRegionPasses::Bokeh {
             horizontal,
             vertical,
             textures,

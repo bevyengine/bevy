@@ -12,7 +12,7 @@
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
 @group(0) @binding(1) var texture_sampler: sampler;
-@group(0) @binding(2) var<uniform> blur_regions: BlurRegionsUniform;
+@group(0) @binding(2) var<uniform> blur_regions: BlurRegionUniform;
 // Auxiliary inputs, only bound for the passes that use them.
 // Kawase composite: the half-resolution blurred scene.
 // Bokeh vertical:   the complex response of the red and green channels.
@@ -20,7 +20,7 @@
 // Bokeh vertical: the complex response of the blue channel.
 @group(0) @binding(4) var aux_texture_b: texture_2d<f32>;
 
-struct BlurRegionsUniform {
+struct BlurRegionUniform {
     params: vec4<f32>,
     current_regions_count: u32,
     regions: array<ComputedBlurRegion, #{MAX_BLUR_REGIONS_COUNT}>,
