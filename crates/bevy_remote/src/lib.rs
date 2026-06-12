@@ -1026,13 +1026,15 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///```
 ///
 /// In Rust:
-/// ```ignore
-///    let req = BrpRequest {
-///         jsonrpc: "2.0".to_string(),
-///         method: BRP_LIST_METHOD.to_string(), // All the methods have consts
-///         id: Some(ureq::json!(0)),
-///         params: None,
-///     };
+/// ```
+/// # use bevy_remote::builtin_methods::BRP_LIST_COMPONENTS_METHOD;
+/// # use bevy_remote::BrpRequest;
+/// # use serde_json::Value;
+/// let req = BrpRequest {
+///     method: BRP_LIST_COMPONENTS_METHOD.to_string(), // All the methods are consts
+///     id: Some(Value::from(1)),
+///     params: None,
+/// };
 /// ```
 #[derive(Debug, Clone)]
 pub struct BrpRequest {
