@@ -318,8 +318,12 @@ bitflags::bitflags! {
     /// - Normal and tangent will be Snorm16x2 with octahedral encoding, using [`octahedral_encode_signed`] and [`octahedral_encode_tangent`].
     /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so they can go beyond [0, 1], though a larger range will reduce precision.
     ///
+    /// If [`MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE`] is enabled, normal must exist and position must be compressed,
+    /// and tangent will be compressed to angle using [`encode_tangent_angle`] and stored in the w component of position.
+    ///
     /// [`octahedral_encode_signed`]: crate::vertex::octahedral_encode_signed
     /// [`octahedral_encode_tangent`]: crate::vertex::octahedral_encode_tangent
+    /// [`encode_tangent_angle`]: crate::vertex::encode_tangent_angle
     #[repr(transparent)]
     #[derive(Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
     #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -1185,10 +1189,11 @@ impl Mesh {
     }
 
     /// Compress tangents and apply [`MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE`].
+    /// This should be called after compressing positions and before compressing normals.
     /// See [`MeshAttributeCompressionFlags`] for the details.
     ///
     /// Return an error if:
-    /// - [`Mesh::ATTRIBUTE_POSITION`] is missing or is not already compressed to Snorm16x4.
+    /// - [`Mesh::ATTRIBUTE_POSITION`] is missing or is not compressed to Snorm16x4.
     /// - [`Mesh::ATTRIBUTE_NORMAL`] is missing or is not Float32x3.
     /// - [`Mesh::ATTRIBUTE_TANGENT`] is missing or is not Float32x4.
     ///
@@ -1244,7 +1249,7 @@ impl Mesh {
         };
 
         let VertexAttributeValues::Float32x3(normals) = normals else {
-            let provided = (&*normals).into();
+            let provided = normals.into();
             return_pos(self, positions);
             return Err(
                 MeshVertexCompressionError::UnsupportedAttributeForCompression {

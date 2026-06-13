@@ -1229,14 +1229,14 @@ pub fn octahedral_decode_tangent(v: Vec2) -> (Vec3, f32) {
     (octahedral_decode_signed(f), sign)
 }
 
-/// Matches bevy_render/maths.wgsl `orthonormal_y_axis`
+/// Matches `bevy_render/maths.wgsl:orthonormal_y_axis`
 fn orthonormal_y_axis(z_basis: Vec3) -> Vec3 {
     let sign = if z_basis.z >= 0.0 { 1.0 } else { -1.0 };
     let a = -1.0 / (sign + z_basis.z);
     let b = z_basis.x * z_basis.y * a;
     // let x_basis = vec3f(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
-    let y_basis = Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
-    return y_basis;
+    // let y_basis =
+    Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y)
 }
 
 /// Encode tangent to angle. The angle is [-2pi, 2pi], where the sign represents the orientation of the tangent.
@@ -1264,7 +1264,7 @@ pub fn decode_tangent_angle(tangent_angle: f32, normal: Vec3) -> Vec4 {
     let orientation = tangent_angle.signum();
     let angle = tangent_angle * orientation;
     let t0 = orthonormal_y_axis(normal);
-    let tangent = t0 * angle.cos() + normal.cross(t0) * angle.sin();
+    let tangent = t0 * ops::cos(angle) + normal.cross(t0) * ops::sin(angle);
     tangent.extend(orientation)
 }
 
@@ -1346,6 +1346,7 @@ mod tests {
             ),
         ];
 
+        #[expect(clippy::approx_constant, reason = "These values are from test results")]
         let expected_angle = [
             1.5707963, -1.5707963, 4.712389, -4.712389, 3.1415927, 3.1415927, 3.926991, -2.6779451,
             4.712389, -5.4977875, 6.0473375,
