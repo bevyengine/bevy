@@ -3,15 +3,15 @@ use bevy_tasks::IoTaskPool;
 use web_sys::window;
 
 /// Persistent storage which uses browser local storage.
-pub(crate) struct PreferencesStore {
+pub(crate) struct SettingsStore {
     app_name: String,
 }
 
-impl PreferencesStore {
+impl SettingsStore {
     /// Construct a new preferences store for browser local storage.
     ///
     /// # Arguments
-    /// * `app_name` - The name of the application. See [`crate::PreferencesPlugin`] for usage.
+    /// * `app_name` - The name of the application. See [`crate::SettingsPlugin`] for usage.
     pub fn new(app_name: &str) -> Self {
         Self {
             app_name: app_name.to_owned(),
@@ -79,7 +79,7 @@ impl PreferencesStore {
             match table_value {
                 toml::Value::Table(table) => Some(table),
                 _ => {
-                    error!("Preferences file must be a table");
+                    error!("Settings file must be a table");
                     None
                 }
             }
