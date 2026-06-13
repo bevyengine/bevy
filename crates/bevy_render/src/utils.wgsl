@@ -52,9 +52,9 @@ fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
 
 /// Decode angle to tangent. The angle is [-1, 1] normalized from [-2pi, 2pi], where the sign represents the orientation of the tangent.
 fn decode_tangent_angle(tangent_angle: f32, normal: vec3f) -> vec4f {
-    let orientation = sign(tangent_angle);
-    let angle = tangent_angle * orientation * bevy_render::maths::PI_2;
+    let sign = sign(tangent_angle);
+    let angle = abs(tangent_angle) * bevy_render::maths::PI_2;
     let t0 = bevy_render::maths::orthonormal_y_axis(normal);
     let tangent = t0 * cos(angle) + cross(normal, t0) * sin(angle);
-    return vec4f(tangent, orientation);
+    return vec4f(tangent, sign);
 }

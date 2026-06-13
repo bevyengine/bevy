@@ -1262,7 +1262,7 @@ pub fn encode_tangent_angle(tangent: Vec4, normal: Vec3) -> f32 {
 /// Decode angle to tangent. The angle is [-1, 1] normalized from [-2pi, 2pi], where the sign represents the orientation of the tangent.
 pub fn decode_tangent_angle(tangent_angle: f32, normal: Vec3) -> Vec4 {
     let sign = tangent_angle.signum();
-    let angle = tangent_angle * sign * core::f32::consts::TAU;
+    let angle = tangent_angle.abs() * core::f32::consts::TAU;
     let t0 = orthonormal_y_axis(normal);
     let tangent = t0 * ops::cos(angle) + normal.cross(t0) * ops::sin(angle);
     tangent.extend(sign)
