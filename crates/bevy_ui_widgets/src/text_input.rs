@@ -390,6 +390,7 @@ fn on_focus_lost_clear_ime(
 ) {
     if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::clear_ime_compose());
+        editable_text.queue_edit(TextEdit::CollapseSelection);
     }
 }
 
