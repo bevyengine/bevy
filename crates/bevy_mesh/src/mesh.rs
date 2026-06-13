@@ -1263,8 +1263,7 @@ impl Mesh {
         for i in 0..vertex_count {
             let tangent = tangents[i];
             let normal = normals[i];
-            let angle =
-                encode_tangent_angle(tangent.into(), normal.into()) / core::f32::consts::TAU;
+            let angle = encode_tangent_angle(tangent.into(), normal.into());
             positions[i][3] = arr_f32_to_snorm16([angle])[0];
         }
         return_pos(self, positions);

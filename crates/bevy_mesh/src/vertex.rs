@@ -1239,7 +1239,7 @@ fn orthonormal_y_axis(z_basis: Vec3) -> Vec3 {
     Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y)
 }
 
-/// Encode tangent to angle. The angle is [-2pi, 2pi], where the sign represents the orientation of the tangent.
+/// Encode tangent to angle. The angle is [-1, 1] normalized from [-2pi, 2pi], where the sign represents the orientation of the tangent.
 pub fn encode_tangent_angle(tangent: Vec4, normal: Vec3) -> f32 {
     // Bias to ensure that encoding as snorm16 preserves the sign.
     let bits = 16.;
@@ -1248,24 +1248,24 @@ pub fn encode_tangent_angle(tangent: Vec4, normal: Vec3) -> f32 {
     let orientation = tangent.w.signum();
     let t0 = orthonormal_y_axis(normal);
     let tangent = tangent.xyz();
-    let angle = t0.angle_between(tangent).max(bias * core::f32::consts::TAU);
+    let angle = (t0.angle_between(tangent) / core::f32::consts::TAU).max(bias);
 
     orientation * {
         if t0.cross(tangent).dot(normal) >= 0.0 {
             angle
         } else {
-            core::f32::consts::TAU - angle
+            1.0 - angle
         }
     }
 }
 
-/// Decode angle to tangent. The angle is [-2pi, 2pi], where the sign represents the orientation of the tangent.
+/// Decode angle to tangent. The angle is [-1, 1] normalized from [-2pi, 2pi], where the sign represents the orientation of the tangent.
 pub fn decode_tangent_angle(tangent_angle: f32, normal: Vec3) -> Vec4 {
-    let orientation = tangent_angle.signum();
-    let angle = tangent_angle * orientation;
+    let sign = tangent_angle.signum();
+    let angle = tangent_angle * sign * core::f32::consts::TAU;
     let t0 = orthonormal_y_axis(normal);
     let tangent = t0 * ops::cos(angle) + normal.cross(t0) * ops::sin(angle);
-    tangent.extend(orientation)
+    tangent.extend(sign)
 }
 
 #[cfg(test)]
@@ -1346,10 +1346,18 @@ mod tests {
             ),
         ];
 
-        #[expect(clippy::approx_constant, reason = "These values are from test results")]
         let expected_angle = [
-            1.5707963, -1.5707963, 4.712389, -4.712389, 3.1415927, 3.1415927, 3.926991, -2.6779451,
-            4.712389, -5.4977875, 6.0473375,
+            0.24999999,
+            -0.24999999,
+            0.75,
+            -0.75,
+            0.5,
+            0.5,
+            0.625,
+            -0.4262082,
+            0.75,
+            -0.875,
+            0.9624636,
         ];
 
         for (i, &(normal, tangent)) in normal_tangent.iter().enumerate() {
