@@ -1239,7 +1239,7 @@ impl<'de> Deserialize<'de> for BrpResponse {
                         }
                         Field::Id => {
                             if id.is_some() {
-                                return Err(de::Error::duplicate_field("payload"));
+                                return Err(de::Error::duplicate_field("id"));
                             }
                             id = Some(map.next_value()?);
                         }
