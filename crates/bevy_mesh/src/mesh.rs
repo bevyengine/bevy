@@ -10,9 +10,9 @@ use super::{
 };
 #[cfg(feature = "morph")]
 use crate::morph::MorphAttributes;
-use crate::AttributeQuantization;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
+use crate::{arr_f32_to_snorm16, encode_tangent_angle, AttributeQuantization};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
@@ -326,11 +326,12 @@ bitflags::bitflags! {
     #[reflect(opaque)]
     #[reflect(Hash, Clone, PartialEq, Debug)]
     pub struct MeshAttributeCompressionFlags: u8 {
-        const COMPRESS_POSITION = 1 << 0;
-        const COMPRESS_NORMAL = 1 << 1;
-        const COMPRESS_TANGENT = 1 << 2;
-        const COMPRESS_UV0 = 1 << 3;
-        const COMPRESS_UV1 = 1 << 4;
+        const COMPRESS_POSITION    = 1 << 0;
+        const COMPRESS_NORMAL      = 1 << 1;
+        const COMPRESS_TANGENT     = 1 << 2;
+        const COMPRESS_UV0         = 1 << 3;
+        const COMPRESS_UV1         = 1 << 4;
+        const PACKED_TANGENT_ANGLE = 1 << 5;
     }
 }
 
@@ -1183,6 +1184,90 @@ impl Mesh {
         Ok(self)
     }
 
+    /// Compress tangents and apply [`MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE`].
+    /// See [`MeshAttributeCompressionFlags`] for the details.
+    ///
+    /// Return an error if:
+    /// - [`Mesh::ATTRIBUTE_POSITION`] is missing or is not already compressed to Snorm16x4.
+    /// - [`Mesh::ATTRIBUTE_NORMAL`] is missing or is not Float32x3.
+    /// - [`Mesh::ATTRIBUTE_TANGENT`] is missing or is not Float32x4.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn compress_tangents_to_angles(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
+        let vertex_count = self.count_vertices();
+        let Some(positions) = self.attribute_mut(Mesh::ATTRIBUTE_POSITION) else {
+            return Err(MeshVertexCompressionError::MissingAttribute(
+                Mesh::ATTRIBUTE_POSITION.id,
+            ));
+        };
+        let VertexAttributeValues::Snorm16x4(positions) = positions else {
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr: Mesh::ATTRIBUTE_POSITION,
+                    expected: VertexFormat::Snorm16x4,
+                    provided: (&*positions).into(),
+                },
+            );
+        };
+        let mut positions = core::mem::take(positions);
+        fn return_pos(mesh: &mut Mesh, positions: Vec<[i16; 4]>) {
+            let mut attr = Mesh::ATTRIBUTE_POSITION;
+            attr.format = VertexFormat::Snorm16x4;
+            mesh.insert_attribute(attr, VertexAttributeValues::Snorm16x4(positions));
+        }
+
+        let Some(tangents) = self.attribute(Mesh::ATTRIBUTE_TANGENT) else {
+            return_pos(self, positions);
+            return Err(MeshVertexCompressionError::MissingAttribute(
+                Mesh::ATTRIBUTE_TANGENT.id,
+            ));
+        };
+
+        let VertexAttributeValues::Float32x4(tangents) = tangents else {
+            let provided = tangents.into();
+            return_pos(self, positions);
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr: Mesh::ATTRIBUTE_TANGENT,
+                    expected: Mesh::ATTRIBUTE_TANGENT.format,
+                    provided,
+                },
+            );
+        };
+
+        let Some(normals) = self.attribute(Mesh::ATTRIBUTE_NORMAL) else {
+            return_pos(self, positions);
+            return Err(MeshVertexCompressionError::MissingAttribute(
+                Mesh::ATTRIBUTE_NORMAL.id,
+            ));
+        };
+
+        let VertexAttributeValues::Float32x3(normals) = normals else {
+            let provided = (&*normals).into();
+            return_pos(self, positions);
+            return Err(
+                MeshVertexCompressionError::UnsupportedAttributeForCompression {
+                    attr: Mesh::ATTRIBUTE_NORMAL,
+                    expected: Mesh::ATTRIBUTE_NORMAL.format,
+                    provided,
+                },
+            );
+        };
+
+        for i in 0..vertex_count {
+            let tangent = tangents[i];
+            let normal = normals[i];
+            let angle =
+                encode_tangent_angle(tangent.into(), normal.into()) / core::f32::consts::TAU;
+            positions[i][3] = arr_f32_to_snorm16([angle])[0];
+        }
+        return_pos(self, positions);
+        self.remove_attribute(Mesh::ATTRIBUTE_TANGENT);
+        self.attribute_compression |= MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE;
+        Ok(self)
+    }
+
     /// Quantize `Float32`, `Float32x2` or `Float32x4` vertex attribute to the format of `quantization`.
     ///
     /// Return an error if `attr_id` is missing or is not `Float32`, `Float32x2` or `Float32x4`.
@@ -1261,6 +1346,12 @@ impl Mesh {
         }
         if args
             .compress_attributes
+            .contains(MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE)
+        {
+            let _ = self.compress_tangents_to_angles();
+        }
+        if args
+            .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
         {
             let _ = self.compress_normals();
@@ -1268,6 +1359,9 @@ impl Mesh {
         if args
             .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+            && !args
+                .compress_attributes
+                .contains(MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE)
         {
             let _ = self.compress_tangents();
         }
