@@ -3826,6 +3826,79 @@ mod tests {
     }
 
     #[test]
+    fn compress_mesh_tangent_angles() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![
+                [0.0, 1.0, -1.0],
+                [1.0, -0.5, -1.0],
+                [-1.0, -0.5, -1.0],
+                [0.0, -0.5, 1.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![
+                Vec3::new(0.0, 1.0, -1.0).normalize().to_array(),
+                Vec3::new(1.0, 0.0, -1.0).normalize().to_array(),
+                Vec3::new(-1.0, 0.0, -1.0).normalize().to_array(),
+                [0.0, 0.0, 1.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_TANGENT,
+            vec![
+                Vec3::new(0.0, 1.0, 1.0).normalize().extend(1.0).to_array(),
+                Vec3::new(1.0, 0.0, 1.0).normalize().extend(-1.0).to_array(),
+                Vec3::new(-1.0, 0.0, 1.0).normalize().extend(1.0).to_array(),
+                [1.0, 0.0, 0.0, 1.0],
+            ],
+        );
+        mesh.compress_positions().unwrap();
+        assert_eq!(
+            mesh.final_aabb,
+            Some(Aabb3d::from_min_max(
+                Vec3A::new(-1.0, -0.5, -1.0),
+                Vec3A::new(1.0, 1.0, 1.0)
+            ))
+        );
+        assert_eq!(
+            mesh.attribute_compression,
+            MeshAttributeCompressionFlags::COMPRESS_POSITION
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+            Some(&VertexAttributeValues::Snorm16x4(vec![
+                [0, 32767, -32767, 0],
+                [32767, -32767, -32767, 0],
+                [-32767, -32767, -32767, 0],
+                [0, -32767, 32767, 0],
+            ]))
+        );
+
+        mesh.compress_tangents_to_angles().unwrap();
+        assert_eq!(
+            mesh.attribute_compression,
+            MeshAttributeCompressionFlags::COMPRESS_POSITION
+                | MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE
+        );
+        assert_eq!(mesh.attribute(Mesh::ATTRIBUTE_TANGENT), None);
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION),
+            Some(&VertexAttributeValues::Snorm16x4(vec![
+                [0, 32767, -32767, 16384],
+                [32767, -32767, -32767, -24575],
+                [-32767, -32767, -32767, 8192],
+                [0, -32767, 32767, 24575]
+            ]))
+        );
+    }
+
+    #[test]
     fn quantize_mesh_colors() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
