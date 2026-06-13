@@ -239,21 +239,23 @@ fn setup_many_lights(
     commands
         .spawn((
             RaytracingMesh3d(plane_mesh.clone()),
-            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
-                base_color_texture: Some(
-                    asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                        "textures/uv_checker_bw.png",
-                        |settings| {
-                            settings
-                                .sampler
-                                .get_or_init_descriptor()
-                                .set_address_mode(ImageAddressMode::Repeat);
-                        },
+            MeshMaterial3d(
+                asset_commands.spawn_asset(StandardMaterial {
+                    base_color_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings::<ImageLoaderSettings>(|settings| {
+                                settings
+                                    .sampler
+                                    .get_or_init_descriptor()
+                                    .set_address_mode(ImageAddressMode::Repeat);
+                            })
+                            .load("textures/uv_checker_bw.png"),
                     ),
-                ),
-                perceptual_roughness: 0.0,
-                ..default()
-            })),
+                    perceptual_roughness: 0.0,
+                    ..default()
+                }),
+            ),
         ))
         .insert_if(Mesh3d(plane_mesh), || args.pathtracer != Some(true));
 
@@ -581,9 +583,9 @@ fn update_performance_text(
     let mut total = 0.0;
     let mut add_diagnostic = |name: &str, path: &'static str| {
         let path = DiagnosticPath::new(path);
-        if let Some(average) = diagnostics.get(&path).and_then(Diagnostic::average) {
-            text.push_str(&format!("{name:17}  {average:.2} ms\n"));
-            total += average;
+        if let Some(value) = diagnostics.get(&path).and_then(Diagnostic::smoothed) {
+            text.push_str(&format!("{name:17}  {value:.2} ms\n"));
+            total += value;
         }
     };
 
@@ -614,7 +616,7 @@ fn update_performance_text(
         .get(&DiagnosticPath::new(
             "render/solari_lighting/world_cache_active_cells_count",
         ))
-        .and_then(Diagnostic::average)
+        .and_then(Diagnostic::smoothed)
     {
         text.push_str(&format!(
             "\nWorld cache cells {} ({:.0}%)",

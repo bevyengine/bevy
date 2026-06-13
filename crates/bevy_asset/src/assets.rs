@@ -271,6 +271,14 @@ impl<'w, A: Asset> DetectChanges for AssetMut<'w, A> {
     fn changed_by(&self) -> bevy_ecs::change_detection::MaybeLocation {
         self.0.changed_by()
     }
+
+    fn last_run(&self) -> bevy_ecs::change_detection::Tick {
+        self.0.last_run()
+    }
+
+    fn this_run(&self) -> bevy_ecs::change_detection::Tick {
+        self.0.this_run()
+    }
 }
 
 impl<'w, A: Asset> DetectChangesMut for AssetMut<'w, A> {

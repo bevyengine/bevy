@@ -82,10 +82,16 @@ smaa_luts = ["bevy_anti_alias?/smaa_luts", "ktx2", "bevy_image/zstd"]
 # Include Bluenoise texture for environment map generation.
 bluenoise_texture = ["bevy_pbr?/bluenoise_texture", "ktx2", "bevy_image/zstd"]
 
+# Include a preintegrated BRDF Look Up Table for more accurate specular shading.
+dfg_lut = ["bevy_pbr?/dfg_lut", "ktx2", "bevy_image/zstd"]
+
+# Include Look Up Tables that are required for area lights.
+area_light_luts = ["bevy_pbr?/area_light_luts", "ktx2", "bevy_image/zstd"]
+
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_alias/dlss", "bevy_solari?/dlss"]
 
-# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+# Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = [
   "bevy_anti_alias?/force_disable_dlss",
   "bevy_solari?/force_disable_dlss",
@@ -135,6 +141,7 @@ multi_threaded = [
   "bevy_ecs/multi_threaded",
   "bevy_render?/multi_threaded",
   "bevy_tasks/multi_threaded",
+  "bevy_transform/multi_threaded",
 ]
 async-io = ["std", "bevy_tasks/async-io"]
 
@@ -377,7 +384,7 @@ reflect_auto_register_static = [
   "bevy_render?/reflect_auto_register",
 ]
 
-# Enables bevy_reflect to access documentation comments of rust code at runtime
+# Enables bevy_reflect to access documentation comments of Rust code at runtime
 reflect_documentation = ["bevy_reflect/reflect_documentation"]
 
 # Enable custom cursor support
@@ -455,12 +462,24 @@ gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
 touch = ["bevy_input/touch"]
 gestures = ["bevy_input/gestures"]
 
+# Clipboard support
+bevy_clipboard = ["dep:bevy_clipboard"]
+system_clipboard = [
+  "dep:bevy_clipboard",
+  "bevy_clipboard/system_clipboard",
+  "bevy_text?/system_clipboard",
+]
+clipboard_image = ["dep:bevy_clipboard", "bevy_clipboard/image"]
+
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
 schedule_data = ["bevy_dev_tools/schedule_data"]
+
+# Keep feature for bevy-settings as bevy_settings
+bevy_settings = ["bevy-settings"]
 
 [dependencies]
 # bevy (no_std)
@@ -532,7 +551,7 @@ bevy_input_focus = { path = "../bevy_input_focus", optional = true, version = "0
 ] }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.19.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.19.0-dev" }
-bevy_settings = { path = "../bevy_settings", optional = true, version = "0.19.0-dev" }
+bevy-settings = { path = "../bevy_settings", optional = true, version = "0.19.0-dev" }
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.19.0-dev", default-features = false, features = [
   "bevy_asset",
   "bevy_render",
@@ -553,6 +572,7 @@ bevy_ui_render = { path = "../bevy_ui_render", optional = true, version = "0.19.
 bevy_window = { path = "../bevy_window", optional = true, version = "0.19.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
+bevy_clipboard = { path = "../bevy_clipboard", optional = true, version = "0.19.0-dev", default-features = false }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.19.0-dev", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]

@@ -1,34 +1,60 @@
-use crate::{ResolveContext, ScenePatch};
-use bevy_asset::{AssetId, AssetPath, Assets, Handle, UntypedAssetId};
+use crate::{ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
+use bevy_asset::{AssetId, AssetPath, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
-    bundle::Bundle,
+    bundle::{Bundle, BundleScratch, BundleWriter},
+    component::{Component, ComponentsRegistrator},
     entity::Entity,
     error::{BevyError, Result},
-    relationship::Relationship,
+    relationship::{Relationship, RelationshipTarget},
     system::SystemState,
-    template::{
-        EntityScopes, ErasedTemplate, ScopedEntities, ScopedEntityIndex, Template, TemplateContext,
-    },
+    template::{SceneEntityReference, SceneEntityReferences, Template, TemplateContext},
     world::{EntityWorldMut, World},
 };
+use bevy_platform::collections::HashSet;
 use bevy_utils::TypeIdMap;
-use core::any::TypeId;
+use core::any::{Any, TypeId};
 use thiserror::Error;
 
-/// A final "spawnable" root [`ResolvedScene`]. This includes the [`EntityScopes`] for the whole tree.
+/// A final "spawnable" root [`ResolvedScene`].
 pub struct ResolvedSceneRoot {
     /// The root [`ResolvedScene`].
     pub scene: ResolvedScene,
-    /// The [`EntityScopes`] associated with the `root` [`ResolvedScene`].
-    pub entity_scopes: EntityScopes,
 }
 
 impl ResolvedSceneRoot {
+    /// Resolves the current `scene` (using [`Scene::resolve`]). This should only be called after every dependency has loaded from the `scene`'s
+    /// [`Scene::register_dependencies`].
+    pub fn resolve(
+        scene: Box<dyn Scene>,
+        assets: &AssetServer,
+        patches: &Assets<ScenePatch>,
+    ) -> Result<Self, ResolveSceneError> {
+        let mut resolved_scene = ResolvedScene::default();
+        scene.resolve_box(
+            &mut ResolveContext {
+                assets,
+                patches,
+                cached: None,
+            },
+            &mut resolved_scene,
+        )?;
+        Ok(ResolvedSceneRoot {
+            scene: resolved_scene,
+        })
+    }
+
     /// This will spawn a new [`Entity`], then call [`ResolvedSceneRoot::apply`] on it.
+    /// If this fails mid-spawn, the intermediate entity will be despawned.
     pub fn spawn<'w>(&self, world: &'w mut World) -> Result<EntityWorldMut<'w>, ApplySceneError> {
         let mut entity = world.spawn_empty();
-        self.apply(&mut entity)?;
-        Ok(entity)
+        let result = self.apply(&mut entity, &mut BundleScratch::default());
+        match result {
+            Ok(_) => Ok(entity),
+            Err(err) => {
+                entity.despawn();
+                Err(err)
+            }
+        }
     }
 
     /// Applies this scene to the given [`EntityWorldMut`].
@@ -36,27 +62,54 @@ impl ResolvedSceneRoot {
     /// This will apply all of the [`Template`]s in this root [`ResolvedScene`] to the entity. It will also
     /// spawn all of this [`ResolvedScene`]'s related entities.
     ///
-    /// If this root [`ResolvedScene`] inherits from another scene, that scene will be applied _first_.
-    pub fn apply(&self, entity: &mut EntityWorldMut) -> Result<(), ApplySceneError> {
-        let mut scoped_entities = ScopedEntities::new(self.entity_scopes.entity_len());
-        self.scene.apply(&mut TemplateContext::new(
-            entity,
-            &mut scoped_entities,
-            &self.entity_scopes,
-        ))
+    /// If this root [`ResolvedScene`] includes a cached scene, that scene will be applied _first_.
+    pub fn apply(
+        &self,
+        entity: &mut EntityWorldMut,
+        bundle_scratch: &mut BundleScratch,
+    ) -> Result<(), ApplySceneError> {
+        let mut entity_references = SceneEntityReferences::default();
+        let mut context = TemplateContext::new(entity, &mut entity_references);
+
+        let result = self.scene.apply(&mut context, bundle_scratch);
+        if !bundle_scratch.is_empty() {
+            // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
+            unsafe {
+                bundle_scratch.manual_drop(entity.world().components());
+            }
+        }
+        result
     }
 }
 
-/// A final "spawnable" root list of [`ResolvedScene`]s. This includes the [`EntityScopes`] for the whole graph of entities.
+/// A final "spawnable" root list of [`ResolvedScene`]s.
 pub struct ResolvedSceneListRoot {
     /// The root [`ResolvedScene`] list.
     pub scenes: Vec<ResolvedScene>,
-    /// The [`EntityScopes`] associated with the `root` [`ResolvedScene`].
-    pub entity_scopes: EntityScopes,
 }
 
 impl ResolvedSceneListRoot {
-    /// Spawns a new [`Entity`] for each [`ResolvedScene`] in the list, and calls [`ResolvedScene::apply`] on them.
+    /// Resolves the current `scene_list` (using [`SceneList::resolve_list`]). This should only be
+    /// called after every dependency has loaded from the `scene_list`'s [`SceneList::register_dependencies`].
+    pub fn resolve(
+        scene_list: Box<dyn SceneList>,
+        assets: &AssetServer,
+        patches: &Assets<ScenePatch>,
+    ) -> Result<Self, ResolveSceneError> {
+        let mut resolved_scenes = Vec::new();
+        scene_list.resolve_list_box(
+            &mut ResolveContext {
+                assets,
+                patches,
+                cached: None,
+            },
+            &mut resolved_scenes,
+        )?;
+        Ok(ResolvedSceneListRoot {
+            scenes: resolved_scenes,
+        })
+    }
+    /// Spawns a new [`Entity`] for each [`ResolvedScene`] in the list, and applies that [`ResolvedScene`] to them.
     pub fn spawn<'w>(&self, world: &'w mut World) -> Result<Vec<Entity>, ApplySceneError> {
         self.spawn_with(world, |_| {})
     }
@@ -67,12 +120,11 @@ impl ResolvedSceneListRoot {
         func: impl Fn(&mut EntityWorldMut),
     ) -> Result<Vec<Entity>, ApplySceneError> {
         let mut entities = Vec::new();
-        let mut scoped_entities = ScopedEntities::new(self.entity_scopes.entity_len());
+        let mut entity_references = SceneEntityReferences::default();
+        let mut bundle_scratch = BundleScratch::default();
         for scene in self.scenes.iter() {
-            let mut entity = if let Some(scoped_entity_index) =
-                scene.entity_indices.first().copied()
-            {
-                let entity = scoped_entities.get(world, &self.entity_scopes, scoped_entity_index);
+            let mut entity = if let Some(entity_index) = scene.entity_references.first().copied() {
+                let entity = entity_references.get(entity_index, world);
                 world.entity_mut(entity)
             } else {
                 world.spawn_empty()
@@ -80,11 +132,17 @@ impl ResolvedSceneListRoot {
 
             func(&mut entity);
             entities.push(entity.id());
-            scene.apply(&mut TemplateContext::new(
-                &mut entity,
-                &mut scoped_entities,
-                &self.entity_scopes,
-            ))?;
+            let result = scene.apply(
+                &mut TemplateContext::new(&mut entity, &mut entity_references),
+                &mut bundle_scratch,
+            );
+            if let Err(err) = result {
+                // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
+                unsafe {
+                    bundle_scratch.manual_drop(entity.world().components());
+                }
+                return Err(err);
+            }
         }
 
         Ok(entities)
@@ -92,44 +150,46 @@ impl ResolvedSceneListRoot {
 }
 
 /// A final resolved scene (usually produced by calling [`Scene::resolve`]). This consists of:
-/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedTemplate`]s.
+/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedComponentTemplate`]s and [`ErasedBundleTemplate`]s.
 /// 2. A collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
-/// 3. The inherited [`ScenePatch`] if it exists.
+/// 3. An optional cached [`ScenePatch`].
 ///
-/// This uses "copy-on-write" behavior for inherited scenes. If a [`Template`] that the inherited scene has is requested, it will be
-/// cloned (using [`Template::clone_template`]) and added to the current [`ResolvedScene`].
+/// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
+/// it will be cloned (using [`Template::clone_template`]) and added to the current [`ResolvedScene`].
 ///
-/// When applying this [`ResolvedScene`] to an [`Entity`], the inherited scene (including its children) is applied _first_. _Then_ this
+/// When applying this [`ResolvedScene`] to an [`Entity`], the cached scene (including its related scenes) is applied _first_. _Then_ this
 /// [`ResolvedScene`] is applied.
 ///
 /// [`Scene::resolve`]: crate::Scene::resolve
 /// [`Children`]: bevy_ecs::hierarchy::Children
 #[derive(Default)]
 pub struct ResolvedScene {
-    /// The collection of [`Template`]s to apply to a spawned [`Entity`]. This can have multiple copies of the same [`Template`].
-    templates: Vec<Box<dyn ErasedTemplate>>,
+    /// The collection of component [`Template`]s to apply to a spawned [`Entity`]. This can have multiple copies of the same [`Template`].
+    component_templates: Vec<Box<dyn ErasedComponentTemplate>>,
+    /// The collection of Bundle templates to apply to a spawned [`Entity`].
+    bundle_templates: Vec<Box<dyn ErasedBundleTemplate>>,
     /// The collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
     ///
     /// [`Children`]: bevy_ecs::hierarchy::Children
     // PERF: special casing Children might make sense here to avoid hashing
     related: TypeIdMap<RelatedResolvedScenes>,
-    /// The inherited [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
-    inherited: Option<Handle<ScenePatch>>,
+    /// The cached [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
+    cached: Option<CachedSceneInfo>,
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
     /// here.
     template_indices: TypeIdMap<usize>,
-    /// A list of all [`ScopedEntityIndex`] values associated with this entity. There can be more than one if this scene uses
-    /// "flattened" inheritance.
-    pub entity_indices: Vec<ScopedEntityIndex>,
+    /// A list of all [`SceneEntityReference`] values associated with this entity. There can be more than one if this scene uses
+    /// "flattened" caching.
+    pub entity_references: Vec<SceneEntityReference>,
 }
 
 impl core::fmt::Debug for ResolvedScene {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ResolvedScene")
-            .field("inherited", &self.inherited)
+            .field("cached", &self.cached)
             .field("template_types", &self.template_indices.keys())
             .field("related", &self.related)
-            .field("entity_indices", &self.entity_indices)
+            .field("entity_references", &self.entity_references)
             .finish()
     }
 }
@@ -140,81 +200,203 @@ impl ResolvedScene {
     /// This will apply all of the [`Template`]s in this [`ResolvedScene`] to the entity in the [`TemplateContext`]. It will also
     /// spawn all of this [`ResolvedScene`]'s related entities.
     ///
-    /// If this [`ResolvedScene`] inherits from another scene, that scene will be applied _first_.
-    pub fn apply(&self, context: &mut TemplateContext) -> Result<(), ApplySceneError> {
-        if let Some(inherited) = &self.inherited {
+    /// If this [`ResolvedScene`] includes a cached scene, that scene will be applied _first_.
+    fn apply(
+        &self,
+        context: &mut TemplateContext,
+        bundle_scratch: &mut BundleScratch,
+    ) -> Result<(), ApplySceneError> {
+        self.apply_with(context, bundle_scratch, |_, _| {})
+    }
+
+    /// Applies this scene to the given [`TemplateContext`] (which holds an already-spawned [`EntityWorldMut`]).
+    ///
+    /// This will apply all of the [`Template`]s in this [`ResolvedScene`] to the entity in the [`TemplateContext`]. It will also
+    /// spawn all of this [`ResolvedScene`]'s related entities.
+    ///
+    /// If this [`ResolvedScene`] includes a cached scene, that scene will be applied _first_.
+    ///
+    /// This will call `writer_ops` right before calling [`BundleWriter::write`]. This will pass in the `context` value,
+    /// which is the same context used to write all of the scene components to the [`BundleWriter`]. This ensures that
+    /// writing to [`BundleWriter`] with the [`TemplateContext`] is safe (although those functions, if they are called, are still
+    /// unsafe functions / the caller should verify they are using the passed in `context`).
+    fn apply_with(
+        &self,
+        context: &mut TemplateContext,
+        bundle_scratch: &mut BundleScratch,
+        writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
+    ) -> Result<(), ApplySceneError> {
+        let mut bundle_writer = bundle_scratch.writer();
+        if let Some(entity_reference) = self.entity_references.first().copied() {
+            context
+                .entity_references
+                .set(entity_reference, context.entity.id());
+        }
+        if let Some(cached) = &self.cached {
             let mut state = context
                 .entity
                 .world_scope(|world| SystemState::<Assets<ScenePatch>>::new(world));
-            let scene_patch = state.get(context.entity.world()).unwrap();
-            let Some(patch) = scene_patch.get(inherited) else {
-                return Err(ApplySceneError::MissingInheritedScene {
-                    path: inherited.path().cloned(),
-                    id: inherited.id(),
+            let scene_patches = state.get(context.entity.world()).unwrap();
+            let Some(patch) = scene_patches.get(&cached.handle) else {
+                return Err(ApplySceneError::MissingCachedScene {
+                    path: cached.handle.path().cloned(),
+                    id: cached.handle.id(),
                 });
             };
-            let Some(resolved_inherited) = &patch.resolved else {
-                return Err(ApplySceneError::UnresolvedInheritedScene {
-                    path: inherited.path().cloned(),
-                    id: inherited.id(),
+            let Some(resolved_cached) = &patch.resolved else {
+                return Err(ApplySceneError::UnresolvedCachedScene {
+                    path: cached.handle.path().cloned(),
+                    id: cached.handle.id(),
                 });
             };
-            let resolved_inherited = resolved_inherited.clone();
-            resolved_inherited.apply(context.entity).map_err(|e| {
-                ApplySceneError::InheritedSceneApplyError {
-                    inherited: inherited.path().cloned(),
-                    error: Box::new(e),
+            let resolved_cached = resolved_cached.clone();
+            // SAFETY: bundle_writer is used with the same World across all template.apply calls,
+            // and the next bundle_writer.write call
+            unsafe {
+                resolved_cached
+                    .scene
+                    .apply_templates_without_bundle_write(
+                        context,
+                        &mut bundle_writer,
+                        // this will skip building / inserting templates that
+                        // have local copies in the current scene
+                        // (cached templates are copy-on-write)()
+                        &cached.duplicate_templates,
+                    )
+                    .map_err(|e| ApplySceneError::CachedSceneApplyError {
+                        cached: cached.handle.path().cloned(),
+                        error: Box::new(e),
+                    })?;
+                self.apply_templates_without_bundle_write(context, &mut bundle_writer, ())?;
+                // SAFETY: World is only used for component registration, which does not affect
+                // the entity location
+                let components = &mut context.entity.world_mut().components_registrator();
+                // This inserts empty RelationshipTarget collections to avoid archetype moves when then related entities are spawned
+                // It pre-allocates space in the collection to avoid reallocs as related entities are added.
+                for related in self.related.values() {
+                    (related.insert_relationship_target)(
+                        &mut bundle_writer,
+                        components,
+                        related.scenes.len(),
+                    );
                 }
-            })?;
+
+                (writer_ops)(context, &mut bundle_writer);
+
+                bundle_writer.write(context.entity);
+
+                resolved_cached
+                    .scene
+                    .apply_related(context, bundle_scratch)?;
+                self.apply_related(context, bundle_scratch)?;
+            }
+        } else {
+            // SAFETY: bundle_writer was used with the same World across all cases in this function,
+            unsafe {
+                self.apply_templates_without_bundle_write(context, &mut bundle_writer, ())?;
+                // SAFETY: World is only used for component registration, which does not affect
+                // the entity location
+                let components = &mut context.entity.world_mut().components_registrator();
+                // This inserts empty RelationshipTarget collections to avoid archetype moves when then related entities are spawned
+                // It pre-allocates space in the collection to avoid reallocs as related entities are added.
+                for related in self.related.values() {
+                    (related.insert_relationship_target)(
+                        &mut bundle_writer,
+                        components,
+                        related.scenes.len(),
+                    );
+                }
+                (writer_ops)(context, &mut bundle_writer);
+                bundle_writer.write(context.entity);
+                self.apply_related(context, bundle_scratch)?;
+            }
+        };
+
+        Ok(())
+    }
+
+    /// # Safety
+    ///
+    /// `bundle_writer` must either be empty or only contain components registered with the given
+    /// `context`'s World.
+    unsafe fn apply_templates_without_bundle_write(
+        &self,
+        context: &mut TemplateContext,
+        bundle_writer: &mut BundleWriter,
+        skip_templates: impl SkipTemplate,
+    ) -> Result<(), ApplySceneError> {
+        for template in &self.component_templates {
+            if skip_templates.should_skip((**template).type_id()) {
+                continue;
+            }
+            // SAFETY: bundle_writer is used with the same World across all template.apply calls,
+            // and the next bundle_writer.write call
+            unsafe {
+                template
+                    .apply(context, bundle_writer)
+                    .map_err(ApplySceneError::TemplateBuildError)?;
+            }
         }
 
-        if let Some(scoped_entity_index) = self.entity_indices.first().copied() {
-            context.scoped_entities.set(
-                context.entity_scopes,
-                scoped_entity_index,
-                context.entity.id(),
-            );
+        for template in &self.bundle_templates {
+            // SAFETY: bundle_writer is used with the same World across all template.apply calls,
+            // and the next bundle_writer.write call
+            unsafe {
+                template
+                    .apply(context)
+                    .map_err(ApplySceneError::TemplateBuildError)?;
+            }
         }
-        for template in &self.templates {
-            template
-                .apply(context)
-                .map_err(ApplySceneError::TemplateBuildError)?;
-        }
+        Ok(())
+    }
 
+    fn apply_related(
+        &self,
+        context: &mut TemplateContext,
+        bundle_scratch: &mut BundleScratch,
+    ) -> Result<(), ApplySceneError> {
         for related_resolved_scenes in self.related.values() {
             let target = context.entity.id();
-            context
-                .entity
-                .world_scope(|world| -> Result<(), ApplySceneError> {
-                    for (index, scene) in related_resolved_scenes.scenes.iter().enumerate() {
-                        let mut entity = if let Some(scoped_entity_index) =
-                            scene.entity_indices.first().copied()
-                        {
-                            let entity = context.scoped_entities.get(
-                                world,
-                                context.entity_scopes,
-                                scoped_entity_index,
-                            );
+            let TemplateContext {
+                entity,
+                entity_references,
+            } = context;
+            entity.world_scope(|world| -> Result<(), ApplySceneError> {
+                for (index, scene) in related_resolved_scenes.scenes.iter().enumerate() {
+                    let mut entity =
+                        if let Some(entity_reference) = scene.entity_references.first().copied() {
+                            let entity = entity_references.get(entity_reference, world);
                             world.entity_mut(entity)
                         } else {
                             world.spawn_empty()
                         };
-                        (related_resolved_scenes.insert)(&mut entity, target);
-                        // PERF: this will result in an archetype move
-                        scene
-                            .apply(&mut TemplateContext::new(
-                                &mut entity,
-                                context.scoped_entities,
-                                context.entity_scopes,
-                            ))
-                            .map_err(|e| ApplySceneError::RelatedSceneError {
-                                relationship_type_name: related_resolved_scenes.relationship_name,
-                                index,
-                                error: Box::new(e),
-                            })?;
-                    }
-                    Ok(())
-                })?;
+
+                    scene
+                        .apply_with(
+                            &mut TemplateContext::new(&mut entity, entity_references),
+                            bundle_scratch,
+                            |context, bundle_writer| {
+                                // SAFETY: `context` is used to write all previous `bundle_writer` components
+                                // and is also used to write this relationship component
+                                unsafe {
+                                    (related_resolved_scenes.insert_relationship)(
+                                        bundle_writer,
+                                        // SAFETY: World is only used for component registration, which does not affect
+                                        // the entity location
+                                        &mut context.entity.world_mut().components_registrator(),
+                                        target,
+                                    );
+                                }
+                            },
+                        )
+                        .map_err(|e| ApplySceneError::RelatedSceneError {
+                            relationship_type_name: related_resolved_scenes.relationship_name,
+                            index,
+                            error: Box::new(e),
+                        })?;
+                }
+                Ok(())
+            })?;
         }
 
         Ok(())
@@ -223,29 +405,32 @@ impl ResolvedScene {
     /// This will get the [`Template`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
     /// it will use [`Default`] to create a new [`Template`].
     ///
-    /// This uses "copy-on-write" behavior for inherited scenes. If a [`Template`] that the inherited scene has is requested, it will be
-    /// cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
+    /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
+    /// it will be cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
     ///
     /// This will ignore [`Template`]s added to this scene using [`ResolvedScene::push_template`], as these are not registered as the "canonical"
     /// [`Template`] for a given [`TypeId`].
     pub fn get_or_insert_template<
         'a,
-        T: Template<Output: Bundle> + Default + Send + Sync + 'static,
+        T: Template<Output: Component> + Default + Send + Sync + 'static,
     >(
         &'a mut self,
         context: &mut ResolveContext,
     ) -> &'a mut T {
-        self.get_or_insert_erased_template(context, TypeId::of::<T>(), || Box::new(T::default()))
+        (self.get_or_insert_erased_template(context, TypeId::of::<T>(), || Box::new(T::default()))
+            as &mut dyn Any)
+            // PERF: this could be unchecked, given that we control what is stored here
+            // The method isn't stable yet, and it would require making get_or_insert_erased_template unsafe
             .downcast_mut()
             .unwrap()
     }
 
-    /// This will get the [`ErasedTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
-    /// it will use the `default` function to create a new [`ErasedTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
+    /// This will get the [`ErasedComponentTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
+    /// it will use the `default` function to create a new [`ErasedComponentTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
     /// by `default` should match the passed in `type_id`_.
     ///
-    /// This uses "copy-on-write" behavior for inherited scenes. If a [`Template`] that the inherited scene has is requested, it will be
-    /// cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
+    /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
+    /// it will be cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
     ///
     /// This will ignore [`Template`]s added to this scene using [`ResolvedScene::push_template`], as these are not registered as the "canonical"
     /// [`Template`] for a given [`TypeId`].
@@ -253,45 +438,52 @@ impl ResolvedScene {
         &'a mut self,
         context: &mut ResolveContext,
         type_id: TypeId,
-        default: fn() -> Box<dyn ErasedTemplate>,
-    ) -> &'a mut dyn ErasedTemplate {
-        self.internal_get_or_insert_template_with(type_id, || {
-            if let Some(inherited_scene) = context.inherited
-                && let Some(resolved_inherited) = &inherited_scene.resolved
-                && let Some(inherited_template) =
-                    resolved_inherited.scene.get_direct_erased_template(type_id)
+        default: fn() -> Box<dyn ErasedComponentTemplate>,
+    ) -> &'a mut dyn ErasedComponentTemplate {
+        let mut is_cached = false;
+        let index = self.template_indices.entry(type_id).or_insert_with(|| {
+            let index = self.component_templates.len();
+            let value = if let Some(cached_patch) = &mut context.cached
+                && let Some(resolved_cached) = &cached_patch.resolved
+                && let Some(cached_template) =
+                    resolved_cached.scene.get_direct_erased_template(type_id)
             {
-                inherited_template.clone_template()
+                is_cached = true;
+                cached_template.clone_template()
             } else {
                 default()
-            }
-        })
-    }
-
-    fn internal_get_or_insert_template_with(
-        &mut self,
-        type_id: TypeId,
-        get_value: impl FnOnce() -> Box<dyn ErasedTemplate>,
-    ) -> &mut dyn ErasedTemplate {
-        let index = self.template_indices.entry(type_id).or_insert_with(|| {
-            let index = self.templates.len();
-            self.templates.push(get_value());
+            };
+            self.component_templates.push(value);
             index
         });
-        self.templates
+        let template = self
+            .component_templates
             .get_mut(*index)
             .map(|value| &mut **value)
-            .unwrap()
+            .unwrap();
+
+        if is_cached {
+            self.cached
+                .as_mut()
+                .unwrap()
+                .duplicate_templates
+                .insert(type_id);
+        }
+
+        template
     }
 
-    /// Returns the [`ErasedTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores scene inheritance.
-    pub fn get_direct_erased_template(&self, type_id: TypeId) -> Option<&dyn ErasedTemplate> {
+    /// Returns the [`ErasedComponentTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores cached scenes.
+    pub fn get_direct_erased_template(
+        &self,
+        type_id: TypeId,
+    ) -> Option<&dyn ErasedComponentTemplate> {
         let index = self.template_indices.get(&type_id)?;
-        Some(&*self.templates[*index])
+        Some(&*self.component_templates[*index])
     }
 
     /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_template<T: Template<Output: Bundle> + Send + Sync + 'static>(
+    pub fn push_template<T: Template<Output: Component> + Send + Sync + 'static>(
         &mut self,
         template: T,
     ) {
@@ -299,10 +491,22 @@ impl ResolvedScene {
     }
 
     /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_template_erased(&mut self, template: Box<dyn ErasedTemplate>) {
-        self.templates.push(template);
+    pub fn push_template_erased(&mut self, template: Box<dyn ErasedComponentTemplate>) {
+        self.component_templates.push(template);
     }
 
+    /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
+    pub fn push_bundle_template<T: Template<Output: Bundle> + Send + Sync + 'static>(
+        &mut self,
+        template: T,
+    ) {
+        self.push_bundle_template_erased(Box::new(template));
+    }
+
+    /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
+    pub fn push_bundle_template_erased(&mut self, template: Box<dyn ErasedBundleTemplate>) {
+        self.bundle_templates.push(template);
+    }
     /// This will return the existing [`RelatedResolvedScenes`], if it exists. If not, a new empty [`RelatedResolvedScenes`] will be inserted and returned.
     ///
     /// This is used to add new related scenes and read existing related scenes.
@@ -314,80 +518,96 @@ impl ResolvedScene {
             .or_insert_with(RelatedResolvedScenes::new::<R>)
     }
 
-    /// Configures this [`ResolvedScene`] to inherit from the given [`ScenePatch`].
+    /// Configures this [`ResolvedScene`] to include the given [`ScenePatch`] cached.
     ///
-    /// If this [`ResolvedScene`] already inherits from a scene, it will return [`InheritSceneError::MultipleInheritance`].
-    /// If this [`ResolvedScene`] already has [`Template`]s or related scenes, it will return [`InheritSceneError::LateInheritance`].
-    pub fn inherit(&mut self, handle: Handle<ScenePatch>) -> Result<(), InheritSceneError> {
-        if let Some(inherited) = &self.inherited {
-            return Err(InheritSceneError::MultipleInheritance {
-                id: inherited.id().untyped(),
-                path: inherited.path().cloned(),
+    /// If this [`ResolvedScene`] already includes a cached scene, it will return [`CachedSceneError::MultipleCached`].
+    /// If this [`ResolvedScene`] already has [`Template`]s or related scenes, it will return [`CachedSceneError::LateCached`].
+    pub fn include_cached(&mut self, handle: Handle<ScenePatch>) -> Result<(), CachedSceneError> {
+        if let Some(cached) = &self.cached {
+            return Err(CachedSceneError::MultipleCached {
+                id: cached.handle.id().untyped(),
+                path: cached.handle.path().cloned(),
             });
         }
-        if !(self.templates.is_empty() && self.related.is_empty()) {
-            return Err(InheritSceneError::LateInheritance {
+        if !(self.component_templates.is_empty() && self.related.is_empty()) {
+            return Err(CachedSceneError::LateCached {
                 id: handle.id().untyped(),
                 path: handle.path().cloned(),
             });
         }
-        self.inherited = Some(handle);
+        self.cached = Some(CachedSceneInfo {
+            handle,
+            duplicate_templates: HashSet::default(),
+        });
         Ok(())
     }
 }
 
-/// The error returned by [`ResolvedScene::inherit`].
+/// Information about a [`ResolvedScene`]'s cached scene.
+#[derive(Debug)]
+pub(crate) struct CachedSceneInfo {
+    /// The handle of the cached scene.
+    pub(crate) handle: Handle<ScenePatch>,
+    /// Template types that occur in _both_ the current scene and its cached scene.
+    /// This is used to skip insertion of these types when applying the cached
+    /// resolved scene.
+    pub(crate) duplicate_templates: HashSet<TypeId>,
+}
+
+/// The error returned by [`ResolvedScene::include_cached`].
 #[derive(Error, Debug)]
-pub enum InheritSceneError {
-    /// Caused when attempting to inherit from a second scene.
-    #[error("Attempted to inherit from a second scene (id {id:?}, path: {path:?}), which is not allowed.")]
-    MultipleInheritance {
-        /// The asset id of the second inherited scene.
+pub enum CachedSceneError {
+    /// Caused when attempting to include a second cached scene.
+    #[error(
+        "Attempted to include a second cached scene (id {id:?}, path: {path:?}), which is not allowed."
+    )]
+    MultipleCached {
+        /// The asset id of the second cached scene.
         id: UntypedAssetId,
-        /// The path of the second inherited scene.
+        /// The path of the second cached scene.
         path: Option<AssetPath<'static>>,
     },
-    /// Caused when attempting to inherit when a [`ResolvedScene`] already has [`Template`]s or related scenes.
-    #[error("Attempted to inherit from (id {id:?}, path: {path:?}), but the resolved scene already has templates. For correctness, inheritance should always come first.")]
-    LateInheritance {
-        /// The asset id of the scene that was inherited late.
+    /// Caused when attempting to include a cached scene when a [`ResolvedScene`] already has [`Template`]s or related scenes.
+    #[error("Attempted to include cached scene (id {id:?}, path: {path:?}), but the resolved scene already has templates. For correctness, the cached scene should always be included first.")]
+    LateCached {
+        /// The asset id of the cached scene that was included late.
         id: UntypedAssetId,
-        /// The path of the scene that was inherited late.
+        /// The path of the cached scene that was included late.
         path: Option<AssetPath<'static>>,
     },
 }
 
-/// An error produced when calling [`ResolvedScene::apply`].
+/// An error produced when applying a [`ResolvedScene`].
 #[derive(Error, Debug)]
 pub enum ApplySceneError {
     /// Caused when a [`Template`] fails to build
     #[error("Failed to build a Template in the current Scene: {0}")]
     TemplateBuildError(BevyError),
-    /// Caused when the inherited [`ResolvedScene`] fails to [`ResolvedScene::apply`].
-    #[error("Failed to apply the inherited Scene (asset path: \"{inherited:?}\"): {error}")]
-    InheritedSceneApplyError {
-        /// The asset path of the inherited scene that failed to apply.
-        inherited: Option<AssetPath<'static>>,
-        /// The error that occurred while applying the inherited scene.
+    /// Caused when the cached [`ResolvedScene`] fails to apply a [`ResolvedScene`].
+    #[error("Failed to apply the cached Scene (asset path: \"{cached:?}\"): {error}")]
+    CachedSceneApplyError {
+        /// The asset path of the cached scene that failed to apply.
+        cached: Option<AssetPath<'static>>,
+        /// The error that occurred while applying the cached scene.
         error: Box<ApplySceneError>,
     },
-    /// Caused when an inherited scene is not present.
-    #[error("The inherited scene (id: {id:?}, path: \"{path:?}\") does not exist.")]
-    MissingInheritedScene {
-        /// The path of the inherited scene.
+    /// Caused when an cached scene is not present.
+    #[error("The cached scene (id: {id:?}, path: \"{path:?}\") does not exist.")]
+    MissingCachedScene {
+        /// The path of the cached scene.
         path: Option<AssetPath<'static>>,
-        /// The asset id of the inherited scene.
+        /// The asset id of the cached scene.
         id: AssetId<ScenePatch>,
     },
-    /// Caused when an inherited scene has not been resolved yet.
-    #[error("The inherited scene (id: {id:?}, path: \"{path:?}\") has not been resolved yet.")]
-    UnresolvedInheritedScene {
-        /// The path of the inherited scene.
+    /// Caused when an cached scene has not been resolved yet.
+    #[error("The cached scene (id: {id:?}, path: \"{path:?}\") has not been resolved yet.")]
+    UnresolvedCachedScene {
+        /// The path of the cached scene.
         path: Option<AssetPath<'static>>,
-        /// The asset id of the inherited scene.
+        /// The asset id of the cached scene.
         id: AssetId<ScenePatch>,
     },
-    /// Caused when a related [`ResolvedScene`] fails to [`ResolvedScene::apply`].
+    /// Caused when a related [`ResolvedScene`] fails to apply.
     #[error(
         "Failed to apply the related {relationship_type_name} Scene at index {index}: {error}"
     )]
@@ -406,8 +626,11 @@ pub enum ApplySceneError {
 pub struct RelatedResolvedScenes {
     /// The related resolved scenes. Each entry in the list corresponds to a new related entity that will be spawned with the given scene.
     pub scenes: Vec<ResolvedScene>,
-    /// The function that will be called to add the relationship to the spawned scene.
-    pub insert: fn(&mut EntityWorldMut, target: Entity),
+    /// The function that will be called to add the relationship to the spawned related scene.
+    pub insert_relationship:
+        unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, target: Entity),
+    /// The function that will be called to add the relationship target to the spawned scene with the given capacity.
+    pub insert_relationship_target: unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, usize),
     /// The type name of the relationship. This is used for more helpful error message.
     pub relationship_name: &'static str,
 }
@@ -425,10 +648,109 @@ impl RelatedResolvedScenes {
     pub fn new<R: Relationship>() -> Self {
         Self {
             scenes: Vec::new(),
-            insert: |entity, target| {
-                entity.insert(R::from(target));
+            insert_relationship: |bundle_writer, components_registrator, target| {
+                // SAFETY: caller ensures bundler_writer is always used with the same World
+                unsafe { bundle_writer.push_component(components_registrator, R::from(target)) };
+            },
+            insert_relationship_target: |bundle_writer, components_registrator, capacity| {
+                let relationship_target =
+                    <<R as Relationship>::RelationshipTarget as RelationshipTarget>::with_capacity(
+                        capacity,
+                    );
+                // SAFETY: caller ensures bundler_writer is always used with the same World
+                unsafe {
+                    bundle_writer.push_component(components_registrator, relationship_target);
+                };
             },
             relationship_name: core::any::type_name::<R>(),
         }
+    }
+}
+
+/// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Component`], which will be added to the
+/// given [`BundleWriter`].
+pub trait ErasedComponentTemplate: Any + Send + Sync {
+    /// Applies this template to the given `entity`.
+    ///
+    /// # Safety
+    ///
+    /// `bundle_writer` must always be used with the same World that is stored in `context`. This
+    /// is intended to be used by a scene system in a scoped / controlled / easily verifiable context.
+    /// If you are calling it outside of that context, you are almost certainly doing something wrong!
+    unsafe fn apply(
+        &self,
+        context: &mut TemplateContext,
+        bundle_writer: &mut BundleWriter,
+    ) -> Result<(), BevyError>;
+
+    /// Clones this template. See [`Clone`].
+    fn clone_template(&self) -> Box<dyn ErasedComponentTemplate>;
+}
+
+impl<T: Template<Output: Component> + Send + Sync + 'static> ErasedComponentTemplate for T {
+    unsafe fn apply(
+        &self,
+        context: &mut TemplateContext,
+        bundle_writer: &mut BundleWriter,
+    ) -> Result<(), BevyError> {
+        let component = self.build_template(context)?;
+        // SAFETY: world_mut is only used to register components, which does not affect entity location
+        let mut components = unsafe { context.entity.world_mut().components_registrator() };
+        // SAFETY: The caller verifies that `bundle_writer` is always used with the same World.
+        unsafe { bundle_writer.push_component(&mut components, component) };
+
+        Ok(())
+    }
+
+    fn clone_template(&self) -> Box<dyn ErasedComponentTemplate> {
+        Box::new(Template::clone_template(self))
+    }
+}
+
+/// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Bundle`], which will be added
+/// immediately to a given `entity`.
+pub trait ErasedBundleTemplate: Any + Send + Sync {
+    /// Applies this template to the given `entity`.
+    ///
+    /// # Safety
+    ///
+    /// `bundle_writer` must always be used with the same World that is stored in `context`. This
+    /// is intended to be used by a scene system in a scoped / controlled / easily verifiable context.
+    /// If you are calling it outside of that context, you are almost certainly doing something wrong!
+    unsafe fn apply(&self, context: &mut TemplateContext) -> Result<(), BevyError>;
+
+    /// Clones this template. See [`Clone`].
+    fn clone_template(&self) -> Box<dyn ErasedBundleTemplate>;
+}
+
+impl<T: Template<Output: Bundle> + Send + Sync + 'static> ErasedBundleTemplate for T {
+    unsafe fn apply(&self, context: &mut TemplateContext) -> Result<(), BevyError> {
+        let bundle = self.build_template(context)?;
+        context.entity.insert(bundle);
+        Ok(())
+    }
+
+    fn clone_template(&self) -> Box<dyn ErasedBundleTemplate> {
+        Box::new(Template::clone_template(self))
+    }
+}
+
+/// A filter to skip the template for a given `TypeId`
+trait SkipTemplate {
+    /// Returns true if the template with `type_id` should be skipped.
+    fn should_skip(&self, type_id: TypeId) -> bool;
+}
+
+impl SkipTemplate for &HashSet<TypeId> {
+    #[inline]
+    fn should_skip(&self, type_id: TypeId) -> bool {
+        self.contains(&type_id)
+    }
+}
+
+impl SkipTemplate for () {
+    #[inline]
+    fn should_skip(&self, _type_id: TypeId) -> bool {
+        false
     }
 }

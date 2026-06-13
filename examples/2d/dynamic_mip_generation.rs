@@ -670,7 +670,7 @@ fn spawn_mip_level_views(
                 mip_level, mip_size.x, mip_size.y
             )),
             app_assets.text_font.clone(),
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
             Text2dShadow::default(),
             Transform::from_xyz(x_origin - max_slice_size.x * 0.5 - 64.0, y_center, 0.0),
             ImageView,

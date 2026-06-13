@@ -14,6 +14,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "bevy_picking")]
 use bevy_ecs::{
+    entity::EntityHashMap,
     message::MessageReader,
     system::{Commands, Res},
 };
@@ -82,9 +83,8 @@ pub fn viewport_picking(
 ) {
     use bevy_camera::NormalizedRenderTarget;
     use bevy_math::Rect;
-    use bevy_platform::collections::HashMap;
     // Handle hovered entities.
-    let mut viewport_picks: HashMap<Entity, PointerId> = hover_map
+    let mut viewport_picks: EntityHashMap<PointerId> = hover_map
         .iter()
         .flat_map(|(hover_pointer_id, hits)| {
             hits.iter()

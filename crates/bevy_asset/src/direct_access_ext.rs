@@ -14,8 +14,8 @@ use uuid::Uuid;
 use crate::{
     insert_asset, meta::Settings, setup_asset, Asset, AssetData, AssetEntity,
     AssetEntityDoesNotExistError, AssetEvent, AssetHandleProvider, AssetId, AssetMut, AssetPath,
-    AssetSelfHandle, AssetServer, AssetUuidMap, EntityHandle, Handle, ResolveUuidError,
-    UntypedEntityHandle, UntypedHandle,
+    AssetSelfHandle, AssetServer, AssetUuidMap, EntityHandle, Handle, LoadBuilder,
+    ResolveUuidError, UntypedEntityHandle, UntypedHandle,
 };
 
 /// An extension trait for methods for working with assets directly from a [`World`].
@@ -66,8 +66,17 @@ pub trait AssetServerAccessExt {
     #[must_use]
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A>;
 
+    /// Creates a new [`LoadBuilder`] similar to [`AssetServer::load_builder`].
+    ///
+    /// # Panics
+    /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
+    fn load_builder(&self) -> LoadBuilder<'_>;
+
     /// Load an asset with settings, similarly to [`AssetServer::load_with_settings`].
-    #[must_use]
+    ///
+    /// # Panics
+    /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
+    #[deprecated(note = "Use `world.load_builder().with_settings(settings).load(path)`")]
     fn load_asset_with_settings<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
@@ -161,13 +170,19 @@ impl AssetServerAccessExt for World {
         self.resource::<AssetServer>().load(path)
     }
 
+    fn load_builder(&self) -> LoadBuilder<'_> {
+        self.resource::<AssetServer>().load_builder()
+    }
+
     fn load_asset_with_settings<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
         self.resource::<AssetServer>()
-            .load_with_settings(path, settings)
+            .load_builder()
+            .with_settings(settings)
+            .load(path.into())
     }
 }
 

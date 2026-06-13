@@ -348,10 +348,14 @@ fn spawn_gizmo_meshes(mut commands: Commands, mut asset_commands: AssetCommands)
 
 fn update_gizmo_meshes(
     focus: Option<bevy_ecs::system::Single<&GlobalTransform, With<TransformGizmoFocus>>>,
-    marked_cameras: Query<(&Camera, &GlobalTransform), With<TransformGizmoCamera>>,
+    marked_cameras: Query<&GlobalTransform, (With<TransformGizmoCamera>, With<Camera>)>,
     all_cameras: Query<
-        (&Camera, &GlobalTransform),
-        (Without<GizmoOverlayCamera>, Without<TransformGizmoRoot>),
+        &GlobalTransform,
+        (
+            Without<GizmoOverlayCamera>,
+            Without<TransformGizmoRoot>,
+            With<Camera>,
+        ),
     >,
     settings: Option<Res<TransformGizmoSettings>>,
     state: Option<Res<TransformGizmoState>>,
@@ -391,7 +395,7 @@ fn update_gizmo_meshes(
         *root_vis = Visibility::Hidden;
         return;
     };
-    let Some((_, cam_tf)): Option<(&Camera, &GlobalTransform)> =
+    let Some(cam_tf): Option<&GlobalTransform> =
         bevy_gizmos::resolve_gizmo_camera!(marked_cameras, all_cameras)
     else {
         *root_vis = Visibility::Hidden;

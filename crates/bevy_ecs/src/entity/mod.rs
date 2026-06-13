@@ -1132,7 +1132,7 @@ pub struct InvalidEntityError {
     pub current_generation: EntityGeneration,
 }
 
-/// An error that occurs when a specified [`Entity`] is certain to be valid and is expected to be spawned but is spawned.
+/// An error that occurs when a specified [`Entity`] is certain to be valid and is expected to be spawned but is not spawned yet.
 /// This includes when an [`EntityIndex`] is requested but is not spawned, since each index always corresponds to exactly one valid entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EntityValidButNotSpawnedError {
@@ -1506,7 +1506,7 @@ mod tests {
         }
 
         let pre_len = entities.len();
-        entities.sort();
+        entities.sort_unstable();
         entities.dedup();
         assert_eq!(pre_len, entities.len());
 
@@ -1516,7 +1516,7 @@ mod tests {
 
         entities.extend(allocator.alloc_many(5000));
         let pre_len = entities.len();
-        entities.sort();
+        entities.sort_unstable();
         entities.dedup();
         assert_eq!(pre_len, entities.len());
     }

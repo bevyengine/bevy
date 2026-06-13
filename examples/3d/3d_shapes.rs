@@ -87,6 +87,17 @@ fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         asset_commands.spawn_asset(Mesh::from(Extrusion::new(Ellipse::default(), 1.))),
         asset_commands.spawn_asset(Mesh::from(Extrusion::new(RegularPolygon::default(), 1.))),
         asset_commands.spawn_asset(Mesh::from(Extrusion::new(Triangle2d::default(), 1.))),
+        asset_commands.spawn_asset(Mesh::from(Extrusion::new(
+            ConvexPolygon::new(vec![
+                Vec2::new(0.0, 0.8),
+                Vec2::new(-0.47, 0.25),
+                Vec2::new(-0.47, -0.65),
+                Vec2::new(0.47, -0.65),
+                Vec2::new(0.47, 0.25),
+            ])
+            .unwrap(),
+            1.0,
+        ))),
     ];
 
     let ring_extrusions = [

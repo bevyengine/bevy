@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 //! Types for handling [`Bundle`]s.
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
@@ -14,6 +9,7 @@ mod remove;
 mod spawner;
 #[cfg(test)]
 mod tests;
+mod writer;
 
 pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
@@ -22,6 +18,7 @@ pub(crate) use spawner::BundleSpawner;
 use bevy_ptr::MovingPtr;
 use core::mem::MaybeUninit;
 pub use info::*;
+pub use writer::*;
 
 /// Derive the [`Bundle`] trait
 ///
@@ -210,7 +207,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         components: &mut ComponentsRegistrator,
     ) -> impl Iterator<Item = ComponentId> + use<Self>;
 
-    /// Return a iterator over this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    /// Returns an iterator over this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>>;
 }
 

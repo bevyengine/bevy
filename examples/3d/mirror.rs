@@ -5,15 +5,12 @@ use std::f32::consts::FRAC_PI_2;
 use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
 use bevy::camera::RenderTarget;
 use bevy::{
-    asset::RenderAssetUsages,
     color::palettes::css::GREEN,
     input::mouse::AccumulatedMouseMotion,
     math::{reflection_matrix, uvec2, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::render_resource::{
-        AsBindGroup, Extent3d, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render::render_resource::{AsBindGroup, TextureFormat},
     shader::ShaderRef,
     window::{PrimaryWindow, WindowResized},
 };
@@ -411,22 +408,12 @@ fn create_mirror_texture_image(
     asset_commands: &mut AssetCommands,
     window_size: UVec2,
 ) -> Handle<Image> {
-    let mirror_image_extent = Extent3d {
-        width: window_size.x,
-        height: window_size.y,
-        depth_or_array_layers: 1,
-    };
-
-    let mut image = Image::new_uninit(
-        mirror_image_extent,
-        TextureDimension::D2,
+    asset_commands.spawn_asset(Image::new_target_texture(
+        window_size.x,
+        window_size.y,
         TextureFormat::Bgra8UnormSrgb,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    );
-    image.texture_descriptor.usage |=
-        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
-
-    asset_commands.spawn_asset(image)
+        None,
+    ))
 }
 
 // Moves the fox when the user moves the mouse with the left button down.

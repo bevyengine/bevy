@@ -66,7 +66,11 @@ fn fragment(
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // alpha discard
-    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+    pbr_input.material.base_color = alpha_discard(
+        pbr_input.material.flags,
+        pbr_input.material.alpha_cutoff,
+        pbr_input.material.base_color
+    );
 
     // clustered decals
     apply_decals(&pbr_input);
@@ -91,7 +95,14 @@ fn fragment(
 
 #ifdef OIT_ENABLED
     let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
+        // The fragments will only be drawn during the oit resolve pass.
+        oit_draw(in.position, vec4(out.color.rgb * out.color.a, out.color.a));
+        discard;
+    }
+    // additive colors are converted to premultiplied above already
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED 
+        || alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // The fragments will only be drawn during the oit resolve pass.
         oit_draw(in.position, out.color);
         discard;

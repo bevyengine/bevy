@@ -87,8 +87,8 @@ fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         RoughnessDisplay,

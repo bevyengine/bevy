@@ -20,6 +20,7 @@ use bevy::{
         ops::{cbrt, sqrt},
         DVec2, DVec3,
     },
+    mesh::MeshAttributeCompressionFlags,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     render::{
@@ -91,6 +92,10 @@ struct Args {
     /// whether to enable motion blur.
     #[argh(switch)]
     motion_blur: bool,
+
+    /// whether to enable vertex compression.
+    #[argh(switch)]
+    vertex_compression: bool,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -424,6 +429,18 @@ fn init_materials(
     materials
 }
 
+fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
+    if args.vertex_compression {
+        mesh.into().compressed_mesh(
+            MeshAttributeCompressionFlags::all()
+                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16),
+            true,
+        )
+    } else {
+        mesh.into()
+    }
+}
+
 fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<Mesh>, Transform)> {
     let capacity = args.mesh_count.max(1);
 
@@ -435,20 +452,26 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
         let radius = radius_rng.random_range(0.25f32..=0.75f32);
         let (handle, transform) = match variant % 15 {
             0 => (
-                asset_commands.spawn_asset(Mesh::from(Cuboid {
-                    half_size: Vec3::splat(radius),
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Cuboid {
+                        half_size: Vec3::splat(radius),
+                    },
+                ))),
                 Transform::IDENTITY,
             ),
             1 => (
-                asset_commands.spawn_asset(Mesh::from(Capsule3d {
-                    radius,
-                    half_length: radius,
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Capsule3d {
+                        radius,
+                        half_length: radius,
+                    },
+                ))),
                 Transform::IDENTITY,
             ),
             2 => (
-                asset_commands.spawn_asset(Mesh::from(Circle { radius })),
+                asset_commands.spawn_asset(compress_mesh(args, Circle { radius }))),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             3 => {
@@ -459,63 +482,78 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
-                    asset_commands.spawn_asset(Mesh::from(Triangle2d { vertices })),
+                    asset_commands.spawn_asset(compress_mesh(args, Triangle2d { vertices }))),
                     Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
                 )
             }
             4 => (
-                asset_commands.spawn_asset(Mesh::from(Rectangle {
-                    half_size: Vec2::splat(radius),
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Rectangle {
+                        half_size: Vec2::splat(radius),
+                    },
+                ))),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             v if (5..=8).contains(&v) => (
-                asset_commands.spawn_asset(Mesh::from(RegularPolygon {
-                    circumcircle: Circle { radius },
-                    sides: v,
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    RegularPolygon {
+                        circumcircle: Circle { radius },
+                        sides: v,
+                    },
+                ))),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             9 => (
-                asset_commands.spawn_asset(Mesh::from(Cylinder {
-                    radius,
-                    half_height: radius,
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Cylinder {
+                        radius,
+                        half_height: radius,
+                    },
+                ))),
                 Transform::IDENTITY,
             ),
             10 => (
-                asset_commands.spawn_asset(Mesh::from(Ellipse {
-                    half_size: Vec2::new(radius, 0.5 * radius),
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Ellipse {
+                        half_size: Vec2::new(radius, 0.5 * radius),
+                    },
+                ))),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             11 => (
-                asset_commands.spawn_asset(Mesh::from(
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
                     Plane3d {
                         normal: Dir3::NEG_Z,
                         half_size: Vec2::splat(0.5),
                     }
                     .mesh()
                     .size(radius, radius),
-                )),
-                Transform::IDENTITY,
-            ),
-            12 => (
-                asset_commands.spawn_asset(Mesh::from(Sphere { radius })),
+                ))),
                 Transform::IDENTITY,
             ),
             13 => (
-                asset_commands.spawn_asset(Mesh::from(Torus {
-                    minor_radius: 0.5 * radius,
-                    major_radius: radius,
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Torus {
+                        minor_radius: 0.5 * radius,
+                        major_radius: radius,
+                    },
+                ))),
                 Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
             ),
             14 => (
-                asset_commands.spawn_asset(Mesh::from(Capsule2d {
-                    radius,
-                    half_length: radius,
-                })),
+                asset_commands.spawn_asset(compress_mesh(
+                    args,
+                    Capsule2d {
+                        radius,
+                        half_length: radius,
+                    },
+                ))),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             _ => unreachable!(),

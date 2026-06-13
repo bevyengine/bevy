@@ -368,6 +368,7 @@ pub fn initialize_generated_environment_map_resources(
         },
         entry_point: Some("downsample_first".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     let downsample_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -384,6 +385,7 @@ pub fn initialize_generated_environment_map_resources(
         },
         entry_point: Some("downsample_second".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     // Radiance map for specular environment maps
@@ -395,6 +397,7 @@ pub fn initialize_generated_environment_map_resources(
         shader_defs: shader_defs.clone(),
         entry_point: Some("generate_radiance_map".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     // Irradiance map for diffuse environment maps
@@ -406,6 +409,7 @@ pub fn initialize_generated_environment_map_resources(
         shader_defs: shader_defs.clone(),
         entry_point: Some("generate_irradiance_map".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     // Copy pipeline handles format conversion and populates mip0 when formats differ
@@ -417,6 +421,7 @@ pub fn initialize_generated_environment_map_resources(
         shader_defs: vec![],
         entry_point: Some("copy".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     let pipelines = GeneratorPipelines {

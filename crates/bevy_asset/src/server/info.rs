@@ -13,8 +13,11 @@ use alloc::{
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::TypeIdMap;
-use core::{any::TypeId, task::Waker};
+use bevy_utils::{TypeIdMap, TypeIdMapEntry};
+use core::{
+    any::{type_name, TypeId},
+    task::Waker,
+};
 use crossbeam_channel::Sender;
 use thiserror::Error;
 use tracing::warn;
@@ -183,15 +186,13 @@ impl AssetInfos {
         meta_transform: Option<MetaTransform>,
         builder: &mut impl HandleBuilder,
     ) -> (Handle<A>, bool) {
-        let (handle, should_load) = self
-            .get_or_create_path_handle_internal(
-                path,
-                Some(TypeId::of::<A>()),
-                loading_mode,
-                meta_transform,
-                builder,
-            )
-            .expect("we specified the TypeId");
+        let (handle, should_load) = self.get_or_create_path_handle_erased(
+            path,
+            TypeId::of::<A>(),
+            Some(type_name::<A>()),
+            loading_mode,
+            meta_transform,
+        );
         (handle.typed_unchecked(), should_load)
     }
 
@@ -259,7 +260,7 @@ impl AssetInfos {
         };
 
         match handles.entry(type_id) {
-            Entry::Occupied(mut entry) => {
+            TypeIdMapEntry::Occupied(mut entry) => {
                 let entity = *entry.get();
                 // if there is a path_to_entity entry, info always exists
                 let info = self.infos.get_mut(&entity).unwrap();
@@ -293,7 +294,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            Entry::Vacant(entry) => {
+            TypeIdMapEntry::Vacant(entry) => {
                 let (handle, should_load, entity) = create_new_handle(&mut self.infos);
                 entry.insert(entity);
                 Ok((UntypedHandle::Strong(handle), should_load))
