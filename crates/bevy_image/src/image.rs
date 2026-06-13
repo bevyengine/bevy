@@ -230,16 +230,8 @@ impl Plugin for ImagePlugin {
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
-            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>(crate::CompressedImageSaver.into());
-            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>("png");
+            processor.register_processor(CompressImageProcessor::new(crate::CompressedImageSaver));
+            processor.set_default_processor::<CompressImageProcessor>("png");
         }
 
         app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
@@ -2438,6 +2430,19 @@ impl CompressedImageFormats {
 /// the WGPU backend.
 #[derive(Resource)]
 pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
+
+#[cfg(feature = "compressed_image_saver")]
+bevy_asset::make_load_transform_and_save_processor! {
+    /// An asset processor that loads the image, then compresses and writes it in the `basisu`
+    /// format.
+    pub struct CompressImageProcessor {
+        loader: ImageLoader,
+        saver: crate::CompressedImageSaver,
+    }
+
+    /// Settings for [`CompressImageProcessor`].
+    pub struct CompressImageProcessorSettings { .. }
+}
 
 #[cfg(test)]
 mod test {

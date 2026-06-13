@@ -32,10 +32,12 @@
 //!
 //! Bevy provides two different ways to define new asset processors:
 //!
-//! - [`LoadTransformAndSave`] + [`AssetTransformer`](crate::transformer::AssetTransformer): a high-level API for loading, transforming, and saving assets.
 //! - [`Process`]: a flexible low-level API for processing assets in arbitrary ways.
+//! - [`make_load_transform_and_save_processor`]: a high-level API for loading, transforming, and saving assets.
 //!
-//! In most cases, [`LoadTransformAndSave`] should be sufficient.
+//! In most cases, [`make_load_transform_and_save_processor`] should be sufficient.
+//!
+//! [`make_load_transform_and_save_processor`]: crate::make_load_transform_and_save_processor
 
 mod log;
 mod process;

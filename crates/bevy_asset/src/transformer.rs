@@ -24,7 +24,10 @@ use serde::{Deserialize, Serialize};
 
 /// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
 ///
-/// This trait is commonly used in association with [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset pipeline workflows.
+/// This trait is used in association with [`make_load_transform_and_save_processor`] to accomplish
+/// common asset pipeline workflows.
+///
+/// [`make_load_transform_and_save_processor`]: crate::make_load_transform_and_save_processor
 pub trait AssetTransformer: TypePath + Send + Sync + 'static {
     /// The [`Asset`] type which this [`AssetTransformer`] takes as and input.
     type AssetInput: Asset;
