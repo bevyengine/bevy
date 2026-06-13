@@ -121,10 +121,16 @@ fn on_focused_keyboard_input(
         (WORD | SHIFT_WORD, Key::ArrowRight) => queue_edit(TextEdit::WordRight(shift_pressed)),
         (NONE | SHIFT, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift_pressed)),
         (NONE | SHIFT, Key::ArrowRight) => queue_edit(TextEdit::Right(shift_pressed)),
+        #[cfg(target_os = "macos")]
         (COMMAND | SHIFT_COMMAND, Key::ArrowUp) => queue_edit(TextEdit::TextStart(shift_pressed)),
+        #[cfg(target_os = "macos")]
         (COMMAND | SHIFT_COMMAND, Key::ArrowDown) => queue_edit(TextEdit::TextEnd(shift_pressed)),
         (NONE | SHIFT, Key::ArrowUp) => queue_edit(TextEdit::Up(shift_pressed)),
         (NONE | SHIFT, Key::ArrowDown) => queue_edit(TextEdit::Down(shift_pressed)),
+        #[cfg(not(target_os = "macos"))]
+        (CTRL, Key::ArrowUp) => queue_edit(TextEdit::ScrollByLines(-1.0)),
+        #[cfg(not(target_os = "macos"))]
+        (CTRL, Key::ArrowDown) => queue_edit(TextEdit::ScrollByLines(1.0)),
         (COMMAND | SHIFT_COMMAND, Key::Home) => queue_edit(TextEdit::TextStart(shift_pressed)),
         (COMMAND | SHIFT_COMMAND, Key::End) => queue_edit(TextEdit::TextEnd(shift_pressed)),
         (NONE | SHIFT, Key::Home) => queue_edit(TextEdit::LineStart(shift_pressed)),
