@@ -1,4 +1,4 @@
-use alloc::{borrow::Cow, boxed::Box, string::ToString};
+use alloc::{borrow::Cow, boxed::Box};
 use core::{
     error::Error,
     fmt::{Debug, Display},
@@ -211,7 +211,7 @@ impl BevyError {
                 // TODO: Cache
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
-                let backtrace_str = backtrace.to_string();
+                let backtrace_str = alloc::string::ToString::to_string(backtrace);
                 let mut skip_next_location_line = false;
                 for line in backtrace_str.split('\n') {
                     if !full_backtrace {
