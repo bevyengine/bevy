@@ -408,7 +408,7 @@ bevy_ui_widgets = [
   "bevy_ui",
 ]
 
-# Load and save user preferences
+# Load and save settings
 bevy_settings = ["bevy_internal/bevy_settings"]
 
 # Feathers widget collection.
@@ -5427,8 +5427,8 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "persisting_preferences"
-path = "examples/app/persisting_preferences.rs"
+name = "settings"
+path = "examples/app/settings.rs"
 doc-scrape-examples = true
 required-features = ["bevy_settings"]
 
