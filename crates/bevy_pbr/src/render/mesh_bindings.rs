@@ -13,11 +13,11 @@ use crate::{binding_arrays_are_usable, render::skin::MAX_JOINTS, skin, LightmapS
 
 const MORPH_WEIGHT_SIZE: usize = size_of::<f32>();
 
-/// This is used to allocate buffers.
-/// The correctness of the value depends on the GPU/platform.
-/// The current value is chosen because it is guaranteed to work everywhere.
-/// To allow for bigger values, a check must be made for the limits
-/// of the GPU at runtime, which would mean not using consts anymore.
+/// Buffer size used to store [`MAX_MORPH_WEIGHTS`] morph weights.
+///
+/// The maximum is chosen to work on all supported GPUs. Supporting more morph
+/// weights would require checking GPU/platform limits at runtime instead of
+/// relying on const buffer sizes.
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 
 const JOINT_SIZE: usize = size_of::<Mat4>();
