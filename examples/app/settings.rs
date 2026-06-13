@@ -42,11 +42,17 @@ struct Counter {
 
 /// A different settings group which has the name group name as the previous. The two groups will be
 /// merged into a single section in the config file.
-#[derive(Resource, SettingsGroup, Reflect, Default)]
+#[derive(Resource, SettingsGroup, Reflect)]
 #[reflect(Resource, SettingsGroup, Default)]
 #[settings_group(group = "counter")]
 struct OtherSettings {
     enabled: bool,
+}
+
+impl Default for OtherSettings {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
 }
 
 #[derive(Component)]
@@ -84,10 +90,20 @@ fn setup(mut commands: Commands) {
         });
 }
 
-fn show_count(mut query: Query<&mut Text, With<CounterDisplay>>, counter: Res<Counter>) {
-    if counter.is_changed() {
+fn show_count(
+    mut query: Query<&mut Text, With<CounterDisplay>>,
+    counter: Res<Counter>,
+    other: Res<OtherSettings>,
+) {
+    if other.enabled {
+        if counter.is_changed() {
+            for mut text in query.iter_mut() {
+                text.0 = format!("Count: {}", counter.count);
+            }
+        }
+    } else {
         for mut text in query.iter_mut() {
-            text.0 = format!("Count: {}", counter.count);
+            text.0 = "Disabled".into();
         }
     }
 }
