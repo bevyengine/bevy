@@ -81,6 +81,7 @@ use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_math::Vec2;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
@@ -131,6 +132,11 @@ pub struct EditableText {
     /// rather than draining further edits, so that everything after the paste stays correctly ordered *behind* it.
     // TODO: this may cause unexpected stalls if the clipboard read takes too long. We may want to add a timeout.
     pub pending_paste: Option<ClipboardRead>,
+    /// Cursor reveal margins as fractions of the viewport size.
+    ///
+    /// Each component is applied to both edges of its axis. Values are clamped
+    /// to `0.0..=0.5`, and non-finite values are treated as zero.
+    pub cursor_margin: Vec2,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
     /// Cursor blink period in seconds.
@@ -155,6 +161,7 @@ impl Default for EditableText {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
             viewport: TextViewport::default(),
+            cursor_margin: Vec2::new(0.1, 0.1),
             pending_edits: Vec::new(),
             pending_paste: None,
             cursor_width: 0.2,
@@ -221,6 +228,8 @@ impl EditableText {
             pending_edits,
             pending_paste,
             max_characters,
+            viewport,
+            cursor_margin,
             ..
         } = self;
 
@@ -251,7 +260,14 @@ impl EditableText {
                         return;
                     }
                 }
-                other => other.apply(&mut driver, clipboard, *max_characters, &char_filter),
+                other => other.apply(
+                    &mut driver,
+                    viewport,
+                    *cursor_margin,
+                    clipboard,
+                    *max_characters,
+                    &char_filter,
+                ),
             }
         }
     }

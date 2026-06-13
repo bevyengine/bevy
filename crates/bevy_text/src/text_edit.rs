@@ -4,6 +4,7 @@ use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
 use smol_str::SmolStr;
 
+use crate::scroll::TextViewport;
 use crate::TextBrush;
 
 /// A selection within IME preedit text, expressed as byte offsets from the start of the preedit.
@@ -218,7 +219,7 @@ impl TextEdit {
         }
     }
 
-    /// Apply the [`TextEdit`] to the text editor driver.
+    /// Apply the [`TextEdit`] to the text editor driver and viewport.
     ///
     /// Note that some edits, such as [`TextEdit::Paste`], may need to be deferred across frames due to asynchronous clipboard I/O.
     /// For proper handling of deferred edits, use [`EditableText::apply_pending_edits`](super::EditableText::apply_pending_edits) instead,
@@ -226,6 +227,8 @@ impl TextEdit {
     pub fn apply<'a>(
         self,
         driver: &'a mut PlainEditorDriver<TextBrush>,
+        viewport: &mut TextViewport,
+        cursor_margin: Vec2,
         clipboard: &mut bevy_clipboard::Clipboard,
         max_characters: Option<usize>,
         char_filter: impl Fn(char) -> bool,
@@ -321,7 +324,9 @@ impl TextEdit {
                     driver.insert_or_replace_selection(text.as_str());
                 }
             }
-            _ => {}
+            TextEdit::ScrollByLines(n) => {}
+            TextEdit::ScrollTo(target) => {}
+            TextEdit::ScrollBy(displacement) => {}
         }
     }
 }
