@@ -390,6 +390,14 @@ fn on_focus_lost_clear_ime(
 ) {
     if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::clear_ime_compose());
+    }
+}
+
+fn on_focus_lost_collapse_selection(
+    trigger: On<FocusLost>,
+    mut editable_text_query: Query<&mut EditableText>,
+) {
+    if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::CollapseSelection);
     }
 }
@@ -489,6 +497,7 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_pointer_drag)
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost_clear_ime)
+            .add_observer(on_focus_lost_collapse_selection)
             .add_observer(on_focus_select_all)
             .add_systems(
                 PreUpdate,
