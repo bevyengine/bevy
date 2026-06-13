@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, string::ToString};
+use alloc::{borrow::Cow, boxed::Box, string::ToString};
 use core::{
     error::Error,
     fmt::{Debug, Display},
@@ -265,7 +265,7 @@ impl BevyError {
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
-    context: alloc::vec::Vec<alloc::string::String>,
+    context: alloc::vec::Vec<Cow<'static, str>>,
     severity: Severity,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
@@ -452,7 +452,7 @@ pub trait ContextExt<T>: Sized {
     /// ```
     fn context<C>(self, context: C) -> Result<T, BevyError>
     where
-        C: Display,
+        C: Into<Cow<'static, str>>,
     {
         self.with_context(move || context)
     }
@@ -473,7 +473,7 @@ pub trait ContextExt<T>: Sized {
     /// ```
     fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
     where
-        C: Display;
+        C: Into<Cow<'static, str>>;
 }
 impl<T, E> ContextExt<T> for Result<T, E>
 where
@@ -481,13 +481,13 @@ where
 {
     fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
     where
-        C: Display,
+        C: Into<Cow<'static, str>>,
     {
         match self {
             Ok(v) => Ok(v),
             Err(error) => {
                 let mut error = error.into();
-                let message = context().to_string();
+                let message = context().into();
                 error.inner.context.push(message);
                 Err(error)
             }
@@ -498,12 +498,12 @@ where
 impl<T> ContextExt<T> for Option<T> {
     fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
     where
-        C: Display,
+        C: Into<Cow<'static, str>>,
     {
         match self {
             Some(v) => Ok(v),
             None => {
-                let message = context().to_string();
+                let message = context().into();
 
                 Err(message.into())
             }
@@ -540,8 +540,7 @@ impl Display for BevyError {
             context => {
                 // The most recent message is the last one in the `Vec`
                 // so we need to reverse the iterator
-                let error = self.inner.error.to_string();
-                let mut reversed = context.iter().rev().chain(core::iter::once(&error));
+                let mut reversed = context.iter().rev();
                 let first = reversed.next().unwrap().trim();
 
                 writeln!(f, "{first}\n\nCaused by:")?;
@@ -549,6 +548,7 @@ impl Display for BevyError {
                     let message = message.trim();
                     writeln!(f, "\t{message}")?;
                 }
+                writeln!(f, "\t{}", self.inner.error)?;
             }
         }
         self.format_backtrace(f)?;
