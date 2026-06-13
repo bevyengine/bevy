@@ -5,9 +5,11 @@ use crate::{
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
-    prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
-    system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
+    system::{
+        ScheduleSystem, Scratch, StaticSystemParam, SystemParam, SystemParamItem, SystemState,
+    },
     world::{FromWorld, Mut},
 };
 use bevy_log::{debug, error};
@@ -281,13 +283,12 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
     mut to_reextract: Option<ResMut<RenderAssetsToReExtract<A>>>,
     mut extracted_assets: ResMut<ExtractedAssets<A>>,
     mut main_world: ResMut<MainWorld>,
-    mut needs_extracting: Local<HashSet<AssetId<A::SourceAsset>>>,
+    mut needs_extracting: Scratch<HashSet<AssetId<A::SourceAsset>>>,
 ) {
     extracted_assets.extracted.clear();
     extracted_assets.removed.clear();
     extracted_assets.modified.clear();
     extracted_assets.added.clear();
-    needs_extracting.clear();
 
     let reextract_ids = to_reextract
         .as_mut()
