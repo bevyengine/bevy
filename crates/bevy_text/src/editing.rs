@@ -73,6 +73,7 @@
 // and `bevy_ui`, such as text layout and font management.
 
 use crate::{
+    scroll::TextViewport,
     text_edit::{poll_and_apply_paste, TextEdit},
     FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
 };
@@ -115,6 +116,8 @@ pub struct EditableText {
     /// These operations should generally be batched together to avoid redundant layout work.
     // The B: Brush generic here must match the brush used by `ComputedTextBlock` to ensure that the font system is compatible.
     pub editor: PlainEditor<TextBrush>,
+    /// Text Viewport
+    pub viewport: TextViewport,
     /// Text edit actions that have been requested but not yet applied.
     ///
     /// These edits are processed in first-in, first-out order.
@@ -151,6 +154,7 @@ impl Default for EditableText {
         Self {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
+            viewport: TextViewport::default(),
             pending_edits: Vec::new(),
             pending_paste: None,
             cursor_width: 0.2,
