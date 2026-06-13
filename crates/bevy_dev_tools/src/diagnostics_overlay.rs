@@ -44,7 +44,7 @@ type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMater
 /// // Spawning an overlay window from the struct
 /// commands.spawn(DiagnosticsOverlay {
 ///     title: "Fps".into(),
-///     diagnostic_overlay_items: vec![DiagnosticPath::new("fps").into()]
+///     items: vec![DiagnosticPath::new("fps").into()]
 /// });
 /// // Spawning an overlay window from the `new` method
 /// commands.spawn(DiagnosticsOverlay::new(
