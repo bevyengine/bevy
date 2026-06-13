@@ -558,8 +558,10 @@ impl Display for BevyError {
 
 impl Debug for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "error: {:?}", self.inner.error)?;
-        writeln!(f, "context: {:?}", self.inner.context)?;
+        writeln!(f, "{:?}", self.inner.error)?;
+        if self.inner.context.len() > 0 {
+            writeln!(f, "context: {:?}", self.inner.context)?;
+        }
         self.format_backtrace(f)?;
         Ok(())
     }
