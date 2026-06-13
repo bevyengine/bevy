@@ -431,7 +431,7 @@ fn init_materials(
 
 fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
     if args.mesh_compression {
-        mesh.into().compressed_mesh(MeshCompressionArgs::all())
+        mesh.into().compressed_mesh(MeshCompressionArgs::regular())
     } else {
         mesh.into()
     }

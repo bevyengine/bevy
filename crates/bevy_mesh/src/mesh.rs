@@ -13,6 +13,7 @@ use crate::morph::MorphAttributes;
 use crate::AttributeQuantization;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
+use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_math::{
@@ -262,19 +263,12 @@ pub struct Mesh {
     /// Indicate whether vertex attributes are compressed.
     attribute_compression: MeshAttributeCompressionFlags,
     /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling and decompressing vertex positions.
-    /// This data will be set if/when a mesh is extracted to the GPU or compressing positions.
+    /// This data will be set if/when a mesh is extracted to the GPU or when compressing positions.
     pub final_aabb: Option<Aabb3d>,
     /// Precomputed min and max extents of the mesh UV channels data. Used mainly for decompressing vertex UVs.
     /// This will be set when compressing UVs.
     pub final_uv_ranges: [Option<Aabb2d>; 2],
     skinned_mesh_bounds: Option<SkinnedMeshBounds>,
-}
-
-/// Quantization arguments of the mesh.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-pub struct MeshAttributeQuantization {
-    pub attributes: alloc::borrow::Cow<'static, [(MeshVertexAttributeId, AttributeQuantization)]>,
 }
 
 /// Mesh compression arguments used in [`Mesh::compressed_mesh`].
@@ -284,7 +278,7 @@ pub struct MeshCompressionArgs {
     /// Whether to compress indices to [`Indices::U16`] when possible.
     pub compress_indices: bool,
     /// Quantize Float32 to smaller types for some attributes. No change is needed in shaders.
-    pub quantize_attributes: MeshAttributeQuantization,
+    pub quantize_attributes: Cow<'static, [(MeshVertexAttributeId, AttributeQuantization)]>,
     /// Compress some attributes to smaller representation. Shaders need change to decode them correctly.
     /// See [`MeshAttributeCompressionFlags`] for the details.
     pub compress_attributes: MeshAttributeCompressionFlags,
@@ -295,28 +289,24 @@ impl MeshCompressionArgs {
     pub fn none() -> Self {
         Self {
             compress_indices: false,
-            quantize_attributes: MeshAttributeQuantization {
-                attributes: (&[]).into(),
-            },
+            quantize_attributes: (&[]).into(),
             compress_attributes: MeshAttributeCompressionFlags::empty(),
         }
     }
 
-    /// All compression is enabled, with colors quantized to unorm8 and joint weights quantized to unorm16.
-    pub fn all() -> Self {
+    /// Compression with all attributes compressed and with colors quantized to unorm8 and joint weights quantized to unorm16.
+    pub fn regular() -> Self {
         Self {
             compress_indices: true,
-            quantize_attributes: MeshAttributeQuantization {
-                attributes: (&[
-                    // Unorm8 is chosen by default as glTF vertex color is clamped to [0, 1] and HDR vertex color isn't common.
-                    (Mesh::ATTRIBUTE_COLOR.id, AttributeQuantization::Unorm8),
-                    (
-                        Mesh::ATTRIBUTE_JOINT_WEIGHT.id,
-                        AttributeQuantization::Unorm16,
-                    ),
-                ])
-                    .into(),
-            },
+            quantize_attributes: (&[
+                // Unorm8 is chosen by default as glTF vertex color is clamped to [0, 1] and HDR vertex color isn't common.
+                (Mesh::ATTRIBUTE_COLOR.id, AttributeQuantization::Unorm8),
+                (
+                    Mesh::ATTRIBUTE_JOINT_WEIGHT.id,
+                    AttributeQuantization::Unorm16,
+                ),
+            ])
+                .into(),
             compress_attributes: MeshAttributeCompressionFlags::all(),
         }
     }
@@ -326,7 +316,7 @@ bitflags::bitflags! {
     /// If the corresponding attribute compression is enabled:
     /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
     /// - Normal and tangent will be Snorm16x2 with octahedral encoding, using [`octahedral_encode_signed`] and [`octahedral_encode_tangent`].
-    /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so them can go beyond [0, 1], though a larger range will reduce precision.
+    /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so they can go beyond [0, 1], though a larger range will reduce precision.
     ///
     /// [`octahedral_encode_signed`]: crate::vertex::octahedral_encode_signed
     /// [`octahedral_encode_tangent`]: crate::vertex::octahedral_encode_tangent
@@ -1293,7 +1283,7 @@ impl Mesh {
         {
             let _ = self.compress_uv1();
         }
-        for (attr, quantization) in args.quantize_attributes.attributes.iter().copied() {
+        for (attr, quantization) in args.quantize_attributes.iter().copied() {
             let _ = self.quantize_float32_attribute(attr, quantization);
         }
         if args.compress_indices {

@@ -159,7 +159,7 @@ fn main() {
                 })
                 .set(GltfPlugin {
                     mesh_compression: if args.mesh_compression {
-                        MeshCompressionArgs::all()
+                        MeshCompressionArgs::regular()
                     } else {
                         MeshCompressionArgs::none()
                     },

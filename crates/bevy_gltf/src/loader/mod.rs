@@ -162,7 +162,7 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
-    /// Default Mesh compression arguments for the loaded meshes.
+    /// Default mesh compression arguments for the loaded meshes.
     pub default_mesh_compression: MeshCompressionArgs,
 }
 
