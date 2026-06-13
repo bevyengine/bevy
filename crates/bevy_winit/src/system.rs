@@ -477,12 +477,10 @@ pub(crate) fn changed_windows(
                 } else {
                     commands.entity(entity).remove::<OnMonitor>();
                 }
-            } else {
-                if let Some(winit_monitor) = winit_window.current_monitor()
-                    && let Some((_, winit_monitor_entity)) = monitors.monitors.iter()
-                    .find(|(h, _)| h == &winit_monitor) {
-                    commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
-                }
+            } else if let Some(winit_monitor) = winit_window.current_monitor()
+                && let Some((_, winit_monitor_entity)) = monitors.monitors.iter()
+                .find(|(h, _)| h == &winit_monitor) {
+                commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
             }
 
             if let Some(maximized) = window.internal.take_maximize_request() {
