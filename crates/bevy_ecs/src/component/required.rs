@@ -766,6 +766,29 @@ mod tests {
     }
 
     #[test]
+    fn insert_if_new_shared_required_uses_added_requiree_constructor() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Req(usize);
+
+        #[derive(Component)]
+        #[require(Req = Req(1))]
+        struct A;
+
+        #[derive(Component)]
+        #[require(Req = Req(2))]
+        struct B;
+
+        let mut world = World::new();
+        let id = world.spawn(A).id();
+        world.entity_mut(id).remove::<Req>();
+
+        // `A` is already present, so this is effectively `insert(B)`: the shared `Req` should take
+        // `B`'s constructor, not the bundle's first-requiree `A`'s.
+        world.entity_mut(id).insert_if_new((A, B));
+        assert_eq!(world.entity(id).get::<Req>(), Some(&Req(2)));
+    }
+
+    #[test]
     fn required_components() {
         #[derive(Component)]
         #[require(Y)]
