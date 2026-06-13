@@ -5,10 +5,8 @@ use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    component::Component,
+    change_detection::DetectChanges,
     entity::Entity,
-    reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::Ref,
 };
@@ -16,8 +14,7 @@ use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
@@ -28,10 +25,6 @@ use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 use taffy::MaybeMath;
-
-#[derive(Component, Clone, Copy, PartialEq, Debug, Default, Reflect)]
-#[reflect(Component, Default, Clone)]
-pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
     width: Option<f32>,
@@ -496,104 +489,5 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
             x: geom.x1 as f32,
             y: geom.y1 as f32,
         },
-    }
-}
-
-/// Scroll editable text to keep cursor in view after edits.
-pub fn scroll_editable_text(
-    input_focus: Option<Res<InputFocus>>,
-    mut previous_focus: Local<Option<Entity>>,
-    mut query: Query<(
-        Entity,
-        Ref<EditableText>,
-        Ref<EditableTextGeneration>,
-        &mut TextScroll,
-        &ComputedNode,
-        &TextLayoutInfo,
-    )>,
-) {
-    let current_focus = input_focus
-        .as_ref()
-        .and_then(|input_focus| input_focus.get());
-    let focus_changed = *previous_focus != current_focus;
-
-    for (entity, editable_text, generation, mut scroll, node, info) in query.iter_mut() {
-        if !(editable_text.is_changed()
-            || generation.is_changed()
-            || focus_changed && (Some(entity) == *previous_focus || Some(entity) == current_focus))
-        {
-            continue;
-        }
-
-        let view_size = node.content_box().size();
-        if view_size.cmple(Vec2::ZERO).any() {
-            scroll.set_if_neq(TextScroll(Vec2::ZERO));
-            continue;
-        }
-
-        let Some(cursor) = info.cursor.map(|(_, rect)| rect) else {
-            continue;
-        };
-
-        let Some(layout) = editable_text.editor.try_layout() else {
-            continue;
-        };
-
-        let Some((line_min, line_max)) = find_visual_line_bounds(layout, cursor.center().y) else {
-            continue;
-        };
-
-        let max_scroll_x = (if input_focus
-            .as_ref()
-            .is_some_and(|input_focus| input_focus.get() == Some(entity))
-        {
-            info.size.x.max(cursor.max.x)
-        } else {
-            info.size.x
-        } - view_size.x)
-            .max(0.);
-
-        scroll.set_if_neq(TextScroll(Vec2 {
-            x: scroll_axis(
-                scroll.0.x,
-                scroll.0.x + view_size.x,
-                cursor.min.x,
-                cursor.max.x,
-            )
-            .clamp(0., max_scroll_x)
-            .floor(),
-            y: scroll_axis(scroll.0.y, scroll.0.y + view_size.y, line_min, line_max).floor(),
-        }));
-    }
-
-    *previous_focus = current_focus;
-}
-
-fn find_visual_line_bounds<B: parley::Brush>(
-    layout: &parley::Layout<B>,
-    y: f32,
-) -> Option<(f32, f32)> {
-    let mut min = 0.0;
-    for line in layout.lines() {
-        let max = min + line.metrics().line_height;
-        if y < max {
-            return Some((min, max));
-        }
-        min = max;
-    }
-    None
-}
-
-fn scroll_axis(v_min: f32, v_max: f32, t_min: f32, t_max: f32) -> f32 {
-    let v_size = v_max - v_min;
-    let t_size = t_max - t_min;
-    if v_size < t_size {
-        t_min + (t_size - v_size) / 2.
-    } else if t_min < v_min {
-        t_min
-    } else if v_max < t_max {
-        t_max - v_size
-    } else {
-        v_min
     }
 }

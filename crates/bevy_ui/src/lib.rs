@@ -268,10 +268,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            (
-                widget::update_editable_text_layout.before(bevy_asset::AssetEventSystems),
-                widget::scroll_editable_text,
-            )
+            widget::update_editable_text_layout
                 .chain()
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
@@ -281,6 +278,7 @@ fn build_text_interop(app: &mut App) {
                 // as editable_text_system or related systems could generate focus changes
                 // which should be processed ASAP.
                 .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
+                .before(bevy_asset::AssetEventSystems)
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),

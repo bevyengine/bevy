@@ -19,7 +19,7 @@ use bevy_picking::events::{Drag, Pointer, Press, Release};
 use bevy_picking::pointer::PointerButton;
 use bevy_reflect::Reflect;
 use bevy_text::{EditableText, PreeditCursor, TextEdit};
-use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
+use bevy_ui::widget::update_editable_text_layout;
 use bevy_ui::UiSystems;
 use bevy_ui::{
     widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
@@ -167,7 +167,6 @@ fn on_pointer_press(
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
-        &TextScroll,
     )>,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
@@ -177,9 +176,18 @@ fn on_pointer_press(
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform, text_scroll)) =
-        text_input_query.get_mut(press.entity)
+    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(press.entity)
     else {
+        return;
+    };
+
+    let Some(local_pos) = transform.try_inverse().and_then(|inverse| {
+        let local_pos = inverse
+            .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0);
+        node.content_box()
+            .contains(local_pos)
+            .then(|| local_pos - node.content_box().min + editable_text.viewport.offset)
+    }) else {
         return;
     };
 
@@ -187,15 +195,6 @@ fn on_pointer_press(
         // The IME is active; all input needs to be routed there, including pointer presses.
         return;
     }
-
-    let Some(local_pos) = transform.try_inverse().map(|inverse| {
-        inverse
-            .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0)
-            - node.content_box().min
-            + text_scroll.0
-    }) else {
-        return;
-    };
 
     match press.count {
         1 => {
@@ -227,7 +226,6 @@ fn on_pointer_drag(
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
-        &TextScroll,
     )>,
     ui_scale: Res<UiScale>,
 ) {
@@ -235,8 +233,7 @@ fn on_pointer_drag(
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform, text_scroll)) =
-        text_input_query.get_mut(drag.entity)
+    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(drag.entity)
     else {
         return;
     };
@@ -250,7 +247,7 @@ fn on_pointer_drag(
         inverse
             .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
             - node.content_box().min
-            + text_scroll.0
+            + editable_text.viewport.offset
     }) else {
         return;
     };
@@ -327,7 +324,6 @@ fn update_ime_position(
         &ComputedNode,
         &UiGlobalTransform,
         &ComputedUiRenderTargetInfo,
-        &TextScroll,
     )>,
     // TODO: support multiple windows and track which one has focus
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
@@ -336,9 +332,7 @@ fn update_ime_position(
     let Some(focused) = input_focus.get() else {
         return;
     };
-    let Ok((editable_text, node, transform, target, text_scroll)) =
-        editable_text_query.get(focused)
-    else {
+    let Ok((editable_text, node, transform, target)) = editable_text_query.get(focused) else {
         return;
     };
 
@@ -351,7 +345,7 @@ fn update_ime_position(
     // Use `y1` (bottom edge) so the OS-drawn candidate box sits below the current line
     // rather than overlapping it.
     let parley_local = Vec2::new(area.x0 as f32, area.y1 as f32);
-    let ui_local = parley_local + node.content_box().min - text_scroll.0;
+    let ui_local = parley_local + node.content_box().min - editable_text.viewport.offset;
     window.ime_position =
         transform.affine().transform_point2(ui_local) * ui_scale.0 / target.scale_factor();
 }
@@ -513,7 +507,6 @@ impl Plugin for EditableTextInputPlugin {
                     .in_set(UiSystems::PostLayout)
                     .before(AccessibilitySystems::Update)
                     .after(update_editable_text_layout)
-                    .after(scroll_editable_text)
                     // FocusChangeEvents does not mutate the actual InputFocus;
                     // this is a false positive that can be ignored
                     .ambiguous_with(InputFocusSystems::FocusChangeEvents),
@@ -529,7 +522,6 @@ impl Plugin for EditableTextInputPlugin {
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.
         app.register_required_components::<EditableText, Node>()
             .register_required_components::<EditableText, TextNodeFlags>()
-            .register_required_components::<EditableText, ContentSize>()
-            .register_required_components::<EditableText, TextScroll>();
+            .register_required_components::<EditableText, ContentSize>();
     }
 }
