@@ -1087,6 +1087,23 @@ pub fn prepare_lights(
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
+    let mut auxiliary_entities: Vec<Option<(Entity, MainEntity)>> = sorted_cameras
+        .0
+        .iter()
+        .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
+        .filter(|(_, _, _, _, _, _, _, camera)| {
+            camera.is_some_and(|camera| camera.has_own_shadow_maps)
+        })
+        .map(|(entity, main_entity, _, _, _, _, _, _)| {
+            Some((entity, MainEntity::from(main_entity)))
+        })
+        .collect();
+    if views_count - auxiliary_entities.len() > 0 {
+        // There exist views that necessitate creating the shared shadow map.
+        // The shared shadow map has an auxiliary entity of None.
+        auxiliary_entities.push(None);
+    }
+
     let Some(mut view_gpu_lights_writer) =
         light_meta
             .view_gpu_lights
@@ -1406,7 +1423,9 @@ pub fn prepare_lights(
             size: Extent3d {
                 width: point_light_shadow_map.size as u32,
                 height: point_light_shadow_map.size as u32,
-                depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32 * 6,
+                depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32
+                    * auxiliary_entities.len() as u32
+                    * 6,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -1551,7 +1570,7 @@ pub fn prepare_lights(
                 light.shadow_map_near_z,
             );
 
-            for auxiliary_entity in auxiliary_entities.iter() {
+            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
                 let light_view_entities: Vec<_> =
                     (0..6).map(|_| commands.spawn_empty().id()).collect();
                 for (face_index, ((view_rotation, frustum), view_light_entity)) in
@@ -1561,8 +1580,9 @@ pub fn prepare_lights(
                         .zip(light_view_entities.iter().copied())
                         .enumerate()
                 {
-                    let base_array_layer = (light_index * 6 + face_index) as u32;
-
+                    let base_array_layer = (light_index * auxiliary_entities.len() * 6
+                        + aux_entity_index * 6
+                        + face_index) as u32;
                     let depth_attachment = point_light_depth_attachments
                         .entry(base_array_layer)
                         .or_insert_with(|| {
@@ -1579,10 +1599,10 @@ pub fn prepare_lights(
                                     array_layer_count: Some(1u32),
                                 },
                             );
-
                             DepthAttachment::new(depth_texture_view, Some(0.0))
                         })
                         .clone();
+
                     let retained_view_entity = RetainedViewEntity::new(
                         *light_main_entity,
                         auxiliary_entity.map(|(_, main_entity)| main_entity),
@@ -1624,6 +1644,17 @@ pub fn prepare_lights(
                         commands
                             .entity(view_light_entity)
                             .insert(RootNonCameraView(Core3d.intern()));
+                    } else if let Some((entity, _)) = auxiliary_entity
+                        && let Some((_, _, _, _, maybe_render_layers, _, _, _)) =
+                            views.get(*entity).ok()
+                        && let Some(render_layers) = maybe_render_layers
+                    {
+                        // When render_layers is fixed for lights, this should probably make sure
+                        // that the resulting render_layers is the intersection of the light's and the view's
+                        println!("{render_layers:?}");
+                        commands
+                            .entity(view_light_entity)
+                            .insert(render_layers.clone());
                     }
 
                     if !matches!(
@@ -1657,7 +1688,7 @@ pub fn prepare_lights(
                 light.shadow_map_near_z,
             );
             for auxiliary_entity in auxiliary_entities.iter() {
-                let light_view_entities = if let Some((entity, main_entity)) = auxiliary_entity {
+                let light_view_entities = if let Some((_, main_entity)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
                         .1
                         .get(&main_entity.entity());
@@ -1745,21 +1776,6 @@ pub fn prepare_lights(
             continue;
         }
 
-        let mut auxiliary_entities: Vec<Option<MainEntity>> = sorted_cameras
-            .0
-            .iter()
-            .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
-            .filter(|(_, _, _, _, _, _, _, camera)| {
-                camera.is_some_and(|camera| camera.has_own_shadow_maps)
-            })
-            .map(|(_, main_entity, _, _, _, _, _, _)| Some(MainEntity::from(main_entity)))
-            .collect();
-        if views_count - auxiliary_entities.len() > 0 {
-            // There exist views that necessitate creating the shared shadow map.
-            // The shared shadow map has an auxiliary entity of None.
-            auxiliary_entities.push(None);
-        }
-
         if point_and_spot_light_view_entities.0.is_empty()
             && point_and_spot_light_view_entities.1.is_empty()
         {
@@ -1770,9 +1786,11 @@ pub fn prepare_lights(
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
-            let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
+            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
+                // TODO take into consideration the current aux_entity too
+                let base_array_layer =
+                    (num_directional_cascades_enabled + light_index + aux_entity_index) as u32;
 
-            for auxiliary_entity in auxiliary_entities.iter() {
                 let depth_attachment = directional_light_depth_attachments
                     .entry(base_array_layer)
                     .or_insert_with(|| {
@@ -1795,15 +1813,19 @@ pub fn prepare_lights(
                     .clone();
 
                 let view_light_entity = commands.spawn_empty().id();
-                let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, *auxiliary_entity, 0);
+                let retained_view_entity = RetainedViewEntity::new(
+                    *light_main_entity,
+                    auxiliary_entity.map(|(_, main_entity)| main_entity),
+                    0,
+                );
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
                             "shadow_spot_light_{}_aux_{:?}",
-                            light_index, *auxiliary_entity,
+                            light_index,
+                            auxiliary_entity.map(|(_, main_entity)| main_entity),
                         ),
                     },
                     ExtractedView {
@@ -1839,10 +1861,10 @@ pub fn prepare_lights(
                     commands.entity(view_light_entity).insert(NoIndirectDrawing);
                 }
 
-                if let Some(entity) = auxiliary_entity {
+                if let Some((_, main_entity)) = auxiliary_entity {
                     point_and_spot_light_view_entities
                         .1
-                        .insert(entity.entity(), vec![view_light_entity]);
+                        .insert(main_entity.entity(), vec![view_light_entity]);
                 } else {
                     point_and_spot_light_view_entities.0 = vec![view_light_entity];
                 }
@@ -1858,7 +1880,7 @@ pub fn prepare_lights(
 
             for auxiliary_entity in auxiliary_entities.iter() {
                 // There should be only one `view_light_entity` for spotlights.
-                let view_light_entity = if let Some(main_entity) = auxiliary_entity {
+                let view_light_entity = if let Some((_, main_entity)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
                         .1
                         .get(&main_entity.entity());
@@ -1870,8 +1892,11 @@ pub fn prepare_lights(
                 } else {
                     point_and_spot_light_view_entities.0[0]
                 };
-                let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, *auxiliary_entity, 0);
+                let retained_view_entity = RetainedViewEntity::new(
+                    *light_main_entity,
+                    auxiliary_entity.map(|(_, main_entity)| main_entity),
+                    0,
+                );
                 commands.entity(view_light_entity).insert((
                     ExtractedView {
                         retained_view_entity,
@@ -1896,8 +1921,11 @@ pub fn prepare_lights(
         // TODO if there were added views or removed views, we need to also spawn/despawn the appropriate light view entity.
 
         for auxiliary_entity in auxiliary_entities.iter() {
-            let retained_view_entity =
-                RetainedViewEntity::new(*light_main_entity, *auxiliary_entity, 0);
+            let retained_view_entity = RetainedViewEntity::new(
+                *light_main_entity,
+                auxiliary_entity.map(|(_, main_entity)| main_entity),
+                0,
+            );
             shadow_render_phases.prepare_for_new_frame(
                 retained_view_entity,
                 gpu_preprocessing_support.max_supported_mode,
@@ -2535,6 +2563,7 @@ pub(crate) fn specialize_shadows(
                 {
                     continue;
                 }
+
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                     continue;
                 };
@@ -2712,8 +2741,10 @@ pub fn queue_shadows(
             let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
             let view_render_layers = maybe_view_render_layers.unwrap_or_default();
             if !view_render_layers.intersects(mesh_layers) {
+                println!("{view_render_layers:?} {mesh_layers:?} render layers do not intersect");
                 continue;
             }
+            println!("{view_render_layers:?} {mesh_layers:?} render layers do intersect");
 
             let Some(material_instance) = render_material_instances.instances.get(main_entity)
             else {
@@ -2910,8 +2941,8 @@ pub fn shared_shadow_pass<const IS_LATE: bool>(
 
 /// Renders the shadow maps that are associated with a specific view.
 ///
-/// At present, these consist of the directional light shadows
-/// and opted-in camera-specific point and spot light shadows
+/// These consist of the directional light shadows
+/// and opt-in camera-specific point and spot light shadows
 pub fn per_view_shadow_pass<const IS_LATE: bool>(
     world: &World,
     view: ViewQuery<(&ViewLightEntities, &PointLightShadowViewEntities)>,

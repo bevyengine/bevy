@@ -129,6 +129,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // Unpack the view.
     let exposure = view.exposure;
+    let point_shadow_map_offset = view.point_shadow_map_offset;
 
     // Sample the depth to put an upper bound on the length of the ray (as we
     // shouldn't trace through solid objects). If this is multisample, just use
@@ -392,7 +393,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
+                    shadow = fetch_point_shadow_without_normal(light_id, point_shadow_map_offset, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= shadow;
             } else {
@@ -444,7 +445,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4(accumulated_color, 1.0 - background_alpha);
 }
 
-fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+fn fetch_point_shadow_without_normal(light_id: u32, point_shadow_map_offset: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
     let light = &clustered_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -474,7 +475,8 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fr
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     let flip_z = vec3(1.0, 1.0, -1.0);
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
+    let light_index = light_id + point_shadow_map_offset;
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_index, frag_coord_xy);
 }
 
 fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {

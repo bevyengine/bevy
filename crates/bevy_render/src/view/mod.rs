@@ -10,7 +10,9 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    camera::{
+        ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, SortedCameras, TemporalJitter,
+    },
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -28,7 +30,7 @@ use alloc::sync::{Arc, Weak};
 use bevy_app::{App, Plugin};
 use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, VariantDefaults};
+use bevy_ecs::{entity::EntityHashMap, prelude::*, VariantDefaults};
 use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -669,6 +671,9 @@ pub struct ViewUniform {
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
+    /// This offset is used to fetch the correct point shadow map to use for this view.
+    /// This is used to accommodates views that may be configured to have their own point shadow maps.
+    pub point_shadow_map_index_offset: u32,
 }
 
 #[derive(Resource)]
@@ -1014,9 +1019,23 @@ pub fn prepare_view_uniforms(
     )>,
     frame_count: Res<FrameCount>,
     shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
+    sorted_cameras: Res<SortedCameras>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
+    // The logic here (i.e. the usage of sorted cameras) must preserve the ordering used
+    // to generate the list of auxiliary entities for RetainedViewEntities in prepare_lights
+    let own_shadow_map_view_to_index: EntityHashMap<usize> = sorted_cameras
+        .0
+        .iter()
+        .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
+        .filter(|(_, extracted_camera, _, _, _, _, _)| {
+            extracted_camera.is_some_and(|camera| camera.has_own_shadow_maps)
+        })
+        .map(|(entity, _, _, _, _, _, _)| entity)
+        .enumerate()
+        .map(|(index, entity)| (entity, index))
+        .collect();
     let Some(mut writer) =
         view_uniforms
             .uniforms
@@ -1122,6 +1141,10 @@ pub fn prepare_view_uniforms(
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
+                point_shadow_map_index_offset: *own_shadow_map_view_to_index
+                    .get(&entity)
+                    .unwrap_or(&(own_shadow_map_view_to_index.len()))
+                    as u32,
             }),
         };
 
