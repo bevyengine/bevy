@@ -129,7 +129,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // Unpack the view.
     let exposure = view.exposure;
-    let point_spot_shadow_map_offset = view.point_spot_shadow_map_offset;
+    let point_spot_shadow_map_offset = view.point_spot_shadow_map_index_offset;
 
     // Sample the depth to put an upper bound on the length of the ray (as we
     // shouldn't trace through solid objects). If this is multisample, just use
