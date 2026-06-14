@@ -72,7 +72,7 @@ struct View {
     frame_count: u32,
     // This offset is used to fetch the correct point shadow map to use for this view.
     // This is used to accommodates views that may be configured to have their own point shadow maps.
-    point_shadow_map_index_offset: u32,
+    point_spot_shadow_map_index_offset: u32,
 };
 
 /// World space:

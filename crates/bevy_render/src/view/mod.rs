@@ -671,9 +671,9 @@ pub struct ViewUniform {
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
-    /// This offset is used to fetch the correct point shadow map to use for this view.
-    /// This is used to accommodates views that may be configured to have their own point shadow maps.
-    pub point_shadow_map_index_offset: u32,
+    /// This offset is used to fetch the correct point or spot shadow map to use for this view.
+    /// This is used to accommodates views that may be configured to have their own point or spot shadow maps.
+    pub point_spot_shadow_map_index_offset: u32,
 }
 
 #[derive(Resource)]
@@ -1141,7 +1141,7 @@ pub fn prepare_view_uniforms(
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
-                point_shadow_map_index_offset: *own_shadow_map_view_to_index
+                point_spot_shadow_map_index_offset: *own_shadow_map_view_to_index
                     .get(&entity)
                     .unwrap_or(&(own_shadow_map_view_to_index.len()))
                     as u32,

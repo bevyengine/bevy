@@ -72,6 +72,7 @@ fn fetch_point_shadow(
 
 fn fetch_spot_shadow(
     light_id: u32,
+    view_specific_spot_shadow_map_offset: u32,
     frag_position: vec4<f32>,
     surface_normal: vec3<f32>,
     near_z: f32,
@@ -114,8 +115,7 @@ fn fetch_spot_shadow(
     let depth = near_z / -projected_position.z;
 
     // If soft shadows are enabled, use the PCSS path.
-    // TODO array_index needs to be updated here.
-    let array_index = i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset;
+    let array_index = i32(light_id) + i32(view_specific_spot_shadow_map_offset) + view_bindings::lights.spot_light_shadowmap_offset;
     if ((*light).soft_shadow_size > 0.0) {
         return sample_shadow_map_pcss(
             shadow_uv,
