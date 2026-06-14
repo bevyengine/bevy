@@ -74,7 +74,7 @@ use tracing::warn;
 
 use crate::{
     LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
-    PointLightShadowViewEntities,
+    PointLightShadowViewEntities, SpotLightShadowViewEntity,
 };
 
 use super::{ShadowView, ViewLightEntities};
@@ -531,6 +531,7 @@ pub fn unpack_bins(
         (
             Option<&ViewLightEntities>,
             Option<&PointLightShadowViewEntities>,
+            Option<&SpotLightShadowViewEntity>,
         ),
         Without<SkipGpuPreprocess>,
     >,
@@ -555,11 +556,13 @@ pub fn unpack_bins(
 
     // Gather up all views.
     let view_entity = current_view.entity();
-    let (shadow_cascade_views, point_light_shadow_views) = current_view.into_inner();
+    let (shadow_cascade_views, point_light_shadow_views, spot_light_shadow_view) =
+        current_view.into_inner();
     let all_views = gather_shadow_cascades_for_view(
         view_entity,
         shadow_cascade_views,
         point_light_shadow_views,
+        spot_light_shadow_view,
         &light_query,
     );
 
@@ -617,6 +620,7 @@ pub fn early_gpu_preprocess(
         (
             Option<&ViewLightEntities>,
             Option<&PointLightShadowViewEntities>,
+            Option<&SpotLightShadowViewEntity>,
         ),
         Without<SkipGpuPreprocess>,
     >,
@@ -649,11 +653,13 @@ pub fn early_gpu_preprocess(
     let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
     let view_entity = current_view.entity();
-    let (shadow_cascade_views, point_light_shadow_views) = current_view.into_inner();
+    let (shadow_cascade_views, point_light_shadow_views, spot_light_shadow_view) =
+        current_view.into_inner();
     let all_views = gather_shadow_cascades_for_view(
         view_entity,
         shadow_cascade_views,
         point_light_shadow_views,
+        spot_light_shadow_view,
         &light_query,
     );
 
@@ -819,6 +825,7 @@ fn gather_shadow_cascades_for_view(
     view_entity: Entity,
     shadow_cascade_views: Option<&ViewLightEntities>,
     point_light_shadow_views: Option<&PointLightShadowViewEntities>,
+    spot_light_shadow_view: Option<&SpotLightShadowViewEntity>,
     light_query: &Query<&LightEntity>,
 ) -> SmallVec<[Entity; 8]> {
     let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
@@ -848,6 +855,13 @@ fn gather_shadow_cascades_for_view(
                 })
                 .copied(),
         );
+    }
+    if let Some(spot_light_shadow_view) = spot_light_shadow_view
+        && light_query
+            .get(spot_light_shadow_view.shadow_view_entity)
+            .is_ok_and(|light_entity| matches!(*light_entity, LightEntity::Spot { .. }))
+    {
+        all_views.push(spot_light_shadow_view.shadow_view_entity);
     }
     all_views
 }
