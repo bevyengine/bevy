@@ -1537,6 +1537,18 @@ pub fn prepare_lights(
                 &mut commands,
                 mem::take(&mut point_and_spot_light_view_entities.0),
             );
+            for (view_entity, mut light_view_entities) in
+                point_and_spot_light_view_entities.1.iter_mut()
+            {
+                commands
+                        .entity(*view_entity)
+                        .remove::<PointLightShadowViewEntities>();
+                despawn_entities(
+                    &mut commands,
+                    mem::take(&mut light_view_entities),
+                );
+            }
+            mem::take(&mut point_and_spot_light_view_entities.1);
             continue;
         }
 
@@ -1592,10 +1604,6 @@ pub fn prepare_lights(
                     commands
                         .entity(*view_entity)
                         .remove::<PointLightShadowViewEntities>();
-                    for face_index in 0..cube_face_rotations.len() {
-                        point_light_depth_attachments
-                            .remove(&((light_index + face_index) as u32, Some(*view_entity)));
-                    }
                     light_view_entities.clear();
                     to_remove.push(*view_entity);
                 }
@@ -1739,6 +1747,18 @@ pub fn prepare_lights(
                 &mut commands,
                 mem::take(&mut point_and_spot_light_view_entities.0),
             );
+            for (view_entity, mut light_view_entities) in
+                point_and_spot_light_view_entities.1.iter_mut()
+            {
+                commands
+                        .entity(*view_entity)
+                        .remove::<SpotLightShadowViewEntity>();
+                despawn_entities(
+                    &mut commands,
+                    mem::take(&mut light_view_entities),
+                );
+            }
+            mem::take(&mut point_and_spot_light_view_entities.1);
             continue;
         }
 
@@ -1793,10 +1813,6 @@ pub fn prepare_lights(
                     commands
                         .entity(*view_entity)
                         .remove::<SpotLightShadowViewEntity>();
-                    directional_light_depth_attachments.remove(&(
-                        (num_directional_cascades_enabled + light_index) as u32,
-                        Some(*view_entity),
-                    ));
                     light_view_entities.clear();
                     to_remove.push(*view_entity);
                 }
