@@ -1418,7 +1418,8 @@ pub fn prepare_lights(
 
     let mut point_light_depth_attachments =
         HashMap::<(u32, Option<Entity>), DepthAttachment>::default();
-    let mut directional_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
+    let mut directional_light_depth_attachments =
+        HashMap::<(u32, Option<Entity>), DepthAttachment>::default();
 
     let point_light_depth_texture = texture_cache.get(
         &render_device,
@@ -1479,8 +1480,8 @@ pub fn prepare_lights(
                 height: (directional_light_shadow_map.size as u32)
                     .min(render_device.limits().max_texture_dimension_2d),
                 depth_or_array_layers: (num_directional_cascades_enabled
-                    + spot_light_shadow_maps_count)
-                    .max(1) as u32,
+                    + spot_light_shadow_maps_count * auxiliary_entities.len())
+                .max(1) as u32,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -1516,6 +1517,7 @@ pub fn prepare_lights(
 
     let mut live_views = EntityHashSet::with_capacity(views_count);
 
+    // point lights
     // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
     for light_entity in point_light_entities
         .iter()
@@ -1576,7 +1578,10 @@ pub fn prepare_lights(
             }
         } else {
             // Remove any view-specific shadow maps that are no longer requested
-            for (view_entity, light_view_entities) in point_and_spot_light_view_entities.1.iter() {
+            let mut to_remove = vec![];
+            for (view_entity, light_view_entities) in
+                point_and_spot_light_view_entities.1.iter_mut()
+            {
                 if !auxiliary_entities
                     .iter()
                     .any(|aux_entity| aux_entity.is_some_and(|(entity, _)| entity == *view_entity))
@@ -1591,8 +1596,13 @@ pub fn prepare_lights(
                         point_light_depth_attachments
                             .remove(&((light_index + face_index) as u32, Some(*view_entity)));
                     }
+                    light_view_entities.clear();
+                    to_remove.push(*view_entity);
                 }
             }
+            to_remove.iter().for_each(|entity| {
+                point_and_spot_light_view_entities.1.remove(entity);
+            });
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
@@ -1732,16 +1742,22 @@ pub fn prepare_lights(
             continue;
         }
 
-        if point_and_spot_light_view_entities.0.is_empty()
-            && point_and_spot_light_view_entities.1.is_empty()
-        {
-            let spot_world_from_view = spot_light_world_from_view(&light.transform);
-            let spot_world_from_view = spot_world_from_view.into();
+        let spot_world_from_view = spot_light_world_from_view(&light.transform);
+        let spot_world_from_view = spot_world_from_view.into();
 
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
+        let angle = light
+            .spot_light_angles
+            .expect(
+                "lights should be sorted so that \
+            [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights",
+            )
+            .1;
+        let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
+        let init = point_and_spot_light_view_entities.0.is_empty()
+            && point_and_spot_light_view_entities.1.is_empty();
+
+        if init {
             for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
                 create_spot_shadow_map(
                     &mut commands,
@@ -1761,8 +1777,75 @@ pub fn prepare_lights(
                     gpu_preprocessing_support.max_supported_mode,
                 );
             }
-        } else if changed_point_lights.get(*light_entity).is_ok() {
-            // If the spot light was changed, update the `ExtractedView` only.
+        } else {
+            // Remove any view-specific shadow maps that are no longer requested
+            let mut to_remove = vec![];
+            for (view_entity, light_view_entities) in
+                point_and_spot_light_view_entities.1.iter_mut()
+            {
+                if !auxiliary_entities
+                    .iter()
+                    .any(|aux_entity| aux_entity.is_some_and(|(entity, _)| entity == *view_entity))
+                {
+                    for view_light_entity in light_view_entities.iter() {
+                        commands.entity(*view_light_entity).despawn();
+                    }
+                    commands
+                        .entity(*view_entity)
+                        .remove::<SpotLightShadowViewEntity>();
+                    directional_light_depth_attachments.remove(&(
+                        (num_directional_cascades_enabled + light_index) as u32,
+                        Some(*view_entity),
+                    ));
+                    light_view_entities.clear();
+                    to_remove.push(*view_entity);
+                }
+            }
+            to_remove.iter().for_each(|entity| {
+                point_and_spot_light_view_entities.1.remove(entity);
+            });
+
+            // Remove the non view specific shadow map if it is no longer needed
+            if !point_and_spot_light_view_entities.0.is_empty()
+                && views_count - auxiliary_entities.len() == 0
+            {
+                for view_light_entity in point_and_spot_light_view_entities.0.iter() {
+                    commands.entity(*view_light_entity).despawn();
+                }
+                point_and_spot_light_view_entities.0.clear();
+            }
+
+            // Add any shadow maps that are missing
+            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
+                let insert_shadow_map = match auxiliary_entity {
+                    Some((entity, _)) => point_and_spot_light_view_entities.1.get(entity).is_none(),
+                    None => point_and_spot_light_view_entities.0.is_empty(),
+                };
+
+                if insert_shadow_map {
+                    create_spot_shadow_map(
+                        &mut commands,
+                        &mut point_and_spot_light_view_entities,
+                        &mut directional_light_depth_attachments,
+                        views,
+                        num_directional_cascades_enabled,
+                        &directional_light_depth_texture,
+                        (light_entity, light_main_entity, light_index),
+                        (
+                            directional_light_shadow_map.size as u32,
+                            spot_world_from_view,
+                            spot_projection,
+                            spot_light_frustum,
+                        ),
+                        (auxiliary_entities.len(), auxiliary_entity, aux_entity_index),
+                        gpu_preprocessing_support.max_supported_mode,
+                    );
+                }
+            }
+        }
+
+        if !init && changed_point_lights.get(*light_entity).is_ok() {
+            // If the spot light was changed, update the `ExtractedView` and the frustum
             let spot_world_from_view = spot_light_world_from_view(&light.transform);
             let spot_world_from_view = spot_world_from_view.into();
 
@@ -1779,6 +1862,11 @@ pub fn prepare_lights(
                     if let Some(v) = entry {
                         v[0]
                     } else {
+                        // This should not happen - point_and_spot_light_view_entities.1
+                        // should be synced with auxiliary_entities at this point
+                        // with the logic in the "if init else" block,
+                        // but it is not a fatal error if it does happen. It should have
+                        // been inserted with the updated `ExtractedView` and frustum anyway.
                         continue;
                     }
                 } else {
@@ -1809,10 +1897,6 @@ pub fn prepare_lights(
                 ));
             }
         }
-
-        // TODO if there were added views or removed views, we need to also spawn/despawn the appropriate light view entity.
-        // Update depth attachment.
-        // despawn the PointLightShadowViewEntities too.
 
         for auxiliary_entity in auxiliary_entities.iter() {
             let retained_view_entity = RetainedViewEntity::new(
@@ -2394,7 +2478,7 @@ fn create_point_shadow_maps(
 fn create_spot_shadow_map(
     commands: &mut Commands,
     point_and_spot_light_view_entities: &mut Mut<'_, PointAndSpotLightViewEntities>,
-    directional_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
+    directional_light_depth_attachments: &mut HashMap<(u32, Option<Entity>), DepthAttachment>,
     views: Query<
         (
             Entity,
@@ -2424,10 +2508,12 @@ fn create_spot_shadow_map(
     let base_array_layer = (num_directional_cascades_enabled
         + light_index * auxiliary_entities_size
         + aux_entity_index) as u32;
-
+    let depth_attachment_key = (
+        (num_directional_cascades_enabled + light_index) as u32,
+        auxiliary_entity.map(|(entity, _)| entity),
+    );
     let depth_attachment = directional_light_depth_attachments
-        // TODO change how the map key is structured
-        .entry(base_array_layer)
+        .entry(depth_attachment_key)
         .or_insert_with(|| {
             let depth_texture_view =
                 directional_light_depth_texture
