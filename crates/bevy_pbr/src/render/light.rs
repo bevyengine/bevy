@@ -1584,7 +1584,10 @@ pub fn prepare_lights(
 
             point_and_spot_light_view_entities.0 = light_view_entities;
         } else if changed_point_lights.get(*light_entity).is_ok() {
-            // If the point light was changed, update the `ExtractedView` only.
+            let light_index = *global_clusterable_object_meta
+                .entity_to_index
+                .get(light_entity)
+                .unwrap();
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
             let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
                 core::f32::consts::FRAC_PI_2,
@@ -1596,10 +1599,42 @@ pub fn prepare_lights(
                 .zip(&point_light_frusta.unwrap().frusta)
                 .enumerate()
             {
+                let base_array_layer = (light_index * 6 + face_index) as u32;
+
+                let depth_attachment = point_light_depth_attachments
+                    .entry(base_array_layer)
+                    .or_insert_with(|| {
+                        let depth_texture_view =
+                            point_light_depth_texture
+                                .texture
+                                .create_view(&TextureViewDescriptor {
+                                    label: Some("point_light_shadow_map_texture_view"),
+                                    format: None,
+                                    dimension: Some(TextureViewDimension::D2),
+                                    usage: None,
+                                    aspect: TextureAspect::All,
+                                    base_mip_level: 0,
+                                    mip_level_count: None,
+                                    base_array_layer,
+                                    array_layer_count: Some(1u32),
+                                });
+
+                        DepthAttachment::new(depth_texture_view, Some(0.0))
+                    })
+                    .clone();
+
                 let view_light_entity = point_and_spot_light_view_entities.0[face_index];
                 let retained_view_entity =
                     RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
                 commands.entity(view_light_entity).insert((
+                    ShadowView {
+                        depth_attachment,
+                        pass_name: format!(
+                            "shadow_point_light_{}_{}",
+                            light_index,
+                            face_index_to_name(face_index)
+                        ),
+                    },
                     ExtractedView {
                         retained_view_entity,
                         viewport: UVec4::new(
@@ -1737,9 +1772,36 @@ pub fn prepare_lights(
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
+            let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
+
+            let depth_attachment = directional_light_depth_attachments
+                .entry(base_array_layer)
+                .or_insert_with(|| {
+                    let depth_texture_view = directional_light_depth_texture.texture.create_view(
+                        &TextureViewDescriptor {
+                            label: Some("spot_light_shadow_map_texture_view"),
+                            format: None,
+                            dimension: Some(TextureViewDimension::D2),
+                            usage: None,
+                            aspect: TextureAspect::All,
+                            base_mip_level: 0,
+                            mip_level_count: None,
+                            base_array_layer,
+                            array_layer_count: Some(1u32),
+                        },
+                    );
+
+                    DepthAttachment::new(depth_texture_view, Some(0.0))
+                })
+                .clone();
+
             // There should be only one `view_light_entity` for spotlights.
             let view_light_entity = point_and_spot_light_view_entities.0[0];
             commands.entity(view_light_entity).insert((
+                ShadowView {
+                    depth_attachment,
+                    pass_name: format!("shadow_spot_light_{light_index}"),
+                },
                 ExtractedView {
                     retained_view_entity,
                     viewport: UVec4::new(
