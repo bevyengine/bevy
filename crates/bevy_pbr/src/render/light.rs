@@ -1611,7 +1611,7 @@ pub fn prepare_lights(
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
-                && views_count - auxiliary_entities.len() == 0
+                && auxiliary_entities[auxiliary_entities.len() - 1] != None
             {
                 for view_light_entity in point_and_spot_light_view_entities.0.iter() {
                     commands.entity(*view_light_entity).despawn();
@@ -1640,7 +1640,6 @@ pub fn prepare_lights(
                             view_translation,
                             cube_face_projection,
                         ),
-                        // The non view specific shadow map is at the end of the auxiliary_entities vec.
                         (auxiliary_entities.len(), auxiliary_entity, aux_entity_index),
                         gpu_preprocessing_support.max_supported_mode,
                     );
@@ -1817,7 +1816,7 @@ pub fn prepare_lights(
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
-                && views_count - auxiliary_entities.len() == 0
+                && auxiliary_entities[auxiliary_entities.len() - 1] != None
             {
                 for view_light_entity in point_and_spot_light_view_entities.0.iter() {
                     commands.entity(*view_light_entity).despawn();
