@@ -1025,6 +1025,8 @@ pub fn prepare_view_uniforms(
     let view_count = view_iter.len();
     // The logic here (i.e. the usage of sorted cameras) must preserve the ordering used
     // to generate the list of auxiliary entities for RetainedViewEntities in prepare_lights
+    // Note that the view-agnostic shadow map, if it exists, is created after all the view-specific shadow
+    // maps are created, and therefore exists at index own_shadow_map_view_to_index.len()
     let own_shadow_map_view_to_index: EntityHashMap<usize> = sorted_cameras
         .0
         .iter()
@@ -1143,6 +1145,8 @@ pub fn prepare_view_uniforms(
                 frame_count: frame_count.0,
                 point_spot_shadow_map_index_offset: *own_shadow_map_view_to_index
                     .get(&entity)
+                    // Refer to the view agnostic point/spot shadow map,
+                    // which is after all of the view-specific ones.
                     .unwrap_or(&(own_shadow_map_view_to_index.len()))
                     as u32,
             }),
