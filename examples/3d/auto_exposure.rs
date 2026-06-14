@@ -31,9 +31,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut compensation_curves: ResMut<Assets<AutoExposureCompensationCurve>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     let metering_mask = asset_server.load("textures/basic_metering_mask.png");
@@ -53,7 +51,7 @@ fn setup(
     ));
 
     commands.insert_resource(ExampleResources {
-        basic_compensation_curve: compensation_curves.add(
+        basic_compensation_curve: asset_commands.spawn_asset(
             AutoExposureCompensationCurve::from_curve(LinearSpline::new([
                 vec2(-4.0, -2.0),
                 vec2(0.0, 0.0),
@@ -65,7 +63,7 @@ fn setup(
         basic_metering_mask: metering_mask.clone(),
     });
 
-    let plane = meshes.add(Mesh::from(
+    let plane = asset_commands.spawn_asset(Mesh::from(
         Plane3d {
             normal: -Dir3::Z,
             half_size: Vec2::new(2.0, 0.5),
@@ -84,7 +82,7 @@ fn setup(
 
             commands.spawn((
                 Mesh3d(plane.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial {
+                MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                     base_color: Color::srgb(
                         0.5 + side.x * 0.5,
                         0.75 - level as f32 * 0.25,

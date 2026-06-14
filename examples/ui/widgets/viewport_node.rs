@@ -18,19 +18,14 @@ fn main() {
 #[reflect(Component)]
 struct Shape;
 
-fn test(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn test(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Spawn a UI camera
     commands.spawn(Camera3d::default());
 
     // Set up an texture for the 3D camera to render to.
     // The size of the texture will be based on the viewport's ui size.
     let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
-    let image_handle = images.add(image);
+    let image_handle = asset_commands.spawn_asset(image);
 
     // Spawn the 3D camera
     let camera = commands
@@ -48,8 +43,8 @@ fn test(
     // Spawn something for the 3D camera to look at
     commands
         .spawn((
-            Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
-            MeshMaterial3d(materials.add(Color::WHITE)),
+            Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(5.0, 5.0, 5.0)))),
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
             Transform::from_xyz(0.0, 0.0, -10.0),
             Shape,
         ))

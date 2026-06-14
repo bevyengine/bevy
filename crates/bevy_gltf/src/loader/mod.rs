@@ -2123,19 +2123,19 @@ pub struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfAssetLabel, GltfMaterial};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
             AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, DirectAssetAccessExt, Handle, LoadContext,
+        LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
-    use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_reflect::TypePath;
     use bevy_world_serialization::WorldSerializationPlugin;
@@ -2224,17 +2224,16 @@ mod test {
 "#,
         );
         let asset_server = app.world().resource::<AssetServer>();
-        let handle = asset_server.load(gltf_path);
-        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
-        let gltf_node_assets = app.world().resource::<Assets<GltfNode>>();
-        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+        let handle = asset_server.load::<Gltf>(gltf_path);
+        let gltf_root = app.world().get_asset(handle.id()).unwrap();
         assert!(gltf_root.nodes.len() == 1, "Single node");
         assert!(
             gltf_root.named_nodes.contains_key("TestSingleNode"),
             "Named node is in named nodes"
         );
-        let gltf_node = gltf_node_assets
-            .get(gltf_root.named_nodes.get("TestSingleNode").unwrap())
+        let gltf_node = app
+            .world()
+            .get_asset(gltf_root.named_nodes.get("TestSingleNode").unwrap().id())
             .unwrap();
         assert_eq!(gltf_node.name, "TestSingleNode", "Correct name");
         assert_eq!(gltf_node.index, 0, "Correct index");
@@ -2266,14 +2265,12 @@ mod test {
 "#,
         );
         let asset_server = app.world().resource::<AssetServer>();
-        let handle = asset_server.load(gltf_path);
-        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
-        let gltf_node_assets = app.world().resource::<Assets<GltfNode>>();
-        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+        let handle = asset_server.load::<Gltf>(gltf_path);
+        let gltf_root = app.world().get_asset(handle.id()).unwrap();
         let result = gltf_root
             .nodes
             .iter()
-            .map(|h| gltf_node_assets.get(h).unwrap())
+            .map(|h| app.world().get_asset(h.id()).unwrap())
             .collect::<Vec<_>>();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name, "l1");
@@ -2307,14 +2304,12 @@ mod test {
 "#,
         );
         let asset_server = app.world().resource::<AssetServer>();
-        let handle = asset_server.load(gltf_path);
-        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
-        let gltf_node_assets = app.world().resource::<Assets<GltfNode>>();
-        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+        let handle = asset_server.load::<Gltf>(gltf_path);
+        let gltf_root = app.world().get_asset(handle.id()).unwrap();
         let result = gltf_root
             .nodes
             .iter()
-            .map(|h| gltf_node_assets.get(h).unwrap())
+            .map(|h| app.world().get_asset(h.id()).unwrap())
             .collect::<Vec<_>>();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name, "l1");
@@ -2366,14 +2361,12 @@ mod test {
 "#,
         );
         let asset_server = app.world().resource::<AssetServer>();
-        let handle = asset_server.load(gltf_path);
-        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
-        let gltf_node_assets = app.world().resource::<Assets<GltfNode>>();
-        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+        let handle = asset_server.load::<Gltf>(gltf_path);
+        let gltf_root = app.world().get_asset(handle.id()).unwrap();
         let result = gltf_root
             .nodes
             .iter()
-            .map(|h| gltf_node_assets.get(h).unwrap())
+            .map(|h| app.world().get_asset(h.id()).unwrap())
             .collect::<Vec<_>>();
         assert_eq!(result.len(), 7);
         assert_eq!(result[0].name, "l1");
@@ -2532,25 +2525,22 @@ mod test {
 "#,
         );
         let asset_server = app.world().resource::<AssetServer>();
-        let handle = asset_server.load(gltf_path);
-        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
-        let gltf_node_assets = app.world().resource::<Assets<GltfNode>>();
-        let gltf_skin_assets = app.world().resource::<Assets<GltfSkin>>();
-        let gltf_inverse_bind_matrices = app
-            .world()
-            .resource::<Assets<SkinnedMeshInverseBindposes>>();
-        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+        let handle = asset_server.load::<Gltf>(gltf_path);
+        let gltf_root = app.world().get_asset(handle.id()).unwrap();
 
         assert_eq!(gltf_root.skins.len(), 1);
         assert_eq!(gltf_root.nodes.len(), 3);
 
-        let skin = gltf_skin_assets.get(&gltf_root.skins[0]).unwrap();
+        let skin = app.world().get_asset(gltf_root.skins[0].id()).unwrap();
         assert_eq!(skin.joints.len(), 2);
         assert_eq!(skin.joints[0], gltf_root.nodes[1]);
         assert_eq!(skin.joints[1], gltf_root.nodes[2]);
-        assert!(gltf_inverse_bind_matrices.contains(&skin.inverse_bind_matrices));
+        assert!(app
+            .world()
+            .get_asset(skin.inverse_bind_matrices.id())
+            .is_some());
 
-        let skinned_node = gltf_node_assets.get(&gltf_root.nodes[0]).unwrap();
+        let skinned_node = app.world().get_asset(gltf_root.nodes[0].id()).unwrap();
         assert_eq!(skinned_node.name, "skinned");
         assert_eq!(skinned_node.children.len(), 2);
         assert_eq!(skinned_node.skin.as_ref(), Some(&gltf_root.skins[0]));

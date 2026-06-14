@@ -1092,7 +1092,9 @@ mod tests {
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
     use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
-    use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_asset::{
+        Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, DirectAssetAccessExt, Handle,
+    };
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::name::Name;
     use bevy_ecs::prelude::*;
@@ -1268,14 +1270,9 @@ mod tests {
         // Insert an asset that the fake loader can fake read.
         dir.insert_asset_text(Path::new("a.bsn"), "");
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle = asset_server.load("a.bsn");
-        assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
+        let handle = asset_server.load::<ScenePatch>("a.bsn");
         run_app_until(&mut app, || asset_server.is_loaded(&handle));
-        let patch = app
-            .world()
-            .resource::<Assets<ScenePatch>>()
-            .get(&handle)
-            .unwrap();
+        let patch = app.world().get_asset(handle.id()).unwrap();
         assert!(patch.resolved.is_some());
 
         let world = app.world_mut();

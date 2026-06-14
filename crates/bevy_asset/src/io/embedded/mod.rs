@@ -385,20 +385,28 @@ pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) 
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle.id(), ($loader)(
+        use $crate::{AssetId, DirectAssetAccessExt};
+        let asset = ($loader)(
             ::core::include_str!($path_str),
             ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
-                .to_string_lossy()
-        )).unwrap();
+                .to_string_lossy());
+        let world = $app.world_mut();
+        match $handle.id() {
+            id @ AssetId::Entity { .. } => {
+                world.insert_asset(id, asset).unwrap();
+            }
+            AssetId::Uuid { uuid } => {
+                world.spawn_uuid_asset(uuid, asset);
+            }
+        }
     }};
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
-        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle.id(), ($loader)(
+        use $crate::{AssetId, DirectAssetAccessExt};
+        let asset = ($loader)(
             ::core::include_str!($path_str),
             ::std::path::Path::new(::core::file!())
                 .parent()
@@ -406,7 +414,16 @@ macro_rules! load_internal_asset {
                 .join($path_str)
                 .to_string_lossy(),
             $($param),+
-        )).unwrap();
+        );
+        let world = $app.world_mut();
+        match $handle.id() {
+            id @ AssetId::Entity { .. } => {
+                world.insert_asset(id, asset).unwrap();
+            }
+            AssetId::Uuid { uuid } => {
+                world.spawn_uuid_asset(uuid, asset);
+            }
+        }
     }};
 }
 
@@ -414,21 +431,25 @@ macro_rules! load_internal_asset {
 #[macro_export]
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
-        assets
-            .insert(
-                $handle.id(),
-                ($loader)(
-                    ::core::include_bytes!($path_str).as_ref(),
-                    ::std::path::Path::new(::core::file!())
-                        .parent()
-                        .unwrap()
-                        .join($path_str)
-                        .to_string_lossy()
-                        .into(),
-                ),
-            )
-            .unwrap();
+        use $crate::{AssetId, DirectAssetAccessExt};
+        let asset = ($loader)(
+            ::core::include_bytes!($path_str).as_ref(),
+            ::std::path::Path::new(::core::file!())
+                .parent()
+                .unwrap()
+                .join($path_str)
+                .to_string_lossy()
+                .into(),
+        );
+        let world = $app.world_mut();
+        match $handle.id() {
+            id @ AssetId::Entity { .. } => {
+                world.insert_asset(id, asset).unwrap();
+            }
+            AssetId::Uuid { uuid } => {
+                world.spawn_uuid_asset(uuid, asset);
+            }
+        }
     }};
 }
 

@@ -19,7 +19,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Camera so we can see UI
@@ -44,7 +44,7 @@ fn setup(
                     border_radius: BorderRadius::all(px(20)),
                     ..default()
                 },
-                MaterialNode(ui_materials.add(CustomUiMaterial {
+                MaterialNode(asset_commands.spawn_asset(CustomUiMaterial {
                     color: LinearRgba::WHITE.to_f32_array().into(),
                     slider: Vec4::splat(0.5),
                     color_texture: asset_server.load("branding/banner.png"),
@@ -88,7 +88,7 @@ impl UiMaterial for CustomUiMaterial {
 // Fills the slider slowly over 2 seconds and resets it
 // Also updates the color of the image to a rainbow color
 fn animate(
-    mut materials: ResMut<Assets<CustomUiMaterial>>,
+    mut materials: AssetsMut<CustomUiMaterial>,
     q: Query<&MaterialNode<CustomUiMaterial>>,
     time: Res<Time>,
 ) {

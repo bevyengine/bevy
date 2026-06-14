@@ -125,6 +125,17 @@ pub struct SceneListPatch {
 }
 
 impl SceneListPatch {
+    /// Returns an instance that doesn't do anything and is fairly cheap.
+    ///
+    /// This is good for use with [`core::mem::replace`].
+    pub(crate) fn dummy() -> Self {
+        Self {
+            scene_list: None,
+            dependencies: vec![],
+            resolved: None,
+        }
+    }
+
     /// Kicks off a load of the `scene_list`. This enumerates the scene list's dependencies using [`SceneList::register_dependencies`], loads
     /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`SceneListPatch::dependencies`].
     pub fn load<L: SceneList>(assets: &AssetServer, scene_list: L) -> Self {

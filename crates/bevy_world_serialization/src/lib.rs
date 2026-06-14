@@ -126,7 +126,7 @@ impl Plugin for WorldSerializationPlugin {
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::{AssetPlugin, Assets};
+    use bevy_asset::{AssetPlugin, DirectAssetAccessExt};
     use bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -137,8 +137,7 @@ mod tests {
     use bevy_reflect::Reflect;
 
     use crate::{
-        DynamicWorld, DynamicWorldBuilder, DynamicWorldRoot, WorldAsset, WorldAssetRoot,
-        WorldSerializationPlugin,
+        DynamicWorldBuilder, DynamicWorldRoot, WorldAsset, WorldAssetRoot, WorldSerializationPlugin,
     };
 
     #[derive(Component, Reflect, PartialEq, Debug)]
@@ -177,10 +176,7 @@ mod tests {
             .register_type::<Triangle>()
             .register_type::<FinishLine>();
 
-        let handle = app
-            .world_mut()
-            .resource_mut::<Assets<WorldAsset>>()
-            .reserve_handle();
+        let handle = app.world_mut().reserve_asset_handle();
 
         let instance_entity = app.world_mut().spawn(WorldAssetRoot(handle.clone())).id();
         app.update();
@@ -205,10 +201,7 @@ mod tests {
         ));
         world_1.world.spawn((Circle { radius: 7.0 }, ChildOf(root)));
 
-        app.world_mut()
-            .resource_mut::<Assets<WorldAsset>>()
-            .insert(&handle, world_1)
-            .unwrap();
+        app.world_mut().insert_asset(&handle, world_1).unwrap();
 
         app.update();
         // TODO: multiple updates to avoid debounced asset events. See comment on WorldInstanceSpawner::debounced_world_asset_events
@@ -263,10 +256,7 @@ mod tests {
             ChildOf(root),
         ));
 
-        app.world_mut()
-            .resource_mut::<Assets<WorldAsset>>()
-            .insert(&handle, world_2)
-            .unwrap();
+        app.world_mut().insert_asset(&handle, world_2).unwrap();
 
         app.update();
         app.update();
@@ -309,10 +299,7 @@ mod tests {
             .register_type::<Triangle>()
             .register_type::<FinishLine>();
 
-        let handle = app
-            .world_mut()
-            .resource_mut::<Assets<DynamicWorld>>()
-            .reserve_handle();
+        let handle = app.world_mut().reserve_asset_handle();
 
         let instance_entity = app.world_mut().spawn(DynamicWorldRoot(handle.clone())).id();
         app.update();
@@ -351,8 +338,7 @@ mod tests {
 
         let dynamic_world_1 = create_dynamic_world(world_1, app.world());
         app.world_mut()
-            .resource_mut::<Assets<DynamicWorld>>()
-            .insert(&handle, dynamic_world_1)
+            .insert_asset(&handle, dynamic_world_1)
             .unwrap();
 
         app.update();
@@ -411,8 +397,7 @@ mod tests {
         let dynamic_world_2 = create_dynamic_world(world_2, app.world());
 
         app.world_mut()
-            .resource_mut::<Assets<DynamicWorld>>()
-            .insert(&handle, dynamic_world_2)
+            .insert_asset(&handle, dynamic_world_2)
             .unwrap();
 
         app.update();

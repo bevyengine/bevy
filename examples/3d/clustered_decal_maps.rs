@@ -170,11 +170,10 @@ struct SeededRng(ChaCha8Rng);
 /// Spawns all the objects in the scene.
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    spawn_plane_mesh(&mut commands, &asset_server, &mut meshes, &mut materials);
+    spawn_plane_mesh(&mut commands, &mut asset_commands, &asset_server);
     spawn_light(&mut commands);
     spawn_camera(&mut commands);
     spawn_buttons(&mut commands);
@@ -183,15 +182,14 @@ fn setup(
 /// Spawns the plane onto which the decals are projected.
 fn spawn_plane_mesh(
     commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
     asset_server: &AssetServer,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
 ) {
     // Create a plane onto which we project decals.
     //
     // As the plane has a normal map, we must generate tangents for the
     // vertices.
-    let plane_mesh = meshes.add(
+    let plane_mesh = asset_commands.spawn_asset(
         Plane3d {
             normal: Dir3::NEG_Z,
             half_size: Vec2::splat(PLANE_HALF_SIZE),
@@ -215,7 +213,7 @@ fn spawn_plane_mesh(
     // Actually spawn the plane.
     commands.spawn((
         Mesh3d(plane_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::from(CRIMSON),
             normal_map_texture: Some(normal_map_texture),
             ..StandardMaterial::default()

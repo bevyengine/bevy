@@ -140,10 +140,10 @@ impl Plugin for TextPlugin {
 
         #[cfg(feature = "default_font")]
         {
-            use bevy_asset::{AssetId, Assets};
-            let mut assets = app.world_mut().resource_mut::<Assets<Font>>();
+            use bevy_asset::{AssetId, DirectAssetAccessExt};
             let asset = Font::from_bytes(DEFAULT_FONT_DATA.to_vec());
-            assets.insert(AssetId::default(), asset).unwrap();
+            app.world_mut()
+                .spawn_uuid_asset(AssetId::<()>::DEFAULT_UUID, asset);
         };
     }
 }

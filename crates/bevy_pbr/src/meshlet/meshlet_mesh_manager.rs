@@ -2,7 +2,7 @@ use crate::meshlet::asset::{BvhNode, MeshletAabb, MeshletCullData};
 
 use super::{asset::Meshlet, persistent_buffer::PersistentGpuBuffer, MeshletMesh};
 use alloc::sync::Arc;
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::{AssetCommands, AssetId, Assets};
 use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, ResMut},
@@ -47,12 +47,15 @@ impl MeshletMeshManager {
     pub fn queue_upload_if_needed(
         &mut self,
         asset_id: AssetId<MeshletMesh>,
-        assets: &mut Assets<MeshletMesh>,
+        assets: &Assets<MeshletMesh>,
+        asset_commands: &mut AssetCommands,
     ) -> (u32, MeshletAabb, u32) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
-            let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
+            let meshlet_mesh = assets.get(*asset_id).expect(
                 "MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager",
             );
+            // Remove the asset since we're uploading it now.
+            asset_commands.remove_asset(*asset_id);
 
             let vertex_positions_slice = self
                 .vertex_positions

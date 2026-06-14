@@ -180,7 +180,7 @@ fn update_dof_settings(
 fn tweak_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
         (Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>),

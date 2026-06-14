@@ -53,8 +53,9 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
+    AssetHandleProvider, AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode,
+    AssetUuidMap, DeserializeMetaError, MissingAssetLoaderForExtensionError, UnapprovedPathMode,
+    WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, string::String, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
@@ -166,9 +167,17 @@ impl AssetProcessor {
         sources.gate_on_processor(state.clone());
         let sources = Arc::new(sources);
 
+        // Create a fake handle provider and remote allocator. We never actually need these handles
+        // to behave properly - we just need the handles to store inside of assets (to later save).
+        let remote_allocator = World::new().entity_allocator_mut().build_remote_allocator();
+        let handle_provider = AssetHandleProvider::fake();
+
         let data = Arc::new(AssetProcessorData::new(sources.clone(), state));
         // The asset processor uses its own asset server with its own id space
         let server = AssetServer::new_with_meta_check(
+            remote_allocator,
+            handle_provider,
+            AssetUuidMap::default(),
             sources.clone(),
             AssetServerMode::Processed,
             AssetMetaCheck::Always,

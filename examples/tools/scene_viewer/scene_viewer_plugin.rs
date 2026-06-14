@@ -102,8 +102,8 @@ fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
 
 fn scene_load_check(
     asset_server: Res<AssetServer>,
-    mut scenes: ResMut<Assets<WorldAsset>>,
-    gltf_assets: Res<Assets<Gltf>>,
+    mut scenes: AssetsMut<WorldAsset>,
+    gltf_assets: Assets<Gltf>,
     mut scene_handle: ResMut<SceneHandle>,
     mut scene_spawner: ResMut<WorldInstanceSpawner>,
 ) {

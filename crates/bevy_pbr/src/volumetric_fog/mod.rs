@@ -30,7 +30,7 @@
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, Assets, Handle};
+use bevy_asset::{embedded_asset, DirectAssetAccessExt, Handle};
 use bevy_core_pipeline::{
     core_3d::prepare_core_3d_depth_textures,
     schedule::{Core3d, Core3dSystems},
@@ -66,9 +66,12 @@ impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "volumetric_fog.wgsl");
 
-        let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
-        let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
-        let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
+        let plane_mesh = app
+            .world_mut()
+            .spawn_asset(Mesh::from(Plane3d::new(Vec3::Z, Vec2::ONE).mesh()));
+        let cube_mesh = app
+            .world_mut()
+            .spawn_asset(Mesh::from(Cuboid::new(1.0, 1.0, 1.0).mesh()));
 
         app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 

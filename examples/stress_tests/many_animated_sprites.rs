@@ -44,11 +44,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands, assets: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
     let mut rng = rand::rng();
@@ -61,7 +57,7 @@ fn setup(
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    let texture_atlas_handle = asset_commands.spawn_asset(texture_atlas);
 
     // Spawns the camera
 
@@ -107,7 +103,7 @@ struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    texture_atlases: Res<Assets<TextureAtlasLayout>>,
+    texture_atlases: Assets<TextureAtlasLayout>,
     mut query: Query<(&mut AnimationTimer, &mut Sprite)>,
 ) {
     for (mut timer, mut sprite) in query.iter_mut() {

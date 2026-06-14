@@ -63,11 +63,7 @@ struct TriangleOverlay {
     vertices: [Vec3; 3],
 }
 
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_scene(mut commands: Commands, mut asset_commands: AssetCommands) {
     let shapes: [(Mesh, Color); 3] = [
         (Cuboid::default().into(), RED.into()),
         (Sphere::default().mesh().ico(2).unwrap(), GREEN.into()),
@@ -76,10 +72,10 @@ fn setup_scene(
 
     for (i, (mesh, color)) in shapes.iter().enumerate() {
         let x = i as f32 * 1.5 - 1.5;
-        let material = materials.add(StandardMaterial::from_color(*color));
+        let material = asset_commands.spawn_asset(StandardMaterial::from_color(*color));
 
         commands.spawn((
-            Mesh3d(meshes.add(mesh.clone())),
+            Mesh3d(asset_commands.spawn_asset(mesh.clone())),
             MeshMaterial3d(material),
             Transform::from_xyz(x, 0.5, 0.0),
             Pickable::default(),
@@ -87,8 +83,8 @@ fn setup_scene(
     }
 
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(30.0, 30.0))),
-        MeshMaterial3d(materials.add(Color::from(DARK_GRAY))),
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(Plane3d::default().mesh().size(30.0, 30.0)))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::from(DARK_GRAY)))),
         Pickable::IGNORE,
     ));
 

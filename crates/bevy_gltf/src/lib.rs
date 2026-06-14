@@ -58,7 +58,7 @@
 //! fn spawn_gltf_objects(
 //!     mut commands: Commands,
 //!     helmet_scene: Res<HelmetScene>,
-//!     gltf_assets: Res<Assets<Gltf>>,
+//!     gltf_assets: Assets<Gltf>,
 //!     mut loaded: Local<bool>,
 //! ) {
 //!     // Only do this once

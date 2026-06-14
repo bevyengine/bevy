@@ -1,7 +1,9 @@
-use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
-use bevy_ecs::message::Message;
+use crate::{Asset, AssetEntity, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
+use bevy_ecs::{message::Message, resource::Resource, world::World};
 use bevy_reflect::Reflect;
-use core::fmt::Debug;
+use bevy_utils::TypeIdMap;
+use core::{any::TypeId, fmt::Debug, marker::PhantomData};
+use thiserror::Error;
 
 /// A [`Message`] emitted when a specific [`Asset`] fails to load.
 ///
@@ -127,3 +129,45 @@ impl<A: Asset> PartialEq for AssetEvent<A> {
 }
 
 impl<A: Asset> Eq for AssetEvent<A> {}
+
+/// Type-erased registry for writing [`AssetEvent::Unused`] messages.
+#[derive(Resource, Default)]
+pub(crate) struct AssetEventUnusedWriters(TypeIdMap<fn(&mut World, AssetEntity)>);
+
+impl AssetEventUnusedWriters {
+    /// Registers asset of type `A` to be able to send its [`AssetEvent::Unused`].
+    pub(crate) fn register<A: Asset>(&mut self) {
+        fn write_unused_message<A: Asset>(world: &mut World, entity: AssetEntity) {
+            world.write_message(AssetEvent::<A>::Unused {
+                id: AssetId::Entity {
+                    entity,
+                    marker: PhantomData,
+                },
+            });
+        }
+
+        self.0.insert(TypeId::of::<A>(), write_unused_message::<A>);
+    }
+
+    /// Writes an [`AssetEvent::Unused`] message for an asset of type `type_id`.
+    ///
+    /// This is not a method so that we don't need to hokey-pokey this type.
+    pub(crate) fn write_message(
+        world: &mut World,
+        entity: AssetEntity,
+        type_id: TypeId,
+    ) -> Result<(), MissingAssetTypeError> {
+        let func = world
+            .resource::<Self>()
+            .0
+            .get(&type_id)
+            .ok_or(MissingAssetTypeError(type_id))?;
+        func(world, entity);
+        Ok(())
+    }
+}
+
+/// The provided asset type could not be found.
+#[derive(Error, Debug)]
+#[error("Failed to find asset type {0:?}")]
+pub(crate) struct MissingAssetTypeError(pub(crate) TypeId);

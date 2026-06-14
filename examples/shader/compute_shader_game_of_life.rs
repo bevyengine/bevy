@@ -51,13 +51,13 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float, None);
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-    let image0 = images.add(image.clone());
-    let image1 = images.add(image);
+    let image0 = asset_commands.spawn_asset(image.clone());
+    let image1 = asset_commands.spawn_asset(image);
 
     commands.spawn((
         Sprite {

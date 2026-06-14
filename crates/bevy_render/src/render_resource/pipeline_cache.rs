@@ -11,11 +11,7 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::{
-    message::MessageReader,
-    resource::Resource,
-    system::{Res, ResMut},
-};
+use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
 use bevy_log::error;
 use bevy_platform::collections::{hash_map::RawEntryMut, HashMap, HashSet};
 use bevy_shader::{
@@ -746,7 +742,7 @@ impl PipelineCache {
 
     pub(crate) fn extract_shaders(
         mut cache: ResMut<Self>,
-        shaders: Extract<Res<Assets<Shader>>>,
+        shaders: Extract<Assets<Shader>>,
         mut events: Extract<MessageReader<AssetEvent<Shader>>>,
     ) {
         if cache.needs_shader_reload {
@@ -754,7 +750,7 @@ impl PipelineCache {
             for (id, shader) in shaders.iter() {
                 let mut shader = shader.clone();
                 shader.shader_defs.extend(cache.global_shader_defs.clone());
-                cache.set_shader(id, shader);
+                cache.set_shader(id.into(), shader);
             }
             // Drain events so we don't double-process shaders we just loaded.
             for _ in events.read() {}

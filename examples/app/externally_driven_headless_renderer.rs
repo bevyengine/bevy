@@ -76,12 +76,7 @@ impl BevyWrapper {
         let mut target =
             Image::new_target_texture(width, height, TextureFormat::Rgba8UnormSrgb, None);
         target.asset_usage = RenderAssetUsages::RENDER_WORLD;
-        self.0
-            .main
-            .world_mut()
-            .resource_mut::<Assets<Image>>()
-            .add(target)
-            .into()
+        self.0.main.world_mut().spawn_asset(target).into()
     }
 
     fn spawn_camera(&mut self, target: RenderTarget) -> Entity {
@@ -118,19 +113,17 @@ impl BevyWrapper {
     }
 }
 
-fn spawn_test_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn spawn_test_scene(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(Circle::new(4.0)))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(2.0, 2.0, 2.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(2.0, 2.0, 2.0)))),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb_u8(124, 144, 255))),
+        ),
         Transform::from_xyz(0.0, 1.0, 0.0),
     ));
     commands.spawn((

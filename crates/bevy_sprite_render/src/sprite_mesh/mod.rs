@@ -3,10 +3,10 @@ use bevy_ecs::{
     entity::Entity,
     query::{Added, Changed, Or},
     schedule::IntoScheduleConfigs,
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Commands, Local, Query},
 };
 
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetCommands, Assets, Handle};
 
 use bevy_image::TextureAtlasLayout;
 use bevy_math::{primitives::Rectangle, vec2};
@@ -39,12 +39,12 @@ impl Plugin for SpriteMeshPlugin {
 // The meshhandle is kept locally so they can be cloned.
 fn add_mesh(
     sprites: Query<Entity, Added<SpriteMesh>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut quad: Local<Option<Handle<Mesh>>>,
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
 ) {
     let quad = quad.get_or_insert_with(|| {
-        meshes.add(
+        asset_commands.spawn_asset(
             Rectangle::from_size(vec2(1.0, 1.0))
                 .mesh()
                 .build()
@@ -71,10 +71,10 @@ fn add_material(
         (Entity, &SpriteMesh, &Anchor),
         Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
     >,
-    texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
+    texture_atlas_layouts: Assets<TextureAtlasLayout>,
     mut cached_materials: Local<HashMap<(SpriteMesh, Anchor), Handle<SpriteMaterial>>>,
-    mut materials: ResMut<Assets<SpriteMaterial>>,
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
 ) {
     for (entity, sprite, anchor) in sprites {
         if let Some(handle) = cached_materials.get(&(sprite.clone(), *anchor)) {
@@ -93,7 +93,7 @@ fn add_material(
                 material.texture_atlas_index = texture_atlas.index;
             }
 
-            let handle = materials.add(material);
+            let handle = asset_commands.spawn_asset(material);
             cached_materials.insert((sprite.clone(), *anchor), handle.clone());
 
             commands

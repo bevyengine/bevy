@@ -32,10 +32,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut debug_materials: ResMut<Assets<MeshletDebugMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -70,12 +68,12 @@ fn setup(
     // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
     // a function only available when the `meshlet_processor` cargo feature is enabled.
     let meshlet_mesh_handle = asset_server.load(ASSET_URL);
-    let debug_material = debug_materials.add(MeshletDebugMaterial::default());
+    let debug_material = asset_commands.spawn_asset(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
         let mut bunny = commands.spawn((
             MeshletMesh3d(meshlet_mesh_handle.clone()),
-            MeshMaterial3d(standard_materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color: match x {
                     -2 => Srgba::hex("#dc2626").unwrap().into(),
                     -1 => Srgba::hex("#ea580c").unwrap().into(),
@@ -107,8 +105,8 @@ fn setup(
     }
 
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(standard_materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(Plane3d::default().mesh().size(5.0, 5.0)))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..default()

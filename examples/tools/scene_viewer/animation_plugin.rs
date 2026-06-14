@@ -38,11 +38,11 @@ fn assign_clips(
     targets: Query<(&AnimationTargetId, Entity)>,
     children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
-    clips: Res<Assets<AnimationClip>>,
-    gltf_assets: Res<Assets<Gltf>>,
+    clips: Assets<AnimationClip>,
+    gltf_assets: Assets<Gltf>,
     assets: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     mut setup: Local<bool>,
 ) {
     if scene_handle.is_loaded && !*setup {
@@ -117,7 +117,7 @@ fn assign_clips(
             continue;
         };
 
-        let Some(clip_handle) = assets.get_id_handle(clip_id) else {
+        let Some(clip_handle) = assets.get_entity_handle(clip_id) else {
             warn!("Clip {} wasn't loaded.", clip_id);
             continue;
         };
@@ -136,7 +136,7 @@ fn assign_clips(
             warn!("Animation targets referenced a nonexistent player. This shouldn't happen.");
             continue;
         };
-        let graph = graphs.add(graph);
+        let graph = asset_commands.spawn_asset(graph);
         let animations = Clips::new(clips);
         player.play(animations.current()).repeat();
         commands

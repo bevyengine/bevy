@@ -35,7 +35,7 @@ use derive_more::derive::From;
 /// # use bevy_render::render_resource::AsBindGroup;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_shader::ShaderRef;
-/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// # use bevy_asset::{Handle, AssetServer, AssetCommands, Asset};
 /// # use bevy_ui_render::prelude::*;
 ///
 /// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
@@ -60,9 +60,9 @@ use derive_more::derive::From;
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(mut commands: Commands, mut asset_commands: AssetCommands, asset_server: Res<AssetServer>) {
 ///     commands.spawn((
-///         MaterialNode(materials.add(CustomMaterial {
+///         MaterialNode(asset_commands.spawn_asset(CustomMaterial {
 ///             color: LinearRgba::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),

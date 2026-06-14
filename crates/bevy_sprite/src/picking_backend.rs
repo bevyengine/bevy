@@ -96,8 +96,8 @@ fn sprite_picking(
         Option<&RenderLayers>,
     )>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
-    images: Res<Assets<Image>>,
-    texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
+    images: Assets<Image>,
+    texture_atlas_layout: Assets<TextureAtlasLayout>,
     settings: Res<SpritePickingSettings>,
     sprite_query: Query<(
         Entity,

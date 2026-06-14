@@ -1,4 +1,4 @@
-use bevy_asset::{prelude::*, RenderAssetUsages};
+use bevy_asset::{prelude::*, AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
 use bevy_reflect::prelude::*;
@@ -83,12 +83,15 @@ impl AutoExposureCompensationCurve {
     /// # Example
     ///
     /// ```
-    /// # use bevy_asset::prelude::*;
+    /// # use bevy_app::App;
+    /// # use bevy_asset::{prelude::*, MinimalAssetPlugin};
     /// # use bevy_math::vec2;
     /// # use bevy_math::cubic_splines::*;
     /// # use bevy_post_process::auto_exposure::AutoExposureCompensationCurve;
-    /// # let mut compensation_curves = Assets::<AutoExposureCompensationCurve>::default();
-    /// let curve: Handle<AutoExposureCompensationCurve> = compensation_curves.add(
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalAssetPlugin);
+    /// # let mut asset_commands = app.world_mut().asset_commands();
+    /// let curve: Handle<AutoExposureCompensationCurve> = asset_commands.spawn_asset(
     ///     AutoExposureCompensationCurve::from_curve(LinearSpline::new([
     ///         vec2(-4.0, -2.0),
     ///         vec2(0.0, 0.0),

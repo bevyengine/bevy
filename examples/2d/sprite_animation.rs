@@ -84,8 +84,8 @@ struct RightSprite;
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     commands.spawn(Camera2d);
 
@@ -105,7 +105,7 @@ fn setup(
 
     // The sprite sheet has 7 sprites arranged in a row, and they are all 24px x 24px
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
-    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    let texture_atlas_layout = asset_commands.spawn_asset(layout);
 
     // The first (left-hand) sprite runs at 10 FPS
     let animation_config_1 = AnimationConfig::new(1, 6, 10);

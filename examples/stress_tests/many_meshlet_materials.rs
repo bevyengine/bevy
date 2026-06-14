@@ -74,7 +74,7 @@ fn setup(
     mut commands: Commands,
     args: Res<Args>,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     let meshlet_handle = asset_server.load(ASSET_URL);
 
@@ -101,7 +101,7 @@ fn setup(
         )),
     ));
 
-    let shared_material = materials.add(StandardMaterial {
+    let shared_material = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         ..default()
     });
@@ -109,7 +109,7 @@ fn setup(
     for x in 0..n {
         for z in 0..n {
             let material = if args.unique_materials {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color: Color::srgb(x as f32 / n as f32, 0.5, z as f32 / n as f32),
                     ..default()
                 })

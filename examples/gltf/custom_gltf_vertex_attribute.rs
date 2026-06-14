@@ -45,8 +45,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Add a mesh loaded from a glTF file. This mesh has data for `ATTRIBUTE_BARYCENTRIC`.
     let mesh = asset_server.load(
@@ -58,7 +58,7 @@ fn setup(
     );
     commands.spawn((
         Mesh2d(mesh),
-        MeshMaterial2d(materials.add(CustomMaterial {})),
+        MeshMaterial2d(asset_commands.spawn_asset(CustomMaterial {})),
         Transform::from_scale(150.0 * Vec3::ONE),
     ));
 

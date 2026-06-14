@@ -235,9 +235,9 @@ pub struct MaterialHandle<M: Material + GetImages>(pub Handle<M>);
 pub fn generate_mipmaps<M: Material + GetImages>(
     mut commands: Commands,
     mut material_events: MessageReader<AssetEvent<M>>,
-    mut materials: ResMut<Assets<M>>,
+    mut materials: AssetsMut<M>,
     no_mipmap: Query<&MaterialHandle<M>, With<NoMipmapGeneration>>,
-    mut images: ResMut<Assets<Image>>,
+    mut images: AssetsMut<Image>,
     default_sampler: Res<DefaultSampler>,
     mut progress: ResMut<MipmapGenerationProgress>,
     settings: Res<MipmapGeneratorSettings>,

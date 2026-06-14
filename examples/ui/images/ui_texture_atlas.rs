@@ -17,8 +17,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // Camera
     commands.spawn(Camera2d);
@@ -28,7 +28,7 @@ fn setup(
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    let texture_atlas_handle = asset_commands.spawn_asset(texture_atlas);
 
     // root node
     commands

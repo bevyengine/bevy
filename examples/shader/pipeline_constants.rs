@@ -31,21 +31,17 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<PosterizeMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn(Camera2d);
 
-    let quad = meshes.add(Rectangle::new(200.0, 150.0));
+    let quad = asset_commands.spawn_asset(Mesh::from(Rectangle::new(200.0, 150.0)));
 
     for (i, levels) in [2u32, 4, 8].into_iter().enumerate() {
         let x = (i as f32 - 1.0) * 220.0;
 
         commands.spawn((
             Mesh2d(quad.clone()),
-            MeshMaterial2d(materials.add(PosterizeMaterial { levels })),
+            MeshMaterial2d(asset_commands.spawn_asset(PosterizeMaterial { levels })),
             Transform::from_xyz(x, 20.0, 0.0),
         ));
 

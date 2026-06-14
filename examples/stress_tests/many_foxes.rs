@@ -127,10 +127,8 @@ struct Ring {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
     args: Res<Args>,
 ) {
@@ -148,7 +146,7 @@ fn setup(
         .collect();
     commands.insert_resource(Animations {
         node_indices,
-        graph: animation_graphs.add(animation_graph),
+        graph: asset_commands.spawn_asset(animation_graph),
     });
 
     // Foxes
@@ -238,8 +236,12 @@ fn setup(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(
+            asset_commands.spawn_asset(Mesh::from(Plane3d::default().mesh().size(5000.0, 5000.0))),
+        ),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
 
     // Light

@@ -98,9 +98,8 @@ const WINDOW_CLEAR_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 /// Spawn the scene
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Spawn a 2D camera
     commands.spawn(Camera2d);
@@ -120,12 +119,14 @@ fn setup(
     ));
 
     // Create a circle mesh. We will reuse this mesh for all our circles.
-    let circle = meshes.add(Circle { radius: 1.0 });
+    let circle = asset_commands.spawn_asset(Mesh::from(Circle { radius: 1.0 }));
     // Create the different materials we will use for each part of the eyes. For this demo they are basic [`ColorMaterial`]s.
-    let outline_material = materials.add(Color::BLACK);
-    let sclera_material = materials.add(Color::WHITE);
-    let pupil_material = materials.add(Color::srgb(0.2, 0.2, 0.2));
-    let pupil_highlight_material = materials.add(Color::srgba(1.0, 1.0, 1.0, 0.2));
+    let outline_material = asset_commands.spawn_asset(ColorMaterial::from(Color::BLACK));
+    let sclera_material = asset_commands.spawn_asset(ColorMaterial::from(Color::WHITE));
+    let pupil_material =
+        asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(0.2, 0.2, 0.2)));
+    let pupil_highlight_material =
+        asset_commands.spawn_asset(ColorMaterial::from(Color::srgba(1.0, 1.0, 1.0, 0.2)));
 
     // Spawn the Bevy logo sprite
     commands
