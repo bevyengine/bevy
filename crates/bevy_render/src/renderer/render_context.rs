@@ -48,7 +48,7 @@ impl PendingCommandBuffers {
         inner
             .buffers
             .drain(..)
-            .chain(inner.encoders.drain(..).map(|encoder| encoder.finish()))
+            .chain(inner.encoders.drain(..).map(CommandEncoder::finish))
     }
 
     pub fn is_empty(&self) -> bool {
