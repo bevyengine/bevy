@@ -1037,12 +1037,12 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 entries.entries.clear();
                 entries_binding_array.entries.clear();
-                *(entries_cache.0) = entries
+                *entries_cache.0 = entries
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
                     .collect::<Vec<_>>();
-                *(entries_binding_array_cache.0) = entries_binding_array
+                *entries_binding_array_cache.0 = entries_binding_array
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
