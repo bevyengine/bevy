@@ -258,7 +258,7 @@ pub fn update_directional_light_frusta(
 ///
 /// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
 /// apparent size and brightness of the Sun as seen from Earth. Use [`SunDisk::MARS`] for the
-/// smaller apparent sun size from Mars (~1.52 AU). You can also disable the sun disk entirely
+/// smaller apparent sun size from Mars. You can also disable the sun disk entirely
 /// with [`SunDisk::OFF`].
 ///
 /// In order to cause the sun to "glow" and light up the surrounding sky, enable bloom
