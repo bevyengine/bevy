@@ -3008,10 +3008,8 @@ pub fn queue_shadows(
             let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
             let view_render_layers = maybe_view_render_layers.unwrap_or_default();
             if !view_render_layers.intersects(mesh_layers) {
-                println!("{view_render_layers:?} {mesh_layers:?} render layers do not intersect");
                 continue;
             }
-            println!("{view_render_layers:?} {mesh_layers:?} render layers do intersect");
 
             let Some(material_instance) = render_material_instances.instances.get(main_entity)
             else {
