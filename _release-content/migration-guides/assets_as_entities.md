@@ -31,15 +31,14 @@ fn my_system(meshes: Assets<Mesh>) {
 
 ## 2. Mutating asset data
 
-- Replace `ResMut<Assets<A>>` with `AssetMut<A>`.
-- When assigning `get_mut` to a variable, make the variable mutable (since we return `AssetMut` now).
+- Replace `ResMut<Assets<A>>` with `AssetsMut<A>`.
 
 Before:
 
 ```rust
 fn my_system(mut meshes: ResMut<Assets<Mesh>>) {
     let handle = ...;
-    let data: &mut Mesh = meshes.get_mut(&handle).unwrap();
+    let data: AssetMut<Mesh> = meshes.get_mut(&handle).unwrap();
 }
 ```
 
@@ -48,7 +47,7 @@ After:
 ```rust
 fn my_system(mut meshes: AssetsMut<Mesh>) {
     let handle = ...;
-    let mut data: AssetMut<Mesh> = meshes.get(&handle).unwrap();
+    let mut data: AssetMut<Mesh> = meshes.get_mut(&handle).unwrap();
 }
 ```
 
@@ -111,7 +110,7 @@ After:
 fn my_system(mut asset_commands: AssetCommands) {
     let handle = ...;
     // We don't get the data here, since this action is deferred. You need exclusive world access.
-    meshes.remove(&handle);
+    asset_commands.remove(&handle);
 }
 ```
 
