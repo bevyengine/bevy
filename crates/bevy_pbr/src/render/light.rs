@@ -2090,8 +2090,8 @@ fn create_point_shadow_maps(
                 viewport: UVec4::new(
                     0,
                     0,
-                    point_light_shadow_map_size as u32,
-                    point_light_shadow_map_size as u32,
+                    point_light_shadow_map_size,
+                    point_light_shadow_map_size,
                 ),
                 world_from_view: view_translation * *view_rotation,
                 clip_from_world: None,
@@ -2118,7 +2118,7 @@ fn create_point_shadow_maps(
 }
 
 /// Creates the spot shadow map for a `RetainedViewEntity` identified by the `light_main_entity`.
-/// THis shadow map is shared across all cameras.
+/// This shadow map is shared across all cameras.
 fn create_spot_shadow_map(
     commands: &mut Commands,
     directional_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
