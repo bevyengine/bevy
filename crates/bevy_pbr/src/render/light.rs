@@ -3126,47 +3126,66 @@ pub fn shared_shadow_pass<const IS_LATE: bool>(
 /// and opt-in camera-specific point and spot light shadows
 pub fn per_view_shadow_pass<const IS_LATE: bool>(
     world: &World,
-    // TODO I should split this...
     view: ViewQuery<(
-        &ViewLightEntities,
-        &PointLightShadowViewEntities,
-        &SpotLightShadowViewEntity,
+        Option<&ViewLightEntities>,
+        Option<&PointLightShadowViewEntities>,
+        Option<&SpotLightShadowViewEntity>,
     )>,
     view_light_query: Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut ctx: RenderContext,
 ) {
-    let (view_lights, point_shadow_views, spot_shadow_views) = view.into_inner();
+    let (view_lights, point_shadow_views, spot_shadow_view) = view.into_inner();
 
-    for view_light_entity in view_lights.lights.iter().copied() {
-        if let Ok((view_light, extracted_light_view, occlusion_culling)) =
-            view_light_query.get(view_light_entity)
-        {
-            view_shadow_pass::<IS_LATE>(
-                view_light_entity,
-                view_light,
-                extracted_light_view,
-                occlusion_culling,
-                world,
-                &shadow_render_phases,
-                &mut ctx,
-            );
+    if let Some(view_lights) = view_lights {
+        for view_light_entity in view_lights.lights.iter().copied() {
+            if let Ok((view_light, extracted_light_view, occlusion_culling)) =
+                view_light_query.get(view_light_entity)
+            {
+                view_shadow_pass::<IS_LATE>(
+                    view_light_entity,
+                    view_light,
+                    extracted_light_view,
+                    occlusion_culling,
+                    world,
+                    &shadow_render_phases,
+                    &mut ctx,
+                );
+            }
         }
     }
-    for shadow_view_entity in point_shadow_views.shadow_view_entities.iter().copied() {
-        if let Ok((view_light, extracted_light_view, occlusion_culling)) =
-            view_light_query.get(shadow_view_entity)
-        {
-            view_shadow_pass::<IS_LATE>(
-                shadow_view_entity,
-                view_light,
-                extracted_light_view,
-                occlusion_culling,
-                world,
-                &shadow_render_phases,
-                &mut ctx,
-            );
+
+    if let Some(point_shadow_views) = point_shadow_views {
+        for shadow_view_entity in point_shadow_views.shadow_view_entities.iter().copied() {
+            if let Ok((view_light, extracted_light_view, occlusion_culling)) =
+                view_light_query.get(shadow_view_entity)
+            {
+                view_shadow_pass::<IS_LATE>(
+                    shadow_view_entity,
+                    view_light,
+                    extracted_light_view,
+                    occlusion_culling,
+                    world,
+                    &shadow_render_phases,
+                    &mut ctx,
+                );
+            }
         }
+    }
+
+    if let Some(spot_shadow_view) = spot_shadow_view
+        && let Ok((view_light, extracted_light_view, occlusion_culling)) =
+            view_light_query.get(spot_shadow_view.shadow_view_entity)
+    {
+        view_shadow_pass::<IS_LATE>(
+            spot_shadow_view.shadow_view_entity,
+            view_light,
+            extracted_light_view,
+            occlusion_culling,
+            world,
+            &shadow_render_phases,
+            &mut ctx,
+        );
     }
 }
 
