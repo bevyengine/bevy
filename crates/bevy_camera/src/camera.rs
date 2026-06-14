@@ -414,10 +414,10 @@ pub struct Camera {
     ///
     /// If true, shadow maps unique to this camera will be generated.
     /// The shadow maps will be generated using the same render layers and HLOD configuration as this camera.
-    /// The light's render layers must be a superset of this camera's render layers.
+    /// The light's render layers **must** be a superset of this camera's render layers in order for this to work properly.
     ///
-    /// Enabling this setting can have a negative impact on performance, as this camera will
-    /// not be relying on the camera-agnostic shadow maps generated for certain lights (i.e. SpotLight and PointLight)
+    /// Enabling this setting can have a negative impact on performance. PointLights in particular
+    /// will generate 6 additional shadow maps per camera that opts to have its own shadow maps.
     ///
     /// Defaults to `false`.
     pub has_own_shadow_maps: bool,
