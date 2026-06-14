@@ -1,5 +1,5 @@
 use bevy_app::{App, AppLabel};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, Assets, RenderAssetUsages};
+use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, DirectAssetAccessExt, RenderAssetUsages};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -53,9 +53,8 @@ fn extract_render_asset_bench(c: &mut Criterion) {
 
             let mut handles = Vec::with_capacity(size);
             {
-                let mut assets = app.world_mut().resource_mut::<Assets<DummyAsset>>();
                 for _ in 0..size {
-                    handles.push(assets.add(DummyAsset));
+                    handles.push(app.world_mut().spawn_asset(DummyAsset));
                 }
             }
 

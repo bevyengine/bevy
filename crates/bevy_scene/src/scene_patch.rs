@@ -130,10 +130,7 @@ impl SceneListPatch {
     /// This is good for use with [`core::mem::replace`].
     pub(crate) fn dummy() -> Self {
         Self {
-            // This **probably** won't allocate since this is a ZST, so the pointer can be an
-            // arbitrary non-null, since we know the vtable won't access it. So this should be
-            // cheap to create.
-            scene_list: Box::new(()),
+            scene_list: None,
             dependencies: vec![],
             resolved: None,
         }

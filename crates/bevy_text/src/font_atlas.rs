@@ -172,6 +172,7 @@ impl DeferredFontAtlas {
         key: GlyphCacheKey,
         texture: &Image,
         offset: Vec2,
+        is_alpha_mask: bool,
     ) -> Result<(), TextError> {
         if let Ok(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
             &mut self.texture_atlas,
@@ -183,6 +184,7 @@ impl DeferredFontAtlas {
                 GlyphAtlasLocation {
                     glyph_index,
                     offset,
+                    is_alpha_mask,
                 },
             );
             Ok(())

@@ -133,7 +133,7 @@ impl ImageNode {
     /// # Example
     ///
     /// ```
-    /// use bevy_asset::{Assets,AssetServer};
+    /// use bevy_asset::{Assets,AssetServer,AssetCommands};
     /// use bevy_ecs::prelude::{Commands,Res,ResMut};
     /// use bevy_image::{TextureAtlas,TextureAtlasLayout};
     /// use bevy_math::{UVec2,Rect};
@@ -143,12 +143,12 @@ impl ImageNode {
     ///
     /// fn setup(
     ///   mut commands: Commands,
+    ///   mut asset_commands: AssetCommands,
     ///   asset_server: Res<AssetServer>,
-    ///   mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     /// ) {
     ///   let texture = asset_server.load("textures/array_texture.png");
     ///   let layout = TextureAtlasLayout::from_grid(UVec2::splat(250), 1, 3, None, None);
-    ///   let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    ///   let texture_atlas_layout = asset_commands.spawn_asset(layout);
     ///
     ///   commands.spawn(Node {
     ///     display: Display::Flex,

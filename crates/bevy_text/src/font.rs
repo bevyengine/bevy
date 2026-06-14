@@ -3,10 +3,12 @@ use crate::FontSource;
 use crate::TextFont;
 use bevy_asset::Asset;
 use bevy_asset::AssetEntity;
-use bevy_asset::Assets;
+use bevy_asset::AssetUuidMap;
+use bevy_asset::AssetsMut;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
+use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
@@ -53,13 +55,14 @@ pub fn load_font_assets_into_font_collection(
     mut loaded_fonts: Local<HashSet<AssetEntity>>,
     mut font_cx: ResMut<FontCx>,
     mut text_font_query: Query<&mut TextFont>,
+    uuid_map: Res<AssetUuidMap>,
 ) {
     let font_removed = loaded_fonts.iter().any(|id| !fonts.contains(*id));
-    let new_asset_ids: Vec<_> = if font_removed {
+    let new_asset_entities: Vec<_> = if font_removed {
         // If any font asset has been removed, clear the font collection and queue the remaining fonts to be reinserted into the collection.
         font_cx.collection.clear();
         loaded_fonts.clear();
-        loaded_fonts.extend(fonts.ids());
+        loaded_fonts.extend(fonts.iter().map(|(entity, _)| entity));
         loaded_fonts.iter().copied().collect()
     } else {
         fonts
@@ -69,12 +72,12 @@ pub fn load_font_assets_into_font_collection(
             .collect()
     };
 
-    if new_asset_ids.is_empty() && !font_removed {
+    if new_asset_entities.is_empty() && !font_removed {
         return;
     }
 
     let mut new_family_ids = Vec::new();
-    for asset_id in &new_asset_ids {
+    for asset_id in &new_asset_entities {
         let mut font = fonts
             .get_mut(*asset_id)
             .expect("Each AssetId should have a corresponding asset");
@@ -110,7 +113,11 @@ pub fn load_font_assets_into_font_collection(
     for mut text_font in text_font_query.iter_mut() {
         if font_removed
             || match &text_font.font {
-                FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                FontSource::Handle(handle) => uuid_map
+                    .resolve_entity(handle)
+                    .ok()
+                    .map(|entity| new_asset_entities.contains(&entity))
+                    .unwrap_or(false),
                 FontSource::Family(name) => font_cx
                     .collection
                     .family_id(name)
@@ -147,34 +154,33 @@ pub fn load_font_assets_into_font_collection(
 #[cfg(test)]
 mod tests {
     use bevy_app::{App, Update};
-    use bevy_asset::Assets;
+    use bevy_asset::{DirectAssetAccessExt, MinimalAssetPlugin};
 
     use super::*;
 
     #[test]
     fn font_asset_registration_and_cleanup() {
         let mut app = App::new();
-        app.init_resource::<Assets<Font>>()
+        app.add_plugins(MinimalAssetPlugin)
             .init_resource::<FontCx>()
             .add_systems(Update, load_font_assets_into_font_collection);
 
-        let font_handle = app
-            .world_mut()
-            .resource_mut::<Assets<Font>>()
-            .add(Font::from_bytes(
-                include_bytes!("FiraMono-subset.ttf").to_vec(),
-            ));
+        let font_handle = app.world_mut().spawn_asset(Font::from_bytes(
+            include_bytes!("FiraMono-subset.ttf").to_vec(),
+        ));
 
         app.update();
         let world = app.world_mut();
 
         let font_alias = world
-            .resource::<Assets<Font>>()
-            .get(&font_handle)
+            .get_asset(font_handle.id())
             .expect("The font asset was just added above.")
             .alias
             .clone();
-        assert_eq!(font_alias, format!("asset_id:{:?}", font_handle.id()));
+        assert_eq!(
+            font_alias,
+            format!("asset_id:{:?}", font_handle.entity().unwrap())
+        );
         assert!(world
             .resource_mut::<FontCx>()
             .collection
@@ -186,9 +192,7 @@ mod tests {
             .family_id(&font_alias)
             .is_some());
 
-        world
-            .resource_mut::<Assets<Font>>()
-            .remove(font_handle.id());
+        world.remove_asset(font_handle.id()).unwrap();
 
         app.update();
         let world = app.world_mut();

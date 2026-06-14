@@ -188,10 +188,7 @@ fn sun() -> impl Scene {
 }
 
 /// Spawns the earth atmosphere plus an extra near-ground fog term.
-fn spawn_atmosphere(
-    mut commands: Commands,
-    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
-) {
+fn spawn_atmosphere(mut commands: Commands, mut asset_commands: AssetCommands) {
     let mut earth_medium = ScatteringMedium::default();
 
     // Same 60 km atmosphere height as `ScatteringMedium::earth`
@@ -220,7 +217,7 @@ fn spawn_atmosphere(
         // Fog is approximated as a mie scatterer with this asymmetry factor
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
     });
-    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium));
+    let earth_atmosphere = Atmosphere::earth(asset_commands.spawn_asset(earth_medium));
 
     // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
     let scale = 1.0 / 20.0;

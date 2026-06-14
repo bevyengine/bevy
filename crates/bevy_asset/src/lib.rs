@@ -166,9 +166,9 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        asset_value, Asset, AssetApp, AssetCommands, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer,
-        AssetServerAccessExt, Assets, AssetsMut, DirectAssetAccessExt, Handle, UntypedHandle,
-        WorldAssetCommandsExt,
+        asset_value, Asset, AssetApp, AssetCommands, AssetEvent, AssetId, AssetMode, AssetPlugin,
+        AssetServer, AssetServerAccessExt, Assets, AssetsMut, DirectAssetAccessExt, Handle,
+        UntypedHandle, WorldAssetCommandsExt,
     };
 }
 
@@ -3248,11 +3248,7 @@ mod tests {
                 .then_some(())
         });
 
-        let folder = app
-            .world()
-            .resource::<Assets<LoadedFolder>>()
-            .get(&folder_handle)
-            .unwrap();
+        let folder = app.world().get_asset(folder_handle.id()).unwrap();
         assert_eq!(folder.handles.len(), 2);
         let mut handles = folder
             .handles
@@ -3266,9 +3262,8 @@ mod tests {
         let abc_handle = handles[0].clone();
         let def_handle = handles[1].clone();
 
-        let cool_texts = app.world().resource::<Assets<CoolText>>();
-        assert_eq!(cool_texts.get(&abc_handle).unwrap().text, "abc");
-        assert_eq!(cool_texts.get(&def_handle).unwrap().text, "def");
+        assert_eq!(app.world().get_asset(abc_handle.id()).unwrap().text, "abc");
+        assert_eq!(app.world().get_asset(def_handle.id()).unwrap().text, "def");
 
         // Before doing any hot reloading stuff, clear out any AssetEvent messages.
         app.world_mut()
@@ -3296,11 +3291,7 @@ mod tests {
             None
         });
 
-        let folder = app
-            .world()
-            .resource::<Assets<LoadedFolder>>()
-            .get(&folder_handle)
-            .unwrap();
+        let folder = app.world().get_asset(folder_handle.id()).unwrap();
         assert_eq!(folder.handles.len(), 3);
         let mut handles = folder
             .handles
@@ -3318,9 +3309,17 @@ mod tests {
         assert_eq!(new_abc_handle, abc_handle);
         assert_eq!(new_def_handle, def_handle);
 
-        let cool_texts = app.world().resource::<Assets<CoolText>>();
-        assert_eq!(cool_texts.get(&new_abc_handle).unwrap().text, "abc");
-        assert_eq!(cool_texts.get(&new_def_handle).unwrap().text, "def");
-        assert_eq!(cool_texts.get(&new_ghi_handle).unwrap().text, "ghi");
+        assert_eq!(
+            app.world().get_asset(new_abc_handle.id()).unwrap().text,
+            "abc"
+        );
+        assert_eq!(
+            app.world().get_asset(new_def_handle.id()).unwrap().text,
+            "def"
+        );
+        assert_eq!(
+            app.world().get_asset(new_ghi_handle.id()).unwrap().text,
+            "ghi"
+        );
     }
 }

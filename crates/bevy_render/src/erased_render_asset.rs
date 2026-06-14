@@ -336,10 +336,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                take_later.insert(id);
-                                extracted_assets.added.insert(id);
-                            }
+                            take_later.insert(id);
                         } else {
                             extracted_assets.extracted.push((id, asset.clone()));
                             extracted_assets.added.insert(id);
@@ -355,6 +352,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     continue;
                 };
                 extracted_assets.extracted.push((id, asset));
+                extracted_assets.added.insert(id);
             }
         },
     );

@@ -14,7 +14,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{AssetId, DirectAssetAccessExt, Handle, RenderAssetUsages};
 use bevy_camera::primitives::MeshAabb;
 use bevy_ecs::{
     prelude::*,
@@ -61,8 +61,7 @@ impl Plugin for MeshRenderAssetPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let mut mesh_assets = app.world_mut().resource_mut::<Assets<Mesh>>();
-        let handle = mesh_assets.add(
+        let handle = app.world_mut().spawn_asset(
             Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::all())
                 .with_inserted_attribute(
                     Mesh::ATTRIBUTE_POSITION,

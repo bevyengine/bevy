@@ -973,7 +973,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
-        AssetApp, Assets, VisitAssetDependencies,
+        AssetApp, VisitAssetDependencies,
         {tests::create_app, DirectAssetAccessExt},
     };
 
@@ -1142,8 +1142,7 @@ mod tests {
         let mut app = create_app().0;
         app.init_asset::<A>().init_asset::<B>();
 
-        let mut assets = app.world_mut().resource_mut::<Assets<A>>();
-        let handle_a = assets.add(A);
+        let handle_a = app.world_mut().spawn_asset(A);
 
         let dynamic_handle_a = handle_a.to_dynamic();
         let reflected_handle_a = handle_a.as_partial_reflect();
@@ -1179,13 +1178,11 @@ mod tests {
         let mut app = create_app().0;
         app.init_asset::<A>().init_asset::<B>();
 
-        let mut assets_a = app.world_mut().resource_mut::<Assets<A>>();
-        let handle_a = assets_a.add(A);
+        let handle_a = app.world_mut().spawn_asset(A);
 
         let reflected_handle_a = handle_a.as_partial_reflect();
 
-        let mut assets_b = app.world_mut().resource_mut::<Assets<B>>();
-        let mut handle_b = assets_b.add(B);
+        let mut handle_b = app.world_mut().spawn_asset(B);
         assert!(
             handle_b.try_apply(reflected_handle_a).is_err(),
             "Handle<A> should not be applicable to Handle<B>"
@@ -1200,15 +1197,14 @@ mod tests {
         let mut app = create_app().0;
         app.init_asset::<A>();
 
-        let mut assets = app.world_mut().resource_mut::<Assets<A>>();
-        let handle_1 = assets.add(A(1));
+        let handle_1 = app.world_mut().spawn_asset(A(1));
         let reflected_handle_1 = handle_1.as_partial_reflect();
 
         let handle_1_from_reflect: Handle<A> =
             FromReflect::from_reflect(reflected_handle_1).unwrap();
         assert_eq!(handle_1, handle_1_from_reflect);
 
-        let mut handle_2 = assets.add(A(2));
+        let mut handle_2 = app.world_mut().spawn_asset(A(2));
         assert_ne!(handle_1, handle_2);
         handle_2.try_apply(reflected_handle_1).unwrap();
         assert_eq!(handle_1, handle_2);

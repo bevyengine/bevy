@@ -457,7 +457,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                     Cuboid {
                         half_size: Vec3::splat(radius),
                     },
-                ))),
+                )),
                 Transform::IDENTITY,
             ),
             1 => (
@@ -467,11 +467,11 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                         radius,
                         half_length: radius,
                     },
-                ))),
+                )),
                 Transform::IDENTITY,
             ),
             2 => (
-                asset_commands.spawn_asset(compress_mesh(args, Circle { radius }))),
+                asset_commands.spawn_asset(compress_mesh(args, Circle { radius })),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             3 => {
@@ -482,7 +482,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
-                    asset_commands.spawn_asset(compress_mesh(args, Triangle2d { vertices }))),
+                    asset_commands.spawn_asset(compress_mesh(args, Triangle2d { vertices })),
                     Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
                 )
             }
@@ -492,7 +492,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                     Rectangle {
                         half_size: Vec2::splat(radius),
                     },
-                ))),
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             v if (5..=8).contains(&v) => (
@@ -502,7 +502,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                         circumcircle: Circle { radius },
                         sides: v,
                     },
-                ))),
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             9 => (
@@ -512,7 +512,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                         radius,
                         half_height: radius,
                     },
-                ))),
+                )),
                 Transform::IDENTITY,
             ),
             10 => (
@@ -521,7 +521,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                     Ellipse {
                         half_size: Vec2::new(radius, 0.5 * radius),
                     },
-                ))),
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             11 => (
@@ -533,7 +533,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                     }
                     .mesh()
                     .size(radius, radius),
-                ))),
+                )),
                 Transform::IDENTITY,
             ),
             13 => (
@@ -543,7 +543,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                         minor_radius: 0.5 * radius,
                         major_radius: radius,
                     },
-                ))),
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
             ),
             14 => (
@@ -553,7 +553,7 @@ fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<M
                         radius,
                         half_length: radius,
                     },
-                ))),
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             _ => unreachable!(),

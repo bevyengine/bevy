@@ -33,12 +33,7 @@ use bevy_platform::{
     sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use bevy_tasks::IoTaskPool;
-use core::{
-    any::{type_name, TypeId},
-    future::Future, marker::PhantomData,
-    panic::AssertUnwindSafe,
-    task::Poll,
-};
+use core::{any::TypeId, future::Future, marker::PhantomData, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
@@ -527,7 +522,6 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
-        type_name: Option<&str>,
         meta_transform: Option<MetaTransform>,
         guard: G,
         override_unapproved: bool,
@@ -555,7 +549,6 @@ impl AssetServer {
         let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
             type_id,
-            type_name,
             HandleLoadingMode::Request,
             meta_transform,
             &mut RemoteHandleBuilder {
@@ -1145,10 +1138,10 @@ impl AssetServer {
             path.clone(),
             HandleLoadingMode::Request,
             None,
-                &mut RemoteHandleBuilder {
-                    remote_allocator: &self.data.remote_allocator,
-                    asset_event_sender: &self.data.asset_event_sender,
-                },
+            &mut RemoteHandleBuilder {
+                remote_allocator: &self.data.remote_allocator,
+                asset_event_sender: &self.data.asset_event_sender,
+            },
         );
         if !should_load {
             return handle;
@@ -1364,13 +1357,8 @@ impl AssetServer {
     pub fn are_dependencies_loaded(&self, value: &impl VisitAssetDependencies) -> bool {
         let infos = self.read_infos();
         let mut loaded = true;
-        value.visit_dependencies(&mut |asset_id| {
-            let index = match asset_id {
-                // Ignore UUID assets - this effectively makes them considered loaded.
-                UntypedAssetId::Uuid { .. } => return,
-                UntypedAssetId::Index { type_id, index } => ErasedAssetIndex::new(index, type_id),
-            };
-            let Some(info) = infos.get(index) else {
+        value.visit_dependencies(&mut |asset_entity| {
+            let Some(info) = infos.get(asset_entity) else {
                 // If the asset ID is no longer valid, we consider that as not loaded.
                 loaded = false;
                 return;
@@ -1389,13 +1377,8 @@ impl AssetServer {
     pub fn are_direct_dependencies_loaded(&self, value: &impl VisitAssetDependencies) -> bool {
         let infos = self.read_infos();
         let mut loaded = true;
-        value.visit_dependencies(&mut |asset_id| {
-            let index = match asset_id {
-                // Ignore UUID assets - this effectively makes them considered loaded.
-                UntypedAssetId::Uuid { .. } => return,
-                UntypedAssetId::Index { type_id, index } => ErasedAssetIndex::new(index, type_id),
-            };
-            let Some(info) = infos.get(index) else {
+        value.visit_dependencies(&mut |asset_entity| {
+            let Some(info) = infos.get(asset_entity) else {
                 // If the asset ID is no longer valid, we consider that as not loaded.
                 loaded = false;
                 return;
@@ -1526,12 +1509,7 @@ impl AssetServer {
         self.get_or_create_path_handle_erased(
             path.into().into_owned(),
             TypeId::of::<A>(),
-            Some(type_name::<A>()),
             meta_transform,
-                &mut RemoteHandleBuilder {
-                    remote_allocator: &self.data.remote_allocator,
-                    asset_event_sender: &self.data.asset_event_sender,
-                },
         )
         .typed_unchecked()
     }
@@ -1544,14 +1522,12 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
-        type_name: Option<&str>,
         meta_transform: Option<MetaTransform>,
     ) -> UntypedHandle {
         self.write_infos()
             .get_or_create_path_handle_erased(
                 path.into().into_owned(),
                 type_id,
-                type_name,
                 HandleLoadingMode::NotLoading,
                 meta_transform,
                 &mut RemoteHandleBuilder {
@@ -1995,9 +1971,9 @@ impl<'a> LoadBuilder<'a> {
         self
     }
 
-    /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
-    /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
-    /// associated [`Assets`] resource.
+    /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset
+    /// load. Instead, it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters
+    /// [`LoadState::Loaded`]), it will be inserted into the world.
     ///
     /// Note that if the asset at this path is already loaded, this function will return the existing handle,
     /// and will not waste work spawning a new load task.
@@ -2006,7 +1982,7 @@ impl<'a> LoadBuilder<'a> {
     /// builder. See its docs for more details.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'b, A: Asset>(self, asset_path: impl Into<AssetPath<'b>>) -> Handle<A> {
-        self.load_typed_internal(TypeId::of::<A>(), Some(type_name::<A>()), asset_path.into())
+        self.load_typed_internal(TypeId::of::<A>(), asset_path.into())
             .typed_unchecked()
     }
 
@@ -2018,7 +1994,7 @@ impl<'a> LoadBuilder<'a> {
         type_id: TypeId,
         asset_path: impl Into<AssetPath<'b>>,
     ) -> UntypedHandle {
-        self.load_typed_internal(type_id, None, asset_path.into())
+        self.load_typed_internal(type_id, asset_path.into())
     }
 
     /// Load an asset without knowing its type. The method returns a handle to a [`LoadedUntypedAsset`].
@@ -2034,7 +2010,7 @@ impl<'a> LoadBuilder<'a> {
     /// #[derive(Resource)]
     /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);
     ///
-    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Res<Assets<LoadedUntypedAsset>>) {
+    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Assets<LoadedUntypedAsset>) {
     ///     if let Some(loaded_untyped_asset) = loaded_untyped_assets.get(&loading_handle.0) {
     ///         let handle = loaded_untyped_asset.handle.clone();
     ///         // continue working with `handle` which points to the asset at the originally requested path
@@ -2085,16 +2061,10 @@ impl<'a> LoadBuilder<'a> {
 
     /// Begins a (deferred) load for an asset with the given `type_id` and `type_name`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    fn load_typed_internal(
-        self,
-        type_id: TypeId,
-        type_name: Option<&str>,
-        asset_path: AssetPath<'_>,
-    ) -> UntypedHandle {
+    fn load_typed_internal(self, type_id: TypeId, asset_path: AssetPath<'_>) -> UntypedHandle {
         self.asset_server.load_with_meta_transform(
             asset_path,
             type_id,
-            type_name,
             self.meta_transform,
             self.guard,
             self.override_unapproved,
@@ -2298,8 +2268,8 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         for (handle, path) in folders_to_reload {
             // `get_path_handles` only returns Strong variants, so this is safe.
-            let index = (&handle).try_into().unwrap();
-            server.load_folder_internal(index, path);
+            let entity = handle.entity().unwrap();
+            server.load_folder_internal(entity, path);
         }
         for path in paths_to_reload {
             server.reload_internal(path, true);

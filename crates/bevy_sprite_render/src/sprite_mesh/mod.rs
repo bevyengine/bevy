@@ -44,7 +44,7 @@ fn add_mesh(
     mut asset_commands: AssetCommands,
 ) {
     let quad = quad.get_or_insert_with(|| {
-        asset_commands.spawn_asset(Mesh::from(
+        asset_commands.spawn_asset(
             Rectangle::from_size(vec2(1.0, 1.0))
                 .mesh()
                 .build()
@@ -54,7 +54,7 @@ fn add_mesh(
                         | MeshAttributeCompressionFlags::COMPRESS_UV0,
                     true,
                 ),
-        ))
+        )
     });
     for entity in sprites {
         commands.entity(entity).insert(Mesh2d(quad.clone()));

@@ -9,7 +9,6 @@ use bevy::{
     camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
-    ecs::system::SystemParam,
     pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
@@ -22,7 +21,11 @@ use bevy::{
 mod widgets;
 
 /// Scene construction functions
-const SCENES: &[(&str, &str, fn(&mut Commands, &mut AssetCommands, &AssetServer))] = &[
+const SCENES: &[(
+    &str,
+    &str,
+    fn(&mut Commands, &mut AssetCommands, &AssetServer),
+)] = &[
     ("1", "Three balls", spawn_spheres),
     ("2", "Stacked quads", spawn_quads),
     ("3", "Opaque occlusion test", spawn_occlusion_test),
@@ -103,6 +106,7 @@ struct BaseTransform(Transform);
 fn setup(
     mut commands: Commands,
     mut asset_commands: AssetCommands,
+    asset_server: Res<AssetServer>,
     app_state: Res<AppState>,
     window: Single<Entity, With<PrimaryWindow>>,
 ) {
@@ -185,7 +189,7 @@ fn setup(
     ));
 
     // Spawn the default scene
-    SCENES[0].2(&mut commands, &mut resources); //&mut meshes, &mut materials);
+    SCENES[0].2(&mut commands, &mut asset_commands, &asset_server);
 }
 
 /// Watches for key presses and queues corresponding `AppEvent`'s
@@ -367,7 +371,7 @@ fn scene_change_watcher(
 /// Spawns 3 overlapping spheres
 /// Technically, when using `alpha_to_coverage` with MSAA this particular example wouldn't break,
 /// but it breaks when disabling MSAA and is enough to show the difference between OIT enabled vs disabled.
-fn spawn_spheres(commands: &mut Commands, asset_commands: &mut AssetCommands, asset_server: &AssetServer) {
+fn spawn_spheres(commands: &mut Commands, asset_commands: &mut AssetCommands, _: &AssetServer) {
     let pos_a = Vec3::new(-1.0, 0.75, 0.0);
     let pos_b = Vec3::new(0.0, -0.75, 0.0);
     let pos_c = Vec3::new(1.0, 0.75, 0.0);
@@ -414,8 +418,8 @@ fn spawn_spheres(commands: &mut Commands, asset_commands: &mut AssetCommands, as
 
 /// Spawns a stack of transparent quads, which better illustrates the shortcomings
 /// of the standard mesh sorted transparency.
-fn spawn_quads(commands: &mut Commands, asset_commands: &mut AssetCommands, asset_server: &AssetServer)) {
-    let quad_handle = asset_commands.spawn_asset(Rectangle::new(3.0, 3.0).mesh());
+fn spawn_quads(commands: &mut Commands, asset_commands: &mut AssetCommands, _: &AssetServer) {
+    let quad_handle = asset_commands.spawn_asset(Mesh::from(Rectangle::new(3.0, 3.0).mesh()));
     let render_layers = RenderLayers::layer(1);
     let xform = |x, y, z| {
         Transform::from_rotation(Quat::from_rotation_y(0.5))
@@ -479,10 +483,15 @@ fn spawn_quads(commands: &mut Commands, asset_commands: &mut AssetCommands, asse
 /// Spawns a combination of opaque cubes and transparent spheres.
 /// This is useful to make sure transparent meshes drawn with OIT
 /// are properly occluded by opaque meshes.
-fn spawn_occlusion_test(commands: &mut Commands, asset_commands: &mut AssetCommands, asset_server: &AssetServer)) {
+fn spawn_occlusion_test(
+    commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
+    _: &AssetServer,
+) {
     let sphere_handle = asset_commands.spawn_asset(Mesh::from(Sphere::new(1.0).mesh()));
     let cube_handle = asset_commands.spawn_asset(Mesh::from(Cuboid::from_size(Vec3::ONE).mesh()));
-    let cube_material = asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6)));
+    let cube_material =
+        asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6)));
 
     let render_layers = RenderLayers::layer(1);
 
@@ -545,7 +554,11 @@ fn spawn_occlusion_test(commands: &mut Commands, asset_commands: &mut AssetComma
 
 /// Spawns multiple entities with the same Mesh+Material. They should automatically be drawn using
 /// instancing (when GPU preprocessing is not active) or `MultiDrawIndirect` (when it is).
-fn spawn_auto_instancing_test(commands: &mut Commands, asset_commands: &mut AssetCommands, asset_server: &AssetServer)) {
+fn spawn_auto_instancing_test(
+    commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
+    asset_server: &AssetServer,
+) {
     let render_layers = RenderLayers::layer(1);
 
     let cube = asset_commands.spawn_asset(Mesh::from(Cuboid::new(1.0, 1.0, 1.0)));
@@ -624,10 +637,14 @@ impl Material for NoisyOpacityMaterial {
     }
 }
 /// This scene demonstrates the integration of OIT into extended/custom materials
-fn spawn_custom_material(commands: &mut Commands, asset_commands: &mut AssetCommands, asset_server: &AssetServer)) {
+fn spawn_custom_material(
+    commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
+    _: &AssetServer,
+) {
     let render_layers = RenderLayers::layer(1);
 
-    let torus = meshes.add(Torus::new(2.0, 3.0));
+    let torus = asset_commands.spawn_asset(Mesh::from(Torus::new(2.0, 3.0)));
 
     // Spawn a torus with an ExtendedMaterial
     commands.spawn((

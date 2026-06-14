@@ -14,10 +14,7 @@ use bevy_ecs::{entity::Entity, world::World};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::{TypeIdMap, TypeIdMapEntry};
-use core::{
-    any::{type_name, TypeId},
-    task::Waker,
-};
+use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use thiserror::Error;
 use tracing::warn;
@@ -189,9 +186,9 @@ impl AssetInfos {
         let (handle, should_load) = self.get_or_create_path_handle_erased(
             path,
             TypeId::of::<A>(),
-            Some(type_name::<A>()),
             loading_mode,
             meta_transform,
+            builder,
         );
         (handle.typed_unchecked(), should_load)
     }
@@ -746,14 +743,14 @@ impl AssetInfos {
 
         // Try to remove the entity from `path_to_entity`.
         if let Some(map) = path_to_entity.get_mut(path)
-            && let Entry::Occupied(entry) = map.entry(info.type_id)
+            && let TypeIdMapEntry::Occupied(entry) = map.entry(info.type_id)
             // Make sure that `entity` is still the most "up-to-date" entity for this path. It may
             // not be if this entity's handle was dropped, then another load occurred, and then that
             // new entity was manually despawned. Very unlikely, but we don't need to do anything in
             // that case.
             && *entry.get() == entity
         {
-            entry.remove();
+            entry.shift_remove();
             if map.is_empty() {
                 path_to_entity.remove(path);
             }
