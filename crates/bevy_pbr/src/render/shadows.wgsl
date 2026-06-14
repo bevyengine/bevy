@@ -53,13 +53,13 @@ fn fetch_point_shadow(
     // If soft shadows are enabled, use the PCSS path. Cubemaps assume a
     // left-handed coordinate space, so we have to flip the z-axis when
     // sampling.
-    let light_index = light_id + point_shadow_map_offset;
+    let array_index = light_id + point_shadow_map_offset;
     if ((*light).soft_shadow_size > 0.0) {
         return sample_shadow_cubemap_pcss(
             frag_ls * flip_z,
             distance_to_light,
             depth,
-            light_index,
+            array_index,
             (*light).soft_shadow_size,
             frag_coord_xy,
         );
@@ -67,7 +67,7 @@ fn fetch_point_shadow(
 
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed
     // coordinate space, so we have to flip the z-axis when sampling.
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_index, frag_coord_xy);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, array_index, frag_coord_xy);
 }
 
 fn fetch_spot_shadow(
