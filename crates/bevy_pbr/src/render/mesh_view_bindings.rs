@@ -23,6 +23,7 @@ use bevy_ecs::{
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
+use bevy_render::renderer::WgpuWrapper;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -623,6 +624,16 @@ pub struct MeshViewBindGroup {
     pub empty: BindGroup,
 }
 
+// Wrapped Vec to be used in `Local` system param in `prepare_mesh_view_bind_groups`,
+// because `BindGroupEntry` is non-send on wasm with atomics.
+pub struct WrappedBindGroupEntryVec(WgpuWrapper<Vec<BindGroupEntry<'static>>>);
+
+impl Default for WrappedBindGroupEntryVec {
+    fn default() -> Self {
+        Self(WgpuWrapper::new(Vec::default()))
+    }
+}
+
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     (render_device, pipeline_cache, render_adapter): (
@@ -687,12 +698,8 @@ pub fn prepare_mesh_view_bind_groups(
         Res<AreaLightLuts>,
         Res<DfgLut>,
     ),
-    // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))] mut entries_cache: Local<
-        Vec<BindGroupEntry>,
-    >,
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_binding_array_cache: Local<Vec<BindGroupEntry>>,
+    mut entries_cache: Local<WrappedBindGroupEntryVec>,
+    mut entries_binding_array_cache: Local<WrappedBindGroupEntryVec>,
 ) {
     if let (
         Some(view_binding),
@@ -738,18 +745,18 @@ pub fn prepare_mesh_view_bind_groups(
         {
             let mut entries = DynamicBindGroupEntries::new();
             let mut entries_binding_array = DynamicBindGroupEntries::new();
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             {
                 // Take cache that has static lifetime for `DynamicBindGroupEntries`.
                 // See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-                entries.entries = core::mem::take(&mut *entries_cache)
+                entries.entries = core::mem::take(&mut *entries_cache.0)
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
-                entries_binding_array.entries = core::mem::take(&mut *entries_binding_array_cache)
-                    .into_iter()
-                    .map(|_| -> BindGroupEntry { unreachable!() })
-                    .collect();
+                entries_binding_array.entries =
+                    core::mem::take(&mut *entries_binding_array_cache.0)
+                        .into_iter()
+                        .map(|_| -> BindGroupEntry { unreachable!() })
+                        .collect();
             }
 
             let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
@@ -1027,20 +1034,19 @@ pub fn prepare_mesh_view_bind_groups(
                 ),
             },));
 
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             {
                 entries.entries.clear();
                 entries_binding_array.entries.clear();
-                *entries_cache = entries
+                *entries_cache.0 = entries
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
-                    .collect();
-                *entries_binding_array_cache = entries_binding_array
+                    .collect::<Vec<_>>();
+                *entries_binding_array_cache.0 = entries_binding_array
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
-                    .collect();
+                    .collect::<Vec<_>>();
             }
         }
     }
