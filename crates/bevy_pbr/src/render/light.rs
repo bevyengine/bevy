@@ -1567,129 +1567,34 @@ pub fn prepare_lights(
         let retained_view_entity = RetainedViewEntity::new(*light_main_entity, None, 0);
 
         if point_and_spot_light_view_entities.0.is_empty() {
-            let spot_world_from_view = spot_light_world_from_view(&light.transform);
-            let spot_world_from_view = spot_world_from_view.into();
-
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
-
-            let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
-
-            let depth_attachment = directional_light_depth_attachments
-                .entry(base_array_layer)
-                .or_insert_with(|| {
-                    let depth_texture_view = directional_light_depth_texture.texture.create_view(
-                        &TextureViewDescriptor {
-                            label: Some("spot_light_shadow_map_texture_view"),
-                            format: None,
-                            dimension: Some(TextureViewDimension::D2),
-                            usage: None,
-                            aspect: TextureAspect::All,
-                            base_mip_level: 0,
-                            mip_level_count: None,
-                            base_array_layer,
-                            array_layer_count: Some(1u32),
-                        },
-                    );
-
-                    DepthAttachment::new(depth_texture_view, Some(0.0))
-                })
-                .clone();
-
             let view_light_entity = commands.spawn_empty().id();
 
-            commands.entity(view_light_entity).insert((
-                ShadowView {
-                    depth_attachment,
-                    pass_name: format!("shadow_spot_light_{light_index}"),
-                },
-                ExtractedView {
-                    retained_view_entity,
-                    viewport: UVec4::new(
-                        0,
-                        0,
-                        directional_light_shadow_map.size as u32,
-                        directional_light_shadow_map.size as u32,
-                    ),
-                    world_from_view: spot_world_from_view,
-                    clip_from_view: spot_projection,
-                    clip_from_world: None,
-                    target_format: CORE_3D_DEPTH_FORMAT,
-                    color_grading: Default::default(),
-                    invert_culling: false,
-                },
-                *spot_light_frustum.unwrap(),
-                LightEntity::Spot {
-                    light_entity: *light_entity,
-                },
-                RootNonCameraView(Core3d.intern()),
-            ));
-
-            if !matches!(
+            create_spot_shadow_map(
+                &mut commands,
+                &mut directional_light_depth_attachments,
+                (num_directional_cascades_enabled, light_index),
+                &directional_light_depth_texture,
+                view_light_entity,
+                (light_entity, light_main_entity, light),
+                spot_light_frustum,
+                directional_light_shadow_map.size as u32,
                 gpu_preprocessing_support.max_supported_mode,
-                GpuPreprocessingMode::Culling
-            ) {
-                commands.entity(view_light_entity).insert(NoIndirectDrawing);
-            }
+            );
 
             point_and_spot_light_view_entities.0 = vec![view_light_entity];
         } else if changed_point_lights.get(*light_entity).is_ok() {
-            // If the spot light was changed, update the `ExtractedView` only.
-            let spot_world_from_view = spot_light_world_from_view(&light.transform);
-            let spot_world_from_view = spot_world_from_view.into();
-
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
-
-            let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
-
-            let depth_attachment = directional_light_depth_attachments
-                .entry(base_array_layer)
-                .or_insert_with(|| {
-                    let depth_texture_view = directional_light_depth_texture.texture.create_view(
-                        &TextureViewDescriptor {
-                            label: Some("spot_light_shadow_map_texture_view"),
-                            format: None,
-                            dimension: Some(TextureViewDimension::D2),
-                            usage: None,
-                            aspect: TextureAspect::All,
-                            base_mip_level: 0,
-                            mip_level_count: None,
-                            base_array_layer,
-                            array_layer_count: Some(1u32),
-                        },
-                    );
-
-                    DepthAttachment::new(depth_texture_view, Some(0.0))
-                })
-                .clone();
-
-            // There should be only one `view_light_entity` for spotlights.
-            let view_light_entity = point_and_spot_light_view_entities.0[0];
-            commands.entity(view_light_entity).insert((
-                ShadowView {
-                    depth_attachment,
-                    pass_name: format!("shadow_spot_light_{light_index}"),
-                },
-                ExtractedView {
-                    retained_view_entity,
-                    viewport: UVec4::new(
-                        0,
-                        0,
-                        directional_light_shadow_map.size as u32,
-                        directional_light_shadow_map.size as u32,
-                    ),
-                    world_from_view: spot_world_from_view,
-                    clip_from_view: spot_projection,
-                    clip_from_world: None,
-                    target_format: CORE_3D_DEPTH_FORMAT,
-                    color_grading: Default::default(),
-                    invert_culling: false,
-                },
-                *spot_light_frustum.unwrap(),
-            ));
+            create_spot_shadow_map(
+                &mut commands,
+                &mut directional_light_depth_attachments,
+                (num_directional_cascades_enabled, light_index),
+                &directional_light_depth_texture,
+                // There should only be one view light entity for spotlights
+                point_and_spot_light_view_entities.0[0],
+                (light_entity, light_main_entity, light),
+                spot_light_frustum,
+                directional_light_shadow_map.size as u32,
+                gpu_preprocessing_support.max_supported_mode,
+            );
         }
 
         shadow_render_phases.prepare_for_new_frame(
@@ -2209,6 +2114,86 @@ fn create_point_shadow_maps(
         ) {
             commands.entity(view_light_entity).insert(NoIndirectDrawing);
         }
+    }
+}
+
+/// Creates the spot shadow map for a `RetainedViewEntity` identified by the `light_main_entity`.
+/// THis shadow map is shared across all cameras.
+fn create_spot_shadow_map(
+    commands: &mut Commands,
+    directional_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
+    (num_directional_cascades_enabled, light_index): (usize, usize),
+    directional_light_depth_texture: &CachedTexture,
+    view_light_entity: Entity,
+    (light_entity, light_main_entity, light): (&Entity, &MainEntity, &ExtractedPointLight),
+    spot_light_frustum: Option<&Frustum>,
+    directional_light_shadow_map_size: u32,
+    gpu_preprocessing_support_max_supported_mode: GpuPreprocessingMode,
+) {
+    let spot_world_from_view = spot_light_world_from_view(&light.transform);
+    let spot_world_from_view = spot_world_from_view.into();
+
+    let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+    let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
+
+    let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
+
+    let depth_attachment = directional_light_depth_attachments
+        .entry(base_array_layer)
+        .or_insert_with(|| {
+            let depth_texture_view =
+                directional_light_depth_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("spot_light_shadow_map_texture_view"),
+                        format: None,
+                        dimension: Some(TextureViewDimension::D2),
+                        usage: None,
+                        aspect: TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer,
+                        array_layer_count: Some(1u32),
+                    });
+
+            DepthAttachment::new(depth_texture_view, Some(0.0))
+        })
+        .clone();
+
+    let retained_view_entity = RetainedViewEntity::new(*light_main_entity, None, 0);
+    commands.entity(view_light_entity).insert((
+        ShadowView {
+            depth_attachment,
+            pass_name: format!("shadow_spot_light_{light_index}"),
+        },
+        ExtractedView {
+            retained_view_entity,
+            viewport: UVec4::new(
+                0,
+                0,
+                directional_light_shadow_map_size,
+                directional_light_shadow_map_size,
+            ),
+            world_from_view: spot_world_from_view,
+            clip_from_view: spot_projection,
+            clip_from_world: None,
+            target_format: CORE_3D_DEPTH_FORMAT,
+            color_grading: Default::default(),
+            invert_culling: false,
+        },
+        *spot_light_frustum.unwrap(),
+        LightEntity::Spot {
+            light_entity: *light_entity,
+        },
+        RootNonCameraView(Core3d.intern()),
+    ));
+
+    if !matches!(
+        gpu_preprocessing_support_max_supported_mode,
+        GpuPreprocessingMode::Culling
+    ) {
+        commands.entity(view_light_entity).insert(NoIndirectDrawing);
     }
 }
 
