@@ -39,6 +39,10 @@ impl PendingCommandBuffers {
         self.0.buffers.extend(buffers);
     }
 
+    pub fn append(&mut self, buffers: &mut Vec<CommandBuffer>) {
+        self.0.buffers.append(buffers);
+    }
+
     pub fn push_encoder(&mut self, encoder: CommandEncoder) {
         self.0.encoders.push(encoder);
     }
@@ -122,7 +126,7 @@ impl SystemBuffer for RenderContextState {
 
         if !inner.command_buffers.is_empty() {
             let mut pending = world.resource_mut::<PendingCommandBuffers>();
-            pending.push(inner.command_buffers.drain(..));
+            pending.append(&mut inner.command_buffers);
         }
 
         inner.render_device = None;
