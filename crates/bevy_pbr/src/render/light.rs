@@ -1541,12 +1541,9 @@ pub fn prepare_lights(
                 point_and_spot_light_view_entities.1.iter_mut()
             {
                 commands
-                        .entity(*view_entity)
-                        .remove::<PointLightShadowViewEntities>();
-                despawn_entities(
-                    &mut commands,
-                    mem::take(&mut light_view_entities),
-                );
+                    .entity(*view_entity)
+                    .remove::<PointLightShadowViewEntities>();
+                despawn_entities(&mut commands, mem::take(&mut light_view_entities));
             }
             mem::take(&mut point_and_spot_light_view_entities.1);
             continue;
@@ -1751,12 +1748,9 @@ pub fn prepare_lights(
                 point_and_spot_light_view_entities.1.iter_mut()
             {
                 commands
-                        .entity(*view_entity)
-                        .remove::<SpotLightShadowViewEntity>();
-                despawn_entities(
-                    &mut commands,
-                    mem::take(&mut light_view_entities),
-                );
+                    .entity(*view_entity)
+                    .remove::<SpotLightShadowViewEntity>();
+                despawn_entities(&mut commands, mem::take(&mut light_view_entities));
             }
             mem::take(&mut point_and_spot_light_view_entities.1);
             continue;
