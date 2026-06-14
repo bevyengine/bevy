@@ -1537,13 +1537,13 @@ pub fn prepare_lights(
                 &mut commands,
                 mem::take(&mut point_and_spot_light_view_entities.0),
             );
-            for (view_entity, mut light_view_entities) in
+            for (view_entity, light_view_entities) in
                 point_and_spot_light_view_entities.1.iter_mut()
             {
                 commands
                     .entity(*view_entity)
                     .remove::<PointLightShadowViewEntities>();
-                despawn_entities(&mut commands, mem::take(&mut light_view_entities));
+                despawn_entities(&mut commands, mem::take(light_view_entities));
             }
             mem::take(&mut point_and_spot_light_view_entities.1);
             continue;
@@ -1744,13 +1744,13 @@ pub fn prepare_lights(
                 &mut commands,
                 mem::take(&mut point_and_spot_light_view_entities.0),
             );
-            for (view_entity, mut light_view_entities) in
+            for (view_entity, light_view_entities) in
                 point_and_spot_light_view_entities.1.iter_mut()
             {
                 commands
                     .entity(*view_entity)
                     .remove::<SpotLightShadowViewEntity>();
-                despawn_entities(&mut commands, mem::take(&mut light_view_entities));
+                despawn_entities(&mut commands, mem::take(light_view_entities));
             }
             mem::take(&mut point_and_spot_light_view_entities.1);
             continue;
@@ -2328,13 +2328,13 @@ pub fn prepare_lights(
         .retain(|entity, _| live_shadow_mapping_lights.contains(entity));
 }
 
-/// Creates six point shadow map for retained_view_entities identified by the light_main_entity,
-/// the auxiliary_entity (the main_entity part), and the six cube face rotation indices.
+/// Creates six point shadow map for a `RetainedViewEntity` identified by the `light_main_entity`,
+/// the `auxiliary_entity` (the `main_entity` part), and the six cube face rotation indices.
 ///
 /// Six new depth attachments are created per unique auxiliary entity, identified by its
 /// its `aux_entity_index`.
 ///
-/// An auxiliary_entity of `None` creates a shadow map that will be shared across cameras.
+/// An `auxiliary_entity` of `None` creates a shadow map that will be shared across cameras.
 /// If a camera requests for its own shadow maps, the auxiliary entity is the requesting camera.
 fn create_point_shadow_maps(
     commands: &mut Commands,
@@ -2466,7 +2466,7 @@ fn create_point_shadow_maps(
     if let Some((entity, _)) = auxiliary_entity {
         point_and_spot_light_view_entities
             .1
-            .insert(*entity, light_view_entities.iter().copied().collect());
+            .insert(*entity, light_view_entities.to_vec());
 
         // Ensure these view-specific shadow maps are rendered in `per_view_shadow_pass`.
         // This is placed on the auxiliary view entity.
@@ -2480,10 +2480,10 @@ fn create_point_shadow_maps(
     }
 }
 
-/// Creates the spot shadow map for retained_view_entities identified by the light_main_entity and
-/// the auxiliary_entity (the main_entity part).
+/// Creates the spot shadow map for a `RetainedViewEntity` identified by the `light_main_entity` and
+/// the `auxiliary_entity` (the `main_entity` part).
 ///
-/// An auxiliary_entity of `None` creates a shadow map that will be shared across cameras.
+/// An `auxiliary_entity` of `None` creates a shadow map that will be shared across cameras.
 /// If a camera requests for its own shadow maps, the auxiliary entity is the requesting camera.
 fn create_spot_shadow_map(
     commands: &mut Commands,
