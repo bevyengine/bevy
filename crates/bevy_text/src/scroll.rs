@@ -771,4 +771,18 @@ mod tests {
             110.0
         );
     }
+
+    #[test]
+    fn scrollable_text_word_boundary() {
+        assert_eq!(
+            scrollable_content_width(
+                LineBreak::WordBoundary,
+                Justify::Left,
+                150.,
+                100.,
+                Some(Rect::new(150., 0., 160.0, 10.0)),
+            ),
+            160.
+        );
+    }
 }
