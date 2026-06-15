@@ -55,7 +55,7 @@ fn apply_flip(uv: vec2<f32>) -> vec2<f32> {
     return out;
 }
 
-// Applies tiling to the UV based on the sprite's tiling propeties when `image_mode` is `Tiled`.
+// Applies tiling to the UV based on the sprite's tiling properties when `image_mode` is `Tiled`.
 fn apply_tiling(uv: vec2<f32>) -> vec2<f32> {
     var out = uv;
     if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
