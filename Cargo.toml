@@ -5487,6 +5487,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "feathers_number_input"
+path = "examples/ui/widgets/feathers_number_input.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.feathers_number_input]
+name = "Feathers Number Input"
+description = "Feathers Number Input Options"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "render_depth_to_texture"
 path = "examples/shader_advanced/render_depth_to_texture.rs"
 doc-scrape-examples = true
