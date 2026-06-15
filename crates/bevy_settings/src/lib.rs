@@ -71,7 +71,7 @@ use store_wasm::SettingsStore;
 /// Saving of settings is not automatic; the recommended practice is to issue a
 /// [`SaveSettingsDeferred`] command after modifying a settings resource. This will wait for
 /// a short interval and then spawn an i/o task to write out the changed settings file. You can
-/// also issue a [`SavePreferencesSync::IfChanged`] command immediately before exiting the app.
+/// also issue a [`SaveSettingsSync::IfChanged`] command immediately before exiting the app.
 /// Note that on some platforms, depending on how the user exits (such as invoking Command-Q on
 /// ``MacOS``) there may be no opportunity to intercept the app exit event, so the most reliable
 /// approach is to use both techniques: deferred save and save-on-exit.
