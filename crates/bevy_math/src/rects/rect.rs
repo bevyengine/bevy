@@ -262,6 +262,7 @@ impl Rect {
     /// let r = Rect::new(0., 0., 4., 5.);
     /// assert_eq!(r.clamp_point(Vec2::new(-1., 6.)), Vec2::new(0., 5.));
     /// assert_eq!(r.clamp_point(Vec2::ONE), Vec2::ONE);
+    /// ```
     #[inline]
     pub fn clamp_point(&self, point: Vec2) -> Vec2 {
         point.clamp(self.min, self.max)
