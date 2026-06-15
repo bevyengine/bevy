@@ -272,7 +272,6 @@ fn build_text_interop(app: &mut App) {
                 .after(UiSystems::Layout)
                 .before(EditableTextSystems),
             widget::update_editable_text_layout
-                .chain()
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,
