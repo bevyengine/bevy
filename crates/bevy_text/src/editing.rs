@@ -74,7 +74,7 @@
 
 use crate::{
     scroll::TextViewport,
-    text_edit::{poll_and_apply_paste, TextEdit},
+    text_edit::{poll_and_apply_paste, reveal_cursor, TextEdit},
     FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
 };
 use alloc::sync::Arc;
@@ -117,7 +117,7 @@ pub struct EditableText {
     /// These operations should generally be batched together to avoid redundant layout work.
     // The B: Brush generic here must match the brush used by `ComputedTextBlock` to ensure that the font system is compatible.
     pub editor: PlainEditor<TextBrush>,
-    /// Text Viewport
+    /// The bounds of the visible portion of the text layout.
     pub viewport: TextViewport,
     /// Text edit actions that have been requested but not yet applied.
     ///
@@ -161,7 +161,7 @@ impl Default for EditableText {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
             viewport: TextViewport::default(),
-            cursor_margin: Vec2::new(0.1, 0.1),
+            cursor_margin: Vec2::splat(0.2),
             pending_edits: Vec::new(),
             pending_paste: None,
             cursor_width: 0.2,
@@ -238,11 +238,15 @@ impl EditableText {
         // First: resolve any paste carried over from a previous frame. If it's still
         // pending, hold the remaining edits (untouched in `pending_edits`) for next frame
         // so ordering relative to the paste is preserved.
-        if let Some(mut read) = pending_paste.take()
-            && !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-        {
-            *pending_paste = Some(read);
-            return;
+        if let Some(mut read) = pending_paste.take() {
+            let generation = driver.editor.generation();
+            if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+                *pending_paste = Some(read);
+                return;
+            }
+            if generation != driver.editor.generation() {
+                reveal_cursor(&mut driver, viewport, *cursor_margin);
+            }
         }
 
         // Drain edits one at a time. A paste that resolves synchronously (always the case
@@ -252,12 +256,16 @@ impl EditableText {
         while let Some(edit) = edits.next() {
             match edit {
                 TextEdit::Paste => {
+                    let generation = driver.editor.generation();
                     let mut read = clipboard.fetch_text();
                     if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
                     {
                         *pending_paste = Some(read);
                         pending_edits.extend(edits);
                         return;
+                    }
+                    if generation != driver.editor.generation() {
+                        reveal_cursor(&mut driver, viewport, *cursor_margin);
                     }
                 }
                 other => other.apply(
