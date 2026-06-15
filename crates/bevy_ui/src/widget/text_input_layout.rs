@@ -507,7 +507,6 @@ pub fn update_editable_text_layout(
         viewport.clamp_inside(Vec2::new(
             scrollable_text_layout_width(
                 text_layout.linebreak,
-                text_layout.justify,
                 full_layout_size.x,
                 viewport_width,
                 cursor_reveal,

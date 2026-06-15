@@ -350,7 +350,6 @@ fn text_input_autoscroll_system(
     let full_layout_size = Vec2::new(
         scrollable_text_layout_width(
             text_layout.linebreak,
-            text_layout.justify,
             layout_info.size.x,
             editable_text.viewport.size.x,
             layout_info.cursor.map(|(_, rect)| rect),

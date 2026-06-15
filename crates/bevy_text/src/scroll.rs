@@ -44,7 +44,6 @@ use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 
-use crate::Justify;
 use crate::LineBreak;
 
 /// The region of the editable text layout visible to the user.
@@ -233,7 +232,6 @@ impl TextLineYBounds {
 /// The horizontal extent an editable text viewport may scroll across.
 pub fn scrollable_text_layout_width(
     linebreak: LineBreak,
-    justify: Justify,
     layout_width: f32,
     viewport_width: f32,
     caret: Option<Rect>,
@@ -724,7 +722,6 @@ mod tests {
             assert_eq!(
                 scrollable_text_layout_width(
                     linebreak,
-                    Justify::Left,
                     102.0,
                     100.0,
                     Some(Rect::new(95.0, 0.0, 110.0, 20.0))
@@ -737,31 +734,22 @@ mod tests {
     #[test]
     fn word_boundary_wrapping_preserves_overflow() {
         assert_eq!(
-            scrollable_text_layout_width(
-                LineBreak::WordBoundary,
-                Justify::Left,
-                150.0,
-                100.0,
-                None,
-            ),
+            scrollable_text_layout_width(LineBreak::WordBoundary, 150.0, 100.0, None,),
             150.0
         );
     }
 
     #[test]
-    fn centered_and_justified_wrapped_text_includes_trailing_caret() {
-        for justify in [Justify::Center, Justify::Justified] {
-            assert_eq!(
-                scrollable_text_layout_width(
-                    LineBreak::WordBoundary,
-                    justify,
-                    102.0,
-                    100.0,
-                    Some(Rect::new(95.0, 0.0, 110.0, 20.0)),
-                ),
-                110.0
-            );
-        }
+    fn overflowing_wrapped_text_includes_trailing_caret() {
+        assert_eq!(
+            scrollable_text_layout_width(
+                LineBreak::WordBoundary,
+                102.0,
+                100.0,
+                Some(Rect::new(95.0, 0.0, 110.0, 20.0)),
+            ),
+            110.0
+        );
     }
 
     #[test]
@@ -769,7 +757,6 @@ mod tests {
         assert_eq!(
             scrollable_text_layout_width(
                 LineBreak::NoWrap,
-                Justify::Left,
                 102.0,
                 100.0,
                 Some(Rect::new(95.0, 0.0, 110.0, 20.0)),
@@ -783,7 +770,6 @@ mod tests {
         assert_eq!(
             scrollable_text_layout_width(
                 LineBreak::WordBoundary,
-                Justify::Left,
                 150.,
                 100.,
                 Some(Rect::new(150., 0., 160.0, 10.0)),
