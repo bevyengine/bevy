@@ -1432,9 +1432,7 @@ pub fn prepare_lights(
             size: Extent3d {
                 width: point_light_shadow_map.size as u32,
                 height: point_light_shadow_map.size as u32,
-                depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32
-                    * point_spot_shadow_aux_entities.len() as u32
-                    * 6,
+                depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32 * 6,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -1485,8 +1483,8 @@ pub fn prepare_lights(
                 height: (directional_light_shadow_map.size as u32)
                     .min(render_device.limits().max_texture_dimension_2d),
                 depth_or_array_layers: (num_directional_cascades_enabled
-                    + spot_light_shadow_maps_count * point_spot_shadow_aux_entities.len())
-                .max(1) as u32,
+                    + spot_light_shadow_maps_count)
+                    .max(1) as u32,
             },
             mip_level_count: 1,
             sample_count: 1,
