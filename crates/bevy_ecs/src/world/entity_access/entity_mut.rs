@@ -186,6 +186,10 @@ impl<'w> EntityMut<'w> {
     /// Returns components for the current entity that match the query `Q`,
     /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
     /// # Example
     ///
     /// ```
@@ -207,10 +211,6 @@ impl<'w> EntityMut<'w> {
     /// // This would trigger undefined behavior, as the `&mut X`s would alias:
     /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
     /// ```
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # See also
     ///
@@ -254,6 +254,10 @@ impl<'w> EntityMut<'w> {
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
     /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
     /// # Example
     ///
     /// ```
@@ -275,10 +279,6 @@ impl<'w> EntityMut<'w> {
     /// // This would trigger undefined behavior, as the `&mut X`s would alias:
     /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
     /// ```
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # See also
     ///
