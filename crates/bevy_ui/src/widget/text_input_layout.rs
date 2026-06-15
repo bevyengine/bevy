@@ -17,7 +17,7 @@ use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
     add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, resolve_font_source,
-    scrollable_content_width, EditableText, EditableTextGeneration, Font, FontAtlasKey,
+    scrollable_text_layout_width, EditableText, EditableTextGeneration, Font, FontAtlasKey,
     FontAtlasSet, FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight,
     PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
     TextLayoutInfo, TextLineYBounds,
@@ -505,7 +505,7 @@ pub fn update_editable_text_layout(
         }
         let viewport_width = viewport.size.x;
         viewport.clamp_inside(Vec2::new(
-            scrollable_content_width(
+            scrollable_text_layout_width(
                 text_layout.linebreak,
                 text_layout.justify,
                 full_layout_size.x,

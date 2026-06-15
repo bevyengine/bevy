@@ -231,7 +231,7 @@ impl TextLineYBounds {
 }
 
 /// The horizontal extent an editable text viewport may scroll across.
-pub fn scrollable_content_width(
+pub fn scrollable_text_layout_width(
     linebreak: LineBreak,
     justify: Justify,
     layout_width: f32,
@@ -725,7 +725,7 @@ mod tests {
     fn character_wrapped_text_returns_viewport_width() {
         for linebreak in [LineBreak::AnyCharacter, LineBreak::WordOrCharacter] {
             assert_eq!(
-                scrollable_content_width(
+                scrollable_text_layout_width(
                     linebreak,
                     Justify::Left,
                     102.0,
@@ -740,7 +740,13 @@ mod tests {
     #[test]
     fn word_boundary_wrapping_preserves_overflow() {
         assert_eq!(
-            scrollable_content_width(LineBreak::WordBoundary, Justify::Left, 150.0, 100.0, None,),
+            scrollable_text_layout_width(
+                LineBreak::WordBoundary,
+                Justify::Left,
+                150.0,
+                100.0,
+                None,
+            ),
             150.0
         );
     }
@@ -749,7 +755,7 @@ mod tests {
     fn centered_and_justified_wrapped_text_includes_trailing_caret() {
         for justify in [Justify::Center, Justify::Justified] {
             assert_eq!(
-                scrollable_content_width(
+                scrollable_text_layout_width(
                     LineBreak::WordBoundary,
                     justify,
                     102.0,
@@ -764,7 +770,7 @@ mod tests {
     #[test]
     fn no_wrap_text_includes_trailing_caret() {
         assert_eq!(
-            scrollable_content_width(
+            scrollable_text_layout_width(
                 LineBreak::NoWrap,
                 Justify::Left,
                 102.0,
@@ -778,7 +784,7 @@ mod tests {
     #[test]
     fn scrollable_text_word_boundary() {
         assert_eq!(
-            scrollable_content_width(
+            scrollable_text_layout_width(
                 LineBreak::WordBoundary,
                 Justify::Left,
                 150.,

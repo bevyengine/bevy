@@ -19,7 +19,7 @@ use bevy_picking::events::{Drag, Pointer, PointerState, Press, Release};
 use bevy_picking::pointer::PointerButton;
 use bevy_reflect::Reflect;
 use bevy_text::{
-    scrollable_content_width, EditableText, EditableTextSystems, PreeditCursor, TextEdit,
+    scrollable_text_layout_width, EditableText, EditableTextSystems, PreeditCursor, TextEdit,
     TextLayout, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
@@ -348,7 +348,7 @@ fn text_input_autoscroll_system(
 
     // Calculate the full text layout size, including space for the cursor.
     let full_layout_size = Vec2::new(
-        scrollable_content_width(
+        scrollable_text_layout_width(
             text_layout.linebreak,
             text_layout.justify,
             layout_info.size.x,
