@@ -376,7 +376,7 @@ fn resources_to_toml(
 /// Builds the settings file registry by scanning the type registry for settings resources.
 /// This is separated from loading to enable testing without file I/O.
 ///
-/// Returns the [`PreferencesFileRegistry`] that tracks which resources are associated with
+/// Returns the [`SettingsFileRegistry`] that tracks which resources are associated with
 /// which settings files.
 fn build_settings_registry(
     app_name: &str,
