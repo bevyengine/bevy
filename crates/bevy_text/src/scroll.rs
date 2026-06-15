@@ -243,7 +243,10 @@ pub fn scrollable_content_width(
         LineBreak::AnyCharacter | LineBreak::WordOrCharacter => viewport_width,
     };
 
-    if linebreak == LineBreak::NoWrap || !matches!(justify, Justify::Left | Justify::Start) {
+    if linebreak == LineBreak::NoWrap
+        || viewport_width < scrollable_width
+        || !matches!(justify, Justify::Left | Justify::Start)
+    {
         caret.map_or(scrollable_width, |caret| scrollable_width.max(caret.max.x))
     } else {
         scrollable_width
