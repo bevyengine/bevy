@@ -176,7 +176,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
@@ -184,7 +184,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
     /// # Example
     ///
@@ -252,7 +252,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
     /// # Example
     ///
@@ -295,7 +295,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
     /// The checks for aliasing mutable references may be expensive.
     /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].
