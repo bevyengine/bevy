@@ -1622,7 +1622,8 @@ pub fn prepare_lights(
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
-                && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1] != None
+                && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1]
+                    .is_some()
             {
                 for view_light_entity in point_and_spot_light_view_entities.0.iter() {
                     commands.entity(*view_light_entity).despawn();
@@ -1839,7 +1840,8 @@ pub fn prepare_lights(
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
-                && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1] != None
+                && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1]
+                    .is_some()
             {
                 for view_light_entity in point_and_spot_light_view_entities.0.iter() {
                     commands.entity(*view_light_entity).despawn();
