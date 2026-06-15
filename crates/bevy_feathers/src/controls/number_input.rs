@@ -53,7 +53,7 @@ use crate::{
     tokens,
 };
 
-/// Threshold used to distingush between a "click" and a "drag" gesture.
+/// Threshold used to distinguish between a "click" and a "drag" gesture.
 const DRAG_THRESHOLD_DISTANCE: f32 = 0.5;
 
 const BASE_DRAG_SPEED: f64 = 0.01f64;
