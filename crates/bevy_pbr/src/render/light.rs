@@ -1421,10 +1421,8 @@ pub fn prepare_lights(
 
     live_shadow_mapping_lights.clear();
 
-    let mut point_light_depth_attachments =
-        HashMap::<(u32, Option<Entity>), DepthAttachment>::default();
-    let mut directional_light_depth_attachments =
-        HashMap::<(u32, Option<Entity>), DepthAttachment>::default();
+    let mut point_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
+    let mut directional_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
 
     let point_light_depth_texture = texture_cache.get(
         &render_device,
@@ -2367,7 +2365,7 @@ pub fn prepare_lights(
 fn create_point_shadow_maps(
     commands: &mut Commands,
     point_and_spot_light_view_entities: &mut Mut<PointAndSpotLightViewEntities>,
-    point_light_depth_attachments: &mut HashMap<(u32, Option<Entity>), DepthAttachment>,
+    point_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
     views: Query<
         (
             Entity,
@@ -2411,12 +2409,8 @@ fn create_point_shadow_maps(
 
         let base_array_layer =
             (light_index * auxiliary_entities_size * 6 + aux_entity_index * 6 + face_index) as u32;
-        let depth_attachment_key = (
-            (light_index + face_index) as u32,
-            auxiliary_entity.map(|(entity, _)| entity),
-        );
         let depth_attachment = point_light_depth_attachments
-            .entry(depth_attachment_key)
+            .entry(base_array_layer)
             .or_insert_with(|| {
                 let depth_texture_view =
                     point_light_depth_texture
@@ -2516,7 +2510,7 @@ fn create_point_shadow_maps(
 fn create_spot_shadow_map(
     commands: &mut Commands,
     point_and_spot_light_view_entities: &mut Mut<'_, PointAndSpotLightViewEntities>,
-    directional_light_depth_attachments: &mut HashMap<(u32, Option<Entity>), DepthAttachment>,
+    directional_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
     views: Query<
         (
             Entity,
@@ -2546,12 +2540,8 @@ fn create_spot_shadow_map(
     let base_array_layer = (num_directional_cascades_enabled
         + light_index * auxiliary_entities_size
         + aux_entity_index) as u32;
-    let depth_attachment_key = (
-        (num_directional_cascades_enabled + light_index) as u32,
-        auxiliary_entity.map(|(entity, _)| entity),
-    );
     let depth_attachment = directional_light_depth_attachments
-        .entry(depth_attachment_key)
+        .entry(base_array_layer)
         .or_insert_with(|| {
             let depth_texture_view =
                 directional_light_depth_texture
