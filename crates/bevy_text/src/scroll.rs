@@ -43,7 +43,6 @@
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use smallvec::SmallVec;
 
 use crate::Justify;
 use crate::LineBreak;
@@ -143,19 +142,18 @@ impl TextViewport {
     }
 
     /// Scroll vertically by a number of lines.
-    pub fn scroll_by_lines(
-        &mut self,
-        scroll_lines: f32,
-        content_size: Vec2,
-        line_bounds: impl IntoIterator<Item = TextLineYBounds>,
-    ) {
-        let line_bounds = line_bounds.into_iter().collect::<SmallVec<[_; 16]>>();
+    pub fn scroll_by_lines<I>(&mut self, scroll_lines: f32, content_size: Vec2, line_bounds: I)
+    where
+        I: IntoIterator<Item = TextLineYBounds>,
+        I::IntoIter: Clone + DoubleEndedIterator + ExactSizeIterator,
+    {
+        let line_bounds = line_bounds.into_iter();
 
-        if line_bounds.is_empty() {
+        if line_bounds.clone().next().is_none() {
             return;
         }
 
-        let content_size = Vec2::new(content_size.x, line_bounds.last().unwrap().max);
+        let content_size = Vec2::new(content_size.x, line_bounds.clone().next_back().unwrap().max);
 
         self.clamp_inside(content_size);
         if scroll_lines == 0.0 {
@@ -163,12 +161,13 @@ impl TextViewport {
         }
 
         let current_line = line_bounds
-            .iter()
+            .clone()
             .rposition(|line| line.min <= self.offset.y)
             .unwrap_or(0);
         let line_delta = scroll_lines.abs();
         let whole_lines = line_delta.floor() as usize;
         let fraction = line_delta.fract();
+        let current_line_bounds = line_bounds.clone().nth(current_line).unwrap();
 
         if scroll_lines.is_sign_positive() {
             if line_bounds.len() - 1 - current_line < whole_lines {
@@ -177,12 +176,14 @@ impl TextViewport {
             }
 
             let target_line = current_line + whole_lines;
-            self.offset.y += line_bounds[target_line].min - line_bounds[current_line].min
+            let target_line_bounds = line_bounds.clone().nth(target_line).unwrap();
+            self.offset.y += target_line_bounds.min - current_line_bounds.min
                 + fraction
                     * (line_bounds
-                        .get(target_line + 1)
-                        .map_or(line_bounds[target_line].max, |line| line.min)
-                        - line_bounds[target_line].min);
+                        .clone()
+                        .nth(target_line + 1)
+                        .map_or(target_line_bounds.max, |line| line.min)
+                        - target_line_bounds.min);
         } else {
             if current_line < whole_lines {
                 self.offset.y = 0.0;
@@ -190,13 +191,15 @@ impl TextViewport {
             }
 
             let target_line = current_line - whole_lines;
-            self.offset.y += line_bounds[target_line].min
-                - line_bounds[current_line].min
+            let target_line_bounds = line_bounds.clone().nth(target_line).unwrap();
+            self.offset.y += target_line_bounds.min
+                - current_line_bounds.min
                 - fraction
                     * (if target_line == 0 {
-                        line_bounds[target_line].max - line_bounds[target_line].min
+                        target_line_bounds.max - target_line_bounds.min
                     } else {
-                        line_bounds[target_line].min - line_bounds[target_line - 1].min
+                        target_line_bounds.min
+                            - line_bounds.clone().nth(target_line - 1).unwrap().min
                     });
         }
         self.clamp_inside(content_size);
