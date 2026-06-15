@@ -192,6 +192,8 @@ fn on_pointer_press(
         return;
     };
 
+    press.propagate(false);
+
     if editable_text.is_composing() {
         // The IME is active; all input needs to be routed there, including pointer presses.
         return;
@@ -221,8 +223,6 @@ fn on_pointer_press(
     }
 
     input_focus.set(press.entity, FocusCause::Pressed);
-
-    press.propagate(false);
 }
 
 /// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
