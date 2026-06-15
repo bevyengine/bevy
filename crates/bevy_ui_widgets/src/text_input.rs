@@ -192,6 +192,7 @@ fn on_pointer_press(
         return;
     };
 
+    input_focus.set(press.entity, FocusCause::Pressed);
     press.propagate(false);
 
     if editable_text.is_composing() {
@@ -221,8 +222,6 @@ fn on_pointer_press(
         2 => editable_text.queue_edit(TextEdit::SelectWordAtPoint(local_pos)),
         _ => editable_text.queue_edit(TextEdit::SelectAll),
     }
-
-    input_focus.set(press.entity, FocusCause::Pressed);
 }
 
 /// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
