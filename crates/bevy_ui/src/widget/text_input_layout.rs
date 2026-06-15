@@ -303,10 +303,10 @@ pub fn update_editable_text_layout(
         let cursor_width = editable_text.cursor_width;
         let cursor_blink_period = editable_text.cursor_blink_period;
         let cursor_margin = editable_text.cursor_margin;
+        let editable_text = &mut *editable_text;
+        let (editor, viewport) = (&mut editable_text.editor, &mut editable_text.viewport);
 
-        let mut driver = editable_text
-            .editor
-            .driver(font_cx.as_mut(), layout_cx.as_mut());
+        let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
 
         driver.refresh_layout();
 
@@ -475,13 +475,6 @@ pub fn update_editable_text_layout(
         let cursor_reveal = is_focused
             .then(|| cursor_reveal_rect(&mut driver))
             .flatten();
-        let cursor_line_bounds = (focus_changed && cursor_reveal.is_some()).then(|| {
-            driver
-                .layout()
-                .lines()
-                .map(|line| TextLineYBounds::from_line(&line))
-                .collect::<Vec<_>>()
-        });
 
         if is_focused {
             if focus_changed || layout_changed || *cursor_timer >= cursor_blink_period {
@@ -503,18 +496,15 @@ pub fn update_editable_text_layout(
                 .map(|rect| (false, rect));
         }
 
-        if focus_changed
-            && let (Some(cursor), Some(line_bounds)) = (cursor_reveal, cursor_line_bounds)
-        {
-            editable_text.viewport.reveal_caret(
-                cursor,
-                full_layout_size,
-                cursor_margin,
-                line_bounds,
-            );
+        if focus_changed && let Some(cursor) = cursor_reveal {
+            let line_bounds = driver
+                .layout()
+                .lines()
+                .map(|line| TextLineYBounds::from_line(&line));
+            viewport.reveal_caret(cursor, full_layout_size, cursor_margin, line_bounds);
         }
-        let viewport_width = editable_text.viewport.size.x;
-        editable_text.viewport.clamp_inside(Vec2::new(
+        let viewport_width = viewport.size.x;
+        viewport.clamp_inside(Vec2::new(
             scrollable_content_width(
                 text_layout.linebreak,
                 text_layout.justify,
