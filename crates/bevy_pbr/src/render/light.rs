@@ -1089,7 +1089,7 @@ pub fn prepare_lights(
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
-    let mut auxiliary_entities: Vec<Option<(Entity, MainEntity)>> = sorted_cameras
+    let mut point_spot_shadow_aux_entities: Vec<Option<(Entity, MainEntity)>> = sorted_cameras
         .0
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
@@ -1100,10 +1100,10 @@ pub fn prepare_lights(
             Some((entity, MainEntity::from(main_entity)))
         })
         .collect();
-    if views_count - auxiliary_entities.len() > 0 {
+    if views_count - point_spot_shadow_aux_entities.len() > 0 {
         // There exist views that necessitate creating the shared shadow map.
         // The shared shadow map has an auxiliary entity of None.
-        auxiliary_entities.push(None);
+        point_spot_shadow_aux_entities.push(None);
     }
 
     let Some(mut view_gpu_lights_writer) =
@@ -1195,11 +1195,12 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_cubes);
 
-    let point_light_shadow_maps_count = point_lights
+    let point_light_shadow_maps_count = (point_lights
         .iter()
         .filter(|light| light.2.shadow_maps_enabled && light.2.spot_light_angles.is_none())
         .count()
-        .min(max_texture_cubes);
+        * point_spot_shadow_aux_entities.len())
+    .min(max_texture_cubes);
 
     let directional_volumetric_enabled_count = directional_lights
         .iter()
@@ -1227,13 +1228,14 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
-    let spot_light_shadow_maps_count = point_lights
+    let spot_light_shadow_maps_count = (point_lights
         .iter()
         .filter(|(_, _, light, _, _)| {
             light.shadow_maps_enabled && light.spot_light_angles.is_some()
         })
         .count()
-        .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
+        * point_spot_shadow_aux_entities.len())
+    .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
     // Sort lights by
     // - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
@@ -1275,9 +1277,12 @@ pub fn prepare_lights(
 
         // Lights are sorted, shadow enabled lights are first
         if light.shadow_maps_enabled
-            && (index < point_light_shadow_maps_count
+            // Ensure that there are enough shadow maps available to accommodate all of the potential shadow maps
+            // that need to be created for a given index.
+            // The check is for "index + 1" since enumerate() is 0-indexed
+            && ((index + 1) * point_spot_shadow_aux_entities.len() <= point_light_shadow_maps_count
                 || (light.spot_light_angles.is_some()
-                    && index - point_light_count < spot_light_shadow_maps_count))
+                    && (index + 1 - point_light_count) * point_spot_shadow_aux_entities.len() <= spot_light_shadow_maps_count))
         {
             flags |= PointLightFlags::SHADOW_MAPS_ENABLED;
         }
@@ -1428,7 +1433,7 @@ pub fn prepare_lights(
                 width: point_light_shadow_map.size as u32,
                 height: point_light_shadow_map.size as u32,
                 depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32
-                    * auxiliary_entities.len() as u32
+                    * point_spot_shadow_aux_entities.len() as u32
                     * 6,
             },
             mip_level_count: 1,
@@ -1480,7 +1485,7 @@ pub fn prepare_lights(
                 height: (directional_light_shadow_map.size as u32)
                     .min(render_device.limits().max_texture_dimension_2d),
                 depth_or_array_layers: (num_directional_cascades_enabled
-                    + spot_light_shadow_maps_count * auxiliary_entities.len())
+                    + spot_light_shadow_maps_count * point_spot_shadow_aux_entities.len())
                 .max(1) as u32,
             },
             mip_level_count: 1,
@@ -1567,7 +1572,9 @@ pub fn prepare_lights(
         let init = point_and_spot_light_view_entities.0.is_empty()
             && point_and_spot_light_view_entities.1.is_empty();
         if init {
-            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
+            for (aux_entity_index, auxiliary_entity) in
+                point_spot_shadow_aux_entities.iter().enumerate()
+            {
                 create_point_shadow_maps(
                     &mut commands,
                     &mut point_and_spot_light_view_entities,
@@ -1581,7 +1588,11 @@ pub fn prepare_lights(
                         view_translation,
                         cube_face_projection,
                     ),
-                    (auxiliary_entities.len(), auxiliary_entity, aux_entity_index),
+                    (
+                        point_spot_shadow_aux_entities.len(),
+                        auxiliary_entity,
+                        aux_entity_index,
+                    ),
                     gpu_preprocessing_support.max_supported_mode,
                 );
             }
@@ -1591,7 +1602,7 @@ pub fn prepare_lights(
             for (view_entity, light_view_entities) in
                 point_and_spot_light_view_entities.1.iter_mut()
             {
-                if !auxiliary_entities
+                if !point_spot_shadow_aux_entities
                     .iter()
                     .any(|aux_entity| aux_entity.is_some_and(|(entity, _)| entity == *view_entity))
                 {
@@ -1611,7 +1622,7 @@ pub fn prepare_lights(
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
-                && auxiliary_entities[auxiliary_entities.len() - 1] != None
+                && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1] != None
             {
                 for view_light_entity in point_and_spot_light_view_entities.0.iter() {
                     commands.entity(*view_light_entity).despawn();
@@ -1620,7 +1631,9 @@ pub fn prepare_lights(
             }
 
             // Add any shadow maps that are missing
-            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
+            for (aux_entity_index, auxiliary_entity) in
+                point_spot_shadow_aux_entities.iter().enumerate()
+            {
                 let insert_shadow_map = match auxiliary_entity {
                     Some((entity, _)) => point_and_spot_light_view_entities.1.get(entity).is_none(),
                     None => point_and_spot_light_view_entities.0.is_empty(),
@@ -1640,7 +1653,11 @@ pub fn prepare_lights(
                             view_translation,
                             cube_face_projection,
                         ),
-                        (auxiliary_entities.len(), auxiliary_entity, aux_entity_index),
+                        (
+                            point_spot_shadow_aux_entities.len(),
+                            auxiliary_entity,
+                            aux_entity_index,
+                        ),
                         gpu_preprocessing_support.max_supported_mode,
                     );
                 }
@@ -1655,7 +1672,7 @@ pub fn prepare_lights(
                 1.0,
                 light.shadow_map_near_z,
             );
-            for auxiliary_entity in auxiliary_entities.iter() {
+            for auxiliary_entity in point_spot_shadow_aux_entities.iter() {
                 let light_view_entities = if let Some((entity, _)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities.1.get(entity);
                     if let Some(entities) = entry {
@@ -1707,7 +1724,7 @@ pub fn prepare_lights(
 
         // Initialize the shadow render phases. We have to do this even if we've
         // already created the views in order to clear out old data.
-        for auxiliary_entity in auxiliary_entities.iter() {
+        for auxiliary_entity in point_spot_shadow_aux_entities.iter() {
             for face_index in 0..6 {
                 let retained_view_entity = RetainedViewEntity::new(
                     *light_main_entity,
@@ -1771,7 +1788,9 @@ pub fn prepare_lights(
             && point_and_spot_light_view_entities.1.is_empty();
 
         if init {
-            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
+            for (aux_entity_index, auxiliary_entity) in
+                point_spot_shadow_aux_entities.iter().enumerate()
+            {
                 create_spot_shadow_map(
                     &mut commands,
                     &mut point_and_spot_light_view_entities,
@@ -1786,7 +1805,11 @@ pub fn prepare_lights(
                         spot_projection,
                         spot_light_frustum,
                     ),
-                    (auxiliary_entities.len(), auxiliary_entity, aux_entity_index),
+                    (
+                        point_spot_shadow_aux_entities.len(),
+                        auxiliary_entity,
+                        aux_entity_index,
+                    ),
                     gpu_preprocessing_support.max_supported_mode,
                 );
             }
@@ -1796,7 +1819,7 @@ pub fn prepare_lights(
             for (view_entity, light_view_entities) in
                 point_and_spot_light_view_entities.1.iter_mut()
             {
-                if !auxiliary_entities
+                if !point_spot_shadow_aux_entities
                     .iter()
                     .any(|aux_entity| aux_entity.is_some_and(|(entity, _)| entity == *view_entity))
                 {
@@ -1816,7 +1839,7 @@ pub fn prepare_lights(
 
             // Remove the non view specific shadow map if it is no longer needed
             if !point_and_spot_light_view_entities.0.is_empty()
-                && auxiliary_entities[auxiliary_entities.len() - 1] != None
+                && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1] != None
             {
                 for view_light_entity in point_and_spot_light_view_entities.0.iter() {
                     commands.entity(*view_light_entity).despawn();
@@ -1825,7 +1848,9 @@ pub fn prepare_lights(
             }
 
             // Add any shadow maps that are missing
-            for (aux_entity_index, auxiliary_entity) in auxiliary_entities.iter().enumerate() {
+            for (aux_entity_index, auxiliary_entity) in
+                point_spot_shadow_aux_entities.iter().enumerate()
+            {
                 let insert_shadow_map = match auxiliary_entity {
                     Some((entity, _)) => point_and_spot_light_view_entities.1.get(entity).is_none(),
                     None => point_and_spot_light_view_entities.0.is_empty(),
@@ -1846,7 +1871,11 @@ pub fn prepare_lights(
                             spot_projection,
                             spot_light_frustum,
                         ),
-                        (auxiliary_entities.len(), auxiliary_entity, aux_entity_index),
+                        (
+                            point_spot_shadow_aux_entities.len(),
+                            auxiliary_entity,
+                            aux_entity_index,
+                        ),
                         gpu_preprocessing_support.max_supported_mode,
                     );
                 }
@@ -1862,7 +1891,7 @@ pub fn prepare_lights(
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
-            for auxiliary_entity in auxiliary_entities.iter() {
+            for auxiliary_entity in point_spot_shadow_aux_entities.iter() {
                 // There should be only one `view_light_entity` for spotlights.
                 let view_light_entity = if let Some((_, main_entity)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
@@ -1907,7 +1936,7 @@ pub fn prepare_lights(
             }
         }
 
-        for auxiliary_entity in auxiliary_entities.iter() {
+        for auxiliary_entity in point_spot_shadow_aux_entities.iter() {
             let retained_view_entity = RetainedViewEntity::new(
                 *light_main_entity,
                 auxiliary_entity.map(|(_, main_entity)| main_entity),
