@@ -604,7 +604,7 @@ pub enum ImeSystems {
 /// if only editable text input is needed.
 ///
 /// Note that [`TextEdit`]s are applied during [`PostUpdate`]
-/// in the [`EditableTextSystems`](bevy_text::EditableTextSystems) system set.
+/// in the [`EditableTextSystems`] system set.
 pub struct EditableTextInputPlugin;
 
 impl Plugin for EditableTextInputPlugin {
