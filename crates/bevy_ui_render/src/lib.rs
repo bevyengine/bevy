@@ -26,9 +26,7 @@ use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{
-    ImageNode, ImageNodeSize, NodeImageMode, TextScroll, TextShadow, ViewportNode,
-};
+use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
     ComputedUiTargetCamera, Display, Node, OuterColor, Outline, ResolvedBorderRadius,
@@ -66,8 +64,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
+    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -967,7 +965,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
-            Option<&TextScroll>,
+            Option<&EditableText>,
             Option<&TextCursorStyle>,
         )>,
     >,
@@ -989,7 +987,7 @@ pub fn extract_text_sections(
         computed_block,
         text_color,
         text_layout_info,
-        text_scroll,
+        editable_text,
         cursor_style,
     ) in &uinode_query
     {
@@ -1004,10 +1002,11 @@ pub fn extract_text_sections(
 
         let transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                uinode.content_box().min
+                    - editable_text.map_or(Vec2::ZERO, |text| text.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),
@@ -1110,7 +1109,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
-            Option<&TextScroll>,
+            Option<&EditableText>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1131,7 +1130,7 @@ pub fn extract_text_shadows(
         text_layout_info,
         shadow,
         computed_block,
-        text_scroll,
+        editable_text,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1146,10 +1145,10 @@ pub fn extract_text_shadows(
         let node_transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
                 uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor()
-                    - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                    - editable_text.map_or(Vec2::ZERO, |text| text.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),
@@ -1277,7 +1276,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
-            Option<&TextScroll>,
+            Option<&EditableText>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1301,7 +1300,7 @@ pub fn extract_text_decorations(
         maybe_clip,
         camera,
         text_layout_info,
-        text_scroll,
+        editable_text,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1315,10 +1314,11 @@ pub fn extract_text_decorations(
 
         let transform = Affine2::from(global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                uinode.content_box().min
+                    - editable_text.map_or(Vec2::ZERO, |text| text.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),

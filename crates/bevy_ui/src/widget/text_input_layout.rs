@@ -16,10 +16,11 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
-    EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
-    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
-    TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, resolve_font_source,
+    scrollable_content_width, EditableText, EditableTextGeneration, Font, FontAtlasKey,
+    FontAtlasSet, FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight,
+    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
+    TextLayoutInfo, TextLineYBounds,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -246,6 +247,17 @@ pub fn update_editable_text_styles(
     }
 }
 
+/// Syncs each [`EditableText`]'s viewport size with their `ComputedNode`'s content size before text edits are applied.
+pub fn sync_editable_text_viewports(mut query: Query<(&mut EditableText, &ComputedNode)>) {
+    for (mut editable_text, computed_node) in &mut query {
+        let size = computed_node.content_box().size();
+        if editable_text.viewport.size != size {
+            editable_text.viewport.size = size;
+            editable_text.editor.set_width(Some(size.x));
+        }
+    }
+}
+
 /// Refreshes the [`EditableText`]'s layout if stale and then writes it
 /// it to [`TextLayoutInfo`] for rendering and picking.
 /// Adds required glyphs to the texture atlas
@@ -258,39 +270,39 @@ pub fn update_editable_text_layout(
     mut input_field_query: Query<(
         Entity,
         &TextFont,
+        &TextLayout,
         Ref<FontHinting>,
         Ref<ComputedUiRenderTargetInfo>,
         &mut EditableText,
         &mut TextLayoutInfo,
-        Ref<ComputedNode>,
         &mut EditableTextGeneration,
     )>,
     rem_size: Res<RemSize>,
     input_focus: Option<Res<InputFocus>>,
     mut cursor_timer: Local<Duration>,
+    mut previous_focus: Local<Option<Entity>>,
     time: Res<Time<Real>>,
 ) {
     *cursor_timer += time.delta();
+    let current_focus = input_focus
+        .as_ref()
+        .and_then(|input_focus| input_focus.get());
+    let focus_changed = *previous_focus != current_focus;
 
     for (
         entity,
         text_font,
+        text_layout,
         hinting,
         target,
         mut editable_text,
         mut info,
-        computed_node,
         mut generation,
     ) in input_field_query.iter_mut()
     {
         let cursor_width = editable_text.cursor_width;
         let cursor_blink_period = editable_text.cursor_blink_period;
-
-        if computed_node.is_changed() {
-            editable_text
-                .editor
-                .set_width(Some(computed_node.content_box().width()));
-        }
+        let cursor_margin = editable_text.cursor_margin;
 
         let mut driver = editable_text
             .editor
@@ -455,10 +467,24 @@ pub fn update_editable_text_layout(
             }
         }
 
-        if let Some(input_focus) = input_focus.as_ref()
-            && Some(entity) == input_focus.get()
-        {
-            if input_focus.is_changed() || layout_changed || *cursor_timer >= cursor_blink_period {
+        let full_layout_size = {
+            let layout = driver.layout();
+            Vec2::new(layout.full_width(), layout.height())
+        };
+        let is_focused = Some(entity) == current_focus;
+        let cursor_reveal = is_focused
+            .then(|| cursor_reveal_rect(&mut driver))
+            .flatten();
+        let cursor_line_bounds = (focus_changed && cursor_reveal.is_some()).then(|| {
+            driver
+                .layout()
+                .lines()
+                .map(|line| TextLineYBounds::from_line(&line))
+                .collect::<Vec<_>>()
+        });
+
+        if is_focused {
+            if focus_changed || layout_changed || *cursor_timer >= cursor_blink_period {
                 *cursor_timer = Duration::ZERO;
             }
 
@@ -476,7 +502,31 @@ pub fn update_editable_text_layout(
                 .map(bounding_box_to_rect)
                 .map(|rect| (false, rect));
         }
+
+        if focus_changed
+            && let (Some(cursor), Some(line_bounds)) = (cursor_reveal, cursor_line_bounds)
+        {
+            editable_text.viewport.reveal_caret(
+                cursor,
+                full_layout_size,
+                cursor_margin,
+                line_bounds,
+            );
+        }
+        let viewport_width = editable_text.viewport.size.x;
+        editable_text.viewport.clamp_inside(Vec2::new(
+            scrollable_content_width(
+                text_layout.linebreak,
+                text_layout.justify,
+                full_layout_size.x,
+                viewport_width,
+                cursor_reveal,
+            ),
+            full_layout_size.y,
+        ));
     }
+
+    *previous_focus = current_focus;
 }
 
 fn bounding_box_to_rect(geom: BoundingBox) -> Rect {

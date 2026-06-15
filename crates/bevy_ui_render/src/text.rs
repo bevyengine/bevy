@@ -8,8 +8,8 @@ use bevy_render::{sync_world::TemporaryRenderEntity, Extract};
 use bevy_sprite::BorderRect;
 use bevy_text::{EditableText, TextColor, TextCursorStyle, TextLayoutInfo};
 use bevy_ui::{
-    widget::TextScroll, CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera,
-    ResolvedBorderRadius, UiGlobalTransform,
+    CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, ResolvedBorderRadius,
+    UiGlobalTransform,
 };
 
 use crate::{
@@ -30,7 +30,7 @@ pub fn extract_text_cursor(
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
             &TextCursorStyle,
-            Option<&TextScroll>,
+            Option<&EditableText>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -48,7 +48,7 @@ pub fn extract_text_cursor(
         target_camera,
         text_layout_info,
         cursor_style,
-        text_scroll,
+        editable_text,
     ) in text_node_query.iter()
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -62,10 +62,11 @@ pub fn extract_text_cursor(
 
         let transform = Affine2::from(global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                uinode.content_box().min
+                    - editable_text.map_or(Vec2::ZERO, |editor| editor.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),
@@ -206,7 +207,7 @@ pub fn extract_preedit_underlines(
                 Option<&CalculatedClip>,
                 &ComputedUiTargetCamera,
                 &ComputedStackIndex,
-                Option<&TextScroll>,
+                &EditableText,
             ),
             With<EditableText>,
         >,
@@ -225,7 +226,7 @@ pub fn extract_preedit_underlines(
         maybe_clip,
         target_camera,
         stack_index,
-        text_scroll,
+        editable_text,
     ) in text_node_query.iter()
     {
         if !inherited_visibility.get()
@@ -240,20 +241,13 @@ pub fn extract_preedit_underlines(
         };
 
         let transform = Affine2::from(global_transform)
-            * Affine2::from_translation(
-                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
-            );
+            * Affine2::from_translation(uinode.content_box().min - editable_text.viewport.offset);
 
-        let clip = if text_scroll.is_some() {
-            let content_box = uinode.content_box();
-            let text_clip = Rect::from_center_size(
-                global_transform.affine().translation + content_box.center(),
-                content_box.size(),
-            );
-            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
-        } else {
-            maybe_clip.map(|clip| clip.clip)
-        };
+        let text_clip = Rect::from_center_size(
+            global_transform.affine().translation + uinode.content_box().center(),
+            uinode.content_box().size(),
+        );
+        let clip = Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)));
 
         let color = text_color.0.to_linear();
 
