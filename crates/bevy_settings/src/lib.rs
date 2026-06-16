@@ -265,7 +265,7 @@ impl Command for SaveSettingsDeferred {
 fn save_settings(world: &mut World, use_async: bool, force: bool) {
     let this_run = world.change_tick();
     let Some(registry) = world.get_resource::<SettingsFileRegistry>() else {
-        warn!(“Settings registry not found - did you forget to install the SettingsPlugin?");
+        warn!("Settings registry not found - did you forget to install the SettingsPlugin?");
         return;
     };
     let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
