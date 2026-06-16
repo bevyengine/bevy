@@ -71,7 +71,7 @@ impl SettingsStore {
             let table_value = match toml::from_str::<toml::Value>(&toml_str) {
                 Ok(table_value) => table_value,
                 Err(e) => {
-                    error!("Error parsing preferences file: {}", e);
+                    error!("Error parsing settings file: {}", e);
                     return None;
                 }
             };
