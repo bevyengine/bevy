@@ -193,7 +193,7 @@ pub fn on_r_inserted<
     F: QueryFilter + 'static,
     R: Relationship,
 >(
-    event: On<Insert, R>,
+    event: On<Insert<R>>,
     mut commands: Commands,
     query: Query<(&R, Has<Inherited<C>>), (Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
@@ -210,7 +210,7 @@ pub fn on_r_inserted<
 
 /// Remove [`Inherited::<C>`] when an entity loses its `R` relationship
 pub fn on_r_removed<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship>(
-    event: On<Remove, R>,
+    event: On<Remove<R>>,
     mut commands: Commands,
     query: Query<(), (With<Inherited<C>>, Without<Propagate<C>>, F)>,
 ) {

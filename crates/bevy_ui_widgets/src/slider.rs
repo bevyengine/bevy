@@ -598,7 +598,7 @@ fn slider_on_key_input(
     }
 }
 
-pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert(insert: On<Insert<Slider>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let orientation = entity
         .get::<Slider>()
@@ -613,7 +613,7 @@ pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWo
     }
 }
 
-pub(crate) fn slider_on_insert_value(insert: On<Insert, SliderValue>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_value(insert: On<Insert<SliderValue>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let value = entity.get::<SliderValue>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -621,7 +621,7 @@ pub(crate) fn slider_on_insert_value(insert: On<Insert, SliderValue>, mut world:
     }
 }
 
-pub(crate) fn slider_on_insert_range(insert: On<Insert, SliderRange>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_range(insert: On<Insert<SliderRange>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let range = *entity.get::<SliderRange>().unwrap();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -630,7 +630,7 @@ pub(crate) fn slider_on_insert_range(insert: On<Insert, SliderRange>, mut world:
     }
 }
 
-pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_step(insert: On<Insert<SliderStep>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let step = entity.get::<SliderStep>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {

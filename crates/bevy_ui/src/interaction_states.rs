@@ -22,7 +22,7 @@ use bevy_reflect::Reflect;
 #[reflect(Component, Default, Clone)]
 pub struct InteractionDisabled;
 
-pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: DeferredWorld) {
+pub(crate) fn on_add_disabled(add: On<Add<InteractionDisabled>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
@@ -30,7 +30,7 @@ pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: Defe
 }
 
 pub(crate) fn on_remove_disabled(
-    remove: On<Remove, InteractionDisabled>,
+    remove: On<Remove<InteractionDisabled>>,
     mut world: DeferredWorld,
 ) {
     let mut entity = world.entity_mut(remove.entity);
@@ -55,7 +55,7 @@ pub struct Checkable;
 #[reflect(Component, Default, Clone)]
 pub struct Checked;
 
-pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checkable(add: On<Add<Checkable>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     let checked = entity.get::<Checked>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -66,22 +66,22 @@ pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld
     }
 }
 
-pub(crate) fn on_remove_checkable(add: On<Remove, Checkable>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checkable(remove: On<Remove<Checkable>>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
-    let mut entity = world.entity_mut(add.entity);
+    let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_toggled();
     }
 }
 
-pub(crate) fn on_add_checked(add: On<Add, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checked(add: On<Add<Checked>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::True);
     }
 }
 
-pub(crate) fn on_remove_checked(remove: On<Remove, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checked(remove: On<Remove<Checked>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);

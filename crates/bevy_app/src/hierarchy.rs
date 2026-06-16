@@ -62,7 +62,7 @@ pub struct ValidateParentHasComponentSystems;
 /// An `Insert` observer that when run, will validate that the parent of a given entity contains
 /// component `C`. If the parent does not contain `C`, a warning will be logged later in the frame.
 fn validate_parent_has_component<C: Component>(
-    event: On<Insert, C>,
+    event: On<Insert<C>>,
     child: Query<&ChildOf>,
     with_component: Query<(), With<C>>,
     mut writer: MessageWriter<CheckParentHasComponent<C>>,

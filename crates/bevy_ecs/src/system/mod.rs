@@ -1968,14 +1968,14 @@ mod tests {
         schedule.add_systems(|_query: Query<&Name>| todo!());
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
-        fn obs(_event: On<Add, Name>) {
+        fn obs(_event: On<Add<Name>>) {
             todo!()
         }
 
         world.add_observer(obs);
-        world.add_observer(|_event: On<Add, Name>| {});
-        world.add_observer(|_event: On<Add, Name>| todo!());
-        world.add_observer(|_event: On<Add, Name>| -> () { todo!() });
+        world.add_observer(|_event: On<Add<Name>>| {});
+        world.add_observer(|_event: On<Add<Name>>| todo!());
+        world.add_observer(|_event: On<Add<Name>>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
             todo!()
