@@ -18,7 +18,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            // We want to intercept the exit so that we can save prefs.
+            // We want to intercept the exit so that we can save settings.
             exit_condition: ExitCondition::DontExit,
             primary_window: Some(Window {
                 title: "Prefs Window".into(),
