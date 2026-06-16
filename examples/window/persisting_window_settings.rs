@@ -21,7 +21,7 @@ fn main() {
             // We want to intercept the exit so that we can save settings.
             exit_condition: ExitCondition::DontExit,
             primary_window: Some(Window {
-                title: "Prefs Window".into(),
+                title: “Settings Window".into(),
                 ..default()
             }),
             ..default()
