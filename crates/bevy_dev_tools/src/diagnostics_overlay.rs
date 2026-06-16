@@ -44,7 +44,7 @@ type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMater
 /// // Spawning an overlay window from the struct
 /// commands.spawn(DiagnosticsOverlay {
 ///     title: "Fps".into(),
-///     diagnostic_overlay_items: vec![DiagnosticPath::new("fps").into()]
+///     items: vec![DiagnosticPath::new("fps").into()]
 /// });
 /// // Spawning an overlay window from the `new` method
 /// commands.spawn(DiagnosticsOverlay::new(
@@ -70,12 +70,21 @@ type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMater
 ///
 /// If any value is showing as `Missing`, means that the [`DiagnosticPath`] is not registered,
 /// so make sure that the plugin that writes to it is properly set up.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct DiagnosticsOverlay {
     /// Title that will appear on the overlay window
     pub title: Cow<'static, str>,
     /// Items that will appear on this overlay window
-    pub diagnostic_overlay_items: Vec<DiagnosticsOverlayItem>,
+    pub items: Vec<DiagnosticsOverlayItem>,
+}
+
+impl Default for DiagnosticsOverlay {
+    fn default() -> Self {
+        Self {
+            title: "Diagnostics".into(),
+            items: Default::default(),
+        }
+    }
 }
 
 impl DiagnosticsOverlay {
@@ -86,7 +95,7 @@ impl DiagnosticsOverlay {
     ) -> Self {
         Self {
             title: title.into(),
-            diagnostic_overlay_items: diagnostic_paths,
+            items: diagnostic_paths,
         }
     }
 
@@ -94,7 +103,7 @@ impl DiagnosticsOverlay {
     pub fn fps() -> Self {
         Self {
             title: Cow::Owned("Fps".to_owned()),
-            diagnostic_overlay_items: vec![
+            items: vec![
                 FrameTimeDiagnosticsPlugin::FPS.into(),
                 FrameTimeDiagnosticsPlugin::FRAME_TIME.into(),
                 DiagnosticsOverlayItem {
@@ -112,7 +121,7 @@ impl DiagnosticsOverlay {
     pub fn mesh_and_standard_material() -> Self {
         Self {
             title: Cow::Owned("Mesh and standard materials".to_owned()),
-            diagnostic_overlay_items: vec![
+            items: vec![
                 DiagnosticsOverlayItem {
                     path: StandardMaterialAllocator::slabs_diagnostic_path(),
                     statistic: DiagnosticsOverlayStatistic::Smoothed,
@@ -148,6 +157,24 @@ impl DiagnosticsOverlay {
     }
 }
 
+/// Configures the style of diagnostic overlays
+#[derive(Resource)]
+pub struct DiagnosticsOverlayStyle {
+    /// The title font size of diagnostics overlays.
+    pub title_font_size: FontSize,
+    /// The item font size of diagnostics overlays.
+    pub item_font_size: FontSize,
+}
+
+impl Default for DiagnosticsOverlayStyle {
+    fn default() -> Self {
+        Self {
+            title_font_size: FontSize::Px(12.0),
+            item_font_size: FontSize::Px(10.0),
+        }
+    }
+}
+
 /// Marker for the UI root that will hold all of the [`DiagnosticsOverlay`]
 /// entities.
 ///
@@ -162,6 +189,7 @@ pub struct DiagnosticsOverlayPlane;
 ///
 /// Items built using `From<DiagnosticPath>` will use
 /// [`DiagnosticsOverlayStatistic::Smoothed`].
+#[derive(Clone)]
 pub struct DiagnosticsOverlayItem {
     /// The statistic of the diagnostic to display
     pub statistic: DiagnosticsOverlayStatistic,
@@ -221,6 +249,7 @@ pub struct DiagnosticsOverlayPlugin;
 
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<DiagnosticsOverlayStyle>();
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
         app.add_systems(PreStartup, build_plane);
         app.add_systems(
@@ -247,6 +276,10 @@ fn build_plane(mut commands: Commands) {
             height: Val::Percent(100.),
             ..Default::default()
         },
+        Pickable {
+            should_block_lower: false,
+            ..Default::default()
+        },
         INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX,
     ));
 }
@@ -264,6 +297,7 @@ fn rebuild_diagnostics_list(
     diagnostics_overlays: Query<&DiagnosticsOverlay>,
     diagnostics_overlay_contents: Query<(Entity, &ChildOf), With<DiagnosticsOverlayContents>>,
     diagnostics_store: Res<DiagnosticsStore>,
+    style: Res<DiagnosticsOverlayStyle>,
 ) {
     for (entity, child_of) in diagnostics_overlay_contents {
         commands.entity(entity).despawn_children();
@@ -272,11 +306,7 @@ fn rebuild_diagnostics_list(
             panic!("DiagnosticsOverlayContents has been tempered with. Parent was not a DiagnosticsOverlay.");
         };
 
-        for (i, diagnostic_overlay_item) in diagnostics_overlay
-            .diagnostic_overlay_items
-            .iter()
-            .enumerate()
-        {
+        for (i, diagnostic_overlay_item) in diagnostics_overlay.items.iter().enumerate() {
             let maybe_diagnostic = diagnostics_store.get(&diagnostic_overlay_item.path);
             let diagnostic = maybe_diagnostic
                 .map(|diagnostic| {
@@ -307,7 +337,7 @@ fn rebuild_diagnostics_list(
                 children![(
                     Text::new(diagnostic_overlay_item.path.to_string()),
                     TextFont {
-                        font_size: FontSize::Px(10.),
+                        font_size: style.item_font_size,
                         ..Default::default()
                     },
                     Pickable::IGNORE,
@@ -324,7 +354,7 @@ fn rebuild_diagnostics_list(
                 children![(
                     Text::new(diagnostic),
                     TextFont {
-                        font_size: FontSize::Px(10.),
+                        font_size: style.item_font_size,
                         ..Default::default()
                     },
                     Pickable::IGNORE,
@@ -337,6 +367,7 @@ fn rebuild_diagnostics_list(
 fn build_overlay(
     event: On<Add, DiagnosticsOverlay>,
     mut commands: Commands,
+    style: Res<DiagnosticsOverlayStyle>,
     diagnostics_overlays: Query<&DiagnosticsOverlay>,
     diagnostics_overlay_plane: Single<Entity, With<DiagnosticsOverlayPlane>>,
 ) {
@@ -370,7 +401,7 @@ fn build_overlay(
                 children![(
                     Text::new(diagnostics_overlay.title.as_ref()),
                     TextFont {
-                        font_size: FontSize::Px(12.),
+                        font_size: style.title_font_size,
                         ..Default::default()
                     },
                     Pickable::IGNORE
