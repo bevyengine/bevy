@@ -1,4 +1,4 @@
-//! Framework for saving and loading user settings files (e.g. user settings) in Bevy
+//! Framework for saving and loading user settings files in Bevy
 //! applications.
 //!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
