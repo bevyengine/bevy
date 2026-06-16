@@ -48,7 +48,7 @@ impl SettingsStore {
                 error!("Error saving settings file: {}", e);
             }
 
-            // Replace old prefs file with new one.
+            // Replace old settings file with new one.
             let file_path = base_path.join(format!("{filename}.toml"));
             if let Err(e) = fs::rename(&temp_path, file_path) {
                 warn!("Could not save settings file: {:?}", e);
@@ -79,7 +79,7 @@ impl SettingsStore {
                         error!("Error saving settings file: {}", e);
                     }
 
-                    // Replace old prefs file with new one.
+                    // Replace old settings file with new one.
                     let file_path = base_path.join(format!("{filename}.toml"));
                     if let Err(e) = fs::rename(&temp_path, file_path) {
                         warn!("Could not save settings file: {:?}", e);
@@ -107,8 +107,8 @@ impl SettingsStore {
 /// Load a settings file from disk in TOML format.
 pub(crate) fn decode_toml_file(file: &PathBuf) -> Option<toml::Table> {
     if file.exists() && file.is_file() {
-        let prefs_str = match fs::read_to_string(file) {
-            Ok(prefs_str) => prefs_str,
+        let settings_str = match fs::read_to_string(file) {
+            Ok(settings_str) => settings_str,
             Err(e) => {
                 error!("Error reading settings file: {}", e);
                 return None;

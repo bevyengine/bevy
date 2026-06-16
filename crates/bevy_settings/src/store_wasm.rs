@@ -8,7 +8,7 @@ pub(crate) struct SettingsStore {
 }
 
 impl SettingsStore {
-    /// Construct a new preferences store for browser local storage.
+    /// Construct a new settings store for browser local storage.
     ///
     /// # Arguments
     /// * `app_name` - The name of the application. See [`crate::SettingsPlugin`] for usage.
