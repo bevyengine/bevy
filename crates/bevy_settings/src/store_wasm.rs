@@ -60,7 +60,7 @@ impl SettingsStore {
     /// be returned.
     ///
     /// # Arguments
-    /// * `filename` - The name of the preferences file, without the file extension.
+    /// * `filename` - The name of the settings file, without the file extension.
     pub(crate) fn load(&self, filename: &str) -> Option<toml::Table> {
         if let Ok(Some(storage)) = window().unwrap().local_storage() {
             let storage_key = self.storage_key(filename);
