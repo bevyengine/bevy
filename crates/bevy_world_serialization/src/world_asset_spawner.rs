@@ -1,6 +1,7 @@
 use crate::{DynamicWorld, DynamicWorldRoot, WorldAsset};
-use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, DirectAssetAccessExt, Handle};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     entity::{Entity, EntityHashMap},
     event::EntityEvent,
     hierarchy::ChildOf,
@@ -299,13 +300,17 @@ impl WorldInstanceSpawner {
         id: AssetId<DynamicWorld>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), WorldInstanceSpawnError> {
-        world.resource_scope(|world, dynamic_worlds: Mut<Assets<DynamicWorld>>| {
-            let dynamic_world = dynamic_worlds
-                .get(id)
-                .ok_or(WorldInstanceSpawnError::NonExistentDynamicWorld { id })?;
+        let mut dynamic_scene = world
+            .get_asset_mut(id)
+            .ok_or(WorldInstanceSpawnError::NonExistentDynamicWorld { id })?;
 
-            dynamic_world.write_to_world(world, entity_map)
-        })
+        // Hokey-pokey the dynamic scene out of the world.
+        let scene_to_spawn = core::mem::take(dynamic_scene.bypass_change_detection());
+        scene_to_spawn.write_to_world(world, entity_map)?;
+        let mut dynamic_scene = world.get_asset_mut(id).unwrap();
+        // Put the scene data back into the asset.
+        *dynamic_scene.bypass_change_detection() = scene_to_spawn;
+        Ok(())
     }
 
     /// Immediately spawns a new instance of the provided world asset.
@@ -338,17 +343,22 @@ impl WorldInstanceSpawner {
         id: AssetId<WorldAsset>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), WorldInstanceSpawnError> {
-        world.resource_scope(|world, world_assets: Mut<Assets<WorldAsset>>| {
-            let world_asset = world_assets
-                .get(id)
-                .ok_or(WorldInstanceSpawnError::NonExistentWorldAsset { id })?;
+        let type_registry = world.resource::<AppTypeRegistry>().clone();
 
-            world_asset.write_to_world_with(
-                world,
-                entity_map,
-                &world.resource::<AppTypeRegistry>().clone(),
-            )
-        })
+        let mut scene = world
+            .get_asset_mut(id)
+            .ok_or(WorldInstanceSpawnError::NonExistentWorldAsset { id })?;
+
+        // Hokey-pokey the scene out of the world.
+        let scene_to_spawn = core::mem::replace(
+            scene.bypass_change_detection(),
+            WorldAsset::new(World::new()),
+        );
+        scene_to_spawn.write_to_world_with(world, entity_map, &type_registry)?;
+        let mut scene = world.get_asset_mut(id).unwrap();
+        // Put the scene data back into the asset.
+        *scene.bypass_change_detection() = scene_to_spawn;
+        Ok(())
     }
 
     /// Iterate through all instances of the provided worlds and update those immediately.
@@ -721,7 +731,7 @@ pub fn world_instance_spawner(
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::{AssetPlugin, AssetServer, Handle};
+    use bevy_asset::{AssetPlugin, AssetServer, Handle, MinimalAssetPlugin};
     use bevy_ecs::{
         component::Component,
         hierarchy::Children,
@@ -737,7 +747,6 @@ mod tests {
     use super::*;
     use crate::{DynamicWorld, WorldInstanceSpawner};
     use bevy_app::ScheduleRunnerPlugin;
-    use bevy_asset::Assets;
     use bevy_ecs::{
         entity::Entity,
         prelude::{AppTypeRegistry, World},
@@ -768,10 +777,7 @@ mod tests {
             &world,
             &app.world().resource::<AppTypeRegistry>().read(),
         );
-        let dynamic_world_handle = app
-            .world_mut()
-            .resource_mut::<Assets<DynamicWorld>>()
-            .add(dynamic_world);
+        let dynamic_world_handle = app.world_mut().spawn_asset(dynamic_world);
 
         // spawn the world as a child of `entity` using `DynamicWorldRoot`
         let entity = app
@@ -815,41 +821,40 @@ mod tests {
 
     #[test]
     fn clone_dynamic_entities() {
-        let mut world = World::default();
+        let mut app = App::new();
+        app.add_plugins(MinimalAssetPlugin);
 
         // setup
         let atr = AppTypeRegistry::default();
         atr.write().register::<A>();
-        world.insert_resource(atr);
-        world.insert_resource(Assets::<DynamicWorld>::default());
+        app.world_mut().insert_resource(atr);
 
         // start test
-        world.spawn(A(42));
+        app.world_mut().spawn(A(42));
 
-        assert_eq!(world.query::<&A>().iter(&world).len(), 1);
+        assert_eq!(app.world_mut().query::<&A>().iter(app.world()).len(), 1);
 
         // clone only existing entity
         let mut world_asset_spawner = WorldInstanceSpawner::default();
-        let entity = world
+        let entity = app
+            .world_mut()
             .query_filtered::<Entity, With<A>>()
-            .single(&world)
+            .single(app.world())
             .unwrap();
         let dynamic_world = {
-            let type_registry = world.resource::<AppTypeRegistry>().read();
-            DynamicWorldBuilder::from_world(&world, &type_registry)
+            let type_registry = app.world().resource::<AppTypeRegistry>().read();
+            DynamicWorldBuilder::from_world(app.world(), &type_registry)
                 .extract_entity(entity)
                 .build()
         };
 
-        let dynamic_world_id = world
-            .resource_mut::<Assets<DynamicWorld>>()
-            .add(dynamic_world);
+        let dynamic_world_id = app.world_mut().spawn_asset(dynamic_world);
         let instance_id = world_asset_spawner
-            .spawn_dynamic_sync(&mut world, &dynamic_world_id)
+            .spawn_dynamic_sync(app.world_mut(), &dynamic_world_id)
             .unwrap();
 
         // verify we spawned exactly one new entity with our expected component
-        assert_eq!(world.query::<&A>().iter(&world).len(), 2);
+        assert_eq!(app.world_mut().query::<&A>().iter(app.world()).len(), 2);
 
         // verify that we can get this newly-spawned entity by the instance ID
         let new_entity = world_asset_spawner
@@ -861,9 +866,10 @@ mod tests {
         assert_ne!(entity, new_entity);
 
         // verify this new entity contains the same data as the original entity
-        let [old_a, new_a] = world
+        let [old_a, new_a] = app
+            .world_mut()
             .query::<&A>()
-            .get_many(&world, [entity, new_entity])
+            .get_many(app.world(), [entity, new_entity])
             .unwrap();
         assert_eq!(old_a, new_a);
     }
@@ -1124,10 +1130,7 @@ mod tests {
             .add_children(&[child0, child1, child2]);
 
         let world_asset = WorldAsset::new(asset_world);
-        let handle = app
-            .world_mut()
-            .resource_mut::<Assets<WorldAsset>>()
-            .add(world_asset);
+        let handle = app.world_mut().spawn_asset(world_asset);
 
         let spawned = app.world_mut().spawn(WorldAssetRoot(handle.clone())).id();
 

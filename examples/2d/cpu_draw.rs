@@ -35,7 +35,7 @@ struct MyProcGenImage(Handle<Image>);
 #[derive(Resource)]
 struct SeededRng(ChaCha8Rng);
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn(Camera2d);
 
     // Create an image that we are going to draw into
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // Add it to Bevy's assets, so it can be used for rendering
     // this will give us a handle we can use
     // (to display it in a sprite, or as part of UI, etc.)
-    let handle = images.add(image);
+    let handle = asset_commands.spawn_asset(image);
 
     // Create a sprite entity using our image
     commands.spawn(Sprite::from_image(handle.clone()));
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 /// Every fixed update tick, draw one more pixel to make a spiral pattern
 fn draw(
     my_handle: Res<MyProcGenImage>,
-    mut images: ResMut<Assets<Image>>,
+    mut images: AssetsMut<Image>,
     // Used to keep track of where we are
     mut i: Local<u32>,
     mut draw_color: Local<Color>,

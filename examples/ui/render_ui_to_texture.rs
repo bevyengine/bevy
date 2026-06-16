@@ -32,16 +32,11 @@ fn main() {
 #[derive(Component)]
 struct Cube;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // This is the texture that will be rendered to.
     let image = Image::new_target_texture(512, 512, TextureFormat::Bgra8UnormSrgb, None);
 
-    let image_handle = images.add(image);
+    let image_handle = asset_commands.spawn_asset(image);
 
     // Light
     commands.spawn(DirectionalLight::default());
@@ -115,10 +110,10 @@ fn setup(
                 });
         });
 
-    let mesh_handle = meshes.add(Cuboid::default());
+    let mesh_handle = asset_commands.spawn_asset(Mesh::from(Cuboid::default()));
 
     // This material has the texture that has been rendered.
-    let material_handle = materials.add(StandardMaterial {
+    let material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
@@ -163,7 +158,7 @@ fn drive_diegetic_pointer(
     ui_camera: Query<&RenderTarget, With<Camera2d>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
-    images: Res<Assets<Image>>,
+    images: Assets<Image>,
     manual_texture_views: Res<ManualTextureViews>,
     mut window_events: MessageReader<WindowEvent>,
     mut pointer_inputs: MessageWriter<PointerInput>,

@@ -86,11 +86,7 @@ fn play_animation_when_ready(
 }
 
 /// Spawn a camera and a simple environment with a ground plane and light.
-fn setup_camera_and_environment(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_camera_and_environment(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Camera
     commands.spawn((
         Camera3d::default(),
@@ -99,8 +95,12 @@ fn setup_camera_and_environment(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(
+            Plane3d::default().mesh().size(500000.0, 500000.0),
+        ))),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
 
     // Light
@@ -315,8 +315,8 @@ struct ParticleAssets {
 impl FromWorld for ParticleAssets {
     fn from_world(world: &mut World) -> Self {
         Self {
-            mesh: world.add_asset::<Mesh>(Sphere::new(10.0)),
-            material: world.add_asset::<StandardMaterial>(StandardMaterial {
+            mesh: world.spawn_asset(Mesh::from(Sphere::new(10.0))),
+            material: world.spawn_asset(StandardMaterial {
                 base_color: Color::WHITE,
                 ..Default::default()
             }),

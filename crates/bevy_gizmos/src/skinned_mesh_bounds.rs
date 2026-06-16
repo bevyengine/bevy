@@ -85,10 +85,10 @@ pub struct ShowSkinnedMeshBoundsGizmo {
 fn draw(
     color: Color,
     mesh: &Mesh3d,
-    mesh_assets: &Res<Assets<Mesh>>,
+    mesh_assets: &Assets<Mesh>,
     skinned_mesh: &SkinnedMesh,
     joint_entities: &Query<&GlobalTransform>,
-    inverse_bindposes_assets: &Res<Assets<SkinnedMeshInverseBindposes>>,
+    inverse_bindposes_assets: &Assets<SkinnedMeshInverseBindposes>,
     gizmos: &mut Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
     if let Some(mesh_asset) = mesh_assets.get(mesh)
@@ -118,8 +118,8 @@ fn draw_skinned_mesh_bounds(
         With<DynamicSkinnedMeshBounds>,
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<Assets<Mesh>>,
-    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    mesh_assets: Assets<Mesh>,
+    inverse_bindposes_assets: Assets<SkinnedMeshInverseBindposes>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
     for (mesh, skinned_mesh, gizmo) in mesh_entities {
@@ -146,8 +146,8 @@ fn draw_all_skinned_mesh_bounds(
         ),
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<Assets<Mesh>>,
-    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    mesh_assets: Assets<Mesh>,
+    inverse_bindposes_assets: Assets<SkinnedMeshInverseBindposes>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
     for (mesh, skinned_mesh) in mesh_entities {

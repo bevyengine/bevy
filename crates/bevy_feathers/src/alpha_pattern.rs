@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{Asset, Assets, Handle};
+use bevy_asset::{Asset, DirectAssetAccessExt, Handle};
 use bevy_ecs::{
     component::Component,
     lifecycle::Add,
@@ -28,10 +28,7 @@ pub(crate) struct AlphaPatternResource(pub(crate) Handle<AlphaPatternMaterial>);
 
 impl FromWorld for AlphaPatternResource {
     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
-        let mut ui_materials = world
-            .get_resource_mut::<Assets<AlphaPatternMaterial>>()
-            .unwrap();
-        Self(ui_materials.add(AlphaPatternMaterial::default()))
+        Self(world.spawn_asset(AlphaPatternMaterial::default()))
     }
 }
 

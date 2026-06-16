@@ -59,8 +59,8 @@ impl Buildings {
 
 pub fn load_assets(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let base_url = BASE_URL;
 
@@ -76,7 +76,7 @@ pub fn load_assets(
 
     let car_texture: Handle<Image> =
         load_asset!(format!("{base_url}/car-kit/Textures/colormap.png"));
-    let car_material = materials.add(StandardMaterial {
+    let car_material = asset_commands.spawn_asset(StandardMaterial {
         base_color_texture: Some(car_texture),
         ..Default::default()
     });
@@ -117,7 +117,7 @@ pub fn load_assets(
         let materials = ["colormap", "variation-a", "variation-b"]
             .iter()
             .map(|variation| {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color_texture: Some(load_asset!(format!(
                         "{base_url}/city-kit-commercial/Textures/{variation}.png"
                     ))),
@@ -153,7 +153,7 @@ pub fn load_assets(
         let materials = ["colormap", "variation-a", "variation-b"]
             .iter()
             .map(|variation| {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color_texture: Some(load_asset!(format!(
                         "{base_url}/city-kit-commercial/Textures/{variation}.png"
                     ))),
@@ -178,7 +178,7 @@ pub fn load_assets(
         let materials = ["colormap", "variation-a", "variation-b", "variation-c"]
             .iter()
             .map(|variation| {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color_texture: Some(load_asset!(format!(
                         "{base_url}/city-kit-suburban/Textures/{variation}.png"
                     ))),
@@ -213,7 +213,7 @@ pub fn load_assets(
             GltfAssetLabel::DefaultMaterial
         ));
         let grass_material =
-            materials.add(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
+            asset_commands.spawn_asset(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
 
         (mesh, default_material, grass_material)
     };
@@ -259,13 +259,16 @@ pub fn load_assets(
 /// commands for each of those meshes.
 pub fn merge_car_meshes(
     city_assets: &mut CityAssets,
-    world_assets: &mut Assets<WorldAsset>,
-    meshes: &mut Assets<Mesh>,
+    world_assets: &mut AssetsMut<WorldAsset>,
+    meshes: &Assets<Mesh>,
+    asset_commands: &mut AssetCommands,
 ) {
     for car_scene in &city_assets.cars {
         let Some(merged) = merge_all_mesh_3d(world_assets, meshes, car_scene) else {
             continue;
         };
-        city_assets.car_meshes.push(meshes.add(merged));
+        city_assets
+            .car_meshes
+            .push(asset_commands.spawn_asset(merged));
     }
 }

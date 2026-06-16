@@ -49,11 +49,11 @@ fn check_textures(
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     rpg_sprite_handles: Res<RpgSpriteFolder>,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    loaded_folders: Res<Assets<LoadedFolder>>,
-    mut textures: ResMut<Assets<Image>>,
+    loaded_folders: Assets<LoadedFolder>,
+    textures: Assets<Image>,
 ) {
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
 
@@ -63,35 +63,40 @@ fn setup(
         loaded_folder,
         None,
         Some(ImageSampler::linear()),
-        &mut textures,
+        &textures,
+        &mut asset_commands,
     );
-    let atlas_linear_handle = texture_atlases.add(texture_atlas_linear);
+    let atlas_linear_handle = asset_commands.spawn_asset(texture_atlas_linear);
 
     let (texture_atlas_nearest, nearest_sources, nearest_texture) = create_texture_atlas(
         loaded_folder,
         None,
         Some(ImageSampler::nearest()),
-        &mut textures,
+        &textures,
+        &mut asset_commands,
     );
-    let atlas_nearest_handle = texture_atlases.add(texture_atlas_nearest);
+    let atlas_nearest_handle = asset_commands.spawn_asset(texture_atlas_nearest);
 
     let (texture_atlas_linear_padded, linear_padded_sources, linear_padded_texture) =
         create_texture_atlas(
             loaded_folder,
             Some(UVec2::new(6, 6)),
             Some(ImageSampler::linear()),
-            &mut textures,
+            &textures,
+            &mut asset_commands,
         );
-    let atlas_linear_padded_handle = texture_atlases.add(texture_atlas_linear_padded.clone());
+    let atlas_linear_padded_handle =
+        asset_commands.spawn_asset(texture_atlas_linear_padded.clone());
 
     let (texture_atlas_nearest_padded, nearest_padded_sources, nearest_padded_texture) =
         create_texture_atlas(
             loaded_folder,
             Some(UVec2::new(6, 6)),
             Some(ImageSampler::nearest()),
-            &mut textures,
+            &textures,
+            &mut asset_commands,
         );
-    let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded);
+    let atlas_nearest_padded_handle = asset_commands.spawn_asset(texture_atlas_nearest_padded);
 
     commands.spawn(Camera2d);
 
@@ -218,7 +223,8 @@ fn create_texture_atlas(
     folder: &LoadedFolder,
     padding: Option<UVec2>,
     sampling: Option<ImageSampler>,
-    textures: &mut ResMut<Assets<Image>>,
+    textures: &Assets<Image>,
+    asset_commands: &mut AssetCommands,
 ) -> (TextureAtlasLayout, TextureAtlasSources, Handle<Image>) {
     // Build a texture atlas using the individual sprites
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
@@ -236,13 +242,12 @@ fn create_texture_atlas(
         texture_atlas_builder.add_texture(Some(id), texture);
     }
 
-    let (texture_atlas_layout, texture_atlas_sources, texture) =
+    let (texture_atlas_layout, texture_atlas_sources, mut texture) =
         texture_atlas_builder.build().unwrap();
-    let texture = textures.add(texture);
-
     // Update the sampling settings of the texture atlas
-    let mut image = textures.get_mut(&texture).unwrap();
-    image.sampler = sampling.unwrap_or_default();
+    texture.sampler = sampling.unwrap_or_default();
+
+    let texture = asset_commands.spawn_asset(texture);
 
     (texture_atlas_layout, texture_atlas_sources, texture)
 }

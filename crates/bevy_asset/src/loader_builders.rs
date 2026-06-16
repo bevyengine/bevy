@@ -8,7 +8,7 @@ use crate::{
     LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
-use core::any::{type_name, TypeId};
+use core::any::TypeId;
 use std::path::Path;
 use tracing::error;
 
@@ -92,7 +92,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
         // The doc comment slightly lies: if `LoadContext::should_load_dependencies` is true, the
         // load will not be started, but the matching handle will still be returned. The caller
         // can't tell the difference.
-        self.load_internal(TypeId::of::<A>(), Some(type_name::<A>()), path.into())
+        self.load_internal(TypeId::of::<A>(), path.into())
             .typed_debug_checked()
     }
 
@@ -101,7 +101,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
     /// This is a "deferred" load, meaning the caller will not have access to the loaded data; to
     /// access the loaded data, use [`Self::load_erased_value`].
     pub fn load_erased<'a>(self, type_id: TypeId, path: impl Into<AssetPath<'a>>) -> UntypedHandle {
-        self.load_internal(type_id, None, path.into())
+        self.load_internal(type_id, path.into())
     }
 
     /// Loads the provided path with an unknown type (which is guessed based on the path or meta
@@ -131,7 +131,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
         };
         // `load_unknown_type_with_meta_transform` and `get_or_create_path_handle` always returns a
         // Strong variant, so we are safe to unwrap.
-        let index = (&handle).try_into().unwrap();
+        let index = handle.entity().unwrap();
         self.load_context.dependencies.insert(index);
         handle
     }
@@ -221,12 +221,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
 
     /// Acquires the handle for the given type and path, and if necessary, begins a corresponding
     /// (deferred) load.
-    fn load_internal<'a>(
-        self,
-        type_id: TypeId,
-        type_name: Option<&str>,
-        path: AssetPath<'a>,
-    ) -> UntypedHandle {
+    fn load_internal<'a>(self, type_id: TypeId, path: AssetPath<'a>) -> UntypedHandle {
         let path = path.to_owned();
         if path.path() == Path::new("") {
             error!("Attempted to load an asset with an empty path \"{path}\"!");
@@ -236,7 +231,6 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
             self.load_context.asset_server.load_with_meta_transform(
                 path,
                 type_id,
-                type_name,
                 self.meta_transform,
                 (),
                 self.override_unapproved,
@@ -244,11 +238,11 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
         } else {
             self.load_context
                 .asset_server
-                .get_or_create_path_handle_erased(path, type_id, type_name, self.meta_transform)
+                .get_or_create_path_handle_erased(path, type_id, self.meta_transform)
         };
         // `load_with_meta_transform` and `get_or_create_path_handle` always returns a Strong
         // variant, so we are safe to unwrap.
-        let index = (&handle).try_into().unwrap();
+        let index = handle.entity().unwrap();
         self.load_context.dependencies.insert(index);
         handle
     }

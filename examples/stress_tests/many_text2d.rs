@@ -171,7 +171,7 @@ fn print_counts(
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
     font_atlas_set: Res<FontAtlasSet>,
-    images: Res<Assets<Image>>,
+    images: Assets<Image>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
@@ -192,7 +192,7 @@ fn print_counts(
         texts.iter().count(),
         visible_texts,
         num_atlases,
-        font_atlas_set.total_bytes(images.as_ref())
+        font_atlas_set.total_bytes(&images)
     );
 }
 

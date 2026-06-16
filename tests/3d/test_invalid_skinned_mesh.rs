@@ -25,11 +25,7 @@ fn main() {
         .run();
 }
 
-fn setup_environment(
-    mut commands: Commands,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut material_assets: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_environment(mut commands: Commands, mut asset_commands: AssetCommands) {
     let description = "(left to right)\n\
         0: Normal skinned mesh.\n\
         1: Mesh asset is missing skinning attributes.\n\
@@ -80,8 +76,16 @@ fn setup_environment(
     // Add a plane behind the meshes so we can see the shadows.
     commands.spawn((
         Transform::from_xyz(0.0, 0.0, -1.0),
-        Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(100.0, 100.0).normal(Dir3::Z))),
-        MeshMaterial3d(material_assets.add(StandardMaterial {
+        Mesh3d(
+            asset_commands.spawn_asset(
+                Plane3d::default()
+                    .mesh()
+                    .size(100.0, 100.0)
+                    .normal(Dir3::Z)
+                    .into(),
+            ),
+        ),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgb(0.05, 0.05, 0.15),
             reflectance: 0.2,
             ..default()
@@ -89,12 +93,7 @@ fn setup_environment(
     ));
 }
 
-fn setup_meshes(
-    mut commands: Commands,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut material_assets: ResMut<Assets<StandardMaterial>>,
-    mut inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
-) {
+fn setup_meshes(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Create a mesh with two rectangles.
     let unskinned_mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
@@ -137,17 +136,18 @@ fn setup_meshes(
             vec![[1.00, 0.00, 0.0, 0.0]; 8],
         );
 
-    let unskinned_mesh_handle = mesh_assets.add(unskinned_mesh);
-    let skinned_mesh_handle = mesh_assets.add(skinned_mesh);
+    let unskinned_mesh_handle = asset_commands.spawn_asset(unskinned_mesh);
+    let skinned_mesh_handle = asset_commands.spawn_asset(skinned_mesh);
 
-    let inverse_bindposes_handle = inverse_bindposes_assets.add(vec![
-        Mat4::IDENTITY,
-        Mat4::from_translation(Vec3::new(0.0, -1.3, 0.0)),
-    ]);
+    let inverse_bindposes_handle =
+        asset_commands.spawn_asset(SkinnedMeshInverseBindposes::from(vec![
+            Mat4::IDENTITY,
+            Mat4::from_translation(Vec3::new(0.0, -1.3, 0.0)),
+        ]));
 
-    let mesh_material_handle = material_assets.add(StandardMaterial::default());
+    let mesh_material_handle = asset_commands.spawn_asset(StandardMaterial::default());
 
-    let background_material_handle = material_assets.add(StandardMaterial {
+    let background_material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::srgb(0.05, 0.15, 0.05),
         reflectance: 0.2,
         ..default()
@@ -211,7 +211,15 @@ fn setup_meshes(
         // Add a square behind the mesh to distinguish it from the other meshes.
         commands.spawn((
             Transform::from_xyz(transform.translation.x, transform.translation.y, -0.8),
-            Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(4.3, 4.3).normal(Dir3::Z))),
+            Mesh3d(
+                asset_commands.spawn_asset(
+                    Plane3d::default()
+                        .mesh()
+                        .size(4.3, 4.3)
+                        .normal(Dir3::Z)
+                        .into(),
+                ),
+            ),
             MeshMaterial3d(background_material_handle.clone()),
         ));
     }

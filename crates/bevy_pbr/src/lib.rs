@@ -106,7 +106,7 @@ pub mod prelude {
 use crate::gpu::GpuClusteringPlugin;
 use crate::{deferred::DeferredPbrLightingPlugin, gpu::extract_clusters_for_gpu_clustering};
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{AssetApp, AssetId, AssetPath, DirectAssetAccessExt, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
@@ -263,23 +263,19 @@ impl Plugin for PbrPlugin {
         }
 
         // Initialize the default material handle.
-        app.world_mut()
-            .resource_mut::<Assets<StandardMaterial>>()
-            .insert(
-                &Handle::<StandardMaterial>::default(),
-                StandardMaterial {
-                    base_color: Color::srgb(1.0, 0.0, 0.5),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
+        app.world_mut().spawn_uuid_asset::<StandardMaterial>(
+            AssetId::<()>::DEFAULT_UUID,
+            StandardMaterial {
+                base_color: Color::srgb(1.0, 0.0, 0.5),
+                ..Default::default()
+            },
+        );
 
         let has_bluenoise = app
             .get_sub_app(RenderApp)
             .is_some_and(|render_app| render_app.world().is_resource_added::<Bluenoise>());
 
         if !has_bluenoise {
-            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             #[cfg(feature = "bluenoise_texture")]
             let handle = {
                 let mut image = Image::from_buffer(
@@ -292,11 +288,11 @@ impl Plugin for PbrPlugin {
                 )
                 .expect("Failed to decode embedded blue-noise texture");
                 image.texture_descriptor.label = Some("bluenoise");
-                images.add(image)
+                app.world_mut().spawn_asset(image)
             };
 
             #[cfg(not(feature = "bluenoise_texture"))]
-            let handle = { images.add(stbn_placeholder()) };
+            let handle = { app.world_mut().spawn_asset(stbn_placeholder()) };
 
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
                 render_app
@@ -310,7 +306,6 @@ impl Plugin for PbrPlugin {
             .is_some_and(|render_app| render_app.world().is_resource_added::<AreaLightLuts>());
 
         if !has_area_light_luts {
-            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             #[cfg(feature = "area_light_luts")]
             let handle = {
                 let mut image = Image::from_buffer(
@@ -323,10 +318,10 @@ impl Plugin for PbrPlugin {
                 )
                 .expect("Failed to decode embedded LTC LUTs");
                 image.texture_descriptor.label = Some("area_light_luts");
-                images.add(image)
+                app.world_mut().spawn_asset(image)
             };
             #[cfg(not(feature = "area_light_luts"))]
-            let handle = images.add(area_light_luts_placeholder());
+            let handle = app.world_mut().spawn_asset(area_light_luts_placeholder());
 
             let area_light_luts = AreaLightLuts { image: handle };
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -340,7 +335,7 @@ impl Plugin for PbrPlugin {
 
         if !has_dfg_lut {
             #[cfg(feature = "dfg_lut")]
-            let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
+            let texture = app.world_mut().spawn_asset(
                 Image::from_buffer(
                     include_bytes!("environment_map/dfg.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),

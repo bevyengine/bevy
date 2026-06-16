@@ -14,8 +14,8 @@ fn main() {
 }
 
 fn find_top_material_and_mesh(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: AssetsMut<StandardMaterial>,
+    mut meshes: AssetsMut<Mesh>,
     time: Res<Time>,
     mat_query: Query<(
         &MeshMaterial3d<StandardMaterial>,

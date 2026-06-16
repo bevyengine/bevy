@@ -11,9 +11,9 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    meshes: Res<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    meshes: Assets<Mesh>,
 ) {
     // By default AssetServer will load assets from inside the "assets" folder.
     // For example, the next line will load GltfAssetLabel::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),
@@ -67,7 +67,7 @@ fn setup(
     );
 
     // You can also add assets directly to their Assets<T> storage:
-    let material_handle = materials.add(StandardMaterial {
+    let material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::srgb(0.8, 0.7, 0.6),
         ..default()
     });

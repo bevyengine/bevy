@@ -188,10 +188,7 @@ fn sun() -> impl Scene {
 }
 
 /// Spawns the earth atmosphere plus an extra near-ground fog term.
-fn spawn_atmosphere(
-    mut commands: Commands,
-    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
-) {
+fn spawn_atmosphere(mut commands: Commands, mut asset_commands: AssetCommands) {
     let mut earth_medium = ScatteringMedium::default();
 
     // Same 60 km atmosphere height as `ScatteringMedium::earth`
@@ -220,7 +217,7 @@ fn spawn_atmosphere(
         // Fog is approximated as a mie scatterer with this asymmetry factor
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
     });
-    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium));
+    let earth_atmosphere = Atmosphere::earth(asset_commands.spawn_asset(earth_medium));
 
     // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
     let scale = 1.0 / 20.0;
@@ -294,11 +291,17 @@ fn update_loading_screen(
 /// Eventually, this will also be used for things like generating LODs
 fn process_assets(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     mut city_assets: ResMut<CityAssets>,
-    mut world_assets: ResMut<Assets<WorldAsset>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut world_assets: AssetsMut<WorldAsset>,
+    meshes: Assets<Mesh>,
 ) {
-    merge_car_meshes(&mut city_assets, &mut world_assets, &mut meshes);
+    merge_car_meshes(
+        &mut city_assets,
+        &mut world_assets,
+        &meshes,
+        &mut asset_commands,
+    );
 
     // Use a Message instead of an Event so spawning the city happens in the next frame
     commands.write_message(CityAssetsReady);

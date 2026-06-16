@@ -34,11 +34,7 @@ fn on_set_message(
     color.0 = set_message.color;
 }
 
-fn setup(
-    mut commands: Commands,
-    mut animations: ResMut<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Camera
     commands.spawn((
         Camera2d,
@@ -87,11 +83,14 @@ fn setup(
     );
 
     // Create the animation graph.
-    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+    let (graph, animation_index) = AnimationGraph::from_clip(asset_commands.spawn_asset(animation));
     let mut player = AnimationPlayer::default();
     player.play(animation_index).repeat();
 
-    commands.spawn((AnimationGraphHandle(graphs.add(graph)), player));
+    commands.spawn((
+        AnimationGraphHandle(asset_commands.spawn_asset(graph)),
+        player,
+    ));
 }
 
 // Slowly fade out the text opacity.

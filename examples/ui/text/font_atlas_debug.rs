@@ -40,7 +40,7 @@ fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
     font_atlas_set: Res<FontAtlasSet>,
-    images: Res<Assets<Image>>,
+    images: Assets<Image>,
 ) {
     if let Some(font_atlases) = font_atlas_set.values().next() {
         let x_offset = state.atlas_count as f32;

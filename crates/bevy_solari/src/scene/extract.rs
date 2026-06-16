@@ -1,13 +1,18 @@
+use core::marker::PhantomData;
+
 use super::RaytracingMesh3d;
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::{AssetData, AssetEntity, AssetId};
 use bevy_derive::Deref;
 use bevy_ecs::{
+    entity::Entity,
+    lifecycle::RemovedComponents,
+    query::Changed,
     resource::Resource,
-    system::{Commands, Query},
+    system::{Commands, Query, ResMut},
 };
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
-use bevy_render::{extract_resource::ExtractResource, sync_world::RenderEntity, Extract};
+use bevy_render::{sync_world::RenderEntity, Extract};
 use bevy_transform::components::GlobalTransform;
 
 pub fn extract_raytracing_scene(
@@ -40,15 +45,28 @@ pub fn extract_raytracing_scene(
 #[derive(Resource, Deref, Default)]
 pub struct StandardMaterialAssets(HashMap<AssetId<StandardMaterial>, StandardMaterial>);
 
-impl ExtractResource for StandardMaterialAssets {
-    type Source = Assets<StandardMaterial>;
-
-    fn extract_resource(source: &Self::Source) -> Self {
-        Self(
-            source
-                .iter()
-                .map(|(asset_id, material)| (asset_id, material.clone()))
-                .collect(),
-        )
+// TODO: It would be nice for `Assets` to have an API for this instead of us needing to drop down
+// into raw queries.
+pub fn extract_standard_material_assets(
+    mut removed_components: Extract<RemovedComponents<AssetData<StandardMaterial>>>,
+    main_world_assets: Extract<
+        Query<(Entity, &AssetData<StandardMaterial>), Changed<AssetData<StandardMaterial>>>,
+    >,
+    mut extracted_assets: ResMut<StandardMaterialAssets>,
+) {
+    for entity in removed_components.read() {
+        extracted_assets.0.remove(&AssetId::Entity {
+            entity: AssetEntity::new_unchecked(entity),
+            marker: PhantomData,
+        });
+    }
+    for (entity, asset_data) in main_world_assets.iter() {
+        extracted_assets.0.insert(
+            AssetId::Entity {
+                entity: AssetEntity::new_unchecked(entity),
+                marker: PhantomData,
+            },
+            asset_data.0.clone(),
+        );
     }
 }

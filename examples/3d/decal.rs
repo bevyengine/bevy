@@ -19,16 +19,14 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut decal_standard_materials: ResMut<Assets<ForwardDecalMaterial<StandardMaterial>>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Spawn the forward decal
     commands.spawn((
         Name::new("Decal"),
         ForwardDecal,
-        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(ForwardDecalMaterial {
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
                 ..default()
@@ -49,11 +47,11 @@ fn setup(
         Transform::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    let white_material = standard_materials.add(Color::WHITE);
+    let white_material = asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE));
 
     commands.spawn((
         Name::new("Floor"),
-        Mesh3d(meshes.add(Rectangle::from_length(10.0))),
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(Rectangle::from_length(10.0)))),
         MeshMaterial3d(white_material.clone()),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
@@ -77,7 +75,7 @@ fn setup(
             ));
 
             commands.spawn((
-                Mesh3d(meshes.add(Cuboid::from_length(0.6))),
+                Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::from_length(0.6)))),
                 MeshMaterial3d(white_material.clone()),
                 transform,
             ));

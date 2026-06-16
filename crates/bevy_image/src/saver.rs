@@ -162,7 +162,7 @@ mod tests {
             AssetSourceBuilder, AssetSourceId,
         },
         saver::{save_using_saver, SavedAsset},
-        AssetApp, AssetPath, AssetPlugin, AssetServer, Assets, RenderAssetUsages,
+        AssetApp, AssetPath, AssetPlugin, AssetServer, DirectAssetAccessExt, RenderAssetUsages,
     };
     use bevy_color::Srgba;
     use bevy_ecs::world::World;
@@ -280,11 +280,7 @@ mod tests {
         let handle = asset_server.load::<Image>(asset_path);
         run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
 
-        let loaded_image = app
-            .world()
-            .resource::<Assets<Image>>()
-            .get(&handle)
-            .unwrap();
+        let loaded_image = app.world().get_asset(handle.id()).unwrap();
 
         assert_eq!(loaded_image.size(), UVec2::new(WIDTH, WIDTH));
         let compare_images = 'compare_images: {

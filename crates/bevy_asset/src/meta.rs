@@ -17,7 +17,7 @@ use crate::{
     io::{AssetReaderError, Reader},
     loader::AssetLoader,
     processor::Process,
-    Asset, AssetPath, DeserializeMetaError, VisitAssetDependencies,
+    Asset, AssetEntity, AssetPath, DeserializeMetaError, VisitAssetDependencies,
 };
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
@@ -232,7 +232,7 @@ impl Process for () {
 impl Asset for () {}
 
 impl VisitAssetDependencies for () {
-    fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {
+    fn visit_dependencies(&self, _visit: &mut impl FnMut(AssetEntity)) {
         unreachable!()
     }
 }

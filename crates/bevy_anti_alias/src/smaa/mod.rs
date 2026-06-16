@@ -320,15 +320,13 @@ impl Plugin for SmaaPlugin {
         };
         #[cfg(not(feature = "smaa_luts"))]
         let smaa_luts = {
-            use bevy_asset::RenderAssetUsages;
+            use bevy_asset::{DirectAssetAccessExt, RenderAssetUsages};
             use bevy_image::ImageSampler;
             use bevy_render::render_resource::{Extent3d, TextureDataOrder};
 
-            let mut images = app.world_mut().resource_mut::<bevy_asset::Assets<Image>>();
-
             let format = TextureFormat::Rgba8Unorm;
             let data = vec![255, 0, 255, 255];
-            let handle = images.add(Image {
+            let handle = app.world_mut().spawn_asset(Image {
                 data: Some(data),
                 data_order: TextureDataOrder::default(),
                 texture_descriptor: TextureDescriptor {

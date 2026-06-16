@@ -6,6 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     error::{BevyError, Result},
     relationship::{Relationship, RelationshipTarget},
+    system::SystemState,
     template::{SceneEntityReference, SceneEntityReferences, Template, TemplateContext},
     world::{EntityWorldMut, World},
 };
@@ -232,7 +233,10 @@ impl ResolvedScene {
                 .set(entity_reference, context.entity.id());
         }
         if let Some(cached) = &self.cached {
-            let scene_patches = context.resource::<Assets<ScenePatch>>();
+            let mut state = context
+                .entity
+                .world_scope(|world| SystemState::<Assets<ScenePatch>>::new(world));
+            let scene_patches = state.get(context.entity.world()).unwrap();
             let Some(patch) = scene_patches.get(&cached.handle) else {
                 return Err(ApplySceneError::MissingCachedScene {
                     path: cached.handle.path().cloned(),

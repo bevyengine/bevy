@@ -167,11 +167,11 @@ pub enum ResolveSceneError {
 }
 
 /// Context used by [`Scene`] implementations during [`Scene::resolve`].
-pub struct ResolveContext<'a> {
+pub struct ResolveContext<'a, 'w, 's> {
     /// The current asset server
     pub assets: &'a AssetServer,
     /// The current [`ScenePatch`] asset collection
-    pub patches: &'a Assets<ScenePatch>,
+    pub patches: &'a Assets<'w, 's, ScenePatch>,
     /// The currently cached [`ScenePatch`], if there is one.
     pub cached: Option<&'a ScenePatch>,
 }

@@ -36,11 +36,7 @@ fn main() {
 #[derive(Component)]
 struct AnimationActive;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -77,8 +73,8 @@ fn setup(
 
     commands
         .spawn((
-            Mesh3d(meshes.add(Cuboid::from_length(1.0))),
-            MeshMaterial3d(materials.add(Color::WHITE)),
+            Mesh3d(asset_commands.spawn_asset(Cuboid::from_length(1.0).into())),
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
             AnimationActive,
         ))
         .observe(

@@ -28,11 +28,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Instructions
     commands.spawn((
         Text::new(
@@ -49,8 +45,10 @@ fn setup(
 
     // Ground plane (not pickable)
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.3, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Mesh::from(Plane3d::default().mesh().size(10.0, 10.0)))),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.3, 0.3))),
+        ),
         Pickable::IGNORE,
     ));
 
@@ -58,8 +56,10 @@ fn setup(
     // The parent cube is selected by default.
     commands
         .spawn((
-            Mesh3d(meshes.add(Cuboid::new(1.5, 0.15, 1.0))),
-            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.3, 0.3))),
+            Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(1.5, 0.15, 1.0)))),
+            MeshMaterial3d(
+                asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.3, 0.3))),
+            ),
             Transform::from_xyz(-2.0, 1.0, 0.0),
             TransformGizmoFocus,
         ))
@@ -67,26 +67,34 @@ fn setup(
         .with_children(|parent| {
             // Table leg (child)
             parent.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.1, 0.85, 0.1))),
-                MeshMaterial3d(materials.add(Color::srgb(0.6, 0.2, 0.2))),
+                Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(0.1, 0.85, 0.1)))),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.6, 0.2, 0.2))),
+                ),
                 Transform::from_xyz(-0.6, -0.5, 0.4),
                 Pickable::IGNORE,
             ));
             parent.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.1, 0.85, 0.1))),
-                MeshMaterial3d(materials.add(Color::srgb(0.6, 0.2, 0.2))),
+                Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(0.1, 0.85, 0.1)))),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.6, 0.2, 0.2))),
+                ),
                 Transform::from_xyz(0.6, -0.5, 0.4),
                 Pickable::IGNORE,
             ));
             parent.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.1, 0.85, 0.1))),
-                MeshMaterial3d(materials.add(Color::srgb(0.6, 0.2, 0.2))),
+                Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(0.1, 0.85, 0.1)))),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.6, 0.2, 0.2))),
+                ),
                 Transform::from_xyz(-0.6, -0.5, -0.4),
                 Pickable::IGNORE,
             ));
             parent.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.1, 0.85, 0.1))),
-                MeshMaterial3d(materials.add(Color::srgb(0.6, 0.2, 0.2))),
+                Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(0.1, 0.85, 0.1)))),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.6, 0.2, 0.2))),
+                ),
                 Transform::from_xyz(0.6, -0.5, -0.4),
                 Pickable::IGNORE,
             ));
@@ -95,8 +103,10 @@ fn setup(
     // Standalone cube
     commands
         .spawn((
-            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-            MeshMaterial3d(materials.add(Color::srgb(0.3, 0.8, 0.3))),
+            Mesh3d(asset_commands.spawn_asset(Mesh::from(Cuboid::new(1.0, 1.0, 1.0)))),
+            MeshMaterial3d(
+                asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.8, 0.3))),
+            ),
             Transform::from_xyz(2.0, 0.5, 0.0),
         ))
         .observe(on_click_select);

@@ -163,24 +163,14 @@ fn main() {
 const WIDTH: usize = 200;
 const HEIGHT: usize = 200;
 
-fn setup(
-    mut commands: Commands,
-    args: Res<Args>,
-    mesh_assets: ResMut<Assets<Mesh>>,
-    material_assets: ResMut<Assets<StandardMaterial>>,
-    images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands, args: Res<Args>) {
     warn!(include_str!("warning_string.txt"));
 
     let args = args.into_inner();
-    let images = images.into_inner();
-    let material_assets = material_assets.into_inner();
-    let mesh_assets = mesh_assets.into_inner();
 
-    let meshes = init_meshes(args, mesh_assets);
-
-    let material_textures = init_textures(args, images);
-    let materials = init_materials(args, &material_textures, material_assets);
+    let meshes = init_meshes(args, &mut asset_commands);
+    let material_textures = init_textures(args, &mut asset_commands);
+    let materials = init_materials(args, &material_textures, &mut asset_commands);
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -238,8 +228,14 @@ fn setup(
 
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
-                Mesh3d(mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2)))),
-                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                Mesh3d(
+                    asset_commands.spawn_asset(Mesh::from(Cuboid::from_size(Vec3::splat(
+                        radius as f32 * 2.2,
+                    )))),
+                ),
+                MeshMaterial3d::<StandardMaterial>(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE)),
+                ),
                 Transform::from_scale(-Vec3::ONE),
                 NotShadowCaster,
             ));
@@ -316,8 +312,12 @@ fn setup(
             commands.spawn((Camera3d::default(), Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
-                Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
-                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                Mesh3d(
+                    asset_commands.spawn_asset(Mesh::from(Cuboid::from_size(2.0 * 1.1 * center))),
+                ),
+                MeshMaterial3d::<StandardMaterial>(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE)),
+                ),
                 Transform::from_scale(-Vec3::ONE).with_translation(center),
                 NotShadowCaster,
             ));
@@ -361,7 +361,7 @@ fn setup(
     ));
 }
 
-fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
+fn init_textures(args: &Args, asset_commands: &mut AssetCommands) -> Vec<Handle<Image>> {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
@@ -377,7 +377,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
     color_bytes
         .chunks(4)
         .map(|pixel| {
-            images.add(Image::new_fill(
+            asset_commands.spawn_asset(Image::new_fill(
                 Extent3d::default(),
                 TextureDimension::D2,
                 pixel,
@@ -391,7 +391,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
 fn init_materials(
     args: &Args,
     textures: &[Handle<Image>],
-    assets: &mut Assets<StandardMaterial>,
+    asset_commands: &mut AssetCommands,
 ) -> Vec<Handle<StandardMaterial>> {
     let capacity = if args.vary_material_data_per_instance {
         args.instance_count
@@ -401,7 +401,7 @@ fn init_materials(
     .max(1);
 
     let mut materials = Vec::with_capacity(capacity);
-    materials.push(assets.add(StandardMaterial {
+    materials.push(asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: textures.first().cloned(),
         ..default()
@@ -413,7 +413,7 @@ fn init_materials(
     let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
         std::iter::repeat_with(|| {
-            assets.add(StandardMaterial {
+            asset_commands.spawn_asset(StandardMaterial {
                 base_color: Color::srgb_u8(
                     color_rng.random(),
                     color_rng.random(),
@@ -441,7 +441,7 @@ fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
     }
 }
 
-fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
+fn init_meshes(args: &Args, asset_commands: &mut AssetCommands) -> Vec<(Handle<Mesh>, Transform)> {
     let capacity = args.mesh_count.max(1);
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -452,7 +452,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
         let radius = radius_rng.random_range(0.25f32..=0.75f32);
         let (handle, transform) = match variant % 15 {
             0 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Cuboid {
                         half_size: Vec3::splat(radius),
@@ -461,7 +461,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY,
             ),
             1 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Capsule3d {
                         radius,
@@ -471,7 +471,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY,
             ),
             2 => (
-                assets.add(compress_mesh(args, Circle { radius })),
+                asset_commands.spawn_asset(compress_mesh(args, Circle { radius })),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             3 => {
@@ -482,12 +482,12 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
-                    assets.add(compress_mesh(args, Triangle2d { vertices })),
+                    asset_commands.spawn_asset(compress_mesh(args, Triangle2d { vertices })),
                     Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
                 )
             }
             4 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Rectangle {
                         half_size: Vec2::splat(radius),
@@ -496,7 +496,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             v if (5..=8).contains(&v) => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     RegularPolygon {
                         circumcircle: Circle { radius },
@@ -506,7 +506,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             9 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Cylinder {
                         radius,
@@ -516,7 +516,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY,
             ),
             10 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Ellipse {
                         half_size: Vec2::new(radius, 0.5 * radius),
@@ -525,21 +525,19 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             11 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Plane3d {
                         normal: Dir3::NEG_Z,
-                        half_size: Vec2::splat(radius / 2.0),
-                    },
+                        half_size: Vec2::splat(0.5),
+                    }
+                    .mesh()
+                    .size(radius, radius),
                 )),
                 Transform::IDENTITY,
             ),
-            12 => (
-                assets.add(compress_mesh(args, Sphere { radius })),
-                Transform::IDENTITY,
-            ),
             13 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Torus {
                         minor_radius: 0.5 * radius,
@@ -549,7 +547,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
             ),
             14 => (
-                assets.add(compress_mesh(
+                asset_commands.spawn_asset(compress_mesh(
                     args,
                     Capsule2d {
                         radius,
@@ -628,9 +626,9 @@ impl Default for PrintingTimer {
     }
 }
 
-fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<Time>) {
+fn update_materials(mut materials: AssetsMut<StandardMaterial>, time: Res<Time>) {
     let elapsed = time.elapsed_secs();
-    for (i, (_, material)) in materials.iter_mut().enumerate() {
+    for (i, (_, mut material)) in materials.iter_mut().enumerate() {
         let hue = (elapsed + i as f32 * 0.005).rem_euclid(1.0);
         // This is much faster than using base_color.set_hue(hue), and in a tight loop it shows.
         let color = fast_hue_to_rgb(hue);

@@ -1,5 +1,5 @@
 use crate::{Anchor, Sprite};
-use bevy_asset::Assets;
+use bevy_asset::{AssetCommands, Assets, AssetsMut};
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{
     self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass, VisibleEntities,
@@ -162,15 +162,16 @@ impl Default for Text2dShadow {
 ///
 /// ## World Resources
 ///
-/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// [`AssetsMut<Image>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
     mut last_logical_viewport_size: Local<Vec2>,
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     // Text2d entities from the previous frame which need to be reprocessed, usually because the font hadn't loaded yet.
     mut reprocess_queue: Local<EntityHashSet>,
-    mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
+    mut asset_commands: AssetCommands,
+    mut textures: AssetsMut<Image>,
+    fonts: Assets<Font>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -216,6 +217,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
+    let mut deferred_font_atlas_set = Default::default();
     for (
         entity,
         text2d,
@@ -308,7 +310,9 @@ pub fn update_text2d_layout(
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
             &mut font_atlas_set,
+            &mut deferred_font_atlas_set,
             &mut textures,
+            &mut asset_commands,
             &mut computed,
             &mut scale_cx,
             text_bounds,
@@ -333,6 +337,14 @@ pub fn update_text2d_layout(
             }
             Ok(()) => {}
         }
+    }
+
+    for (font_atlas_key, deferred_font_atlas) in deferred_font_atlas_set {
+        font_atlas_set.entry(font_atlas_key).or_default().extend(
+            deferred_font_atlas
+                .into_iter()
+                .map(|deferred| deferred.to_font_atlas(&mut asset_commands)),
+        );
     }
 }
 
@@ -382,7 +394,9 @@ pub fn calculate_bounds_text2d(
 mod tests {
 
     use bevy_app::{App, Update};
-    use bevy_asset::{load_internal_binary_asset, Handle};
+    use bevy_asset::{
+        load_internal_binary_asset, AssetApp, DirectAssetAccessExt, Handle, MinimalAssetPlugin,
+    };
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
@@ -399,9 +413,10 @@ mod tests {
 
     fn setup_with_scale_factor(scale_factor: f32) -> (App, Entity) {
         let mut app = App::new();
-        app.init_resource::<Assets<Font>>()
-            .init_resource::<Assets<Image>>()
-            .init_resource::<Assets<TextureAtlasLayout>>()
+        app.add_plugins(MinimalAssetPlugin)
+            .init_asset::<Font>()
+            .init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>()
             .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
             .init_resource::<FontCx>()
@@ -446,9 +461,9 @@ mod tests {
 
         let world = app.world_mut();
 
-        let mut fonts = world.resource_mut::<Assets<Font>>();
-
-        let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        let mut font = world
+            .get_asset_mut::<Font>(bevy_asset::AssetId::default())
+            .unwrap();
         font.alias = "Fira Mono".into();
         let data = font.into_inner().data.clone();
 

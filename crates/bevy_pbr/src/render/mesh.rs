@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetEntity, AssetId, AssetServer};
 use bevy_camera::visibility::NoCpuCulling;
 use bevy_camera::{
     primitives::Aabb,
@@ -932,8 +932,8 @@ impl From<AssetId<Mesh>> for MeshAssetIdFlat {
     #[inline]
     fn from(value: AssetId<Mesh>) -> Self {
         match value {
-            AssetId::Index { index, .. } => {
-                let bits = index.to_bits();
+            AssetId::Entity { entity, .. } => {
+                let bits = entity.raw_entity().to_bits();
                 MeshAssetIdFlat {
                     mode: MESH_ASSET_ID_FLAT_MODE_INDEX,
                     words: [(bits & 0xffff_ffff) as u32, (bits >> 32) as u32, 0, 0],
@@ -959,9 +959,9 @@ impl From<MeshAssetIdFlat> for AssetId<Mesh> {
     #[inline]
     fn from(value: MeshAssetIdFlat) -> AssetId<Mesh> {
         if value.mode == MESH_ASSET_ID_FLAT_MODE_INDEX {
-            AssetId::from(AssetIndex::from_bits(
+            AssetId::from(AssetEntity::new_unchecked(Entity::from_bits(
                 (value.words[0] as u64) | ((value.words[1] as u64) << 32),
-            ))
+            )))
         } else {
             let lo = (value.words[0] as u64) | ((value.words[1] as u64) << 32);
             let hi = (value.words[2] as u64) | ((value.words[3] as u64) << 32);
