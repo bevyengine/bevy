@@ -335,11 +335,9 @@ fn bokeh_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         * inverse_normalization;
 
     // The kernel has small negative lobes, so the reconstruction rings into
-    // negative, out-of-gamut values around hard HDR edges. Clamping each channel
-    // to zero independently changes the ratios between channels and visibly
-    // shifts the hue. Instead, desaturate toward the (non-negative) luminance just
-    // enough to lift the most-negative channel to zero. This preserves luminance
-    // and keeps the hue stable. 
+    // negative, out-of-gamut values around hard HDR edges. Desaturate toward the
+    // (non-negative) luminance just enough to lift the most-negative channel to 
+    // zero. This preserves luminance and keeps the hue stable. 
 
     // The constants for calculating luminance are from the BT.709 standard.
     let bt709 : vec3<f32> = vec3<f32>(0.2126, 0.7152, 0.0722);
