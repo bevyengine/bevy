@@ -329,10 +329,29 @@ fn bokeh_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         blue += complex_multiply(blue_sample.xy, kernel);
     }
 
-    // Resolve the complex accumulators to a real color. The kernel has small
-    // negative lobes, so clamp to avoid negative colors on hard HDR edges.
+    // Resolve the complex accumulators to a real color.
     let weights = vec2(BOKEH_WEIGHT_REAL, BOKEH_WEIGHT_IMAG);
     let color = vec3(dot(red, weights), dot(green, weights), dot(blue, weights))
         * inverse_normalization;
-    return vec4(max(color, vec3(0.0)), 1.0);
+
+    // The kernel has small negative lobes, so the reconstruction rings into
+    // negative, out-of-gamut values around hard HDR edges. Clamping each channel
+    // to zero independently changes the ratios between channels and visibly
+    // shifts the hue. Instead, desaturate toward the (non-negative) luminance just
+    // enough to lift the most-negative channel to zero. This preserves luminance
+    // and keeps the hue stable. 
+
+    // The constants for calculating luminance are from the BT.709 standard.
+    let bt709 : vec3<f32> = vec3<f32>(0.2126, 0.7152, 0.0722);
+    
+    let luma = max(dot(color, bt709), 0.0);
+    let min_channel = min(color.r, min(color.g, color.b));
+    var resolved = color;
+    if min_channel < 0.0 {
+        // Solve luma + t * (min_channel - luma) = 0 for the blend toward gray.
+        let t = luma / (luma - min_channel);
+        resolved = mix(vec3(luma), color, t);
+    }
+    // Guard against any residual negatives from floating-point error.
+    return vec4(max(resolved, vec3(0.0)), 1.0);
 }
