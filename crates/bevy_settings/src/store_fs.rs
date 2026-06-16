@@ -115,7 +115,7 @@ pub(crate) fn decode_toml_file(file: &PathBuf) -> Option<toml::Table> {
             }
         };
 
-        let table_value = match toml::from_str::<toml::Value>(&prefs_str) {
+        let table_value = match toml::from_str::<toml::Value>(&settings_str) {
             Ok(table_value) => table_value,
             Err(e) => {
                 error!("Error parsing settings file: {}", e);
