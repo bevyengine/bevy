@@ -3943,7 +3943,7 @@ pub fn prepare_mesh_bind_groups(
     weights_uniform: Res<MorphUniforms>,
     mesh_allocator: Res<MeshAllocator>,
     render_morph_target_allocator: Res<RenderMorphTargetAllocator>,
-    mut render_lightmaps: ResMut<RenderLightmaps>,
+    render_lightmaps: Res<RenderLightmaps>,
     metadata_fallback_buffer: Res<MeshMetadataFallbackBuffer>,
     mut mesh_bind_groups: Option<ResMut<MeshBindGroups>>,
 ) {
@@ -3979,7 +3979,7 @@ pub fn prepare_mesh_bind_groups(
             &weights_uniform,
             &mesh_allocator,
             &render_morph_target_allocator,
-            &mut render_lightmaps,
+            &render_lightmaps,
             &metadata_fallback_buffer,
         );
 
@@ -4024,7 +4024,7 @@ pub fn prepare_mesh_bind_groups(
                 &weights_uniform,
                 &mesh_allocator,
                 &render_morph_target_allocator,
-                &mut render_lightmaps,
+                &render_lightmaps,
                 &metadata_fallback_buffer,
             );
         }
@@ -4047,7 +4047,7 @@ fn prepare_mesh_bind_groups_for_phase(
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
     render_morph_target_allocator: &RenderMorphTargetAllocator,
-    render_lightmaps: &mut RenderLightmaps,
+    render_lightmaps: &RenderLightmaps,
     metadata_fallback_buffer: &MeshMetadataFallbackBuffer,
 ) {
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -4127,7 +4127,7 @@ fn prepare_mesh_bind_groups_for_phase(
 
         // Create lightmap bindgroups. There will be one bindgroup for each slab.
         let bindless_supported = render_lightmaps.bindless_supported;
-        for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
+        for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter().enumerate() {
             groups.lightmaps.insert(
                 LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
                 layouts.lightmapped(
