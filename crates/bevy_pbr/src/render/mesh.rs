@@ -3748,7 +3748,7 @@ pub struct MeshPhaseBindGroups {
     skinned: HashMap<MeshSlabId, MeshBindGroupPair>,
     /// Bind groups for meshes with morph targets.
     morph_targets: MeshMorphTargetBindGroups,
-    lightmaps: HashMap<LightmapSlabIndex, BindGroup>,
+    lightmaps: HashMap<(MeshSlabId, LightmapSlabIndex), BindGroup>,
 }
 
 /// Stores bind groups for each mesh with morph targets.
@@ -3888,7 +3888,7 @@ impl MeshPhaseBindGroups {
                 .get(&metadata_slab_id)
                 .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
             (false, MeshMorphBindGroupKey::NoMorphTargets, Some(lightmap_slab)) => {
-                self.lightmaps.get(&lightmap_slab)
+                self.lightmaps.get(&(metadata_slab_id, lightmap_slab))
             }
             (false, MeshMorphBindGroupKey::NoMorphTargets, None) => {
                 self.model_only.get(&metadata_slab_id)
@@ -4129,7 +4129,10 @@ fn prepare_mesh_bind_groups_for_phase(
         let bindless_supported = render_lightmaps.bindless_supported;
         for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter().enumerate() {
             groups.lightmaps.insert(
-                LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+                (
+                    metadata_slab_id,
+                    LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+                ),
                 layouts.lightmapped(
                     render_device,
                     pipeline_cache,
