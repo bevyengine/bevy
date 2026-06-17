@@ -1550,40 +1550,30 @@ pub fn prepare_lights(
             continue;
         }
 
-        // Some common data used when creating point shadow maps
-        let light_index = *global_clusterable_object_meta
-            .entity_to_index
-            .get(light_entity)
-            .unwrap();
-        // ignore scale because we don't want to effectively scale light radius and range
-        // by applying those as a view transform to shadow map rendering of objects
-        // and ignore rotation because we want the shadow map projections to align with the axes
-        let view_translation = GlobalTransform::from_translation(light.transform.translation());
-        let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-            core::f32::consts::FRAC_PI_2,
-            1.0,
-            light.shadow_map_near_z,
-        );
-
         let init = point_and_spot_light_view_entities.0.is_empty()
             && point_and_spot_light_view_entities.1.is_empty();
         if init {
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
+                // For each face of a cube we spawn a light entity
+                let light_view_entities: Vec<_> =
+                    (0..6).map(|_| commands.spawn_empty().id()).collect();
+
                 create_point_shadow_maps(
                     &mut commands,
                     &mut point_and_spot_light_view_entities,
                     &mut point_light_depth_attachments,
+                    &global_clusterable_object_meta,
                     views,
-                    (&cube_face_rotations, point_light_frusta),
-                    &point_light_depth_texture,
-                    (light_entity, light_main_entity, light_index),
                     (
-                        point_light_shadow_map.size as u32,
-                        view_translation,
-                        cube_face_projection,
+                        &cube_face_rotations,
+                        point_light_frusta,
+                        light_view_entities,
                     ),
+                    &point_light_depth_texture,
+                    (light_entity, light_main_entity, light),
+                    point_light_shadow_map.size as u32,
                     (
                         point_spot_shadow_aux_entities.len(),
                         auxiliary_entity,
@@ -1637,19 +1627,23 @@ pub fn prepare_lights(
                 };
 
                 if insert_shadow_map {
+                    let light_view_entities: Vec<_> =
+                        (0..6).map(|_| commands.spawn_empty().id()).collect();
+
                     create_point_shadow_maps(
                         &mut commands,
                         &mut point_and_spot_light_view_entities,
                         &mut point_light_depth_attachments,
+                        &global_clusterable_object_meta,
                         views,
-                        (&cube_face_rotations, point_light_frusta),
-                        &point_light_depth_texture,
-                        (light_entity, light_main_entity, light_index),
                         (
-                            point_light_shadow_map.size as u32,
-                            view_translation,
-                            cube_face_projection,
+                            &cube_face_rotations,
+                            point_light_frusta,
+                            light_view_entities,
                         ),
+                        &point_light_depth_texture,
+                        (light_entity, light_main_entity, light),
+                        point_light_shadow_map.size as u32,
                         (
                             point_spot_shadow_aux_entities.len(),
                             auxiliary_entity,
@@ -1663,59 +1657,47 @@ pub fn prepare_lights(
 
         // If the point light was changed, update the `ExtractedView` and frustum of any shadow maps.
         if !init && changed_point_lights.get(*light_entity).is_ok() {
-            let view_translation = GlobalTransform::from_translation(light.transform.translation());
-            let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-                core::f32::consts::FRAC_PI_2,
-                1.0,
-                light.shadow_map_near_z,
-            );
-            for auxiliary_entity in point_spot_shadow_aux_entities.iter() {
-                let light_view_entities = if let Some((entity, _)) = auxiliary_entity {
-                    let entry = point_and_spot_light_view_entities.1.get(entity);
-                    if let Some(entities) = entry {
-                        entities
+            for (aux_entity_index, auxiliary_entity) in
+                point_spot_shadow_aux_entities.iter().enumerate()
+            {
+                let light_view_entities = if let Some((_, main_entity)) = auxiliary_entity {
+                    let entry = point_and_spot_light_view_entities
+                        .1
+                        .get(&main_entity.entity());
+                    if let Some(view_light_entities) = entry {
+                        view_light_entities.to_vec()
                     } else {
                         // This should not happen - point_and_spot_light_view_entities.1
                         // should be synced with auxiliary_entities at this point
                         // with the logic in the "if init else" block,
                         // but it is not a fatal error if it does happen. It should have
-                        // been inserted with the updated `ExtractedView` and frustum anyway.
+                        // been already inserted with the updated data anyway.
                         continue;
                     }
                 } else {
-                    &point_and_spot_light_view_entities.0
+                    (&point_and_spot_light_view_entities.0).to_vec()
                 };
-                for (face_index, ((view_rotation, frustum), view_light_entity)) in
-                    cube_face_rotations
-                        .iter()
-                        .zip(&point_light_frusta.unwrap().frusta)
-                        .zip(light_view_entities.iter().copied())
-                        .enumerate()
-                {
-                    let retained_view_entity = RetainedViewEntity::new(
-                        *light_main_entity,
-                        auxiliary_entity.map(|(_, main_entity)| main_entity),
-                        face_index as u32,
-                    );
-                    commands.entity(view_light_entity).insert((
-                        ExtractedView {
-                            retained_view_entity,
-                            viewport: UVec4::new(
-                                0,
-                                0,
-                                point_light_shadow_map.size as u32,
-                                point_light_shadow_map.size as u32,
-                            ),
-                            world_from_view: view_translation * *view_rotation,
-                            clip_from_world: None,
-                            clip_from_view: cube_face_projection,
-                            target_format: CORE_3D_DEPTH_FORMAT,
-                            color_grading: Default::default(),
-                            invert_culling: false,
-                        },
-                        *frustum,
-                    ));
-                }
+                create_point_shadow_maps(
+                    &mut commands,
+                    &mut point_and_spot_light_view_entities,
+                    &mut point_light_depth_attachments,
+                    &global_clusterable_object_meta,
+                    views,
+                    (
+                        &cube_face_rotations,
+                        point_light_frusta,
+                        light_view_entities,
+                    ),
+                    &point_light_depth_texture,
+                    (light_entity, light_main_entity, light),
+                    point_light_shadow_map.size as u32,
+                    (
+                        point_spot_shadow_aux_entities.len(),
+                        auxiliary_entity,
+                        aux_entity_index,
+                    ),
+                    gpu_preprocessing_support.max_supported_mode,
+                );
             }
         }
 
@@ -1769,18 +1751,6 @@ pub fn prepare_lights(
             continue;
         }
 
-        let spot_world_from_view = spot_light_world_from_view(&light.transform);
-        let spot_world_from_view = spot_world_from_view.into();
-
-        let angle = light
-            .spot_light_angles
-            .expect(
-                "lights should be sorted so that \
-            [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights",
-            )
-            .1;
-        let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
-
         let init = point_and_spot_light_view_entities.0.is_empty()
             && point_and_spot_light_view_entities.1.is_empty();
 
@@ -1788,20 +1758,19 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
+                let view_light_entity = commands.spawn_empty().id();
+
                 create_spot_shadow_map(
                     &mut commands,
                     &mut point_and_spot_light_view_entities,
                     &mut directional_light_depth_attachments,
+                    (num_directional_cascades_enabled, light_index),
                     views,
-                    num_directional_cascades_enabled,
                     &directional_light_depth_texture,
-                    (light_entity, light_main_entity, light_index),
-                    (
-                        directional_light_shadow_map.size as u32,
-                        spot_world_from_view,
-                        spot_projection,
-                        spot_light_frustum,
-                    ),
+                    view_light_entity,
+                    (light_entity, light_main_entity, light),
+                    spot_light_frustum,
+                    directional_light_shadow_map.size as u32,
                     (
                         point_spot_shadow_aux_entities.len(),
                         auxiliary_entity,
@@ -1855,20 +1824,19 @@ pub fn prepare_lights(
                 };
 
                 if insert_shadow_map {
+                    let view_light_entity = commands.spawn_empty().id();
+
                     create_spot_shadow_map(
                         &mut commands,
                         &mut point_and_spot_light_view_entities,
                         &mut directional_light_depth_attachments,
+                        (num_directional_cascades_enabled, light_index),
                         views,
-                        num_directional_cascades_enabled,
                         &directional_light_depth_texture,
-                        (light_entity, light_main_entity, light_index),
-                        (
-                            directional_light_shadow_map.size as u32,
-                            spot_world_from_view,
-                            spot_projection,
-                            spot_light_frustum,
-                        ),
+                        view_light_entity,
+                        (light_entity, light_main_entity, light),
+                        spot_light_frustum,
+                        directional_light_shadow_map.size as u32,
                         (
                             point_spot_shadow_aux_entities.len(),
                             auxiliary_entity,
@@ -1881,15 +1849,9 @@ pub fn prepare_lights(
         }
 
         if !init && changed_point_lights.get(*light_entity).is_ok() {
-            // If the spot light was changed, update the `ExtractedView` and the frustum
-            let spot_world_from_view = spot_light_world_from_view(&light.transform);
-            let spot_world_from_view = spot_world_from_view.into();
-
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
-
-            for auxiliary_entity in point_spot_shadow_aux_entities.iter() {
+            for (aux_entity_index, auxiliary_entity) in
+                point_spot_shadow_aux_entities.iter().enumerate()
+            {
                 // There should be only one `view_light_entity` for spotlights.
                 let view_light_entity = if let Some((_, main_entity)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
@@ -1908,29 +1870,24 @@ pub fn prepare_lights(
                 } else {
                     point_and_spot_light_view_entities.0[0]
                 };
-                let retained_view_entity = RetainedViewEntity::new(
-                    *light_main_entity,
-                    auxiliary_entity.map(|(_, main_entity)| main_entity),
-                    0,
+                create_spot_shadow_map(
+                    &mut commands,
+                    &mut point_and_spot_light_view_entities,
+                    &mut directional_light_depth_attachments,
+                    (num_directional_cascades_enabled, light_index),
+                    views,
+                    &directional_light_depth_texture,
+                    view_light_entity,
+                    (light_entity, light_main_entity, light),
+                    spot_light_frustum,
+                    directional_light_shadow_map.size as u32,
+                    (
+                        point_spot_shadow_aux_entities.len(),
+                        auxiliary_entity,
+                        aux_entity_index,
+                    ),
+                    gpu_preprocessing_support.max_supported_mode,
                 );
-                commands.entity(view_light_entity).insert((
-                    ExtractedView {
-                        retained_view_entity,
-                        viewport: UVec4::new(
-                            0,
-                            0,
-                            directional_light_shadow_map.size as u32,
-                            directional_light_shadow_map.size as u32,
-                        ),
-                        world_from_view: spot_world_from_view,
-                        clip_from_view: spot_projection,
-                        clip_from_world: None,
-                        target_format: CORE_3D_DEPTH_FORMAT,
-                        color_grading: Default::default(),
-                        invert_culling: false,
-                    },
-                    *spot_light_frustum.unwrap(),
-                ));
             }
         }
 
@@ -2366,6 +2323,7 @@ fn create_point_shadow_maps(
     commands: &mut Commands,
     point_and_spot_light_view_entities: &mut Mut<PointAndSpotLightViewEntities>,
     point_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
+    global_clusterable_object_meta: &ResMut<GlobalClusterableObjectMeta>,
     views: Query<
         (
             Entity,
@@ -2379,14 +2337,14 @@ fn create_point_shadow_maps(
         ),
         With<Camera3d>,
     >,
-    (cube_face_rotations, point_light_frusta): (&Vec<Transform>, Option<&CubemapFrusta>),
-    point_light_depth_texture: &CachedTexture,
-    (light_entity, light_main_entity, light_index): (&Entity, &MainEntity, usize),
-    (point_light_shadow_map_size, view_translation, cube_face_projection): (
-        u32,
-        GlobalTransform,
-        Mat4,
+    (cube_face_rotations, point_light_frusta, light_view_entities): (
+        &Vec<Transform>,
+        Option<&CubemapFrusta>,
+        Vec<Entity>,
     ),
+    point_light_depth_texture: &CachedTexture,
+    (light_entity, light_main_entity, light): (&Entity, &MainEntity, &ExtractedPointLight),
+    point_light_shadow_map_size: u32,
     (auxiliary_entities_size, auxiliary_entity, aux_entity_index): (
         usize,
         &Option<(Entity, MainEntity)>,
@@ -2394,7 +2352,20 @@ fn create_point_shadow_maps(
     ),
     gpu_preprocessing_support_max_supported_mode: GpuPreprocessingMode,
 ) {
-    let light_view_entities: Vec<_> = (0..6).map(|_| commands.spawn_empty().id()).collect();
+    let light_index = *global_clusterable_object_meta
+        .entity_to_index
+        .get(light_entity)
+        .unwrap();
+    // ignore scale because we don't want to effectively scale light radius and range
+    // by applying those as a view transform to shadow map rendering of objects
+    // and ignore rotation because we want the shadow map projections to align with the axes
+    let view_translation = GlobalTransform::from_translation(light.transform.translation());
+
+    let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
+        core::f32::consts::FRAC_PI_2,
+        1.0,
+        light.shadow_map_near_z,
+    );
     for (face_index, ((view_rotation, frustum), view_light_entity)) in cube_face_rotations
         .iter()
         .zip(&point_light_frusta.unwrap().frusta)
@@ -2509,8 +2480,9 @@ fn create_point_shadow_maps(
 /// If a camera requests for its own shadow maps, the auxiliary entity is the requesting camera.
 fn create_spot_shadow_map(
     commands: &mut Commands,
-    point_and_spot_light_view_entities: &mut Mut<'_, PointAndSpotLightViewEntities>,
+    point_and_spot_light_view_entities: &mut Mut<PointAndSpotLightViewEntities>,
     directional_light_depth_attachments: &mut HashMap<u32, DepthAttachment>,
+    (num_directional_cascades_enabled, light_index): (usize, usize),
     views: Query<
         (
             Entity,
@@ -2524,12 +2496,11 @@ fn create_spot_shadow_map(
         ),
         With<Camera3d>,
     >,
-    num_directional_cascades_enabled: usize,
     directional_light_depth_texture: &CachedTexture,
-    (light_entity, light_main_entity, light_index): (&Entity, &MainEntity, usize),
-    (directional_light_shadow_map_size, spot_world_from_view, spot_projection, spot_light_frustum): (u32,
-    GlobalTransform,
-    Mat4,Option<&Frustum>),
+    view_light_entity: Entity,
+    (light_entity, light_main_entity, light): (&Entity, &MainEntity, &ExtractedPointLight),
+    spot_light_frustum: Option<&Frustum>,
+    directional_light_shadow_map_size: u32,
     (auxiliary_entities_size, auxiliary_entity, aux_entity_index): (
         usize,
         &Option<(Entity, MainEntity)>,
@@ -2537,6 +2508,13 @@ fn create_spot_shadow_map(
     ),
     gpu_preprocessing_support_max_supported_mode: GpuPreprocessingMode,
 ) {
+    let spot_world_from_view = spot_light_world_from_view(&light.transform);
+    let spot_world_from_view = spot_world_from_view.into();
+
+    let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+    let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
+
     let base_array_layer = (num_directional_cascades_enabled
         + light_index * auxiliary_entities_size
         + aux_entity_index) as u32;
@@ -2562,7 +2540,6 @@ fn create_spot_shadow_map(
         })
         .clone();
 
-    let view_light_entity = commands.spawn_empty().id();
     let retained_view_entity = RetainedViewEntity::new(
         *light_main_entity,
         auxiliary_entity.map(|(_, main_entity)| main_entity),
