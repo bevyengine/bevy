@@ -462,7 +462,9 @@ fn demo_column_1() -> impl Scene {
                             )
                         ]
                     )
-                    (@FeathersColorSwatch SwatchType::Rgb),
+                    (@FeathersColorSwatch {
+                        @opaque_color_percentage: 30.0,
+                    } SwatchType::Rgb),
                 ]
             ),
             (
