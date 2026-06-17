@@ -1675,7 +1675,7 @@ pub fn prepare_lights(
                         continue;
                     }
                 } else {
-                    (&point_and_spot_light_view_entities.0).to_vec()
+                    point_and_spot_light_view_entities.0.to_vec()
                 };
                 create_point_shadow_maps(
                     &mut commands,
