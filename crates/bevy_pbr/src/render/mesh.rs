@@ -3998,11 +3998,6 @@ pub fn prepare_mesh_bind_groups(
                 core::mem::take(gpu_preprocessing_mesh_bind_groups)
             }
         };
-        gpu_preprocessing_mesh_bind_groups.retain(|key, _| {
-            gpu_batched_instance_buffers
-                .phase_instance_buffers
-                .contains_key(key)
-        });
 
         // Loop over each phase.
         for (phase_type_id, batched_phase_instance_buffers) in
@@ -4011,7 +4006,6 @@ pub fn prepare_mesh_bind_groups(
             let Some(instance_data_binding) =
                 batched_phase_instance_buffers.instance_data_binding()
             else {
-                gpu_preprocessing_mesh_bind_groups.swap_remove(phase_type_id);
                 continue;
             };
             let groups = gpu_preprocessing_mesh_bind_groups
