@@ -2835,7 +2835,6 @@ pub(crate) fn specialize_shadows(
                 {
                     continue;
                 }
-
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                     continue;
                 };
