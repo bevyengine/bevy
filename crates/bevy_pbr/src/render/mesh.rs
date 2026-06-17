@@ -3945,6 +3945,7 @@ pub fn prepare_mesh_bind_groups(
     render_morph_target_allocator: Res<RenderMorphTargetAllocator>,
     mut render_lightmaps: ResMut<RenderLightmaps>,
     metadata_fallback_buffer: Res<MeshMetadataFallbackBuffer>,
+    mut mesh_bind_groups: Option<ResMut<MeshBindGroups>>,
 ) {
     // CPU mesh preprocessing path.
     if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
@@ -3952,8 +3953,23 @@ pub fn prepare_mesh_bind_groups(
             .into_inner()
             .instance_data_binding()
     {
+        // Reuse allocations
+        let mut cpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
+            None | Some(MeshBindGroups::GpuPreprocessing(_)) => {
+                MeshPhaseBindGroups::new(&render_device)
+            }
+            Some(MeshBindGroups::CpuPreprocessing(cpu_preprocessing_mesh_bind_groups)) => {
+                core::mem::replace(
+                    cpu_preprocessing_mesh_bind_groups,
+                    MeshPhaseBindGroups::new(&render_device),
+                )
+            }
+        };
+        cpu_preprocessing_mesh_bind_groups.reset();
+
         // In this path, we only have a single set of bind groups for all phases.
-        let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
+        prepare_mesh_bind_groups_for_phase(
+            &mut cpu_preprocessing_mesh_bind_groups,
             instance_data_binding,
             &meshes,
             &mesh_pipeline,
@@ -3975,7 +3991,18 @@ pub fn prepare_mesh_bind_groups(
 
     // GPU mesh preprocessing path.
     if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        let mut gpu_preprocessing_mesh_bind_groups = TypeIdMap::default();
+        // Reuse allocations
+        let mut gpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
+            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdMap::default(),
+            Some(MeshBindGroups::GpuPreprocessing(gpu_preprocessing_mesh_bind_groups)) => {
+                core::mem::take(gpu_preprocessing_mesh_bind_groups)
+            }
+        };
+        gpu_preprocessing_mesh_bind_groups.retain(|key, _| {
+            gpu_batched_instance_buffers
+                .phase_instance_buffers
+                .contains_key(key)
+        });
 
         // Loop over each phase.
         for (phase_type_id, batched_phase_instance_buffers) in
@@ -3984,10 +4011,16 @@ pub fn prepare_mesh_bind_groups(
             let Some(instance_data_binding) =
                 batched_phase_instance_buffers.instance_data_binding()
             else {
+                gpu_preprocessing_mesh_bind_groups.swap_remove(phase_type_id);
                 continue;
             };
+            let groups = gpu_preprocessing_mesh_bind_groups
+                .entry(*phase_type_id)
+                .or_insert(MeshPhaseBindGroups::new(&render_device));
+            groups.reset();
 
-            let mesh_phase_bind_groups = prepare_mesh_bind_groups_for_phase(
+            prepare_mesh_bind_groups_for_phase(
+                groups,
                 instance_data_binding,
                 &meshes,
                 &mesh_pipeline,
@@ -4000,8 +4033,6 @@ pub fn prepare_mesh_bind_groups(
                 &mut render_lightmaps,
                 &metadata_fallback_buffer,
             );
-
-            gpu_preprocessing_mesh_bind_groups.insert(*phase_type_id, mesh_phase_bind_groups);
         }
 
         commands.insert_resource(MeshBindGroups::GpuPreprocessing(
@@ -4012,6 +4043,7 @@ pub fn prepare_mesh_bind_groups(
 
 /// Creates the per-mesh bind groups for each type of mesh, for a single phase.
 fn prepare_mesh_bind_groups_for_phase(
+    groups: &mut MeshPhaseBindGroups,
     model: BindingResource,
     meshes: &RenderAssets<RenderMesh>,
     mesh_pipeline: &MeshPipeline,
@@ -4023,10 +4055,8 @@ fn prepare_mesh_bind_groups_for_phase(
     render_morph_target_allocator: &RenderMorphTargetAllocator,
     render_lightmaps: &mut RenderLightmaps,
     metadata_fallback_buffer: &MeshMetadataFallbackBuffer,
-) -> MeshPhaseBindGroups {
+) {
     let layouts = &mesh_pipeline.mesh_layouts;
-    // TODO: Reuse allocations.
-    let mut groups = MeshPhaseBindGroups::new(render_device);
 
     for metadata_slab_id in mesh_allocator.metadata_slabs() {
         let metadata_buffer = mesh_allocator
@@ -4154,8 +4184,6 @@ fn prepare_mesh_bind_groups_for_phase(
             }
         }
     }
-
-    groups
 }
 
 /// Creates per-mesh morph target bind groups for a single phase.
