@@ -501,21 +501,25 @@ fn listen_for_ime_input_when_text_input_focused(
     window.ime_enabled = editable_text_focused;
 }
 
-/// Observer that clears in-progress IME composition when an [`EditableText`] loses focus.
+/// Observer that clears in-progress IME composition and
+/// collapses the current selection to a caret when an [`EditableText`] loses focus .
 ///
 /// We need to clear the composition on focus loss because IME composition state is not automatically tied to widget focus;
-/// the IME remains active until explicitly disabled, even if the focused widget changes to another `EditableText` or to a non-`EditableText`.
+/// the IME remains active until explicitly disabled,
+/// even if the focused widget changes to another `EditableText` or to a non-`EditableText`.
 ///
 /// Without this, switching focus between two text inputs leaves stale preedit state on the
 /// previous input.
 /// The IME stays enabled because both entities are [`EditableText`],
 /// and no [`Ime::Disabled`] event is ever fired to trigger the cleanup in [`on_ime_input`].
-fn on_focus_lost_clear_ime(
-    trigger: On<FocusLost>,
-    mut editable_text_query: Query<&mut EditableText>,
-) {
+///
+/// A [`TextEdit::CollapseSelection`] is also fired to collapse any active highlighted text
+/// selection back to the caret cursor position, preventing text styles from getting stuck in a
+/// focused color state.
+fn on_focus_lost(trigger: On<FocusLost>, mut editable_text_query: Query<&mut EditableText>) {
     if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::clear_ime_compose());
+        editable_text.queue_edit(TextEdit::CollapseSelection);
     }
 }
 
@@ -613,7 +617,7 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_focused_keyboard_input)
             .add_observer(on_pointer_drag)
             .add_observer(on_pointer_press)
-            .add_observer(on_focus_lost_clear_ime)
+            .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
             .add_systems(
                 PreUpdate,
