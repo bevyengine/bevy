@@ -117,7 +117,7 @@ impl FeathersNumberInput {
             Node {
                 column_gap: px(0),
                 border: UiRect {
-                    left: {if props.label_text.is_some() { px(3.0) } else { px(0.0) }},
+                    left: px(if props.label_text.is_some() { 3.0 } else { 0.0 }),
                 },
                 padding: UiRect {
                     left: px(0.0),
@@ -557,8 +557,7 @@ fn number_input_on_insert_value(
     {
         let (mut editable_text, mut gradient) = q_text_input.get_mut(text_id).unwrap();
         let new_digits = input_value.to_string();
-        let old_digits = editable_text.value().to_string();
-        if old_digits != new_digits {
+        if editable_text.value() != &new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
@@ -674,6 +673,7 @@ fn number_input_hovered(
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     mut commands: Commands,
+    input_focus: Res<InputFocus>,
 ) {
     let text_id = insert.event_target();
     if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
@@ -689,6 +689,12 @@ fn number_input_hovered(
             &mut gradient,
             &mut commands,
         );
+        
+        if input_focus.get() == Some(text_id) {
+            commands
+                .entity(text_id)
+                .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
+        }
     }
 }
 

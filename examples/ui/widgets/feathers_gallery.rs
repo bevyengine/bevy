@@ -826,7 +826,7 @@ fn update_colors(
         // with typing.
         let (input_ent, mut editable_text) = q_text_input.into_inner();
         if Some(input_ent) != focus.get() {
-            // editable_text.queue_edit(TextEdit::SelectAll);
+            editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(states.rgb_color.to_hex().into()));
         }
 
