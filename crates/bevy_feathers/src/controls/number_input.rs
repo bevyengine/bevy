@@ -42,7 +42,6 @@ use bevy_ui::{
     LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
 };
 use bevy_ui_widgets::ValueChange;
-use bevy_window::CursorOptions;
 
 use crate::{
     constants::{fonts, size},
@@ -545,24 +544,31 @@ struct ScrubberDragState {
 fn number_input_on_insert_value(
     update: On<Insert, NumberInputValue>,
     q_children: Query<&Children>,
-    q_number_input: Query<(&NumberInputValue, Option<&SoftLimit>), With<FeathersNumberInput>>,
+    q_number_input: Query<
+        (&NumberInputValue, Option<&SoftLimit>, Option<&HardLimit>),
+        With<FeathersNumberInput>,
+    >,
     mut q_text_input: Query<(&mut EditableText, &mut BackgroundGradient)>,
 ) {
     let text_input_id = q_children
         .iter_descendants(update.event_target())
         .find(|e| q_text_input.contains(*e));
 
-    if let Ok((input_value, limit)) = q_number_input.get(update.event_target())
+    if let Ok((&input_value, soft_limit, hard_limit)) = q_number_input.get(update.event_target())
         && let Some(text_id) = text_input_id
     {
+        let clamped_value = match hard_limit {
+            Some(limit) => limit.0.clamp(input_value),
+            None => input_value,
+        };
         let (mut editable_text, mut gradient) = q_text_input.get_mut(text_id).unwrap();
-        let new_digits = input_value.to_string();
+        let new_digits = clamped_value.to_string();
         if editable_text.value() != &new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
 
-        update_slider_pos(input_value, limit, &mut gradient);
+        update_slider_pos(&clamped_value, soft_limit, &mut gradient);
     }
 }
 
@@ -689,7 +695,7 @@ fn number_input_hovered(
             &mut gradient,
             &mut commands,
         );
-        
+
         if input_focus.get() == Some(text_id) {
             commands
                 .entity(text_id)
@@ -857,7 +863,6 @@ fn scrubber_on_drag_start(
     mut q_text_input: Query<&mut BackgroundGradient>,
     mut q_scrubber: Query<(&ComputedNode, &mut ScrubberDragState)>,
     q_parent: Query<&ChildOf>,
-    mut q_cursor_options: Query<&mut CursorOptions>,
     focus: Res<InputFocus>,
     theme: Res<UiTheme>,
     mut commands: Commands,
@@ -909,15 +914,6 @@ fn scrubber_on_drag_start(
             &mut gradient,
             &mut commands,
         );
-
-        // Only hide the cursor if there's no slide bar.
-        if soft_limit.is_none() {
-            // TODO: Can simplify this by only changing the window that this ui element is on,
-            // but I've forgotten how to get the window from a computed node.
-            for mut options in q_cursor_options.iter_mut() {
-                options.visible = false;
-            }
-        }
     }
 }
 
@@ -975,15 +971,10 @@ fn scrubber_on_drag_end(
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     mut q_scrubber: Query<&mut ScrubberDragState>,
     q_parent: Query<&ChildOf>,
-    mut q_cursor_options: Query<&mut CursorOptions>,
     focus: Res<InputFocus>,
     mut commands: Commands,
     theme: Res<UiTheme>,
 ) {
-    for mut options in q_cursor_options.iter_mut() {
-        options.visible = true;
-    }
-
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
         && focus.get() != Some(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
@@ -1023,14 +1014,9 @@ fn scrubber_on_drag_cancel(
     q_parent: Query<&ChildOf>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     mut q_scrubber: Query<&mut ScrubberDragState>,
-    mut q_cursor_options: Query<&mut CursorOptions>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    for mut options in q_cursor_options.iter_mut() {
-        options.visible = true;
-    }
-
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_cancel.event_target())
         && let Ok(mut drag_state) = q_scrubber.get_mut(drag_cancel.entity)
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
