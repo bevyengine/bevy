@@ -264,7 +264,7 @@ fn on_pointer_drag(
         return;
     };
 
-    let clamped_local_point = local_point.clamp(node.content_box().min, node.content_box().max);
+    let clamped_local_point = node.content_box().clamp_point(local_point);
     let current_offset = editable_text.viewport.offset;
     editable_text.queue_edit(TextEdit::ExtendSelectionToPoint(
         clamped_local_point - node.content_box().min + current_offset,
@@ -324,7 +324,7 @@ fn text_input_autoscroll_system(
         return;
     };
 
-    let clamped_local_point = local_point.clamp(node.content_box().min, node.content_box().max);
+    let clamped_local_point = node.content_box().clamp_point(local_point);
 
     // Signed per-axis distance of the pointer from the text viewport
     let signed_distance = local_point - clamped_local_point;
