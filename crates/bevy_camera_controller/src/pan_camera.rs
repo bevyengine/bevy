@@ -81,7 +81,7 @@ pub struct MousePanSettings {
     /// Whether the mouse panning is enabled.
     pub enabled: bool,
     /// The mouse button to use for panning.
-    pub button: MouseButton,
+    pub button: PointerButton,
 }
 
 /// Provides the default values for the `PanCamera` controller.
