@@ -12,7 +12,10 @@ use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine};
 use bevy_input::ButtonInput;
 use bevy_math::{Vec2, Vec3};
-use bevy_picking::{pointer::PointerButton, events::{Drag, DragEnd, DragStart, Pointer}};
+use bevy_picking::{
+    events::{Drag, DragEnd, DragStart, Pointer},
+    pointer::PointerButton,
+};
 use bevy_time::{Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;
@@ -311,7 +314,10 @@ fn handle_mouse_pan(
     mut pan_cameras: Query<(&Camera, &GlobalTransform, &mut Transform, &PanCamera)>,
 ) {
     for (camera, global_transform, mut transform, pan_camera_controller) in pan_cameras.iter_mut() {
-        if !pan_camera_controller.enabled || !pan_camera_controller.mouse_pan_settings.enabled || drag.button != pan_camera_controller.mouse_pan_settings.button{
+        if !pan_camera_controller.enabled
+            || !pan_camera_controller.mouse_pan_settings.enabled
+            || drag.button != pan_camera_controller.mouse_pan_settings.button
+        {
             return;
         }
 
