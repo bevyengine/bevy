@@ -355,7 +355,7 @@ mod tests {
     fn simple_compatible() {
         assert_compatible::<&mut C1>();
         assert_compatible::<&C1>();
-        assert_compatible::<(&C1, &C2)>();
+        assert_compatible::<(&C1, &C1)>();
     }
 
     #[test]
