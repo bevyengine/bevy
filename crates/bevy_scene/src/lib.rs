@@ -2846,6 +2846,42 @@ mod tests {
     }
 
     #[test]
+    fn enum_variant_field_values_use_implicit_into() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Default, Clone)]
+        struct TextFont {
+            font_size: FontSize,
+        }
+
+        #[derive(Default, Clone, Debug, PartialEq, Eq)]
+        struct FontSize(u32);
+
+        enum TextSize {
+            Large,
+        }
+
+        impl From<TextSize> for FontSize {
+            fn from(value: TextSize) -> Self {
+                match value {
+                    TextSize::Large => FontSize(24),
+                }
+            }
+        }
+
+        let entity = world
+            .spawn_scene(bsn! {
+                TextFont {
+                    font_size: TextSize::Large,
+                }
+            })
+            .unwrap();
+
+        assert_eq!(entity.get::<TextFont>().unwrap().font_size, FontSize(24));
+    }
+
+    #[test]
     fn field_name_shorthand() {
         let mut app = test_app();
         let world = app.world_mut();
