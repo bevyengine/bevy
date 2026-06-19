@@ -344,14 +344,7 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     };
 
-                    let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
-                    let mut scaler = scale_cx
-                        .0
-                        .builder(font_ref)
-                        .size(font_size)
-                        .hint(hint)
-                        .normalized_coords(coords)
-                        .build();
+                    let mut scaler = None;
 
                     for glyph in glyph_run.positioned_glyphs() {
                         let Ok(glyph_id) = u16::try_from(glyph.id) else {
@@ -359,18 +352,31 @@ impl TextPipeline {
                         };
 
                         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-                        let atlas_info =
+
+                        let atlas_info = if let Some(info) =
                             get_glyph_atlas_info(font_atlases, crate::GlyphCacheKey { glyph_id })
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures,
-                                        &mut scaler,
-                                        font_smoothing,
-                                        glyph_id,
-                                    )
-                                })?;
+                        {
+                            info
+                        } else {
+                            if scaler.is_none() {
+                                scaler = Some(
+                                    scale_cx
+                                        .0
+                                        .builder(font_ref)
+                                        .size(font_size)
+                                        .hint(hinting.is_enabled())
+                                        .normalized_coords(coords)
+                                        .build(),
+                                );
+                            }
+                            add_glyph_to_atlas(
+                                font_atlases,
+                                textures,
+                                scaler.as_mut().unwrap(),
+                                font_smoothing,
+                                glyph_id,
+                            )?
+                        };
 
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
                         let size = atlas_info.rect.size();
