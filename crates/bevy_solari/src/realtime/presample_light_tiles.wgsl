@@ -13,7 +13,7 @@ enable wgpu_ray_query;
 @compute @workgroup_size(1024, 1, 1)
 fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) sample_index: u32) {
     let tile_id = workgroup_id.x;
-    var rng = (tile_id * 5782582u) + sample_index + constants.frame_index;
+    var rng = (tile_id * 0x9E3779B9u) + sample_index + constants.frame_index;
 
     let sample = generate_random_light_sample(&rng);
 
