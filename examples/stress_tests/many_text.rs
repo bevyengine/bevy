@@ -12,7 +12,7 @@ use bevy::{
 const LOREM_TEXT_1: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do \
 eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis \
 nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
-const _LOREM_TEXT_2: &str = "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+const LOREM_TEXT_2: &str = "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
 Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
 #[derive(FromArgs, Resource)]
@@ -64,7 +64,7 @@ fn main() {
     }
 
     if args.respawn {
-        app.add_systems(Update, (despawn_text, setup_text).chain());
+        app.add_systems(Update, (despawn_layout, setup_text).chain());
     }
 
     app.run();
@@ -82,11 +82,11 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
-                display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 width: percent(100),
                 height: percent(100),
                 overflow: Overflow::clip(),
+                column_gap: px(2.),
                 ..default()
             },
             ManyTextRoot,
@@ -105,13 +105,18 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 };
                 parent
-                    .spawn(Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Column,
-                        flex_grow: 1.0,
-                        overflow: Overflow::clip(),
-                        ..default()
-                    })
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            flex_grow: 1.0,
+                            overflow: Overflow::clip(),
+                            border: px(2.).all(),
+                            padding: px(2.).all(),
+                            row_gap: px(3.),
+                            ..default()
+                        },
+                        BorderColor::all(Color::WHITE),
+                    ))
                     .with_children(|parent| {
                         parent.spawn((Text(format!("{font_path}")), text_font.clone()));
                         for justify in [
@@ -122,9 +127,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ] {
                             for linebreak in [LineBreak::AnyCharacter, LineBreak::WordBoundary] {
                                 parent.spawn((
-                                    Text(format!(
-                                        "Justify::{justify:?}\n LineBreak::{linebreak:?}"
-                                    )),
+                                    Text(format!("Justify::{justify:?}, LineBreak::{linebreak:?}")),
                                     text_font.clone(),
                                     TextColor::from(bevy::color::palettes::css::YELLOW),
                                 ));
@@ -143,6 +146,46 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ));
                             }
                         }
+
+                        parent
+                            .spawn((
+                                Text::new(LOREM_TEXT_1),
+                                text_font.clone().with_font_size(13.),
+                                TextColor::from(bevy::color::palettes::css::MISTY_ROSE),
+                            ))
+                            .with_child((TextSpan::new(" "), text_font.clone().with_font_size(13.)))
+                            .with_child((
+                                TextSpan::new(LOREM_TEXT_2),
+                                text_font.clone().with_font_size(14.),
+                                TextColor::from(bevy::color::palettes::css::MAROON),
+                            ));
+
+                        parent
+                            .spawn((
+                                Text::default(),
+                                TextLayout::linebreak(LineBreak::AnyCharacter),
+                            ))
+                            .with_children(|parent| {
+                                for i in (0..10).into_iter().cycle().take(100) {
+                                    parent.spawn((
+                                        TextSpan(i.to_string()),
+                                        text_font.clone().with_font_size((7 + i) as f32),
+                                    ));
+                                }
+                            });
+                        parent
+                            .spawn((
+                                Text::default(),
+                                TextLayout::linebreak(LineBreak::AnyCharacter),
+                            ))
+                            .with_children(|parent| {
+                                for i in (0..10).into_iter() {
+                                    parent.spawn((
+                                        TextSpan::new("0123456789"),
+                                        text_font.clone().with_font_size((7 + i) as f32),
+                                    ));
+                                }
+                            });
                     });
             }
         });
@@ -154,6 +197,6 @@ fn set_changed<C: Component<Mutability = Mutable>>(mut component_query: Query<&m
     }
 }
 
-fn despawn_text(mut commands: Commands, root_node: Single<Entity, With<ManyTextRoot>>) {
+fn despawn_layout(mut commands: Commands, root_node: Single<Entity, With<ManyTextRoot>>) {
     commands.entity(*root_node).despawn();
 }
