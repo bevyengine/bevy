@@ -28,6 +28,7 @@ bevy_light = { path = "../bevy_light", version = "0.19.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev", features = [
+  "serialize",
   "morph",
   "bevy_mikktspace",
 ] }
@@ -46,6 +47,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "KHR_lights_punctual",
   "KHR_materials_transmission",
   "KHR_materials_ior",
+  "KHR_materials_specular",
   "KHR_materials_volume",
   "KHR_materials_unlit",
   "KHR_materials_emissive_strength",

@@ -2,6 +2,7 @@
 
 use crate::{serialization::SerializationDataDef, where_clause_options::WhereClauseOptions};
 use quote::{quote, quote_spanned};
+use syn::spanned::Spanned;
 use syn::Type;
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
@@ -44,19 +45,19 @@ pub(crate) fn impl_get_type_registration<'a>(
     });
 
     let type_data = meta.attrs().type_data().iter().map(|data| {
-        let reflect_ident = data.reflect_ident();
+        let reflect_path = data.reflect_path();
         let args = data.args();
 
         let args = if args.is_empty() {
             // Set the span so that we get pointed to the correct identifier even when there are no type data arguments
-            let span = reflect_ident.span();
+            let span = reflect_path.span();
             quote_spanned!(span => ())
         } else {
             quote!((#args))
         };
 
         quote! {
-            registration.register_type_data_with::<#reflect_ident, Self, _>(#args);
+            registration.register_type_data_with::<#reflect_path, Self, _>(#args);
         }
     });
 

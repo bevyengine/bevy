@@ -24,7 +24,7 @@ encase = "0.12"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 wgpu-types = { version = "29.0.3", default-features = false }
-variadics_please = "1.1"
+variadics_please = "2.0"
 smallvec = { version = "1", default-features = false }
 
 [lints]

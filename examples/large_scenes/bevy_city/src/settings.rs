@@ -64,7 +64,7 @@ pub fn settings_ui() -> impl Scene {
                 Text("Settings"),
                 (
                     @FeathersCheckbox {
-                        @caption: {bsn! { Text("Simulate Cars") ThemedText }}
+                        @caption: bsn! { Text("Simulate Cars") ThemedText }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -74,7 +74,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: {bsn! { Text("Shadow maps enabled") ThemedText }}
+                        @caption: bsn! { Text("Shadow maps enabled") ThemedText }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -92,7 +92,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: {bsn! { Text("Contact shadows enabled") ThemedText }}
+                        @caption: bsn! { Text("Contact shadows enabled") ThemedText }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -110,7 +110,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: {bsn! { Text("Wireframe Enabled") ThemedText }}
+                        @caption: bsn! { Text("Wireframe Enabled") ThemedText }
                     }
                     on(checkbox_self_update)
                     on(
@@ -124,7 +124,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: {bsn! { Text("CPU culling") ThemedText }}
+                        @caption: bsn! { Text("CPU culling") ThemedText }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -147,7 +147,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersButton {
-                        @caption: {bsn! { Text("Regenerate City") ThemedText }}
+                        @caption: bsn! { Text("Regenerate City") ThemedText }
                     }
                     on(
                         |_activate: On<Activate>,

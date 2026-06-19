@@ -281,6 +281,19 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::GROUP_HEADER_TEXT, palette::LIGHT_GRAY_1),
             (tokens::GROUP_BODY_BG, palette::GRAY_2),
             (tokens::GROUP_BODY_BORDER, palette::GRAY_3),
+            // Listview
+            (tokens::LISTROW_BG, Color::NONE),
+            (tokens::LISTROW_BG_HOVER, palette::GRAY_3.with_alpha(0.5)),
+            (tokens::LISTROW_BG_SELECTED, palette::GRAY_3),
+            (tokens::LISTROW_TEXT, palette::WHITE),
+            (
+                tokens::LISTROW_TEXT_DISABLED,
+                palette::WHITE.with_alpha(0.5),
+            ),
+            (tokens::DIALOG_BG, palette::GRAY_1),
+            (tokens::DIALOG_BORDER, palette::BLACK),
+            (tokens::DIALOG_HEADER_BG, palette::GRAY_0),
+            (tokens::DIALOG_TEXT, palette::LIGHT_GRAY_1),
         ]),
     }
 }

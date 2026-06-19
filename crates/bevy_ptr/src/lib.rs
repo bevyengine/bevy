@@ -221,7 +221,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     ///
     /// * The pointer must be [properly aligned].
     ///
-    /// * It must be "dereferenceable" in the sense defined in [the module documentation].
+    /// * It must be "dereferenceable" in the sense defined in [the `core::ptr` documentation].
     ///
     /// * The pointer must point to an initialized instance of `T`.
     ///
@@ -246,7 +246,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// println!("{ref_x}");
     /// ```
     ///
-    /// [the module documentation]: core::ptr#safety
+    /// [the `core::ptr` documentation]: core::ptr#safety
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {
@@ -1503,6 +1503,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
         ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
@@ -1527,6 +1528,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
         ::core::mem::forget(ptr);
     };
     ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
@@ -1550,6 +1552,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
         ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
@@ -1574,6 +1577,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
         ::core::mem::forget(ptr);
     };
 }

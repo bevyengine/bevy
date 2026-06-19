@@ -109,6 +109,9 @@ mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
+mod okcolor_convert;
+mod okhsla;
+mod okhsva;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
@@ -140,6 +143,8 @@ pub use hwba::*;
 pub use laba::*;
 pub use lcha::*;
 pub use linear_rgba::*;
+pub use okhsla::*;
+pub use okhsva::*;
 pub use oklaba::*;
 pub use oklcha::*;
 pub use srgba::*;
@@ -171,6 +176,8 @@ where
     Self: From<Oklaba> + Into<Oklaba>,
     Self: From<Oklcha> + Into<Oklcha>,
     Self: From<Xyza> + Into<Xyza>,
+    Self: From<Okhsla> + Into<Okhsla>,
+    Self: From<Okhsva> + Into<Okhsva>,
     Self: Alpha,
 {
 }

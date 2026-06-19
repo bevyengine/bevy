@@ -80,7 +80,7 @@ use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardFocusLost, KeyboardI
 use mouse::{
     accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
-    MouseWheel,
+    MouseScrollPixelsPerLine, MouseWheel,
 };
 
 #[cfg(feature = "touch")]
@@ -122,6 +122,7 @@ impl Plugin for InputPlugin {
             .add_message::<MouseWheel>()
             .init_resource::<AccumulatedMouseMotion>()
             .init_resource::<AccumulatedMouseScroll>()
+            .init_resource::<MouseScrollPixelsPerLine>()
             .init_resource::<ButtonInput<MouseButton>>()
             .add_systems(
                 PreUpdate,

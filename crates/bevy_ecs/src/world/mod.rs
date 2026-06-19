@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
@@ -2592,7 +2587,7 @@ impl World {
                         archetype_id: first_location.archetype_id,
                     };
                     move_as_ptr!(first_bundle);
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2622,7 +2617,7 @@ impl World {
                                     }
                                 }
                                 move_as_ptr!(bundle);
-                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                                 unsafe {
                                     cache.inserter.insert(
                                         entity,
@@ -2743,7 +2738,7 @@ impl World {
                     move_as_ptr!(first_bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - B::Effect: NoBundleEffect`
                     // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -2785,7 +2780,7 @@ impl World {
                     move_as_ptr!(bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - `B::Effect: NoBundleEffect`
                     // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -3064,13 +3059,16 @@ impl World {
         } else {
             self.spawn_empty()
         };
-        entity_mut.insert_by_id_with_caller(
-            component_id,
-            value,
-            InsertMode::Replace,
-            caller,
-            RelationshipHookMode::Run,
-        );
+        // SAFETY: pointer valid for this component id per precondition
+        unsafe {
+            entity_mut.insert_by_id_with_caller(
+                component_id,
+                value,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            )
+        };
     }
 
     /// Inserts new `!Send` data with the given `value`. Will replace the value if it already

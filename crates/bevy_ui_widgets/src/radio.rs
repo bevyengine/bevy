@@ -37,6 +37,8 @@ use crate::{ActivateOnPress, ValueChange};
 /// within the group, it should never be the case that more than one button is selected at a time.
 #[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct RadioGroup;
 
 /// Headless widget implementation for radio buttons. They can be used independently,
