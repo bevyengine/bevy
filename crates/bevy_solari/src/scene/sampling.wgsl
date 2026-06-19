@@ -108,6 +108,9 @@ struct ResolvedLightSample {
 struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
+    // inverse_pdf may not be in solid angle measure (e.g. area measure)
+    // but inverse_solid_angle_pdf is always in solid angle measure
+    // for cases where it's required, e.g. MIS between light sampling techniques
     inverse_solid_angle_pdf: f32,
     wi: vec3<f32>,
     brdf_rays_can_hit: bool,
