@@ -62,7 +62,7 @@ pub struct LensDirtBindGroupLayout(pub BindGroupLayout);
 #[derive(Component)]
 pub struct LensDirtBindGroup(pub BindGroup);
 
-pub(crate) fn create_lens_dirt_bind_group_layout() -> BindGroupLayoutDescriptor {
+pub fn create_lens_dirt_bind_group_layout() -> BindGroupLayoutDescriptor {
     BindGroupLayoutDescriptor::new(
         "lens_dirt_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
