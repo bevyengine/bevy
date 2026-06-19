@@ -50,6 +50,6 @@ impl FontAtlasSet {
 
     /// Clear all font atlases
     pub fn clear(&mut self) {
-        self.0.clear()
+        self.0.clear();
     }
 }
