@@ -84,10 +84,10 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Row,
+                display: Display::Grid,
+                grid_template_columns: RepeatedGridTrack::flex(4, 1.0),
                 width: percent(100),
                 height: percent(100),
-                overflow: Overflow::clip(),
                 column_gap: px(2.),
                 ..default()
             },
@@ -110,10 +110,8 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .spawn((
                         Node {
                             flex_direction: FlexDirection::Column,
-                            flex_grow: 1.0,
-                            overflow: Overflow::clip(),
-                            border: px(2.).all(),
-                            padding: px(2.).all(),
+                            border: px(1.).all(),
+                            padding: px(1.).all(),
                             row_gap: px(2.),
                             ..default()
                         },
@@ -138,14 +136,14 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Text::new(LOREM_TEXT_1),
                                     Lorem(false),
                                     layout,
-                                    text_font.clone().with_font_size(11.),
+                                    text_font.clone().with_font_size(10.),
                                     TextColor::from(bevy::color::palettes::css::NAVY),
                                 ));
                                 parent.spawn((
                                     Text::new(LOREM_TEXT_2),
                                     Lorem(true),
                                     layout,
-                                    text_font.clone().with_font_size(12.),
+                                    text_font.clone().with_font_size(11.),
                                     TextColor::from(bevy::color::palettes::css::PALE_GREEN),
                                 ));
                             }
@@ -155,14 +153,14 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                             .spawn((
                                 Text::new(LOREM_TEXT_1),
                                 Lorem(false),
-                                text_font.clone().with_font_size(13.),
+                                text_font.clone().with_font_size(12.),
                                 TextColor::from(bevy::color::palettes::css::MISTY_ROSE),
                             ))
                             .with_child((TextSpan::new(" "), text_font.clone().with_font_size(13.)))
                             .with_child((
                                 TextSpan::new(LOREM_TEXT_2),
                                 Lorem(true),
-                                text_font.clone().with_font_size(14.),
+                                text_font.clone().with_font_size(13.),
                                 TextColor::from(bevy::color::palettes::css::MAROON),
                             ));
 
@@ -175,21 +173,8 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 for i in (0..10).into_iter().cycle().take(100) {
                                     parent.spawn((
                                         TextSpan(i.to_string()),
-                                        text_font.clone().with_font_size((7 + i) as f32),
+                                        text_font.clone().with_font_size((6 + i) as f32),
                                         NumberSpan,
-                                    ));
-                                }
-                            });
-                        parent
-                            .spawn((
-                                Text::default(),
-                                TextLayout::linebreak(LineBreak::AnyCharacter),
-                            ))
-                            .with_children(|parent| {
-                                for i in (0..10).into_iter() {
-                                    parent.spawn((
-                                        TextSpan::new("0123456789"),
-                                        text_font.clone().with_font_size((7 + i) as f32),
                                     ));
                                 }
                             });
