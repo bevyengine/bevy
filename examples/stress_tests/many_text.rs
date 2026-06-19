@@ -3,21 +3,28 @@
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    ecs::component::Mutable,
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
 
-const LOREM_TEXT: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do \
+const LOREM_TEXT_1: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do \
 eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis \
 nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
+const _LOREM_TEXT_2: &str = "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
 #[derive(FromArgs, Resource)]
 /// `many_text` UI text stress test
 struct Args {
-    /// whether to force the text to recompute every frame by triggering change detection.
+    /// whether to set the text changed each frame
     #[argh(switch)]
-    recompute_text: bool,
+    set_text_changed: bool,
+
+    /// whether to set the font changed each frame
+    #[argh(switch)]
+    set_font_changed: bool,
 
     /// at the start of each frame despawn any existing UI nodes and spawn a new UI tree
     #[argh(switch)]
@@ -25,15 +32,6 @@ struct Args {
 }
 
 fn main() {
-    // `from_env` panics on the web
-    #[cfg(not(target_arch = "wasm32"))]
-    let args: Args = argh::from_env();
-    #[cfg(target_arch = "wasm32")]
-    let args = Args::from_args(&[], &[]).unwrap();
-
-    let recompute_text = args.recompute_text;
-    let respawn = args.respawn;
-
     let mut app = App::new();
 
     app.add_plugins((
@@ -49,14 +47,23 @@ fn main() {
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings::continuous())
-    .insert_resource(args)
     .add_systems(Startup, (setup_camera, setup_text));
 
-    if recompute_text {
-        app.add_systems(Update, recompute_texts);
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
+    if args.set_text_changed {
+        app.add_systems(Update, set_changed::<Text>);
     }
 
-    if respawn {
+    if args.set_font_changed {
+        app.add_systems(Update, set_changed::<TextFont>);
+    }
+
+    if args.respawn {
         app.add_systems(Update, (despawn_text, setup_text).chain());
     }
 
@@ -123,13 +130,13 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, _args: Res
                                 ));
                                 let layout = TextLayout { justify, linebreak };
                                 parent.spawn((
-                                    Text::new(LOREM_TEXT),
+                                    Text::new(LOREM_TEXT_1),
                                     layout,
                                     text_font.clone().with_font_size(11.),
                                     TextColor::from(bevy::color::palettes::css::NAVY),
                                 ));
                                 parent.spawn((
-                                    Text::new(LOREM_TEXT),
+                                    Text::new(LOREM_TEXT_1),
                                     layout,
                                     text_font.clone().with_font_size(12.),
                                     TextColor::from(bevy::color::palettes::css::PALE_GREEN),
@@ -141,9 +148,9 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, _args: Res
         });
 }
 
-fn recompute_texts(mut text_query: Query<&mut Text>) {
-    for mut text in &mut text_query {
-        text.set_changed();
+fn set_changed<C: Component<Mutability = Mutable>>(mut component_query: Query<&mut C>) {
+    for mut component in &mut component_query {
+        component.set_changed();
     }
 }
 
