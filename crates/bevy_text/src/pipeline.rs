@@ -364,7 +364,10 @@ impl TextPipeline {
                                         .0
                                         .builder(font_ref)
                                         .size(font_size)
-                                        .hint(hinting.is_enabled())
+                                        .hint(
+                                            hinting.is_enabled()
+                                                && font_smoothing == FontSmoothing::AntiAliased,
+                                        )
                                         .normalized_coords(coords)
                                         .build(),
                                 );
