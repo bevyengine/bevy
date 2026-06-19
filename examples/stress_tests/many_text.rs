@@ -127,7 +127,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                         BorderColor::all(Color::WHITE),
                     ))
                     .with_children(|parent| {
-                        parent.spawn((Text(format!("{font_path}")), text_font.clone()));
+                        parent.spawn((font_path.to_string(), text_font.clone()));
                         for justify in [
                             Justify::Left,
                             Justify::Center,
