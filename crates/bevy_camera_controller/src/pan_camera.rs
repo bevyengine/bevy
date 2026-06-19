@@ -124,7 +124,7 @@ impl Default for PanCamera {
             key_rotate_cw: Some(KeyCode::KeyE),
             mouse_pan_settings: MousePanSettings {
                 enabled: true,
-                button: PointerButton::Middle,
+                button: PointerButton::Primary,
             },
         }
     }
