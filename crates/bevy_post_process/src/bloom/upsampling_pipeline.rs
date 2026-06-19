@@ -1,5 +1,5 @@
 use super::{settings::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT};
-use crate::lens_dirt::{LensDirt, LensDirtUniforms};
+use crate::lens_dirt::{create_lens_dirt_bind_group_layout, LensDirt};
 
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::FullscreenShader;
@@ -61,17 +61,7 @@ pub fn init_bloom_upscaling_pipeline(
         ),
     );
 
-    let lens_dirt_bind_group_layout = BindGroupLayoutDescriptor::new(
-        "lens_dirt_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::FRAGMENT,
-            (
-                texture_2d(TextureSampleType::Float { filterable: true }),
-                sampler(SamplerBindingType::Filtering),
-                uniform_buffer::<LensDirtUniforms>(true),
-            ),
-        ),
-    );
+    let lens_dirt_bind_group_layout = create_lens_dirt_bind_group_layout();
 
     commands.insert_resource(BloomUpsamplingPipeline {
         bind_group_layout,

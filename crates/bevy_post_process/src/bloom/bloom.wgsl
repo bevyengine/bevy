@@ -7,7 +7,10 @@
 // * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_post_process::lens_dirt::LensDirtUniforms
+
+#ifdef LENS_DIRT
+#import bevy_post_process::lens_dirt::{LensDirtUniforms, lens_dirt_texture, lens_dirt_sampler, lens_dirt_uniforms}
+#endif
 
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
@@ -20,11 +23,6 @@ struct BloomUniforms {
 @group(0) @binding(1) var s: sampler;
 @group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 @group(0) @binding(3) var<storage, read> blend_factor: f32;
-#ifdef LENS_DIRT
-@group(1) @binding(0) var lens_dirt_texture: texture_2d<f32>;
-@group(1) @binding(1) var lens_dirt_sampler: sampler;
-@group(1) @binding(2) var<uniform> lens_dirt_uniforms: LensDirtUniforms;
-#endif
 
 #ifdef FIRST_DOWNSAMPLE
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4

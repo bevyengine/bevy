@@ -19,8 +19,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, SamplerBindingType,
-        ShaderStages, ShaderType, TextureSampleType,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, SamplerBindingType, ShaderStages, ShaderType, TextureSampleType,
     },
     renderer::RenderDevice,
     sync_component::SyncComponent,
@@ -62,8 +62,8 @@ pub struct LensDirtBindGroupLayout(pub BindGroupLayout);
 #[derive(Component)]
 pub struct LensDirtBindGroup(pub BindGroup);
 
-fn init_lens_dirt_bind_group(mut commands: Commands, render_device: Res<RenderDevice>) {
-    let bind_group_layout = render_device.create_bind_group_layout(
+pub(crate) fn create_lens_dirt_bind_group_layout() -> BindGroupLayoutDescriptor {
+    BindGroupLayoutDescriptor::new(
         "lens_dirt_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -73,6 +73,13 @@ fn init_lens_dirt_bind_group(mut commands: Commands, render_device: Res<RenderDe
                 uniform_buffer::<LensDirtUniforms>(true),
             ),
         ),
+    )
+}
+
+fn init_lens_dirt_bind_group(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "lens_dirt_bind_group_layout",
+        &create_lens_dirt_bind_group_layout().entries,
     );
 
     commands.insert_resource(LensDirtBindGroupLayout(bind_group_layout));
