@@ -125,7 +125,7 @@ pub fn bloom(
     }
 
     let final_pipeline_id = maybe_lens_dirt_bind_group
-        .and_then(|_| upsampling_pipeline_ids.id_final_dirt)
+        .and(upsampling_pipeline_ids.id_final_dirt)
         .unwrap_or(upsampling_pipeline_ids.id_final);
 
     let (
