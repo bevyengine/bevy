@@ -179,7 +179,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TextLayout::linebreak(LineBreak::AnyCharacter),
                             ))
                             .with_children(|parent| {
-                                for i in (0..10).into_iter().cycle().take(100) {
+                                for i in (0..10).cycle().take(100) {
                                     parent.spawn((
                                         TextSpan(i.to_string()),
                                         text_font.clone().with_font_size((6 + i) as f32),
