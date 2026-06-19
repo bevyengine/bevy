@@ -5,6 +5,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::component::Mutable,
     prelude::*,
+    text::FontAtlasSet,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
@@ -31,6 +32,10 @@ struct Args {
     /// at the start of each frame despawn any existing UI nodes and spawn a new UI tree
     #[argh(switch)]
     respawn: bool,
+
+    /// at the start of each frame clear all font atlases
+    #[argh(switch)]
+    clear_font_atlases: bool,
 }
 
 fn main() {
@@ -63,6 +68,10 @@ fn main() {
 
     if args.respawn {
         app.add_systems(Update, (despawn_layout, setup_text).chain());
+    }
+
+    if args.clear_font_atlases {
+        app.add_systems(Update, clear_all_font_atlases);
     }
 
     app.add_systems(Update, update_lorem_text);
@@ -191,6 +200,10 @@ fn set_changed<C: Component<Mutability = Mutable>>(mut component_query: Query<&m
 
 fn despawn_layout(mut commands: Commands, root_node: Single<Entity, With<ManyTextRoot>>) {
     commands.entity(*root_node).despawn();
+}
+
+fn clear_all_font_atlases(mut font_atlases: ResMut<FontAtlasSet>) {
+    font_atlases.clear();
 }
 
 fn update_lorem_text(mut lorem_text_query: Query<(&mut Text, &mut Lorem)>) {
