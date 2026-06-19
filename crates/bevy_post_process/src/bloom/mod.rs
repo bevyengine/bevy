@@ -2,18 +2,21 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-use crate::bloom::{
-    downsampling_pipeline::{
-        init_bloom_downsampling_pipeline, prepare_downsampling_pipeline, BloomDownsamplingPipeline,
-        BloomDownsamplingPipelineIds,
+use crate::{
+    bloom::{
+        downsampling_pipeline::{
+            init_bloom_downsampling_pipeline, prepare_downsampling_pipeline,
+            BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
+        },
+        settings::BloomUniforms,
+        upsampling_pipeline::{
+            init_bloom_upscaling_pipeline, prepare_upsampling_pipeline, BloomUpsamplingPipeline,
+            UpsamplingPipelineIds,
+        },
     },
-    settings::BloomUniforms,
-    upsampling_pipeline::{
-        init_bloom_upscaling_pipeline, prepare_upsampling_pipeline, BloomUpsamplingPipeline,
-        UpsamplingPipelineIds,
-    },
+    lens_dirt::{LensDirtBindGroup, LensDirtUniforms},
 };
-pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter, LensDirt};
+pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
@@ -30,10 +33,9 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    texture::{CachedTexture, FallbackImage, GpuImage, TextureCache},
+    texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -41,6 +43,7 @@ use core::num::NonZero;
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
+/// A plugin that adds support for the bloom effect to Bevy.
 #[derive(Default)]
 pub struct BloomPlugin;
 
@@ -96,13 +99,12 @@ pub fn bloom(
         &Bloom,
         &UpsamplingPipelineIds,
         &BloomDownsamplingPipelineIds,
+        Option<&LensDirtBindGroup>,
+        Option<&DynamicUniformIndex<LensDirtUniforms>>,
     )>,
     downsampling_pipeline_res: Res<BloomDownsamplingPipeline>,
-    upsampling_pipeline_res: Res<BloomUpsamplingPipeline>,
     pipeline_cache: Res<PipelineCache>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    fallback: Res<FallbackImage>,
     mut ctx: RenderContext,
 ) {
     let (
@@ -114,11 +116,17 @@ pub fn bloom(
         bloom_settings,
         upsampling_pipeline_ids,
         downsampling_pipeline_ids,
+        maybe_lens_dirt_bind_group,
+        maybe_lens_dirt_uniform_index,
     ) = view.into_inner();
 
     if bloom_settings.intensity == 0.0 || !camera.hdr {
         return;
     }
+
+    let final_pipeline_id = maybe_lens_dirt_bind_group
+        .and_then(|_| upsampling_pipeline_ids.id_final_dirt)
+        .unwrap_or(upsampling_pipeline_ids.id_final);
 
     let (
         Some(uniforms_binding),
@@ -131,7 +139,7 @@ pub fn bloom(
         pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.first),
         pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
         pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
-        pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
+        pipeline_cache.get_render_pipeline(final_pipeline_id),
     )
     else {
         return;
@@ -150,40 +158,6 @@ pub fn bloom(
             uniforms_binding.clone(),
         )),
     );
-
-    // Use dirt pipeline if ready, otherwise standard final pipeline.
-    let (final_pipeline, use_dirt) = match upsampling_pipeline_ids.id_final_dirt {
-        Some(dirt_id) => match pipeline_cache.get_render_pipeline(dirt_id) {
-            Some(dirt_pipeline) => (dirt_pipeline, true),
-            None => (upsampling_final_pipeline, false),
-        },
-        None => (upsampling_final_pipeline, false),
-    };
-
-    // Choose the appropriate final bind group.
-    let final_bind_group = match (use_dirt, &bloom_settings.lens_dirt.texture) {
-        (true, Some(lens_dirt_texture)) => {
-            let dirt_image = gpu_images.get(lens_dirt_texture).unwrap_or(&fallback.d2);
-            ctx.render_device().create_bind_group(
-                "bloom_final_dirt_bind_group",
-                &pipeline_cache
-                    .get_bind_group_layout(&upsampling_pipeline_res.dirt_bind_group_layout),
-                &BindGroupEntries::sequential((
-                    &bloom_texture.view(0),
-                    &bind_groups.sampler,
-                    uniforms_binding.clone(),
-                    BufferBinding {
-                        buffer: &bind_groups.blend_factor_buffers[0],
-                        offset: 0,
-                        size: NonZero::<u64>::new(4),
-                    },
-                    &dirt_image.texture_view,
-                    &bind_groups.sampler,
-                )),
-            )
-        }
-        _ => bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize].clone(),
-    };
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -281,8 +255,21 @@ pub fn bloom(
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        upsampling_final_pass.set_pipeline(final_pipeline);
-        upsampling_final_pass.set_bind_group(0, &final_bind_group, &[uniform_index.index()]);
+        upsampling_final_pass.set_pipeline(upsampling_final_pipeline);
+        upsampling_final_pass.set_bind_group(
+            0,
+            &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize].clone(),
+            &[uniform_index.index()],
+        );
+        if let (Some(lens_dirt_bind_group), Some(lens_dirt_uniform_index)) =
+            (maybe_lens_dirt_bind_group, maybe_lens_dirt_uniform_index)
+        {
+            upsampling_final_pass.set_bind_group(
+                1,
+                &lens_dirt_bind_group.0,
+                &[lens_dirt_uniform_index.index()],
+            );
+        }
         if let Some(viewport) = camera.viewport.as_ref() {
             upsampling_final_pass.set_viewport(
                 viewport.physical_position.x as f32,
@@ -414,7 +401,6 @@ pub struct BloomBindGroups {
     cache_key: (Vec<TextureId>, BufferId),
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
-    blend_factor_buffers: Box<[Buffer]>,
     sampler: Sampler,
 }
 
@@ -470,20 +456,11 @@ fn prepare_bloom_bind_groups(
             ));
         }
 
-        let mip_count = bloom_texture.mip_count;
-        let blend_factor_buffers: Box<[Buffer]> = (0..mip_count)
-            .map(|mip| {
-                let factor = compute_blend_factor(bloom, mip as f32, (mip_count - 1) as f32);
-                render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    label: Some("bloom_blend_factor"),
-                    contents: &factor.to_ne_bytes(),
-                    usage: BufferUsages::STORAGE,
-                })
-            })
-            .collect();
-
-        let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
+        let mut upsampling_bind_groups = Vec::with_capacity(bloom_texture.mip_count as usize);
         for mip in (0..bloom_texture.mip_count).rev() {
+            let blend_factor =
+                compute_blend_factor(bloom, mip as f32, (bloom_texture.mip_count - 1) as f32);
+
             upsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_upsampling_bind_group",
                 &pipeline_cache.get_bind_group_layout(&upsampling_pipeline.bind_group_layout),
@@ -492,7 +469,11 @@ fn prepare_bloom_bind_groups(
                     sampler,
                     uniforms.binding().unwrap(),
                     BufferBinding {
-                        buffer: &blend_factor_buffers[mip as usize],
+                        buffer: &render_device.create_buffer_with_data(&BufferInitDescriptor {
+                            label: Some("bloom_blend_factor"),
+                            contents: &blend_factor.to_ne_bytes(),
+                            usage: BufferUsages::STORAGE,
+                        }),
                         offset: 0,
                         size: NonZero::<u64>::new(4),
                     },
@@ -504,7 +485,6 @@ fn prepare_bloom_bind_groups(
             cache_key,
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
-            blend_factor_buffers,
             sampler: sampler.clone(),
         });
     }

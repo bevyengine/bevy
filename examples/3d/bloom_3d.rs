@@ -3,7 +3,10 @@
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     math::ops,
-    post_process::bloom::{Bloom, BloomCompositeMode, LensDirt},
+    post_process::{
+        bloom::{Bloom, BloomCompositeMode},
+        lens_dirt::LensDirt,
+    },
     prelude::*,
 };
 use std::{
@@ -33,15 +36,12 @@ fn setup_scene(
         },
         Tonemapping::TonyMcMapface, // 1. Using a tonemapper that desaturates to white is recommended
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        Bloom {
-            lens_dirt: LensDirt {
-                // https://opengameart.org/content/lens-dirt-texture-pack-3png
-                texture: Some(asset_server.load("textures/lens_dirt_texture.png")),
-                intensity: 1.0,
-                ..default()
-            },
+        Bloom::NATURAL, // 2. Enable bloom for the camera
+        LensDirt {
+            // https://opengameart.org/content/lens-dirt-texture-pack-3png
+            texture: asset_server.load("textures/lens_dirt_texture.png"),
             ..default()
-        }, // 2. Enable bloom for the camera
+        },
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
@@ -104,7 +104,7 @@ fn setup_scene(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    camera: Single<(Entity, Option<&mut Bloom>, &mut LensDirt), With<Camera>>,
     mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
@@ -113,7 +113,7 @@ fn update_bloom_settings(
     let bloom = camera.into_inner();
 
     match bloom {
-        (entity, Some(mut bloom)) => {
+        (entity, Some(mut bloom), mut lens_dirt) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {:.2}\n", bloom.intensity));
             text.push_str(&format!(
@@ -147,7 +147,7 @@ fn update_bloom_settings(
 
             text.push_str(&format!(
                 "(O/L) Lens Dirt intensity: {:.2}\n",
-                bloom.lens_dirt.intensity
+                lens_dirt.intensity
             ));
 
             if keycode.just_pressed(KeyCode::Space) {
@@ -221,16 +221,16 @@ fn update_bloom_settings(
             bloom.scale.x = bloom.scale.x.clamp(0.0, 8.0);
 
             if keycode.pressed(KeyCode::KeyL) {
-                bloom.lens_dirt.intensity -= dt / 10.0;
+                lens_dirt.intensity -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::KeyO) {
-                bloom.lens_dirt.intensity += dt / 10.0;
+                lens_dirt.intensity += dt / 10.0;
             }
 
-            bloom.lens_dirt.intensity = bloom.lens_dirt.intensity.clamp(0.0, 1.0);
+            lens_dirt.intensity = lens_dirt.intensity.clamp(0.0, 1.0);
         }
 
-        (entity, None) => {
+        (entity, None, _) => {
             text.0 = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {

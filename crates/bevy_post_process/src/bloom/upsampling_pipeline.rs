@@ -1,4 +1,5 @@
 use super::{settings::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT};
+use crate::lens_dirt::{LensDirt, LensDirtUniforms};
 
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::FullscreenShader;
@@ -28,7 +29,7 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayoutDescriptor,
-    pub dirt_bind_group_layout: BindGroupLayoutDescriptor,
+    pub lens_dirt_bind_group_layout: BindGroupLayoutDescriptor,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -52,42 +53,29 @@ pub fn init_bloom_upscaling_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
-                // Input texture
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Sampler
                 sampler(SamplerBindingType::Filtering),
-                // BloomUniforms
                 uniform_buffer::<BloomUniforms>(true),
-                // Blend factor
                 storage_buffer_read_only_sized(false, NonZero::<u64>::new(4)),
             ),
         ),
     );
 
-    let dirt_bind_group_layout = BindGroupLayoutDescriptor::new(
-        "bloom_dirt_upsampling_bind_group_layout",
+    let lens_dirt_bind_group_layout = BindGroupLayoutDescriptor::new(
+        "lens_dirt_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
-                // Input texture
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Sampler
                 sampler(SamplerBindingType::Filtering),
-                // BloomUniforms
-                uniform_buffer::<BloomUniforms>(true),
-                // Blend factor
-                storage_buffer_read_only_sized(false, NonZero::<u64>::new(4)),
-                // Lens Dirt texture
-                texture_2d(TextureSampleType::Float { filterable: true }),
-                // Lens Dirt sampler
-                sampler(SamplerBindingType::Filtering),
+                uniform_buffer::<LensDirtUniforms>(true),
             ),
         ),
     );
 
     commands.insert_resource(BloomUpsamplingPipeline {
         bind_group_layout,
-        dirt_bind_group_layout,
+        lens_dirt_bind_group_layout,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
     });
@@ -110,30 +98,26 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             },
         };
 
-        let entry_point = if key.lens_dirt {
-            Some("upsample_final".into())
+        let (layout, shader_defs) = if key.lens_dirt {
+            (
+                vec![
+                    self.bind_group_layout.clone(),
+                    self.lens_dirt_bind_group_layout.clone(),
+                ],
+                vec!["LENS_DIRT".into()],
+            )
         } else {
-            Some("upsample".into())
-        };
-
-        let shader_defs = if key.lens_dirt {
-            vec!["LENS_DIRT".into()]
-        } else {
-            vec![]
+            (vec![self.bind_group_layout.clone()], vec![])
         };
 
         RenderPipelineDescriptor {
             label: Some("bloom_upsampling_pipeline".into()),
-            layout: vec![if key.lens_dirt {
-                self.dirt_bind_group_layout.clone()
-            } else {
-                self.bind_group_layout.clone()
-            }],
+            layout,
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point,
+                entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: Some(BlendState {
@@ -157,9 +141,9 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(&ExtractedView, Entity, &Bloom)>,
+    views: Query<(&ExtractedView, Entity, &Bloom, Option<&LensDirt>)>,
 ) {
-    for (view, entity, bloom) in &views {
+    for (view, entity, bloom, maybe_lens_dirt) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
@@ -180,7 +164,7 @@ pub fn prepare_upsampling_pipeline(
             },
         );
 
-        let pipeline_final_dirt_id = bloom.lens_dirt.texture.is_some().then(|| {
+        let pipeline_final_dirt_id = maybe_lens_dirt.is_some().then(|| {
             pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
