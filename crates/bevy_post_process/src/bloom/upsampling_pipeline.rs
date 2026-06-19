@@ -120,6 +120,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             ..default()
         }
