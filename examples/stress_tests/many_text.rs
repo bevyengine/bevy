@@ -78,7 +78,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, _args: Res<Args>) {
+fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
