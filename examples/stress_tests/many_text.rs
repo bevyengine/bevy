@@ -67,7 +67,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, _args: Res<Args>) {
     commands
         .spawn((
             Node {
@@ -102,34 +102,34 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn((Text(format!("font_path")),text_font.clone()));                            
-                        for (justify, linebreak) in [
+                        parent.spawn((Text(format!("{font_path}")),text_font.clone()));                            
+                        for justify in [
                             Justify::Left,
                             Justify::Center,
                             Justify::Right,
                             Justify::Justified,
-                        ].into_iter().zip([LineBreak::AnyCharacter, LineBreak::WordBoundary]) {
-
-                            parent.spawn((Text(format!("Justify::{justify:?}\n LineBreak::{linebreak:?}")),text_font.clone(), TextColor::from(bevy::color::palettes::css::YELLOW)));                            
-                            let layout =  TextLayout {
-                                justify,
-                                linebreak,
-                            };
-                            parent.spawn((
-                                Text::new("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
-                                layout,
-                                text_font.clone(),
-                                TextColor::from(bevy::color::palettes::css::NAVY),
-                            ));
-                             parent.spawn((
-                                Text::new("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
-                                layout,
-                                text_font.clone().with_font_size(12.),
-                                TextColor::from(bevy::color::palettes::css::PALE_GREEN),
-                            ));
-
+                        ]{
+                            for linebreak in [LineBreak::AnyCharacter, LineBreak::WordBoundary] {
+                                parent.spawn((Text(format!("Justify::{justify:?}\n LineBreak::{linebreak:?}")),text_font.clone(), TextColor::from(bevy::color::palettes::css::YELLOW)));                            
+                                let layout =  TextLayout {
+                                    justify,
+                                    linebreak,
+                                };
+                                parent.spawn((
+                                    Text::new("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
+                                    layout,
+                                    text_font.clone(),
+                                    TextColor::from(bevy::color::palettes::css::NAVY),
+                                ));
+                                parent.spawn((
+                                    Text::new("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."),
+                                    layout,
+                                    text_font.clone().with_font_size(12.),
+                                    TextColor::from(bevy::color::palettes::css::PALE_GREEN),
+                                ));
                         }
-                    });
+                    }
+                });
             }
         });
 }
