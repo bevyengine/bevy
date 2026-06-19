@@ -12,16 +12,18 @@ use bevy::{
 const LOREM_TEXT_1: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do \
 eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis \
 nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
-const LOREM_TEXT_2: &str = "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+const LOREM_TEXT_2: &str = "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. \
 Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+
+#[derive(Component)]
+struct Lorem(bool);
+
+#[derive(Component)]
+struct NumberSpan;
 
 #[derive(FromArgs, Resource)]
 /// `many_text` UI text stress test
 struct Args {
-    /// whether to set the text changed each frame
-    #[argh(switch)]
-    set_text_changed: bool,
-
     /// whether to set the font changed each frame
     #[argh(switch)]
     set_font_changed: bool,
@@ -55,10 +57,6 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    if args.set_text_changed {
-        app.add_systems(Update, set_changed::<Text>);
-    }
-
     if args.set_font_changed {
         app.add_systems(Update, set_changed::<TextFont>);
     }
@@ -66,6 +64,10 @@ fn main() {
     if args.respawn {
         app.add_systems(Update, (despawn_layout, setup_text).chain());
     }
+
+    app.add_systems(Update, update_lorem_text);
+
+    app.add_systems(Update, update_number_text);
 
     app.run();
 }
@@ -112,7 +114,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                             overflow: Overflow::clip(),
                             border: px(2.).all(),
                             padding: px(2.).all(),
-                            row_gap: px(3.),
+                            row_gap: px(2.),
                             ..default()
                         },
                         BorderColor::all(Color::WHITE),
@@ -134,12 +136,14 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 let layout = TextLayout { justify, linebreak };
                                 parent.spawn((
                                     Text::new(LOREM_TEXT_1),
+                                    Lorem(false),
                                     layout,
                                     text_font.clone().with_font_size(11.),
                                     TextColor::from(bevy::color::palettes::css::NAVY),
                                 ));
                                 parent.spawn((
-                                    Text::new(LOREM_TEXT_1),
+                                    Text::new(LOREM_TEXT_2),
+                                    Lorem(true),
                                     layout,
                                     text_font.clone().with_font_size(12.),
                                     TextColor::from(bevy::color::palettes::css::PALE_GREEN),
@@ -150,12 +154,14 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                         parent
                             .spawn((
                                 Text::new(LOREM_TEXT_1),
+                                Lorem(false),
                                 text_font.clone().with_font_size(13.),
                                 TextColor::from(bevy::color::palettes::css::MISTY_ROSE),
                             ))
                             .with_child((TextSpan::new(" "), text_font.clone().with_font_size(13.)))
                             .with_child((
                                 TextSpan::new(LOREM_TEXT_2),
+                                Lorem(true),
                                 text_font.clone().with_font_size(14.),
                                 TextColor::from(bevy::color::palettes::css::MAROON),
                             ));
@@ -170,6 +176,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     parent.spawn((
                                         TextSpan(i.to_string()),
                                         text_font.clone().with_font_size((7 + i) as f32),
+                                        NumberSpan,
                                     ));
                                 }
                             });
@@ -199,4 +206,26 @@ fn set_changed<C: Component<Mutability = Mutable>>(mut component_query: Query<&m
 
 fn despawn_layout(mut commands: Commands, root_node: Single<Entity, With<ManyTextRoot>>) {
     commands.entity(*root_node).despawn();
+}
+
+fn update_lorem_text(mut lorem_text_query: Query<(&mut Text, &mut Lorem)>) {
+    for (mut text, mut lorem) in &mut lorem_text_query {
+        if lorem.0 {
+            text.0.clear();
+            text.0.push_str(LOREM_TEXT_1);
+        } else {
+            text.0.clear();
+            text.0.push_str(LOREM_TEXT_2);
+        }
+
+        lorem.0 = !lorem.0;
+    }
+}
+
+fn update_number_text(mut n: Local<u32>, mut number_spans: Query<&mut TextSpan, With<NumberSpan>>) {
+    for mut text in &mut number_spans {
+        text.0 = format!("{}", (text.0.parse::<u32>().unwrap() + *n) % 10);
+    }
+
+    *n = (*n + 1) % 10;
 }
