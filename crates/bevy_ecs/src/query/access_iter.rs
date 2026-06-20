@@ -13,7 +13,9 @@ use bevy_utils::BloomFilter;
 // is outweighed by the n^2 check
 const USE_FILTER_THRESHOLD: usize = 4;
 
-/// Check if `Q` has any internal conflicts.
+/// Check `Q` for internal conflicts, panicking if there are any.
+///
+/// Returns an error if not all components are registered.
 #[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
     let Some(state) = Q::get_state(components) else {
@@ -280,7 +282,7 @@ impl Display for AccessConflictError<'_> {
     }
 }
 
-/// Error returned from [`has_conflicts`].
+/// Error indicating the entity does not have all requested component ids.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum QueryAccessError {
     /// Component was not registered on world
