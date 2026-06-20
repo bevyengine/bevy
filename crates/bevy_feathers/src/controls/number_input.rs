@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use bevy_app::PropagateOver;
 use bevy_ecs::{
     component::Component,
@@ -66,6 +68,8 @@ pub struct FeathersNumberInputProps {
     pub label_text: Option<&'static str>,
     /// Indicate what size numbers we are editing.
     pub number_format: NumberFormat,
+    /// Whether to emit a value change when the [`EditableText`] is empty
+    pub emit_value_change_on_empty: bool,
 }
 
 impl Default for FeathersNumberInputProps {
@@ -74,6 +78,7 @@ impl Default for FeathersNumberInputProps {
             sigil_color: tokens::TEXT_INPUT_BG,
             label_text: None,
             number_format: NumberFormat::F32,
+            emit_value_change_on_empty: false,
         }
     }
 }
@@ -85,6 +90,7 @@ impl FeathersNumberInput {
             ThemeBorderColor({props.sigil_color})
             FeathersNumberInput
             template_value(props.number_format)
+            template_value(EmitValueChangeOnEmpty(props.emit_value_change_on_empty))
             on(number_input_on_update)
             Children [
                 {
@@ -142,6 +148,11 @@ pub enum NumberFormat {
     I64,
 }
 
+/// Decides whether to emit a [`ValueChange`] event on empty text
+#[derive(Component, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct EmitValueChangeOnEmpty(pub bool);
+
 /// Represents numbers in different formats.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 pub enum NumberInputValue {
@@ -180,7 +191,7 @@ pub struct UpdateNumberInput {
 fn number_input_on_text_change(
     change: On<TextEditChange>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<&NumberFormat, With<FeathersNumberInput>>,
+    q_number_input: Query<(&NumberFormat, &EmitValueChangeOnEmpty), With<FeathersNumberInput>>,
     q_text_input: Query<&EditableText>,
     mut commands: Commands,
 ) {
@@ -188,7 +199,7 @@ fn number_input_on_text_change(
         return;
     };
 
-    let Ok(number_format) = q_number_input.get(parent.get()) else {
+    let Ok((number_format, emit_value_change_on_empty)) = q_number_input.get(parent.get()) else {
         return;
     };
 
@@ -197,7 +208,14 @@ fn number_input_on_text_change(
     };
 
     let text_value = editable_text.value().to_string();
-    emit_value_change(text_value, *number_format, parent.0, &mut commands, false);
+    emit_value_change(
+        text_value,
+        *number_format,
+        emit_value_change_on_empty.0,
+        parent.0,
+        &mut commands,
+        false,
+    );
 }
 
 fn number_input_on_update(
@@ -233,7 +251,7 @@ fn number_input_on_update(
 fn number_input_on_enter_key(
     key_input: On<FocusedInput<KeyboardInput>>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<&NumberFormat, With<FeathersNumberInput>>,
+    q_number_input: Query<(&NumberFormat, &EmitValueChangeOnEmpty), With<FeathersNumberInput>>,
     q_text_input: Query<&EditableText>,
     mut commands: Commands,
 ) {
@@ -245,7 +263,7 @@ fn number_input_on_enter_key(
         return;
     };
 
-    let Ok(number_format) = q_number_input.get(parent.get()) else {
+    let Ok((number_format, emit_value_change_on_empty)) = q_number_input.get(parent.get()) else {
         return;
     };
 
@@ -254,13 +272,20 @@ fn number_input_on_enter_key(
     };
 
     let text_value = editable_text.value().to_string();
-    emit_value_change(text_value, *number_format, parent.0, &mut commands, true);
+    emit_value_change(
+        text_value,
+        *number_format,
+        emit_value_change_on_empty.0,
+        parent.0,
+        &mut commands,
+        true,
+    );
 }
 
 fn number_input_on_focus_loss(
     focus_lost: On<FocusLost>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<&NumberFormat, With<FeathersNumberInput>>,
+    q_number_input: Query<(&NumberFormat, &EmitValueChangeOnEmpty), With<FeathersNumberInput>>,
     mut q_text_input: Query<&mut EditableText>,
     mut commands: Commands,
 ) {
@@ -270,7 +295,7 @@ fn number_input_on_focus_loss(
         return;
     };
 
-    let Ok(number_format) = q_number_input.get(parent.get()) else {
+    let Ok((number_format, emit_value_change_on_empty)) = q_number_input.get(parent.get()) else {
         return;
     };
 
@@ -279,80 +304,99 @@ fn number_input_on_focus_loss(
     };
 
     let text_value = editable_text.value().to_string();
-    emit_value_change(text_value, *number_format, parent.0, &mut commands, true);
+    emit_value_change(
+        text_value,
+        *number_format,
+        emit_value_change_on_empty.0,
+        parent.0,
+        &mut commands,
+        true,
+    );
 }
 
 fn emit_value_change(
     text_value: String,
     format: NumberFormat,
+    allow_empty: bool,
     source: Entity,
     commands: &mut Commands,
     is_final: bool,
 ) {
     let text_value = text_value.trim();
-    if text_value.is_empty() {
+    if !allow_empty && text_value.is_empty() {
         return;
     }
 
     match format {
-        NumberFormat::F32 => {
-            match text_value.parse::<f32>() {
-                Ok(new_value) => {
+        NumberFormat::F32 => emit_value_change_with_type::<f32>(
+            text_value,
+            source,
+            is_final,
+            allow_empty,
+            commands,
+            "floating-point",
+        ),
+        NumberFormat::F64 => emit_value_change_with_type::<f64>(
+            text_value,
+            source,
+            is_final,
+            allow_empty,
+            commands,
+            "floating-point",
+        ),
+        NumberFormat::I32 => emit_value_change_with_type::<i32>(
+            text_value,
+            source,
+            is_final,
+            allow_empty,
+            commands,
+            "integer",
+        ),
+        NumberFormat::I64 => emit_value_change_with_type::<i64>(
+            text_value,
+            source,
+            is_final,
+            allow_empty,
+            commands,
+            "integer",
+        ),
+    }
+}
+
+fn emit_value_change_with_type<T: 'static + Send + Sync + FromStr>(
+    text_value: &str,
+    source: Entity,
+    is_final: bool,
+    allow_empty: bool,
+    commands: &mut Commands,
+    number_type_str: &str,
+) {
+    if allow_empty && text_value.is_empty() {
+        commands.trigger(ValueChange::<Option<T>> {
+            source,
+            value: None,
+            is_final,
+        });
+    } else {
+        match text_value.parse::<T>() {
+            Ok(new_value) => {
+                if allow_empty {
+                    commands.trigger(ValueChange {
+                        source,
+                        value: Some(new_value),
+                        is_final,
+                    });
+                } else {
                     commands.trigger(ValueChange {
                         source,
                         value: new_value,
                         is_final,
                     });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid floating-point number in text edit");
                 }
             }
-        }
-        NumberFormat::F64 => {
-            match text_value.parse::<f64>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid floating-point number in text edit");
-                }
-            }
-        }
-        NumberFormat::I32 => {
-            match text_value.parse::<i32>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid integer number in text edit");
-                }
-            }
-        }
-        NumberFormat::I64 => {
-            match text_value.parse::<i64>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid integer number in text edit");
-                }
+            Err(_) => {
+                // TODO: Emit a validation error once these are defined
+                warn!("Invalid {number_type_str} number in text edit");
             }
         }
     }

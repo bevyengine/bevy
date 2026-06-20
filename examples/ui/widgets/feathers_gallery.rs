@@ -703,16 +703,21 @@ fn demo_column_2() -> impl Scene {
                                                     @FeathersNumberInput {
                                                         @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                                         @label_text: "Z",
+                                                        @emit_value_change_on_empty: true,
                                                     }
                                                     DemoVec3Field::Z
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
                                                     on(
-                                                        |value_change: On<ValueChange<f32>>,
+                                                        |value_change: On<ValueChange<Option<f32>>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
                                                         if value_change.is_final {
-                                                            states.vec3_prop.z = value_change.value;
+                                                            if let Some(value) = value_change.value {
+                                                                states.vec3_prop.z = value;
+                                                            } else {
+                                                                info!("Value was empty! Skipping.")
+                                                            }
                                                         }
                                                     })
                                                 ),
