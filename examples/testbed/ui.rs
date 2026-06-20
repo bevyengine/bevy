@@ -212,86 +212,118 @@ mod image_measure {
         prelude::*,
     };
 
-    // Fixed-width, auto-height image node with padding. The image's aspect ratio should be
-    // preserved against the *content* width, so the green background should fit the image
-    // snugly. If `ImageMeasure` sizes against the border-box width instead, the node is too
-    // tall and the image appears stretched (the `ImageNode` analogue of the text wrapping bug).
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::ImageMeasure)));
         commands.spawn((
             Node {
                 margin: auto().all(),
                 column_gap: px(5.),
-                align_items: AlignItems::Start,
                 ..Default::default()
             },
+            DespawnOnExit(super::Scene::ImageMeasure),
             children![
                 (
                     Node {
                         width: vmin(20.),
                         ..default()
                     },
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            ..default()
+                        },
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: px(8.).all(),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: px(8.).all(),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: px(8.).all(),
-                        padding: px(4.).all(),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: px(8.).all(),
+                            padding: px(4.).all(),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: UiRect::px(4.0, 12.0, 8.0, 16.0),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: UiRect::px(4.0, 12.0, 8.0, 16.0),
-                        padding: UiRect::axes(px(10.), px(0.)),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            padding: UiRect::axes(px(10.), px(0.)),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: UiRect::px(4.0, 12.0, 8.0, 16.0),
-                        padding: UiRect::axes(px(0.), px(10.)),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            padding: UiRect::axes(px(0.), px(10.)),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
             ],
         ));
