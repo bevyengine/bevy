@@ -451,7 +451,7 @@ fn okhsl_get_ST_mid(a_: f32, b_: f32) -> vec2<f32> {
     return vec2<f32>(S, T);
 }
 
-// Approximate max saturation using a polynomial, then refine with 2 steps of Halley's method.
+// Approximate max saturation using a polynomial, then refine with 1 step of Halley's method.
 // a and b must be normalized (a^2 + b^2 == 1).
 fn okhsl_compute_max_saturation(a: f32, b: f32) -> f32 {
     var k0: f32 = 0.0; var k1: f32 = 0.0; var k2: f32 = 0.0;
@@ -481,7 +481,6 @@ fn okhsl_compute_max_saturation(a: f32, b: f32) -> f32 {
     let k_m = -0.105561346 * a - 0.06385417 * b;
     let k_s = -0.08948418 * a - 1.2914855 * b;
     
-    // 1-step approximation
     let l_ = 1.0 + S * k_l;
     let m_ = 1.0 + S * k_m;
     let s_ = 1.0 + S * k_s;
@@ -514,7 +513,7 @@ fn okhsl_find_cusp(a: f32, b: f32) -> vec2<f32> {
 }
 
 // Find intersection of the gamut boundary with the line from (L0, 0) to (L1, C1).
-// Uses 2 steps of Halley's method for precision.
+// Uses 1 step of Halley's method.
 fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: vec2<f32>) -> f32 {
     let cusp_L = cusp.x;
     let cusp_C = cusp.y;
@@ -538,47 +537,49 @@ fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp
         let m_dt = dL + dC * k_m;
         let s_dt = dL + dC * k_s;
 
-        let L = L0 * (1.0 - t) + t * L1;
-        let C = t * C1;
+        for (var i = 0; i < 1; i = i + 1) {
+            let L = L0 * (1.0 - t) + t * L1;
+            let C = t * C1;
 
-        let l_ = L + C * k_l;
-        let m_ = L + C * k_m;
-        let s_ = L + C * k_s;
+            let l_ = L + C * k_l;
+            let m_ = L + C * k_m;
+            let s_ = L + C * k_s;
 
-        let l = l_ * l_ * l_;
-        let m = m_ * m_ * m_;
-        let s = s_ * s_ * s_;
+            let l = l_ * l_ * l_;
+            let m = m_ * m_ * m_;
+            let s = s_ * s_ * s_;
 
-        let ldt = 3.0 * l_dt * l_ * l_;
-        let mdt = 3.0 * m_dt * m_ * m_;
-        let sdt = 3.0 * s_dt * s_ * s_;
+            let ldt = 3.0 * l_dt * l_ * l_;
+            let mdt = 3.0 * m_dt * m_ * m_;
+            let sdt = 3.0 * s_dt * s_ * s_;
 
-        let ldt2 = 6.0 * l_dt * l_dt * l_;
-        let mdt2 = 6.0 * m_dt * m_dt * m_;
-        let sdt2 = 6.0 * s_dt * s_dt * s_;
+            let ldt2 = 6.0 * l_dt * l_dt * l_;
+            let mdt2 = 6.0 * m_dt * m_dt * m_;
+            let sdt2 = 6.0 * s_dt * s_dt * s_;
 
-        let r = 4.0767417 * l - 3.3077116 * m + 0.23096994 * s - 1.0;
-        let r1 = 4.0767417 * ldt - 3.3077116 * mdt + 0.23096994 * sdt;
-        let r2 = 4.0767417 * ldt2 - 3.3077116 * mdt2 + 0.23096994 * sdt2;
+            let r = 4.0767417 * l - 3.3077116 * m + 0.23096994 * s - 1.0;
+            let r1 = 4.0767417 * ldt - 3.3077116 * mdt + 0.23096994 * sdt;
+            let r2 = 4.0767417 * ldt2 - 3.3077116 * mdt2 + 0.23096994 * sdt2;
 
-        let u_r = r1 / (r1 * r1 - 0.5 * r * r2);
-        let t_r = select(3.40282347e+38, -r * u_r, u_r >= 0.0);
+            let u_r = r1 / (r1 * r1 - 0.5 * r * r2);
+            let t_r = select(3.40282347e+38, -r * u_r, u_r >= 0.0);
 
-        let g = -1.268438 * l + 2.6097574 * m - 0.34131938 * s - 1.0;
-        let g1 = -1.268438 * ldt + 2.6097574 * mdt - 0.34131938 * sdt;
-        let g2 = -1.268438 * ldt2 + 2.6097574 * mdt2 - 0.34131938 * sdt2;
+            let g = -1.268438 * l + 2.6097574 * m - 0.34131938 * s - 1.0;
+            let g1 = -1.268438 * ldt + 2.6097574 * mdt - 0.34131938 * sdt;
+            let g2 = -1.268438 * ldt2 + 2.6097574 * mdt2 - 0.34131938 * sdt2;
 
-        let u_g = g1 / (g1 * g1 - 0.5 * g * g2);
-        let t_g = select(3.40282347e+38, -g * u_g, u_g >= 0.0);
+            let u_g = g1 / (g1 * g1 - 0.5 * g * g2);
+            let t_g = select(3.40282347e+38, -g * u_g, u_g >= 0.0);
 
-        let b_val = -0.0041960863 * l - 0.7034186 * m + 1.7076147 * s - 1.0;
-        let b1 = -0.0041960863 * ldt - 0.7034186 * mdt + 1.7076147 * sdt;
-        let b2 = -0.0041960863 * ldt2 - 0.7034186 * mdt2 + 1.7076147 * sdt2;
+            let b_val = -0.0041960863 * l - 0.7034186 * m + 1.7076147 * s - 1.0;
+            let b1 = -0.0041960863 * ldt - 0.7034186 * mdt + 1.7076147 * sdt;
+            let b2 = -0.0041960863 * ldt2 - 0.7034186 * mdt2 + 1.7076147 * sdt2;
 
-        let u_b = b1 / (b1 * b1 - 0.5 * b_val * b2);
-        let t_b = select(3.40282347e+38, -b_val * u_b, u_b >= 0.0);
+            let u_b = b1 / (b1 * b1 - 0.5 * b_val * b2);
+            let t_b = select(3.40282347e+38, -b_val * u_b, u_b >= 0.0);
 
-        t = t + min(t_r, min(t_g, t_b));
+            t = t + min(t_r, min(t_g, t_b));
+        }
     }
     return t;
 }
