@@ -150,7 +150,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`](crate::resource::Resource) within a
 /// [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -169,7 +169,7 @@ impl ComponentInfo {
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 ///
-/// Given a type `T` which implements [`Component`] (including [`Resource`]), the `ComponentId` for `T` can be retrieved
+/// Given a type `T` which implements [`Component`] (including [`Resource`](crate::resource::Resource)), the `ComponentId` for `T` can be retrieved
 /// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
