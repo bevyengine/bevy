@@ -264,10 +264,14 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 for &removed_component in archetype_after_insert.removed_sparse().iter() {
-                    sparse_sets
-                        .get_mut(removed_component)
-                        .debug_checked_unwrap()
-                        .remove(entity);
+                    // SAFETY: `removed_sparse` contains components that are present on current archetype
+                    // so it's guaranteed that all `removed_component`'s have been spawned
+                    unsafe {
+                        sparse_sets
+                            .get_mut(removed_component)
+                            .debug_checked_unwrap()
+                            .remove(entity);
+                    }
                 }
 
                 let result = archetype.swap_remove(location.archetype_row);
@@ -348,10 +352,14 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 for &removed_component in archetype_after_insert.removed_sparse().iter() {
-                    sparse_sets
-                        .get_mut(removed_component)
-                        .debug_checked_unwrap()
-                        .remove(entity);
+                    // SAFETY: `removed_sparse` contains components that are present on current archetype
+                    // so it's guaranteed that all `removed_component`'s have been spawned
+                    unsafe {
+                        sparse_sets
+                            .get_mut(removed_component)
+                            .debug_checked_unwrap()
+                            .remove(entity);
+                    }
                 }
 
                 // SAFETY: Table data has been moved to this table/row, sparse set data was already valid
