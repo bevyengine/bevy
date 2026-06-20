@@ -290,11 +290,11 @@ fn mix_okhsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
         g = h;
     }
 
-    let diff = g - h;
-    let hue_diff = select(diff, diff - 360.0 * sign(diff), abs(diff) > 180.0);
-    let h_out = fract(h + hue_diff * t); // fract() to keep within range
-
-    return vec3(h_out, mix(a.y, b.y, t), mix(a.z, b.z, t));
+    return vec3(
+        fract(h + (fract(g - h + 0.5) - 0.5) * t),
+        mix(a.y, b.y, t),
+        mix(a.z, b.z, t),
+    );
 }
 
 fn mix_okhsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -307,11 +307,12 @@ fn mix_okhsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
         g = h;
     }
 
-    let diff = g - h;
-    let hue_diff = select(diff, diff + 360.0 * sign(diff), abs(diff) <= 180.0);
-    let h_out = fract(h + hue_diff * t);
-
-    return vec3(h_out, mix(a.y, b.y, t), mix(a.z, b.z, t));
+    let d = fract(g - h + 0.5) - 0.5;
+    return vec3(
+        fract(h + (d + select(1.0, -1.0, 0.0 < d)) * t),
+        mix(a.y, b.y, t),
+        mix(a.z, b.z, t),
+    );
 }
 
 fn mix_hsv(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -414,6 +415,7 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
 
 // --- OKHSL conversion helpers ---
 // Ported from crates/bevy_color/src/okcolor_convert.rs
+// TODO: Possibly move this to another module to keep things clean
 
 fn okhsl_toe_inv(x: f32) -> f32 {
     let k_1 = 0.206;
