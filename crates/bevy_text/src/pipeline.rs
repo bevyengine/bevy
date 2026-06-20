@@ -345,9 +345,10 @@ impl TextPipeline {
                     };
 
                     let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
+                    let font_id = [font.data.id(), font.index.into()];
                     let mut scaler = scale_cx
                         .0
-                        .builder(font_ref)
+                        .builder_with_id(font_ref, font_id)
                         .size(font_size)
                         .hint(hint)
                         .normalized_coords(coords)
