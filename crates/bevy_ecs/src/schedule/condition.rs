@@ -455,7 +455,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
+    ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
     /// );
     /// #
     /// # world.insert_resource(C(false));
@@ -899,7 +899,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and(not(resource_added::<Counter>))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -949,7 +949,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and(not(resource_added::<Counter>))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -1007,7 +1007,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and(not(resource_added::<Counter>))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
