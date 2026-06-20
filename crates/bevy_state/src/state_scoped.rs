@@ -868,7 +868,7 @@ mod tests {
         let entity = app.world_mut().spawn(DespawnOnExit(State::On)).id();
         assert!(app.world().get_entity(entity).is_ok());
 
-        app.world_mut().commands().set_state_if_neq(State::On);
+        app.world_mut().commands().set_state_if_different(State::On);
         app.update();
 
         assert_eq!(
@@ -878,7 +878,7 @@ mod tests {
             &State::On
         );
         // entity was not despawned on exit
-        // this is because "set_state_if_neq" skips state transitions since
+        // this is because "set_state_if_different" skips state transitions since
         // the app's next state is the same as its previous.
         assert!(app.world().get_entity(entity).is_ok());
     }
