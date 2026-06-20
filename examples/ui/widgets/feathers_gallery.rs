@@ -33,7 +33,7 @@ use bevy::{
 struct DemoWidgetStates {
     rgb_color: Srgba,
     hsl_color: Hsla,
-    scalar_prop: f32,
+    scalar_prop: Option<f32>,
     vec3_prop: Vec3,
 }
 
@@ -68,7 +68,7 @@ fn main() {
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
-            scalar_prop: 7.0,
+            scalar_prop: Some(7.0),
             vec3_prop: Vec3::new(10.1, 7.124, 100.0),
         })
         .add_systems(Startup, scene.spawn())
@@ -625,14 +625,16 @@ fn demo_column_2() -> impl Scene {
                                             label("A standard group"),
                                             label_small("Scalar property"),
                                             (
-                                                @FeathersNumberInput
+                                                @FeathersNumberInput {
+                                                    @emit_value_change_on_empty: true,
+                                                }
                                                 DemoScalarField
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
                                                 }
                                                 on(
-                                                    |value_change: On<ValueChange<f32>>,
+                                                    |value_change: On<ValueChange<Option<f32>>>,
                                                     mut states: ResMut<DemoWidgetStates>| {
                                                     if value_change.is_final {
                                                         states.scalar_prop = value_change.value;
@@ -648,7 +650,7 @@ fn demo_column_2() -> impl Scene {
                                                     max_width: px(100),
                                                 }
                                                 on(
-                                                    |value_change: On<ValueChange<f32>>,
+                                                    |value_change: On<ValueChange<Option<f32>>>,
                                                     mut states: ResMut<DemoWidgetStates>| {
                                                     if value_change.is_final {
                                                         states.scalar_prop = value_change.value;
@@ -703,21 +705,16 @@ fn demo_column_2() -> impl Scene {
                                                     @FeathersNumberInput {
                                                         @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                                         @label_text: "Z",
-                                                        @emit_value_change_on_empty: true,
                                                     }
                                                     DemoVec3Field::Z
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
                                                     on(
-                                                        |value_change: On<ValueChange<Option<f32>>>,
+                                                        |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
                                                         if value_change.is_final {
-                                                            if let Some(value) = value_change.value {
-                                                                states.vec3_prop.z = value;
-                                                            } else {
-                                                                info!("Value was empty! Skipping.")
-                                                            }
+                                                            states.vec3_prop.z = value_change.value;
                                                         }
                                                     })
                                                 ),
@@ -842,10 +839,17 @@ fn update_colors(
         }
 
         for scalar_input_ent in q_scalar_input.iter() {
-            commands.trigger(UpdateNumberInput {
-                entity: scalar_input_ent,
-                value: NumberInputValue::F32(states.scalar_prop),
-            });
+            if let Some(v) = states.scalar_prop {
+                commands.trigger(UpdateNumberInput {
+                    entity: scalar_input_ent,
+                    value: NumberInputValue::F32(v),
+                });
+            } else {
+                commands.trigger(UpdateNumberInput {
+                    entity: scalar_input_ent,
+                    value: NumberInputValue::Empty,
+                });
+            }
         }
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {

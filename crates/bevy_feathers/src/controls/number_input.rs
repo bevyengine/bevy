@@ -164,6 +164,8 @@ pub enum NumberInputValue {
     I32(i32),
     /// An `i64` value
     I64(i64),
+    /// An empty value
+    Empty,
 }
 
 impl core::fmt::Display for NumberInputValue {
@@ -173,6 +175,7 @@ impl core::fmt::Display for NumberInputValue {
             NumberInputValue::F64(v) => write!(f, "{}", v),
             NumberInputValue::I32(v) => write!(f, "{}", v),
             NumberInputValue::I64(v) => write!(f, "{}", v),
+            NumberInputValue::Empty => write!(f, ""),
         }
     }
 }
