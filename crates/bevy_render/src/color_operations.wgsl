@@ -69,7 +69,7 @@ fn oklab_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 fn okhsl_to_oklab(okhsl: vec3<f32>) -> vec3<f32> {
-    let h = okhsl.x / 360.0;
+    let h = okhsl.x;
     let s = okhsl.y;
     let l = okhsl.z;
 
@@ -292,7 +292,7 @@ fn mix_okhsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 
     let diff = g - h;
     let hue_diff = select(diff, diff - 360.0 * sign(diff), abs(diff) > 180.0);
-    let h_out = h + hue_diff * t;
+    let h_out = fract(h + hue_diff * t); // fract() to keep within range
 
     return vec3(h_out, mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
@@ -309,7 +309,7 @@ fn mix_okhsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 
     let diff = g - h;
     let hue_diff = select(diff, diff + 360.0 * sign(diff), abs(diff) <= 180.0);
-    let h_out = h + hue_diff * t;
+    let h_out = fract(h + hue_diff * t);
 
     return vec3(h_out, mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
