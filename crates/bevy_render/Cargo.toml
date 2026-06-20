@@ -122,7 +122,7 @@ async-channel = "2.3.0"
 nonmax = "0.5"
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 offset-allocator = "0.2"
-variadics_please = "1.1"
+variadics_please = "2.0"
 tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
 bitflags = "2"
@@ -131,7 +131,7 @@ weak-table = "0.3"
 
 [dev-dependencies]
 proptest = "1"
-proptest-derive = "0.2"
+proptest-derive = "0.8"
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }

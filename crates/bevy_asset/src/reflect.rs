@@ -8,7 +8,7 @@ use uuid::Uuid;
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
-    FromReflect, FromType, PartialReflect, Reflect, TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeRegistry,
 };
 
 use crate::{
@@ -156,8 +156,8 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
-    fn from_type() -> Self {
+impl<A: Asset + FromReflect> CreateTypeData<A> for ReflectAsset {
+    fn create_type_data(_input: ()) -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
@@ -253,8 +253,8 @@ impl ReflectHandle {
     }
 }
 
-impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
-    fn from_type() -> Self {
+impl<A: Asset> CreateTypeData<Handle<A>> for ReflectHandle {
+    fn create_type_data(_input: ()) -> Self {
         ReflectHandle {
             asset_type_id: TypeId::of::<A>(),
             downcast_handle_untyped: |handle: &dyn Any| {
@@ -463,7 +463,7 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
             else {
                 return Err(D::Error::custom(format!(
                     "Could not find asset type by name \"{}\" for UntypedHandle",
-                    &typed_handle_reference.asset_type
+                    typed_handle_reference.asset_type
                 )));
             };
             let type_id = asset_type.type_id();

@@ -147,7 +147,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
+    /// as one, potentially overriding the constructor of an inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -167,7 +167,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
+    /// as one, potentially overriding the constructor of an inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -193,7 +193,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
+    /// as one, potentially overriding the constructor of an inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -614,7 +614,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
+    /// as one, potentially overriding the constructor of an inherited required component, otherwise panics.
     pub fn register_required<C: Component>(&mut self, constructor: impl Fn() -> C + 'static) {
         // SAFETY: we internally guarantee that all components in `required_components`
         // are registered in `components`
@@ -627,7 +627,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
+    /// as one, potentially overriding the constructor of an inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -652,7 +652,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
+    /// as one, potentially overriding the constructor of an inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
