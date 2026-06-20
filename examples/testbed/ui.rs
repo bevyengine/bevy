@@ -969,7 +969,7 @@ mod text_wrap {
                 justify: Justify::Left,
                 linebreak: LineBreak::WordBoundary
             }
-            DespawnOnExit(super::Scene::TextWrap)
+            DespawnOnExit({ Scene::TextWrap })
         });
     }
 }
