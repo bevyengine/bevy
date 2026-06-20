@@ -222,76 +222,112 @@ mod image_measure {
             Node {
                 margin: auto().all(),
                 column_gap: px(5.),
-                align_items: AlignItems::Start,
                 ..Default::default()
             },
+            DespawnOnExit(super::Scene::ImageMeasure),
             children![
                 (
                     Node {
                         width: vmin(20.),
                         ..default()
                     },
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            ..default()
+                        },
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: px(8.).all(),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: px(8.).all(),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: px(8.).all(),
-                        padding: px(4.).all(),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: px(8.).all(),
+                            padding: px(4.).all(),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: UiRect::px(4.0, 12.0, 8.0, 16.0),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: UiRect::px(4.0, 12.0, 8.0, 16.0),
-                        padding: UiRect::axes(px(10.), px(0.)),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            padding: UiRect::axes(px(10.), px(0.)),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
                 (
                     Node {
                         width: vmin(20.),
-                        border: UiRect::px(4.0, 12.0, 8.0, 16.0),
-                        padding: UiRect::axes(px(0.), px(10.)),
                         ..default()
                     },
-                    BorderColor::all(RED),
-                    BackgroundColor(GREEN.into()),
-                    ImageNode::new(asset_server.load("branding/icon.png")),
-                    DespawnOnExit(super::Scene::ImageMeasure),
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            padding: UiRect::axes(px(0.), px(10.)),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
                 ),
             ],
         ));
