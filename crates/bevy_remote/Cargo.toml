@@ -18,7 +18,7 @@ http = [
   "bevy_tasks/async-io",
 ]
 bevy_asset = ["dep:bevy_asset"]
-bevy_render = ["dep:bevy_render"]
+bevy_render = ["dep:bevy_render", "bevy_dev_tools/render"]
 
 [dependencies]
 # bevy
