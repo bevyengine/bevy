@@ -1,6 +1,4 @@
-use std::vec::Vec;
-
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec, vec::Vec};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::reflect::ReflectComponent;
@@ -9,7 +7,7 @@ use bevy_ecs::{
     entity::Entity,
     entity_disabling::Disabled,
     hierarchy::Children,
-    lifecycle::Insert,
+    lifecycle::{Insert, Remove},
     message::MessageReader,
     observer::On,
     query::{Allow, With},
@@ -762,21 +760,80 @@ pub fn enable_entities_on_enter_state<S: States>(
     }
 }
 
-/// Prevents parent state-driven [`Disabled`] propagation from affecting this entity
-/// and its subtree. Added automatically by [`EnabledIn`], [`DisabledIn`],
-/// [`EnabledIf`], and [`DisabledIf`]. Can also be added manually.
+/// Marks this entity as owning its [`Disabled`] state.
+/// When present, parent-driven enable/disable propogation skips this entity
+/// and its descendants.
+///
+/// Automatically required by state-driven disabling components
+/// i.e. ([`EnabledIn`], [`DisabledIn`], [`EnabledIf`], [`DisabledIf`]).
+/// Can be inserted manually to shield an entity from parent's disabled propagation.
+/// ```
+/// # use bevy_app::Startup;
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::{prelude::*, system::ScheduleSystem, entity_disabling::Disabled};
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     InGame,
+/// }
+///
+/// # #[derive(Component)]
+/// # struct ParentEntity;
+/// # #[derive(Component)]
+/// # struct ShieldedChild;
+/// fn spawn_parent_entity(mut commands: Commands) {
+///     commands.spawn((
+///         ParentEntity,
+///         EnabledIn(GameState::MainMenu),
+///         children![(
+///             // This entity and its descendants will be ignored by parent state transitions.
+///             ShieldedChild,
+///             OwnsDisabled,
+///             Disabled,
+///         )]
+///     ));
+/// }
+///
+/// # struct AppMock;
+/// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
+/// # }
+/// # struct Update;
+/// # let mut app = AppMock;
+///
+/// app.init_state::<GameState>();
+/// app.add_systems(Startup, spawn_parent_entity);
+/// ```
+///
+/// See also [`EnabledIn`], [`DisabledIn`], [`EnabledIf`], and [`DisabledIf`].
 #[derive(Component, Clone, Default)]
-pub struct StateOwnsDisabled;
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Clone, Default)
+)]
+pub struct OwnsDisabled;
+
+/// Removes [`OwnsDisabled`] component from an entity
+/// when its managing state-driven disabling components are removed
+/// i.e. ([`EnabledIn`], [`DisabledIn`], [`EnabledIf`], [`DisabledIf`]).
+pub fn on_state_disabled_component_remove<C: Component>(on: On<Remove, C>, mut commands: Commands) {
+    let mut entity = commands.entity(on.entity);
+    entity.remove::<OwnsDisabled>();
+}
 
 /// Entities marked with this component will be automatically enabled
 /// when the world is in the given state, and disabled otherwise.
+///
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
+/// At component removal, [`Disabled`] is left as is.
 ///
-/// # Safety
+/// # Note
 /// System is added on state registration, so `Res<State<S>>` should always exist
-///
-/// Use [`EnableOnEnter`] and [`DisableOnExit`] separately if you need finer control.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -810,10 +867,11 @@ pub struct StateOwnsDisabled;
 /// app.add_systems(Startup, spawn_player);
 /// ```
 ///
+/// Use [`EnableOnEnter`] and [`DisableOnExit`] separately if you need finer control.
 /// See also [`EnabledIf`] and [`DisabledIn`].
 #[derive(Component, Clone)]
-#[require(StateOwnsDisabled)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[require(OwnsDisabled)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct EnabledIn<S: States>(pub S);
 
 impl<S: States + Default> Default for EnabledIn<S> {
@@ -840,9 +898,9 @@ pub fn update_enabled_in_state<S: States>(
     }
     for (entity, enabled_in) in &query {
         if transition.entered.as_ref() == Some(&enabled_in.0) {
-            enable_recursive(&mut commands, entity);
+            propagate_enable(&mut commands, entity);
         } else if transition.exited.as_ref() == Some(&enabled_in.0) {
-            disable_recursive(&mut commands, entity);
+            propagate_disable(&mut commands, entity);
         }
     }
 }
@@ -860,21 +918,21 @@ pub fn on_enabled_in_insert<S: States>(
     };
     let in_target_state = current_state.get() == &enabled_in.0;
     if in_target_state {
-        enable_recursive(&mut commands, entity);
+        propagate_enable(&mut commands, entity);
     } else {
-        disable_recursive(&mut commands, entity);
+        propagate_disable(&mut commands, entity);
     }
 }
 
 /// Entities marked with this component will be automatically disabled
 /// when the world is in the given state, and enabled otherwise.
+///
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
+/// At component removal, [`Disabled`] is left as is.
 ///
-/// # Safety
+/// # Note
 /// System is added on state registration, so `Res<State<S>>` should always exist
-///
-/// Use [`DisableOnEnter`] and [`EnableOnExit`] separately if you need finer control.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -908,10 +966,11 @@ pub fn on_enabled_in_insert<S: States>(
 /// app.add_systems(Startup, spawn_player);
 /// ```
 ///
+/// Use [`DisableOnEnter`] and [`EnableOnExit`] separately if you need finer control.
 /// See also [`DisabledIf`] and [`EnabledIn`].
 #[derive(Component, Clone)]
-#[require(StateOwnsDisabled)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[require(OwnsDisabled)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct DisabledIn<S: States>(pub S);
 
 impl<S: States + Default> Default for DisabledIn<S> {
@@ -938,9 +997,9 @@ pub fn update_disabled_in_state<S: States>(
     }
     for (entity, disabled_in) in &query {
         if transition.entered.as_ref() == Some(&disabled_in.0) {
-            disable_recursive(&mut commands, entity);
+            propagate_disable(&mut commands, entity);
         } else if transition.exited.as_ref() == Some(&disabled_in.0) {
-            enable_recursive(&mut commands, entity);
+            propagate_enable(&mut commands, entity);
         }
     }
 }
@@ -958,18 +1017,20 @@ pub fn on_disabled_in_insert<S: States>(
     };
     let in_target_state = current_state.get() == &disabled_in.0;
     if in_target_state {
-        disable_recursive(&mut commands, entity);
+        propagate_disable(&mut commands, entity);
     } else {
-        enable_recursive(&mut commands, entity);
+        propagate_enable(&mut commands, entity);
     }
 }
 
 /// Entities marked with this component will be automatically enabled
 /// when predicate returns `true` for current state, disabled otherwise.
+///
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
+/// At component removal, [`Disabled`] is left as is.
 ///
-/// # Safety
+/// # Note
 /// System is added on state registration, so `Res<State<S>>` should always exist
 ///
 ///
@@ -1010,7 +1071,7 @@ pub fn on_disabled_in_insert<S: States>(
 ///
 /// See also [`DisabledIf`] and [`EnabledIn`].
 #[derive(Component)]
-#[require(StateOwnsDisabled)]
+#[require(OwnsDisabled)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct EnabledIf<S: States> {
     /// The predicate used to determine if the entity should be enabled for the given state.
@@ -1048,9 +1109,9 @@ pub fn update_enabled_if_state<S: States>(
             .as_ref()
             .is_some_and(|s| (enabled_if.predicate)(s));
         if should_enable {
-            enable_recursive(&mut commands, entity);
+            propagate_enable(&mut commands, entity);
         } else {
-            disable_recursive(&mut commands, entity);
+            propagate_disable(&mut commands, entity);
         }
     }
 }
@@ -1059,27 +1120,29 @@ pub fn update_enabled_if_state<S: States>(
 pub fn on_enabled_if_insert<S: States>(
     on: On<Insert, EnabledIf<S>>,
     mut commands: Commands,
-    current_state: Option<Res<State<S>>>,
+    current_state: Res<State<S>>,
     query: Query<&EnabledIf<S>, Allow<Disabled>>,
 ) {
     let entity = on.entity;
     let Ok(enabled_if) = query.get(entity) else {
         return;
     };
-    let should_enable = current_state.is_some_and(|s| (enabled_if.predicate)(s.get()));
+    let should_enable = (enabled_if.predicate)(current_state.get());
     if should_enable {
-        enable_recursive(&mut commands, entity);
+        propagate_enable(&mut commands, entity);
     } else {
-        disable_recursive(&mut commands, entity);
+        propagate_disable(&mut commands, entity);
     }
 }
 
 /// Entities marked with this component will be automatically disabled
 /// when predicate returns `true` for current state, enabled otherwise.
+///
 /// This component takes ownership of adding or removing entity's [`Disabled`] component
 /// at state transitions and component insertion.
+/// At component removal, [`Disabled`] is left as is.
 ///
-/// # Safety
+/// # Note
 /// System is added on state registration, so `Res<State<S>>` should always exist
 ///
 /// ```
@@ -1120,7 +1183,7 @@ pub fn on_enabled_if_insert<S: States>(
 ///
 /// See also [`EnabledIf`] and [`DisabledIn`].
 #[derive(Component)]
-#[require(StateOwnsDisabled)]
+#[require(OwnsDisabled)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct DisabledIf<S: States> {
     /// The predicate used to determine if the entity should be disabled for the given state.
@@ -1158,9 +1221,9 @@ pub fn update_disabled_if_state<S: States>(
             .as_ref()
             .is_some_and(|s| (disabled_if.predicate)(s));
         if should_disable {
-            disable_recursive(&mut commands, entity);
+            propagate_disable(&mut commands, entity);
         } else {
-            enable_recursive(&mut commands, entity);
+            propagate_enable(&mut commands, entity);
         }
     }
 }
@@ -1178,10 +1241,56 @@ pub fn on_disabled_if_insert<S: States>(
     };
     let should_disable = (disabled_if.predicate)(current_state.get());
     if should_disable {
-        disable_recursive(&mut commands, entity);
+        propagate_disable(&mut commands, entity);
     } else {
-        enable_recursive(&mut commands, entity);
+        propagate_enable(&mut commands, entity);
     }
+}
+
+/// Propagates enabling to `entity` and its descendants, stopping at [`OwnsDisabled`].
+fn propagate_enable(commands: &mut Commands, entity: Entity) {
+    commands.queue(move |world: &mut World| {
+        let mut stack = vec![entity];
+        while let Some(current) = stack.pop() {
+            let Ok(mut entity_mut) = world.get_entity_mut(current) else {
+                continue;
+            };
+            entity_mut.remove::<Disabled>();
+            let children: Vec<Entity> = entity_mut
+                .get::<Children>()
+                .map(|c| c.iter().copied().collect())
+                .unwrap_or_default();
+            drop(entity_mut);
+            for child in children {
+                if world.get::<OwnsDisabled>(child).is_none() {
+                    stack.push(child);
+                }
+            }
+        }
+    });
+}
+
+/// Propagates disabling to `entity` and its descendants, stopping at [`OwnsDisabled`].
+fn propagate_disable(commands: &mut Commands, entity: Entity) {
+    commands.queue(move |world: &mut World| {
+        let mut stack = vec![entity];
+        while let Some(current) = stack.pop() {
+            let Ok(mut entity_mut) = world.get_entity_mut(current) else {
+                continue;
+            };
+            entity_mut.insert(Disabled);
+            let children: Vec<Entity> = entity_mut
+                .get::<Children>()
+                .map(|c| c.iter().copied().collect())
+                .unwrap_or_default();
+            drop(entity_mut);
+            for child in children {
+                if world.get::<OwnsDisabled>(child).is_none() {
+                    stack.push(child);
+                }
+            }
+        }
+    });
 }
 
 #[cfg(test)]
@@ -1333,11 +1442,11 @@ mod tests {
         app.update();
         assert!(app.world().get::<Disabled>(entity).is_some());
 
-        // cleanup observer should remove the disabled component
+        // Cleanup observer should remove the `OwnsDisabled` component.
         app.world_mut()
             .entity_mut(entity)
             .remove::<EnabledIn<State>>();
-        assert!(app.world().get::<Disabled>(entity).is_none());
+        assert!(app.world().get::<OwnsDisabled>(entity).is_none());
     }
 
     #[test]
@@ -1423,5 +1532,84 @@ mod tests {
         app.world_mut().commands().set_state(State::Limbo);
         app.update();
         assert!(app.world().get::<Disabled>(entity).is_some());
+    }
+
+    #[test]
+    fn enabled_in_disabled_in_recursive() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            Off,
+            Limbo,
+            On,
+        }
+
+        #[derive(Component)]
+        struct Entity1;
+        #[derive(Component)]
+        struct Entity2;
+        #[derive(Component)]
+        struct Entity3;
+        #[derive(Component)]
+        struct Entity4;
+
+        fn is_disabled<T: Component>(world: &mut World) -> bool {
+            world
+                .query_filtered::<&Disabled, (With<T>, Allow<Disabled>)>()
+                .single(world)
+                .is_ok()
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::Off);
+        app.update();
+
+        /*
+        | Entity  | Component           | Off      | Limbo    | On       |
+        |---------|---------------------|----------|----------|----------|
+        | Entity1 | `EnabledIn(On)`     | disabled | disabled | enabled  |
+        | Entity2 | `DisabledIn(On)`    | enabled  | enabled  | disabled |
+        | Entity3 | `OwnsDisabled`      | enabled  | enabled  | enabled  |
+        | Entity4 | `DisabledIn(Limbo)` | enabled  | disabled | enabled  |
+        */
+
+        app.world_mut().spawn((
+            Entity1,
+            EnabledIn(State::On),
+            bevy_ecs::children![(
+                Entity2,
+                DisabledIn(State::On),
+                bevy_ecs::children![(
+                    Entity3,
+                    OwnsDisabled,
+                    bevy_ecs::children![(Entity4, DisabledIn(State::Limbo))]
+                )]
+            )],
+        ));
+
+        // Initialized as State::Off
+        assert!(is_disabled::<Entity1>(app.world_mut()));
+        assert!(!is_disabled::<Entity2>(app.world_mut()));
+        assert!(!is_disabled::<Entity3>(app.world_mut()));
+        assert!(!is_disabled::<Entity4>(app.world_mut()));
+
+        // Switch to State::Limbo
+        app.world_mut().commands().set_state(State::Limbo);
+        app.update();
+
+        assert!(is_disabled::<Entity1>(app.world_mut()));
+        assert!(!is_disabled::<Entity2>(app.world_mut()));
+        assert!(!is_disabled::<Entity3>(app.world_mut()));
+        assert!(is_disabled::<Entity4>(app.world_mut()));
+
+        // Switch to State::On
+        app.world_mut().commands().set_state(State::On);
+        app.update();
+
+        assert!(!is_disabled::<Entity1>(app.world_mut()));
+        assert!(is_disabled::<Entity2>(app.world_mut()));
+        assert!(!is_disabled::<Entity3>(app.world_mut()));
+        assert!(!is_disabled::<Entity4>(app.world_mut()));
     }
 }

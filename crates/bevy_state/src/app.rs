@@ -15,8 +15,9 @@ use crate::{
         disable_entities_on_exit_state, disable_entities_when_state,
         enable_entities_on_enter_state, enable_entities_on_exit_state, enable_entities_when_state,
         on_disabled_if_insert, on_disabled_in_insert, on_enabled_if_insert, on_enabled_in_insert,
-        update_disabled_if_state, update_disabled_in_state, update_enabled_if_state,
-        update_enabled_in_state,
+        on_state_disabled_component_remove, update_disabled_if_state, update_disabled_in_state,
+        update_enabled_if_state, update_enabled_in_state, DisabledIf, DisabledIn, EnabledIf,
+        EnabledIn,
     },
 };
 
@@ -293,7 +294,11 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
     app.add_observer(on_enabled_in_insert::<S>)
         .add_observer(on_disabled_in_insert::<S>)
         .add_observer(on_enabled_if_insert::<S>)
-        .add_observer(on_disabled_if_insert::<S>);
+        .add_observer(on_disabled_if_insert::<S>)
+        .add_observer(on_state_disabled_component_remove::<EnabledIn<S>>)
+        .add_observer(on_state_disabled_component_remove::<DisabledIn<S>>)
+        .add_observer(on_state_disabled_component_remove::<EnabledIf<S>>)
+        .add_observer(on_state_disabled_component_remove::<DisabledIf<S>>);
 }
 
 impl AppExtStates for App {

@@ -95,6 +95,7 @@ pub mod prelude {
         state_scoped::{
             DespawnOnEnter, DespawnOnExit, DespawnWhen, DisableOnEnter, DisableOnExit, DisableWhen,
             DisabledIf, DisabledIn, EnableOnEnter, EnableOnExit, EnableWhen, EnabledIf, EnabledIn,
+            OwnsDisabled,
         },
     };
 }
