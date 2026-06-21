@@ -54,7 +54,7 @@ jobs:
             --exclude build-wasm-example \
             --exclude no_std_library \
             --exclude export-content \
-            --exclude auto_register_static
+            --exclude auto_register_static \
             --exclude mipmap_generator \
             --exclude caldera_hotel \
             --exclude bistro
