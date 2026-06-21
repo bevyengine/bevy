@@ -43,16 +43,6 @@ fn setup(mut commands: Commands) {
                         ColorStop::new(Color::BLACK, percent(85)),
                     ],
                 ),
-                (
-                    // TODO: remove this
-                    4.,
-                    vec![
-                        // Cyan
-                        ColorStop::new(Color::okhsl(180.0, 1.0, 0.5), Val::Percent(0.0)),
-                        // Red
-                        ColorStop::new(Color::okhsl(0.0, 1.0, 0.5), Val::Percent(100.0)),
-                    ],
-                ),
                 (4., vec![RED.into(), BLUE.into(), LIME.into()]),
                 (
                     0.,

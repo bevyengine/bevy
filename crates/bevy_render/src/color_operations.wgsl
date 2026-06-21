@@ -415,7 +415,6 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
 
 // --- OKHSL conversion helpers ---
 // Ported from crates/bevy_color/src/okcolor_convert.rs
-// TODO: Possibly move this to another module to keep things clean
 
 fn okhsl_toe_inv(x: f32) -> f32 {
     let k_1 = 0.206;
