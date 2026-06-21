@@ -31,6 +31,7 @@ mod layout_entry {
     use crate::{render::skin, GpuMorphDescriptor, MeshUniform, LIGHTMAPS_PER_SLAB};
     use bevy_mesh::morph::MorphAttributes;
     use bevy_render::{
+        mesh::MeshMetadata,
         render_resource::{
             binding_types::{
                 sampler, storage_buffer_read_only, storage_buffer_read_only_sized, texture_2d,
@@ -45,6 +46,13 @@ mod layout_entry {
     pub(super) fn model(limits: &WgpuLimits) -> BindGroupLayoutEntryBuilder {
         GpuArrayBuffer::<MeshUniform>::binding_layout(limits)
             .visibility(ShaderStages::VERTEX_FRAGMENT)
+    }
+    pub(super) fn metadata(limits: &WgpuLimits) -> BindGroupLayoutEntryBuilder {
+        if bevy_render::storage_buffers_are_unsupported(limits) {
+            uniform_buffer_sized(false, BufferSize::new(size_of::<MeshMetadata>() as u64))
+        } else {
+            storage_buffer_read_only::<MeshMetadata>(false)
+        }
     }
     pub(super) fn skinning(limits: &WgpuLimits) -> BindGroupLayoutEntryBuilder {
         // If we can use storage buffers, do so. Otherwise, fall back to uniform
@@ -118,6 +126,9 @@ mod entry {
     }
     pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
         BindGroupEntry { binding, resource }
+    }
+    pub(super) fn metadata<'a>(binding: u32, buffer: &'a Buffer) -> BindGroupEntry<'a> {
+        entry(binding, None, buffer)
     }
     pub(super) fn skinning<'a>(
         render_device: &RenderDevice,
@@ -248,25 +259,31 @@ impl MeshLayouts {
     // ---------- create individual BindGroupLayouts ----------
 
     fn model_only_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
+        let limits = render_device.limits();
         BindGroupLayoutDescriptor::new(
             "mesh_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::empty(),
-                layout_entry::model(&render_device.limits()),
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(&limits)),
+                    (9, layout_entry::metadata(&limits)),
+                ),
             ),
         )
     }
 
     /// Creates the layout for skinned meshes.
     fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
+        let limits = render_device.limits();
         BindGroupLayoutDescriptor::new(
             "skinned_mesh_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX,
                 (
-                    (0, layout_entry::model(&render_device.limits())),
+                    (0, layout_entry::model(&limits)),
+                    (9, layout_entry::metadata(&limits)),
                     // The current frame's joint matrix buffer.
-                    (1, layout_entry::skinning(&render_device.limits())),
+                    (1, layout_entry::skinning(&limits)),
                 ),
             ),
         )
@@ -275,16 +292,18 @@ impl MeshLayouts {
     /// Creates the layout for skinned meshes with the infrastructure to compute
     /// motion vectors.
     fn skinned_motion_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
+        let limits = render_device.limits();
         BindGroupLayoutDescriptor::new(
             "skinned_motion_mesh_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX,
                 (
-                    (0, layout_entry::model(&render_device.limits())),
+                    (0, layout_entry::model(&limits)),
+                    (9, layout_entry::metadata(&limits)),
                     // The current frame's joint matrix buffer.
-                    (1, layout_entry::skinning(&render_device.limits())),
+                    (1, layout_entry::skinning(&limits)),
                     // The previous frame's joint matrix buffer.
-                    (6, layout_entry::skinning(&render_device.limits())),
+                    (6, layout_entry::skinning(&limits)),
                 ),
             ),
         )
@@ -293,12 +312,12 @@ impl MeshLayouts {
     /// Creates the layout for meshes with morph targets.
     fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
         let limits = render_device.limits();
-
-        let mut entries: ArrayVec<BindGroupLayoutEntry, 4> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupLayoutEntry, 5> = ArrayVec::new();
 
         entries.extend(
             [
                 (0, layout_entry::model(&limits)),
+                (9, layout_entry::metadata(&limits)),
                 // The current frame's morph weight buffer.
                 (2, layout_entry::weights(&limits)),
                 (3, layout_entry::targets(&limits)),
@@ -307,7 +326,7 @@ impl MeshLayouts {
             .map(|(binding, entry)| entry.build(*binding, ShaderStages::VERTEX)),
         );
 
-        if !skin::skins_use_uniform_buffers(&render_device.limits()) {
+        if !skin::skins_use_uniform_buffers(&limits) {
             entries.push(layout_entry::morph_descriptors().build(8, ShaderStages::VERTEX));
         }
 
@@ -318,12 +337,12 @@ impl MeshLayouts {
     /// to compute motion vectors.
     fn morphed_motion_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
         let limits = render_device.limits();
-
-        let mut entries: ArrayVec<BindGroupLayoutEntry, 5> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupLayoutEntry, 6> = ArrayVec::new();
 
         entries.extend(
             [
                 (0, layout_entry::model(&limits)),
+                (9, layout_entry::metadata(&limits)),
                 // The current frame's morph weight buffer.
                 (2, layout_entry::weights(&limits)),
                 (3, layout_entry::targets(&limits)),
@@ -334,7 +353,7 @@ impl MeshLayouts {
             .map(|(binding, entry)| entry.build(*binding, ShaderStages::VERTEX)),
         );
 
-        if !skin::skins_use_uniform_buffers(&render_device.limits()) {
+        if !skin::skins_use_uniform_buffers(&limits) {
             entries.push(layout_entry::morph_descriptors().build(8, ShaderStages::VERTEX));
         }
 
@@ -346,11 +365,12 @@ impl MeshLayouts {
     fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
         let limits = render_device.limits();
 
-        let mut entries: ArrayVec<BindGroupLayoutEntry, 5> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupLayoutEntry, 6> = ArrayVec::new();
 
         entries.extend(
             [
                 (0, layout_entry::model(&limits)),
+                (9, layout_entry::metadata(&limits)),
                 // The current frame's joint matrix buffer.
                 (1, layout_entry::skinning(&limits)),
                 // The current frame's morph weight buffer.
@@ -361,7 +381,7 @@ impl MeshLayouts {
             .map(|(binding, entry)| entry.build(*binding, ShaderStages::VERTEX)),
         );
 
-        if !skin::skins_use_uniform_buffers(&render_device.limits()) {
+        if !skin::skins_use_uniform_buffers(&limits) {
             entries.push(layout_entry::morph_descriptors().build(8, ShaderStages::VERTEX));
         }
 
@@ -373,11 +393,12 @@ impl MeshLayouts {
     fn morphed_skinned_motion_layout(render_device: &RenderDevice) -> BindGroupLayoutDescriptor {
         let limits = render_device.limits();
 
-        let mut entries: ArrayVec<BindGroupLayoutEntry, 7> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupLayoutEntry, 8> = ArrayVec::new();
 
         entries.extend(
             [
                 (0, layout_entry::model(&limits)),
+                (9, layout_entry::metadata(&limits)),
                 // The current frame's joint matrix buffer.
                 (1, layout_entry::skinning(&limits)),
                 // The current frame's morph weight buffer.
@@ -392,7 +413,7 @@ impl MeshLayouts {
             .map(|(binding, entry)| entry.build(*binding, ShaderStages::VERTEX)),
         );
 
-        if !skin::skins_use_uniform_buffers(&render_device.limits()) {
+        if !skin::skins_use_uniform_buffers(&limits) {
             entries.push(layout_entry::morph_descriptors().build(8, ShaderStages::VERTEX));
         }
 
@@ -403,13 +424,15 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         render_adapter: &RenderAdapter,
     ) -> BindGroupLayoutDescriptor {
+        let limits = render_device.limits();
         if binding_arrays_are_usable(render_device, render_adapter) {
             BindGroupLayoutDescriptor::new(
                 "lightmapped_mesh_layout",
                 &BindGroupLayoutEntries::with_indices(
                     ShaderStages::VERTEX,
                     (
-                        (0, layout_entry::model(&render_device.limits())),
+                        (0, layout_entry::model(&limits)),
+                        (9, layout_entry::metadata(&limits)),
                         (4, layout_entry::lightmaps_texture_view_array()),
                         (5, layout_entry::lightmaps_sampler_array()),
                     ),
@@ -421,7 +444,8 @@ impl MeshLayouts {
                 &BindGroupLayoutEntries::with_indices(
                     ShaderStages::VERTEX,
                     (
-                        (0, layout_entry::model(&render_device.limits())),
+                        (0, layout_entry::model(&limits)),
+                        (9, layout_entry::metadata(&limits)),
                         (4, layout_entry::lightmaps_texture_view()),
                         (5, layout_entry::lightmaps_sampler()),
                     ),
@@ -437,11 +461,12 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
             "model_only_mesh_bind_group",
             &pipeline_cache.get_bind_group_layout(&self.model_only),
-            &[entry::model(0, model.clone())],
+            &[entry::model(0, model.clone()), entry::metadata(9, metadata)],
         )
     }
 
@@ -450,6 +475,7 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         lightmap_slab: &LightmapSlab,
         bindless_lightmaps: bool,
     ) -> BindGroup {
@@ -460,6 +486,7 @@ impl MeshLayouts {
                 &pipeline_cache.get_bind_group_layout(&self.lightmapped),
                 &[
                     entry::model(0, model.clone()),
+                    entry::metadata(9, metadata),
                     entry::lightmaps_texture_view_array(4, &texture_views),
                     entry::lightmaps_sampler_array(5, &samplers),
                 ],
@@ -471,6 +498,7 @@ impl MeshLayouts {
                 &pipeline_cache.get_bind_group_layout(&self.lightmapped),
                 &[
                     entry::model(0, model.clone()),
+                    entry::metadata(9, metadata),
                     entry::lightmaps_texture_view(4, texture_view),
                     entry::lightmaps_sampler(5, sampler),
                 ],
@@ -484,6 +512,7 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         current_skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
@@ -491,6 +520,7 @@ impl MeshLayouts {
             &pipeline_cache.get_bind_group_layout(&self.skinned),
             &[
                 entry::model(0, model.clone()),
+                entry::metadata(9, metadata),
                 entry::skinning(render_device, 1, current_skin),
             ],
         )
@@ -508,6 +538,7 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         current_skin: &Buffer,
         prev_skin: &Buffer,
     ) -> BindGroup {
@@ -516,6 +547,7 @@ impl MeshLayouts {
             &pipeline_cache.get_bind_group_layout(&self.skinned_motion),
             &[
                 entry::model(0, model.clone()),
+                entry::metadata(9, metadata),
                 entry::skinning(render_device, 1, current_skin),
                 entry::skinning(render_device, 6, prev_skin),
             ],
@@ -528,14 +560,16 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         current_weights: &Buffer,
         targets: MorphTargetsResource,
         maybe_morph_descriptors: Option<&Buffer>,
     ) -> BindGroup {
-        let mut entries: ArrayVec<BindGroupEntry, 4> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupEntry, 5> = ArrayVec::new();
 
         entries.extend([
             entry::model(0, model.clone()),
+            entry::metadata(9, metadata),
             entry::weights(render_device, 2, current_weights),
             entry::targets(3, targets),
         ]);
@@ -563,15 +597,17 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         current_weights: &Buffer,
         prev_weights: &Buffer,
         targets: MorphTargetsResource,
         maybe_morph_descriptors: Option<&Buffer>,
     ) -> BindGroup {
-        let mut entries: ArrayVec<BindGroupEntry, 5> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupEntry, 6> = ArrayVec::new();
 
         entries.extend([
             entry::model(0, model.clone()),
+            entry::metadata(9, metadata),
             entry::weights(render_device, 2, current_weights),
             entry::targets(3, targets),
             entry::weights(render_device, 7, prev_weights),
@@ -594,15 +630,17 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         current_skin: &Buffer,
         current_weights: &Buffer,
         targets: MorphTargetsResource,
         maybe_morph_descriptors: Option<&Buffer>,
     ) -> BindGroup {
-        let mut entries: ArrayVec<BindGroupEntry, 5> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupEntry, 6> = ArrayVec::new();
 
         entries.extend([
             entry::model(0, model.clone()),
+            entry::metadata(9, metadata),
             entry::skinning(render_device, 1, current_skin),
             entry::weights(render_device, 2, current_weights),
             entry::targets(3, targets),
@@ -631,6 +669,7 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
         model: &BindingResource,
+        metadata: &Buffer,
         current_skin: &Buffer,
         current_weights: &Buffer,
         targets: MorphTargetsResource,
@@ -638,10 +677,11 @@ impl MeshLayouts {
         prev_weights: &Buffer,
         morph_descriptors: Option<&Buffer>,
     ) -> BindGroup {
-        let mut entries: ArrayVec<BindGroupEntry, 7> = ArrayVec::new();
+        let mut entries: ArrayVec<BindGroupEntry, 8> = ArrayVec::new();
 
         entries.extend([
             entry::model(0, model.clone()),
+            entry::metadata(9, metadata),
             entry::skinning(render_device, 1, current_skin),
             entry::weights(render_device, 2, current_weights),
             entry::targets(3, targets),
