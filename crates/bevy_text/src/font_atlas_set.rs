@@ -47,4 +47,9 @@ impl FontAtlasSet {
             })
             .sum()
     }
+
+    /// Clear all font atlases
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
 }
