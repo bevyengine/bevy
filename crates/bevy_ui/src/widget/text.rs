@@ -23,7 +23,7 @@ use bevy_text::{
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
     TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
-use taffy::{style::AvailableSpace, MaybeMath};
+use taffy::{style::AvailableSpace, MaybeMath, ResolveOrZero};
 use tracing::error;
 
 /// UI text system flags.
@@ -181,15 +181,33 @@ impl TextMeasure {
 
 impl Measure for TextMeasure {
     fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
-        let width = measure_args.resolve_width();
+        let mut width = measure_args.resolve_width();
         let height = measure_args.resolve_height();
 
         let MeasureArgs {
             available_width,
             buffer,
             font_system,
+            style,
             ..
         } = measure_args;
+
+        // The text is wrapped inside the content box, so subtract horizontal padding and border.
+        if style.box_sizing == taffy::style::BoxSizing::BorderBox {
+            let context = taffy::Size {
+                width: width.effective,
+                height: height.effective,
+            };
+            let calc = |_, _| 0.;
+            let padding = style.padding.resolve_or_zero(context, calc);
+            let border = style.border.resolve_or_zero(context, calc);
+            let total_x_inset = padding.left + padding.right + border.left + border.right;
+            width.min = width.min.map(|min| (min - total_x_inset).max(0.));
+            width.max = width.max.map(|max| (max - total_x_inset).max(0.));
+            width.effective = width
+                .effective
+                .map(|effective| (effective - total_x_inset).max(0.));
+        }
 
         let x = width
             .effective
