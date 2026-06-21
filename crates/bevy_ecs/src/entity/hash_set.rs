@@ -528,3 +528,43 @@ unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
 
 // SAFETY: Union stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
 unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for hash_set::Union<'_, K, EntityHash> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::{ContainsEntity, Entity, EntityEquivalent};
+
+    #[test]
+    fn entity_equivalent_set_test() {
+        #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+        struct EntityWrapper(Entity);
+
+        impl ContainsEntity for EntityWrapper {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        impl EntityWrapper {
+            fn new(index: u32) -> EntityWrapper {
+                EntityWrapper(Entity::from_raw_u32(index).unwrap())
+            }
+        }
+
+        // SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
+        unsafe impl EntityEquivalent for EntityWrapper {}
+
+        type EntityWrapperSet = EntityEquivalentHashSet<EntityWrapper>;
+
+        let mut set = EntityWrapperSet::default();
+        set.insert(EntityWrapper::new(0));
+        set.insert(EntityWrapper::new(1));
+        set.insert(EntityWrapper::new(0));
+        assert_eq!(set.len(), 2);
+        assert!(set.get(&EntityWrapper::new(0)).is_some());
+        set.remove(&EntityWrapper::new(1));
+        assert_eq!(set.len(), 1);
+        set.clear();
+        assert!(set.is_empty());
+    }
+}

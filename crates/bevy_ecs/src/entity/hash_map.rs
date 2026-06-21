@@ -328,6 +328,7 @@ unsafe impl<K: EntityEquivalent + Hash, V> EntitySetIterator for IntoKeys<K, V> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entity::ContainsEntity;
     use bevy_reflect::Reflect;
     use static_assertions::assert_impl_all;
 
@@ -336,4 +337,40 @@ mod tests {
     // EntityEquivalentHashMap should implement Reflect
     #[cfg(feature = "bevy_reflect")]
     assert_impl_all!(EntityHashMap::<i32>: Reflect);
+
+    #[test]
+    fn entity_equivalent_map_test() {
+        #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+        struct EntityWrapper(Entity);
+
+        impl ContainsEntity for EntityWrapper {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        impl EntityWrapper {
+            fn new(index: u32) -> EntityWrapper {
+                EntityWrapper(Entity::from_raw_u32(index).unwrap())
+            }
+        }
+
+        // SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
+        unsafe impl EntityEquivalent for EntityWrapper {}
+
+        type EntityWrapperMap = EntityEquivalentHashMap<EntityWrapper, i32>;
+
+        let mut map = EntityWrapperMap::default();
+        map.insert(EntityWrapper::new(0), 10);
+        map.insert(EntityWrapper::new(1), 11);
+        map.insert(EntityWrapper::new(0), 12);
+        assert_eq!(map.len(), 2);
+        assert!(map
+            .get(&EntityWrapper::new(0))
+            .is_some_and(|val| *val == 12));
+        map.remove(&EntityWrapper::new(1));
+        assert_eq!(map.len(), 1);
+        map.clear();
+        assert!(map.is_empty());
+    }
 }
