@@ -3,13 +3,12 @@ use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
     event::EntityEvent,
     hierarchy::ChildOf,
     lifecycle::Add,
     observer::On,
     query::With,
-    reflect::{ReflectComponent, ReflectEvent},
+    reflect::ReflectComponent,
     system::{Commands, Query, SystemState},
     world::World,
 };
@@ -23,10 +22,12 @@ use bevy_picking::events::{Pointer, Press};
 use bevy_reflect::Reflect;
 use bevy_time::DelayedCommandsExt;
 
+use crate::{Dialog, RequestClose};
+
 /// Component that defines a modal dialog box.
 #[derive(Component, Debug, Reflect, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Dialog)))]
-#[require(TabGroup { order: 0, modal: true })]
+#[require(Dialog)]
 #[reflect(Component)]
 pub struct ModalDialog;
 
@@ -35,20 +36,17 @@ pub struct ModalDialog;
 #[reflect(Component)]
 pub struct ModalDialogBarrier;
 
-/// Event used to indicate that the modal dialog wants to be closed. This can happen because
-/// the user clicked on the barrier, hit the escape key, or clicked the close box in the dialog
-/// title. This event propagates so that the owner of the dialog can despawn it.
-#[derive(EntityEvent, Clone, Debug)]
-#[entity_event(propagate, auto_propagate)]
-#[derive(Reflect)]
-#[reflect(Event)]
-pub struct RequestClose {
-    /// The [`ModalDialog`] that triggered this event.
-    #[event_target]
-    pub source: Entity,
+fn set_modal_dialog_tab_group_modal(
+    add: On<Add, ModalDialog>,
+    mut q_tab_group: Query<&mut TabGroup>,
+) {
+    let entity = add.event_target();
+    if let Ok(mut tab_group) = q_tab_group.get_mut(entity) {
+        tab_group.modal = true;
+    }
 }
 
-fn dialog_barrier_on_click(
+fn modal_dialog_barrier_on_click(
     mut ev: On<Pointer<Press>>,
     q_barrier: Query<(), With<ModalDialogBarrier>>,
     q_dialog: Query<(), With<ModalDialog>>,
@@ -66,7 +64,7 @@ fn dialog_barrier_on_click(
     }
 }
 
-fn dialog_barrier_on_keypress(
+fn modal_dialog_barrier_on_keypress(
     mut ev: On<FocusedInput<KeyboardInput>>,
     q_barrier: Query<(), With<ModalDialogBarrier>>,
     mut commands: Commands,
@@ -82,7 +80,7 @@ fn dialog_barrier_on_keypress(
     }
 }
 
-fn dialog_barrier_on_spawn(add: On<Add, ModalDialog>, mut commands: Commands) {
+fn modal_dialog_barrier_on_spawn(add: On<Add, ModalDialog>, mut commands: Commands) {
     let dialog_entity = add.event_target();
     // Need to defer setting focus until children are finished spawning. Note that we don't know,
     // in this module, what API will be used to spawn the dialog, so we have to guess how long
@@ -135,8 +133,9 @@ pub struct ModalDialogPlugin;
 
 impl Plugin for ModalDialogPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(dialog_barrier_on_spawn)
-            .add_observer(dialog_barrier_on_click)
-            .add_observer(dialog_barrier_on_keypress);
+        app.add_observer(set_modal_dialog_tab_group_modal)
+            .add_observer(modal_dialog_barrier_on_spawn)
+            .add_observer(modal_dialog_barrier_on_click)
+            .add_observer(modal_dialog_barrier_on_keypress);
     }
 }
