@@ -64,7 +64,7 @@ impl RenderPipelineDescriptor {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -74,10 +74,12 @@ pub struct VertexState {
     pub entry_point: Option<Cow<'static, str>>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
+    /// Values for pipeline-overridable constants declared with `override` in this shader stage.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -87,6 +89,8 @@ pub struct FragmentState {
     pub entry_point: Option<Cow<'static, str>>,
     /// The color state of the render targets.
     pub targets: Vec<Option<ColorTargetState>>,
+    /// Values for pipeline-overridable constants declared with `override` in this shader stage.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 impl FragmentState {
@@ -96,7 +100,7 @@ impl FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayoutDescriptor>,
@@ -110,6 +114,8 @@ pub struct ComputePipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+    /// Values for pipeline-overridable constants declared with `override` in the shader.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 // utility function to set a value at the specified index, extending with

@@ -184,7 +184,11 @@ pub struct InputFocusVisible(pub bool);
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
 #[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Event, Component, Clone)
+)]
 pub struct FocusedInput<M: Message + Clone> {
     /// The entity that has received focused input.
     #[event_target]
@@ -199,6 +203,11 @@ pub struct FocusedInput<M: Message + Clone> {
 /// until it finds a focusable entity, and then set focus to it.
 #[derive(EntityEvent, Debug, Clone)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Event, Clone, Debug)
+)]
 pub struct AcquireFocus {
     /// The entity that has acquired focus.
     #[event_target]

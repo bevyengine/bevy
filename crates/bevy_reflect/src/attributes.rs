@@ -2,6 +2,7 @@
 
 use crate::Reflect;
 use alloc::boxed::Box;
+use bevy_platform::sync::Arc;
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
@@ -10,7 +11,8 @@ use core::{
 
 /// A collection of custom attributes for a type, field, or variant.
 ///
-/// These attributes can be created with the [`Reflect` derive macro].
+/// These attributes can be created with the [`Reflect` derive macro], or with
+/// [`CustomAttributesBuilder`].
 ///
 /// Attributes are stored by their [`TypeId`].
 /// Because of this, there can only be one attribute per type.
@@ -35,63 +37,78 @@ use core::{
 /// ```
 ///
 /// [`Reflect` derive macro]: derive@crate::Reflect
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CustomAttributes {
-    attributes: TypeIdMap<CustomAttribute>,
+    attributes: Option<Arc<TypeIdMap<CustomAttribute>>>,
 }
 
 impl CustomAttributes {
-    /// Inserts a custom attribute into the collection.
-    ///
-    /// Note that this will overwrite any existing attribute of the same type.
-    pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
-        self.attributes
-            .insert(TypeId::of::<T>(), CustomAttribute::new(value));
-
-        self
+    fn new(attributes: TypeIdMap<CustomAttribute>) -> Self {
+        Self {
+            attributes: if attributes.is_empty() {
+                None
+            } else {
+                Some(Arc::new(attributes))
+            },
+        }
     }
 
     /// Returns `true` if this collection contains a custom attribute of the specified type.
     pub fn contains<T: Reflect>(&self) -> bool {
-        self.attributes.contains_key(&TypeId::of::<T>())
+        self.attributes
+            .as_ref()
+            .is_some_and(|a| a.contains_key(&TypeId::of::<T>()))
     }
 
     /// Returns `true` if this collection contains a custom attribute with the specified [`TypeId`].
     pub fn contains_by_id(&self, id: TypeId) -> bool {
-        self.attributes.contains_key(&id)
+        self.attributes
+            .as_ref()
+            .is_some_and(|a| a.contains_key(&id))
     }
 
     /// Gets a custom attribute by type.
     pub fn get<T: Reflect>(&self) -> Option<&T> {
-        self.attributes.get(&TypeId::of::<T>())?.value::<T>()
+        self.attributes
+            .as_ref()
+            .and_then(|a| a.get(&TypeId::of::<T>())?.value::<T>())
     }
 
     /// Gets a custom attribute by its [`TypeId`].
     pub fn get_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
-        Some(self.attributes.get(&id)?.reflect_value())
+        self.attributes
+            .as_ref()
+            .and_then(|a| a.get(&id))
+            .map(CustomAttribute::reflect_value)
     }
 
     /// Returns an iterator over all custom attributes.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)> {
-        self.attributes
-            .iter()
-            .map(|(key, value)| (key, value.reflect_value()))
+    pub fn iter(&self) -> impl Iterator<Item = (&TypeId, &dyn Reflect)> {
+        self.attributes.iter().flat_map(|attributes| {
+            attributes
+                .iter()
+                .map(|(key, value)| (key, value.reflect_value()))
+        })
     }
 
     /// Returns the number of custom attributes in this collection.
     pub fn len(&self) -> usize {
-        self.attributes.len()
+        self.attributes.as_ref().map(|a| a.len()).unwrap_or(0)
     }
 
     /// Returns `true` if this collection is empty.
     pub fn is_empty(&self) -> bool {
-        self.attributes.is_empty()
+        self.attributes.is_none()
     }
 }
 
 impl Debug for CustomAttributes {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_set().entries(self.attributes.values()).finish()
+        if let Some(attributes) = &self.attributes {
+            f.debug_set().entries(attributes.values()).finish()
+        } else {
+            f.debug_set().finish()
+        }
     }
 }
 
@@ -178,12 +195,52 @@ macro_rules! impl_custom_attribute_methods {
     };
 }
 
+/// Builder for [`CustomAttributes`].
+///
+/// ```
+/// # use bevy_reflect::attributes::CustomAttributesBuilder;
+/// let custom_attributes = CustomAttributesBuilder::new()
+///     .attribute("my attribute")
+///     .attribute(123)
+///     .build();
+/// ```
+#[derive(Default)]
+pub struct CustomAttributesBuilder {
+    attributes: TypeIdMap<CustomAttribute>,
+}
+
+impl CustomAttributesBuilder {
+    /// Creates a new, empty builder.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds a single attribute to the builder.
+    pub fn attribute<T: Reflect>(self, value: T) -> Self {
+        self.attribute_erased(TypeId::of::<T>(), CustomAttribute::new(value))
+    }
+
+    // Erased version of `attribute` with inlining disabled. This reduces
+    // monomorphization costs, and avoids excessive inlining in cold generated
+    // code.
+    #[inline(never)]
+    fn attribute_erased(mut self, type_id: TypeId, value: CustomAttribute) -> Self {
+        self.attributes.insert(type_id, value);
+        self
+    }
+
+    /// Consumes the builder, returning the final [`CustomAttributes`].
+    pub fn build(self) -> CustomAttributes {
+        CustomAttributes::new(self.attributes)
+    }
+}
+
 pub(crate) use impl_custom_attribute_methods;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{enums::VariantInfo, type_info::Typed, TypeInfo};
+    use crate::{enums::VariantInfo, info::Typed, TypeInfo};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;
 
@@ -198,7 +255,7 @@ mod tests {
 
     #[test]
     fn should_get_custom_attribute() {
-        let attributes = CustomAttributes::default().with_attribute(0.0..=1.0);
+        let attributes = CustomAttributesBuilder::new().attribute(0.0..=1.0).build();
 
         let value = attributes.get::<RangeInclusive<f64>>().unwrap();
         assert_eq!(&(0.0..=1.0), value);
@@ -206,7 +263,9 @@ mod tests {
 
     #[test]
     fn should_get_custom_attribute_dynamically() {
-        let attributes = CustomAttributes::default().with_attribute(String::from("Hello, World!"));
+        let attributes = CustomAttributesBuilder::new()
+            .attribute(String::from("Hello, World!"))
+            .build();
 
         let value = attributes.get_by_id(TypeId::of::<String>()).unwrap();
         assert!(value
@@ -215,8 +274,42 @@ mod tests {
     }
 
     #[test]
+    fn should_iterate_custom_attribute() {
+        let empty_attributes = CustomAttributesBuilder::new().build();
+
+        assert!(empty_attributes.iter().next().is_none());
+
+        let attributes = CustomAttributesBuilder::new()
+            .attribute(1i32)
+            .attribute("string")
+            .build();
+
+        let mut iter = attributes.iter();
+
+        let (type_id, reflected) = iter.next().unwrap();
+
+        assert_eq!(TypeId::of::<i32>(), *type_id);
+        assert_eq!(1i32, *reflected.downcast_ref::<i32>().unwrap());
+
+        let (type_id, reflected) = iter.next().unwrap();
+
+        assert_eq!(TypeId::of::<&str>(), *type_id);
+        assert_eq!("string", *reflected.downcast_ref::<&str>().unwrap());
+
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
     fn should_debug_custom_attributes() {
-        let attributes = CustomAttributes::default().with_attribute("My awesome custom attribute!");
+        let attributes = CustomAttributesBuilder::new().build();
+
+        let debug = format!("{attributes:?}");
+
+        assert_eq!(r#"{}"#, debug);
+
+        let attributes = CustomAttributesBuilder::new()
+            .attribute("My awesome custom attribute!")
+            .build();
 
         let debug = format!("{attributes:?}");
 
@@ -227,7 +320,9 @@ mod tests {
             value: i32,
         }
 
-        let attributes = CustomAttributes::default().with_attribute(Foo { value: 42 });
+        let attributes = CustomAttributesBuilder::new()
+            .attribute(Foo { value: 42 })
+            .build();
 
         let debug = format!("{attributes:?}");
 

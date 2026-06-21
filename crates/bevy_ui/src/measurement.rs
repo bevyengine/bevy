@@ -92,7 +92,7 @@ impl MeasureArgs<'_> {
     }
 }
 
-/// A `Measure` is used to compute the size of a ui node
+/// A `Measure` is used to compute the size of a UI node
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.

@@ -224,7 +224,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             world_pos = world_from_local[3].xyz;
         }
 
-        let camera_distance = length(position_world_to_view(world_pos));
+        let camera_distance = length(world_pos - view.lod_view_world_position);
         // `x` is the minimum range; `w` is the largest range.
         if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
             return;
@@ -394,4 +394,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         current_input[input_index].material_and_lightmap_bind_group_slot;
     output[mesh_output_index].tag = current_input[input_index].tag;
     output[mesh_output_index].morph_descriptor_index = current_input[input_index].morph_descriptor_index;
+    output[mesh_output_index].metadata_index = current_input[input_index].metadata_index;
 }

@@ -540,6 +540,12 @@ all_tuples_enumerated!(
     T
 );
 
+impl<T: StableInterpolate, const LEN: usize> StableInterpolate for [T; LEN] {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+        core::array::from_fn(|i| self[i].interpolate_stable(&other[i], t))
+    }
+}
+
 /// Error produced when the values to be interpolated are not in the same units.
 #[derive(Clone, Debug, Error)]
 #[error("cannot interpolate between two values of different units")]
@@ -587,6 +593,33 @@ impl<T: StableInterpolate> TryStableInterpolate for T {
     type Error = Infallible;
     fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
         Ok(self.interpolate_stable(other, t))
+    }
+}
+
+/// Errors produced when interpolating dynamically-sized arrays
+#[cfg(feature = "alloc")]
+#[derive(Clone, Debug, Error)]
+pub enum VecInterpolateError<E> {
+    /// Produced when arrays to be interpolated are of different lengths
+    #[error("cannot interpolate between two arrays of different lengths")]
+    MismatchedLength,
+    /// Produced when an error occurs interpolating an array element
+    #[error(transparent)]
+    Inner(E),
+}
+
+#[cfg(feature = "alloc")]
+impl<E, T: TryStableInterpolate<Error = E>> TryStableInterpolate for alloc::vec::Vec<T> {
+    type Error = VecInterpolateError<E>;
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        if self.len() == other.len() {
+            (0..self.len())
+                .map(|i| self[i].try_interpolate_stable(&other[i], t))
+                .collect::<Result<alloc::vec::Vec<_>, _>>()
+                .map_err(VecInterpolateError::Inner)
+        } else {
+            Err(VecInterpolateError::MismatchedLength)
+        }
     }
 }
 
@@ -642,4 +675,53 @@ where
     N: HasTangent<Tangent = V>,
 {
     type Tangent = Sum<M::Tangent, N::Tangent>;
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::{vec, vec::Vec};
+    use core::assert_matches;
+
+    use super::{StableInterpolate, TryStableInterpolate, VecInterpolateError};
+
+    #[test]
+    fn interpolate_static_arrays() {
+        let a = [0.0, 1.0];
+        let b = [1.0, 0.0];
+
+        assert_matches!(a.interpolate_stable(&b, 0.25), [0.25, 0.75]);
+        assert_matches!(a.interpolate_stable(&b, 0.5), [0.5, 0.5]);
+        assert_matches!(a.interpolate_stable(&b, 0.75), [0.75, 0.25]);
+    }
+
+    #[test]
+    fn interpolate_dynamic_arrays() {
+        let a = vec![0.0, 1.0];
+        let b = vec![1.0, 0.0];
+
+        assert_matches!(a.try_interpolate_stable(&b, 0.25), Ok(v) if v == vec![0.25, 0.75]);
+        assert_matches!(a.try_interpolate_stable(&b, 0.5), Ok(v) if v == vec![0.5, 0.5]);
+        assert_matches!(a.try_interpolate_stable(&b, 0.75), Ok(v) if v == vec![0.75, 0.25]);
+    }
+
+    #[test]
+    fn interpolate_dynamic_arrays_different_lengths() {
+        let a = vec![0.0, 1.0];
+        let b = vec![1.0, 0.0, 1.0];
+
+        assert_matches!(
+            a.try_interpolate_stable(&b, 0.5),
+            Err(VecInterpolateError::MismatchedLength)
+        );
+
+        let a: Vec<Vec<f32>> = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
+        let b: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.0, 1.0, 0.0]];
+
+        assert_matches!(
+            a.try_interpolate_stable(&b, 0.5),
+            Err(VecInterpolateError::Inner(
+                VecInterpolateError::MismatchedLength
+            ))
+        );
+    }
 }

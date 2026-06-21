@@ -15,8 +15,9 @@ use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
-use bevy_picking::events::{Click, Drag, Pointer, Press, Release};
+use bevy_picking::events::{Drag, Pointer, Press, Release};
 use bevy_picking::pointer::PointerButton;
+use bevy_reflect::Reflect;
 use bevy_text::{EditableText, PreeditCursor, TextEdit};
 use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
 use bevy_ui::UiSystems;
@@ -176,6 +177,10 @@ fn on_pointer_press(
         return;
     };
 
+    input_focus.set(press.entity, FocusCause::Pressed);
+
+    press.propagate(false);
+
     if editable_text.is_composing() {
         // The IME is active; all input needs to be routed there, including pointer presses.
         return;
@@ -190,69 +195,19 @@ fn on_pointer_press(
         return;
     };
 
-    editable_text
-        .pending_edits
-        .push(if keys.pressed(Key::Shift) {
-            TextEdit::ShiftClickExtension
-        } else {
-            TextEdit::MoveToPoint
-        }(local_pos));
-
-    input_focus.set(press.entity, FocusCause::Pressed);
-
-    press.propagate(false);
-}
-
-/// System that processes pointer click events into text edit actions for [`EditableText`] widgets.
-///
-/// `Click`s follow `Press`, so multi-click `TextEdit`s are queued after those from the corresponding `Press`.
-///
-/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
-/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
-fn on_pointer_click(
-    mut click: On<Pointer<Click>>,
-    mut text_input_query: Query<(
-        &mut EditableText,
-        &ComputedNode,
-        &ComputedUiRenderTargetInfo,
-        &UiGlobalTransform,
-        &TextScroll,
-    )>,
-    ui_scale: Res<UiScale>,
-) {
-    if click.button != PointerButton::Primary {
-        return;
-    }
-
-    let Ok((mut editable_text, node, target, transform, text_scroll)) =
-        text_input_query.get_mut(click.entity)
-    else {
-        return;
-    };
-
-    if editable_text.is_composing() {
-        // The IME is active; all input needs to be routed there, including pointer multi-clicks.
-        return;
-    }
-
-    let Some(local_pos) = transform.try_inverse().map(|inverse| {
-        inverse
-            .transform_point2(click.pointer_location.position * target.scale_factor() / ui_scale.0)
-            - node.content_box().min
-            + text_scroll.0
-    }) else {
-        return;
-    };
-
-    match click.count {
+    match press.count {
         1 => {
-            // No special processing required for single clicks. Presses set the cursor position and are handled by `on_pointer_press`.
+            editable_text
+                .pending_edits
+                .push(if keys.pressed(Key::Shift) {
+                    TextEdit::ShiftClickExtension
+                } else {
+                    TextEdit::MoveToPoint
+                }(local_pos));
         }
         2 => editable_text.queue_edit(TextEdit::SelectWordAtPoint(local_pos)),
         _ => editable_text.queue_edit(TextEdit::SelectAll),
     }
-
-    click.propagate(false);
 }
 
 /// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
@@ -280,30 +235,25 @@ fn on_pointer_drag(
         return;
     };
 
+    drag.propagate(false);
+
     if editable_text.is_composing() {
         // The IME is active; all input needs to be routed there, including pointer drags.
         return;
     }
 
-    let Some((drag_start_local_pos, current_local_pos)) = transform.try_inverse().map(|inverse| {
-        let transform_pos = |pointer_pos| {
-            inverse.transform_point2(pointer_pos * target.scale_factor() / ui_scale.0)
-                - node.content_box().min
-                + text_scroll.0
-        };
-        let current_pos = drag.pointer_location.position;
-        let drag_start_pos = current_pos - drag.distance;
-        (transform_pos(drag_start_pos), transform_pos(current_pos))
+    let Some(current_local_pos) = transform.try_inverse().map(|inverse| {
+        inverse
+            .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
+            - node.content_box().min
+            + text_scroll.0
     }) else {
         return;
     };
 
-    editable_text.pending_edits.extend([
-        TextEdit::MoveToPoint(drag_start_local_pos),
-        TextEdit::ExtendSelectionToPoint(current_local_pos),
-    ]);
-
-    drag.propagate(false);
+    editable_text
+        .pending_edits
+        .push(TextEdit::ExtendSelectionToPoint(current_local_pos));
 }
 
 /// System that processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`] widget.
@@ -425,21 +375,25 @@ fn listen_for_ime_input_when_text_input_focused(
     window.ime_enabled = editable_text_focused;
 }
 
-/// Observer that clears in-progress IME composition when an [`EditableText`] loses focus.
+/// Observer that clears in-progress IME composition and
+/// collapses the current selection to a caret when an [`EditableText`] loses focus .
 ///
 /// We need to clear the composition on focus loss because IME composition state is not automatically tied to widget focus;
-/// the IME remains active until explicitly disabled, even if the focused widget changes to another `EditableText` or to a non-`EditableText`.
+/// the IME remains active until explicitly disabled,
+/// even if the focused widget changes to another `EditableText` or to a non-`EditableText`.
 ///
 /// Without this, switching focus between two text inputs leaves stale preedit state on the
 /// previous input.
 /// The IME stays enabled because both entities are [`EditableText`],
 /// and no [`Ime::Disabled`] event is ever fired to trigger the cleanup in [`on_ime_input`].
-fn on_focus_lost_clear_ime(
-    trigger: On<FocusLost>,
-    mut editable_text_query: Query<&mut EditableText>,
-) {
+///
+/// A [`TextEdit::CollapseSelection`] is also fired to collapse any active highlighted text
+/// selection back to the caret cursor position, preventing text styles from getting stuck in a
+/// focused color state.
+fn on_focus_lost(trigger: On<FocusLost>, mut editable_text_query: Query<&mut EditableText>) {
     if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::clear_ime_compose());
+        editable_text.queue_edit(TextEdit::CollapseSelection);
     }
 }
 
@@ -449,12 +403,14 @@ fn on_focus_lost_clear_ime(
 /// pointer release and is only applied if there is no other selection by then.
 /// For example, if pointer dragging caused a selection to be made, we don't want
 /// to replace it with a select all.
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
 pub struct SelectAllOnFocus;
 
 /// Resource to track when a pointer press caused focus on an [`EditableText`].
 /// A corresponding pointer release will select all text if there is no other selection.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Reflect)]
+#[reflect(Resource)]
 struct QueuedSelectAll(Option<Entity>);
 
 fn on_focus_select_all(
@@ -470,11 +426,8 @@ fn on_focus_select_all(
                     queued_select_all.0 = Some(target);
                 }
             }
-
-            // Navigating into a text input should always select all even without
-            // the `SelectAllOnFocus` marker, unless it is a multiline input.
             FocusCause::Navigated => {
-                if select_all_on_focus || !editable_text.allow_newlines {
+                if select_all_on_focus {
                     editable_text.queue_edit(TextEdit::SelectAll);
                 }
             }
@@ -538,9 +491,8 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_focused_keyboard_input)
             .add_observer(on_pointer_drag)
             .add_observer(on_pointer_press)
-            .add_observer(on_focus_lost_clear_ime)
+            .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
-            .add_observer(on_pointer_click)
             .add_systems(
                 PreUpdate,
                 (
