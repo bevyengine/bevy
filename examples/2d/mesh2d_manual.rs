@@ -423,7 +423,7 @@ pub fn queue_colored_mesh2d(
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
                 let mesh_z = mesh2d_transforms.world_from_local.translation.z;
-                transparent_phase.add(Transparent2d {
+                transparent_phase.add_retained(Transparent2d {
                     entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,

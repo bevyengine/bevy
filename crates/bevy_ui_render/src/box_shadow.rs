@@ -153,10 +153,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = vec![ShaderDefVal::UInt(
-            "SHADOW_SAMPLES".to_string(),
-            key.samples,
-        )];
+        let shader_defs = vec![ShaderDefVal::UInt("SHADOW_SAMPLES".into(), key.samples)];
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -277,7 +274,7 @@ pub fn extract_shadows(
             };
 
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 stack_index: stack_index.0,
                 transform: Affine2::from(transform) * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),

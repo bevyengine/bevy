@@ -792,32 +792,44 @@ pub(super) fn prepare_atmosphere_bind_groups(
     Ok(())
 }
 
-pub fn init_atmosphere_buffer(mut commands: Commands) {
-    commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(GpuAtmosphere {
-            ground_albedo: Vec3::ZERO,
-            inner_radius: 0.0,
-            outer_radius: 0.0,
-            world_to_atmosphere: Mat4::IDENTITY,
-        }),
-    });
+#[derive(ShaderType)]
+#[repr(C)]
+pub(crate) struct AtmosphereData {
+    pub atmosphere: GpuAtmosphere,
+    pub settings: GpuAtmosphereSettings,
 }
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct AtmosphereBuffer {
-    pub(crate) buffer: StorageBuffer<GpuAtmosphere>,
+    pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
 
-pub(crate) fn write_atmosphere_buffer(
+pub(crate) fn prepare_atmosphere_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<&GpuAtmosphere, With<Camera3d>>,
-    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+    mut views: Query<
+        (
+            Entity,
+            &GpuAtmosphere,
+            &GpuAtmosphereSettings,
+            Option<&mut AtmosphereBuffer>,
+        ),
+        With<ExtractedAtmosphere>,
+    >,
+    mut commands: Commands,
 ) {
-    let Ok(atmosphere) = atmosphere_entity.single() else {
-        return;
-    };
-
-    atmosphere_buffer.buffer.set(atmosphere.clone());
-    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+        let data = AtmosphereData {
+            atmosphere: atmosphere.clone(),
+            settings: settings.clone(),
+        };
+        if let Some(mut atmosphere_buffer) = existing_buffer {
+            atmosphere_buffer.buffer.set(data);
+            atmosphere_buffer.buffer.write_buffer(&device, &queue);
+        } else {
+            let mut buffer = StorageBuffer::from(data);
+            buffer.write_buffer(&device, &queue);
+            commands.entity(entity).insert(AtmosphereBuffer { buffer });
+        }
+    }
 }

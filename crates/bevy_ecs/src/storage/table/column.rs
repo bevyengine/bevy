@@ -168,7 +168,7 @@ impl Column {
     ///
     /// # Safety
     /// - `row.as_usize()` must be in bounds.
-    /// - `comp_ptr` holds a component that matches the `component_id`
+    /// - `data` holds a component that matches the `component_id`
     #[inline]
     pub(crate) unsafe fn initialize(
         &mut self,

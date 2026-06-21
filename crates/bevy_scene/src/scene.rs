@@ -1,4 +1,4 @@
-use crate::{InheritSceneError, ResolvedScene, SceneList, ScenePatch};
+use crate::{CachedSceneError, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
@@ -8,9 +8,7 @@ use bevy_ecs::{
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
-    template::{
-        EntityScopes, FnTemplate, FromTemplate, ScopedEntityIndex, Template, TemplateContext,
-    },
+    template::{FnTemplate, FromTemplate, SceneEntityReference, Template, TemplateContext},
 };
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
@@ -19,7 +17,7 @@ use variadics_please::all_tuples;
 /// Conceptually, a [`Scene`] describes what a spawned [`Entity`] should look like. This often describes what [`Component`]s the entity should have.
 ///
 /// [`Scene`] is _always_ a single top level [`Entity`] / root entity.  For "lists of scenes" / multiple "root" entities, see [`SceneList`]. These are
-/// separate traits for logical reasons: [`World::spawn`] is a "single entity" action. Additionally, "scene inheritance" only makes sense when both scenes
+/// separate traits for logical reasons: [`World::spawn`] is a "single entity" action. Additionally, "scene caching" only makes sense when both scenes
 /// are "single root entities". A good way to think of this is [`Entity`] vs [`Vec<Entity>`]: these are different types with different APIs and semantics.
 ///
 /// ## Resolving Scenes
@@ -33,7 +31,7 @@ use variadics_please::all_tuples;
 /// - Editing an existing [`Template`] (ex: "patching" [`Template`] fields)
 /// - Adding one or more "related" [`ResolvedScene`]s, which will be spawned alongside the root [`ResolvedScene`] and "related" back to it with a [`Relationship`].
 /// - Editing an existing "related" [`ResolvedScene`].
-/// - Setting a [`ScenePatch`] to inherit from.
+/// - Setting a [`ScenePatch`] containing a cached [`ResolvedScene`] to apply first.
 ///
 /// See [`ResolvedScene`] for more information on how it can be composed.
 ///
@@ -160,10 +158,10 @@ pub enum ResolveSceneError {
     /// Caused when a dependency listed in [`Scene::register_dependencies`] is not available when calling [`Scene::resolve`]
     #[error("Cannot resolve scene because the asset dependency {0} is not present. This could be because it isn't loaded yet, or because the asset does not exist. Consider using `queue_spawn_scene()` if you would like to wait for scene dependencies before spawning.")]
     MissingSceneDependency(AssetPath<'static>),
-    /// Caused when inheriting a scene during [`Scene::resolve`] fails.
+    /// Caused when including a cached scene during [`Scene::resolve`] fails.
     #[error(transparent)]
-    InheritSceneError(#[from] InheritSceneError),
-    /// Caused when a Scene/SceneList is not present on the scene asset.
+    CachedSceneError(#[from] CachedSceneError),
+    /// Caused when a [`Scene`]/[`SceneList`] is not present on the scene asset.
     #[error("The Scene/SceneList is not present on the scene asset. This is likely because the scene has already been resolved, which consumed the source scene")]
     MissingScene,
 }
@@ -174,32 +172,8 @@ pub struct ResolveContext<'a> {
     pub assets: &'a AssetServer,
     /// The current [`ScenePatch`] asset collection
     pub patches: &'a Assets<ScenePatch>,
-    /// The currently inherited [`ScenePatch`], if there is one.
-    pub inherited: Option<&'a ScenePatch>,
-    pub(crate) entity_scopes: &'a mut EntityScopes,
-    pub(crate) current_scope: usize,
-}
-
-impl<'a> ResolveContext<'a> {
-    /// The current entity scope.
-    #[inline]
-    pub fn current_entity_scope(&self) -> usize {
-        self.current_scope
-    }
-
-    /// Creates a new entity scope, which is active for the duration of `func`. When this function returns,
-    /// the original scope will be returned to.
-    pub fn new_entity_scope<T>(&mut self, func: impl FnOnce(&mut ResolveContext) -> T) -> T {
-        let current_scope = self.entity_scopes.add_scope();
-        let mut context = ResolveContext {
-            assets: self.assets,
-            patches: self.patches,
-            inherited: None,
-            entity_scopes: self.entity_scopes,
-            current_scope,
-        };
-        (func)(&mut context)
-    }
+    /// The currently cached [`ScenePatch`], if there is one.
+    pub cached: Option<&'a ScenePatch>,
 }
 
 macro_rules! scene_impl {
@@ -236,6 +210,50 @@ macro_rules! scene_impl {
 }
 
 all_tuples!(scene_impl, 0, 12, P);
+
+impl<S> Scene for Option<S>
+where
+    S: Scene,
+{
+    #[inline]
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|value| value.resolve(context, scene))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(value) = &self {
+            value.register_dependencies(dependencies);
+        }
+    }
+}
+
+impl<L: SceneList> SceneList for Option<L>
+where
+    L: SceneList,
+{
+    #[inline]
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|scene_list| scene_list.resolve_list(context, scenes))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(scene_list) = &self {
+            scene_list.register_dependencies(dependencies);
+        }
+    }
+}
 
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
@@ -367,25 +385,25 @@ impl<R: Relationship, L: SceneList> Scene for RelatedScenes<R, L> {
     }
 }
 
-/// A [`Scene`] that will inherit from the [`ScenePatch`] stored at the given [`AssetPath`].
-/// This will _not_ resolve the inherited scene directly on top of this [`ResolvedScene`]. Instead
-/// it will set [`ResolvedScene::inherit`], which (when spawning the [`ResolvedScene`]) will apply the inherited [`ResolvedScene`]
+/// A [`Scene`] that will include the cached [`ScenePatch`] stored at the given [`AssetPath`].
+/// This will _not_ resolve the cached scene directly on top of this [`ResolvedScene`]. Instead
+/// it will set [`ResolvedScene::include_cached`], which (when spawning the [`ResolvedScene`]) will apply the cached [`ResolvedScene`]
 /// first. _Then_ the top-level [`ResolvedScene`] will be applied.
 ///
-/// This also enables copy-on-write semantics for all future [`Template`] accesses. See [`ResolvedScene`] for more info on "inheritance".
+/// This also enables copy-on-write semantics for all future [`Template`] accesses. See [`ResolvedScene`] for more info on caching.
 #[derive(Clone)]
-pub struct InheritSceneAsset(
-    /// The [`AssetPath`] of the [`ScenePatch`] to inherit from.
+pub struct CachedSceneAsset(
+    /// The [`AssetPath`] of the [`ScenePatch`] to include.
     pub AssetPath<'static>,
 );
 
-impl<I: Into<AssetPath<'static>>> From<I> for InheritSceneAsset {
+impl<I: Into<AssetPath<'static>>> From<I> for CachedSceneAsset {
     fn from(value: I) -> Self {
-        InheritSceneAsset(value.into())
+        CachedSceneAsset(value.into())
     }
 }
 
-impl Scene for InheritSceneAsset {
+impl Scene for CachedSceneAsset {
     fn resolve(
         self,
         context: &mut ResolveContext,
@@ -394,8 +412,8 @@ impl Scene for InheritSceneAsset {
         if let Some(handle) = context.assets.get_handle::<ScenePatch>(&self.0)
             && let Some(scene_patch) = context.patches.get(&handle)
         {
-            scene.inherit(handle)?;
-            context.inherited = Some(scene_patch);
+            scene.include_cached(handle)?;
+            context.cached = Some(scene_patch);
             Ok(())
         } else {
             Err(ResolveSceneError::MissingSceneDependency(self.0))
@@ -421,34 +439,23 @@ impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static,
 }
 
 /// Sets up a given name as an "entity reference" for the current entity. This pairs the [`Self::name`] field
-/// to a given [`Self::index`] field.
+/// to a given [`Self::reference`] field.
 ///
-/// The `index` should be a dense, unique identifier (within the current "entity scope") that can be used to reference this entity.
-/// Usually this is not set manually by a user. Instead this is generally done by a macro (such as the [`bsn!`] macro) or an asset loader
+/// Usually the reference is not set manually by a user. Instead this is generally done by a macro (such as the [`bsn!`] macro) or an asset loader
 /// (such as the BSN asset loader).
 ///
 /// [`bsn!`]: crate::bsn
 pub struct NameEntityReference {
     /// The name to give this entity.
     pub name: Name,
-    /// The index (within the current "entity scope") of this entity reference.
-    pub index: usize,
+    /// A unique entity reference.
+    pub reference: SceneEntityReference,
 }
 
 impl NameEntityReference {
     /// Resolves this reference "inline" without going through a [`Scene`] impl.
     pub fn resolve_inline(self, context: &mut ResolveContext, scene: &mut ResolvedScene) {
-        let this_index = ScopedEntityIndex {
-            scope: context.current_entity_scope(),
-            index: self.index,
-        };
-        if let Some(first_index) = scene.entity_indices.first().copied() {
-            let consolidated_index = context.entity_scopes.get(first_index).unwrap();
-            context.entity_scopes.assign(this_index, consolidated_index);
-        } else {
-            context.entity_scopes.alloc(this_index);
-        }
-        scene.entity_indices.push(this_index);
+        scene.entity_references.push(self.reference);
         let name = scene.get_or_insert_template::<Name>(context);
         *name = self.name;
     }
@@ -466,7 +473,7 @@ impl Scene for NameEntityReference {
 }
 
 /// A [`Scene`] that will create a new "entity scope" and fully resolve the given scene `S` on top of the current [`ResolvedScene`] (using that scope).
-/// It is not "inherited" or cached.
+/// It is not cached.
 #[must_use]
 pub struct SceneScope<S: Scene>(pub S);
 
@@ -476,7 +483,7 @@ impl<S: Scene> Scene for SceneScope<S> {
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        context.new_entity_scope(|context| self.0.resolve(context, scene))
+        self.0.resolve(context, scene)
     }
 
     fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
@@ -485,7 +492,7 @@ impl<S: Scene> Scene for SceneScope<S> {
 }
 
 /// A [`SceneList`] that will create a new "entity scope" and fully resolve the given scene list `L` on top of the current [`Vec<ResolvedScene>`]
-/// (using that scope). It is not "inherited" or cached.
+/// (using that scope). It is not cached.
 #[must_use]
 pub struct SceneListScope<L: SceneList>(pub L);
 
@@ -495,7 +502,7 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
         context: &mut ResolveContext,
         scenes: &mut Vec<ResolvedScene>,
     ) -> Result<(), ResolveSceneError> {
-        context.new_entity_scope(|context| self.0.resolve_list(context, scenes))
+        self.0.resolve_list(context, scenes)
     }
 
     fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
@@ -556,6 +563,12 @@ impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
     }
 }
 
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn Scene>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
 impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneListScope<S>) -> Self {
         Box::new(value)
@@ -565,6 +578,18 @@ impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
 impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneScope<S>) -> Self {
         Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Some(Box::new(value))
     }
 }
 

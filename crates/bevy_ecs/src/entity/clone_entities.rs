@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 use crate::{
     archetype::Archetype,
     bundle::{Bundle, BundleRemover, InsertMode},
@@ -219,9 +214,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         }
         let layout = self.component_info.layout();
         let target_ptr = self.bundle_scratch_allocator.alloc_layout(layout);
-        core::ptr::copy_nonoverlapping(ptr.as_ptr(), target_ptr.as_ptr(), layout.size());
-        self.bundle_scratch
-            .push_ptr(self.component_id, PtrMut::new(target_ptr));
+        // SAFETY:
+        // - `ptr` points to a readable value matching self.component type
+        // - `target_ptr` was just allocated (and therefore does not overlap) with the correct layout
+        unsafe {
+            core::ptr::copy_nonoverlapping(ptr.as_ptr(), target_ptr.as_ptr(), layout.size());
+            self.bundle_scratch
+                .push_ptr(self.component_id, PtrMut::new(target_ptr));
+        }
         self.target_component_written = true;
     }
 
@@ -1476,7 +1476,7 @@ mod tests {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
         use alloc::vec;
-        use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
+        use bevy_reflect::{std_traits::ReflectDefault, CreateTypeData, Reflect, ReflectFromPtr};
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -1617,7 +1617,7 @@ mod tests {
                 registry
                     .get_mut(TypeId::of::<A>())
                     .unwrap()
-                    .insert(<ReflectFromPtr as FromType<B>>::from_type());
+                    .insert(<ReflectFromPtr as CreateTypeData<B>>::create_type_data(()));
             }
 
             let e = world.spawn(A).id();
