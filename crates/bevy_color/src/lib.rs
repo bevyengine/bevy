@@ -128,7 +128,7 @@ mod xyza;
 pub mod prelude {
     pub use crate::{
         color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
-        oklaba::*, oklcha::*, srgba::*, xyza::*,
+        okhsla::*, okhsva::*, oklaba::*, oklcha::*, srgba::*, xyza::*,
     };
 }
 
