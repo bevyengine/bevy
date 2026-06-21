@@ -97,7 +97,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
-|bevy_settings|Load and save user preferences|
+|bevy_settings|Load and save settings|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|
