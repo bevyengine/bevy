@@ -234,7 +234,7 @@ impl Time<Virtual> {
         self.context().effective_speed == 0.0
     }
 
-    /// Updates the elapsed duration of `self` by `raw_delta`, up to the `max_delta`.
+    /// Updates the elapsed duration of `self` by `raw_delta` * `relative_speed`, up to the `max_delta`.
     fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
         let effective_speed = if self.context().paused {
