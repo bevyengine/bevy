@@ -3,7 +3,7 @@ use core::time::Duration;
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
-use bevy_asset::AssetServer;
+use bevy_asset::{AssetServer, asset_value};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -13,7 +13,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Commands, Query, Res},
-    template::{template, FromTemplate, ScopedEntityIndex},
+    template::{template, FromTemplate},
     world::DeferredWorld,
 };
 use bevy_picking::{hover::Hovered, Pickable};
@@ -259,6 +259,7 @@ impl FeathersToast {
                     let handle = ctx.resource::<AssetServer>().load(icons::X);
                     Ok(ImageNode::new(handle))
                 })
+                // ImageNode { image: icons::X.to_string() }
                 on(|trigger: On<Activate>, mut commands: Commands, child_of: Query<&ChildOf>| {
                     if let Ok(parent) = child_of.get(trigger.entity) {
                         commands.entity(parent.0).despawn();
@@ -301,11 +302,11 @@ impl FeathersToast {
                             height: px(5),
                         }
                         ThemeBackgroundColor({props.variant.background_color()})
-                        template(move |ctx| {
-                            let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
-                            Ok(ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity })
-                        })
-                        // ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
+                        // template(move |ctx| {
+                        //     let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
+                        //     Ok(ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity })
+                        // })
+                        ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
                         }) as Box<dyn Scene>
                 } else {
                     Box::new(bsn!()) as Box<dyn Scene>
@@ -331,13 +332,25 @@ fn tick_toasts_progress_bars(
         }
         let timer = &mut toast_progress_bar.timer;
         timer.tick(time.delta());
-        let remaining_secs = timer.remaining_secs();
-        let duration_secs = timer.duration().as_secs() as f32;
-        let remaining = remaining_secs / duration_secs;
-        node.width = percent(remaining * 100.);
+        node.width = percent(timer.fraction_remaining() * 100.);
         if timer.is_finished() {
             commands.entity(toast_progress_bar.root_entity).despawn();
         }
+    }
+}
+
+pub struct ToastMessage<S: ToString>(pub S, pub ToastVariant, pub ToastPosition);
+
+impl<S: ToString + Send + 'static> bevy_ecs::system::Command for ToastMessage<S> {
+    type Out = ();
+    fn apply(self, world: &mut bevy_ecs::world::World) {
+        world.queue_spawn_scene(bsn! {
+            :FeathersToast {
+                @message: {self.0.to_string()},
+                @variant: {self.1},
+                @position: {self.2},
+            }
+        });
     }
 }
 

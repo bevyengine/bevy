@@ -10,7 +10,7 @@ use bevy::{
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         display::{icon, label, label_dim, label_small},
-        feedback::{FeathersToast, ToastPosition, ToastVariant},
+        feedback::{ToastMessage, ToastPosition, ToastVariant},
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
@@ -704,13 +704,7 @@ fn demo_column_2() -> impl Scene {
                                                 flex_grow: 1.0,
                                             }
                                             on(|_: On<Activate>, mut commands: Commands| {
-                                                commands.spawn_scene(bsn! {
-                                                    :FeathersToast {
-                                                        @message: "Error toast in top left",
-                                                        @variant: ToastVariant::Error,
-                                                        @position: ToastPosition::TopLeft,
-                                                    }
-                                                });
+                                                commands.queue(ToastMessage("Error toast in top left", ToastVariant::Error, ToastPosition::TopLeft));
                                             })
                                         ), (
                                             :FeathersButton {
@@ -721,13 +715,7 @@ fn demo_column_2() -> impl Scene {
                                                 flex_grow: 1.0,
                                             }
                                             on(|_: On<Activate>, mut commands: Commands| {
-                                                commands.spawn_scene(bsn! {
-                                                    :FeathersToast {
-                                                        @message: "Info toast in top right",
-                                                        @variant: ToastVariant::Info,
-                                                        @position: ToastPosition::TopRight,
-                                                    }
-                                                });
+                                                commands.queue(ToastMessage("Info toast in top right", ToastVariant::Info, ToastPosition::TopRight));
                                             })
                                         ), (
                                             :FeathersButton {
@@ -738,13 +726,7 @@ fn demo_column_2() -> impl Scene {
                                                 flex_grow: 1.0,
                                             }
                                             on(|_: On<Activate>, mut commands: Commands| {
-                                                commands.spawn_scene(bsn! {
-                                                    :FeathersToast {
-                                                        @message: "Success toast in bottom right",
-                                                        @variant: ToastVariant::Success,
-                                                        @position: ToastPosition::BottomRight,
-                                                    }
-                                                });
+                                                commands.queue(ToastMessage("Success toast in bottom right", ToastVariant::Success, ToastPosition::BottomRight));
                                             })
                                         ), (
                                             :FeathersButton {
@@ -755,13 +737,7 @@ fn demo_column_2() -> impl Scene {
                                                 flex_grow: 1.0,
                                             }
                                             on(|_: On<Activate>, mut commands: Commands| {
-                                                commands.spawn_scene(bsn! {
-                                                    :FeathersToast {
-                                                        @message: "Warning toast in bottom left",
-                                                        @variant: ToastVariant::Warning,
-                                                        @position: ToastPosition::BottomLeft,
-                                                    }
-                                                });
+                                                commands.queue(ToastMessage("Warning toast in bottom left", ToastVariant::Warning, ToastPosition::BottomLeft));
                                             })
                                         ),
                                     ]
