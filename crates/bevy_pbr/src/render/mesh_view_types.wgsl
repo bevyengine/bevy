@@ -81,10 +81,12 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-    ambient_light_affects_lightmapped_meshes: u32,
+    ambient_light_flags: u32,
     n_rect_lights: u32,
     rect_lights: array<RectLight, #{MAX_RECT_LIGHTS}u>,
 };
+
+const AMBIENT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT: u32           = 1u << 0u;
 
 struct Fog {
     base_color: vec4<f32>,

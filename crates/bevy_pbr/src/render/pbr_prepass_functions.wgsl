@@ -18,17 +18,41 @@
 // Cutoff used for the premultiplied alpha modes BLEND, ADD, and ALPHA_TO_COVERAGE.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
+// Reusable alpha discard logic suitable for use by custom materials in the prepass.
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
-fn prepass_alpha_discard(in: VertexOutput) {
+fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) {
+    let alpha_mode = material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+        if output_color.a < alpha_cutoff {
+            discard;
+        }
+    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE) {
+        if output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
+            discard;
+        }
+    } else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
+        if all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
+            discard;
+        }
+    }
+}
+
+// Samples the StandardMaterial's base color (including the base color texture, if any) and then
+// invokes `prepass_alpha_discard` with the material's flags and alpha cutoff.
+fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 #ifdef MAY_DISCARD
 #ifdef BINDLESS
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     var output_color: vec4<f32> = pbr_bindings::material_array[material_indices[slot].material].base_color;
     let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
+    let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
     let flags = pbr_bindings::material.flags;
+    let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif  // BINDLESS
 
 #ifdef VERTEX_UVS
@@ -60,28 +84,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
     }
 #endif // VERTEX_UVS
 
-    let alpha_mode = flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-#ifdef BINDLESS
-        let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
-#else   // BINDLESS
-        let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
-#endif  // BINDLESS
-        if output_color.a < alpha_cutoff {
-            discard;
-        }
-    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND ||
-            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD ||
-            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE) {
-        if output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
-            discard;
-        }
-    } else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
-        if all(output_color < vec4(PREMULTIPLIED_ALPHA_CUTOFF)) {
-            discard;
-        }
-    }
-
+    prepass_alpha_discard(flags, alpha_cutoff, output_color);
 #endif // MAY_DISCARD
 }
 

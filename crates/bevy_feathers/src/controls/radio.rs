@@ -44,6 +44,8 @@ use crate::{
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersRadioProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersRadio;
 
 /// Props used to construct a [`FeathersRadio`] scene.
@@ -95,7 +97,6 @@ impl FeathersRadio {
                 FocusIndicator
                 ThemeBorderColor(tokens::RADIO_BORDER)
                 Children [(
-                    // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: px(8),
                         height: px(8),
@@ -170,7 +171,6 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
                 FocusIndicator,
                 ThemeBorderColor(tokens::RADIO_BORDER),
                 children![(
-                    // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: px(8),
                         height: px(8),

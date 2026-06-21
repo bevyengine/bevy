@@ -370,3 +370,28 @@ pub const GROUP_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.group
 pub const GROUP_BODY_BG: ThemeToken = ThemeToken::new_static("feathers.group.body.bg");
 /// Group body border
 pub const GROUP_BODY_BORDER: ThemeToken = ThemeToken::new_static("feathers.group.body.border");
+
+// Listview
+
+/// Listview row background
+pub const LISTROW_BG: ThemeToken = ThemeToken::new_static("feathers.listrow.bg");
+/// Listview row background (hovered)
+pub const LISTROW_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.listrow.bg.hover");
+/// Listview row background (selected)
+pub const LISTROW_BG_SELECTED: ThemeToken = ThemeToken::new_static("feathers.listrow.bg.selected");
+/// Listview row text
+pub const LISTROW_TEXT: ThemeToken = ThemeToken::new_static("feathers.listrow.text");
+/// Listview row text (disabled)
+pub const LISTROW_TEXT_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.listrow.text.disabled");
+
+// Modal Dialog
+
+/// Dialog background
+pub const DIALOG_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.bg");
+/// Dialog border
+pub const DIALOG_BORDER: ThemeToken = ThemeToken::new_static("feathers.dialog.border");
+/// Dialog header background
+pub const DIALOG_HEADER_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.header.bg");
+/// Dialog text
+pub const DIALOG_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.txt");
