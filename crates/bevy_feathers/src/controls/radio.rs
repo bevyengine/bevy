@@ -97,7 +97,6 @@ impl FeathersRadio {
                 FocusIndicator
                 ThemeBorderColor(tokens::RADIO_BORDER)
                 Children [(
-                    // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: px(8),
                         height: px(8),
@@ -172,7 +171,6 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
                 FocusIndicator,
                 ThemeBorderColor(tokens::RADIO_BORDER),
                 children![(
-                    // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: px(8),
                         height: px(8),
