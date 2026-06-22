@@ -420,10 +420,10 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     }
 
     /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or` return `true`.
+    /// if either this one or the passed `else_run` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `or` will only be invoked if `self` returns `false`.
+    /// `else_run` will only be invoked if `self` returns `false`.
     ///
     /// Short-circuiting may not be desired in all cases; when utilizing change detection,
     /// the `else_run` condition will react to changes since the last time that _`self` returned `false`_,
@@ -454,7 +454,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_systems(
-    ///     // Only run the system if either `A` or `B` exist.
+    ///     // Only run the system if either `A` or else `B` exist.
     ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
     /// );
     /// #
@@ -480,10 +480,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     }
 
     /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or` return `true`.
+    /// if either this one or the passed `other` return `true`.
     ///
     /// The returned run condition is eagerly evaluated, meaning
-    /// it will always execute both run conditions in order.
+    /// it will always execute both run conditions in order even
+    /// if the first conditions evaluates to `true`.
     ///
     /// See also [`or_else`], which short-circuits if `self` returns `true`.
     ///
