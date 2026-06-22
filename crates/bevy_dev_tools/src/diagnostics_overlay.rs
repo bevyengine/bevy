@@ -389,7 +389,7 @@ fn build_overlay(
             (
                 Node {
                     padding: DEFAULT_PADDING,
-                    border_radius: BorderRadius::bottom(Val::Px(4.)),
+                    border_radius: BorderRadius::top(Val::Px(4.)),
                     ..Default::default()
                 },
                 DiagnosticsOverlayHeader,
