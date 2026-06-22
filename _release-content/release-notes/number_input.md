@@ -17,7 +17,7 @@ The behavior of the widget can be configured through the use of several optional
 
 - `HardLimit` specifies the minimum and maximum range for the value. If this component is absent,
   then the natural range of the data type is used.
-- `SoftLimit` specifes the range that is accessible via dragging. Numbers that are entered by
+- `SoftLimit` specifies the range that is accessible via dragging. Numbers that are entered by
   typing can exceed this limit.
 - `NumberInputPrecision` is used to specify the number of decimal points of precision when dragging,
   so that you don't get a bunch of digits jumping around. This only quantizes the value when
