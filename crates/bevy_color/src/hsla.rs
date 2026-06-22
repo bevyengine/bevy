@@ -400,6 +400,8 @@ mod tests {
             if color.name == "white_minus_epsilon" {
                 // Our implementation differs from `palette`.
                 // But it's OK because saturation doesn't matter when lightness is 1.0
+                assert!(color.hsl.saturation != hsl2.saturation);
+                assert_approx_eq!(color.hsl.lightness, 1.0, 0.001);
                 assert_approx_eq!(1.0, hsl2.saturation, 0.001);
             } else {
                 assert_approx_eq!(color.hsl.saturation, hsl2.saturation, 0.001);
