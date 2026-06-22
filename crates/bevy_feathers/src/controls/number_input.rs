@@ -610,10 +610,10 @@ fn number_input_on_remove_disabled(
     q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
+<<<<<<< HEAD
     input_focus: Res<InputFocus>,
+=======
     mut commands: Commands,
-) {
-    let text_input_id = q_children
         .iter_descendants(remove.event_target())
         .find(|e| q_text_input.contains(*e));
 
@@ -1009,7 +1009,7 @@ fn scrubber_on_drag_end(
                 disabled,
                 false,
                 hovered,
-                input_focus.get() == Some(text_id),
+                false
                 &mut gradient,
                 &mut commands,
             );

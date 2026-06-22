@@ -12,7 +12,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryItem, With, Without},
+    query::{Has, Or, QueryItem, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -125,6 +125,7 @@ impl Plugin for BackgroundMotionVectorsPlugin {
             .add_systems(
                 Render,
                 (
+                    cleanup_background_motion_vectors.in_set(RenderSystems::Prepare),
                     prepare_background_motion_vectors_pipelines.in_set(RenderSystems::Prepare),
                     prepare_background_motion_vectors_bind_groups
                         .in_set(RenderSystems::PrepareBindGroups),
@@ -209,6 +210,27 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             }),
             ..default()
         }
+    }
+}
+
+fn cleanup_background_motion_vectors(
+    mut commands: Commands,
+    views: Query<
+        Entity,
+        (
+            With<BackgroundMotionVectorsPipelineId>,
+            Or<(
+                Without<MotionVectorPrepass>,
+                With<NoBackgroundMotionVectors>,
+            )>,
+        ),
+    >,
+) {
+    for entity in &views {
+        commands.entity(entity).remove::<(
+            BackgroundMotionVectorsPipelineId,
+            BackgroundMotionVectorsBindGroup,
+        )>();
     }
 }
 
