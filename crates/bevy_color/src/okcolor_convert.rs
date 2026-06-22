@@ -300,9 +300,25 @@ pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
         b: lab_b,
         alpha,
     } = value;
-    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     // Patch: Fixes NaN for pure black and white colors.
-    if C < f32::EPSILON {
+    if lab_l >= 1.0 {
+        return Okhsla {
+            hue: 0.0,
+            saturation: 0.0,
+            lightness: 1.0,
+            alpha,
+        };
+    }
+    if lab_l <= 0.0 {
+        return Okhsla {
+            hue: 0.0,
+            saturation: 0.0,
+            lightness: 0.0,
+            alpha,
+        };
+    }
+    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
+    if C == 0. {
         let l = toe(lab_l);
         return Okhsla {
             hue: 0.,
@@ -360,9 +376,9 @@ pub(crate) fn okhsl_to_oklab(value: Okhsla) -> Oklaba {
     } = value;
     let h = h / 360.;
 
-    if l == 1. {
+    if l >= 1. {
         return LinearRgba::new(1., 1., 1., alpha).into();
-    } else if l == 0. {
+    } else if l <= 0. {
         return LinearRgba::new(0., 0., 0., alpha).into();
     }
 
@@ -407,9 +423,25 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
         b: lab_b,
         alpha,
     } = value;
-    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     // Patch: Fixes NaN for pure black and white colors.
-    if C < f32::EPSILON {
+    if lab_l >= 1.0 {
+        return Okhsva {
+            hue: 0.0,
+            saturation: 0.0,
+            value: 1.0,
+            alpha,
+        };
+    }
+    if lab_l <= 0.0 {
+        return Okhsva {
+            hue: 0.0,
+            saturation: 0.0,
+            value: 0.0,
+            alpha,
+        };
+    }
+    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
+    if C == 0. {
         // In this case, value is equal to lightness.
         let l = toe(lab_l);
         return Okhsva {
@@ -472,7 +504,7 @@ pub(crate) fn okhsv_to_oklab(value: Okhsva) -> Oklaba {
     } = value;
     let h = h / 360.;
 
-    if v == 0. {
+    if v <= 0. {
         return LinearRgba::new(0., 0., 0., alpha).into();
     }
 
