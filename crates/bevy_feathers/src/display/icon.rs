@@ -9,7 +9,7 @@ use bevy_ui::{px, widget::ImageNode, Node};
 
 use crate::theme::ThemedText;
 
-/// Marker to tint an icon's ImageNode by the text color.
+/// Marker to tint an icon's `ImageNode` by the text color.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component)]
 #[require(ThemedText)]
