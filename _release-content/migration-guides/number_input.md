@@ -1,6 +1,6 @@
 ---
 title: "Add scrubbing / dragging to number_input widget"
-pull_requests: [24636]
+pull_requests: [24636, 24701]
 ---
 
 The API for the `FeathersNumberInput` has changed. To programmatically update the value, instead

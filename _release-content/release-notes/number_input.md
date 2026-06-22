@@ -1,7 +1,7 @@
 ---
 title: "Add scrubbing / dragging to number_input widget"
 authors: ["@viridia"]
-pull_requests: [24636]
+pull_requests: [24636, 24701]
 ---
 
 The `FeathersNumberInput` widget has been substantially overhauled, with several new features.
