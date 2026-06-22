@@ -12,18 +12,18 @@ use crate::{okhsla::Okhsla, LinearRgba, Okhsva, Oklaba};
 use bevy_math::ops;
 
 #[derive(Clone, Copy)]
-pub(crate) struct LC {
-    pub(crate) L: f32,
-    pub(crate) C: f32,
+struct LC {
+    L: f32,
+    C: f32,
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct ST {
-    pub(crate) S: f32,
-    pub(crate) T: f32,
+struct ST {
+    S: f32,
+    T: f32,
 }
 
-pub(crate) fn to_ST(cusp: LC) -> ST {
+fn to_ST(cusp: LC) -> ST {
     let L = cusp.L;
     let C = cusp.C;
     ST {
@@ -113,7 +113,7 @@ fn compute_max_saturation(a: f32, b: f32) -> f32 {
 
 // finds L_cusp and C_cusp for a given hue
 // a and b must be normalized so a^2 + b^2 == 1
-pub(crate) fn find_cusp(a: f32, b: f32) -> LC {
+fn find_cusp(a: f32, b: f32) -> LC {
     // First, find the maximum saturation (saturation S = C/L)
     let S_cusp = compute_max_saturation(a, b);
 
@@ -279,14 +279,14 @@ fn get_ST_mid(a_: f32, b_: f32) -> ST {
     ST { S, T }
 }
 
-pub(crate) fn toe(x: f32) -> f32 {
+fn toe(x: f32) -> f32 {
     let k_1: f32 = 0.206;
     let k_2: f32 = 0.03;
     let k_3: f32 = (1. + k_1) / (1. + k_2);
     0.5 * (k_3 * x - k_1 + ops::sqrt((k_3 * x - k_1) * (k_3 * x - k_1) + 4. * k_2 * k_3 * x))
 }
 
-pub(crate) fn toe_inv(x: f32) -> f32 {
+fn toe_inv(x: f32) -> f32 {
     let k_1 = 0.206;
     let k_2 = 0.03;
     let k_3 = (1. + k_1) / (1. + k_2);
