@@ -455,7 +455,7 @@ pub struct Material2dPipelineSpecializer {
     pub(crate) properties: Arc<MaterialProperties>,
 }
 
-pub struct Material2dKey<M: Material2d> {
+pub struct Material2dKey<M: AsBindGroup> {
     pub mesh_key: Mesh2dPipelineKey,
     pub bind_group_data: M::Data,
 }
