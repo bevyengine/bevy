@@ -1658,6 +1658,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                         if *current_batch_set_key == *batch_set_key {
                             if *current_bin_key == *bin_key {
                                 SortedPhaseItemBatchability::BatchOk
+                            } else if no_indirect_drawing {
+                                // Without indirect drawing, different meshes need separate batch sets
+                                SortedPhaseItemBatchability::BreakBatchSet
                             } else {
                                 SortedPhaseItemBatchability::BreakBatch
                             }
