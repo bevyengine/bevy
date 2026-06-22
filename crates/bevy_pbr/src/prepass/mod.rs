@@ -390,7 +390,9 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
 }
 
 fn is_depth_only_opaque_prepass(mesh_key: MeshPipelineKey) -> bool {
-    mesh_key.intersection(MeshPipelineKey::ALL_PREPASS_BITS) == MeshPipelineKey::DEPTH_PREPASS
+    !mesh_key.contains(MeshPipelineKey::PREPASS_READS_MATERIAL)
+        && mesh_key.intersection(MeshPipelineKey::ALL_PREPASS_BITS)
+            == MeshPipelineKey::DEPTH_PREPASS
 }
 
 impl PrepassPipeline {
@@ -425,7 +427,10 @@ impl PrepassPipeline {
         // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
         let emulate_unclipped_depth = mesh_key.contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && !self.depth_clip_control_supported;
-        if is_depth_only_opaque_prepass(mesh_key) && !emulate_unclipped_depth {
+        if is_depth_only_opaque_prepass(mesh_key)
+            && !emulate_unclipped_depth
+            && !material_properties.prepass_reads_material
+        {
             bind_group_layouts.push(self.empty_layout.clone());
         } else {
             bind_group_layouts.push(
@@ -1179,6 +1184,10 @@ pub(crate) fn specialize_prepass_material_meshes(
                     .entity_has_crossfading_visibility_ranges(*visible_entity)
                 {
                     mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
+                }
+
+                if material.properties.prepass_reads_material {
+                    mesh_key |= MeshPipelineKey::PREPASS_READS_MATERIAL;
                 }
 
                 // If the previous frame has skins or morph targets, note that.

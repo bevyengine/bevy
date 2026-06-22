@@ -200,6 +200,11 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         true
     }
 
+    #[inline]
+    fn prepass_reads_material() -> bool {
+        false
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
     ///
@@ -1690,6 +1695,7 @@ where
 
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
+        let prepass_reads_material = M::prepass_reads_material();
 
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
@@ -1790,6 +1796,7 @@ where
                 material_key,
                 shadows_enabled,
                 prepass_enabled,
+                prepass_reads_material,
             }),
         })
     }
