@@ -1,6 +1,12 @@
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
-    entity::Entity, hierarchy::Children, lifecycle::RemovedComponents, query::{Added, Has, Or, With}, reflect::ReflectComponent, schedule::IntoScheduleConfigs, system::{Commands, Query},
+    entity::Entity,
+    hierarchy::Children,
+    lifecycle::RemovedComponents,
+    query::{Added, Has, Or, With},
+    reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
@@ -9,14 +15,14 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::{bsn, Scene, SceneComponent};
 use bevy_ui::{
-    px, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node,
-    UiTransform,
+    px, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node, UiTransform,
 };
 use bevy_ui_widgets::Checkbox;
 use bevy_window::SystemCursorIcon;
 
 use crate::{
-    constants::icons, cursor::EntityCursor, display::icon, focus::FocusIndicator, theme::InheritableThemeTextColor, tokens,
+    constants::icons, cursor::EntityCursor, display::icon, focus::FocusIndicator,
+    theme::InheritableThemeTextColor, tokens,
 };
 
 /// A toggle button which shows a chevron that points either right or down, used to expand or
@@ -125,7 +131,9 @@ fn set_toggle_styles(
 
     // Change icon color
     if new_text_color_token != text_color.0 {
-        commands.entity(entity).insert(InheritableThemeTextColor(new_text_color_token));
+        commands
+            .entity(entity)
+            .insert(InheritableThemeTextColor(new_text_color_token));
     }
 
     match checked {
