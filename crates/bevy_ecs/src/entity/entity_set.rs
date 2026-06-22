@@ -507,15 +507,16 @@ impl<I: Iterator<Item: EntityEquivalent> + Debug> Debug for UniqueEntityIter<I> 
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use crate::prelude::{Schedule, World};
+    use crate::{
+        component::Component,
+        entity::{Entity, EntityEquivalentHashMap, EntityEquivalentHashSet},
+        prelude::{Schedule, World},
+        query::{QueryState, With},
+        system::Query,
+        world::Mut,
+    };
 
-    use crate::component::Component;
-    use crate::entity::Entity;
-    use crate::query::{QueryState, With};
-    use crate::system::Query;
-    use crate::world::Mut;
-
-    use super::{EntityEquivalentHashMap, EntityEquivalentHashSet, UniqueEntityIter};
+    use super::{ContainsEntity, EntityEquivalent, UniqueEntityIter};
 
     #[derive(Component, Clone)]
     pub struct Thing;
@@ -573,26 +574,26 @@ mod tests {
         schedule.run(&mut world);
     }
 
+    #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+    struct EntityWrapper(Entity);
+
+    impl ContainsEntity for EntityWrapper {
+        fn entity(&self) -> Entity {
+            self.0
+        }
+    }
+
+    impl EntityWrapper {
+        fn new(index: u32) -> EntityWrapper {
+            EntityWrapper(Entity::from_raw_u32(index).unwrap())
+        }
+    }
+
+    // SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
+    unsafe impl EntityEquivalent for EntityWrapper {}
+
     #[test]
     fn entity_equivalent_map_test() {
-        #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-        struct EntityWrapper(Entity);
-
-        impl ContainsEntity for EntityWrapper {
-            fn entity(&self) -> Entity {
-                self.0
-            }
-        }
-
-        impl EntityWrapper {
-            fn new(index: u32) -> EntityWrapper {
-                EntityWrapper(Entity::from_raw_u32(index).unwrap())
-            }
-        }
-
-        // SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
-        unsafe impl EntityEquivalent for EntityWrapper {}
-
         type EntityWrapperMap = EntityEquivalentHashMap<EntityWrapper, i32>;
 
         let mut map = EntityWrapperMap::default();
@@ -611,24 +612,6 @@ mod tests {
 
     #[test]
     fn entity_equivalent_set_test() {
-        #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-        struct EntityWrapper(Entity);
-
-        impl ContainsEntity for EntityWrapper {
-            fn entity(&self) -> Entity {
-                self.0
-            }
-        }
-
-        impl EntityWrapper {
-            fn new(index: u32) -> EntityWrapper {
-                EntityWrapper(Entity::from_raw_u32(index).unwrap())
-            }
-        }
-
-        // SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
-        unsafe impl EntityEquivalent for EntityWrapper {}
-
         type EntityWrapperSet = EntityEquivalentHashSet<EntityWrapper>;
 
         let mut set = EntityWrapperSet::default();
