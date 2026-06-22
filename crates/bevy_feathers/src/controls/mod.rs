@@ -53,6 +53,7 @@ impl Plugin for ControlsPlugin {
             DisclosureTogglePlugin,
             ListViewPlugin,
             MenuPlugin,
+            NumberInputPlugin,
             RadioPlugin,
             ScrollbarPlugin,
             SliderPlugin,

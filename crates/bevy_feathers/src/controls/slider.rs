@@ -4,6 +4,7 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     children,
     component::Component,
     entity::Entity,
@@ -271,6 +272,37 @@ fn update_slider_styles_remove(
         });
 }
 
+/// Re-apply slider styles to every slider when the theme changes.
+fn update_slider_styles_theme(
+    mut q_sliders: Query<
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Pressed>,
+            &Hovered,
+            &mut BackgroundGradient,
+        ),
+        With<FeathersSlider>,
+    >,
+    theme: Res<UiTheme>,
+    mut commands: Commands,
+) {
+    if !theme.is_changed() {
+        return;
+    }
+    for (slider_ent, disabled, pressed, hovered, mut gradient) in q_sliders.iter_mut() {
+        set_slider_styles(
+            slider_ent,
+            &theme,
+            disabled,
+            pressed,
+            hovered.0,
+            gradient.as_mut(),
+            &mut commands,
+        );
+    }
+}
+
 fn set_slider_styles(
     slider_ent: Entity,
     theme: &Res<'_, UiTheme>,
@@ -376,6 +408,7 @@ impl Plugin for SliderPlugin {
             (
                 update_slider_styles,
                 update_slider_styles_remove,
+                update_slider_styles_theme,
                 update_slider_pos,
             )
                 .in_set(PickingSystems::Last),
