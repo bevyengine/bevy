@@ -6,9 +6,9 @@ pull_requests: [24636, 24701]
 
 The `FeathersNumberInput` widget has been substantially overhauled, with several new features.
 
-Bevy's editor design draws heavily from Blender, particularly in its
-[numeric input fields](https://docs.blender.org/manual/en/latest/interface/controls/buttons/fields.html),
-which support multiple editing modes — including "scrubbing" (click-and-drag) and direct keyboard
+Blender's [numeric input](https://docs.blender.org/manual/en/latest/interface/controls/buttons/fields.html)
+is great, and we've borrowed its best elements. This includes support for multiple
+editing modes — including "scrubbing" (click-and-drag) and direct keyboard
 entry. The updated feathers widget is now much closer to feature parity with Blender.
 
 The widget supports editing numbers of different data types: `f32`, `f64`, `i32` and `i64`.
