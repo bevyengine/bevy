@@ -229,8 +229,8 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            let index = index.min(self.len());
             Vec::remove(self, current);
+            let index = index.min(self.len());
             self.insert(index, entity);
         };
     }
@@ -431,16 +431,15 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 
     fn place_most_recent(&mut self, index: usize) {
         if let Some(entity) = self.pop() {
-            let index = index.min(self.len() - 1);
+            let index = index.min(self.len());
             self.insert(index, entity);
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            // The len is at least 1, so the subtraction is safe.
-            let index = index.min(self.len() - 1);
             SmallVec::<[Entity; N]>::remove(self, current);
+            let index = index.min(self.len());
             self.insert(index, entity);
         };
     }
@@ -587,6 +586,7 @@ mod tests {
     use super::*;
     use crate::prelude::{Component, World};
     use crate::relationship::RelationshipTarget;
+    use alloc::vec;
 
     #[test]
     fn vec_relationship_source_collection() {
@@ -649,6 +649,52 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &a);
+    }
+
+    #[test]
+    fn vec_ordered_relationship_source_collection() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut v: Vec<Entity> = vec![];
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
+        assert_eq!(v, vec![a]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
+        assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 0);
+        assert_eq!(v, vec![b, a]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
+        assert_eq!(v, vec![b, a]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
+        assert_eq!(v, vec![b, a]);
+    }
+
+    #[test]
+    fn smallvec_ordered_relationship_source_collection() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut v = SmallVec::<[Entity; 2]>::new();
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
+        assert_eq!(v.as_ref(), vec![a]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
+        assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 0);
+        assert_eq!(v.as_ref(), vec![b, a]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
+        assert_eq!(v.as_ref(), vec![b, a]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
+        assert_eq!(v.as_ref(), vec![b, a]);
     }
 
     #[test]

@@ -43,13 +43,6 @@ pub(crate) fn node_transform(node: &Node) -> Transform {
     }
 }
 
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::result_large_err,
-        reason = "need to be signature compatible with `load_gltf`"
-    )
-)]
 /// Check if [`Node`] is part of cycle
 pub(crate) fn check_is_part_of_cycle(
     node: &Node,

@@ -1506,7 +1506,7 @@ mod tests {
         }
 
         let pre_len = entities.len();
-        entities.sort();
+        entities.sort_unstable();
         entities.dedup();
         assert_eq!(pre_len, entities.len());
 
@@ -1516,7 +1516,7 @@ mod tests {
 
         entities.extend(allocator.alloc_many(5000));
         let pre_len = entities.len();
-        entities.sort();
+        entities.sort_unstable();
         entities.dedup();
         assert_eq!(pre_len, entities.len());
     }

@@ -5,12 +5,15 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
     template::template,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
     EditableText, FontSource, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
@@ -24,7 +27,7 @@ use crate::{
     cursor::EntityCursor,
     focus::FocusWithinIndicator,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, UiTheme},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemedText, UiTheme},
     tokens,
 };
 
@@ -32,7 +35,8 @@ use crate::{
 /// (such as "search" or "clear") to be inserted adjacent to the input.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersTextInputContainer;
 
 impl FeathersTextInputContainer {
@@ -45,9 +49,7 @@ impl FeathersTextInputContainer {
                 align_items: AlignItems::Center,
                 padding: UiRect {
                     right: px(3.0),
-                },
-                border: UiRect {
-                    left: px(3.0)
+                    left: px(3.0),
                 },
                 flex_grow: 1.0,
                 border_radius: {BorderRadius::all(px(4.0))},
@@ -71,13 +73,15 @@ impl FeathersTextInputContainer {
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersTextInputProps`].
 ///
 /// ```ignore
-/// :FeathersTextInputContainer
+/// @FeathersTextInputContainer
 /// Children [
 ///     :FeathersTextInput
 /// ]
 /// ```
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersTextInputProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersTextInput;
 
 /// Props used to construct the [`FeathersTextInput`] scene.
@@ -95,9 +99,9 @@ impl FeathersTextInput {
             Node {
                 flex_grow: {
                     if props.visible_width.is_some() {
-                        0.
+                        0_f32
                     } else {
-                        1.
+                        1_f32
                     }
                 } ,
             }
@@ -107,6 +111,7 @@ impl FeathersTextInput {
                 visible_width: {props.visible_width},
                 max_characters: {props.max_characters},
             }
+            ThemedText
             TextLayout {
                 linebreak: LineBreak::NoWrap,
             }
