@@ -12,12 +12,15 @@
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetEvent, AssetServer, Assets, RenderAssetUsages,
+};
 use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    message::MessageReader,
+    query::{Changed, With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -129,7 +132,15 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         embedded_asset!(app, "copy.wgsl");
 
         app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight, Self>::default())
-            .add_systems(Update, generate_environment_map_light);
+            .add_systems(
+                Update,
+                (
+                    regenerate_on_component_change,
+                    regenerate_on_asset_event,
+                    generate_environment_map_light,
+                )
+                    .chain(),
+            );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -1034,6 +1045,37 @@ pub fn filtering_system(
 
         // The filtering has run, clear the marker.
         commands.entity(entity).remove::<RegenerateEnvironmentMap>();
+    }
+}
+
+pub fn regenerate_on_component_change(
+    mut query: Query<&mut GeneratedEnvironmentMapLight, Changed<GeneratedEnvironmentMapLight>>,
+) {
+    for mut env_map in &mut query {
+        env_map.regenerate = true;
+    }
+}
+
+pub fn regenerate_on_asset_event(
+    mut query: Query<&mut GeneratedEnvironmentMapLight>,
+    mut events: MessageReader<AssetEvent<Image>>,
+) {
+    let changed_ids: bevy_platform::collections::HashSet<_> = events
+        .read()
+        .filter_map(|e| match e {
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => Some(*id),
+            _ => None,
+        })
+        .collect();
+
+    if changed_ids.is_empty() {
+        return;
+    }
+
+    for mut env_map in &mut query {
+        if changed_ids.contains(&env_map.environment_map.id()) {
+            env_map.regenerate = true;
+        }
     }
 }
 

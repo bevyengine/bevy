@@ -121,7 +121,9 @@ impl Plugin for AtmospherePlugin {
             (
                 prepare_atmosphere_probe_components,
                 request_atmosphere_environment_map_regeneration
-                    .ambiguous_with(crate::light_probe::generate::generate_environment_map_light),
+                    .ambiguous_with(crate::light_probe::generate::generate_environment_map_light)
+                    .ambiguous_with(crate::light_probe::generate::regenerate_on_component_change)
+                    .ambiguous_with(crate::light_probe::generate::regenerate_on_asset_event),
             ),
         );
 
