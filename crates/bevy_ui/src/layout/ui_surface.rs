@@ -68,7 +68,7 @@ impl ComputedLayout {
         self.cache.clear();
     }
 
-    fn has_layout(&self) -> bool {
+    pub fn has_layout(&self) -> bool {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
@@ -80,7 +80,7 @@ impl ComputedLayout {
         self.rounded = Some(layout);
     }
 
-    pub(crate) fn get(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
+    pub fn get(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
         let unrounded = self.unrounded?;
         let selected_layout = if use_rounding {
             self.rounded?
