@@ -348,20 +348,21 @@ pub fn clip_check_recursive(
     clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
 ) -> bool {
-    if let Ok(child_of) = child_of_query.get(entity)
-        && let Ok((computed_node, transform, node)) = clipping_query.get(child_of.0)
+    let Ok(child_of) = child_of_query.get(entity) else {
+        // Reached root, point unclipped by all ancestors
+        return true;
+    };
+    if let Ok((computed_node, transform, node)) = clipping_query.get(child_of.0)
         && !node.overflow.is_visible()
-    {
-        if transform.try_inverse().is_none_or(|affine| {
+        && transform.try_inverse().is_none_or(|affine| {
             !computed_node
                 .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
                 .contains(affine.transform_point2(point))
-        }) {
-            // The point is clipped (or transform not invertible) → ignore for picking
-            return false;
-        }
-        return clip_check_recursive(point, child_of.0, clipping_query, child_of_query);
+        })
+    {
+        // The point is clipped (or transform not invertible) → ignore for picking
+        return false;
     }
-    // Reached root, point unclipped by all ancestors
-    true
+
+    clip_check_recursive(point, child_of.0, clipping_query, child_of_query)
 }

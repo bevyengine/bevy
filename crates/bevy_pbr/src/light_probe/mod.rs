@@ -644,7 +644,7 @@ where
         RenderViewLightProbes {
             binding_index_to_textures: vec![],
             cubemap_to_binding_index: HashMap::default(),
-            main_entity_to_render_light_probe_index: HashMap::default(),
+            main_entity_to_render_light_probe_index: MainEntityHashMap::default(),
             render_light_probes: vec![],
             view_light_probe_info: None,
         }
