@@ -34,7 +34,6 @@ use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     cursor::EntityCursor,
     focus::FocusIndicator,
-    palette,
     rounded_corners::RoundedCorners,
 };
 
@@ -244,7 +243,7 @@ impl FeathersColorSlider {
                                 width: px(THUMB_SIZE * 0.5),
                                 border_radius: {RoundedCorners::Left.to_border_radius(TRACK_RADIUS)},
                             }
-                            BackgroundColor(palette::X_AXIS)
+                            BackgroundColor(Color::srgb(1.0, 0.0, 0.0))
                         ),
                         // Track with gradient
                         (
@@ -273,11 +272,11 @@ impl FeathersColorSlider {
                                 }
                                 SliderThumb
                                 ColorSliderThumb
-                                BorderColor::all(palette::WHITE)
+                                BorderColor::all(Color::WHITE)
                                 Outline {
                                     width: px(1),
                                     offset: px(0),
-                                    color: palette::BLACK
+                                    color: Color::BLACK
                                 }
                                 UiTransform::from_translation(Val2::percent(-50., -50.))
                             )]
@@ -288,7 +287,7 @@ impl FeathersColorSlider {
                                 width: px(THUMB_SIZE * 0.5),
                                 border_radius: {RoundedCorners::Right.to_border_radius(TRACK_RADIUS)},
                             }
-                            BackgroundColor(palette::Z_AXIS)
+                            BackgroundColor(Color::srgb(0.0, 0.0, 1.0))
                         )
                     ]
                 )
@@ -359,7 +358,7 @@ pub fn color_slider_bundle<B: Bundle>(
                             border_radius: RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        BackgroundColor(palette::X_AXIS),
+                        BackgroundColor(Color::srgb(1.0, 0.0, 0.0)),
                     ),
                     // Track with gradient
                     (
@@ -390,11 +389,11 @@ pub fn color_slider_bundle<B: Bundle>(
                             },
                             SliderThumb,
                             ColorSliderThumb,
-                            BorderColor::all(palette::WHITE),
+                            BorderColor::all(Color::WHITE),
                             Outline {
                                 width: px(1),
                                 offset: px(0),
-                                color: palette::BLACK
+                                color: Color::BLACK
                             },
                             UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
                         )]
@@ -406,7 +405,7 @@ pub fn color_slider_bundle<B: Bundle>(
                             border_radius: RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        BackgroundColor(palette::Z_AXIS),
+                        BackgroundColor(Color::srgb(0.0, 0.0, 1.0)),
                     ),
                 ]
             ),

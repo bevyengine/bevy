@@ -1,5 +1,6 @@
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets};
+use bevy_color::Color;
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -29,7 +30,7 @@ use bevy_ui::{
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
-use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
+use crate::{cursor::EntityCursor, theme::ThemeBackgroundColor, tokens};
 
 /// A "color plane" widget, which is a 2d picker that allows selecting two
 /// components of a color space.
@@ -162,11 +163,11 @@ impl FeathersColorPlane {
                         border_radius: BorderRadius::MAX,
                     }
                     ColorPlaneThumb
-                    BorderColor::all(palette::WHITE)
+                    BorderColor::all(Color::WHITE)
                     Outline {
                         width: px(1),
                         offset: px(0),
-                        color: palette::BLACK
+                        color: Color::BLACK
                     }
                     Pickable::IGNORE
                     UiTransform::from_translation(Val2::percent(-50., -50.),)
@@ -224,11 +225,11 @@ pub fn color_plane_bundle<B: Bundle>(plane: FeathersColorPlane, overrides: B) ->
                     ..Default::default()
                 },
                 ColorPlaneThumb,
-                BorderColor::all(palette::WHITE),
+                BorderColor::all(Color::WHITE),
                 Outline {
                     width: px(1),
                     offset: px(0),
-                    color: palette::BLACK
+                    color: Color::BLACK
                 },
                 Pickable::IGNORE,
                 UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))

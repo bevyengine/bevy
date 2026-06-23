@@ -18,7 +18,6 @@ use bevy_ui_render::ui_material::MaterialNode;
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     constants::size,
-    palette,
 };
 
 /// A color swatch widget.
@@ -64,7 +63,7 @@ impl FeathersColorSwatch {
                     border_radius: BorderRadius::right(px(5)),
                 }
                 ColorSwatchFg
-                BackgroundColor({palette::ACCENT})
+                BackgroundColor(Color::srgb(1.0, 0.0, 1.0))
                 ZIndex(1)
             }
         });
@@ -90,7 +89,7 @@ impl FeathersColorSwatch {
                         border_radius: px(5),
                     }
                     ColorSwatchFg
-                    BackgroundColor({palette::ACCENT.with_alpha(0.5)})
+                    BackgroundColor({Color::srgb(1.0, 0.0, 1.0).with_alpha(0.5)})
                 ),
                 non_alpha_fg
             ]
@@ -127,7 +126,7 @@ pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
                 ..Default::default()
             },
             ColorSwatchFg,
-            BackgroundColor(palette::ACCENT.with_alpha(0.5)),
+            BackgroundColor(Color::srgb(1.0, 0.0, 1.0).with_alpha(0.5)),
         )],
     )
 }
