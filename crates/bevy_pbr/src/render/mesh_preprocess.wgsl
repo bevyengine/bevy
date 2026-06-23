@@ -49,13 +49,26 @@ struct LatePreprocessWorkItemIndirectParameters {
     // The number of workgroups we're going to dispatch.
     //
     // This value should always be equal to `ceil(work_item_count / 64)`.
+    //
+    // In the late phase this buffer is bound read-only, and the atomic built-ins
+    // are only defined for `read_write` storage, so the fields are plain `u32`
+    // there and `atomic<u32>` in the early phase. `u32` and `atomic<u32>` are
+    // layout-identical, so the buffer's memory layout is unchanged either way.
+#ifdef LATE_PHASE
+    dispatch_x: u32,
+#else   // LATE_PHASE
     dispatch_x: atomic<u32>,
+#endif  // LATE_PHASE
     // The number of workgroups in the Y direction; always 1.
     dispatch_y: u32,
     // The number of workgroups in the Z direction; always 1.
     dispatch_z: u32,
     // The precise number of work items.
+#ifdef LATE_PHASE
+    work_item_count: u32,
+#else   // LATE_PHASE
     work_item_count: atomic<u32>,
+#endif  // LATE_PHASE
     // Padding.
     //
     // This isn't the usual structure padding; it's needed because some hardware
@@ -162,8 +175,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let instance_index = global_invocation_id.x;
 
 #ifdef LATE_PHASE
-    if (instance_index >= atomicLoad(&late_preprocess_work_item_indirect_parameters[
-            immediates.late_preprocess_work_item_indirect_offset].work_item_count)) {
+    if (instance_index >= late_preprocess_work_item_indirect_parameters[
+            immediates.late_preprocess_work_item_indirect_offset].work_item_count) {
         return;
     }
 #else   // LATE_PHASE

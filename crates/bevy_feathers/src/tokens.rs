@@ -157,6 +157,25 @@ pub const CHECKBOX_TEXT_DISABLED: ThemeToken =
 
 // Radio button
 
+/// Background of the radio button
+pub const RADIO_BG: ThemeToken = ThemeToken::new_static("feathers.radio.bg");
+/// Background of the radio button (hovered)
+pub const RADIO_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.bg.hover");
+/// Background of the radio button (pressed)
+pub const RADIO_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.pressed");
+/// Background of the radio button (disabled)
+pub const RADIO_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.disabled");
+/// Background of the radio button (checked)
+pub const RADIO_BG_CHECKED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.checked");
+/// Background of the radio button (checked+hovered)
+pub const RADIO_BG_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.hover");
+/// Background of the radio button (checked+pressed)
+pub const RADIO_BG_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.pressed");
+/// Background of the radio button (checked+disabled)
+pub const RADIO_BG_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.disabled");
 /// Border around the radio button
 pub const RADIO_BORDER: ThemeToken = ThemeToken::new_static("feathers.radio.border");
 /// Border around the radio button (hovered)

@@ -43,13 +43,19 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::WHITE.with_alpha(0.5),
             ),
             // Slider
-            (tokens::SLIDER_BG, palette::GRAY_1),
-            (tokens::SLIDER_BG_HOVER, palette::GRAY_1.lighter(0.05)),
-            (tokens::SLIDER_BG_PRESSED, palette::GRAY_1.lighter(0.1)),
+            (tokens::SLIDER_BG, palette::LIGHT_GRAY_MIX.with_alpha(0.028)),
+            (
+                tokens::SLIDER_BG_HOVER,
+                palette::LIGHT_GRAY_MIX.with_alpha(0.045),
+            ),
+            (
+                tokens::SLIDER_BG_PRESSED,
+                palette::LIGHT_GRAY_MIX.with_alpha(0.045),
+            ),
             (tokens::SLIDER_BG_DISABLED, palette::GRAY_1),
             (tokens::SLIDER_BAR, palette::ACCENT),
             (tokens::SLIDER_BAR_HOVER, palette::ACCENT.lighter(0.05)),
-            (tokens::SLIDER_BAR_PRESSED, palette::ACCENT.lighter(0.1)),
+            (tokens::SLIDER_BAR_PRESSED, palette::ACCENT.lighter(0.05)),
             (tokens::SLIDER_BAR_DISABLED, palette::GRAY_2),
             (tokens::SLIDER_TEXT, palette::WHITE),
             (tokens::SLIDER_TEXT_DISABLED, palette::WHITE.with_alpha(0.5)),
@@ -108,7 +114,15 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::CHECKBOX_TEXT_DISABLED,
                 palette::LIGHT_GRAY_1.with_alpha(0.5),
             ),
-            // Radio
+            // Radio (default look is no background)
+            (tokens::RADIO_BG, Color::NONE),
+            (tokens::RADIO_BG_HOVER, Color::NONE),
+            (tokens::RADIO_BG_PRESSED, Color::NONE),
+            (tokens::RADIO_BG_DISABLED, Color::NONE),
+            (tokens::RADIO_BG_CHECKED, Color::NONE),
+            (tokens::RADIO_BG_CHECKED_HOVER, Color::NONE),
+            (tokens::RADIO_BG_CHECKED_PRESSED, Color::NONE),
+            (tokens::RADIO_BG_CHECKED_DISABLED, Color::NONE),
             (tokens::RADIO_BORDER, palette::GRAY_3),
             (tokens::RADIO_BORDER_HOVER, palette::GRAY_3.lighter(0.05)),
             (tokens::RADIO_BORDER_PRESSED, palette::GRAY_3.lighter(0.1)),
@@ -250,8 +264,14 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::WHITE.with_alpha(0.5),
             ),
             // Text Input
-            (tokens::TEXT_INPUT_BG, palette::GRAY_1),
-            (tokens::TEXT_INPUT_LABEL_BG, palette::GRAY_3),
+            (
+                tokens::TEXT_INPUT_BG,
+                palette::LIGHT_GRAY_MIX.with_alpha(0.028),
+            ),
+            (
+                tokens::TEXT_INPUT_LABEL_BG,
+                palette::LIGHT_GRAY_MIX.with_alpha(0.09),
+            ),
             (tokens::TEXT_INPUT_TEXT, palette::WHITE),
             (
                 tokens::TEXT_INPUT_TEXT_DISABLED,

@@ -1,11 +1,12 @@
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
+    entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res},
+    system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
@@ -14,15 +15,14 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::{bsn, Scene, SceneComponent};
 use bevy_ui::{
-    px, widget::ImageNode, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node,
-    UiTransform,
+    px, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node, UiTransform,
 };
 use bevy_ui_widgets::Checkbox;
 use bevy_window::SystemCursorIcon;
 
 use crate::{
-    constants::icons, cursor::EntityCursor, display::icon, focus::FocusIndicator, theme::UiTheme,
-    tokens,
+    constants::icons, cursor::EntityCursor, display::icon, focus::FocusIndicator,
+    theme::InheritableThemeTextColor, tokens,
 };
 
 /// A toggle button which shows a chevron that points either right or down, used to expand or
@@ -47,6 +47,7 @@ impl FeathersDisclosureToggle {
             Checkbox
             EntityCursor::System(SystemCursorIcon::Pointer)
             FocusIndicator
+            InheritableThemeTextColor(tokens::BUTTON_TEXT)
             TabIndex(0)
             Children [
                 icon(icons::CHEVRON_RIGHT)
@@ -58,32 +59,27 @@ impl FeathersDisclosureToggle {
 fn update_toggle_styles(
     mut q_toggle: Query<
         (
+            Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
             &mut UiTransform,
-            &Children,
+            &InheritableThemeTextColor,
         ),
         (
             With<FeathersDisclosureToggle>,
             Or<(Added<Checkbox>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
-    mut q_icon: Query<&mut ImageNode>,
-    theme: Res<UiTheme>,
+    mut commands: Commands,
 ) {
-    for (disabled, checked, mut transform, children) in q_toggle.iter_mut() {
-        let Some(child_id) = children.first() else {
-            continue;
-        };
-        let Ok(mut icon_child) = q_icon.get_mut(*child_id) else {
-            continue;
-        };
+    for (ent, disabled, checked, mut transform, text_color) in q_toggle.iter_mut() {
         set_toggle_styles(
+            ent,
             disabled,
             checked,
             transform.as_mut(),
-            &mut icon_child,
-            &theme,
+            text_color,
+            &mut commands,
         );
     }
 }
@@ -94,53 +90,50 @@ fn update_toggle_styles_remove(
             Has<InteractionDisabled>,
             Has<Checked>,
             &mut UiTransform,
-            &Children,
+            &InheritableThemeTextColor,
         ),
         With<FeathersDisclosureToggle>,
     >,
-    mut q_icon: Query<&mut ImageNode>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
-    theme: Res<UiTheme>,
+    mut commands: Commands,
 ) {
     removed_disabled
         .read()
         .chain(removed_checked.read())
         .for_each(|ent| {
-            if let Ok((disabled, checked, mut transform, children)) = q_toggle.get_mut(ent) {
-                let Some(child_id) = children.first() else {
-                    return;
-                };
-                let Ok(mut icon_child) = q_icon.get_mut(*child_id) else {
-                    return;
-                };
+            if let Ok((disabled, checked, mut transform, text_color)) = q_toggle.get_mut(ent) {
                 set_toggle_styles(
+                    ent,
                     disabled,
                     checked,
                     transform.as_mut(),
-                    &mut icon_child,
-                    &theme,
+                    text_color,
+                    &mut commands,
                 );
             }
         });
 }
 
 fn set_toggle_styles(
+    entity: Entity,
     disabled: bool,
     checked: bool,
     transform: &mut UiTransform,
-    image_node: &mut ImageNode,
-    theme: &Res<'_, UiTheme>,
+    text_color: &InheritableThemeTextColor,
+    commands: &mut Commands,
 ) {
     // It's effectively the same color as the caption of a "plain" variant tool button with an icon.
-    let icon_color = match disabled {
-        true => theme.color(&tokens::BUTTON_TEXT_DISABLED),
-        false => theme.color(&tokens::BUTTON_TEXT),
+    let new_text_color_token = match disabled {
+        true => tokens::BUTTON_TEXT_DISABLED,
+        false => tokens::BUTTON_TEXT,
     };
 
     // Change icon color
-    if image_node.color != icon_color {
-        image_node.color = icon_color;
+    if new_text_color_token != text_color.0 {
+        commands
+            .entity(entity)
+            .insert(InheritableThemeTextColor(new_text_color_token));
     }
 
     match checked {
