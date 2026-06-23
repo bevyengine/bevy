@@ -516,8 +516,8 @@ mod tests {
         assert_eq!(dynamic_world.entities.len(), 1);
         assert_eq!(dynamic_world.entities[0].entity, entity);
         assert_eq!(dynamic_world.entities[0].components.len(), 2);
-        assert!(dynamic_world.entities[0].components[0].represents::<ComponentA>());
-        assert!(dynamic_world.entities[0].components[1].represents::<ComponentB>());
+        assert!(dynamic_world.entities[0].components[0].represents::<ComponentB>());
+        assert!(dynamic_world.entities[0].components[1].represents::<ComponentA>());
     }
 
     #[test]
