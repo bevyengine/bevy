@@ -580,6 +580,34 @@ mod tests {
     }
 
     #[test]
+    fn node_addition_should_sync_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        // spawn an invalid UI root node
+        let child = world.spawn(Node::default()).id();
+        let root = world.spawn(()).add_child(child).id();
+
+        app.update();
+        assert!(app
+            .world()
+            .get::<ComputedLayout>(child)
+            .and_then(|layout| layout.get(true))
+            .is_none());
+
+        // fix the invalid root node by inserting a Node
+        app.world_mut().entity_mut(root).insert(Node::default());
+
+        app.update();
+        // The root node's child should have a layout after update
+        assert!(app
+            .world()
+            .get::<ComputedLayout>(child)
+            .and_then(|layout| layout.get(true))
+            .is_some());
+    }
+
+    #[test]
     fn reparenting_recomputes_from_current_entity_tree() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
