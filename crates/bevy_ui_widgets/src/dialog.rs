@@ -12,15 +12,17 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectEvent},
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_input_focus::tab_navigation::TabGroup;
+use bevy_math::Vec2;
 use bevy_picking::{
     events::{Drag, DragStart, Pointer, Press},
     pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{GlobalZIndex, UiScale, UiTransform, Val2};
+use bevy_window::{PrimaryWindow, Window};
 
 use crate::ModalDialog;
 
@@ -60,7 +62,9 @@ pub struct DialogDragHandle;
 #[reflect(Component)]
 pub struct DialogDragState {
     /// The owning dialog's `UiTransform.translation`
-    start: Val2,
+    start_dialog_translation: Val2,
+    /// The starting location of the drag (logical coordinates)
+    start_pointer_location: Vec2,
 }
 
 /// Open floating dialogs, ordered bottom-to-top; the front-most is last.
@@ -141,6 +145,7 @@ fn dialog_drag_start(
     q_parent: Query<&ChildOf>,
     q_transform: Query<&UiTransform>,
     mut q_state: Query<&mut DialogDragState>,
+    ui_scale: Res<UiScale>,
 ) {
     if drag_start.button != PointerButton::Primary {
         return;
@@ -156,10 +161,11 @@ fn dialog_drag_start(
     else {
         return;
     };
-    state.start = q_transform
+    state.start_dialog_translation = q_transform
         .get(dialog)
         .map(|t| t.translation)
         .expect("Cannot get translation from dialog");
+    state.start_pointer_location = drag_start.pointer_location.position / ui_scale.0;
 }
 
 /// Move a dialog by dragging its [`DialogDragHandle`], positioning it at the
@@ -171,6 +177,7 @@ fn dialog_drag(
     q_parent: Query<&ChildOf>,
     mut q_transform: Query<&mut UiTransform>,
     ui_scale: Res<UiScale>,
+    primary_window: Single<&Window, With<PrimaryWindow>>,
 ) {
     if drag.button != PointerButton::Primary {
         return;
@@ -185,13 +192,20 @@ fn dialog_drag(
     else {
         return;
     };
+
+    const SCREEN_EDGE_MARGIN: f32 = 16.;
+
     // `distance` is in logical pixels; a `Val::Px` translation is scaled by
-    // `UiScale`, so divide that out.
-    let offset = drag.distance / ui_scale.0;
+    // `UiScale`, so divide that out. Then clamp to the screen region using
+    // the start of the pointer pos as an offset from screen bounds.
+    let clamped_offset = (drag.distance / ui_scale.0).clamp(
+        Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
+        primary_window.size() - Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
+    );
     if let Ok(mut transform) = q_transform.get_mut(dialog) {
         transform.translation = state
-            .start
-            .try_add(Val2::px(offset.x, offset.y))
+            .start_dialog_translation
+            .try_add(Val2::px(clamped_offset.x, clamped_offset.y))
             .expect("Cannot add offset to dialog translation");
     }
 }
