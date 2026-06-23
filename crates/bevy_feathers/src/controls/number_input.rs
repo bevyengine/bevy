@@ -1214,6 +1214,7 @@ fn update_slidebar_styles_theme(
     q_number_input: Query<(Entity, Has<InteractionDisabled>), With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     if !theme.is_changed() {
@@ -1233,6 +1234,7 @@ fn update_slidebar_styles_theme(
                 is_disabled,
                 false,
                 hovered,
+                input_focus.get() == Some(text_entity),
                 &mut gradient,
                 &mut commands,
             );
