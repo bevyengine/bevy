@@ -15,6 +15,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_input_focus::tab_navigation::TabGroup;
+use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_picking::{
     events::{Drag, DragStart, Pointer, Press},
@@ -26,8 +27,8 @@ use bevy_window::{PrimaryWindow, Window};
 
 use crate::ModalDialog;
 
-/// A dialog box. When `ModalDialog` is also present it traps focus and is backed by a
-/// `ModalDialogBarrier`; when false it is a movable, non-blocking floating window.
+/// A dialog box. When [`ModalDialog`] is also present it traps focus and is backed by a
+/// [`crate::ModalDialogBarrier`]; when absent it is a movable, non-blocking floating window.
 #[derive(Component, Debug, Reflect, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Dialog)))]
 #[require(TabGroup { order: 0, modal: false })]
@@ -161,10 +162,13 @@ fn dialog_drag_start(
     else {
         return;
     };
-    state.start_dialog_translation = q_transform
-        .get(dialog)
-        .map(|t| t.translation)
-        .expect("Cannot get translation from dialog");
+
+    if let Ok(translation) = q_transform.get(dialog).map(|t| t.translation) {
+        state.start_dialog_translation = translation;
+    } else {
+        warn!("Cannot get translation from dialog for dragging");
+        state.start_dialog_translation = Val2::ZERO;
+    }
     state.start_pointer_location = drag_start.pointer_location.position / ui_scale.0;
 }
 
@@ -177,6 +181,7 @@ fn dialog_drag(
     q_parent: Query<&ChildOf>,
     mut q_transform: Query<&mut UiTransform>,
     ui_scale: Res<UiScale>,
+    // TODO: multiple windows? dragging between them, etc
     primary_window: Single<&Window, With<PrimaryWindow>>,
 ) {
     if drag.button != PointerButton::Primary {
@@ -203,10 +208,12 @@ fn dialog_drag(
         primary_window.size() - Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
     );
     if let Ok(mut transform) = q_transform.get_mut(dialog) {
-        transform.translation = state
+        if let Ok(translation) = state
             .start_dialog_translation
             .try_add(Val2::px(clamped_offset.x, clamped_offset.y))
-            .expect("Cannot add offset to dialog translation");
+        {
+            transform.translation = translation;
+        }
     }
 }
 
