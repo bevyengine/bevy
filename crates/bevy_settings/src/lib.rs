@@ -333,11 +333,14 @@ fn resources_to_toml(
         };
 
         let res_entity = component_id.entity();
+        if !world.entities().contains_spawned(res_entity) {
+            continue;
+        }
+
         let res_entity_ref = world.entity(res_entity);
         let Some(reflect) = cmp.reflect(res_entity_ref) else {
             continue;
         };
-
         let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
 
         let toml_value = if let Some(settings_key) = settings_key {
@@ -459,10 +462,10 @@ fn apply_settings_to_world(
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
         let component_id = world.components().get_id(*tid);
-        let res_entity = component_id.map(|cid| cid.entity());
 
-        if let Some(res_entity) = res_entity {
+        if let Some(component_id) = component_id {
             // Resource already exists, so apply toml properties to it.
+            let res_entity = component_id.entity();
             let res_entity_mut = world.entity_mut(res_entity);
             let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
                 continue;
@@ -484,9 +487,11 @@ fn apply_settings_to_world(
             }
         } else {
             // The resource does not exist, so create a default.
+            let component_id = reflect_component.register_component(world);
+            let mut res_entity = world.spawn_empty_at(component_id.entity()).unwrap();
+
             let reflect_default = ty.data::<ReflectDefault>().unwrap();
             let mut default_value = reflect_default.default();
-            let mut res_entity = world.spawn_empty();
 
             if let Some(toml) = toml
                 && let Some(value) = toml.get(settings_group)
@@ -899,6 +904,7 @@ mod tests {
 
         // Serialize to TOML
         let table = resources_to_toml(&world, &types, &manifest);
+        println!("{}", table.len());
 
         // Create a new world and apply the TOML
         let mut new_world = World::new();
