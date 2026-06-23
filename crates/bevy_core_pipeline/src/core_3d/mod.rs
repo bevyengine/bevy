@@ -40,7 +40,7 @@ use bevy_render::{
     mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
-    texture::CachedTexture,
+    texture::{CachedTexture, DepthAttachment},
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 use indexmap::IndexMap;
@@ -720,6 +720,7 @@ pub fn prepare_core_3d_depth_textures(
                 Camera3dDepthLoadOp::Clear(v) => Some(v),
                 Camera3dDepthLoadOp::Load => None,
             },
+            None,
         ));
     }
 }
@@ -969,7 +970,7 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: package_double_buffered_texture(
+            depth: package_double_buffered_depth_texture(
                 cached_depth_texture1,
                 cached_depth_texture2,
                 frame_count.0,
@@ -1017,6 +1018,21 @@ fn package_double_buffered_texture(
             Some(t1),
             Some(LinearRgba::BLACK.into()),
         )),
+        _ => None,
+    }
+}
+
+fn package_double_buffered_depth_texture(
+    texture1: Option<CachedTexture>,
+    texture2: Option<CachedTexture>,
+    frame_count: u32,
+) -> Option<DepthAttachment> {
+    match (texture1, texture2) {
+        (Some(t1), None) => Some(DepthAttachment::new(t1, None, Some(0.0), None)),
+        (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => {
+            Some(DepthAttachment::new(t1, Some(t2), Some(0.0), None))
+        }
+        (Some(t1), Some(t2)) => Some(DepthAttachment::new(t2, Some(t1), Some(0.0), None)),
         _ => None,
     }
 }

@@ -42,6 +42,9 @@ pub fn oit_resolve(
     let Some(resolve_pipeline) = resolve_pipeline else {
         return;
     };
+    let Some(depth_view) = depth.attachment.depth_stencil_views().depth_only_view() else {
+        return;
+    };
     let Some(bind_group) = bind_group else {
         return;
     };
@@ -53,7 +56,7 @@ pub fn oit_resolve(
         Some(ctx.render_device().create_bind_group(
             "oit_resolve_depth_bind_group",
             &pipeline_cache.get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
-            &BindGroupEntries::single(depth.view()),
+            &BindGroupEntries::single(depth_view),
         ))
     } else {
         None

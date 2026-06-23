@@ -462,6 +462,6 @@ pub fn prepare_core_2d_depth_textures(
 
         commands
             .entity(view)
-            .insert(ViewDepthTexture::new(cached_texture, Some(0.0)));
+            .insert(ViewDepthTexture::new(cached_texture, Some(0.0), None));
     }
 }

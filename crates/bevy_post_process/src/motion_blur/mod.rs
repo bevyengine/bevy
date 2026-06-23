@@ -198,7 +198,9 @@ pub fn motion_blur(
 ) {
     let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
         view.into_inner();
-
+    let Some(depth_view) = depth.attachment.depth_stencil_views().depth_only_view() else {
+        return;
+    };
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
         return; // We can skip running motion blur in these cases.
     }
@@ -231,7 +233,7 @@ pub fn motion_blur(
         &BindGroupEntries::sequential((
             post_process.source,
             &prepass_motion_vectors_texture.texture.default_view,
-            depth.view(),
+            depth_view,
             &motion_blur_pipeline.sampler,
             settings_binding.clone(),
             globals_uniforms.clone(),

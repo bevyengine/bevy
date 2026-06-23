@@ -784,7 +784,13 @@ pub(crate) fn depth_of_field(
         depth_of_field_uniform_index,
         auxiliary_dof_texture,
     ) = view.into_inner();
-
+    let Some(depth_view) = view_depth_texture
+        .attachment
+        .depth_stencil_views()
+        .depth_only_view()
+    else {
+        return;
+    };
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
     for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
@@ -817,7 +823,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                     &auxiliary_dof_texture.default_view,
                 )),
@@ -828,7 +834,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                 )),
             )

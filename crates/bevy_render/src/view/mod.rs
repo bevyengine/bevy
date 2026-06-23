@@ -974,24 +974,26 @@ impl ViewTarget {
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
-    pub texture: Texture,
-    attachment: DepthAttachment,
+    pub attachment: DepthAttachment,
 }
 
 impl ViewDepthTexture {
-    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
-        Self {
-            texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
-        }
+    pub fn new(
+        texture: CachedTexture,
+        depth_clear_value: Option<f32>,
+        stencil_clear_value: Option<u32>,
+    ) -> Self {
+        let attachment =
+            DepthAttachment::new(texture, None, depth_clear_value, stencil_clear_value);
+        Self { attachment }
+    }
+
+    pub fn texture(&self) -> &Texture {
+        &self.attachment.texture.texture
     }
 
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
-    }
-
-    pub fn view(&self) -> &TextureView {
-        &self.attachment.view
     }
 }
 
