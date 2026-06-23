@@ -489,6 +489,31 @@ mod tests {
     }
 
     #[test]
+    fn computed_layout_lifecycle() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let ui_entity = world.spawn(Node::default()).id();
+        assert!(app
+            .world()
+            .get::<ComputedLayout>(ui_entity)
+            .and_then(|layout| layout.get(true))
+            .is_none());
+
+        app.update();
+        assert!(app
+            .world()
+            .get::<ComputedLayout>(ui_entity)
+            .and_then(|layout| layout.get(true))
+            .is_some());
+
+        app.world_mut().despawn(ui_entity);
+        app.update();
+        assert!(app.world().get::<ComputedLayout>(ui_entity).is_none());
+    }
+
+    #[test]
     fn layouts_are_removed_when_nodes_despawn() {
         let mut app = setup_ui_test_app();
         let entity = app.world_mut().spawn(Node::default()).id();
