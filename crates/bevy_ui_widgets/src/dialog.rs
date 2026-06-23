@@ -207,13 +207,12 @@ fn dialog_drag(
         Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
         primary_window.size() - Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
     );
-    if let Ok(mut transform) = q_transform.get_mut(dialog) {
-        if let Ok(translation) = state
+    if let Ok(mut transform) = q_transform.get_mut(dialog)
+        && let Ok(translation) = state
             .start_dialog_translation
             .try_add(Val2::px(clamped_offset.x, clamped_offset.y))
-        {
-            transform.translation = translation;
-        }
+    {
+        transform.translation = translation;
     }
 }
 
