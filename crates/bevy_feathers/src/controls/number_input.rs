@@ -582,6 +582,7 @@ fn number_input_on_insert_disabled(
     q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     let text_input_id = q_children
@@ -598,6 +599,7 @@ fn number_input_on_insert_disabled(
             is_disabled,
             false,
             hovered,
+            input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
@@ -611,6 +613,7 @@ fn number_input_on_remove_disabled(
     q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     let text_input_id = q_children
@@ -627,6 +630,7 @@ fn number_input_on_remove_disabled(
             is_disabled,
             false,
             hovered,
+            input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
@@ -647,6 +651,7 @@ fn number_input_init(
     >,
     mut q_text_input: Query<(&mut EditableText, &Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     let text_id = insert.event_target();
@@ -668,6 +673,7 @@ fn number_input_init(
             is_disabled,
             false,
             hovered,
+            input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
@@ -681,8 +687,8 @@ fn number_input_hovered(
     q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
-    mut commands: Commands,
     input_focus: Res<InputFocus>,
+    mut commands: Commands,
 ) {
     let text_id = insert.event_target();
     if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
@@ -695,6 +701,7 @@ fn number_input_hovered(
             is_disabled,
             false,
             hovered,
+            input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
@@ -866,7 +873,7 @@ fn scrubber_on_drag_start(
     mut q_text_input: Query<&mut BackgroundGradient>,
     mut q_scrubber: Query<(&ComputedNode, &mut ScrubberDragState)>,
     q_parent: Query<&ChildOf>,
-    focus: Res<InputFocus>,
+    input_focus: Res<InputFocus>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
@@ -875,7 +882,7 @@ fn scrubber_on_drag_start(
         && let Ok((input_value, soft_limit, precision, step, disabled)) = q_root.get(root_id)
         && let Ok(mut gradient) = q_text_input.get_mut(text_id)
         && !disabled
-        && focus.get() != Some(text_id)
+        && input_focus.get() != Some(text_id)
         && let Ok((node, mut drag)) = q_scrubber.get_mut(drag_start.event_target())
     {
         let slider_size = (node.size().x * node.inverse_scale_factor).max(1.0) as f64;
@@ -914,6 +921,7 @@ fn scrubber_on_drag_start(
             disabled,
             true,
             false,
+            input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
@@ -974,12 +982,12 @@ fn scrubber_on_drag_end(
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     mut q_scrubber: Query<&mut ScrubberDragState>,
     q_parent: Query<&ChildOf>,
-    focus: Res<InputFocus>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
     theme: Res<UiTheme>,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
-        && focus.get() != Some(text_id)
+        && input_focus.get() != Some(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
         && let Ok((soft_limit, hard_limit, precision, disabled)) = q_root.get(root_id)
         && let Ok(mut drag_state) = q_scrubber.get_mut(drag_end.entity)
@@ -1004,6 +1012,7 @@ fn scrubber_on_drag_end(
                 disabled,
                 false,
                 hovered,
+                false,
                 &mut gradient,
                 &mut commands,
             );
@@ -1018,6 +1027,7 @@ fn scrubber_on_drag_cancel(
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     mut q_scrubber: Query<&mut ScrubberDragState>,
     theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_cancel.event_target())
@@ -1030,6 +1040,7 @@ fn scrubber_on_drag_cancel(
             false,
             false,
             hovered,
+            input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
@@ -1061,6 +1072,7 @@ fn set_slidebar_styles(
     disabled: bool,
     pressed: bool,
     hovered: bool,
+    focused: bool,
     gradient: &mut BackgroundGradient,
     commands: &mut Commands,
 ) {
@@ -1074,14 +1086,16 @@ fn set_slidebar_styles(
         tokens::SLIDER_BAR
     });
 
-    let bg_color = theme.color(&if disabled {
+    let bg_color = theme.color(&if focused {
+        tokens::TEXT_INPUT_BG
+    } else if disabled {
         tokens::SLIDER_BG_DISABLED
     } else if pressed {
         tokens::SLIDER_BG_PRESSED
     } else if hovered {
         tokens::SLIDER_BG_HOVER
     } else {
-        tokens::TEXT_INPUT_BG
+        tokens::SLIDER_BG
     });
 
     let font_color_token = match disabled {
