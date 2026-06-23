@@ -361,6 +361,7 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use crate::{
+        experimental::UiChildren,
         layout::ui_surface::{ComputedLayout, UiSurface},
         prelude::*,
         ui_layout_system,
@@ -369,8 +370,8 @@ mod tests {
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
-    use bevy_ecs::prelude::*;
-    use bevy_math::{UVec2, Vec2};
+    use bevy_ecs::{prelude::*, system::RunSystemOnce, world::Ref};
+    use bevy_math::{Rect, UVec2, Vec2};
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -603,6 +604,284 @@ mod tests {
         assert!(app
             .world()
             .get::<ComputedLayout>(child)
+            .and_then(|layout| layout.get(true))
+            .is_some());
+    }
+
+    #[test]
+    fn node_addition_should_sync_parent_and_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let d = world.spawn(Node::default()).id();
+        let c = world.spawn(()).add_child(d).id();
+        let b = world.spawn(Node::default()).id();
+        let a = world.spawn(Node::default()).add_children(&[b, c]).id();
+
+        app.update();
+        assert!(app
+            .world()
+            .get::<ComputedLayout>(d)
+            .and_then(|layout| layout.get(true))
+            .is_none());
+
+        // fix the invalid middle node by inserting a Node
+        app.world_mut().entity_mut(c).insert(Node::default());
+
+        app.update();
+        for entity in [a, b, c, d] {
+            assert!(app
+                .world()
+                .get::<ComputedLayout>(entity)
+                .and_then(|layout| layout.get(true))
+                .is_some());
+        }
+    }
+
+    /// regression test for >=0.13.1 root node layouts
+    /// ensure root nodes act like they are absolutely positioned
+    /// without explicitly declaring it.
+    #[test]
+    fn ui_root_node_should_act_like_position_absolute() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let mut size = 150.;
+
+        world.spawn(Node {
+            // test should pass without explicitly requiring position_type to be set to Absolute
+            // position_type: PositionType::Absolute,
+            width: Val::Px(size),
+            height: Val::Px(size),
+            ..default()
+        });
+
+        size -= 50.;
+
+        world.spawn(Node {
+            // position_type: PositionType::Absolute,
+            width: Val::Px(size),
+            height: Val::Px(size),
+            ..default()
+        });
+
+        size -= 50.;
+
+        world.spawn(Node {
+            // position_type: PositionType::Absolute,
+            width: Val::Px(size),
+            height: Val::Px(size),
+            ..default()
+        });
+
+        app.update();
+        let world = app.world_mut();
+
+        let overlap_check = world
+            .query_filtered::<(Entity, &ComputedNode, &UiGlobalTransform), Without<ChildOf>>()
+            .iter(world)
+            .fold(
+                Option::<(Rect, bool)>::None,
+                |option_rect, (entity, node, transform)| {
+                    let current_rect = Rect::from_center_size(transform.translation, node.size());
+                    assert!(
+                        current_rect.height().abs() + current_rect.width().abs() > 0.,
+                        "root ui node {entity} doesn't have a logical size"
+                    );
+                    assert_ne!(
+                        *transform,
+                        UiGlobalTransform::default(),
+                        "root ui node {entity} transform is not populated"
+                    );
+                    let Some((rect, is_overlapping)) = option_rect else {
+                        return Some((current_rect, false));
+                    };
+                    if rect.contains(current_rect.center()) {
+                        Some((current_rect, true))
+                    } else {
+                        Some((current_rect, is_overlapping))
+                    }
+                },
+            );
+
+        let Some((_rect, is_overlapping)) = overlap_check else {
+            unreachable!("test not setup properly");
+        };
+        assert!(is_overlapping, "root ui nodes are expected to behave like they have absolute position and be independent from each other");
+    }
+
+    #[test]
+    fn ui_node_should_properly_update_when_changing_target_camera() {
+        #[derive(Component)]
+        struct MovingUiNode;
+
+        fn update_camera_viewports(mut cameras: Query<&mut Camera>) {
+            let camera_count = cameras.iter().len();
+            for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
+                let target_size = camera.physical_target_size().unwrap();
+                let viewport_width = target_size.x / camera_count as u32;
+                let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
+                let physical_size = UVec2::new(target_size.x / camera_count as u32, target_size.y);
+                camera.viewport = Some(Viewport {
+                    physical_position,
+                    physical_size,
+                    ..default()
+                });
+            }
+        }
+
+        fn move_ui_node(
+            In(pos): In<Vec2>,
+            mut commands: Commands,
+            cameras: Query<(Entity, &Camera)>,
+            moving_ui_query: Query<Entity, With<MovingUiNode>>,
+        ) {
+            let (target_camera_entity, _) = cameras
+                .iter()
+                .find(|(_, camera)| {
+                    let Some(logical_viewport_rect) = camera.logical_viewport_rect() else {
+                        panic!("missing logical viewport")
+                    };
+                    // make sure cursor is in viewport and that viewport has at least 1px of size
+                    logical_viewport_rect.contains(pos)
+                        && logical_viewport_rect.max.cmpge(Vec2::splat(0.)).any()
+                })
+                .expect("cursor position outside of camera viewport");
+            for moving_ui_entity in moving_ui_query.iter() {
+                commands
+                    .entity(moving_ui_entity)
+                    .insert(UiTargetCamera(target_camera_entity))
+                    .insert(Node {
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(pos.y),
+                        left: Val::Px(pos.x),
+                        ..default()
+                    });
+            }
+        }
+
+        fn do_move_and_test(app: &mut App, new_pos: Vec2, expected_camera_entity: &Entity) {
+            let world = app.world_mut();
+            world.run_system_once_with(move_ui_node, new_pos).unwrap();
+            app.update();
+            let world = app.world_mut();
+            let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
+                .single(world)
+                .expect("missing MovingUiNode");
+            assert_eq!(expected_camera_entity, target_camera_entity);
+
+            let layout = world
+                .get::<ComputedLayout>(ui_node_entity)
+                .and_then(|layout| layout.get(true))
+                .expect("failed to get layout")
+                .0;
+
+            // negative test for #12255
+            assert_eq!(Vec2::new(layout.location.x, layout.location.y), new_pos);
+        }
+
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        world.spawn((
+            Camera2d,
+            Camera {
+                order: 1,
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                        scale_factor: 1.,
+                    }),
+                    ..default()
+                },
+                viewport: Some(Viewport {
+                    physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                    ..default()
+                }),
+                ..default()
+            },
+        ));
+
+        world.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(0.),
+                left: Val::Px(0.),
+                ..default()
+            },
+            MovingUiNode,
+        ));
+
+        app.update();
+        let world = app.world_mut();
+
+        let pos_inc = Vec2::splat(1.);
+        world.run_system_once(update_camera_viewports).unwrap();
+
+        app.update();
+        let world = app.world_mut();
+
+        let viewport_rects = world
+            .query::<(Entity, &Camera)>()
+            .iter(world)
+            .map(|(e, c)| (e, c.logical_viewport_rect().expect("missing viewport")))
+            .collect::<Vec<_>>();
+
+        for (camera_entity, viewport) in viewport_rects.iter() {
+            let target_pos = viewport.min + pos_inc;
+            do_move_and_test(&mut app, target_pos, camera_entity);
+        }
+
+        // reverse direction
+        let mut viewport_rects = viewport_rects.clone();
+        viewport_rects.reverse();
+        for (camera_entity, viewport) in viewport_rects.iter() {
+            let target_pos = viewport.max - pos_inc;
+            do_move_and_test(&mut app, target_pos, camera_entity);
+        }
+    }
+
+    #[test]
+    fn test_ui_surface_compute_camera_layout() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let root_node_entity = world.spawn(Node::default()).id();
+
+        fn test_system(
+            In(root_node_entity): In<Entity>,
+            mut ui_surface: ResMut<UiSurface>,
+            ui_children: UiChildren,
+            node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+            content_size_query: Query<Ref<ContentSize>>,
+            mut computed_layout_query: Query<&mut ComputedLayout>,
+            fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+            mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
+            mut font_system: ResMut<bevy_text::FontCx>,
+        ) {
+            ui_surface
+                .compute_layout(
+                    root_node_entity,
+                    UVec2::new(800, 600),
+                    &ui_children,
+                    &node_query,
+                    &content_size_query,
+                    &mut computed_layout_query,
+                    &fixed_nodes_query,
+                    &[],
+                    &mut buffer_query,
+                    &mut font_system,
+                )
+                .unwrap();
+        }
+
+        world
+            .run_system_once_with(test_system, root_node_entity)
+            .unwrap();
+
+        assert!(world
+            .get::<ComputedLayout>(root_node_entity)
             .and_then(|layout| layout.get(true))
             .is_some());
     }
