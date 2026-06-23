@@ -31,8 +31,6 @@
 //! [SMAA]: https://www.iryoku.com/smaa/
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-#[cfg(not(feature = "smaa_luts"))]
-use bevy_core_pipeline::tonemapping::lut_placeholder;
 use bevy_core_pipeline::{
     schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
     tonemapping::tonemapping,
@@ -322,8 +320,33 @@ impl Plugin for SmaaPlugin {
         };
         #[cfg(not(feature = "smaa_luts"))]
         let smaa_luts = {
+            use bevy_asset::RenderAssetUsages;
+            use bevy_image::ImageSampler;
+            use bevy_render::render_resource::{Extent3d, TextureDataOrder};
+
             let mut images = app.world_mut().resource_mut::<bevy_asset::Assets<Image>>();
-            let handle = images.add(lut_placeholder());
+
+            let format = TextureFormat::Rgba8Unorm;
+            let data = vec![255, 0, 255, 255];
+            let handle = images.add(Image {
+                data: Some(data),
+                data_order: TextureDataOrder::default(),
+                texture_descriptor: TextureDescriptor {
+                    size: Extent3d::default(),
+                    format,
+                    dimension: TextureDimension::D2,
+                    label: None,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                    view_formats: &[],
+                },
+                sampler: ImageSampler::Default,
+                texture_view_descriptor: None,
+                asset_usage: RenderAssetUsages::RENDER_WORLD,
+                copy_on_resize: false,
+            });
+
             SmaaLuts {
                 area_lut: handle.clone(),
                 search_lut: handle.clone(),
@@ -458,6 +481,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("edge_detection_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -468,6 +492,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
@@ -515,6 +540,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("blending_weight_calculation_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -525,6 +551,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
@@ -560,6 +587,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("neighborhood_blending_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -570,6 +598,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             ..default()
         }

@@ -57,7 +57,6 @@ define_label!(
         note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
     )]
     ScheduleLabel,
-    SCHEDULE_LABEL_INTERNER
 );
 
 define_label!(
@@ -152,7 +151,6 @@ define_label!(
         note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
     )]
     SystemSet,
-    SYSTEM_SET_INTERNER,
     extra_methods: {
         /// Returns `Some` if this system set is a [`SystemTypeSet`].
         fn system_type(&self) -> Option<TypeId> {

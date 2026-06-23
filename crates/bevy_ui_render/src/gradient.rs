@@ -416,7 +416,7 @@ pub fn extract_gradients(
                             node_type,
                         },
                         main_entity: entity.into(),
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     });
                     continue;
                 }
@@ -440,7 +440,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                             stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -490,7 +490,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                             stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -546,7 +546,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                             stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),

@@ -165,6 +165,10 @@ where
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
     ///
+    /// X is red
+    /// Y is green
+    /// Z is blue
+    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;

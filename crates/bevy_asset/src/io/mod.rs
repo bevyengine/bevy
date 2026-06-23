@@ -1,3 +1,8 @@
+//! Readers and writers for byte streams that represent assets.
+//!
+//! These are implemented for a variety of backends.
+//! See the submodules for details on those.
+
 #[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
 compile_error!(
     "The \"file_watcher\" feature for hot reloading does not work \
@@ -307,8 +312,10 @@ impl<T: AssetReader> ErasedAssetReader for T {
     }
 }
 
+/// A convenience type for an [`AsyncWrite`] object plus the traits it needs to satisfy.
 pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 
+/// A convenience type for a stream of pathnames plus the traits it needs to satisfy.
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.
@@ -564,6 +571,7 @@ pub enum AssetSourceEvent {
     /// An asset at this path was removed.
     RemovedAsset(PathBuf),
     /// An asset at this path was renamed.
+    #[expect(missing_docs, reason = "the names are self documenting")]
     RenamedAsset { old: PathBuf, new: PathBuf },
     /// Asset metadata at this path was added.
     AddedMeta(PathBuf),
@@ -572,12 +580,14 @@ pub enum AssetSourceEvent {
     /// Asset metadata at this path was removed.
     RemovedMeta(PathBuf),
     /// Asset metadata at this path was renamed.
+    #[expect(missing_docs, reason = "the names are self documenting")]
     RenamedMeta { old: PathBuf, new: PathBuf },
     /// A folder at the given path was added.
     AddedFolder(PathBuf),
     /// A folder at the given path was removed.
     RemovedFolder(PathBuf),
     /// A folder at the given path was renamed.
+    #[expect(missing_docs, reason = "the names are self documenting")]
     RenamedFolder { old: PathBuf, new: PathBuf },
     /// Something of unknown type was removed. It is the job of the event handler to determine the type.
     /// This exists because notify-rs produces "untyped" rename events without destination paths for unwatched folders, so we can't determine the type of

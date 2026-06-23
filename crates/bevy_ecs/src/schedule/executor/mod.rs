@@ -311,6 +311,17 @@ mod __rust_begin_short_backtrace {
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
+
+    #[inline(never)]
+    #[cfg(feature = "std")]
+    pub(super) fn error_handler(
+        error_handler: crate::error::ErrorHandler,
+        err: crate::error::BevyError,
+        err_context: crate::error::ErrorContext,
+    ) {
+        error_handler(err, err_context);
+        black_box(());
+    }
 }
 
 #[cfg(test)]

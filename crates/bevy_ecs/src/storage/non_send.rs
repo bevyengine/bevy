@@ -10,10 +10,7 @@ use core::{cell::UnsafeCell, panic::Location};
 #[cfg(feature = "std")]
 use std::thread::ThreadId;
 
-/// The type-erased backing storage and metadata for a single resource within a [`World`].
-///
-/// If `SEND` is false, values of this type will panic if dropped from a different thread.
-/// The type-erased backing storage and metadata for non send data within a [`World`].
+/// The type-erased backing storage and metadata for one instance of non send data within a [`World`].
 ///
 /// Values of this type will panic if dropped from a different thread.
 ///
@@ -72,7 +69,7 @@ impl NonSendData {
         if self.origin_thread_id != Some(std::thread::current().id()) {
             // Panic in tests, as testing for aborting is nearly impossible
             panic!(
-                "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                "Attempted to access or drop non-send data {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                 self.type_name,
                 self.origin_thread_id,
                 std::thread::current().id()
@@ -85,13 +82,13 @@ impl NonSendData {
         // Remove the #[expect] attribute above when this is addressed.
     }
 
-    /// Returns true if the resource is populated.
+    /// Returns true if the data is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
         self.is_present
     }
 
-    /// Returns a reference to the resource, if it exists.
+    /// Returns a reference to the data, if it exists.
     ///
     /// # Panics
     /// This will panic if a value is present and is not accessed from the original thread it was inserted from.
@@ -104,7 +101,7 @@ impl NonSendData {
         })
     }
 
-    /// Returns a reference to the resource's change ticks, if it exists.
+    /// Returns a reference to the data's change ticks, if it exists.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
         // SAFETY: This is being fetched through a read-only reference to Self, so no other mutable references
@@ -117,7 +114,7 @@ impl NonSendData {
         }
     }
 
-    /// Returns references to the resource and its change ticks, if it exists.
+    /// Returns references to the data and its change ticks, if it exists.
     ///
     /// # Panics
     /// This will panic if a value is present and is not accessed from the original thread it was inserted in.
@@ -137,14 +134,14 @@ impl NonSendData {
         })
     }
 
-    /// Inserts a value into the resource. If a value is already present
+    /// Inserts a value into the non-send data. If a value is already present
     /// it will be replaced.
     ///
     /// # Panics
     /// This will panic if a value is present and is not replaced from the original thread it was inserted in.
     ///
     /// # Safety
-    /// - `value` must be valid for the underlying type for the resource.
+    /// - `value` must be valid for the underlying type for the data.
     #[inline]
     pub(crate) unsafe fn insert(
         &mut self,
@@ -180,7 +177,7 @@ impl NonSendData {
             .assign(caller);
     }
 
-    /// Removes a value from the resource, if present.
+    /// Removes a value from the data, if present.
     ///
     /// # Panics
     /// This will panic if a value is present and is not removed from the original thread it was inserted from.
@@ -220,7 +217,7 @@ impl NonSendData {
         }
     }
 
-    /// Removes a value from the resource, if present, and drops it.
+    /// Removes a value from the data, if present, and drops it.
     ///
     /// # Panics
     /// This will panic if a value is present and is not accessed from the original thread it was inserted in.
@@ -240,9 +237,8 @@ impl NonSendData {
     }
 }
 
-/// The backing store for all [`Resource`]s stored in the [`World`].
+/// The backing store for all non send data stored in the [`World`].
 ///
-/// [`Resource`]: crate::resource::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct NonSends {
@@ -258,7 +254,7 @@ impl NonSends {
         self.non_sends.len()
     }
 
-    /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
+    /// Iterate over all non send data that have been initialized, i.e. given a [`ComponentId`]
     pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &NonSendData)> {
         self.non_sends.iter().map(|(id, data)| (*id, data))
     }
@@ -278,7 +274,7 @@ impl NonSends {
         self.non_sends.get(component_id)
     }
 
-    /// Clears all resources.
+    /// Clears all non send data.
     #[inline]
     pub fn clear(&mut self) {
         self.non_sends.clear();

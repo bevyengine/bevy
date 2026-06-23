@@ -86,7 +86,7 @@ impl Plugin for InfiniteGridPlugin {
 /// The component used to represent an infinite grid.
 ///
 /// This is intended for use as a ground plane in editor-like tools.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Copy, Clone)]
 #[reflect(Component, Default)]
 #[require(
     InfiniteGridSettings,
@@ -398,7 +398,7 @@ fn queue_infinite_grids(
             if !plane_check(transform, view.world_from_view.translation()) {
                 continue;
             }
-            phase.add(Transparent3d {
+            phase.add_retained(Transparent3d {
                 pipeline: pipeline_id,
                 entity: (*render_entity, *main_entity),
                 draw_function: draw_function_id,

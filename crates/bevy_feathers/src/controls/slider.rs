@@ -96,7 +96,7 @@ impl FeathersSlider {
             TabIndex(0)
             FocusIndicator
             // Use a gradient to draw the moving bar
-            BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                 angle: PI * 0.5,
                 stops: vec![
                     ColorStop::new(Color::NONE, percent(0)),
@@ -105,7 +105,7 @@ impl FeathersSlider {
                     ColorStop::new(Color::NONE, percent(100)),
                 ],
                 color_space: InterpolationColorSpace::Srgba,
-            })]})
+            })])
             Children [(
                 // Text container
                 Node {

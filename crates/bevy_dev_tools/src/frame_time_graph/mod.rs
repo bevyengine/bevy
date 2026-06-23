@@ -76,7 +76,7 @@ impl FrameTimeGraphConfigUniform {
     }
 }
 
-/// The material used to render the frame time graph ui node
+/// The material used to render the frame time graph UI node
 #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
 pub struct FrametimeGraphMaterial {
     /// The history of the previous frame times value.

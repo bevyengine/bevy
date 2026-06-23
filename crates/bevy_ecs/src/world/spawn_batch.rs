@@ -78,13 +78,17 @@ where
         let bundle = self.inner.next()?;
         move_as_ptr!(bundle);
         Some(if let Some(bulk) = self.allocator.next() {
-            // SAFETY: bundle matches spawner type and we just allocated it
+            // SAFETY:
+            // - bundle matches spawner type and we just allocated it
+            // - I::Item::Effect: NoBundleEffect
             unsafe {
                 self.spawner.spawn_at(bulk, bundle, self.caller);
             }
             bulk
         } else {
-            // SAFETY: bundle matches spawner type
+            // SAFETY:
+            // - bundle matches spawner type
+            // - I::Item::Effect: NoBundleEffect
             unsafe { self.spawner.spawn(bundle, self.caller) }
         })
     }

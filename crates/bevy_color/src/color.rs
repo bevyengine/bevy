@@ -1,6 +1,7 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, okhsla::Okhsla, okhsva::Okhsva, Alpha, Hsla, Hsva, Hue,
+    Hwba, Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor,
+    Xyza,
 };
 use bevy_math::{MismatchedUnitsError, TryStableInterpolate};
 #[cfg(feature = "bevy_reflect")]
@@ -74,6 +75,10 @@ pub enum Color {
     Oklcha(Oklcha),
     /// A color in the XYZ color space with alpha.
     Xyza(Xyza),
+    /// A color in the Okhsl color space with alpha.
+    Okhsla(Okhsla),
+    /// A color in the Okhsv color space with alpha.
+    Okhsva(Okhsva),
 }
 
 impl StandardColor for Color {}
@@ -499,6 +504,72 @@ impl Color {
         })
     }
 
+    /// Creates a new [`Color`] object storing a [`Okhsla`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    pub const fn okhsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
+        Self::Okhsla(Okhsla {
+            hue,
+            saturation,
+            lightness,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Okhsla`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    pub const fn okhsl(hue: f32, saturation: f32, lightness: f32) -> Self {
+        Self::Okhsla(Okhsla {
+            hue,
+            saturation,
+            lightness,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Okhsva`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    pub const fn okhsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
+        Self::Okhsva(Okhsva {
+            hue,
+            saturation,
+            value,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Okhsva`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    pub const fn okhsv(hue: f32, saturation: f32, value: f32) -> Self {
+        Self::Okhsva(Okhsva {
+            hue,
+            saturation,
+            value,
+            alpha: 1.0,
+        })
+    }
+
     /// A fully white [`Color::LinearRgba`] color with an alpha of 1.0.
     pub const WHITE: Self = Self::linear_rgb(1.0, 1.0, 1.0);
 
@@ -531,6 +602,8 @@ impl Alpha for Color {
             Color::Oklaba(x) => *x = x.with_alpha(alpha),
             Color::Oklcha(x) => *x = x.with_alpha(alpha),
             Color::Xyza(x) => *x = x.with_alpha(alpha),
+            Color::Okhsla(x) => *x = x.with_alpha(alpha),
+            Color::Okhsva(x) => *x = x.with_alpha(alpha),
         }
 
         new
@@ -548,6 +621,8 @@ impl Alpha for Color {
             Color::Oklaba(x) => x.alpha(),
             Color::Oklcha(x) => x.alpha(),
             Color::Xyza(x) => x.alpha(),
+            Color::Okhsla(x) => x.alpha(),
+            Color::Okhsva(x) => x.alpha(),
         }
     }
 
@@ -563,6 +638,8 @@ impl Alpha for Color {
             Color::Oklaba(x) => x.set_alpha(alpha),
             Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
+            Color::Okhsla(x) => x.set_alpha(alpha),
+            Color::Okhsva(x) => x.set_alpha(alpha),
         }
     }
 }
@@ -580,6 +657,8 @@ impl From<Color> for Srgba {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -597,6 +676,8 @@ impl From<Color> for LinearRgba {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -614,6 +695,8 @@ impl From<Color> for Hsla {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -631,6 +714,8 @@ impl From<Color> for Hsva {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -648,6 +733,8 @@ impl From<Color> for Hwba {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -665,6 +752,8 @@ impl From<Color> for Laba {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -682,6 +771,8 @@ impl From<Color> for Lcha {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -699,6 +790,8 @@ impl From<Color> for Oklaba {
             Color::Oklaba(oklab) => oklab,
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -716,6 +809,8 @@ impl From<Color> for Oklcha {
             Color::Oklaba(oklab) => oklab.into(),
             Color::Oklcha(oklch) => oklch,
             Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
         }
     }
 }
@@ -733,6 +828,46 @@ impl From<Color> for Xyza {
             Color::Oklaba(x) => x.into(),
             Color::Oklcha(oklch) => oklch.into(),
             Color::Xyza(xyza) => xyza,
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv.into(),
+        }
+    }
+}
+
+impl From<Color> for Okhsla {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(x) => x.into(),
+            Color::LinearRgba(x) => x.into(),
+            Color::Hsla(x) => x.into(),
+            Color::Hsva(hsva) => hsva.into(),
+            Color::Hwba(hwba) => hwba.into(),
+            Color::Laba(laba) => laba.into(),
+            Color::Lcha(x) => x.into(),
+            Color::Oklaba(x) => x.into(),
+            Color::Oklcha(oklch) => oklch.into(),
+            Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl,
+            Color::Okhsva(okhsv) => okhsv.into(),
+        }
+    }
+}
+
+impl From<Color> for Okhsva {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(x) => x.into(),
+            Color::LinearRgba(x) => x.into(),
+            Color::Hsla(x) => x.into(),
+            Color::Hsva(hsva) => hsva.into(),
+            Color::Hwba(hwba) => hwba.into(),
+            Color::Laba(laba) => laba.into(),
+            Color::Lcha(x) => x.into(),
+            Color::Oklaba(x) => x.into(),
+            Color::Oklcha(oklch) => oklch.into(),
+            Color::Xyza(xyza) => xyza.into(),
+            Color::Okhsla(okhsl) => okhsl.into(),
+            Color::Okhsva(okhsv) => okhsv,
         }
     }
 }
@@ -753,6 +888,8 @@ impl Luminance for Color {
             Color::Oklaba(x) => x.luminance(),
             Color::Oklcha(x) => x.luminance(),
             Color::Xyza(x) => x.luminance(),
+            Color::Okhsla(x) => x.luminance(),
+            Color::Okhsva(x) => ChosenColorSpace::from(*x).luminance(),
         }
     }
 
@@ -770,6 +907,8 @@ impl Luminance for Color {
             Color::Oklaba(x) => *x = x.with_luminance(value),
             Color::Oklcha(x) => *x = x.with_luminance(value),
             Color::Xyza(x) => *x = x.with_luminance(value),
+            Color::Okhsla(x) => *x = x.with_luminance(value),
+            Color::Okhsva(x) => *x = ChosenColorSpace::from(*x).with_luminance(value).into(),
         }
 
         new
@@ -789,6 +928,8 @@ impl Luminance for Color {
             Color::Oklaba(x) => *x = x.darker(amount),
             Color::Oklcha(x) => *x = x.darker(amount),
             Color::Xyza(x) => *x = x.darker(amount),
+            Color::Okhsla(x) => *x = x.darker(amount),
+            Color::Okhsva(x) => *x = ChosenColorSpace::from(*x).darker(amount).into(),
         }
 
         new
@@ -808,6 +949,8 @@ impl Luminance for Color {
             Color::Oklaba(x) => *x = x.lighter(amount),
             Color::Oklcha(x) => *x = x.lighter(amount),
             Color::Xyza(x) => *x = x.lighter(amount),
+            Color::Okhsla(x) => *x = x.lighter(amount),
+            Color::Okhsva(x) => *x = ChosenColorSpace::from(*x).lighter(amount).into(),
         }
 
         new
@@ -829,6 +972,8 @@ impl Hue for Color {
             Color::Oklaba(x) => *x = ChosenColorSpace::from(*x).with_hue(hue).into(),
             Color::Oklcha(x) => *x = x.with_hue(hue),
             Color::Xyza(x) => *x = ChosenColorSpace::from(*x).with_hue(hue).into(),
+            Color::Okhsla(x) => *x = x.with_hue(hue),
+            Color::Okhsva(x) => *x = x.with_hue(hue),
         }
 
         new
@@ -846,6 +991,8 @@ impl Hue for Color {
             Color::Oklaba(x) => ChosenColorSpace::from(*x).hue(),
             Color::Oklcha(x) => x.hue(),
             Color::Xyza(x) => ChosenColorSpace::from(*x).hue(),
+            Color::Okhsla(x) => x.hue(),
+            Color::Okhsva(x) => x.hue(),
         }
     }
 
@@ -859,17 +1006,21 @@ impl Saturation for Color {
         let mut new = *self;
 
         match &mut new {
-            Color::Srgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::LinearRgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Hsla(x) => x.with_saturation(saturation).into(),
-            Color::Hsva(x) => x.with_saturation(saturation).into(),
-            Color::Hwba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Laba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Lcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Oklaba(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Oklcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
-            Color::Xyza(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Srgba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::LinearRgba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Hsla(x) => *x = x.with_saturation(saturation),
+            Color::Hsva(x) => *x = x.with_saturation(saturation),
+            Color::Hwba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Laba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Lcha(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklaba(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklcha(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Xyza(x) => *x = Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Okhsla(x) => *x = x.with_saturation(saturation),
+            Color::Okhsva(x) => *x = x.with_saturation(saturation),
         }
+
+        new
     }
 
     fn saturation(&self) -> f32 {
@@ -884,6 +1035,8 @@ impl Saturation for Color {
             Color::Oklaba(x) => Hsla::from(*x).saturation(),
             Color::Oklcha(x) => Hsla::from(*x).saturation(),
             Color::Xyza(x) => Hsla::from(*x).saturation(),
+            Color::Okhsla(x) => x.saturation(),
+            Color::Okhsva(x) => x.saturation(),
         }
     }
 
@@ -907,6 +1060,8 @@ impl Mix for Color {
             Color::Oklaba(x) => *x = x.mix(&(*other).into(), factor),
             Color::Oklcha(x) => *x = x.mix(&(*other).into(), factor),
             Color::Xyza(x) => *x = x.mix(&(*other).into(), factor),
+            Color::Okhsla(x) => *x = x.mix(&(*other).into(), factor),
+            Color::Okhsva(x) => *x = x.mix(&(*other).into(), factor),
         }
 
         new
@@ -926,6 +1081,8 @@ impl EuclideanDistance for Color {
             Color::Oklaba(x) => x.distance_squared(&(*other).into()),
             Color::Oklcha(x) => x.distance_squared(&(*other).into()),
             Color::Xyza(x) => ChosenColorSpace::from(*x).distance_squared(&(*other).into()),
+            Color::Okhsla(x) => ChosenColorSpace::from(*x).distance_squared(&(*other).into()),
+            Color::Okhsva(x) => ChosenColorSpace::from(*x).distance_squared(&(*other).into()),
         }
     }
 }

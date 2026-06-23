@@ -263,6 +263,7 @@ impl Hash for Anchor {
     }
 }
 
+#[expect(missing_docs, reason = "the associated constants are self-documenting")]
 impl Anchor {
     pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
     pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
@@ -274,6 +275,7 @@ impl Anchor {
     pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
     pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
 
+    /// Returns the Anchor's offset as a [`Vec2`].
     pub fn as_vec(&self) -> Vec2 {
         self.0
     }

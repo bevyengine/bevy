@@ -3,7 +3,6 @@
 #ifdef MORPH_TARGETS
 
 #import bevy_pbr::mesh_types::{MorphAttributes, MorphDescriptor, MorphWeights}
-#import bevy_pbr::mesh_bindings::mesh
 
 #ifdef SKINS_USE_UNIFORM_BUFFERS
 
@@ -29,13 +28,12 @@ const normal_offset: u32 = 3u;
 const tangent_offset: u32 = 6u;
 const total_component_count: u32 = 9u;
 
-fn layer_count(instance_index: u32) -> u32 {
+fn layer_count(descriptor_index: u32) -> u32 {
 #ifdef SKINS_USE_UNIFORM_BUFFERS
     let dimensions = textureDimensions(morph_targets);
     return u32(dimensions.z);
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
-    return morph_descriptors[morph_descriptor_index].weight_count;
+    return morph_descriptors[descriptor_index].weight_count;
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 }
 
@@ -47,24 +45,22 @@ fn component_texture_coord(vertex_index: u32, component_offset: u32) -> vec2<u32
 }
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 
-fn weight_at(weight_index: u32, instance_index: u32) -> f32 {
+fn weight_at(weight_index: u32, descriptor_index: u32) -> f32 {
 #ifdef SKINS_USE_UNIFORM_BUFFERS
     let i = weight_index;
     return morph_weights.weights[i / 4u][i % 4u];
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
-    let weights_offset = morph_descriptors[morph_descriptor_index].current_weights_offset;
+    let weights_offset = morph_descriptors[descriptor_index].current_weights_offset;
     return morph_weights[weights_offset + weight_index];
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 }
 
-fn prev_weight_at(weight_index: u32, instance_index: u32) -> f32 {
+fn prev_weight_at(weight_index: u32, descriptor_index: u32) -> f32 {
 #ifdef SKINS_USE_UNIFORM_BUFFERS
     let i = weight_index;
     return prev_morph_weights.weights[i / 4u][i % 4u];
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
-    let weights_offset = morph_descriptors[morph_descriptor_index].prev_weights_offset;
+    let weights_offset = morph_descriptors[descriptor_index].prev_weights_offset;
     return prev_morph_weights[weights_offset + weight_index];
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 }
@@ -101,23 +97,22 @@ fn morph_tangent(vertex_index: u32, weight_index: u32, instance_index: u32) -> v
 
 #else   // SKINS_USE_UNIFORM_BUFFERS
 
-fn get_morph_target(vertex_index: u32, weight_index: u32, instance_index: u32) -> MorphAttributes {
-    let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
-    let targets_offset = morph_descriptors[morph_descriptor_index].targets_offset;
-    let vertex_count = morph_descriptors[morph_descriptor_index].vertex_count;
+fn get_morph_target(vertex_index: u32, weight_index: u32, descriptor_index: u32) -> MorphAttributes {
+    let targets_offset = morph_descriptors[descriptor_index].targets_offset;
+    let vertex_count = morph_descriptors[descriptor_index].vertex_count;
     return morph_targets[targets_offset + weight_index * vertex_count + vertex_index];
 }
 
-fn morph_position(vertex_index: u32, weight_index: u32, instance_index: u32) -> vec3<f32> {
-    return get_morph_target(vertex_index, weight_index, instance_index).position;
+fn morph_position(vertex_index: u32, weight_index: u32, descriptor_index: u32) -> vec3<f32> {
+    return get_morph_target(vertex_index, weight_index, descriptor_index).position;
 }
 
-fn morph_normal(vertex_index: u32, weight_index: u32, instance_index: u32) -> vec3<f32> {
-    return get_morph_target(vertex_index, weight_index, instance_index).normal;
+fn morph_normal(vertex_index: u32, weight_index: u32, descriptor_index: u32) -> vec3<f32> {
+    return get_morph_target(vertex_index, weight_index, descriptor_index).normal;
 }
 
-fn morph_tangent(vertex_index: u32, weight_index: u32, instance_index: u32) -> vec3<f32> {
-    return get_morph_target(vertex_index, weight_index, instance_index).tangent;
+fn morph_tangent(vertex_index: u32, weight_index: u32, descriptor_index: u32) -> vec3<f32> {
+    return get_morph_target(vertex_index, weight_index, descriptor_index).tangent;
 }
 
 #endif  // SKINS_USE_UNIFORM_BUFFERS

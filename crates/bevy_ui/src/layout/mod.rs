@@ -1,12 +1,15 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
-    Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
+    hierarchy::ChildOf,
+    lifecycle::RemovedComponents,
+    query::{Added, Has, With},
     system::{ParamSet, Query, ResMut},
     world::Ref,
 };
@@ -72,6 +75,7 @@ pub enum LayoutError {
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
     node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
     content_size_query: Query<Ref<ContentSize>>,
@@ -87,11 +91,14 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
+            Has<FixedNode>,
         )>,
         Query<(&mut ComputedNode, &mut UiGlobalTransform, &ComputedLayout)>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
+    added_fixed_node_query: Query<Entity, Added<FixedNode>>,
+    mut removed_fixed_nodes: RemovedComponents<FixedNode>,
 ) {
     for mut computed_layout in &mut node_queries.p0() {
         computed_layout
@@ -99,7 +106,12 @@ pub fn ui_layout_system(
             .prepare_for_layout();
     }
 
-    for ui_root_entity in ui_root_node_query.iter() {
+    let fixed_node_changes = added_fixed_node_query
+        .iter()
+        .chain(removed_fixed_nodes.read())
+        .collect::<Vec<_>>();
+
+    for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
         let Ok((physical_size, scale_factor)) =
             node_query.get(ui_root_entity).map(|(_, computed_target)| {
                 (
@@ -120,6 +132,8 @@ pub fn ui_layout_system(
                 &node_query,
                 &content_size_query,
                 &mut computed_layout_query,
+                &fixed_nodes_query,
+                &fixed_node_changes,
                 &mut buffer_query,
                 &mut font_system,
             )
@@ -131,6 +145,7 @@ pub fn ui_layout_system(
 
         let mut node_update_query = node_queries.p1();
         update_uinode_geometry_recursive(
+            ui_root_entity,
             ui_root_entity,
             true,
             physical_size.as_vec2(),
@@ -165,6 +180,7 @@ pub fn ui_layout_system(
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
+        root: Entity,
         entity: Entity,
         inherited_use_rounding: bool,
         target_size: Vec2,
@@ -179,6 +195,7 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
+            Has<FixedNode>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
@@ -195,8 +212,13 @@ pub fn ui_layout_system(
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
+            is_fixed_node,
         )) = node_update_query.get_mut(entity)
         {
+            if is_fixed_node && root != entity {
+                return;
+            }
+
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
@@ -320,6 +342,7 @@ pub fn ui_layout_system(
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
+                    root,
                     child_uinode,
                     use_rounding,
                     target_size,
@@ -680,6 +703,81 @@ mod tests {
         let unrounded = layout_for(&app, child, false);
         assert_eq!(unrounded.size.width, 50.5);
         assert_ne!(rounded.size.width, unrounded.size.width);
+    }
+
+    #[test]
+    fn fixed_child_uses_viewport_layout_context() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let parent = world
+            .spawn(Node {
+                width: px(200.),
+                height: px(20.),
+                ..default()
+            })
+            .id();
+        let fixed = world
+            .spawn((
+                Node {
+                    width: percent(50.),
+                    height: px(10.),
+                    ..default()
+                },
+                FixedNode,
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(layout_for(&app, parent, true).size.width, 200.);
+        assert_eq!(
+            layout_for(&app, fixed, true).size.width,
+            TARGET_WIDTH as f32 * 0.5
+        );
+    }
+
+    #[test]
+    fn fixed_node_changes_recompute_parent_and_child_layouts() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let parent = world
+            .spawn(Node {
+                width: px(200.),
+                height: px(20.),
+                ..default()
+            })
+            .id();
+        let child = world
+            .spawn((
+                Node {
+                    width: percent(50.),
+                    height: px(10.),
+                    ..default()
+                },
+                FixedNode,
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+        assert_eq!(
+            layout_for(&app, child, true).size.width,
+            TARGET_WIDTH as f32 * 0.5
+        );
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.update();
+        assert_eq!(layout_for(&app, child, true).size.width, 100.);
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+        app.update();
+        assert_eq!(
+            layout_for(&app, child, true).size.width,
+            TARGET_WIDTH as f32 * 0.5
+        );
     }
 
     #[test]

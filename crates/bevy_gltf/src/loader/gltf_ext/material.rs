@@ -12,7 +12,6 @@ use super::texture::texture_transform_to_affine2;
 
 #[cfg(any(
     feature = "pbr_anisotropy_texture",
-    feature = "pbr_specular_textures",
     feature = "pbr_multi_layer_material_textures"
 ))]
 use {
@@ -25,7 +24,6 @@ use {
 /// UV channel and image reference.
 #[cfg(any(
     feature = "pbr_anisotropy_texture",
-    feature = "pbr_specular_textures",
     feature = "pbr_multi_layer_material_textures"
 ))]
 pub(crate) fn parse_material_extension_texture(

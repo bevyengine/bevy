@@ -13,7 +13,7 @@ use bevy_ecs::{
     component::Component,
     observer::On,
     query::With,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectEvent},
     system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
@@ -100,6 +100,8 @@ pub enum TrackClick {
     SliderRange,
     SliderStep
 )]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct Slider {
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
@@ -108,17 +110,22 @@ pub struct Slider {
 }
 
 /// Marker component that identifies which descendant element is the slider thumb.
-#[derive(Component, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
 pub struct SliderThumb;
 
 /// A component which stores the current value of the slider.
 #[derive(Component, Debug, Default, PartialEq, Clone, Copy)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct SliderValue(pub f32);
 
 /// A component which represents the allowed range of the slider value. Defaults to 0.0..=1.0.
 #[derive(Component, Debug, PartialEq, Clone, Copy)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct SliderRange {
     /// The beginning of the allowed range for the slider value.
     start: f32,
@@ -663,7 +670,8 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
 ///     });
 /// }
 /// ```
-#[derive(EntityEvent, Clone)]
+#[derive(EntityEvent, Clone, Reflect)]
+#[reflect(Event)]
 pub struct SetSliderValue {
     /// The slider entity to change.
     pub entity: Entity,
@@ -672,7 +680,7 @@ pub struct SetSliderValue {
 }
 
 /// The type of slider value change to apply in [`SetSliderValue`].
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
 pub enum SliderValueChange {
     /// Set the slider value to a specific value.
     Absolute(f32),

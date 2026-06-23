@@ -92,10 +92,52 @@ pub fn extract_text_cursor(
 
         if !text_layout_info.selection_rects.is_empty() && !sc.is_fully_transparent() {
             let selection_color = sc.to_linear();
+            let selection_radius = cursor_style.selection_radius.clamp(0.0, 0.5);
 
-            for selection in text_layout_info.selection_rects.iter() {
+            for (prev, selection, next) in
+                text_layout_info
+                    .selection_rects
+                    .iter()
+                    .enumerate()
+                    .map(|(i, current)| {
+                        (
+                            i.checked_sub(1)
+                                .map(|i| text_layout_info.selection_rects[i]),
+                            current,
+                            text_layout_info.selection_rects.get(i + 1),
+                        )
+                    })
+            {
+                let radius = selection.height() * selection_radius;
+                let mut border_radius = ResolvedBorderRadius {
+                    top_left: radius,
+                    top_right: radius,
+                    bottom_right: radius,
+                    bottom_left: radius,
+                };
+
+                if let Some(prev) = prev {
+                    if selection.min.x <= prev.max.x {
+                        border_radius.top_left = (prev.min.x - selection.min.x).clamp(0., radius);
+                    }
+                    if prev.min.x <= selection.max.x {
+                        border_radius.top_right = (selection.max.x - prev.max.x).clamp(0., radius);
+                    }
+                }
+
+                if let Some(next) = next {
+                    if selection.min.x <= next.max.x {
+                        border_radius.bottom_left =
+                            (next.min.x - selection.min.x).clamp(0., radius);
+                    }
+                    if next.min.x <= selection.max.x {
+                        border_radius.bottom_right =
+                            (selection.max.x - next.max.x).clamp(0., radius);
+                    }
+                }
+
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
                     clip,
                     image: AssetId::default(),
@@ -111,7 +153,7 @@ pub fn extract_text_cursor(
                         flip_x: false,
                         flip_y: false,
                         border: BorderRect::default(),
-                        border_radius: ResolvedBorderRadius::default(),
+                        border_radius,
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
@@ -124,7 +166,7 @@ pub fn extract_text_cursor(
             && !cursor_style.color.is_fully_transparent()
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
                 clip,
                 image: AssetId::default(),
@@ -217,7 +259,7 @@ pub fn extract_preedit_underlines(
 
         for rect in text_layout_info.preedit_underline_rects.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                 clip,
                 image: AssetId::default(),

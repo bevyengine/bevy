@@ -601,8 +601,8 @@ mod tests {
         #[derive(Clone)]
         pub struct ReflectCustomData;
 
-        impl<T: Reflect> bevy_reflect::FromType<T> for ReflectCustomData {
-            fn from_type() -> Self {
+        impl<T: Reflect> bevy_reflect::CreateTypeData<T> for ReflectCustomData {
+            fn create_type_data(_input: ()) -> Self {
                 ReflectCustomData
             }
         }

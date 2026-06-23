@@ -86,7 +86,7 @@ pub struct Meshlet {
     pub start_vertex_attribute_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
-    /// The amount of vertices in this meshlet (minus one to fit 256 in a u8).
+    /// The amount of vertices in this meshlet (minus one to fit 256 in a `u8`).
     pub vertex_count_minus_one: u8,
     /// The amount of triangles in this meshlet.
     pub triangle_count: u8,

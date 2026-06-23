@@ -5,6 +5,7 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]`.
 
+use crate::type_data::TypeDataRegistration;
 use crate::{custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl};
 use bevy_macro_utils::{
     fq_std::{FQAny, FQClone, FQOption, FQResult},
@@ -29,13 +30,6 @@ mod kw {
     syn::custom_keyword!(no_auto_register);
     syn::custom_keyword!(opaque);
 }
-
-// The "special" trait idents that are used internally for reflection.
-// Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
-const DEBUG_ATTR: &str = "Debug";
-const PARTIAL_EQ_ATTR: &str = "PartialEq";
-const PARTIAL_ORD_ATTR: &str = "PartialOrd";
-const HASH_ATTR: &str = "Hash";
 
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
@@ -191,7 +185,7 @@ pub(crate) struct ContainerAttributes {
     no_auto_register: bool,
     custom_attributes: CustomAttributes,
     is_opaque: bool,
-    idents: Vec<Ident>,
+    type_data: Vec<TypeDataRegistration>,
 }
 
 impl ContainerAttributes {
@@ -256,33 +250,32 @@ impl ContainerAttributes {
         } else if lookahead.peek(kw::PartialEq) {
             self.parse_partial_eq(input)
         } else if lookahead.peek(Ident::peek_any) {
-            self.parse_ident(input)
+            self.parse_type_data(input)
         } else {
             Err(lookahead.error())
         }
     }
 
-    /// Parse an ident (for registration).
+    /// Parse a type data registration.
     ///
     /// Examples:
-    /// - `#[reflect(MyTrait)]` (registers `ReflectMyTrait`)
-    fn parse_ident(&mut self, input: ParseStream) -> syn::Result<()> {
-        let ident = input.parse::<Ident>()?;
+    /// - `#[reflect(Default)]`
+    /// - `#[reflect(Hash(custom_hash_fn))]`
+    fn parse_type_data(&mut self, input: ParseStream) -> syn::Result<()> {
+        let type_data = input.parse::<TypeDataRegistration>()?;
 
-        if input.peek(token::Paren) {
-            return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {PARTIAL_ORD_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
-            )));
+        if self
+            .type_data
+            .iter()
+            .any(|existing| existing.path() == type_data.path())
+        {
+            return Err(syn::Error::new(
+                type_data.path().span(),
+                CONFLICTING_TYPE_DATA_MESSAGE,
+            ));
         }
 
-        let ident_name = ident.to_string();
-
-        // Create the reflect ident
-        let mut reflect_ident = crate::ident::get_reflect_ident(&ident_name);
-        // We set the span to the old ident so any compile errors point to that ident instead
-        reflect_ident.set_span(ident.span());
-
-        add_unique_ident(&mut self.idents, reflect_ident)?;
+        self.type_data.push(type_data);
 
         Ok(())
     }
@@ -500,12 +493,14 @@ impl ContainerAttributes {
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
     /// is registered for this type.
     pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
+        self.type_data
+            .iter()
+            .any(|data| data.reflect_path().is_ident(name))
     }
 
-    /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
-    pub fn idents(&self) -> &[Ident] {
-        &self.idents
+    /// The list of type data registrations.
+    pub fn type_data(&self) -> &[TypeDataRegistration] {
+        &self.type_data
     }
 
     /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
@@ -660,19 +655,6 @@ impl ContainerAttributes {
     pub fn is_opaque(&self) -> bool {
         self.is_opaque
     }
-}
-
-/// Adds an identifier to a vector of identifiers if it is not already present.
-///
-/// Returns an error if the identifier already exists in the list.
-fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Error> {
-    let ident_name = ident.to_string();
-    if idents.iter().any(|i| i == ident_name.as_str()) {
-        return Err(syn::Error::new(ident.span(), CONFLICTING_TYPE_DATA_MESSAGE));
-    }
-
-    idents.push(ident);
-    Ok(())
 }
 
 /// Extract a boolean value from an expression.

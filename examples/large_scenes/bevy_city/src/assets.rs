@@ -1,4 +1,4 @@
-use bevy::{ecs::system::SystemState, prelude::*};
+use bevy::{dev_tools::world_asset_helpers::merge_all_mesh_3d, prelude::*};
 use rand::RngExt;
 
 const BASE_URL: &str = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
@@ -263,43 +263,9 @@ pub fn merge_car_meshes(
     meshes: &mut Assets<Mesh>,
 ) {
     for car_scene in &city_assets.cars {
-        let Some(merged) = merge_world_asset(world_assets, meshes, car_scene) else {
+        let Some(merged) = merge_all_mesh_3d(world_assets, meshes, car_scene) else {
             continue;
         };
         city_assets.car_meshes.push(meshes.add(merged));
     }
-}
-
-/// Merge an entire scene into a single mesh
-fn merge_world_asset(
-    world_assets: &mut Assets<WorldAsset>,
-    meshes: &mut Assets<Mesh>,
-    scene_handle: &Handle<WorldAsset>,
-) -> Option<Mesh> {
-    let mut scene = world_assets.get_mut(scene_handle)?;
-    let mut merged: Option<Mesh> = None;
-
-    let mut system_state = SystemState::<TransformHelper>::new(&mut scene.world);
-    let helper = system_state.get(&scene.world).ok()?;
-
-    for entity_ref in scene.world.iter_entities() {
-        let Some(mesh) = entity_ref
-            .get::<Mesh3d>()
-            .and_then(|mesh3d| meshes.get(mesh3d))
-        else {
-            continue;
-        };
-        let Ok(global_transform) = helper.compute_global_transform(entity_ref.id()) else {
-            continue;
-        };
-        let transform = global_transform.compute_transform();
-        let transformed = mesh.clone().transformed_by(transform);
-        match &mut merged {
-            Some(mesh) => {
-                let _ = mesh.merge(&transformed);
-            }
-            None => merged = Some(transformed),
-        }
-    }
-    merged
 }

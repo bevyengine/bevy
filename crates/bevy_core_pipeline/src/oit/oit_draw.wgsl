@@ -14,7 +14,11 @@ fn oit_draw(position: vec4f, color: vec4f) {
 #endif
     // Don't add fully transparent fragments to the list
     // because we don't want to have to sort them in the resolve pass
-    if color.a < oit_settings.alpha_threshold {
+    if color.r < oit_settings.alpha_threshold
+        && color.g < oit_settings.alpha_threshold
+        && color.b < oit_settings.alpha_threshold
+        && color.a < oit_settings.alpha_threshold
+    {
         return;
     }
     // get the index of the current fragment relative to the screen size

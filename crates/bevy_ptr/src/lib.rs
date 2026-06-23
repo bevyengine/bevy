@@ -221,7 +221,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     ///
     /// * The pointer must be [properly aligned].
     ///
-    /// * It must be "dereferenceable" in the sense defined in [the module documentation].
+    /// * It must be "dereferenceable" in the sense defined in [the `core::ptr` documentation].
     ///
     /// * The pointer must point to an initialized instance of `T`.
     ///
@@ -246,7 +246,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// println!("{ref_x}");
     /// ```
     ///
-    /// [the module documentation]: core::ptr#safety
+    /// [the `core::ptr` documentation]: core::ptr#safety
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {
@@ -586,26 +586,56 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - The caller is required to ensure that `dst` must be valid for writes.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
 
     /// Writes the value pointed to by this pointer into `dst`.
     ///
     /// The value previously stored at `dst` will be dropped.
+    ///
+    /// This has the same semantics as a normal `*dst = ...` assignment.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
-        // SAFETY:
-        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `dst` is a mutable borrow, it must not alias any other access.
-        unsafe {
-            ptr::drop_in_place(dst);
+        // This code has the same semantics as the following:
+        // ```
+        // let src = self.0.as_ptr();
+        // mem::forget(self);
+        // *dst = unsafe { A::read(src) };
+        // ```
+        //
+        // However the above might codegen to multiple `memcpy`s, while the code below will avoid that.
+
+        struct DropGuard<'a, 'b, T, A: IsAligned> {
+            src: ManuallyDrop<MovingPtr<'a, T, A>>,
+            dst: &'b mut T,
         }
+
+        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
+            fn drop(&mut self) {
+                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
+                // in drop. No other code can observe the invalid `self.src` after this point.
+                let src = unsafe { ManuallyDrop::take(&mut self.src) };
+
+                // SAFETY:
+                // - `dst` is a mutable borrow, it must be valid for writes.
+                // - `dst` is a mutable borrow, it must always be aligned.
+                unsafe { src.write_to(self.dst) };
+            }
+        }
+
+        let guard = DropGuard {
+            src: ManuallyDrop::new(self),
+            dst,
+        };
+
         // SAFETY:
-        // - `dst` is a mutable borrow, it must be valid for writes.
-        // - `dst` is a mutable borrow, it must always be aligned.
+        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `guard.dst` is a mutable borrow, it must not alias any other access.
+        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
         unsafe {
-            self.write_to(dst);
+            ptr::drop_in_place(guard.dst);
         }
     }
 
@@ -1273,7 +1303,7 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 #[macro_export]
 macro_rules! move_as_ptr {
     ($value: ident) => {
-        let mut $value = core::mem::MaybeUninit::new($value);
+        let mut $value = ::core::mem::MaybeUninit::new($value);
         // SAFETY:
         // - This macro shadows a MaybeUninit value that took ownership of the original value.
         //   it is impossible to refer to the original value, preventing further access after
@@ -1459,11 +1489,11 @@ macro_rules! deconstruct_moving_ptr {
             let value = &mut *ptr;
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index,)*));
+            ::core::hint::black_box(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
-                unreachable!()
+                ::core::unreachable!()
             }
             *value = ($(unreachable($field_index),)*);
         };
@@ -1473,21 +1503,22 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
+        ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<::core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index,)*));
+            ::core::hint::black_box(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
-                unreachable!()
+                ::core::unreachable!()
             }
             *value = ($(unreachable($field_index),)*);
         };
@@ -1497,7 +1528,8 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
+        ::core::mem::forget(ptr);
     };
     ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
@@ -1508,7 +1540,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index),*));
+            ::core::hint::black_box(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1520,11 +1552,12 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
+        ::core::mem::forget(ptr);
     };
     ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<::core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
@@ -1532,7 +1565,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::hint::black_box(($(&mut value.$field_index),*));
+            ::core::hint::black_box(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1544,6 +1577,7 @@ macro_rules! deconstruct_moving_ptr {
         // - `mem::forget` is called on `self` immediately after these calls
         // - Each field is distinct, since otherwise the block of code above would fail compilation
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
-        core::mem::forget(ptr);
+        #[expect(clippy::mem_forget, reason = "`deconstruct_moving_ptr` needs to forget the `MovingPtr` due to its safety requirements.")]
+        ::core::mem::forget(ptr);
     };
 }

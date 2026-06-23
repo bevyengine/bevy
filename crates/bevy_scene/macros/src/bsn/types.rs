@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{punctuated::Punctuated, Expr, Ident, Lit, LitStr, Path, Stmt, Token};
+use syn::{Ident, Lit, LitStr, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -15,15 +15,13 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 #[derive(Debug)]
 pub enum BsnEntry {
     Name(Ident),
-    NameExpression(TokenStream),
     FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     TemplateConst { type_path: Path, const_ident: Ident },
-    SceneExpression(TokenStream),
-    InheritedScene(BsnInheritedScene),
-    SceneFn(BsnSceneFn),
+    UncachedScene(BsnScene),
+    CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
 }
 
@@ -53,25 +51,16 @@ pub enum BsnSceneListItem {
 }
 
 #[derive(Debug)]
-pub enum BsnSceneFnArg {
-    Expr(Expr),
-    Name(Ident),
-    NameExpression(TokenStream),
-}
-#[derive(Debug)]
-pub struct BsnSceneFnArgs(pub Option<Punctuated<BsnSceneFnArg, Token![,]>>);
-
-#[derive(Debug)]
 pub struct BsnSceneFn {
     pub path: Path,
-    pub args: BsnSceneFnArgs,
+    pub args: BsnFnArgs,
 }
 
 #[derive(Debug)]
-pub enum BsnInheritedScene {
+pub enum BsnScene {
     Asset(LitStr),
     Fn(BsnSceneFn),
-    Type(BsnType),
+    SceneComponent(BsnType),
     Expression(TokenStream),
 }
 
@@ -79,13 +68,21 @@ pub enum BsnInheritedScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
-    pub args: BsnSceneFnArgs,
+    pub args: BsnFnArgs,
 }
 
 #[derive(Debug)]
 pub enum BsnFields {
     Named(Vec<BsnNamedField>),
     Tuple(Vec<BsnUnnamedField>),
+}
+impl BsnFields {
+    pub fn len(&self) -> usize {
+        match self {
+            BsnFields::Named(vec) => vec.len(),
+            BsnFields::Tuple(vec) => vec.len(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -94,6 +91,8 @@ pub struct BsnTuple(pub Vec<BsnValue>);
 #[derive(Debug)]
 pub struct BsnNamedField {
     pub is_prop: bool,
+    /// This is a `Struct { field }` shorthand for `Struct { field: field }`
+    pub is_name_shorthand: bool,
     pub name: Ident,
     /// This is an Option to enable autocomplete when the field name is being typed
     /// To improve autocomplete further we'll need to forgo a lot of the syn parsing
@@ -114,5 +113,13 @@ pub enum BsnValue {
     Type(BsnType),
     Tuple(BsnTuple),
     Name(Ident),
-    NameExpression(TokenStream),
 }
+
+#[derive(Debug)]
+pub enum BsnFnArg {
+    EntityName(Ident),
+    Tokens(TokenStream),
+}
+
+#[derive(Debug)]
+pub struct BsnFnArgs(pub Vec<BsnFnArg>);

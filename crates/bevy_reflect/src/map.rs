@@ -7,11 +7,11 @@ use bevy_platform::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, type_info::impl_type_methods, ApplyError, Generics,
-    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    generics::impl_generic_info_methods, ty::impl_type_methods, ApplyError, Generics, MaybeTyped,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -198,16 +198,16 @@ macro_rules! hash_error {
     ( $key:expr ) => {{
         let type_path = (*$key).reflect_type_path();
         if !$key.is_dynamic() {
-            format!(
+            $crate::__macro_exports::alloc_utils::format!(
                 "the given key of type `{}` does not support hashing",
                 type_path
             )
         } else {
             match (*$key).get_represented_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
-                None => format!("the dynamic type `{}` does not support hashing", type_path),
+                ::core::option::Option::None => $crate::__macro_exports::alloc_utils::format!("the dynamic type `{}` does not support hashing", type_path),
                 // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
-                Some(s) => format!(
+                ::core::option::Option::Some(s) => $crate::__macro_exports::alloc_utils::format!(
                     "the dynamic type `{}` (representing `{}`) does not support hashing",
                     type_path,
                     s.type_path()

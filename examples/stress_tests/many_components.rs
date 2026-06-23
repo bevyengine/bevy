@@ -185,7 +185,7 @@ fn main() {
     let num_components = std::env::args()
         .nth(2)
         .and_then(|string| string.parse::<u32>().ok())
-        .and_then(|n| if n >= 10 { Some(n) } else { None })
+        .filter(|&n| n >= 10)
         .unwrap_or_else(|| {
             println!(
                 "No valid number of components provided (>= 10), using default {DEFAULT_NUM_COMPONENTS}"

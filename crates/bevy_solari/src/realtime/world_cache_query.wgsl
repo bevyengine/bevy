@@ -44,20 +44,19 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     var world_position = world_position_in;
     var cell_size = get_cell_size(world_position, view_position, rng);
 
-#ifdef WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION
-    if ray_t < cell_size {
-        // Prevent light leaks
-        cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE;
-    }
-#endif
-
-#ifndef NO_JITTER_WORLD_CACHE
+#ifdef JITTER_WORLD_CACHE
     // Jitter query point, which essentially blurs the cache a bit so it's not so grid-like
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
     world_position += offset.x * TBN[0] + offset.y * TBN[1];
     cell_size = get_cell_size(world_position, view_position, rng);
+#else
+    // Reduce light leaks
+    if ray_t < cell_size {
+        let lod = max(floor(log2(ray_t / WORLD_CACHE_POSITION_BASE_CELL_SIZE)), 0.0);
+        cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE * exp2(lod);
+    }
 #endif
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
@@ -111,7 +110,6 @@ fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
     return floor(world_normal * 2.0 + 0.0001);
 }
 
-// TODO: Clustering
 fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     var key = pcg_hash(world_position.x);
     key = pcg_hash(key + world_position.y);

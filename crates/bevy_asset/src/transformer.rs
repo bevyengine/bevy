@@ -1,3 +1,9 @@
+//! Tools to transform an [`Asset`] into an asset of a different type.
+//!
+//! This module is generally used in conjunction with [`asset processing`](crate::processor).
+//!
+//! See [`AssetTransformer`] for details.
+
 use crate::{
     meta::Settings, Asset, AssetId, ErasedLoadedAsset, Handle, LabeledAsset, UntypedAssetId,
     UntypedHandle,

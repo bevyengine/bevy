@@ -16,7 +16,9 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
+    mesh::MeshAttributeCompressionFlags,
     pbr::DefaultOpaqueRendererMethod,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     render::occlusion_culling::OcclusionCulling,
 };
@@ -59,6 +61,18 @@ struct Args {
     /// disables the infinite grid
     #[argh(switch)]
     no_infinite_grid: bool,
+    /// enable mesh attribute compression
+    #[argh(switch)]
+    mesh_attribute_compression: bool,
+    /// enable mesh index compression
+    #[argh(switch)]
+    mesh_index_compression: bool,
+    /// enable motion blur
+    #[argh(switch)]
+    motion_blur: bool,
+    /// set the motion blur shutter angle
+    #[argh(option)]
+    motion_blur_shutter_angle: Option<f32>,
 }
 
 impl Args {
@@ -99,6 +113,13 @@ fn main() {
                 ..default()
             })
             .set(GltfPlugin {
+                mesh_attribute_compression: if args.mesh_attribute_compression {
+                    MeshAttributeCompressionFlags::all()
+                        .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                } else {
+                    MeshAttributeCompressionFlags::empty()
+                },
+                mesh_index_compression: args.mesh_index_compression,
                 convert_coordinates: GltfConvertCoordinates {
                     rotate_scene_entity: args.convert_scene_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
@@ -239,6 +260,20 @@ fn setup_scene_after_load(
                 .insert(Msaa::Off)
                 .insert(DepthPrepass)
                 .insert(DeferredPrepass);
+        }
+
+        if args.motion_blur {
+            camera.insert((
+                MotionBlur {
+                    shutter_angle: args
+                        .motion_blur_shutter_angle
+                        .unwrap_or_else(|| MotionBlur::default().shutter_angle),
+                    ..Default::default()
+                },
+                // MSAA and MotionBlur are not compatible on WebGL.
+                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+                Msaa::Off,
+            ));
         }
 
         // Spawn a default light if the scene does not have one

@@ -26,6 +26,7 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
+    metadata_index: u32
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.

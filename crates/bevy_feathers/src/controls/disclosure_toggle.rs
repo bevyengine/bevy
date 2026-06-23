@@ -3,12 +3,15 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::PickingSystems;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::{bsn, Scene, SceneComponent};
 use bevy_ui::{
     px, widget::ImageNode, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node,
@@ -27,7 +30,8 @@ use crate::{
 /// state.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersDisclosureToggle;
 
 impl FeathersDisclosureToggle {
@@ -45,7 +49,7 @@ impl FeathersDisclosureToggle {
             FocusIndicator
             TabIndex(0)
             Children [
-                :icon(icons::CHEVRON_RIGHT)
+                icon(icons::CHEVRON_RIGHT)
             ]
         )
     }

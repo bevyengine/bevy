@@ -13,6 +13,9 @@ fn static_type_cell(
     property: TypedProperty,
     generator: TokenStream,
 ) -> TokenStream {
+    // Don't inline the closure within the cell. This is a binary size optimization.
+    let inline = quote! { #[inline(never)] };
+
     let bevy_reflect_path = meta.bevy_reflect_path();
     if meta.type_path().impl_is_generic() {
         let cell_type = match property {
@@ -22,7 +25,7 @@ fn static_type_cell(
 
         quote! {
             static CELL: #bevy_reflect_path::utility::#cell_type = #bevy_reflect_path::utility::#cell_type::new();
-            CELL.get_or_insert::<Self, _>(|| {
+            CELL.get_or_insert::<Self, _>(#inline || {
                 #generator
             })
         }
@@ -36,7 +39,7 @@ fn static_type_cell(
 
         quote! {
             static CELL: #bevy_reflect_path::utility::#cell_type = #bevy_reflect_path::utility::#cell_type::new();
-            CELL.get_or_set(|| {
+            CELL.get_or_set(#inline || {
                 #generator
             })
         }
@@ -146,9 +149,11 @@ pub(crate) fn impl_typed(
 
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
+    // The `[inline(never)]` is a binary size optimization, although it may
+    // slightly increase the cost of calling `get_represented_type_info`.
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {
-            #[inline]
+            #[inline(never)]
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
                 #type_info_cell
             }

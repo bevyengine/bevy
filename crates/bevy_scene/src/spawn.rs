@@ -19,7 +19,8 @@ pub trait WorldSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
     /// # use bevy_app::App;
@@ -83,7 +84,7 @@ pub trait WorldSceneExt {
     /// #[derive(Component, Default, Clone)]
     /// struct Shield;
     ///
-    /// // This scene inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is fully loaded.
     /// world.queue_spawn_scene(bsn! {
     ///     :"player.bsn"
@@ -104,7 +105,8 @@ pub trait WorldSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`World::queue_spawn_scene_list`].
+    /// If your scene list has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene_list`].
+    /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
     /// # use bevy_app::App;
@@ -164,7 +166,7 @@ pub trait WorldSceneExt {
     ///     Red,
     ///     Blue,
     /// }
-    /// // This scene list inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
     /// world.queue_spawn_scene_list(bsn_list! [
     ///     (
@@ -194,7 +196,13 @@ impl WorldSceneExt for World {
         let assets = self.resource::<AssetServer>();
         let patch = ScenePatch::load(assets, scene);
         let handle = assets.add(patch);
-        self.spawn(ScenePatchInstance(handle))
+        let mut entity = self.spawn_empty();
+        let id = entity.id();
+        entity
+            .resource_mut::<QueuedScenes>()
+            .new_scene_entities
+            .push((id, handle));
+        entity
     }
 
     fn spawn_scene_list<L: SceneList>(
@@ -226,7 +234,8 @@ pub trait CommandsSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::queue_spawn_scene`].
+    /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`Commands::queue_spawn_scene`].
+    /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
     /// # use bevy_scene::prelude::*;
@@ -274,7 +283,7 @@ pub trait CommandsSceneExt {
     /// #[derive(Component, Default, Clone)]
     /// struct Shield;
     ///
-    /// // This scene inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is fully loaded.
     /// commands.queue_spawn_scene(bsn! {
     ///     :"player.bsn"
@@ -295,7 +304,7 @@ pub trait CommandsSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::queue_spawn_scene_list`].
+    /// If your scene list has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`Commands::queue_spawn_scene_list`].
     ///
     /// ```
     /// # use bevy_scene::prelude::*;
@@ -309,6 +318,7 @@ pub trait CommandsSceneExt {
     ///     Blue,
     /// }
     ///
+    /// // Note that the .bsn file format is not yet released.
     /// commands.spawn_scene_list(bsn_list! {
     ///     (
     ///         :"player.bsn"
@@ -341,7 +351,7 @@ pub trait CommandsSceneExt {
     ///     Blue,
     /// }
     ///
-    /// // This scene list inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
     /// commands.queue_spawn_scene_list(bsn_list! [
     ///     (
@@ -450,7 +460,8 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// Note that the .bsn file format is not yet released.
     fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
@@ -496,7 +507,10 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
         let assets = self.resource::<AssetServer>();
         let patch = ScenePatch::load(assets, scene);
         let handle = assets.add(patch);
-        self.insert(ScenePatchInstance(handle));
+        let id = self.id();
+        self.resource_mut::<QueuedScenes>()
+            .new_scene_entities
+            .push((id, handle));
     }
 }
 
@@ -549,7 +563,8 @@ pub trait EntityCommandsSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::spawn_scene`].
+    /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`Commands::spawn_scene`].
+    /// Note that the .bsn file format is not yet released.
     fn apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
@@ -654,7 +669,7 @@ pub fn resolve_scene_patches(
 /// A [`Resource`] that tracks entities / scenes that have been queued to spawn.
 #[derive(Resource, Default)]
 pub struct QueuedScenes {
-    new_scene_entities: Vec<Entity>,
+    new_scene_entities: Vec<(Entity, Handle<ScenePatch>)>,
     related_scene_list_spawns: Vec<(RelatedSceneListSpawn, Handle<SceneListPatch>)>,
     scene_list_spawns: Vec<Handle<SceneListPatch>>,
 }
@@ -676,8 +691,13 @@ pub(crate) struct RelatedSceneListSpawn {
 pub fn on_add_scene_patch_instance(
     add: On<Add, ScenePatchInstance>,
     mut queued_scenes: ResMut<QueuedScenes>,
+    instances: Query<&ScenePatchInstance>,
 ) {
-    queued_scenes.new_scene_entities.push(add.entity);
+    if let Ok(instance) = instances.get(add.entity) {
+        queued_scenes
+            .new_scene_entities
+            .push((add.entity, instance.0.clone()));
+    }
 }
 
 /// A system that spawns queued scenes when they are loaded.
@@ -689,22 +709,8 @@ pub fn spawn_queued(
     mut reader: Local<MessageCursor<AssetEvent<ScenePatch>>>,
     mut list_reader: Local<MessageCursor<AssetEvent<SceneListPatch>>>,
 ) {
-    core::mem::swap(&mut *world.resource_mut::<QueuedScenes>(), &mut queued);
     world.resource_scope(|world, mut list_patches: Mut<Assets<SceneListPatch>>| {
         world.resource_scope(|world, mut waiting: Mut<WaitingScenes>| {
-            loop {
-                if queued.is_empty() {
-                    break;
-                }
-                queued.spawn_queued(
-                    world,
-                    &mut waiting,
-                    scene_patch_instances,
-                    &mut bundle_scratch,
-                    &list_patches,
-                );
-            }
-
             world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
                 for event in reader.read(&events) {
                     let patches = world.resource::<Assets<ScenePatch>>();
@@ -759,6 +765,20 @@ pub fn spawn_queued(
                     }
                 },
             );
+
+            loop {
+                core::mem::swap(&mut *world.resource_mut::<QueuedScenes>(), &mut queued);
+                if queued.is_empty() {
+                    break;
+                }
+                queued.spawn_queued(
+                    world,
+                    &mut waiting,
+                    scene_patch_instances,
+                    &mut bundle_scratch,
+                    &list_patches,
+                );
+            }
         });
     });
 }
@@ -778,12 +798,9 @@ impl QueuedScenes {
         bundle_scratch: &mut BundleScratch,
         list_patches: &Assets<SceneListPatch>,
     ) {
-        for entity in core::mem::take(&mut self.new_scene_entities) {
-            let Ok(handle) = scene_patch_instances.get(world, entity).map(|h| &h.0) else {
-                continue;
-            };
+        for (entity, handle) in core::mem::take(&mut self.new_scene_entities) {
             let patches = world.resource::<Assets<ScenePatch>>();
-            if let Some(resolved) = patches.get(handle).and_then(|p| p.resolved.clone()) {
+            if let Some(resolved) = patches.get(&handle).and_then(|p| p.resolved.clone()) {
                 let mut entity_mut = world.get_entity_mut(entity).unwrap();
                 if let Err(err) = resolved.apply(&mut entity_mut, bundle_scratch) {
                     let scene_patch_instance = scene_patch_instances.get(world, entity).unwrap();

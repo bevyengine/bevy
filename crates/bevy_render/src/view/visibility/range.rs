@@ -11,6 +11,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut},
 };
+use bevy_log::warn_once;
 use bevy_math::{vec4, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
@@ -102,31 +103,44 @@ impl Default for RenderVisibilityRanges {
 }
 
 impl RenderVisibilityRanges {
-    /// Clears out the [`RenderVisibilityRanges`] in preparation for a new
-    /// frame.
+    /// Clears the per-frame entity table in preparation for a new frame.
+    ///
+    /// `range_to_index` and `buffer` are deliberately *not* cleared: the
+    /// GPU-driven path bakes a range's buffer index into the mesh's
+    /// `MeshInputUniform` at extraction and only refreshes it on re-extraction,
+    /// so a range must keep the same index for the lifetime of the app or
+    /// still-visible meshes would end up pointing at the wrong slot.
     fn clear(&mut self) {
         self.entities.clear();
-        self.range_to_index.clear();
-        self.buffer.clear();
-        self.buffer_dirty = true;
     }
 
     /// Inserts a new entity into the [`RenderVisibilityRanges`].
     fn insert(&mut self, entity: MainEntity, visibility_range: &VisibilityRange) {
-        // Grab a slot in the GPU buffer, or take the existing one if there
-        // already is one.
-        let buffer_index = *self
-            .range_to_index
-            .entry(visibility_range.clone())
-            .or_insert_with(|| {
-                NonMaxU16::try_from(self.buffer.push(vec4(
-                    visibility_range.start_margin.start,
-                    visibility_range.start_margin.end,
-                    visibility_range.end_margin.start,
-                    visibility_range.end_margin.end,
-                )) as u16)
-                .unwrap_or_default()
-            });
+        // Reuse this range's slot, or append a new one. Indices are never
+        // reused, so any index already baked into a mesh stays valid.
+        let buffer_index = match self.range_to_index.get(visibility_range) {
+            Some(index) => *index,
+            None => {
+                // `try_from` errors instead of wrapping past `NonMaxU16`'s
+                // range, so overflow warns rather than silently aliasing onto
+                // slot 0.
+                let index = u16::try_from(self.range_to_index.len())
+                    .ok()
+                    .and_then(|next| NonMaxU16::try_from(next).ok())
+                    .unwrap_or_else(|| {
+                        warn_once!(
+                            "More than {} distinct `VisibilityRange`s are in use; \
+                             additional ranges will share GPU slot 0 and may be \
+                             culled or crossfaded incorrectly.",
+                            u16::MAX
+                        );
+                        NonMaxU16::default()
+                    });
+                self.range_to_index.insert(visibility_range.clone(), index);
+                self.buffer_dirty = true;
+                index
+            }
+        };
 
         self.entities.insert(
             entity,
@@ -135,6 +149,28 @@ impl RenderVisibilityRanges {
                 is_abrupt: visibility_range.is_abrupt(),
             },
         );
+    }
+
+    /// Rebuilds the GPU buffer from `range_to_index` in index order. Only runs
+    /// when a new range was added this frame, and leaves `buffer_dirty` set for
+    /// [`write_render_visibility_ranges`] to consume.
+    fn rebuild_buffer_if_dirty(&mut self) {
+        if !self.buffer_dirty {
+            return;
+        }
+        let mut ordered = vec![Vec4::ZERO; self.range_to_index.len()];
+        for (range, index) in &self.range_to_index {
+            ordered[index.get() as usize] = vec4(
+                range.start_margin.start,
+                range.start_margin.end,
+                range.end_margin.start,
+                range.end_margin.end,
+            );
+        }
+        self.buffer.clear();
+        for value in ordered {
+            self.buffer.push(value);
+        }
     }
 
     /// Returns the index in the GPU buffer corresponding to the visible range
@@ -178,6 +214,7 @@ pub fn extract_visibility_ranges(
     for (entity, visibility_range) in visibility_ranges_query.iter() {
         render_visibility_ranges.insert(entity.into(), visibility_range);
     }
+    render_visibility_ranges.rebuild_buffer_if_dirty();
 }
 
 /// Writes the [`RenderVisibilityRanges`] table to the GPU.

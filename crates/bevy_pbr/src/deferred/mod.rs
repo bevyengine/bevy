@@ -494,7 +494,7 @@ pub fn prepare_deferred_lighting_pipelines(
                     }
                     Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                    Tonemapping::PbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
+                    Tonemapping::KhronosPbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
                 };
             }
             if let Some(DebandDither::Enabled) = dither {

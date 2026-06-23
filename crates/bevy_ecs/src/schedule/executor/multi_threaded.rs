@@ -7,18 +7,24 @@ use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "std")]
 use std::eprintln;
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    backtrace::Backtrace,
+    sync::{Mutex, MutexGuard},
+};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
 use crate::{
-    error::{ErrorContext, ErrorHandler, Result},
+    error::{
+        BevyError, ErrorContext, ErrorHandler, Result, Severity,
+        PANIC_ORIGINATES_FROM_ERROR_HANDLER,
+    },
     prelude::Resource,
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
-    system::{RunSystemError, ScheduleSystem},
+    system::{BoxedSystem, RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 #[cfg(feature = "hotpatching")]
@@ -294,7 +300,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_deferred(&state.unapplied_systems, systems, world);
+            let res = apply_deferred(&state.unapplied_systems, systems, world, error_handler);
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
@@ -656,28 +662,23 @@ impl ExecutorState {
         let system_meta = &self.system_task_metadata[system_index];
 
         let task = async move {
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // SAFETY:
-                // - The caller ensures that we have permission to
-                // access the world data used by the system.
-                // - `is_exclusive` returned false
-                unsafe {
-                    if let Err(RunSystemError::Failed(err)) =
+            let res = handle_errors(
+                |system| {
+                    // SAFETY:
+                    // - The caller ensures that we have permission to
+                    // access the world data used by the system.
+                    // - `is_exclusive` returned false
+                    unsafe {
                         __rust_begin_short_backtrace::run_unsafe(
                             system,
                             context.environment.world_cell,
                         )
-                    {
-                        (context.error_handler)(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
                     }
-                };
-            }));
+                },
+                system,
+                context.error_handler,
+                "System panicked",
+            );
             context.system_completed(system_index, res, system);
         };
 
@@ -705,7 +706,12 @@ impl ExecutorState {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
-                let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
+                let res = apply_deferred(
+                    &unapplied_systems,
+                    context.environment.systems,
+                    world,
+                    context.error_handler,
+                );
                 context.system_completed(system_index, res, system);
             };
 
@@ -715,19 +721,12 @@ impl ExecutorState {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    if let Err(RunSystemError::Failed(err)) =
-                        __rust_begin_short_backtrace::run(system, world)
-                    {
-                        (context.error_handler)(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                }));
+                let res = handle_errors(
+                    |system| __rust_begin_short_backtrace::run(system, world),
+                    system,
+                    context.error_handler,
+                    "Exclusive system panicked",
+                );
                 context.system_completed(system_index, res, system);
             };
 
@@ -779,24 +778,20 @@ fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
+    error_handler: ErrorHandler,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;
-        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            system.apply_deferred(world);
-        }));
-        if let Err(payload) = res {
-            #[cfg(feature = "std")]
-            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-            {
-                eprintln!(
-                    "Encountered a panic when applying buffers for system `{}`!",
-                    system.name()
-                );
-            }
-            return Err(payload);
-        }
+        handle_errors(
+            |system| {
+                system.apply_deferred(world);
+                Ok(())
+            },
+            system,
+            error_handler,
+            "Encountered a panic while applying system buffers",
+        )?;
     }
     Ok(())
 }
@@ -818,26 +813,96 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|ConditionWithAccess { condition, .. }| {
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
-                .unwrap_or_else(|err| {
-                    if let RunSystemError::Failed(err) = err {
-                        error_handler(
-                            err,
-                            ErrorContext::RunCondition {
-                                name: condition.name(),
-                                last_run: condition.get_last_run(),
-                                system: for_system.name(),
-                                on_set,
-                            },
-                        );
-                    };
-                    false
-                })
+            PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+            let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(||
+                // SAFETY:
+                // - The caller ensures that `world` has permission to read any data
+                //   required by the condition.
+                unsafe {__rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)}
+            ));
+            let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
+            match potential_unwind {
+                // A panic occurred, but it came from an error handler, so rethrow it
+                Err(payload) if panic_originates_from_error_handler => std::panic::resume_unwind(payload),
+                // Let the error handler handle the panic
+                Err(_) => {
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
+                        BevyError::new_with_backtrace(
+                            Severity::Panic,
+                            "Encountered panic",
+                            Backtrace::disabled(),
+                        ),
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    ); false},
+                // Condition returned an error, let the error handler handle it
+                Ok(Err(RunSystemError::Failed(err))) => {
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
+                        err,
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    ); false
+                },
+                Ok(Err(RunSystemError::Skipped(_))) => false,
+                Ok(Ok(result)) => result,
+            }
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// Handle a potential panic or failed system by invoking the error handler
+/// and/or returning a panic payload with which to resume unwinding.
+fn handle_errors(
+    f: impl FnOnce(&mut BoxedSystem) -> Result<(), RunSystemError>,
+    system: &mut BoxedSystem,
+    error_handler: ErrorHandler,
+    error_message: &str,
+) -> Result<(), Box<dyn Any + Send>> {
+    PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
+    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
+    match potential_unwind {
+        // A panic occurred, but it came from an error handler, so pass it on to be rethrown
+        Err(payload) if panic_originates_from_error_handler => Err(payload),
+        // Let the error handler handle the panic, passing on any panic it throws
+        Err(_) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+            __rust_begin_short_backtrace::error_handler(
+                error_handler,
+                BevyError::new_with_backtrace(
+                    Severity::Panic,
+                    error_message,
+                    Backtrace::disabled(),
+                ),
+                ErrorContext::System {
+                    name: system.name(),
+                    last_run: system.get_last_run(),
+                },
+            );
+        })),
+        // System returned an error, let the error handler handle it, passing on any panic it throws
+        Ok(Err(RunSystemError::Failed(err))) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+            __rust_begin_short_backtrace::error_handler(
+                error_handler,
+                err,
+                ErrorContext::System {
+                    name: system.name(),
+                    last_run: system.get_last_run(),
+                },
+            );
+        })),
+        // Success (or skipped system)
+        _ => Ok(()),
+    }
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
@@ -859,7 +924,17 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::String;
+    use core::{
+        panic::AssertUnwindSafe,
+        sync::atomic::{AtomicBool, Ordering::Relaxed},
+    };
+    use std::panic::catch_unwind;
+
     use crate::{
+        error::{
+            BevyError, ErrorContext, FallbackErrorHandler, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
+        },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::Commands,
@@ -898,5 +973,119 @@ mod tests {
         schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn panic_to_error() {
+        let mut world = World::new();
+
+        let mut schedule_error = Schedule::default();
+        schedule_error.set_executor(MultiThreadedExecutor::new());
+        schedule_error.add_systems(|| Err(BevyError::ignore("")));
+
+        let mut schedule_panic = Schedule::default();
+        schedule_panic.set_executor(MultiThreadedExecutor::new());
+        schedule_panic.add_systems(|| {
+            panic!("System's panic payload");
+        });
+
+        static HANDLER_CALLED: AtomicBool = AtomicBool::new(false);
+        fn handle(_: BevyError, ctx: ErrorContext) {
+            assert!(matches!(ctx, ErrorContext::System { .. }));
+            HANDLER_CALLED.store(true, Relaxed);
+        }
+        world.insert_resource(FallbackErrorHandler(handle));
+
+        // System error
+        schedule_error.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+
+        // System panic
+        HANDLER_CALLED.store(false, Relaxed);
+        schedule_panic.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+
+        const PANIC_PAYLOAD: &str = "UwU";
+        fn panic(_: BevyError, ctx: ErrorContext) {
+            assert!(matches!(ctx, ErrorContext::System { .. }));
+            PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
+            panic!("{}", PANIC_PAYLOAD);
+        }
+        world.insert_resource(FallbackErrorHandler(panic));
+
+        // System error, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+
+        // System panic, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+
+        static SYSTEM_RAN: AtomicBool = AtomicBool::new(false);
+        let system = || {
+            SYSTEM_RAN.store(true, Relaxed);
+        };
+        let mut schedule_condition_error = Schedule::default();
+        schedule_condition_error.set_executor(MultiThreadedExecutor::new());
+        schedule_condition_error.add_systems(system.run_if(|| Err(BevyError::ignore(""))));
+
+        let mut schedule_condition_panic = Schedule::default();
+        schedule_condition_panic.set_executor(MultiThreadedExecutor::new());
+        schedule_condition_panic.add_systems(system.run_if(|| {
+            panic!("Condition's panic payload");
+        }));
+
+        world.insert_resource(FallbackErrorHandler(handle));
+
+        // Condition error
+        schedule_error.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        // Condition panic
+        HANDLER_CALLED.store(false, Relaxed);
+        schedule_panic.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        world.insert_resource(FallbackErrorHandler(panic));
+
+        // Condition error, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        // Condition panic, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+        assert!(!SYSTEM_RAN.load(Relaxed));
     }
 }

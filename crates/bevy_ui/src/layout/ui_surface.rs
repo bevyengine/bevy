@@ -5,6 +5,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::Resource,
+    query::With,
     system::Query,
     world::Ref,
 };
@@ -22,7 +23,7 @@ use taffy::{
 
 use crate::{
     experimental::UiChildren, layout::style::CoreNode, ComputedUiRenderTargetInfo, ContentSize,
-    LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
+    FixedNode, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
 };
 
 fn entity_node_id(entity: Entity) -> NodeId {
@@ -111,6 +112,8 @@ impl UiSurface {
         node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
         content_size_query: &Query<Ref<ContentSize>>,
         computed_layout_query: &mut Query<&mut ComputedLayout>,
+        fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
+        fixed_node_changes: &[Entity],
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
     ) -> Result<(), LayoutError> {
@@ -121,6 +124,8 @@ impl UiSurface {
             node_query,
             content_size_query,
             computed_layout_query,
+            fixed_nodes_query,
+            fixed_node_changes,
             &mut runtime_nodes,
         )?
         .map(|built_node| built_node.node_id) else {
@@ -197,17 +202,27 @@ fn build_runtime_layout_tree<'a>(
     node_query: &'a Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
     content_size_query: &Query<Ref<ContentSize>>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
+    fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
+    fixed_node_changes: &[Entity],
     runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
 ) -> Result<Option<BuiltNode>, LayoutError> {
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
+        let child_fixed_changed = fixed_node_changes.contains(&child);
+        subtree_dirty |= child_fixed_changed;
+        if fixed_nodes_query.contains(child) {
+            continue;
+        }
+
         if let Some(child) = build_runtime_layout_tree(
             child,
             ui_children,
             node_query,
             content_size_query,
             computed_layout_query,
+            fixed_nodes_query,
+            fixed_node_changes,
             runtime_nodes,
         )? {
             child_ids.push(child.node_id);
@@ -230,6 +245,7 @@ fn build_runtime_layout_tree<'a>(
             .get(entity)
             .is_ok_and(|content_size| content_size.is_changed())
         || ui_children.is_changed(entity)
+        || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
 

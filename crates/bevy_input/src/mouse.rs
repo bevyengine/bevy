@@ -1,5 +1,7 @@
 //! The mouse input functionality.
 
+use core::ops::{Div, Mul};
+
 use crate::{touch::TouchPhase, ButtonInput, ButtonState};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectMessage;
@@ -11,6 +13,8 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_math::Vec2;
+use derive_more::{Deref, DerefMut};
+
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
@@ -115,6 +119,8 @@ pub struct MouseMotion {
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
+///
+/// To convert this value to the other unit use the [`Resource`] [`MouseScrollPixelsPerLine`]
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -139,18 +145,58 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
-impl MouseScrollUnit {
-    /// An approximate conversion factor to account for the difference between
-    /// [`MouseScrollUnit::Line`] and [`MouseScrollUnit::Pixel`].
-    ///
-    /// Each line corresponds to many pixels; this must be corrected for in order to ensure that
-    /// mouse wheel controls are scaled properly regardless of the provided input events for the end user.
-    ///
-    /// This value is correct for Microsoft Edge, but its validity has not been broadly tested.
-    /// Please file an issue if you find that this differs on certain platforms or hardware!
-    pub const SCROLL_UNIT_CONVERSION_FACTOR: f32 = 100.;
+/// Describes the quantity of [`MouseScrollUnit::Pixel`]s per [`MouseScrollUnit::Line`]
+///
+/// Different platforms sometimes have different ratios between mouse scroll in pixels and mouse
+/// scroll in lines. Currently you have to set the values for different platforms yourself, although
+/// in future this will be handled automatically. The default of 100.0 pixels per line is a best
+/// guess of what it may be on your platform.
+#[derive(Debug, Clone, Copy, PartialEq, Resource, Deref, DerefMut)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct MouseScrollPixelsPerLine(f32);
+
+impl Default for MouseScrollPixelsPerLine {
+    fn default() -> Self {
+        MouseScrollPixelsPerLine(100.0)
+    }
 }
 
+impl Mul<MouseScrollPixelsPerLine> for f32 {
+    type Output = f32;
+    fn mul(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+impl Div<MouseScrollPixelsPerLine> for f32 {
+    type Output = f32;
+    fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self / rhs.0
+    }
+}
+
+impl Mul<MouseScrollPixelsPerLine> for Vec2 {
+    type Output = Vec2;
+    fn mul(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+impl Div<MouseScrollPixelsPerLine> for Vec2 {
+    type Output = Vec2;
+    fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self / rhs.0
+    }
+}
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
@@ -250,6 +296,31 @@ impl Default for AccumulatedMouseScroll {
         Self {
             unit: MouseScrollUnit::Line,
             delta: Vec2::ZERO,
+        }
+    }
+}
+
+impl AccumulatedMouseScroll {
+    /// Converts the units to [`MouseScrollUnit::Line`]
+    pub fn to_lines(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Pixel {
+            AccumulatedMouseScroll {
+                unit: MouseScrollUnit::Line,
+                delta: self.delta / *conversion_ratio,
+            }
+        } else {
+            *self
+        }
+    }
+    /// Converts the units to [`MouseScrollUnit::Pixel`]
+    pub fn to_pixels(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Line {
+            AccumulatedMouseScroll {
+                unit: MouseScrollUnit::Pixel,
+                delta: self.delta * *conversion_ratio,
+            }
+        } else {
+            *self
         }
     }
 }

@@ -22,7 +22,7 @@ use bevy_render::{
 
 mod node;
 
-pub(crate) use node::cas;
+pub use node::cas;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///

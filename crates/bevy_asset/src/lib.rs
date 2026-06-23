@@ -150,6 +150,7 @@ extern crate std;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_asset;
 
+pub mod asset_changed;
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -170,7 +171,6 @@ pub mod prelude {
     };
 }
 
-mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
@@ -207,6 +207,8 @@ use crate::{
     processor::{AssetProcessor, Process},
 };
 use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet, VecDeque},
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
@@ -465,6 +467,7 @@ pub trait AsAssetId: Component {
 ///
 /// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
+    /// Apply the `visit` closure to every asset dependency.
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
 
@@ -474,25 +477,9 @@ impl<A: Asset> VisitAssetDependencies for Handle<A> {
     }
 }
 
-impl<A: Asset> VisitAssetDependencies for Option<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        if let Some(handle) = self {
-            visit(handle.id().untyped());
-        }
-    }
-}
-
 impl VisitAssetDependencies for UntypedHandle {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         visit(self.id());
-    }
-}
-
-impl VisitAssetDependencies for Option<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        if let Some(handle) = self {
-            visit(handle.id());
-        }
     }
 }
 
@@ -502,23 +489,45 @@ impl VisitAssetDependencies for UntypedAssetId {
     }
 }
 
-impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
+impl<V: VisitAssetDependencies> VisitAssetDependencies for Option<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
-            visit(dependency.id().untyped());
+        if let Some(dependency) = self {
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
-impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
+impl<V: VisitAssetDependencies, const N: usize> VisitAssetDependencies for [V; N] {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for [V] {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for Box<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        self.as_ref().visit_dependencies(visit);
     }
 }
 
 impl<V: VisitAssetDependencies> VisitAssetDependencies for Vec<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for VecDeque<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
             dependency.visit_dependencies(visit);
@@ -534,18 +543,26 @@ impl<V: VisitAssetDependencies> VisitAssetDependencies for HashSet<V> {
     }
 }
 
-impl<A: Asset, K> VisitAssetDependencies for HashMap<K, Handle<A>> {
+impl<V: VisitAssetDependencies, K> VisitAssetDependencies for HashMap<K, V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.values() {
-            visit(dependency.id().untyped());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
-impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
+impl<V: VisitAssetDependencies> VisitAssetDependencies for BTreeSet<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies, K> VisitAssetDependencies for BTreeMap<K, V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.values() {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
     }
 }
@@ -2984,13 +3001,9 @@ mod tests {
     impl From<&AssetLoadError> for TestAssetLoadError {
         fn from(value: &AssetLoadError) -> TestAssetLoadError {
             match value {
-                AssetLoadError::RequestedHandleTypeMismatch {
-                    requested,
-                    actual_asset_name,
-                    ..
-                } => Self::RequestedHandleTypeMismatch {
-                    requested: *requested,
-                    actual_asset_name,
+                AssetLoadError::RequestedHandleTypeMismatch (err) => Self::RequestedHandleTypeMismatch {
+                    requested: err.requested,
+                    actual_asset_name: err.actual_asset_name,
                 },
                 AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
                 AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {

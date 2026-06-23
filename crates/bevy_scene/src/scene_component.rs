@@ -9,7 +9,7 @@ use crate::Scene;
 /// In general, developers should not implement this manually. Instead, they should derive it,
 /// which also derives [`Component`] and adds additional protections and assurances.
 ///
-/// See the "Scene Components" sections of the [`Scene`] docs to see how this is used in practice.
+/// See the ["Scene Components"](crate#scene-components) section of the module docs to see how this is used in practice.
 pub trait SceneComponent: Component + FromTemplate<Template: Default> {
     /// The "properties" passed into [`Self::scene`] to build the final scene.
     type Props: Default;
@@ -50,7 +50,7 @@ impl SceneComponentInfo {
                 "Entity {} was spawned with the \"scene component\" {}, but without its scene. \
                 Scene components should not be spawned directly as components. Instead, they \
                 should be spawned as \"scenes\" using world.spawn_scene or commands.spawn_scene. \
-                Scene components should be inherited using `:{}` syntax in BSN.",
+                Scene components should be included using `@{}` syntax in BSN.",
                 context.entity,
                 component.component_name,
                 component.component_name

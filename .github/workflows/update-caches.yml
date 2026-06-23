@@ -29,7 +29,7 @@ jobs:
       NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
       MSRV: ${{ steps.msrv.outputs.MSRV }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
@@ -98,7 +98,7 @@ jobs:
         shell: bash
 
       - name: Checkout Bevy main branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: "bevyengine/bevy"
           ref: "main"
