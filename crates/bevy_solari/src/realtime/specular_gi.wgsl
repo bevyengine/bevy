@@ -113,7 +113,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         let F_ab = F_AB(ray_hit.material.perceptual_roughness, NdotV);
 
         // Add emissive contribution
-        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit);
+        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit, ray.t, NdotV);
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
@@ -145,7 +145,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
             // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
             let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
-            let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
+            let mis_weight = nee_mis_weight(direct_lighting.inverse_solid_angle_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
             radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
         }
 
@@ -172,9 +172,9 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     return radiance;
 }
 
-fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull) -> f32 {
+fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, ray_distance: f32, NdotV: f32) -> f32 {
     if i != 0u {
-        let p_light = random_emissive_light_pdf(ray_hit);
+        let p_light = random_emissive_light_pdf(ray_hit, ray_distance, NdotV);
         return power_heuristic(p_bounce, p_light);
     } else {
         // The first bounce gets MIS weight 0.0 or 1.0 depending on if ReSTIR DI shaded using the specular lobe or not

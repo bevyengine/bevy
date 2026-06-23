@@ -198,19 +198,6 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
-    /// Returns a new run condition that only returns `true`
-    /// if both this one and the passed `then_run` return `true`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `.and_then(...)` instead, or `.and_eager(...)` to evaluate the conditions eagerly"
-    )]
-    fn and<M, C: SystemCondition<M, In>>(self, then_run: C) -> AndThen<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(then_run);
-        let name = format!("{} && {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, DebugName::owned(name))
-    }
-
     /// Returns a new run condition that only returns `false`
     /// if both this one and the passed `then_run` return `true`.
     ///
@@ -345,16 +332,6 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
-    /// Returns a new run condition that only returns `false`
-    /// if both this one and the passed `then_run` return `true`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `.nand_then(...) instead, or `.nand_eager(...)` to evaluate the conditions eagerly"
-    )]
-    fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> NandThen<Self::System, C::System> {
-        self.nand_then(nand)
-    }
-
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `else_run` return `false`.
     ///
@@ -442,21 +419,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
-    /// Returns a new run condition that only returns `true`
-    /// if both this one and the passed `else_run` return `false`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `.nor_else(...)` instead, or `.nor_eager(...)` to evaluate the conditions eagerly"
-    )]
-    fn nor<M, C: SystemCondition<M, In>>(self, else_run: C) -> NorElse<Self::System, C::System> {
-        self.nor_else(else_run)
-    }
-
     /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or` return `true`.
+    /// if either this one or the passed `else_run` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `or` will only be invoked if `self` returns `false`.
+    /// `else_run` will only be invoked if `self` returns `false`.
     ///
     /// Short-circuiting may not be desired in all cases; when utilizing change detection,
     /// the `else_run` condition will react to changes since the last time that _`self` returned `false`_,
@@ -487,8 +454,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_systems(
-    ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
+    ///     // Only run the system if either `A` or else `B` exist.
+    ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
     /// );
     /// #
     /// # world.insert_resource(C(false));
@@ -513,10 +480,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     }
 
     /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or` return `true`.
+    /// if either this one or the passed `other` return `true`.
     ///
     /// The returned run condition is eagerly evaluated, meaning
-    /// it will always execute both run conditions in order.
+    /// it will always execute both run conditions in order even
+    /// if the first conditions evaluates to `true`.
     ///
     /// See also [`or_else`], which short-circuits if `self` returns `true`.
     ///
@@ -526,16 +494,6 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let b = IntoSystem::into_system(other);
         let name = format!("{} | {}", a.name(), b.name());
         CombinatorSystem::new(a, b, DebugName::owned(name))
-    }
-
-    /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or` return `true`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `.or_else(...)` instead, or `.or_eager(...)` to eagerly evaluate both conditions"
-    )]
-    fn or<M, C: SystemCondition<M, In>>(self, else_run: C) -> OrElse<Self::System, C::System> {
-        self.or_else(else_run)
     }
 
     /// Returns a new run condition that only returns `true`
@@ -942,7 +900,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and(not(resource_added::<Counter>))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -992,7 +950,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and(not(resource_added::<Counter>))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -1050,7 +1008,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and(not(resource_added::<Counter>))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
