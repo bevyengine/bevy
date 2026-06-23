@@ -166,7 +166,6 @@ fn empty_archetypes(criterion: &mut Criterion) {
             schedule.add_systems(iter);
         });
         add_archetypes(&mut world, archetype_count);
-        world.clear_entities();
         let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
@@ -197,7 +196,6 @@ fn empty_archetypes(criterion: &mut Criterion) {
             schedule.add_systems(for_each);
         });
         add_archetypes(&mut world, archetype_count);
-        world.clear_entities();
         let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
@@ -228,7 +226,6 @@ fn empty_archetypes(criterion: &mut Criterion) {
             schedule.add_systems(par_for_each);
         });
         add_archetypes(&mut world, archetype_count);
-        world.clear_entities();
         let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
