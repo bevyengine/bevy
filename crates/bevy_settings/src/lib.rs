@@ -904,7 +904,6 @@ mod tests {
 
         // Serialize to TOML
         let table = resources_to_toml(&world, &types, &manifest);
-        println!("{}", table.len());
 
         // Create a new world and apply the TOML
         let mut new_world = World::new();
