@@ -4,16 +4,14 @@ use log::warn;
 
 use crate::{
     component::{Component, ComponentId},
-    entity::Entity,
+    entity::ContainsEntity,
     lifecycle::HookContext,
-    storage::SparseArray,
     world::DeferredWorld,
 };
 #[cfg(feature = "bevy_reflect")]
 use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
-use bevy_platform::cell::SyncUnsafeCell;
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
@@ -86,37 +84,6 @@ use bevy_platform::cell::SyncUnsafeCell;
 )]
 pub trait Resource: Component {}
 
-/// A cache that links each `ComponentId` from a resource to the corresponding entity.
-#[derive(Default)]
-pub struct ResourceEntities(SyncUnsafeCell<SparseArray<ComponentId, Entity>>);
-
-impl ResourceEntities {
-    /// Returns an iterator over all registered resource components and their corresponding entity.
-    ///
-    /// This must scan the entire array of components to find non-empty values,
-    /// which may be slow even if there are few resources.
-    #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, Entity)> {
-        self.deref().iter().map(|(id, entity)| (id, *entity))
-    }
-
-    /// Returns the entity for the given resource component, or `None` if there is no entity.
-    #[inline]
-    pub fn get(&self, id: ComponentId) -> Option<Entity> {
-        self.deref().get(id).copied()
-    }
-
-    #[inline]
-    fn deref(&self) -> &SparseArray<ComponentId, Entity> {
-        // SAFETY: There are no other mutable references to the map.
-        // The underlying `SyncUnsafeCell` is never exposed outside this module,
-        // so mutable references are only created by the resource hooks.
-        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-        // and that would conflict with the `DeferredWorld` passed to the resource hook.
-        unsafe { &*self.0.get() }
-    }
-}
-
 /// A marker component for entities that have a Resource component.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
@@ -141,43 +108,36 @@ impl IsResource {
             .unwrap()
             .resource_component_id();
 
-        if let Some(original_entity) = world.resource_entities.get(resource_component_id) {
-            if !world.entities().contains(original_entity) {
-                let name = world
-                    .components()
-                    .get_name(resource_component_id)
-                    .expect("resource is registered");
-                panic!(
-                    "Resource entity {} of {} has been despawned, when it's not supposed to be.",
-                    original_entity, name
-                );
-            }
+        let original_entity = resource_component_id.entity();
 
-            if original_entity != context.entity {
-                // the resource already exists and the new one should be removed
-                world
-                    .commands()
-                    .entity(context.entity)
-                    .remove_by_id(resource_component_id);
-                world
-                    .commands()
-                    .entity(context.entity)
-                    .remove_by_id(context.component_id);
-                let name = world
-                    .components()
-                    .get_name(resource_component_id)
-                    .expect("resource is registered");
-                warn!("Tried inserting the resource {} while one already exists. \
-                Resources are unique components stored on a single entity. \
-                Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
-            }
-        } else {
-            // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-            let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
-            // SAFETY: There are no shared references to the map.
-            // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-            // and that would conflict with the `DeferredWorld` passed to the resource hook.
-            unsafe { &mut *cache.0.get() }.insert(resource_component_id, context.entity);
+        if !world.entities().contains(original_entity) {
+            let name = world
+                .components()
+                .get_name(resource_component_id)
+                .expect("resource is registered");
+            panic!(
+                "Resource entity {} of {} has been despawned, when it's not supposed to be.",
+                original_entity, name
+            );
+        }
+
+        if original_entity != context.entity {
+            // the resource already exists and the new one should be removed
+            world
+                .commands()
+                .entity(context.entity)
+                .remove_by_id(resource_component_id);
+            world
+                .commands()
+                .entity(context.entity)
+                .remove_by_id(context.component_id);
+            let name = world
+                .components()
+                .get_name(resource_component_id)
+                .expect("resource is registered");
+            warn!("Tried inserting the resource {} while one already exists. \
+            Resources are unique components stored on a single entity. \
+            Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
         }
     }
 
@@ -188,16 +148,9 @@ impl IsResource {
             .unwrap()
             .resource_component_id();
 
-        if let Some(resource_entity) = world.resource_entities.get(resource_component_id)
-            && resource_entity == context.entity
-        {
-            // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-            let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
-            // SAFETY: There are no shared references to the map.
-            // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-            // and that would conflict with the `DeferredWorld` passed to the resource hook.
-            unsafe { &mut *cache.0.get() }.remove(resource_component_id);
+        let original_entity = resource_component_id.entity();
 
+        if original_entity == context.entity {
             world
                 .commands()
                 .entity(context.entity)
@@ -219,7 +172,7 @@ mod tests {
 
     use crate::{
         change_detection::MaybeLocation,
-        entity::Entity,
+        entity::{ContainsEntity, Entity},
         lifecycle::HookContext,
         ptr::OwningPtr,
         resource::{IsResource, Resource},
@@ -259,7 +212,7 @@ mod tests {
             }
         });
         assert_eq!(world.entities().count_spawned(), start + 3);
-        let e3 = world.resource_entities().get(id3).unwrap();
+        let e3 = id3.entity();
         assert!(world.remove_resource_by_id(id3));
         // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
         assert_eq!(world.entities().count_spawned(), start + 3);
@@ -269,13 +222,13 @@ mod tests {
                 world.insert_resource_by_id(id3, ptr, MaybeLocation::caller());
             }
         });
-        assert_eq!(e3, world.resource_entities().get(id3).unwrap());
+        assert_eq!(e3, id3.entity());
         // again, the entity is stable: see previous explanation
-        let e1 = world.resource_entities().get(id1).unwrap();
+        let e1 = id1.entity();
         world.remove_resource::<TestResource1>();
         assert_eq!(world.entities().count_spawned(), start + 3);
         world.init_resource::<TestResource1>();
-        assert_eq!(e1, world.resource_entities().get(id1).unwrap());
+        assert_eq!(e1, id1.entity());
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
         assert_eq!(world.entities().count_spawned(), start + 3);
@@ -319,9 +272,9 @@ mod tests {
             entity
         };
 
-        assert_ne!(
+        assert_eq!(
             first_entity, second_entity,
-            "The first resource entity was invalidated, so the second initialization should be new"
+            "The resource should always be inserted on the component entity"
         );
 
         let id = world.spawn(TestResource).id();

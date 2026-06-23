@@ -5,7 +5,8 @@ use crate::{DynamicEntity, DynamicWorld, WorldFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, ComponentInfo},
+    entity::ContainsEntity,
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
     reflect::{ReflectComponent, ReflectResource},
@@ -377,10 +378,24 @@ impl<'w> DynamicWorldBuilder<'w> {
             .components()
             .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
-        for (component_id, entity) in self.original_world.resource_entities().iter() {
+        let ids: Vec<ComponentId> = self
+            .original_world
+            .components()
+            .iter_registered()
+            .map(ComponentInfo::id)
+            .collect();
+
+        for component_id in ids {
+            let entity = component_id.entity();
+
+            if !self.original_world.entities().contains_spawned(entity) {
+                continue;
+            }
+
             if Some(component_id) == original_world_dqf_id {
                 continue;
             }
+
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world

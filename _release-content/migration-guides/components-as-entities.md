@@ -13,3 +13,8 @@ pull_requests: [ ... ]
 - `ComponentsQueuedRegistrator::new` not takes `RemoteAllocator` instead of `ComponentIds`.
 - `Access` no longer derives `Hash`.
 - `EcsAccessType` no longer derives `Hash`.
+- Removed `SparseArray::iter`. Not user-facing but worth mentioning.
+- Removed `EntityWorldMut::resource_entities`.
+- Removed `World::resource_entities`.
+- Removed `UnsafeWorldCell::resource_entities`.
+- Removed `ResourceEntities`.
