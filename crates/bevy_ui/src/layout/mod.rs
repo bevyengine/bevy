@@ -528,6 +528,58 @@ mod tests {
     }
 
     #[test]
+    fn node_removal_and_reinsert_should_work() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .query_filtered::<Entity, (With<Node>, With<ComputedLayout>)>()
+                .iter(world)
+                .count(),
+            0
+        );
+
+        let ui_entity = world.spawn(Node::default()).id();
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .query_filtered::<Entity, (With<Node>, With<ComputedLayout>)>()
+                .single(world)
+                .unwrap(),
+            ui_entity
+        );
+
+        app.world_mut().entity_mut(ui_entity).remove::<Node>();
+        app.world_mut().entity_mut(ui_entity).insert(Node {
+            width: px(100.),
+            ..default()
+        });
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .query_filtered::<Entity, (With<Node>, With<ComputedLayout>)>()
+                .single(world)
+                .unwrap(),
+            ui_entity
+        );
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(ui_entity)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            100.
+        );
+    }
+
+    #[test]
     fn reparenting_recomputes_from_current_entity_tree() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
