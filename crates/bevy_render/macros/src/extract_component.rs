@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::{FQClone, FQOption};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
@@ -14,7 +15,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: Clone });
+        .push(parse_quote! { Self: #FQClone });
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -67,8 +68,8 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
             type QueryFilter = #filter;
             type Out = Self;
 
-            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-                Some(item.clone())
+            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> #FQOption<Self::Out> {
+                #FQOption::Some(item.clone())
             }
         }
     })

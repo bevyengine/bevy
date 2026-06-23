@@ -199,7 +199,7 @@ where
         BatchedInstanceBuffers {
             current_input_buffer: InstanceInputUniformBuffer::new(),
             previous_input_buffer: PreviousInstanceInputUniformBuffer::new(),
-            phase_instance_buffers: HashMap::default(),
+            phase_instance_buffers: TypeIdMap::default(),
         }
     }
 }
@@ -1241,7 +1241,7 @@ pub struct ViewPhaseSceneUnpackingBuffers {
 
 /// A key used to look up the bin unpacking buffers for a specific phase of a
 /// specific view.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SceneUnpackingBuffersKey {
     /// The ID of the phase.
     pub phase: TypeId,
@@ -1251,7 +1251,7 @@ pub struct SceneUnpackingBuffersKey {
 
 /// The index of the metadata corresponding to one bin unpacking job in the
 /// [`SceneUnpackingBuffers::bin_unpacking_metadata`] buffer.
-#[derive(Clone, Copy, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Deref, DerefMut)]
 pub struct BinUnpackingMetadataIndex(pub NonMaxU32);
 
 impl BinUnpackingMetadataIndex {
@@ -1411,9 +1411,13 @@ impl FromWorld for GpuPreprocessingSupport {
         // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
         //   than 730).
         // - We filter out Mali GPUs with driver versions lower than 48.
+        // - We limit Pixel 10 GPUs (all versions for now) to preprocessing only (no culling)
         fn is_non_supported_android_device(adapter_info: &RenderAdapterInfo) -> bool {
             crate::get_adreno_model(adapter_info).is_some_and(|model| model != 720 && model <= 730)
                 || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
+        }
+        fn is_preprocessing_only_android_device(adapter_info: &RenderAdapterInfo) -> bool {
+            crate::get_pixel10_driver_version(adapter_info).is_some()
         }
 
         let culling_feature_support = device
@@ -1445,7 +1449,9 @@ impl FromWorld for GpuPreprocessingSupport {
                 Falling back to CPU preprocessing.",
             );
             GpuPreprocessingMode::None
-        } else if !(culling_feature_support && limit_support && downlevel_support) {
+        } else if !(culling_feature_support && limit_support && downlevel_support)
+            || is_preprocessing_only_android_device(&adapter_info)
+        {
             info_once!("Some GPU preprocessing are limited on this device.");
             GpuPreprocessingMode::PreprocessingOnly
         } else {
@@ -1712,12 +1718,16 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
                 continue;
             };
-            let current_meta = current_meta.map(|(batch_set_meta, batch_meta)| {
-                (
-                    BatchSetMeta::new(&phase.items[current_index], batch_set_meta),
-                    batch_meta,
-                )
-            });
+            let current_meta = if I::AUTOMATIC_BATCHING {
+                current_meta.map(|(batch_set_meta, batch_meta)| {
+                    (
+                        BatchSetMeta::new(&phase.items[current_index], batch_set_meta),
+                        batch_meta,
+                    )
+                })
+            } else {
+                None
+            };
 
             // Determine if this entity can be included in the batch we're
             // building up.
@@ -2406,12 +2416,14 @@ pub fn write_batched_instance_buffers<GFBD>(
 
     ComputeTaskPool::get().scope(|scope| {
         scope.spawn(async {
+            #[cfg(feature = "trace")]
             let _span = bevy_log::info_span!("write_current_input_buffers").entered();
             current_input_buffer
                 .buffer
                 .write_buffers(render_device, render_queue);
         });
         scope.spawn(async {
+            #[cfg(feature = "trace")]
             let _span = bevy_log::info_span!("write_previous_input_buffers").entered();
             previous_input_buffer.write_buffer(render_device, render_queue);
         });
@@ -2425,6 +2437,7 @@ pub fn write_batched_instance_buffers<GFBD>(
             } = *phase_instance_buffers;
 
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("write_phase_instance_buffers").entered();
                 data_buffer.write_buffer(render_device);
                 late_indexed_indirect_parameters_buffer.write_buffer(render_device, render_queue);
@@ -2434,6 +2447,7 @@ pub fn write_batched_instance_buffers<GFBD>(
 
             for phase_work_item_buffers in work_item_buffers.values_mut() {
                 scope.spawn(async {
+                    #[cfg(feature = "trace")]
                     let _span = bevy_log::info_span!("write_work_item_buffers").entered();
                     match *phase_work_item_buffers {
                         PreprocessWorkItemBuffers::Direct(ref mut buffer_vec) => {
@@ -2761,6 +2775,7 @@ pub fn write_indirect_parameters_buffers(
     ComputeTaskPool::get().scope(|scope| {
         for phase_indirect_parameters_buffers in indirect_parameters_buffers.values_mut() {
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("indexed_data").entered();
                 phase_indirect_parameters_buffers
                     .indexed
@@ -2768,6 +2783,7 @@ pub fn write_indirect_parameters_buffers(
                     .write_buffer(render_device);
             });
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("non_indexed_data").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed
@@ -2776,14 +2792,16 @@ pub fn write_indirect_parameters_buffers(
             });
 
             scope.spawn(async {
-                let _span = bevy_log::info_span!("indexed_metadata").entered();
+                #[cfg(feature = "trace")]
+                let _span = bevy_log::info_span!("indexed_cpu_metadata").entered();
                 phase_indirect_parameters_buffers
                     .indexed
                     .metadata
                     .write_buffer(render_device, render_queue);
             });
             scope.spawn(async {
-                let _span = bevy_log::info_span!("non_indexed_metadata").entered();
+                #[cfg(feature = "trace")]
+                let _span = bevy_log::info_span!("non_indexed_cpu_metadata").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed
                     .metadata
@@ -2791,6 +2809,7 @@ pub fn write_indirect_parameters_buffers(
             });
 
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("indexed_batch_sets").entered();
                 phase_indirect_parameters_buffers
                     .indexed
@@ -2798,6 +2817,7 @@ pub fn write_indirect_parameters_buffers(
                     .write_buffer(render_device, render_queue);
             });
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("non_indexed_batch_sets").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed

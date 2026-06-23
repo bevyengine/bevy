@@ -45,8 +45,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
         // The time is takes to compute this depends on the number of entities and the values in
         // each entity. This is to ensure that each system takes a different amount of time.
         let mut total: Wrapping<u8> = Wrapping(0);
-        let mut exponent: u32 = 1;
-        for component_id in &access_components.0 {
+        for (exponent, component_id) in (1_u32..).zip(access_components.0.iter()) {
             // find the value of the component
             let ptr = filtered_entity.get_by_id(*component_id).unwrap();
 
@@ -60,7 +59,6 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
                 }
                 total += product;
             }
-            exponent += 1;
         }
 
         // we assign this value to all the components we can write to
@@ -187,7 +185,7 @@ fn main() {
     let num_components = std::env::args()
         .nth(2)
         .and_then(|string| string.parse::<u32>().ok())
-        .and_then(|n| if n >= 10 { Some(n) } else { None })
+        .filter(|&n| n >= 10)
         .unwrap_or_else(|| {
             println!(
                 "No valid number of components provided (>= 10), using default {DEFAULT_NUM_COMPONENTS}"

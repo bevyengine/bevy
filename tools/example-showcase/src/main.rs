@@ -613,16 +613,16 @@ required_features = {:?}
                                 WebApi::Webgl2 => "",
                             },
                             to_show.category,
-                            &to_show.technical_name.replace('_', "-"),
-                            &to_show.technical_name.replace('_', "-"),
+                            to_show.technical_name.replace('_', "-"),
+                            to_show.technical_name.replace('_', "-"),
                             match api {
                                 WebApi::Webgpu => "-webgpu",
                                 WebApi::Webgl2 => "",
                             },
-                            &beautified_category,
-                            &to_show.technical_name.replace('_', "-"),
-                            &to_show.category,
-                            &to_show.technical_name,
+                            beautified_category,
+                            to_show.technical_name.replace('_', "-"),
+                            to_show.category,
+                            to_show.technical_name,
                             match api {
                                 WebApi::Webgpu => "-webgpu",
                                 WebApi::Webgl2 => "",
@@ -633,7 +633,7 @@ required_features = {:?}
                                 .collect::<PathBuf>()
                                 .display(),
                             to_show.shader_paths,
-                            &to_show.path,
+                            to_show.path,
                             match api {
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",

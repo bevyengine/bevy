@@ -215,6 +215,25 @@ impl Rect {
         )
     }
 
+    /// Returns the rectangle translated by the given offset.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::{Rect, Vec2};
+    /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
+    /// let r2 = r.translate(Vec2::new(2., -3.));
+    /// assert!(r2.min.abs_diff_eq(Vec2::new(2., -3.), 1e-5));
+    /// assert!(r2.max.abs_diff_eq(Vec2::new(7., -2.), 1e-5));
+    /// ```
+    #[inline]
+    pub const fn translate(&self, offset: Vec2) -> Self {
+        Self {
+            min: Vec2::new(self.min.x + offset.x, self.min.y + offset.y),
+            max: Vec2::new(self.max.x + offset.x, self.max.y + offset.y),
+        }
+    }
+
     /// Check if a point lies within this rectangle, inclusive of its edges.
     ///
     /// # Examples
@@ -232,6 +251,21 @@ impl Rect {
             && point.x <= self.max.x
             && self.min.y <= point.y
             && point.y <= self.max.y
+    }
+
+    /// Clamps a point to lie within this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::{Rect, Vec2};
+    /// let r = Rect::new(0., 0., 4., 5.);
+    /// assert_eq!(r.clamp_point(Vec2::new(-1., 6.)), Vec2::new(0., 5.));
+    /// assert_eq!(r.clamp_point(Vec2::ONE), Vec2::ONE);
+    /// ```
+    #[inline]
+    pub fn clamp_point(&self, point: Vec2) -> Vec2 {
+        point.clamp(self.min, self.max)
     }
 
     /// Build a new rectangle formed of the union of this rectangle and another rectangle.
@@ -534,5 +568,23 @@ mod tests {
         let r2 = r.inflate(0.3);
         assert!(r2.min.abs_diff_eq(Vec2::new(-0.8, -0.8), 1e-5));
         assert!(r2.max.abs_diff_eq(Vec2::new(0.8, 0.8), 1e-5));
+    }
+
+    #[test]
+    fn rect_translate() {
+        let r = Rect::new(0., 1., 4., 3.);
+        let r2 = r.translate(Vec2::new(2., -5.));
+
+        assert!(r2.min.abs_diff_eq(Vec2::new(2., -4.), 1e-5));
+        assert!(r2.max.abs_diff_eq(Vec2::new(6., -2.), 1e-5));
+        assert!(r2.size().abs_diff_eq(r.size(), 1e-5));
+    }
+
+    #[test]
+    fn rect_clamp_point() {
+        let r = Rect::new(0., 1., 4., 3.);
+
+        assert_eq!(r.clamp_point(Vec2::new(2., 2.)), Vec2::new(2., 2.));
+        assert_eq!(r.clamp_point(Vec2::new(-1., 5.)), Vec2::new(0., 3.));
     }
 }

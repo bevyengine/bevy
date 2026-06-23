@@ -14,7 +14,7 @@ use core::{marker::PhantomData, mem};
 use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
-    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    /// Spawns an entity related to this entity (with the `R` relationship) by taking a bundle
     pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
@@ -408,7 +408,7 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
-    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    /// Spawns an entity related to this entity (with the `R` relationship) by taking a bundle
     pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.commands.spawn((bundle, R::from(parent)));
@@ -620,6 +620,17 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
         Self {
             commands,
             target,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Returns a [`RelatedSpawnerCommands`] with a smaller lifetime.
+    ///
+    /// This is useful if you have `&mut RelatedSpawnerCommands` but need `RelatedSpawnerCommands`.
+    pub fn reborrow(&mut self) -> RelatedSpawnerCommands<'_, R> {
+        RelatedSpawnerCommands {
+            target: self.target,
+            commands: self.commands.reborrow(),
             _marker: PhantomData,
         }
     }

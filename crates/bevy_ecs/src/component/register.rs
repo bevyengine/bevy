@@ -11,7 +11,6 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
     },
     query::DebugCheckedUnwrap as _,
-    resource::Resource,
 };
 
 /// Generates [`ComponentId`]s.
@@ -133,7 +132,12 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner);
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
-                unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
+                unsafe {
+                    queued
+                        .components
+                        .shift_remove(&type_id)
+                        .debug_checked_unwrap()
+                }
             })
         } {
             registrator.register(self);
@@ -189,7 +193,7 @@ impl<'w> ComponentsRegistrator<'w> {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .components
-            .remove(&type_id)
+            .shift_remove(&type_id)
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
@@ -291,19 +295,6 @@ impl<'w> ComponentsRegistrator<'w> {
         id
     }
 
-    /// Registers a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
-    #[inline]
-    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        self.register_component::<T>()
-    }
-
     /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
     /// If a resource of this type has already been registered, this will return
     /// the ID of the pre-existing resource.
@@ -338,7 +329,7 @@ impl<'w> ComponentsRegistrator<'w> {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .components
-            .remove(&type_id)
+            .shift_remove(&type_id)
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
@@ -572,22 +563,6 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                     .register_component_inner(id, descriptor);
             }
         })
-    }
-
-    /// This is a queued version of [`ComponentsRegistrator::register_resource`].
-    /// This will reserve an id and queue the registration.
-    /// These registrations will be carried out at the next opportunity.
-    ///
-    /// If this has already been registered or queued, this returns the previous [`ComponentId`].
-    ///
-    /// # Note
-    ///
-    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
-    /// See type level docs for details.
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "use queue_register_component")]
-    pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
-        self.queue_register_component::<T>()
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].

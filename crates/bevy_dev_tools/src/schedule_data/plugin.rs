@@ -97,18 +97,17 @@ fn collect_system_data_inner(world: &mut World) -> Result<AppData, BevyError> {
     let mut label_to_build_metadata = HashMap::new();
 
     for label in labels {
-        let mut schedules = world.resource_mut::<Schedules>();
-        let mut schedule = schedules.remove(label).unwrap();
-        let Some(build_metadata) = schedule.initialize(world)? else {
+        // Hokey pokey the schedule out of the world so we can initialize it. Note: we can't just
+        // remove the whole `Schedule` resource since `Schedule::initialize` accesses `Schedules`
+        // internally.
+        let result = world.schedule_scope(label, |world, schedule| schedule.initialize(world));
+        let Some(build_metadata) = result? else {
             return Err(
                 "The schedule has already been built, so we can't collect its system data".into(),
             );
         };
 
         label_to_build_metadata.insert(label, build_metadata);
-
-        let mut schedules = world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
     }
 
     let schedules = world.resource::<Schedules>();
@@ -167,5 +166,31 @@ mod tests {
         let update = &app_data.schedules[1];
         assert_eq!(update.name, "Update");
         assert_eq!(update.systems, [simple_system("a"), simple_system("b")]);
+    }
+
+    #[test]
+    fn uses_safe_schedule_scope() {
+        // This tests a niche situation where a schedule has already been built when
+        // `collect_system_data_inner` runs. Since this method runs before the `Main` schedule, this
+        // can only happen if either: a) the user is using a custom schedule, or b) the user runs a
+        // schedule from **inside a plugin** - which is extremely cursed. Either way, better to be
+        // safe than sorry!
+
+        // Start with an empty app so only our stuff gets added.
+        let mut app = App::empty();
+
+        fn a() {}
+        app.add_systems(Update, a);
+        app.world_mut().run_schedule(Update);
+
+        // Normally users would use the plugin, but to avoid writing to disk in a test, we just call
+        // the inner part of the system directly.
+
+        // We expect an error since the schedule has already been built.
+        collect_system_data_inner(app.world_mut()).unwrap_err();
+
+        // If the schedule is missing, this would panic! This could happen if there was an error
+        // extracting the schedule data, and we didn't hokey-pokey safely.
+        app.world_mut().schedule_scope(Update, |_, _| {});
     }
 }

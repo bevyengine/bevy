@@ -2,12 +2,8 @@ use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    component::Component,
-    reflect::ReflectComponent,
-    template::{FromTemplate, OptionTemplate},
-};
-use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, TextureAtlasTemplate};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
+use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
 use bevy_transform::components::Transform;
@@ -24,7 +20,7 @@ pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the sprite
-    #[template(OptionTemplate<TextureAtlasTemplate>)]
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// The sprite's color tint
     pub color: Color,
@@ -267,6 +263,7 @@ impl Hash for Anchor {
     }
 }
 
+#[expect(missing_docs, reason = "the associated constants are self-documenting")]
 impl Anchor {
     pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
     pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
@@ -278,6 +275,7 @@ impl Anchor {
     pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
     pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
 
+    /// Returns the Anchor's offset as a [`Vec2`].
     pub fn as_vec(&self) -> Vec2 {
         self.0
     }
