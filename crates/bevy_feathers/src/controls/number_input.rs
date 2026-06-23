@@ -1,8 +1,9 @@
 use std::{f32::consts::PI, ops::Range};
 
-use bevy_app::PropagateOver;
+use bevy_app::{Plugin, PreUpdate, PropagateOver};
 use bevy_color::Color;
 use bevy_ecs::{
+    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     event::EntityEvent,
@@ -11,6 +12,7 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
@@ -26,6 +28,7 @@ use bevy_picking::{
     events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release},
     hover::Hovered,
     pointer::PointerButton,
+    PickingSystems,
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
@@ -1202,5 +1205,51 @@ fn trigger_value_change(
             value,
             is_final,
         }),
+    }
+}
+
+/// Re-apply the slidebar gradient colors for every number input when the theme changes.
+fn update_slidebar_styles_theme(
+    q_children: Query<&Children>,
+    q_number_input: Query<(Entity, Has<InteractionDisabled>), With<FeathersNumberInput>>,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    if !theme.is_changed() {
+        return;
+    }
+    for (root_entity, is_disabled) in q_number_input.iter() {
+        let Some(text_entity) = q_children
+            .iter_descendants(root_entity)
+            .find(|e| q_text_input.contains(*e))
+        else {
+            continue;
+        };
+        if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_entity) {
+            set_slidebar_styles(
+                text_entity,
+                &theme,
+                is_disabled,
+                false,
+                hovered,
+                input_focus.get() == Some(text_entity),
+                &mut gradient,
+                &mut commands,
+            );
+        }
+    }
+}
+
+/// Plugin which keeps number-input slidebar colors in sync with the theme.
+pub struct NumberInputPlugin;
+
+impl Plugin for NumberInputPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_systems(
+            PreUpdate,
+            update_slidebar_styles_theme.in_set(PickingSystems::Last),
+        );
     }
 }
