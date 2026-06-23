@@ -483,10 +483,7 @@ impl<A: Asset> Assets<A> {
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         match id {
-            AssetId::Index { index, .. } => {
-                self.duplicate_handles.remove(&index);
-                self.dense_storage.remove_still_alive(index)
-            }
+            AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
     }
@@ -733,11 +730,16 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
 /// An error returned when an [`AssetIndex`] has an invalid generation.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum InvalidGenerationError {
+    /// The generation of this [`AssetIndex`] does not match the current generation.
+    /// That means its index entry has been replaced.
     #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
     Occupied {
+        /// The index being looked up.
         index: AssetIndex,
+        /// The generation currently at that index.
         current_generation: u32,
     },
+    /// This index entry has been removed.
     #[error("AssetIndex {index:?} has been removed")]
     Removed { index: AssetIndex },
 }

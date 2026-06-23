@@ -1634,12 +1634,16 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
                 continue;
             };
-            let current_meta = current_meta.map(|(batch_set_meta, batch_meta)| {
-                (
-                    BatchSetMeta::new(&phase.items[current_index], batch_set_meta),
-                    batch_meta,
-                )
-            });
+            let current_meta = if I::AUTOMATIC_BATCHING {
+                current_meta.map(|(batch_set_meta, batch_meta)| {
+                    (
+                        BatchSetMeta::new(&phase.items[current_index], batch_set_meta),
+                        batch_meta,
+                    )
+                })
+            } else {
+                None
+            };
 
             // Determine if this entity can be included in the batch we're
             // building up.
@@ -1653,6 +1657,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                         if *current_batch_set_key == *batch_set_key {
                             if *current_bin_key == *bin_key {
                                 SortedPhaseItemBatchability::BatchOk
+                            } else if no_indirect_drawing {
+                                // Without indirect drawing, different meshes need separate batch sets
+                                SortedPhaseItemBatchability::BreakBatchSet
                             } else {
                                 SortedPhaseItemBatchability::BreakBatch
                             }

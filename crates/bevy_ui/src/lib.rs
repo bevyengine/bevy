@@ -41,7 +41,9 @@ use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
+pub use interaction_states::{
+    Checkable, Checked, InteractionDisabled, Pressed, Selectable, Selected,
+};
 pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
@@ -52,6 +54,7 @@ pub use widget::TextNodeFlags;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    pub use crate::accessibility::AccessibleLabel;
     #[doc(hidden)]
     #[cfg(feature = "bevy_picking")]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
@@ -100,7 +103,7 @@ pub enum UiSystems {
     Propagate,
     /// Update content requirements before layout.
     Content,
-    /// After this label, the ui layout state has been updated.
+    /// After this label, the UI layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
     Layout,
@@ -116,8 +119,8 @@ pub enum UiSystems {
 
 /// The current scale of the UI.
 ///
-/// A multiplier to fixed-sized ui values.
-/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+/// A multiplier to fixed-sized UI values.
+/// **Note:** This will only affect fixed UI values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
@@ -212,6 +215,19 @@ impl Plugin for UiPlugin {
             ),
         );
 
+        app.add_plugins(accessibility::AccessibilityPlugin);
+
+        app.add_observer(interaction_states::on_add_disabled)
+            .add_observer(interaction_states::on_remove_disabled)
+            .add_observer(interaction_states::on_add_checkable)
+            .add_observer(interaction_states::on_remove_checkable)
+            .add_observer(interaction_states::on_add_checked)
+            .add_observer(interaction_states::on_remove_checked)
+            .add_observer(interaction_states::on_add_selectable)
+            .add_observer(interaction_states::on_remove_selectable)
+            .add_observer(interaction_states::on_add_selected)
+            .add_observer(interaction_states::on_remove_selected);
+
         build_text_interop(app);
     }
 }
@@ -253,7 +269,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
             (
-                widget::update_editable_text_layout,
+                widget::update_editable_text_layout.before(bevy_asset::AssetEventSystems),
                 widget::scroll_editable_text,
             )
                 .chain()
@@ -270,15 +286,6 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
     );
-
-    app.add_plugins(accessibility::AccessibilityPlugin);
-
-    app.add_observer(interaction_states::on_add_disabled)
-        .add_observer(interaction_states::on_remove_disabled)
-        .add_observer(interaction_states::on_add_checkable)
-        .add_observer(interaction_states::on_remove_checkable)
-        .add_observer(interaction_states::on_add_checked)
-        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,
