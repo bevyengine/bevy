@@ -887,6 +887,290 @@ mod tests {
     }
 
     #[test]
+    fn fixed_root_is_a_root_node() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let fixed_entity = world
+            .spawn((
+                Node {
+                    width: Val::Percent(50.),
+                    height: Val::Percent(50.),
+                    ..default()
+                },
+                FixedNode,
+            ))
+            .id();
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(fixed_entity)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.5
+        );
+    }
+
+    #[test]
+    fn swap_fixed_nodes() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let a = world
+            .spawn(Node {
+                width: Val::Percent(20.),
+                height: Val::Percent(20.),
+                ..default()
+            })
+            .id();
+        let b = world
+            .spawn((
+                Node {
+                    width: Val::Percent(50.),
+                    height: Val::Percent(50.),
+                    ..default()
+                },
+                ChildOf(a),
+            ))
+            .id();
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(a)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.2
+        );
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(b)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.2 * 0.5
+        );
+
+        world.entity_mut(a).insert(FixedNode);
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(b)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.2 * 0.5
+        );
+
+        world.entity_mut(b).insert(FixedNode);
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(b)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.5
+        );
+
+        world.entity_mut(b).remove::<ChildOf>().add_child(a);
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(a)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.2
+        );
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(b)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.5
+        );
+
+        world.entity_mut(b).remove::<FixedNode>();
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(a)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.2
+        );
+
+        world.entity_mut(a).remove::<FixedNode>();
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(a)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.5 * 0.2
+        );
+    }
+
+    #[test]
+    fn fixed_node_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let a = world
+            .spawn(Node {
+                width: Val::Percent(50.),
+                height: Val::Percent(50.),
+                ..default()
+            })
+            .id();
+        let b = world
+            .spawn(Node {
+                width: Val::Percent(50.),
+                height: Val::Percent(50.),
+                ..default()
+            })
+            .id();
+        let c = world
+            .spawn(Node {
+                width: Val::Percent(50.),
+                height: Val::Percent(50.),
+                ..default()
+            })
+            .id();
+        let p = world
+            .spawn(Node {
+                flex_direction: FlexDirection::Column,
+                width: Val::Px(200.),
+                height: Val::Px(100.),
+                ..default()
+            })
+            .add_children(&[a, b, c])
+            .id();
+
+        app.update();
+        let world = app.world_mut();
+        for entity in [a, b, c] {
+            assert_eq!(
+                world
+                    .get::<ComputedLayout>(entity)
+                    .and_then(|layout| layout.get(true))
+                    .unwrap()
+                    .0
+                    .size
+                    .width,
+                100.
+            );
+        }
+
+        world.entity_mut(a).insert(FixedNode);
+
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(a)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            TARGET_WIDTH as f32 * 0.5
+        );
+        for entity in [b, c] {
+            assert_eq!(
+                world
+                    .get::<ComputedLayout>(entity)
+                    .and_then(|layout| layout.get(true))
+                    .unwrap()
+                    .0
+                    .size
+                    .width,
+                100.
+            );
+        }
+
+        world.entity_mut(c).insert(FixedNode);
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<ComputedLayout>(b)
+                .and_then(|layout| layout.get(true))
+                .unwrap()
+                .0
+                .size
+                .width,
+            100.
+        );
+        for entity in [a, c] {
+            assert_eq!(
+                world
+                    .get::<ComputedLayout>(entity)
+                    .and_then(|layout| layout.get(true))
+                    .unwrap()
+                    .0
+                    .size
+                    .width,
+                TARGET_WIDTH as f32 * 0.5
+            );
+        }
+
+        world.entity_mut(p).detach_all_children();
+        world.entity_mut(p).despawn();
+
+        app.update();
+        let world = app.world_mut();
+        for entity in [a, b, c] {
+            assert_eq!(
+                world
+                    .get::<ComputedLayout>(entity)
+                    .and_then(|layout| layout.get(true))
+                    .unwrap()
+                    .0
+                    .size
+                    .width,
+                TARGET_WIDTH as f32 * 0.5
+            );
+        }
+    }
+
+    #[test]
     fn reparenting_recomputes_from_current_entity_tree() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
