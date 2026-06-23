@@ -1,6 +1,6 @@
 ---
 title: "Components as Entities"
-pull_requests: [ ... ]
+pull_requests: [24728]
 ---
 
 - `ComponentId::new` now takes `Entity` as an argument instead of `usize`.
