@@ -39,7 +39,7 @@ use crate::{
         CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
     },
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, Components,
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
     },
@@ -95,7 +95,6 @@ pub struct World {
     pub(crate) entities: Entities,
     pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
-    pub(crate) component_ids: ComponentIds,
     pub(crate) resource_entities: ResourceEntities,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
@@ -129,7 +128,6 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
-            component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
@@ -266,14 +264,19 @@ impl World {
     #[inline]
     pub fn components_queue(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: These are from the same world.
-        unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.component_ids) }
+        unsafe {
+            ComponentsQueuedRegistrator::new(
+                &self.components,
+                self.entity_allocator().build_remote_allocator(),
+            )
+        }
     }
 
     /// Prepares a [`ComponentsRegistrator`] for the world.
     #[inline]
     pub fn components_registrator(&mut self) -> ComponentsRegistrator<'_> {
         // SAFETY: These are from the same world.
-        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) }
+        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) }
     }
 
     /// Retrieves this world's [`Storages`] collection.
@@ -3347,7 +3350,7 @@ impl World {
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) };
 
         // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
         unsafe {
@@ -3359,7 +3362,7 @@ impl World {
     pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) };
 
         // SAFETY: `registrator`, `self.bundles` and `self.storages` are all from this world.
         unsafe {

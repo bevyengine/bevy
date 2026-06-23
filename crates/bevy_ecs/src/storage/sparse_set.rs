@@ -937,12 +937,12 @@ mod tests {
         collected_sets.sort();
         assert_eq!(
             collected_sets,
-            vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
+            vec![(ComponentId::from_u32(2), 0), (ComponentId::from_u32(1), 0),]
         );
 
-        fn register_component<T: Component>(sets: &mut SparseSets, id: usize) {
+        fn register_component<T: Component>(sets: &mut SparseSets, id: u32) {
             let descriptor = ComponentDescriptor::new::<T>();
-            let id = ComponentId::new(id);
+            let id = ComponentId::from_u32(id);
             let info = ComponentInfo::new(id, descriptor);
             sets.get_or_insert(&info);
         }
