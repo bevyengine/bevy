@@ -27,7 +27,7 @@ use bevy_window::{PrimaryWindow, Window};
 use crate::ModalDialog;
 
 /// A dialog box. When `ModalDialog` is also present it traps focus and is backed by a
-/// [`ModalDialogBarrier`]; when false it is a movable, non-blocking floating window.
+/// `ModalDialogBarrier`; when false it is a movable, non-blocking floating window.
 #[derive(Component, Debug, Reflect, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Dialog)))]
 #[require(TabGroup { order: 0, modal: false })]
