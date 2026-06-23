@@ -17,7 +17,7 @@ use crate::{
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetIndex, AssetLoadFailedEvent,
     AssetMetaCheck, Assets, DeserializeMetaError, ErasedAssetIndex, ErasedLoadedAsset, Handle,
     LoadedUntypedAsset, UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent,
-    UntypedHandle,
+    UntypedHandle, VisitAssetDependencies,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -526,25 +526,7 @@ impl AssetServer {
             .load(path.into())
     }
 
-    pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        meta_transform: Option<MetaTransform>,
-        guard: G,
-        override_unapproved: bool,
-    ) -> Handle<A> {
-        self.load_with_meta_transform_erased(
-            path,
-            TypeId::of::<A>(),
-            Some(type_name::<A>()),
-            meta_transform,
-            guard,
-            override_unapproved,
-        )
-        .typed_unchecked()
-    }
-
-    pub(crate) fn load_with_meta_transform_erased<'a, G: Send + Sync + 'static>(
+    pub(crate) fn load_with_meta_transform<'a, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
@@ -846,12 +828,13 @@ impl AssetServer {
                     asset_type_id,
                     loader.asset_type_id()
                 );
-                return Err(AssetLoadError::RequestedHandleTypeMismatch {
+                return Err(Box::new(RequestedHandleTypeMismatchError {
                     path: path.into_owned(),
                     requested: asset_type_id,
                     actual_asset_name: loader.asset_type_name(),
                     loader_name: loader.type_path(),
-                });
+                })
+                .into());
             }
         }
         // Bail out earlier if we don't need to load the asset.
@@ -906,12 +889,17 @@ impl AssetServer {
                             if let Some(asset_id) = asset_id
                                 && asset_id.type_id != labeled_asset.handle.type_id()
                             {
-                                let error = AssetLoadError::RequestedHandleTypeMismatch {
-                                    path: path.clone(),
-                                    requested: asset_id.type_id,
-                                    actual_asset_name: labeled_asset.asset.value.asset_type_name(),
-                                    loader_name: loader.type_path(),
-                                };
+                                let error: AssetLoadError =
+                                    Box::new(RequestedHandleTypeMismatchError {
+                                        path: path.clone(),
+                                        requested: asset_id.type_id,
+                                        actual_asset_name: labeled_asset
+                                            .asset
+                                            .value
+                                            .asset_type_name(),
+                                        loader_name: loader.type_path(),
+                                    })
+                                    .into();
                                 self.send_asset_event(InternalAssetEvent::Failed {
                                     index: asset_id,
                                     error: error.clone(),
@@ -1142,6 +1130,7 @@ impl AssetServer {
         }
         // `get_or_create_path_handle` always returns a Strong variant, so this is safe.
         let index = (&handle).try_into().unwrap();
+        self.write_infos().stats.started_load_tasks += 1;
         self.load_folder_internal(index, path);
 
         handle
@@ -1185,8 +1174,6 @@ impl AssetServer {
             }
             Ok(())
         }
-
-        self.write_infos().stats.started_load_tasks += 1;
 
         let path = path.into_owned();
         let server = self.clone();
@@ -1356,6 +1343,56 @@ impl AssetServer {
                 RecursiveDependencyLoadState::Loaded
             ))
         )
+    }
+
+    /// Returns true if all of `value`s dependencies (included recursive dependencies) are loaded.
+    ///
+    /// This allows querying for whether all the handles in a resource or component are loaded.
+    pub fn are_dependencies_loaded(&self, value: &impl VisitAssetDependencies) -> bool {
+        let infos = self.read_infos();
+        let mut loaded = true;
+        value.visit_dependencies(&mut |asset_id| {
+            let index = match asset_id {
+                // Ignore UUID assets - this effectively makes them considered loaded.
+                UntypedAssetId::Uuid { .. } => return,
+                UntypedAssetId::Index { type_id, index } => ErasedAssetIndex::new(index, type_id),
+            };
+            let Some(info) = infos.get(index) else {
+                // If the asset ID is no longer valid, we consider that as not loaded.
+                loaded = false;
+                return;
+            };
+
+            if !info.rec_dep_load_state.is_loaded() {
+                loaded = false;
+            }
+        });
+        loaded
+    }
+
+    /// Returns true if all of `value`s dependencies (excluding recursive dependencies) are loaded.
+    ///
+    /// This allows querying for whether all the handles in a resource or component are loaded.
+    pub fn are_direct_dependencies_loaded(&self, value: &impl VisitAssetDependencies) -> bool {
+        let infos = self.read_infos();
+        let mut loaded = true;
+        value.visit_dependencies(&mut |asset_id| {
+            let index = match asset_id {
+                // Ignore UUID assets - this effectively makes them considered loaded.
+                UntypedAssetId::Uuid { .. } => return,
+                UntypedAssetId::Index { type_id, index } => ErasedAssetIndex::new(index, type_id),
+            };
+            let Some(info) = infos.get(index) else {
+                // If the asset ID is no longer valid, we consider that as not loaded.
+                loaded = false;
+                return;
+            };
+
+            if !info.dep_load_state.is_loaded() {
+                loaded = false;
+            }
+        });
+        loaded
     }
 
     /// Returns an active handle for the given path, if the asset at the given path has already started loading,
@@ -1584,16 +1621,11 @@ impl AssetServer {
                 }
                 Err(AssetReaderError::NotFound(_)) => {
                     // TODO: Handle error transformation
-                    let loader = {
-                        self.read_loaders()
-                            .find(None, asset_type_id, None, Some(asset_path))
-                    };
+                    let loader = { self.read_loaders().find(asset_type_id, asset_path) };
 
                     let error = || AssetLoadError::MissingAssetLoader {
-                        loader_name: None,
                         asset_type_id,
-                        extension: None,
-                        asset_path: Some(asset_path.to_string()),
+                        asset_path: asset_path.to_string(),
                     };
 
                     let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
@@ -1604,16 +1636,11 @@ impl AssetServer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let loader = {
-                self.read_loaders()
-                    .find(None, asset_type_id, None, Some(asset_path))
-            };
+            let loader = { self.read_loaders().find(asset_type_id, asset_path) };
 
             let error = || AssetLoadError::MissingAssetLoader {
-                loader_name: None,
                 asset_type_id,
-                extension: None,
-                asset_path: Some(asset_path.to_string()),
+                asset_path: asset_path.to_string(),
             };
 
             let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
@@ -2020,7 +2047,7 @@ impl<'a> LoadBuilder<'a> {
         type_name: Option<&str>,
         asset_path: AssetPath<'_>,
     ) -> UntypedHandle {
-        self.asset_server.load_with_meta_transform_erased(
+        self.asset_server.load_with_meta_transform(
             asset_path,
             type_id,
             type_name,
@@ -2105,45 +2132,51 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
-        let reload_parent_folders = |path: &PathBuf, source: &AssetSourceId<'static>| {
-            for parent in path.ancestors().skip(1) {
-                let parent_asset_path =
-                    AssetPath::from(parent.to_path_buf()).with_source(source.clone());
-                for folder_handle in infos.get_path_handles(&parent_asset_path) {
-                    info!("Reloading folder {parent_asset_path} because the content has changed");
-                    // `get_path_handles` only returns Strong variants, so this is safe.
-                    let index = (&folder_handle).try_into().unwrap();
-                    server.load_folder_internal(index, parent_asset_path.clone());
+        let mut folders_to_reload = Vec::default();
+        let mut reload_parent_folders =
+            |path: &PathBuf, source: &AssetSourceId<'static>, infos: &mut AssetInfos| {
+                let mut new_loads = 0;
+                for parent in path.ancestors().skip(1) {
+                    let parent_asset_path =
+                        AssetPath::from(parent.to_path_buf()).with_source(source.clone());
+                    for folder_handle in infos.get_path_handles(&parent_asset_path) {
+                        info!(
+                            "Reloading folder {parent_asset_path} because the content has changed"
+                        );
+                        new_loads += 1;
+                        folders_to_reload.push((folder_handle, parent_asset_path.clone()));
+                    }
                 }
-            }
-        };
+                infos.stats.started_load_tasks += new_loads;
+            };
 
         let mut paths_to_reload = <HashSet<_>>::default();
-        let mut reload_path = |path: PathBuf, source: &AssetSourceId<'static>| {
-            let path = AssetPath::from(path).with_source(source);
-            queue_ancestors(&path, &infos, &mut paths_to_reload);
-            paths_to_reload.insert(path);
-        };
+        let mut reload_path =
+            |path: PathBuf, source: &AssetSourceId<'static>, infos: &AssetInfos| {
+                let path = AssetPath::from(path).with_source(source);
+                queue_ancestors(&path, infos, &mut paths_to_reload);
+                paths_to_reload.insert(path);
+            };
 
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 AssetSourceEvent::AddedAsset(path) => {
-                    reload_parent_folders(&path, &source);
-                    reload_path(path, &source);
+                    reload_parent_folders(&path, &source, &mut infos);
+                    reload_path(path, &source, &infos);
                 }
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
                 AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
-                    reload_path(path, &source);
+                    reload_path(path, &source, &infos);
                 }
                 AssetSourceEvent::RenamedFolder { old, new } => {
-                    reload_parent_folders(&old, &source);
-                    reload_parent_folders(&new, &source);
+                    reload_parent_folders(&old, &source, &mut infos);
+                    reload_parent_folders(&new, &source, &mut infos);
                 }
                 AssetSourceEvent::RemovedAsset(path)
                 | AssetSourceEvent::RemovedFolder(path)
                 | AssetSourceEvent::AddedFolder(path) => {
-                    reload_parent_folders(&path, &source);
+                    reload_parent_folders(&path, &source, &mut infos);
                 }
                 _ => {}
             }
@@ -2173,6 +2206,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
 
+        for (handle, path) in folders_to_reload {
+            // `get_path_handles` only returns Strong variants, so this is safe.
+            let index = (&handle).try_into().unwrap();
+            server.load_folder_internal(index, path);
+        }
         for path in paths_to_reload {
             server.reload_internal(path, true);
         }
@@ -2317,6 +2355,20 @@ impl RecursiveDependencyLoadState {
     }
 }
 
+/// An error that occurs when the requested handle type doesn't match the actual loaded asset type.
+#[derive(Error, Debug, Clone)]
+#[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
+pub struct RequestedHandleTypeMismatchError {
+    /// The path of the asset.
+    pub path: AssetPath<'static>,
+    /// The requested type id of handle.
+    pub requested: TypeId,
+    /// The actual loaded asset type name.
+    pub actual_asset_name: &'static str,
+    /// The loader name used to load the asset.
+    pub loader_name: &'static str,
+}
+
 /// An error that occurs during an [`Asset`] load.
 #[derive(Error, Debug, Clone)]
 #[expect(
@@ -2326,19 +2378,12 @@ impl RecursiveDependencyLoadState {
 pub enum AssetLoadError {
     #[error("Attempted to load an asset with an empty path \"{0}\"")]
     EmptyPath(AssetPath<'static>),
-    #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
-    RequestedHandleTypeMismatch {
-        path: AssetPath<'static>,
-        requested: TypeId,
-        actual_asset_name: &'static str,
-        loader_name: &'static str,
-    },
-    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {asset_type_id:?}; Extension: {extension:?}; Path: {asset_path:?};")]
+    #[error(transparent)]
+    RequestedHandleTypeMismatch(#[from] Box<RequestedHandleTypeMismatchError>),
+    #[error("Could not find an asset loader matching: Asset Type: {asset_type_id:?}; Path: {asset_path:?};")]
     MissingAssetLoader {
-        loader_name: Option<String>,
         asset_type_id: Option<TypeId>,
-        extension: Option<String>,
-        asset_path: Option<String>,
+        asset_path: String,
     },
     #[error(transparent)]
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),

@@ -16,6 +16,7 @@ use crate::{
 
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
 pub(crate) struct BundleSpawner<'w> {
+    /// Has complete read+write permissions
     world: UnsafeWorldCell<'w>,
     bundle_info: ConstNonNull<BundleInfo>,
     table: NonNull<Table>,
@@ -42,14 +43,18 @@ impl<'w> BundleSpawner<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
     ) -> Self {
-        let bundle_info = world.bundles.get_unchecked(bundle_id);
-        let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
-            &mut world.archetypes,
-            &mut world.storages,
-            &world.components,
-            &world.observers,
-            ArchetypeId::EMPTY,
-        );
+        // SAFETY: bundle exists per precondition
+        let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
+        // SAFETY: retrieved from same world in previous line
+        let (new_archetype_id, is_new_created) = unsafe {
+            bundle_info.insert_bundle_into_archetype(
+                &mut world.archetypes,
+                &mut world.storages,
+                &world.components,
+                &world.observers,
+                ArchetypeId::EMPTY,
+            )
+        };
 
         let archetype = &mut world.archetypes[new_archetype_id];
         let table = &mut world.storages.tables[archetype.table_id()];
@@ -61,10 +66,10 @@ impl<'w> BundleSpawner<'w> {
             world: world.as_unsafe_world_cell(),
         };
         if is_new_created {
-            spawner
-                .world
-                .into_deferred()
-                .trigger(ArchetypeCreated(new_archetype_id));
+            // SAFETY:
+            // - we have exclusive ownership of the world and hold no references to command queue or component data
+            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
+            unsafe { spawner.world.into_deferred() }.trigger(ArchetypeCreated(new_archetype_id));
         }
         spawner
     }
@@ -95,39 +100,52 @@ impl<'w> BundleSpawner<'w> {
         caller: MaybeLocation,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
-        let bundle_info = self.bundle_info.as_ref();
+        let bundle_info = unsafe { self.bundle_info.as_ref() };
         let location = {
-            let table = self.table.as_mut();
-            let archetype = self.archetype.as_mut();
+            // SAFETY: exclusive world access; reference does not outlife this block
+            let table = unsafe { self.table.as_mut() };
+            // SAFETY: exclusive world access; reference does not outlife this block
+            let archetype = unsafe { self.archetype.as_mut() };
 
-            // SAFETY: Mutable references do not alias and will be dropped after this block
             let (sparse_sets, entities) = {
-                let world = self.world.world_mut();
+                // SAFETY: has read+write perms, not used to access tables or archetypes, will be dropped after this block
+                let world = unsafe { self.world.world_mut() };
                 (&mut world.storages.sparse_sets, &mut world.entities)
             };
-            let table_row = table.allocate(entity);
-            let location = archetype.allocate(entity, table_row);
-            bundle_info.write_components(
-                table,
-                sparse_sets,
-                &SpawnBundleStatus,
-                bundle_info.required_component_constructors.iter(),
-                entity,
-                table_row,
-                self.change_tick,
-                bundle,
-                InsertMode::Replace,
-                caller,
-            );
-            entities.set_location(entity.index(), Some(location));
-            entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
+            // SAFETY: Component data will be written
+            let table_row = unsafe { table.allocate(entity) };
+            // SAFETY: row was just allocated & component data will be written
+            let location = unsafe { archetype.allocate(entity, table_row) };
+            // SAFETY:
+            // - bundle component status is always added, as entity previously didn't exist per precondition
+            // - `apply_effect` called if needed per precondition
+            // - table_row was just allocated, bundle matches
+            unsafe {
+                bundle_info.write_components(
+                    table,
+                    sparse_sets,
+                    &SpawnBundleStatus,
+                    bundle_info.required_component_constructors.iter(),
+                    entity,
+                    table_row,
+                    self.change_tick,
+                    bundle,
+                    InsertMode::Replace,
+                    caller,
+                );
+            }
+            // SAFETY: Entity was just spawned at this location
+            unsafe {
+                entities.set_location(entity.index(), Some(location));
+                entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
+            }
             location
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
         // SAFETY: `DeferredWorld` cannot provide mutable access to `Archetypes`.
-        let archetype = self.archetype.as_ref();
+        let archetype = unsafe { self.archetype.as_ref() };
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
@@ -202,10 +220,12 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// - `Self` must be dropped after running this function as it may invalidate internal pointers.
+    /// - `Self` must be dropped immediately after running this function as it may invalidate internal pointers.
     #[inline]
     pub(crate) unsafe fn flush_commands(&mut self) {
-        // SAFETY: pointers on self can be invalidated,
-        self.world.world_mut().flush();
+        // SAFETY:
+        // - we have complete read+write access
+        // - pointers on self can be invalidated, but will not be used again per precondition
+        unsafe { self.world.world_mut().flush() };
     }
 }

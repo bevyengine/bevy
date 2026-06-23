@@ -1,4 +1,4 @@
-use crate::fxaa::fxaa;
+use crate::{fxaa::fxaa, smaa::smaa};
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::Camera;
@@ -22,7 +22,7 @@ use bevy_render::{
 
 mod node;
 
-pub(crate) use node::cas;
+pub use node::cas;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -117,8 +117,18 @@ impl Plugin for CasPlugin {
         render_app
             .add_systems(RenderStartup, init_cas_pipeline)
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare))
-            .add_systems(Core3d, cas.after(fxaa).in_set(Core3dSystems::PostProcess))
-            .add_systems(Core2d, cas.after(fxaa).in_set(Core2dSystems::PostProcess));
+            .add_systems(
+                Core3d,
+                cas.after(fxaa)
+                    .after(smaa)
+                    .in_set(Core3dSystems::PostProcess),
+            )
+            .add_systems(
+                Core2d,
+                cas.after(fxaa)
+                    .after(smaa)
+                    .in_set(Core2dSystems::PostProcess),
+            );
     }
 }
 

@@ -14,9 +14,9 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{prelude::*, template_value};
+use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
-use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
+use bevy_ui::{px, AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect};
 use bevy_ui_widgets::Button;
 
 use crate::{
@@ -25,7 +25,7 @@ use crate::{
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeFontColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor},
     tokens,
 };
 
@@ -44,8 +44,24 @@ pub enum ButtonVariant {
     Plain,
 }
 
-/// Parameters for the button template, passed to [`button`] function.
-pub struct ButtonProps {
+/// A button widget.
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersButtonProps`].
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::Activate`] when any of the following happens:
+///     * the pointer is released while hovering over the button.
+///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersButton;
+
+/// Props used to construct a [`FeathersButton`] scene.
+pub struct FeathersButtonProps {
     /// Label for this button. This can contain multiple entities, which will be contained
     /// in a horizontal flexbox.
     pub caption: Box<dyn SceneList>,
@@ -55,7 +71,7 @@ pub struct ButtonProps {
     pub corners: RoundedCorners,
 }
 
-impl Default for ButtonProps {
+impl Default for FeathersButtonProps {
     fn default() -> Self {
         Self {
             caption: Box::new(bsn_list!()),
@@ -65,49 +81,39 @@ impl Default for ButtonProps {
     }
 }
 
-/// Scene function to spawn a button.
-///
-/// # Arguments
-/// * `props` - construction properties for the button.
-///
-/// # Emitted events
-/// * [`bevy_ui_widgets::Activate`] when any of the following happens:
-///     * the pointer is released while hovering over the button.
-///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
-///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn button(props: ButtonProps) -> impl Scene {
-    bsn! {
-        Node {
-            height: size::ROW_HEIGHT,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
-            border_radius: {props.corners.to_border_radius(4.0)},
+impl FeathersButton {
+    fn scene(props: FeathersButtonProps) -> impl Scene {
+        bsn! {
+            Node {
+                height: size::ROW_HEIGHT,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(px(8)),
+                border_radius: {props.corners.to_border_radius(4.0)},
+            }
+            Button
+            template_value(props.variant)
+            Hovered
+            EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+            TabIndex(0)
+            FocusIndicator
+            ThemeBackgroundColor(tokens::BUTTON_BG)
+            InheritableThemeTextColor(tokens::BUTTON_TEXT)
+            InheritableFont {
+                font: fonts::REGULAR,
+                font_size: size::MEDIUM_FONT,
+                weight: FontWeight::NORMAL,
+            }
+            Children [
+                {props.caption}
+            ]
         }
-        Button
-        template_value(props.variant)
-        Hovered
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-        TabIndex(0)
-        FocusIndicator
-        ThemeBackgroundColor(tokens::BUTTON_BG)
-        ThemeFontColor(tokens::BUTTON_TEXT)
-        InheritableFont {
-            font: fonts::REGULAR,
-            font_size: size::MEDIUM_FONT,
-            weight: FontWeight::NORMAL,
-        }
-        Children [
-            {props.caption}
-        ]
     }
 }
 
 /// Tool button scene function: a smaller button for embedding in panel headers.
 ///
-/// # Arguments
-/// * `props` - construction properties for the button.
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersButtonProps`].
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::Activate`] when any of the following happens:
@@ -115,12 +121,24 @@ pub fn button(props: ButtonProps) -> impl Scene {
 ///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn tool_button(props: ButtonProps) -> impl Scene {
-    bsn! {
-        :button(props)
-        Node {
-            padding: UiRect::axes(Val::Px(4.0), Val::Px(0.)),
-            min_width: size::ROW_HEIGHT,
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersToolButton;
+
+impl FeathersToolButton {
+    fn scene(props: FeathersButtonProps) -> impl Scene {
+        bsn! {
+            @FeathersButton {
+                @caption: {props.caption},
+                @variant: {props.variant},
+                @corners: {props.corners}
+            }
+            Node {
+                padding: UiRect::horizontal(px(4)),
+                min_width: size::ROW_HEIGHT,
+            }
         }
     }
 }
@@ -156,7 +174,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            padding: UiRect::horizontal(px(8)),
             flex_grow: 1.0,
             border_radius: props.corners.to_border_radius(4.0),
             ..Default::default()
@@ -168,7 +186,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
         TabIndex(0),
         FocusIndicator,
         ThemeBackgroundColor(tokens::BUTTON_BG),
-        ThemeFontColor(tokens::BUTTON_TEXT),
+        InheritableThemeTextColor(tokens::BUTTON_TEXT),
         InheritableFont {
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
@@ -187,7 +205,7 @@ fn update_button_styles(
             Has<Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         Or<(
             Changed<Hovered>,
@@ -221,7 +239,7 @@ fn update_button_styles_remove(
         Has<Pressed>,
         &Hovered,
         &ThemeBackgroundColor,
-        &ThemeFontColor,
+        &InheritableThemeTextColor,
     )>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_pressed: RemovedComponents<Pressed>,
@@ -255,7 +273,7 @@ fn set_button_styles(
     pressed: bool,
     hovered: bool,
     bg_color: &ThemeBackgroundColor,
-    font_color: &ThemeFontColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let bg_token = match (variant, disabled, pressed, hovered) {
@@ -296,7 +314,7 @@ fn set_button_styles(
     if font_color.0 != font_color_token {
         commands
             .entity(button_ent)
-            .insert(ThemeFontColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 
     // Change cursor shape

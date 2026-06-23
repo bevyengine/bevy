@@ -47,6 +47,9 @@ pub mod size {
     /// Height of a toggle switch
     pub const TOGGLE_HEIGHT: Val = Val::Px(18.0);
 
+    /// Font size used for dialog box titles
+    pub const HEADER_FONT: FontSize = FontSize::Px(16.0);
+
     /// Regular font size, used for most widget captions
     pub const MEDIUM_FONT: FontSize = FontSize::Px(14.0);
 
@@ -55,4 +58,7 @@ pub mod size {
 
     /// Small font size
     pub const SMALL_FONT: FontSize = FontSize::Px(12.0);
+
+    /// Extra-small font size
+    pub const EXTRA_SMALL_FONT: FontSize = FontSize::Px(11.0);
 }

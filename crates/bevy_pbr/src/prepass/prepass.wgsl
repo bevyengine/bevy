@@ -2,7 +2,7 @@
     prepass_bindings,
     mesh_bindings::mesh,
     mesh_functions,
-    prepass_io::{Vertex, VertexOutput, FragmentOutput},
+    prepass_io::{Vertex, UncompressedVertex, VertexOutput, FragmentOutput, decompress_vertex},
     skinning,
     morph,
     morph::{morph_position, morph_normal, morph_tangent},
@@ -17,23 +17,24 @@
 #ifdef MORPH_TARGETS
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
-fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
+fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex  {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
+    let morph_descriptor_index  = mesh[instance_index].morph_descriptor_index;
 
-    let weight_count = morph::layer_count(instance_index);
+    let weight_count = morph::layer_count(morph_descriptor_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = morph::weight_at(i, instance_index);
+        let weight = morph::weight_at(i, morph_descriptor_index);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph_position(vertex_index, i, instance_index);
+        vertex.position += weight * morph_position(vertex_index, i, morph_descriptor_index);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph_normal(vertex_index, i, instance_index);
+        vertex.normal += weight * morph_normal(vertex_index, i, morph_descriptor_index);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, instance_index), 0.0);
+        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, morph_descriptor_index), 0.0);
 #endif
     }
     return vertex;
@@ -46,17 +47,18 @@ fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 //
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
-fn morph_prev_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
+fn morph_prev_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
-    let weight_count = morph::layer_count(instance_index);
+    let morph_descriptor_index  = mesh[instance_index].morph_descriptor_index;
+    let weight_count = morph::layer_count(morph_descriptor_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = morph::prev_weight_at(i, instance_index);
+        let weight = morph::prev_weight_at(i, morph_descriptor_index);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph_position(vertex_index, i, instance_index);
+        vertex.position += weight * morph_position(vertex_index, i, morph_descriptor_index);
         // Don't bother morphing normals and tangents; we don't need them for
         // motion vector calculation.
     }
@@ -67,11 +69,11 @@ fn morph_prev_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
-
+    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex_no_morph, vertex_no_morph.instance_index);
+    var vertex = morph_vertex(uncompressed_vertex_no_morph, vertex_no_morph.instance_index);
 #else
-    var vertex = vertex_no_morph;
+    var vertex = uncompressed_vertex_no_morph;
 #endif
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
@@ -140,13 +142,13 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef MORPH_TARGETS
 
 #ifdef HAS_PREVIOUS_MORPH
-    let prev_vertex = morph_prev_vertex(vertex_no_morph);
+    let prev_vertex = morph_prev_vertex(uncompressed_vertex_no_morph, vertex_no_morph.instance_index);
 #else   // HAS_PREVIOUS_MORPH
-    let prev_vertex = vertex_no_morph;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // HAS_PREVIOUS_MORPH
 
 #else   // MORPH_TARGETS
-    let prev_vertex = vertex_no_morph;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // MORPH_TARGETS
 
     // Take skinning into account.

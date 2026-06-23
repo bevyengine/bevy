@@ -5,13 +5,13 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
 /// set up a simple 3D scene
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list! [
+fn scene() -> impl SceneList {
+    bsn_list! [
         (
             #CircularBase
             Mesh3d(asset_value(Circle::new(4.0)))
@@ -34,6 +34,5 @@ fn setup(world: &mut World) -> Result {
             Camera3d
             template_value(Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
         )
-    ])?;
-    Ok(())
+    ]
 }

@@ -18,9 +18,9 @@ pub struct PositionedGlyph {
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked sections.
-    pub section_index: usize,
+    pub section_index: u32,
     /// The index of the glyph's line.
-    pub line_index: usize,
+    pub line_index: u32,
 }
 
 /// Information about a glyph in an atlas.
@@ -40,6 +40,8 @@ pub struct GlyphAtlasInfo {
     pub rect: Rect,
     /// The required offset (relative positioning) when placed
     pub offset: Vec2,
+    /// True if this glyph is stored as a tintable alpha mask
+    pub is_alpha_mask: bool,
 }
 
 /// The location of a glyph in an atlas,
@@ -53,4 +55,6 @@ pub struct GlyphAtlasLocation {
     pub glyph_index: usize,
     /// The required offset (relative positioning) when placed
     pub offset: Vec2,
+    /// True if this glyph is stored as a tintable alpha mask
+    pub is_alpha_mask: bool,
 }

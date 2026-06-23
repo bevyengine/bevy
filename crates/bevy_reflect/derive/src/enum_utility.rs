@@ -3,7 +3,7 @@ use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
 };
 use bevy_macro_utils::as_member;
-use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQInto, FQOption, FQResult};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 
@@ -265,8 +265,8 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
 
         quote! {
             #alias.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField {
-                variant_name: ::core::convert::Into::into(#variant_name),
-                field_name: ::core::convert::Into::into(#field_name)
+                variant_name: #FQInto::into(#variant_name),
+                field_name: #FQInto::into(#field_name)
             })?
         }
     }
@@ -279,10 +279,10 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
         quote! {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
                 .ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes {
-                    from_type: ::core::convert::Into::into(
+                    from_type: #FQInto::into(
                         #bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias)
                     ),
-                    to_type: ::core::convert::Into::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
+                    to_type: #FQInto::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
                 })?
         }
     }

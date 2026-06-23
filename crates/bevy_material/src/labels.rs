@@ -8,7 +8,6 @@ define_label!(
     )]
     /// Labels used to uniquely identify types of material shaders
     ShaderLabel,
-    SHADER_LABEL_INTERNER
 );
 
 /// A shorthand for `Interned<dyn RenderSubGraph>`.
@@ -22,7 +21,6 @@ define_label!(
     )]
     /// Labels used to uniquely identify types of material shaders
     DrawFunctionLabel,
-    DRAW_FUNCTION_LABEL_INTERNER
 );
 
 pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;

@@ -49,7 +49,6 @@ use bevy_input::gamepad::GamepadButtonChangedEvent;
 use bevy_input::keyboard::KeyboardInput;
 #[cfg(feature = "mouse")]
 use bevy_input::mouse::MouseWheel;
-use bevy_input::InputSystems;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -69,7 +68,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// ```rust
 /// use bevy_ecs::prelude::*;
-/// use bevy_input_focus::InputFocus;
+/// use bevy_input_focus::{FocusCause, InputFocus};
 ///
 /// fn clear_focus(mut input_focus: ResMut<InputFocus>) {
 ///   input_focus.clear();
@@ -80,7 +79,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///
 /// ```rust
 /// use bevy_ecs::prelude::*;
-/// use bevy_input_focus::InputFocus;
+/// use bevy_input_focus::{FocusCause, InputFocus};
 ///
 /// fn set_focus_from_world(world: &mut World) {
 ///     let entity = world.spawn_empty().id();
@@ -88,7 +87,7 @@ use bevy_reflect::{prelude::*, Reflect};
 ///     // Fetch the resource from the world
 ///     let mut input_focus = world.resource_mut::<InputFocus>();
 ///     // Then mutate it!
-///     input_focus.set(entity);
+///     input_focus.set(entity, FocusCause::Navigated);
 ///
 ///     // Or you can just insert a fresh copy of the resource
 ///     // which will overwrite the existing one.
@@ -107,7 +106,7 @@ pub struct InputFocus {
     /// The set of input focus changes that have been recorded since the last time [`FocusGained`] and [`FocusLost`] events were sent.
     ///
     /// These are stored in a first-in-first-out manner, so the most recent change is at the end of the vector.
-    recorded_changes: Vec<Option<Entity>>,
+    recorded_changes: Vec<Option<(Entity, FocusCause)>>,
     /// The entity that had input focus at the time of the last sent [`FocusGained`] or [`FocusLost`] event, if any.
     ///
     /// This is used to determine which events to send when processing recorded focus changes.
@@ -126,7 +125,7 @@ impl InputFocus {
     pub fn from_entity(entity: Entity) -> Self {
         Self {
             current_focus: Some(entity),
-            recorded_changes: vec![Some(entity)],
+            recorded_changes: vec![Some((entity, FocusCause::Navigated))],
             original_focus: None,
         }
     }
@@ -137,9 +136,9 @@ impl InputFocus {
     /// which will automatically set focus to the entity when it is spawned.
     ///
     /// This is particularly useful when working with bsn! scenes, where spawning may be delayed.
-    pub fn set(&mut self, entity: Entity) {
+    pub fn set(&mut self, entity: Entity, cause: FocusCause) {
         self.current_focus = Some(entity);
-        self.recorded_changes.push(Some(entity));
+        self.recorded_changes.push(Some((entity, cause)));
     }
 
     /// Returns the entity with input focus, if any.
@@ -185,7 +184,11 @@ pub struct InputFocusVisible(pub bool);
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
 #[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Event, Component, Clone)
+)]
 pub struct FocusedInput<M: Message + Clone> {
     /// The entity that has received focused input.
     #[event_target]
@@ -200,6 +203,11 @@ pub struct FocusedInput<M: Message + Clone> {
 /// until it finds a focusable entity, and then set focus to it.
 #[derive(EntityEvent, Debug, Clone)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Event, Clone, Debug)
+)]
 pub struct AcquireFocus {
     /// The entity that has acquired focus.
     #[event_target]
@@ -280,6 +288,8 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(not(any(feature = "keyboard", feature = "gamepad", feature = "mouse")))]
+        let _ = app;
         #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
         app.add_systems(
             PreUpdate,
@@ -293,7 +303,7 @@ impl Plugin for InputDispatchPlugin {
             )
                 .chain()
                 .in_set(InputFocusSystems::Dispatch)
-                .after(InputSystems),
+                .after(bevy_input::InputSystems),
         );
     }
 }
@@ -305,7 +315,7 @@ impl Plugin for InputDispatchPlugin {
 pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     ///
-    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`].
+    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`](bevy_input::InputSystems).
     Dispatch,
     /// System which processes recorded focus changes and sends the appropriate [`FocusGained`] and [`FocusLost`] events.
     ///
@@ -319,7 +329,7 @@ pub fn set_initial_focus(
     window: Single<Entity, With<PrimaryWindow>>,
 ) {
     if input_focus.get().is_none() {
-        input_focus.set(*window);
+        input_focus.set(*window, FocusCause::Navigated);
     }
 }
 
@@ -492,10 +502,10 @@ mod tests {
         event: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(event.focused_entity) {
-            if let Key::Character(c) = &event.input.logical_key {
-                gather.0.push_str(c.as_str());
-            }
+        if let Ok(mut gather) = query.get_mut(event.focused_entity)
+            && let Key::Character(c) = &event.input.logical_key
+        {
+            gather.0.push_str(c.as_str());
         }
     }
 
@@ -662,7 +672,7 @@ mod tests {
 
         app.world_mut()
             .run_system_once(move |mut input_focus: ResMut<InputFocus>| {
-                input_focus.set(child_of_b);
+                input_focus.set(child_of_b, FocusCause::Navigated);
             })
             .unwrap();
         assert!(app.world().is_focus_within(entity_b));

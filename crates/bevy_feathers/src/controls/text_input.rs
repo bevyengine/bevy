@@ -1,110 +1,133 @@
-use bevy_app::{Plugin, PreUpdate};
+use bevy_app::{Plugin, PreUpdate, PropagateOver};
+use bevy_asset::AssetServer;
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    component::Component,
+    change_detection::DetectChanges,
     entity::Entity,
-    hierarchy::ChildOf,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
+    template::template,
 };
-use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
+use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
-use bevy_text::{EditableText, FontWeight, LineBreak, TextCursorStyle, TextLayout};
+use bevy_text::{
+    EditableText, FontSource, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
+};
 use bevy_ui::{
-    px, AlignItems, BorderColor, BorderRadius, Display, InteractionDisabled, JustifyContent, Node,
-    UiRect, Val,
+    px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect,
 };
 
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    focus::FocusWithinIndicator,
     font_styles::InheritableFont,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor, ThemedText, UiTheme},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemedText, UiTheme},
     tokens,
 };
 
-/// Marker to indicate a text input widget with feathers styling.
-#[derive(Component, Default, Clone)]
-struct FeathersTextInputContainer;
+/// Decorative frame around a text input widget. This is a separate entity to allow icons
+/// (such as "search" or "clear") to be inserted adjacent to the input.
+///
+/// This is spawnable by inheriting it as a "scene component".
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct FeathersTextInputContainer;
 
-/// Marker to indicate the inner part of the text input widget.
-#[derive(Component, Default, Clone)]
-struct FeathersTextInput;
+impl FeathersTextInputContainer {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                height: size::ROW_HEIGHT,
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect {
+                    right: px(3.0),
+                    left: px(3.0),
+                },
+                flex_grow: 1.0,
+                border_radius: {BorderRadius::all(px(4.0))},
+                column_gap: px(4),
+            }
+            FeathersTextInputContainer
+            FocusWithinIndicator
+            ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
+            InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
+            InheritableFont {
+                font: fonts::REGULAR,
+                font_size: size::COMPACT_FONT,
+                weight: FontWeight::NORMAL,
+            }
+        }
+    }
+}
 
-/// Parameters for the text input template, passed to [`text_input`] function.
-pub struct TextInputProps {
+/// Scene function to spawn a text input. For proper styling, this should be enclosed by a [`FeathersTextInputContainer`].
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersTextInputProps`].
+///
+/// ```ignore
+/// @FeathersTextInputContainer
+/// Children [
+///     :FeathersTextInput
+/// ]
+/// ```
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersTextInputProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct FeathersTextInput;
+
+/// Props used to construct the [`FeathersTextInput`] scene.
+#[derive(Default, Clone)]
+pub struct FeathersTextInputProps {
     /// Visible width
     pub visible_width: Option<f32>,
     /// Max characters
     pub max_characters: Option<usize>,
 }
 
-/// Decorative frame around a text input widget. This is a separate entity to allow icons
-/// (such as "search" or "clear") to be inserted adjacent to the input.
-pub fn text_input_container() -> impl Scene {
-    bsn! {
-        Node {
-            height: size::ROW_HEIGHT,
-            display: Display::Flex,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(4.0), Val::Px(0.)),
-            border: UiRect::all(Val::Px(2.0)),
-            flex_grow: 1.0,
-            border_radius: {BorderRadius::all(px(4.0))},
-            column_gap: px(4),
+impl FeathersTextInput {
+    fn scene(props: FeathersTextInputProps) -> impl Scene {
+        bsn! {
+            Node {
+                flex_grow: {
+                    if props.visible_width.is_some() {
+                        0_f32
+                    } else {
+                        1_f32
+                    }
+                } ,
+            }
+            FeathersTextInput
+            EditableText {
+                cursor_width: 0.3,
+                visible_width: {props.visible_width},
+                max_characters: {props.max_characters},
+            }
+            ThemedText
+            TextLayout {
+                linebreak: LineBreak::NoWrap,
+            }
+            TabIndex(0)
+            template(|ctx| {
+                Ok(TextFont {
+                    font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
+                    font_size: size::COMPACT_FONT,
+                    weight: FontWeight::NORMAL,
+                    ..Default::default()
+                })
+            })
+            PropagateOver<TextFont>
+            EntityCursor::System(bevy_window::SystemCursorIcon::Text)
+            TextCursorStyle::default()
         }
-        FeathersTextInputContainer
-        ThemeBorderColor(tokens::TEXT_INPUT_BG)
-        ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
-        ThemeFontColor(tokens::TEXT_INPUT_TEXT)
-        InheritableFont {
-            font: fonts::REGULAR,
-            font_size: size::COMPACT_FONT,
-            weight: FontWeight::NORMAL,
-        }
-    }
-}
-
-/// Scene function to spawn a text input. For proper styling, this should be enclosed by a
-/// `text_input_container`.
-///
-/// ```ignore
-/// :text_input_container
-/// Children [
-///     text_input(props)
-/// ]
-/// ```
-///
-/// # Arguments
-/// * `props` - construction properties for the text input.
-pub fn text_input(props: TextInputProps) -> impl Scene {
-    bsn! {
-        Node {
-            flex_grow: {
-                if props.visible_width.is_some() {
-                    0.
-                } else {
-                    1.
-                }
-            } ,
-        }
-        FeathersTextInput
-        EditableText {
-            cursor_width: 0.3,
-            visible_width: {props.visible_width},
-            max_characters: {props.max_characters},
-        }
-        TextLayout {
-            linebreak: LineBreak::NoWrap,
-        }
-        TabIndex(0)
-        ThemedText
-        EntityCursor::System(bevy_window::SystemCursorIcon::Text)
-        TextCursorStyle::default()
     }
 }
 
@@ -116,13 +139,15 @@ fn update_text_cursor_color(
         for mut cursor_style in q_text_input.iter_mut() {
             cursor_style.color = theme.color(&tokens::TEXT_INPUT_CURSOR);
             cursor_style.selection_color = theme.color(&tokens::TEXT_INPUT_SELECTION);
+            cursor_style.unfocused_selection_color =
+                theme.color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED);
         }
     }
 }
 
 fn update_text_input_styles(
     q_inputs: Query<
-        (Entity, Has<InteractionDisabled>, &ThemeFontColor),
+        (Entity, Has<InteractionDisabled>, &InheritableThemeTextColor),
         (With<FeathersTextInput>, Added<InteractionDisabled>),
     >,
     mut commands: Commands,
@@ -133,7 +158,10 @@ fn update_text_input_styles(
 }
 
 fn update_text_input_styles_remove(
-    q_inputs: Query<(Entity, Has<InteractionDisabled>, &ThemeFontColor), With<FeathersTextInput>>,
+    q_inputs: Query<
+        (Entity, Has<InteractionDisabled>, &InheritableThemeTextColor),
+        With<FeathersTextInput>,
+    >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut commands: Commands,
 ) {
@@ -144,43 +172,10 @@ fn update_text_input_styles_remove(
     });
 }
 
-fn update_text_input_focus(
-    q_inputs: Query<(), With<FeathersTextInput>>,
-    q_input_containers: Query<(Entity, &mut BorderColor), With<FeathersTextInputContainer>>,
-    parents: Query<&ChildOf>,
-    focus: Res<InputFocus>,
-    focus_visible: Res<InputFocusVisible>,
-    theme: Res<UiTheme>,
-) {
-    // We're not using FocusIndicator here because (a) the focus ring is inset rather than
-    // an outline, and (b) we want to detect focus on a descendant rather than an ancestor.
-    if focus.is_changed() {
-        let focus_parent = focus.get().and_then(|focus_ent| {
-            if focus_visible.0 && q_inputs.contains(focus_ent) {
-                parents
-                    .iter_ancestors(focus_ent)
-                    .find(|ent| q_input_containers.contains(*ent))
-            } else {
-                None
-            }
-        });
-
-        for (container, mut border_color) in q_input_containers {
-            let new_border_color = if Some(container) == focus_parent {
-                theme.color(&tokens::FOCUS_RING)
-            } else {
-                theme.color(&tokens::TEXT_INPUT_BG)
-            };
-
-            border_color.set_if_neq(BorderColor::all(new_border_color));
-        }
-    }
-}
-
 fn set_text_input_styles(
     input_ent: Entity,
     disabled: bool,
-    font_color: &ThemeFontColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let font_color_token = match disabled {
@@ -197,7 +192,7 @@ fn set_text_input_styles(
     if font_color.0 != font_color_token {
         commands
             .entity(input_ent)
-            .insert(ThemeFontColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 
     // Change cursor shape
@@ -217,7 +212,6 @@ impl Plugin for TextInputPlugin {
                 update_text_cursor_color,
                 update_text_input_styles,
                 update_text_input_styles_remove,
-                update_text_input_focus,
             )
                 .in_set(PickingSystems::Last),
         );

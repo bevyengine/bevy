@@ -28,6 +28,7 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
+    metadata_index: u32
 }
 
 // Per-mesh-instance data that we retain from the previous frame.

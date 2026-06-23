@@ -8,7 +8,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_diffuse_brdf, evaluate_specular_brdf}
+#import bevy_solari::brdf::{evaluate_diffuse_brdf, evaluate_specular_brdf, F_AB}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::presample_light_tiles::unpack_resolved_light_sample
 #import bevy_solari::sampling::{LightSample, ResolvedLightSample, NULL_LIGHT_ID, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
@@ -79,10 +79,12 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 
     let wo = normalize(view.world_position - surface.world_position);
-    var brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
+    let NdotV = max(dot(surface.world_normal, wo), 0.0001);
+    let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
+    var brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material, F_ab);
     // Only consider the specular lobe if the surface is not smooth, else leave it for the specular GI pass to handle
     if surface.material.roughness > SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
-        brdf += evaluate_specular_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
+        brdf += evaluate_specular_brdf(wo, merge_result.wi, surface.world_normal, surface.material, F_ab);
     }
 
     var pixel_color = merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight;
@@ -138,20 +140,18 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
+    var point_temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
 
-    // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
-    // or if all temporal history should assumed to be invalid
-    if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.main_pass_viewport.zw) || bool(constants.reset) {
+    if bool(constants.reset) {
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    let permuted_temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.main_pass_viewport.zw);
-    var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
-
-    // If permuted reprojection failed (tends to happen on object edges), try point reprojection
-    if !reservoir_valid(temporal.reservoir) {
-        temporal = load_temporal_reservoir_inner(vec2<u32>(temporal_pixel_id_float), depth, world_position, world_normal);
+    if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.main_pass_viewport.zw) {
+        point_temporal_pixel_id = pixel_id;
     }
+
+    let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id, constants.frame_index, view.main_pass_viewport.zw);
+    var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
 
     // Check if the light selected in the previous frame no longer exists in the current frame (e.g. entity despawned)
     let previous_light_id = temporal.reservoir.sample.light_id >> 16u;
@@ -181,15 +181,13 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
-    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, SPATIAL_REUSE_RADIUS_PIXELS, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
-            search_radius /= 2.0;
             continue;
         }
 

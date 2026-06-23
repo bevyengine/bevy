@@ -38,6 +38,7 @@ use bevy_ecs::{
     hierarchy::ChildOf,
     observer::On,
     query::{Has, With},
+    reflect::{ReflectComponent, ReflectEvent},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
@@ -47,16 +48,17 @@ use bevy_input::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabGroup, TabNavigation},
-    FocusedInput, InputFocus,
+    FocusCause, FocusedInput, InputFocus,
 };
 use bevy_log::warn;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_reflect::Reflect;
 use bevy_ui::{widget::Button, InteractionDisabled, Pressed};
 
 use crate::{Activate, ActivateOnPress};
 
 /// Action type for [`MenuEvent`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub enum MenuAction {
     /// Indicates we want to open the menu, if it is not already open, and focus the first or
     /// last item depending on the [`NavAction`].
@@ -74,6 +76,8 @@ pub enum MenuAction {
 /// and the menu container, through the portal relation, and to the menu owner entity.
 #[derive(EntityEvent, Clone, Debug)]
 #[entity_event(propagate, auto_propagate)]
+#[derive(Reflect)]
+#[reflect(Event)]
 pub struct MenuEvent {
     /// The [`MenuItem`] or [`MenuPopup`] that triggered this event.
     #[event_target]
@@ -84,7 +88,7 @@ pub struct MenuEvent {
 }
 
 /// Specifies the layout direction of the menu, for keyboard navigation
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
 pub enum MenuLayout {
     /// A vertical stack. Up and down arrows to move between items.
     #[default]
@@ -116,6 +120,8 @@ pub enum MenuLayout {
     TabGroup::modal()
 )]
 #[require(MenuFocusState::Closed)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct MenuPopup {
     /// The layout orientation of the menu
     pub layout: MenuLayout,
@@ -124,11 +130,14 @@ pub struct MenuPopup {
 /// Component that defines a menu item.
 #[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)))]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct MenuItem;
 
 /// Component used to manage focus on the popup. Menu popups remain open only so long as they
 /// contain focus.
-#[derive(Component, Debug, Clone, Default, PartialEq)]
+#[derive(Component, Debug, Clone, Default, PartialEq, Reflect)]
+#[reflect(Component)]
 pub enum MenuFocusState {
     /// A newly opened menu, which needs to have focus set to the first or last item depending on
     /// [`NavAction`].
@@ -152,7 +161,7 @@ fn menu_acquire_focus(
             match tab_navigation.initialize(menu, nav) {
                 Ok(next) => {
                     *menu_focus = MenuFocusState::Open;
-                    focus.set(next);
+                    focus.set(next, FocusCause::Navigated);
                 }
                 Err(e) => {
                     warn!(
@@ -257,7 +266,7 @@ fn menu_on_key_event(
                 KeyCode::ArrowUp if menu.layout == MenuLayout::Column => {
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
-                        focus.set(next);
+                        focus.set(next, FocusCause::Navigated);
                     } else {
                         focus.clear();
                     }
@@ -267,7 +276,7 @@ fn menu_on_key_event(
                 KeyCode::ArrowDown if menu.layout == MenuLayout::Column => {
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
-                        focus.set(next);
+                        focus.set(next, FocusCause::Navigated);
                     } else {
                         focus.clear();
                     }
@@ -277,7 +286,7 @@ fn menu_on_key_event(
                 KeyCode::ArrowLeft if menu.layout == MenuLayout::Row => {
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
-                        focus.set(next);
+                        focus.set(next, FocusCause::Navigated);
                     } else {
                         focus.clear();
                     }
@@ -287,8 +296,7 @@ fn menu_on_key_event(
                 KeyCode::ArrowRight if menu.layout == MenuLayout::Row => {
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
-                        focus.set(next);
-                    } else {
+                        focus.set(next, FocusCause::Navigated);
                         focus.clear();
                     }
                 }
@@ -297,7 +305,7 @@ fn menu_on_key_event(
                 KeyCode::Home => {
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::First) {
-                        focus.set(next);
+                        focus.set(next, FocusCause::Navigated);
                     } else {
                         focus.clear();
                     }
@@ -307,7 +315,7 @@ fn menu_on_key_event(
                 KeyCode::End => {
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Last) {
-                        focus.set(next);
+                        focus.set(next, FocusCause::Navigated);
                     } else {
                         focus.clear();
                     }
@@ -403,6 +411,8 @@ fn menu_item_on_pointer_cancel(
     Button,
     ActivateOnPress
 )]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct MenuButton;
 
 fn menubutton_on_activate(
@@ -426,7 +436,6 @@ fn menubutton_on_key_event(
     mut commands: Commands,
 ) {
     if let Ok(disabled) = q_menu_button.get(event.focused_entity) {
-        event.propagate(false);
         if disabled {
             return;
         }

@@ -45,7 +45,7 @@ pub use render_layers::*;
 use bevy_app::{Plugin, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{AssetEventSystems, Assets};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, VariantDefaults};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
@@ -77,7 +77,7 @@ pub struct NoCpuCulling;
 ///
 /// To read the visibility of an entity, query for its [`InheritedVisibility`] instead.
 /// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
-#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
+#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default, VariantDefaults)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
@@ -576,7 +576,7 @@ pub fn calculate_bounds(
 ) {
     for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.get_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
@@ -585,7 +585,7 @@ pub fn calculate_bounds(
     update_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut old_aabb)| {
-            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 *old_aabb = aabb;
             }
         });
@@ -681,7 +681,7 @@ fn visibility_propagate_system(
         };
 
         let is_visible = match visibility {
-            // If a entity has no parent, fall back to true
+            // If an entity has no parent, fall back to true
             Visibility::Visible | Visibility::Inherited => true,
             Visibility::Hidden => false,
         };
