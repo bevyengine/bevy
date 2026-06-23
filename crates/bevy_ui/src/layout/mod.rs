@@ -165,7 +165,7 @@ pub fn ui_layout_system(
     }
 
     for (mut node, mut global_transform, computed_layout) in &mut node_queries.p2() {
-        if computed_layout.get(true).is_some() {
+        if computed_layout.has_layout() {
             continue;
         }
 
@@ -486,18 +486,16 @@ mod tests {
         let world = app.world_mut();
 
         let ui_entity = world.spawn(Node::default()).id();
-        assert!(app
+        assert!(!app
             .world()
             .get::<ComputedLayout>(ui_entity)
-            .and_then(|layout| layout.get(true))
-            .is_none());
+            .is_some_and(ComputedLayout::has_layout));
 
         app.update();
         assert!(app
             .world()
             .get::<ComputedLayout>(ui_entity)
-            .and_then(|layout| layout.get(true))
-            .is_some());
+            .is_some_and(ComputedLayout::has_layout));
 
         app.world_mut().despawn(ui_entity);
         app.update();
@@ -513,17 +511,15 @@ mod tests {
         assert!(app
             .world()
             .get::<ComputedLayout>(entity)
-            .and_then(|layout| layout.get(true))
-            .is_some());
+            .is_some_and(ComputedLayout::has_layout));
 
         app.world_mut().despawn(entity);
         app.update();
 
-        assert!(app
+        assert!(!app
             .world()
             .get::<ComputedLayout>(entity)
-            .and_then(|layout| layout.get(true))
-            .is_none());
+            .is_some_and(ComputedLayout::has_layout));
     }
 
     #[test]
@@ -588,11 +584,10 @@ mod tests {
         let root = world.spawn(()).add_child(child).id();
 
         app.update();
-        assert!(app
+        assert!(!app
             .world()
             .get::<ComputedLayout>(child)
-            .and_then(|layout| layout.get(true))
-            .is_none());
+            .is_some_and(ComputedLayout::has_layout));
 
         // fix the invalid root node by inserting a Node
         app.world_mut().entity_mut(root).insert(Node::default());
@@ -602,8 +597,7 @@ mod tests {
         assert!(app
             .world()
             .get::<ComputedLayout>(child)
-            .and_then(|layout| layout.get(true))
-            .is_some());
+            .is_some_and(ComputedLayout::has_layout));
     }
 
     #[test]
@@ -617,11 +611,10 @@ mod tests {
         let a = world.spawn(Node::default()).add_children(&[b, c]).id();
 
         app.update();
-        assert!(app
+        assert!(!app
             .world()
             .get::<ComputedLayout>(d)
-            .and_then(|layout| layout.get(true))
-            .is_none());
+            .is_some_and(ComputedLayout::has_layout));
 
         // fix the invalid middle node by inserting a Node
         app.world_mut().entity_mut(c).insert(Node::default());
@@ -631,8 +624,7 @@ mod tests {
             assert!(app
                 .world()
                 .get::<ComputedLayout>(entity)
-                .and_then(|layout| layout.get(true))
-                .is_some());
+                .is_some_and(ComputedLayout::has_layout));
         }
     }
 
@@ -880,8 +872,7 @@ mod tests {
 
         assert!(world
             .get::<ComputedLayout>(root_node_entity)
-            .and_then(|layout| layout.get(true))
-            .is_some());
+            .is_some_and(ComputedLayout::has_layout));
     }
 
     #[test]
@@ -1679,16 +1670,14 @@ mod tests {
             assert!(app
                 .world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
-                .is_some());
+                .is_some_and(ComputedLayout::has_layout));
 
             app.world_mut().entity_mut(mid).remove::<GhostNode>();
             app.update();
-            assert!(app
+            assert!(!app
                 .world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
-                .is_none());
+                .is_some_and(ComputedLayout::has_layout));
             assert_eq!(
                 app.world().get::<ComputedNode>(child).unwrap().size(),
                 Vec2::ZERO
