@@ -270,6 +270,8 @@ bevy_sprite_render = [
   "bevy_gizmos_render?/bevy_sprite_render",
 ]
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
+# Feathers ships its built-in icons as PNGs, so enable the PNG feature
+bevy_feathers = ["dep:bevy_feathers", "png"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
