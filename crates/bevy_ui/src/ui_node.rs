@@ -2975,7 +2975,7 @@ impl UiTargetCamera {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct IsDefaultUiCamera;
 
