@@ -114,7 +114,15 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::CHECKBOX_TEXT_DISABLED,
                 palette::LIGHT_GRAY_1.with_alpha(0.5),
             ),
-            // Radio
+            // Radio (default look is no background)
+            (tokens::RADIO_BG, Color::NONE),
+            (tokens::RADIO_BG_HOVER, Color::NONE),
+            (tokens::RADIO_BG_PRESSED, Color::NONE),
+            (tokens::RADIO_BG_DISABLED, Color::NONE),
+            (tokens::RADIO_BG_CHECKED, Color::NONE),
+            (tokens::RADIO_BG_CHECKED_HOVER, Color::NONE),
+            (tokens::RADIO_BG_CHECKED_PRESSED, Color::NONE),
+            (tokens::RADIO_BG_CHECKED_DISABLED, Color::NONE),
             (tokens::RADIO_BORDER, palette::GRAY_3),
             (tokens::RADIO_BORDER_HOVER, palette::GRAY_3.lighter(0.05)),
             (tokens::RADIO_BORDER_PRESSED, palette::GRAY_3.lighter(0.1)),
