@@ -31,7 +31,8 @@ fn entity_node_id(entity: Entity) -> NodeId {
 }
 
 fn viewport_node_id() -> NodeId {
-    NodeId::from(u64::MAX)
+    // `entity.to_bits()` can't be zero
+    NodeId::from(0u64)
 }
 
 #[derive(Component, Debug, Clone, Default)]
