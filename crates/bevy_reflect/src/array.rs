@@ -75,7 +75,7 @@ pub trait Array: PartialReflect {
     fn to_dynamic_array(&self) -> DynamicArray {
         DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::to_dynamic).collect(),
+            values: self.iter().map(|item| item.to_dynamic().unwrap()).collect(),
         }
     }
 

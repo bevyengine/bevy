@@ -93,7 +93,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             fn to_dynamic_tuple_struct(&self) -> #bevy_reflect_path::tuple_struct::DynamicTupleStruct {
                 let mut dynamic: #bevy_reflect_path::tuple_struct::DynamicTupleStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref));)*
+                #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref).unwrap());)*
                 dynamic
             }
         }

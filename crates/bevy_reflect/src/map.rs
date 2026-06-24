@@ -85,7 +85,7 @@ pub trait Map: PartialReflect {
         let mut map = DynamicMap::default();
         map.set_represented_type(self.get_represented_type_info());
         for (key, value) in self.iter() {
-            map.insert_boxed(key.to_dynamic(), value.to_dynamic());
+            map.insert_boxed(key.to_dynamic().unwrap(), value.to_dynamic().unwrap());
         }
         map
     }
@@ -598,7 +598,7 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
         if let Some(a_value) = a.get_mut(key) {
             a_value.try_apply(b_value)?;
         } else {
-            a.insert_boxed(key.to_dynamic(), b_value.to_dynamic());
+            a.insert_boxed(key.to_dynamic().unwrap(), b_value.to_dynamic().unwrap());
         }
     }
     a.retain(&mut |key, _| map_value.get(key).is_some());

@@ -220,7 +220,7 @@
 //! });
 //!
 //! // `dynamic` will be a `DynamicStruct` representing a `MyStruct`
-//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic().unwrap();
 //! assert!(dynamic.represents::<MyStruct>());
 //! ```
 //!
@@ -253,7 +253,7 @@
 //!   foo: 123
 //! });
 //!
-//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic().unwrap();
 //! let value = dynamic.try_take::<MyStruct>().unwrap(); // PANIC!
 //! ```
 //!
@@ -278,7 +278,7 @@
 //!   foo: 123
 //! });
 //!
-//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic().unwrap();
 //! let value = <MyStruct as FromReflect>::from_reflect(&*dynamic).unwrap(); // OK!
 //! ```
 //!

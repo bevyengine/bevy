@@ -110,7 +110,10 @@ pub trait List: PartialReflect {
     fn to_dynamic_list(&self) -> DynamicList {
         DynamicList {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::to_dynamic).collect(),
+            values: self
+                .iter()
+                .map(|value| value.to_dynamic().unwrap())
+                .collect(),
         }
     }
 
@@ -460,7 +463,7 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
                 v.try_apply(value)?;
             }
         } else {
-            List::push(a, value.to_dynamic());
+            List::push(a, value.to_dynamic().unwrap());
         }
     }
 

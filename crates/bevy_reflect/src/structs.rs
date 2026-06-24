@@ -81,7 +81,7 @@ pub trait Struct: PartialReflect {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
         for (name, value) in self.iter_fields() {
-            dynamic_struct.insert_boxed(name, value.to_dynamic());
+            dynamic_struct.insert_boxed(name, value.to_dynamic().unwrap());
         }
         dynamic_struct
     }

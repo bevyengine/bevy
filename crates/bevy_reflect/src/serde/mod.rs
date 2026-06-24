@@ -179,7 +179,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
 
-        let expected = value.to_dynamic();
+        let expected = value.to_dynamic().unwrap();
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(expected

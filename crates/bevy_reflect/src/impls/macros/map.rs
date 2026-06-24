@@ -52,7 +52,7 @@ macro_rules! impl_reflect_for_hashmap {
                                 k.reflect_type_path()
                             )
                         });
-                        dynamic_map.insert_boxed(bevy_platform::prelude::Box::new(key), v.to_dynamic());
+                        dynamic_map.insert_boxed(bevy_platform::prelude::Box::new(key), v.to_dynamic().unwrap());
                     }
                     dynamic_map
                 }

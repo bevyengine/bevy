@@ -62,7 +62,10 @@ pub trait Tuple: PartialReflect {
     fn to_dynamic_tuple(&self) -> DynamicTuple {
         DynamicTuple {
             represented_type: self.get_represented_type_info(),
-            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
+            fields: self
+                .iter_fields()
+                .map(|field| field.to_dynamic().unwrap())
+                .collect(),
         }
     }
 

@@ -254,16 +254,16 @@ where
     /// If you want to attempt to clone a value but are willing to accept a dynamic representation if cloning fails,
     /// use [`reflect_clone_incomplete`].
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This method will panic if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
+    /// This method will return an error if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_reflect::{PartialReflect};
     /// let value = (1, true, 3.14);
-    /// let dynamic_value = value.to_dynamic();
+    /// let dynamic_value = value.to_dynamic().unwrap();
     /// assert!(dynamic_value.is_dynamic())
     /// ```
     ///
@@ -277,21 +277,21 @@ where
     /// [opaque]: crate::ReflectKind::Opaque
     /// [`reflect_clone`]: PartialReflect::reflect_clone
     /// [`reflect_clone_incomplete`]: PartialReflect::reflect_clone_incomplete
-    fn to_dynamic(&self) -> Box<dyn PartialReflect> {
+    fn to_dynamic(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
         match self.reflect_ref() {
-            ReflectRef::Struct(dyn_struct) => Box::new(dyn_struct.to_dynamic_struct()),
+            ReflectRef::Struct(dyn_struct) => Ok(Box::new(dyn_struct.to_dynamic_struct())),
             ReflectRef::TupleStruct(dyn_tuple_struct) => {
-                Box::new(dyn_tuple_struct.to_dynamic_tuple_struct())
+                Ok(Box::new(dyn_tuple_struct.to_dynamic_tuple_struct()))
             }
-            ReflectRef::Tuple(dyn_tuple) => Box::new(dyn_tuple.to_dynamic_tuple()),
-            ReflectRef::List(dyn_list) => Box::new(dyn_list.to_dynamic_list()),
-            ReflectRef::Array(dyn_array) => Box::new(dyn_array.to_dynamic_array()),
-            ReflectRef::Map(dyn_map) => Box::new(dyn_map.to_dynamic_map()),
-            ReflectRef::Set(dyn_set) => Box::new(dyn_set.to_dynamic_set()),
-            ReflectRef::Enum(dyn_enum) => Box::new(dyn_enum.to_dynamic_enum()),
+            ReflectRef::Tuple(dyn_tuple) => Ok(Box::new(dyn_tuple.to_dynamic_tuple())),
+            ReflectRef::List(dyn_list) => Ok(Box::new(dyn_list.to_dynamic_list())),
+            ReflectRef::Array(dyn_array) => Ok(Box::new(dyn_array.to_dynamic_array())),
+            ReflectRef::Map(dyn_map) => Ok(Box::new(dyn_map.to_dynamic_map())),
+            ReflectRef::Set(dyn_set) => Ok(Box::new(dyn_set.to_dynamic_set())),
+            ReflectRef::Enum(dyn_enum) => Ok(Box::new(dyn_enum.to_dynamic_enum())),
             #[cfg(feature = "functions")]
-            ReflectRef::Function(dyn_function) => Box::new(dyn_function.to_dynamic_function()),
-            ReflectRef::Opaque(value) => value.reflect_clone().unwrap().into_partial_reflect(),
+            ReflectRef::Function(dyn_function) => Ok(Box::new(dyn_function.to_dynamic_function())),
+            ReflectRef::Opaque(value) => value.reflect_clone().map(|v| v.into_partial_reflect()),
         }
     }
 
@@ -345,10 +345,6 @@ where
     ///
     /// This method prefers the more faithful `reflect_clone` path, falling back to `to_dynamic` when necessary.
     /// Opaque values have no dynamic form, so they will always return an error when `reflect_clone` fails.
-    // Upstreaming notes:
-    // - `clone_incomplete` should just be a method on `PartialReflect`
-    // - remember to cross-link from `PartialReflect::reflect_clone` and `PartialReflect::to_dynamic` for breadcrumbs
-    // - `to_dynamic` should be made to return a `Result` in the same PR that adds this method
     fn reflect_clone_incomplete(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
         match self.reflect_clone() {
             // Prefer a concrete clone to preserve data
@@ -359,10 +355,7 @@ where
             Err(err) => match self.reflect_ref() {
                 // Opaque values have no dynamic form so just return the error.
                 ReflectRef::Opaque(_) => Err(err),
-                // BUG: this will probably panic with if nested fields have unclonable opaque values.
-                // Fixing to_dynamic to return a Result is much cleaner than working around it here,
-                // so we should just do that during upstreaming.
-                _ => Ok(self.to_dynamic()),
+                _ => Ok(self.to_dynamic()?),
             },
         }
     }

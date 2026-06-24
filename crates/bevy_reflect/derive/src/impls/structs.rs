@@ -133,7 +133,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             fn to_dynamic_struct(&self) -> #bevy_reflect_path::structs::DynamicStruct {
                 let mut dynamic: #bevy_reflect_path::structs::DynamicStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref));)*
+                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref).unwrap());)*
                 dynamic
             }
         }

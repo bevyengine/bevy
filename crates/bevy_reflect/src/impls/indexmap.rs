@@ -68,7 +68,7 @@ where
                     k.reflect_type_path()
                 )
             });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
+            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic().unwrap());
         }
         dynamic_map
     }
