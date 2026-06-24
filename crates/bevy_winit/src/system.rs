@@ -376,7 +376,7 @@ pub(crate) fn changed_windows(
                 }
 
             if window.resolution != cache.resolution {
-                let mut requested_physical_size = PhysicalSize::new(
+                let requested_physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
@@ -386,32 +386,10 @@ pub(crate) fn changed_windows(
                     cache.physical_height(),
                 );
 
-                let requested_base_scale_factor = window.resolution.base_scale_factor();
-
                 // Note: this may be different from `winit`'s base scale factor if
                 // `scale_factor_override` is set to Some(f32)
                 let requested_scale_factor = window.scale_factor();
                 let cached_scale_factor = cache.scale_factor();
-
-                // Check and update `winit`'s physical size only if the window is not maximized
-                if requested_scale_factor != cached_scale_factor && !winit_window.is_maximized() {
-                    let logical_size =
-                        if let Some(forced_factor) = window.resolution.scale_factor_override() {
-                            requested_physical_size.to_logical::<f32>(forced_factor as f64)
-                        } else {
-                            requested_physical_size.to_logical::<f32>(requested_base_scale_factor as f64)
-                        };
-
-                    // Scale factor changed, updating physical and logical size
-                    if let Some(forced_factor) = window.resolution.scale_factor_override() {
-                        // This window is overriding the OS-suggested DPI, so its physical size
-                        // should be set based on the overriding value. Its logical size already
-                        // incorporates any resize constraints.
-                        requested_physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
-                    } else {
-                        requested_physical_size = logical_size.to_physical::<u32>(requested_base_scale_factor as f64);
-                    }
-                }
 
                 // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
                 if requested_physical_size != cached_physical_size
