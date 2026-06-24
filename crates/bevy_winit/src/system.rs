@@ -376,7 +376,7 @@ pub(crate) fn changed_windows(
                 }
 
             if window.resolution != cache.resolution {
-                let mut physical_size = PhysicalSize::new(
+                let mut requested_physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
@@ -386,20 +386,20 @@ pub(crate) fn changed_windows(
                     cache.physical_height(),
                 );
 
-                let base_scale_factor = window.resolution.base_scale_factor();
+                let requested_base_scale_factor = window.resolution.base_scale_factor();
 
                 // Note: this may be different from `winit`'s base scale factor if
                 // `scale_factor_override` is set to Some(f32)
-                let scale_factor = window.scale_factor();
+                let requested_scale_factor = window.scale_factor();
                 let cached_scale_factor = cache.scale_factor();
 
                 // Check and update `winit`'s physical size only if the window is not maximized
-                if scale_factor != cached_scale_factor && !winit_window.is_maximized() {
+                if requested_scale_factor != cached_scale_factor && !winit_window.is_maximized() {
                     let logical_size =
                         if let Some(cached_factor) = cache.resolution.scale_factor_override() {
-                            physical_size.to_logical::<f32>(cached_factor as f64)
+                            requested_physical_size.to_logical::<f32>(cached_factor as f64)
                         } else {
-                            physical_size.to_logical::<f32>(base_scale_factor as f64)
+                            requested_physical_size.to_logical::<f32>(requested_base_scale_factor as f64)
                         };
 
                     // Scale factor changed, updating physical and logical size
@@ -407,14 +407,14 @@ pub(crate) fn changed_windows(
                         // This window is overriding the OS-suggested DPI, so its physical size
                         // should be set based on the overriding value. Its logical size already
                         // incorporates any resize constraints.
-                        physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
+                        requested_physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
                     } else {
-                        physical_size = logical_size.to_physical::<u32>(base_scale_factor as f64);
+                        requested_physical_size = logical_size.to_physical::<u32>(requested_base_scale_factor as f64);
                     }
                 }
 
-                if physical_size != cached_physical_size
-                    && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
+                if requested_physical_size != cached_physical_size
+                    && let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
                         let event = react_to_resize(entity, &mut window, new_physical_size);
                         window_resized.write(event.clone());
                         window_event.write(WindowEvent::WindowResized(event));
