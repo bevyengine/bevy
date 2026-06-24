@@ -55,6 +55,11 @@ impl SystemWithAccess {
     pub fn system(&self) -> &ScheduleSystem {
         &self.system
     }
+
+    /// Access
+    pub fn access(&self) -> &FilteredAccessSet {
+        &self.access
+    }
 }
 
 impl System for SystemWithAccess {
