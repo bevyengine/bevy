@@ -26,7 +26,7 @@ use bevy_ecs::{
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
-use bevy_log::warn;
+use bevy_log::{debug, warn};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
@@ -408,7 +408,7 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
             drop(data);
             buffer.unmap();
             if let Err(e) = tx.try_send((entity, buffer, result)) {
-                warn!("Failed to send readback result: {}", e);
+                debug!("Failed to send readback result: {}", e);
             }
         });
         readbacks.mapped.push(readback);
