@@ -63,10 +63,10 @@ use wgpu_types::TextureFormat;
 /// | 1-channel snorm (`R8Snorm`) | BC4 snorm |
 /// | 2-channel (`Rg8Unorm`) | BC5 |
 /// | 2-channel snorm (`Rg8Snorm`) | BC5 snorm |
-/// | HDR / float (e.g. `Rgba16Float`) | BC6H |
+/// | 16-bit / packed-float HDR (e.g. `Rgba16Float`, `Rgb9e5Ufloat`, `Rg11b10Ufloat`) | BC6H |
 /// | 4-channel LDR (e.g. `Rgba8Unorm`) | BC7 |
 /// | 4-channel sRGB (e.g. `Rgba8UnormSrgb`) | BC7 sRGB |
-/// | Integer or high-precision (>16-bit) formats | Uncompressed KTX2 (passthrough) |
+/// | Integer, 32-bit float, ≥16-bit-per-channel normalized, and snorm RGBA formats | Uncompressed KTX2 (passthrough) |
 /// | Already compressed (`BCn`, `ASTC`, `ETC2`, `EAC`) | Re-encoded to the same format |
 ///
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
@@ -100,7 +100,7 @@ use wgpu_types::TextureFormat;
 /// # Settings
 ///
 /// Per-texture behavior is configured via [`CompressedImageSaverSettings`] (`is_normal_map`,
-/// `input_alpha_mode`, `output_alpha_mode`). The defaults are tuned for color textures; you
+/// `input_alpha_mode`, `output_alpha_mode`, `generate_mipmaps`). The defaults are tuned for color textures; you
 /// **must** review these for every texture you compress — `is_normal_map` must be set to true
 /// for normal maps, and the wrong alpha mode produces colored fringes at transparent
 /// edges. See the field docs for details.

@@ -154,7 +154,7 @@ pub fn choose_ctt_compressed_format(
             }
         }
 
-        // Already compressed -> pass through as compressed
+        // Already compressed -> re-encode to the same format
         TextureFormat::Bc1RgbaUnorm
         | TextureFormat::Bc1RgbaUnormSrgb
         | TextureFormat::Bc2RgbaUnorm

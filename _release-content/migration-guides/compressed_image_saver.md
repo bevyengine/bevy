@@ -9,10 +9,10 @@ If you were using the `compressed_image_saver` feature and want to keep the prev
 
 ```toml
 # Before
-bevy = { version = "0.18", features = ["compressed_image_saver"] }
+bevy = { version = "0.19", features = ["compressed_image_saver"] }
 
 # After (keeps old Basis Universal behavior)
-bevy = { version = "0.19", features = ["compressed_image_saver_universal"] }
+bevy = { version = "0.20", features = ["compressed_image_saver_universal"] }
 ```
 
 Alternatively, keep using `compressed_image_saver` to get the new BCn/ASTC compression backend. This produces higher-quality output and supports a wider range of input formats, but does not support all platforms in a single file like UASTC does. We recommend sticking to `compressed_image_saver_universal` when targeting the web.
