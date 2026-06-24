@@ -3073,6 +3073,7 @@ wasm = false
 [[example]]
 name = "mutation_by_reflection"
 path = "examples/reflection/mutation_by_reflection.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mutation_by_reflection]
 name = "Mutation by Reflection"
