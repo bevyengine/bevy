@@ -218,7 +218,7 @@ pub fn extract_debug_overlay(
             }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
                 z_order,
                 clip: maybe_clip

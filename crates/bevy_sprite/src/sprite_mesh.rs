@@ -175,6 +175,9 @@ impl SpriteMesh {
 // NOTE: If this is ever replaced by AlphaMode2d, make a custom Default impl for Sprite,
 // because AlphaMode2d defaults to Opaque, but the sprite's alpha mode is most commonly Mask(0.5)
 
+/// An enum describing how a sprite's alpha channel will be handled.
+/// The base color being modified is that of the texture after tinting.
+/// The default is `Mask(0.5)`.
 #[derive(Debug, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]
 pub enum SpriteAlphaMode {

@@ -550,7 +550,7 @@ mod text {
                         hinting,
                         Text::new("FontWeight(100)_"),
                         TextFont {
-                            font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                            font: "Mona Sans".into(),
                             font_size: FontSize::Px(25.),
                             weight: FontWeight(100),
                             ..default()
@@ -559,9 +559,7 @@ mod text {
                             (
                                 TextSpan::new("FontWeight(500)_"),
                                 TextFont {
-                                    font: asset_server
-                                        .load("fonts/MonaSans-VariableFont.ttf")
-                                        .into(),
+                                    font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
                                     weight: FontWeight(500),
                                     ..default()
@@ -570,9 +568,7 @@ mod text {
                             (
                                 TextSpan::new("FontWeight(900)"),
                                 TextFont {
-                                    font: asset_server
-                                        .load("fonts/MonaSans-VariableFont.ttf")
-                                        .into(),
+                                    font: "Mona Sans".into(),
                                     font_size: FontSize::Px(25.),
                                     weight: FontWeight(900),
                                     ..default()
@@ -957,6 +953,25 @@ mod text_wrap {
                 ));
             }
         }
+
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                padding: UiRect::px(10.0, 10.0, 8.0, 6.0),
+                top: px(300.0),
+                left: px(300.0),
+                width: vmin(30.0),
+                ..default()
+            },
+            BackgroundColor::from(bevy::color::palettes::css::GREEN),
+            Text::new("initial text here"),
+            TextColor(Color::WHITE),
+            TextLayout {
+                justify: Justify::Left,
+                linebreak: LineBreak::WordBoundary,
+            },
+            DespawnOnExit(super::Scene::TextWrap),
+        ));
     }
 }
 

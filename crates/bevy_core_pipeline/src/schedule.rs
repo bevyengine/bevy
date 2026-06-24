@@ -16,6 +16,7 @@ use bevy_ecs::{
     entity::EntityHashSet,
     prelude::*,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
+    system::SystemState,
 };
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
@@ -225,16 +226,18 @@ impl Display for RootView {
     }
 }
 
-pub(crate) fn submit_pending_command_buffers(world: &mut World) {
-    let mut pending = world.resource_mut::<PendingCommandBuffers>();
+pub(crate) fn submit_pending_command_buffers(
+    world: &mut World,
+    state: &mut SystemState<(ResMut<PendingCommandBuffers>, Res<RenderQueue>)>,
+) {
+    let (mut pending, queue) = state.get_mut(world).unwrap();
     #[cfg(feature = "trace")]
     let buffer_count = pending.len();
-    let buffers = pending.take();
+    let mut buffers = pending.take().peekable();
 
-    if !buffers.is_empty() {
+    if buffers.peek().is_some() {
         #[cfg(feature = "trace")]
         let _span = info_span!("queue_submit", count = buffer_count).entered();
-        let queue = world.resource::<RenderQueue>();
         queue.submit(buffers);
     }
 }

@@ -7,12 +7,14 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::{
     component::Component,
     observer::On,
+    reflect::{ReflectComponent, ReflectEvent},
     system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
 use crate::{ActivateOnPress, ValueChange};
@@ -31,6 +33,8 @@ use bevy_ecs::entity::Entity;
 /// the `Switch` role instead of the `Checkbox` role.
 #[derive(Component, Debug, Default, Clone)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct Checkbox;
 
 fn checkbox_on_key_input(
@@ -174,7 +178,8 @@ fn checkbox_on_pointer_cancel(
 ///     commands.trigger(SetChecked { entity, checked: true});
 /// }
 /// ```
-#[derive(EntityEvent)]
+#[derive(EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct SetChecked {
     /// The [`Checkbox`] entity to set the "checked" state on.
     pub entity: Entity,
@@ -201,7 +206,8 @@ pub struct SetChecked {
 ///     commands.trigger(ToggleChecked { entity });
 /// }
 /// ```
-#[derive(EntityEvent)]
+#[derive(EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct ToggleChecked {
     /// The [`Entity`] of the toggled [`Checkbox`]
     pub entity: Entity,

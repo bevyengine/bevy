@@ -109,7 +109,7 @@ pub struct PointerHits {
     ///
     /// ### Why is this an `f32`???
     ///
-    /// Bevy UI is special in that it can share a camera with other things being rendered. in order
+    /// Bevy UI is special in that it can share a camera with other things being rendered. In order
     /// to properly sort them, we need a way to make `bevy_ui`'s order a tiny bit higher, like adding
     /// 0.5 to the order. We can't use integers, and we want users to be using camera.order by
     /// default, so this is the best solution at the moment.
@@ -236,7 +236,7 @@ pub mod ray {
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
     use bevy_platform::collections::{hash_map::Iter, HashMap};
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{std_traits::ReflectDefault, Reflect};
     use bevy_transform::prelude::GlobalTransform;
     use bevy_window::PrimaryWindow;
 
@@ -279,7 +279,8 @@ pub mod ray {
     ///     }
     /// }
     /// ```
-    #[derive(Clone, Debug, Default, Resource)]
+    #[derive(Clone, Debug, Default, Resource, Reflect)]
+    #[reflect(Clone, Debug, Default, Resource)]
     pub struct RayMap {
         /// Cartesian product of all pointers and all cameras
         /// Add your rays here to support picking through indirections,

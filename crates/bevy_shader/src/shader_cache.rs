@@ -1,4 +1,5 @@
 use crate::shader::*;
+use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use bevy_asset::AssetId;
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
@@ -10,7 +11,7 @@ use wgpu_types::{DownlevelFlags, Features};
 /// Fully composed source code of a shader module, with all shader defs applied.
 ///
 /// This is roughly equivalent to [`wgpu::ShaderSource`](https://docs.rs/wgpu/latest/wgpu/enum.ShaderSource.html),
-/// but with less variants and more concrete types instead of [`Cow`](alloc::borrow::Cow).
+/// but with less variants and more concrete types instead of [`Cow`].
 ///
 /// This source will be parsed and validated by the renderer.
 ///
@@ -86,20 +87,20 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
 #[expect(missing_docs, reason = "Enum variants are self-explanatory")]
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
-    Bool(String, bool),
-    Int(String, i32),
-    UInt(String, u32),
+    Bool(Cow<'static, str>, bool),
+    Int(Cow<'static, str>, i32),
+    UInt(Cow<'static, str>, u32),
 }
 
-impl From<&str> for ShaderDefVal {
-    fn from(key: &str) -> Self {
-        ShaderDefVal::Bool(key.to_string(), true)
+impl From<&'static str> for ShaderDefVal {
+    fn from(key: &'static str) -> Self {
+        ShaderDefVal::Bool(key.into(), true)
     }
 }
 
 impl From<String> for ShaderDefVal {
     fn from(key: String) -> Self {
-        ShaderDefVal::Bool(key, true)
+        ShaderDefVal::Bool(key.into(), true)
     }
 }
 
@@ -242,7 +243,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             for shader_def in shader_defs {
                                 match shader_def {
                                     ShaderDefVal::Bool(key, value) => {
-                                        compiler_options.features.flags.insert(key.clone(), (*value).into());
+                                        compiler_options.features.flags.insert(key.to_string(), (*value).into());
                                     }
                                     _ => debug!(
                                         "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",
@@ -278,13 +279,13 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             .chain(shader.shader_defs.iter())
                             .map(|def| match def.clone() {
                                 ShaderDefVal::Bool(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
+                                    (k.to_string(), naga_oil::compose::ShaderDefValue::Bool(v))
                                 }
                                 ShaderDefVal::Int(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
+                                    (k.to_string(), naga_oil::compose::ShaderDefValue::Int(v))
                                 }
                                 ShaderDefVal::UInt(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::UInt(v))
+                                    (k.to_string(), naga_oil::compose::ShaderDefValue::UInt(v))
                                 }
                             })
                             .collect::<std::collections::HashMap<_, _>>();
@@ -435,7 +436,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
         module_path: &wesl::syntax::ModulePath,
-    ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
+    ) -> Result<Cow<'_, str>, wesl::ResolveError> {
         let asset_id = self
             .module_path_to_asset_id
             .get(module_path)
@@ -447,7 +448,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
             })?;
 
         let shader = self.shaders.get(asset_id).unwrap();
-        Ok(alloc::borrow::Cow::Borrowed(shader.source.as_str()))
+        Ok(Cow::Borrowed(shader.source.as_str()))
     }
 }
 

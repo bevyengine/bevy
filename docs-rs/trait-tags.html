@@ -18,7 +18,13 @@
         'SystemSet',
         'SystemParam',
         'Relationship',
-        'RelationshipTarget'
+        'RelationshipTarget',
+        'Scene',
+        'SceneList',
+        'Template',
+        'FromTemplate',
+        'SceneComponent'
+
     ];
 
     // Find all traits that are implemented by the current type.
@@ -27,6 +33,16 @@
     // Resource already implies component
     if (implementedBevyTraits.has("Resource")) {
         implementedBevyTraits.delete("Component");
+    }
+
+    // SceneComponent already implies component
+    if (implementedBevyTraits.has("SceneComponent")) {
+        implementedBevyTraits.delete("Component");
+    }
+
+    // FromTemplate already implies Template
+    if (implementedBevyTraits.has("FromTemplate")) {
+        implementedBevyTraits.delete("Template");
     }
 
     // Check if an implemented trait has a `type Mutability = Immutable` associated type.
@@ -185,5 +201,24 @@
     .relationship-tag,
     .relationshiptarget-tag {
         --tag-color: oklch(50% 27% 150);
+    }
+
+    .relationship-tag,
+    .relationshiptarget-tag {
+        --tag-color: oklch(50% 27% 150);
+    }
+
+    .scene-tag,
+    .scenelist-tag {
+        --tag-color: oklch(50% 30% 300);
+    }
+
+    .template-tag,
+    .fromtemplate-tag {
+        --tag-color: oklch(50% 25% 58);
+    }
+
+    .scenecomponent-tag {
+        --tag-color: oklch(50% 27% 20);
     }
 </style>

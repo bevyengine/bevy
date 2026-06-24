@@ -145,6 +145,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             layout,
             depth_stencil: Some(DepthStencilState {
@@ -219,6 +220,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
