@@ -25,7 +25,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn(Sprite {
-        image: asset_server.load("ducky.png"),
+        image: asset_server.load("branding/bevy_logo_dark.png"),
         ..Default::default()
     });
 
