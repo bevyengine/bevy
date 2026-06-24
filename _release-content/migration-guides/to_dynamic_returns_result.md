@@ -1,6 +1,6 @@
 ---
 title: "`PartialReflect::to_dynamic` and its helpers now return a `Result`"
-pull_requests: [TODO]
+pull_requests: [24748]
 ---
 
 `PartialReflect::to_dynamic` now returns `Result<Box<dyn PartialReflect>, ReflectCloneError>`
