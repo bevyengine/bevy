@@ -28,6 +28,7 @@
 
 mod button;
 mod checkbox;
+mod dialog;
 mod list;
 mod menu;
 mod modal;
@@ -41,6 +42,7 @@ mod text_input;
 
 pub use button::*;
 pub use checkbox::*;
+pub use dialog::*;
 pub use list::*;
 pub use menu::*;
 pub use modal::*;
@@ -70,6 +72,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(EditableTextInputPlugin)
             .add(ListBoxPlugin)
             .add(MenuPlugin)
+            .add(DialogPlugin)
             .add(ModalDialogPlugin)
             .add(PopoverPlugin)
             .add(RadioGroupPlugin)
