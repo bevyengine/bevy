@@ -169,6 +169,8 @@ fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
         hillis_steele_scan(local_id.x);
 
         // Write the value back.
+        // Note that we don't need a workgroup barrier here because
+        // `hillis_steele_scan` already did one.
         if (global_id < block_end) {
             fan_buffer[global_id] = output_offsets[local_id.x];
         }
