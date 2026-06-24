@@ -6,6 +6,7 @@ pull_requests: [24676]
 `NextState::set_if_neq` and related methods and enum variants have been renamed to avoid naming conflicts with `Mut::set_if_neq` / `ReflectMut::set_if_neq` which have a different meaning.
 
 The following names have changed:
+
 - `NextState::set_if_neq` is now `NextState::set_if_different`
 - `NextState::PendingIfNeq` is now `NextState::PendingIfDifferent`
 - `CommandsStatesExt::set_state_if_neq` is now `CommandsStatesExt::set_state_if_different`
