@@ -1904,6 +1904,25 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ref mut late_non_indexed_indirect_parameters_buffer,
     } = phase_batched_instance_buffers.buffers;
 
+    // We have to prepare unbatchables and batchables before multidrawables.
+    // This is because:
+    //
+    // 1. The `PreprocessWorkItem`s are stored in a `PartialBufferVec`.
+    // 2. `PreprocessWorkItem`s corresponding to multidrawable mesh
+    // instances are built on GPU via the `unpack_bins` shader.
+    // 3. `PreprocessWorkItem`s corresponding to unbatchable and
+    // batchable-but-not-multidrawable mesh instances are currently built on
+    // the CPU.
+    // 4. The `PartialBufferVec`s type enforces that CPU-initialized values
+    // precede the uninitialized (i.e. GPU-initialized) ones.
+    //
+    // Thus, we have to make sure the preprocessing work items that the GPU will
+    // build follow the preprocessing work items that the CPU built. We do so by
+    // first preparing unbatchables and batchables for all views, then doing
+    // another loop over the views to prepare multidrawables.
+
+    // Prepare unbatchables and batchables.
+
     for (extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
         let Some(phase) = binned_render_phases.get_mut(&extracted_view.retained_view_entity) else {
             continue;
@@ -1924,22 +1943,6 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
-
-        // We prepare unbatchables, batchables, and multidrawables in that
-        // order. This is because:
-        //
-        // 1. The `PreprocessWorkItem`s are stored in a `PartialBufferVec`.
-        // 2. `PreprocessWorkItem`s corresponding to multidrawable mesh
-        // instances are built on GPU via the `unpack_bins` shader.
-        // 3. `PreprocessWorkItem`s corresponding to unbatchable and
-        // batchable-but-not-multidrawable mesh instances are currently built on
-        // the CPU.
-        // 4. The `PartialBufferVec`s type enforces that CPU-initialized values
-        // precede the uninitialized (i.e. GPU-initialized) ones.
-        //
-        // Thus, we have to make sure the preprocessing work items that the GPU
-        // will build follow the preprocessing work items that the CPU built. We
-        // do so by preparing the items in the order listed above.
 
         // Prepare unbatchables.
 
@@ -2142,10 +2145,23 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 }
             }
         }
+    }
 
-        // Prepare multidrawables.
+    // Prepare multidrawables.
 
-        if let (
+    for (extracted_view, _, _) in &mut views {
+        // We should have created the work item buffer for the view in the loop
+        // above.
+        let (Some(phase), Some(work_item_buffer)) = (
+            binned_render_phases.get_mut(&extracted_view.retained_view_entity),
+            work_item_buffers.get_mut(&extracted_view.retained_view_entity),
+        ) else {
+            continue;
+        };
+
+        // Only process multidrawables if we're drawing with multidraw indirect
+        // in the first place.
+        let (
             &mut BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut batch_sets),
             &mut PreprocessWorkItemBuffers::Indirect {
                 indexed: ref mut indexed_work_item_buffer,
@@ -2153,57 +2169,59 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 gpu_occlusion_culling: ref mut gpu_occlusion_culling_buffers,
             },
         ) = (&mut phase.batch_sets, &mut *work_item_buffer)
-        {
-            // Initialize the state for both indexed and non-indexed meshes.
-            let mut indexed_preparer: MultidrawableBatchSetPreparer<BPI, GFBD> =
-                MultidrawableBatchSetPreparer::new(
-                    phase_indirect_parameters_buffers.buffers.batch_count(true) as u32,
-                    phase_indirect_parameters_buffers
-                        .buffers
-                        .indexed
-                        .batch_sets
-                        .len() as u32,
-                );
-            let mut non_indexed_preparer: MultidrawableBatchSetPreparer<BPI, GFBD> =
-                MultidrawableBatchSetPreparer::new(
-                    phase_indirect_parameters_buffers.buffers.batch_count(false) as u32,
-                    phase_indirect_parameters_buffers
-                        .buffers
-                        .non_indexed
-                        .batch_sets
-                        .len() as u32,
-                );
+        else {
+            continue;
+        };
 
-            // Prepare each batch set.
-            for (batch_set_key, bins) in &phase.multidrawable_meshes {
-                if batch_set_key.indexed() {
-                    indexed_preparer.prepare_multidrawable_binned_batch_set(
-                        bins,
-                        data_buffer,
-                        indexed_work_item_buffer,
-                        &mut phase_indirect_parameters_buffers.buffers.indexed,
-                        batch_sets,
-                    );
-                } else {
-                    non_indexed_preparer.prepare_multidrawable_binned_batch_set(
-                        bins,
-                        data_buffer,
-                        non_indexed_work_item_buffer,
-                        &mut phase_indirect_parameters_buffers.buffers.non_indexed,
-                        batch_sets,
-                    );
-                }
-            }
+        // Initialize the state for both indexed and non-indexed meshes.
+        let mut indexed_preparer: MultidrawableBatchSetPreparer<BPI, GFBD> =
+            MultidrawableBatchSetPreparer::new(
+                phase_indirect_parameters_buffers.buffers.batch_count(true) as u32,
+                phase_indirect_parameters_buffers
+                    .buffers
+                    .indexed
+                    .batch_sets
+                    .len() as u32,
+            );
+        let mut non_indexed_preparer: MultidrawableBatchSetPreparer<BPI, GFBD> =
+            MultidrawableBatchSetPreparer::new(
+                phase_indirect_parameters_buffers.buffers.batch_count(false) as u32,
+                phase_indirect_parameters_buffers
+                    .buffers
+                    .non_indexed
+                    .batch_sets
+                    .len() as u32,
+            );
 
-            // Reserve space in the occlusion culling buffers, if necessary.
-            if let Some(gpu_occlusion_culling_buffers) = gpu_occlusion_culling_buffers {
-                gpu_occlusion_culling_buffers
-                    .late_indexed
-                    .add_multiple(indexed_preparer.work_item_count);
-                gpu_occlusion_culling_buffers
-                    .late_non_indexed
-                    .add_multiple(non_indexed_preparer.work_item_count);
+        // Prepare each batch set.
+        for (batch_set_key, bins) in &phase.multidrawable_meshes {
+            if batch_set_key.indexed() {
+                indexed_preparer.prepare_multidrawable_binned_batch_set(
+                    bins,
+                    data_buffer,
+                    indexed_work_item_buffer,
+                    &mut phase_indirect_parameters_buffers.buffers.indexed,
+                    batch_sets,
+                );
+            } else {
+                non_indexed_preparer.prepare_multidrawable_binned_batch_set(
+                    bins,
+                    data_buffer,
+                    non_indexed_work_item_buffer,
+                    &mut phase_indirect_parameters_buffers.buffers.non_indexed,
+                    batch_sets,
+                );
             }
+        }
+
+        // Reserve space in the occlusion culling buffers, if necessary.
+        if let Some(gpu_occlusion_culling_buffers) = gpu_occlusion_culling_buffers {
+            gpu_occlusion_culling_buffers
+                .late_indexed
+                .add_multiple(indexed_preparer.work_item_count);
+            gpu_occlusion_culling_buffers
+                .late_non_indexed
+                .add_multiple(non_indexed_preparer.work_item_count);
         }
     }
 }
