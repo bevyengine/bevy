@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes,
-    color::Okhsla, // where are hsla and others imported?
+    color::Okhsla,
     ecs::VariantDefaults,
     feathers::{
         constants::{fonts, icons},
@@ -813,8 +813,7 @@ fn update_colors(
     states: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
-    mut color_planes: Query<(Entity, &mut ColorPlaneValue), With<FeathersColorPlane>>,
-    q_plane_types: Query<&FeathersColorPlane>,
+    mut color_planes: Query<(&mut ColorPlaneValue, &FeathersColorPlane)>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
@@ -895,29 +894,27 @@ fn update_colors(
             };
         }
 
-        for (plane_ent, mut plane_value) in color_planes.iter_mut() {
-            if let Ok(plane_type) = q_plane_types.get(plane_ent) {
-                match plane_type {
-                    FeathersColorPlane::OkhslHueLightness => {
-                        plane_value.0.x = states.okhsl_color.hue / 360.0;
-                        plane_value.0.y = 1.0 - states.okhsl_color.lightness;
-                        plane_value.0.z = states.okhsl_color.saturation;
-                    }
-                    FeathersColorPlane::OkhslHueSaturation => {
-                        plane_value.0.x = states.okhsl_color.hue / 360.0;
-                        plane_value.0.y = 1.0 - states.okhsl_color.saturation;
-                        plane_value.0.z = states.okhsl_color.lightness;
-                    }
-                    FeathersColorPlane::HueLightness | FeathersColorPlane::HueSaturation => {
-                        plane_value.0.x = states.hsl_color.hue / 360.0;
-                        plane_value.0.y = 1.0 - states.hsl_color.lightness;
-                        plane_value.0.z = states.hsl_color.saturation;
-                    }
-                    _ => {
-                        plane_value.0.x = states.rgb_color.red;
-                        plane_value.0.y = states.rgb_color.blue;
-                        plane_value.0.z = states.rgb_color.green;
-                    }
+        for (mut plane_value, plane_type) in color_planes.iter_mut() {
+            match plane_type {
+                FeathersColorPlane::OkhslHueLightness => {
+                    plane_value.0.x = states.okhsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.okhsl_color.lightness;
+                    plane_value.0.z = states.okhsl_color.saturation;
+                }
+                FeathersColorPlane::OkhslHueSaturation => {
+                    plane_value.0.x = states.okhsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.okhsl_color.saturation;
+                    plane_value.0.z = states.okhsl_color.lightness;
+                }
+                FeathersColorPlane::HueLightness | FeathersColorPlane::HueSaturation => {
+                    plane_value.0.x = states.hsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.hsl_color.lightness;
+                    plane_value.0.z = states.hsl_color.saturation;
+                }
+                _ => {
+                    plane_value.0.x = states.rgb_color.red;
+                    plane_value.0.y = states.rgb_color.blue;
+                    plane_value.0.z = states.rgb_color.green;
                 }
             }
         }
