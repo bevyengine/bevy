@@ -95,7 +95,7 @@ use wgpu_types::TextureFormat;
 ///
 /// Both backends generate a full mip chain automatically when processing the image. This prevents
 /// aliasing when textures are viewed at a distance, and increases GPU cache hits, improving
-/// rendering performance.
+/// rendering performance. This can be disabled per-texture via [`CompressedImageSaverSettings::generate_mipmaps`].
 ///
 /// # Settings
 ///
@@ -169,6 +169,11 @@ pub struct CompressedImageSaverSettings {
     /// configured with `bevy_material::AlphaMode::Premultiplied` (or another premultiplied-blend
     /// mode) so the blend state matches.
     pub output_alpha_mode: ImageCompressorAlphaMode,
+    /// Whether to generate a full mip chain for the compressed output.
+    ///
+    /// Defaults to `true`. Mipmaps prevent aliasing when textures are minified and improve GPU
+    /// cache locality, so they are almost always wanted for material textures.
+    pub generate_mipmaps: bool,
 }
 
 impl Default for CompressedImageSaverSettings {
@@ -177,6 +182,7 @@ impl Default for CompressedImageSaverSettings {
             is_normal_map: false,
             input_alpha_mode: ImageCompressorAlphaMode::Straight,
             output_alpha_mode: ImageCompressorAlphaMode::Premultiplied,
+            generate_mipmaps: true,
         }
     }
 }

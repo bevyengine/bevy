@@ -89,7 +89,7 @@ impl CompressedImageSaverCtt {
             output_color_space: None,
             output_alpha: Some(bevy_to_ctt_alpha_mode(settings.output_alpha_mode)),
             swizzle: None,
-            mipmap: true,
+            mipmap: settings.generate_mipmaps,
             mipmap_count: None,
             mipmap_filter: if settings.is_normal_map {
                 // TODO: https://github.com/cwfitzgerald/ctt/issues/65

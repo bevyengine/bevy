@@ -23,7 +23,7 @@ impl CompressedImageSaverUniversal {
         let compressed_basis_data = {
             let mut compressor_params = CompressorParams::new();
             compressor_params.set_basis_format(BasisTextureFormat::UASTC4x4);
-            compressor_params.set_generate_mipmaps(true);
+            compressor_params.set_generate_mipmaps(settings.generate_mipmaps);
             let color_space = if is_srgb {
                 ColorSpace::Srgb
             } else {
