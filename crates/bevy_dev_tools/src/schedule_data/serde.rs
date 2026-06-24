@@ -568,7 +568,7 @@ pub mod tests {
 
             let reindex_component_vec = |components: &mut Vec<u32>| {
                 for component in components.iter_mut() {
-                    reindex_component(component)
+                    reindex_component(component);
                 }
                 components.sort();
             };
@@ -664,11 +664,11 @@ pub mod tests {
         let offset_writes: Vec<u32> = writes.iter().map(|n| n + 1).collect();
 
         let offset_filter: Vec<u32> = filter
-            .and_then(|f| Some(f.iter().map(|n| n + 1).collect()))
+            .map(|f| f.iter().map(|n| n + 1).collect())
             .unwrap_or(offset_needs.clone());
 
         let mut reject_filter: Vec<u32> = reject
-            .and_then(|f| Some(f.iter().map(|n| n + 1).collect()))
+            .map(|f| f.iter().map(|n| n + 1).collect())
             .unwrap_or(vec![]);
         reject_filter.insert(0, 0);
 
