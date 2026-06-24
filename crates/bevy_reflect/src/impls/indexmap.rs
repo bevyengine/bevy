@@ -2,7 +2,7 @@ use crate::{
     set::{Set, SetInfo},
     utility::GenericTypeInfoCell,
     FromReflect, Generics, GetTypeRegistration, PartialReflect, Reflect, ReflectCloneError,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath,
+    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypeParamInfo, TypePath,
     TypeRegistration,
 };
 use bevy_platform::prelude::{Box, Vec};
@@ -60,7 +60,7 @@ where
 
     fn to_dynamic_map(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
-        dynamic_map.set_represented_type(PartialReflect::get_represented_type_info(self));
+        dynamic_map.set_represented_type(PartialReflect::runtime_type_info(self));
         for (k, v) in self {
             let key = K::from_reflect(k).unwrap_or_else(|| {
                 panic!(
@@ -112,8 +112,19 @@ where
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -348,8 +359,19 @@ where
     T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]

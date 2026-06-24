@@ -10,6 +10,7 @@ use crate::{
         TypeRegistration, TypeRegistry,
     },
     utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell},
+    Type,
 };
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
@@ -22,8 +23,19 @@ use core::hash::{Hash, Hasher};
 impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
 impl PartialReflect for Cow<'static, str> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -49,6 +61,19 @@ impl PartialReflect for Cow<'static, str> {
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            self.clone_from(value);
+        } else {
+            return Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
+                to_type: Self::type_path().into(),
+            });
+        }
+        Ok(())
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -96,19 +121,6 @@ impl PartialReflect for Cow<'static, str> {
 
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            return Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
-                to_type: Self::type_path().into(),
-            });
-        }
-        Ok(())
     }
 }
 
@@ -203,8 +215,19 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
 impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> PartialReflect
     for Cow<'static, [T]>
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -230,6 +253,14 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
+    }
+
+    fn apply(&mut self, value: &dyn PartialReflect) {
+        crate::list::list_apply(self, value);
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        crate::list::list_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -262,14 +293,6 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
         crate::list::list_partial_cmp(self, value)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list::list_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list::list_try_apply(self, value)
     }
 }
 

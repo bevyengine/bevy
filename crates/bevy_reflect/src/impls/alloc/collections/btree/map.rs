@@ -11,6 +11,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::prelude::*;
+use bevy_reflect::Type;
 use bevy_reflect_derive::impl_type_path;
 
 impl<K, V> Map for ::alloc::collections::BTreeMap<K, V>
@@ -97,9 +98,21 @@ where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
     }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
+    }
+
     #[inline]
     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
@@ -124,6 +137,14 @@ where
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
     }
+    fn apply(&mut self, value: &dyn PartialReflect) {
+        map_apply(self, value);
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Map
     }
@@ -157,14 +178,6 @@ where
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
         map_partial_cmp(self, value)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        map_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        map_try_apply(self, value)
     }
 }
 

@@ -25,7 +25,7 @@ pub(super) fn try_custom_serialize<S: Serializer>(
         ));
     };
 
-    let info = value.reflect_type_info();
+    let info = value.comptime_type_info();
 
     let Some(registration) = type_registry.get(info.type_id()) else {
         return Err((
