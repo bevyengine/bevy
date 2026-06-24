@@ -413,6 +413,7 @@ pub(crate) fn changed_windows(
                     }
                 }
 
+                // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
                 if requested_physical_size != cached_physical_size
                     && let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
                         let event = react_to_resize(entity, &mut window, new_physical_size);
