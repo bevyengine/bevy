@@ -2959,4 +2959,35 @@ mod tests {
             .unwrap();
         assert!(entity.get::<Foo>().is_some());
     }
+
+    #[test]
+    fn nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn! {
+            #root
+            patch
+        };
+
+        let expected_id = Some(world.spawn_scene(root).unwrap().id());
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
+    }
 }
