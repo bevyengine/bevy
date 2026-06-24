@@ -123,7 +123,7 @@ impl UiSurface {
         font_system: &mut FontCx,
     ) -> Result<(), LayoutError> {
         let mut runtime_nodes = HashMap::default();
-        let Some(root_node_id) = build_runtime_layout_tree(
+        let Some(_) = build_runtime_layout_tree(
             ui_root_entity,
             ui_children,
             node_query,
@@ -133,9 +133,10 @@ impl UiSurface {
             fixed_node_changes,
             &mut runtime_nodes,
         )?
-        .map(|built_node| built_node.node_id) else {
+        else {
             return Err(LayoutError::InvalidHierarchy);
         };
+        let root_node_id = entity_node_id(ui_root_entity);
 
         runtime_nodes.insert(
             viewport_node_id(),
@@ -197,7 +198,6 @@ impl UiSurface {
 }
 
 struct BuiltNode {
-    node_id: NodeId,
     subtree_dirty: bool,
 }
 
@@ -220,7 +220,7 @@ fn build_runtime_layout_tree<'a>(
             continue;
         }
 
-        if let Some(child) = build_runtime_layout_tree(
+        if let Some(built_child) = build_runtime_layout_tree(
             child,
             ui_children,
             node_query,
@@ -230,8 +230,8 @@ fn build_runtime_layout_tree<'a>(
             fixed_node_changes,
             runtime_nodes,
         )? {
-            child_ids.push(child.node_id);
-            subtree_dirty |= child.subtree_dirty;
+            child_ids.push(entity_node_id(child));
+            subtree_dirty |= built_child.subtree_dirty;
         }
     }
 
@@ -273,10 +273,7 @@ fn build_runtime_layout_tree<'a>(
         },
     );
 
-    Ok(Some(BuiltNode {
-        node_id,
-        subtree_dirty,
-    }))
+    Ok(Some(BuiltNode { subtree_dirty }))
 }
 
 struct RuntimeLayoutNode<'a> {
