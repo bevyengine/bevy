@@ -107,7 +107,7 @@ fn modify_selected_component(world: &mut World) {
     let entity = sprite_query.iter(world).next().unwrap();
 
     // We could cheat and use `TypeId::of::<T>()` to get the type ID of a known type,
-    // but real applications identifies types by name (from a UI dropdown, text entry or a script)
+    // but real applications identify types by name (from a UI dropdown, text entry or a script)
     let type_name = match selected {
         SelectedComponent::Transform => "Transform",
         SelectedComponent::Sprite => "Sprite",
