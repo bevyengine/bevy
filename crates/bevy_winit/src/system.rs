@@ -396,8 +396,8 @@ pub(crate) fn changed_windows(
                 // Check and update `winit`'s physical size only if the window is not maximized
                 if requested_scale_factor != cached_scale_factor && !winit_window.is_maximized() {
                     let logical_size =
-                        if let Some(cached_factor) = cache.resolution.scale_factor_override() {
-                            requested_physical_size.to_logical::<f32>(cached_factor as f64)
+                        if let Some(forced_factor) = window.resolution.scale_factor_override() {
+                            requested_physical_size.to_logical::<f32>(forced_factor as f64)
                         } else {
                             requested_physical_size.to_logical::<f32>(requested_base_scale_factor as f64)
                         };
