@@ -168,7 +168,7 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.register::<TestStruct>();
 
-        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct();
+        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct().unwrap();
 
         let serializer = ReflectSerializer::new(&value, &registry);
 

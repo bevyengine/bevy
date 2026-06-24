@@ -1,11 +1,41 @@
 ---
-title: "`PartialReflect::to_dynamic` now returns a `Result`"
-pull_requests: [13723]
+title: "`PartialReflect::to_dynamic` and its helpers now return a `Result`"
+pull_requests: [TODO]
 ---
 
-The method `PartialReflect::to_dynamic` now returns a `Result` with a `ReflectCloneError` error case rather than panicking.
-Like the previous panicking case, this can only be triggered when attempting to call `to_dynamic` on opaque values.
+`PartialReflect::to_dynamic` now returns `Result<Box<dyn PartialReflect>, ReflectCloneError>`
+rather than panicking. 
+These methods will fail if *any* value stored inside
+is a an opaque type whose `reflect_clone` fails, *including* nested opaque values.
 
-As a result, all prior non-panicking call sites can safely be replaced with an `unwrap`.
-However, related code may be defensively checking for this pattern;
-you may be able to simplify your logic by handling the returned `Result` properly.
+In order to make that change properly robust, the per-kind helpers are now fallible as well, returning
+`Result<_, ReflectCloneError>`:
+
+- `Struct::to_dynamic_struct`
+- `TupleStruct::to_dynamic_tuple_struct`
+- `Tuple::to_dynamic_tuple`
+- `List::to_dynamic_list`
+- `Array::to_dynamic_array`
+- `Map::to_dynamic_map`
+- `Set::to_dynamic_set`
+- `Enum::to_dynamic_enum`
+
+Similarly, `DynamicEnum::from` and `DynamicEnum::from_ref` now return
+`Result<DynamicEnum, ReflectCloneError>`.
+
+Finally, `PartialReflect::try_apply` (and `apply`) build dynamic values internally when applying a value
+onto a larger collection or a different enum variant.
+That conversion can now fail (previously it would panic),
+so `ApplyError` has grown a new `CloneError(ReflectCloneError)` variant.
+
+The migration here should be easy:
+if you were okay with panicking before, just call `.unwrap()`: all panicking cases
+have been replaced with an error, and no new failing paths were added.
+
+However, if your code was defensively guarding against the old panic,
+you can now handle the returned `Result` directly instead and simplify your error handling.
+
+These changes were made to more robustly support the introduction of `PartialReflect::reflect_clone_incomplete`,
+designed for inspector-like use cases.
+That method, which gracefully skips fields excluded from reflectio (such as by `#[reflect(ignore)]`),
+is probably worth considering for many pieces of code that called these methods.

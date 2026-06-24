@@ -66,6 +66,11 @@ pub enum ApplyError {
         /// Name of the missing variant.
         variant_name: Box<str>,
     },
+
+    #[error(transparent)]
+    /// A value could not be converted to its dynamic representation via
+    /// [`PartialReflect::to_dynamic`] while applying it.
+    CloneError(#[from] ReflectCloneError),
 }
 
 impl From<ReflectKindMismatchError> for ApplyError {
@@ -256,7 +261,10 @@ where
     ///
     /// # Errors
     ///
-    /// This method will return an error if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
+    /// This method returns an error whenever any value it must convert is [opaque] and the call to
+    /// [`reflect_clone`] on it fails. This includes opaque values nested anywhere inside the type:
+    /// the conversion is all-or-nothing, so a single non-cloneable opaque field fails the whole call
+    /// rather than producing a partial result.
     ///
     /// # Example
     ///
@@ -279,19 +287,19 @@ where
     /// [`reflect_clone_incomplete`]: PartialReflect::reflect_clone_incomplete
     fn to_dynamic(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
         match self.reflect_ref() {
-            ReflectRef::Struct(dyn_struct) => Ok(Box::new(dyn_struct.to_dynamic_struct())),
+            ReflectRef::Struct(dyn_struct) => Ok(Box::new(dyn_struct.to_dynamic_struct()?)),
             ReflectRef::TupleStruct(dyn_tuple_struct) => {
-                Ok(Box::new(dyn_tuple_struct.to_dynamic_tuple_struct()))
+                Ok(Box::new(dyn_tuple_struct.to_dynamic_tuple_struct()?))
             }
-            ReflectRef::Tuple(dyn_tuple) => Ok(Box::new(dyn_tuple.to_dynamic_tuple())),
-            ReflectRef::List(dyn_list) => Ok(Box::new(dyn_list.to_dynamic_list())),
-            ReflectRef::Array(dyn_array) => Ok(Box::new(dyn_array.to_dynamic_array())),
-            ReflectRef::Map(dyn_map) => Ok(Box::new(dyn_map.to_dynamic_map())),
-            ReflectRef::Set(dyn_set) => Ok(Box::new(dyn_set.to_dynamic_set())),
-            ReflectRef::Enum(dyn_enum) => Ok(Box::new(dyn_enum.to_dynamic_enum())),
+            ReflectRef::Tuple(dyn_tuple) => Ok(Box::new(dyn_tuple.to_dynamic_tuple()?)),
+            ReflectRef::List(dyn_list) => Ok(Box::new(dyn_list.to_dynamic_list()?)),
+            ReflectRef::Array(dyn_array) => Ok(Box::new(dyn_array.to_dynamic_array()?)),
+            ReflectRef::Map(dyn_map) => Ok(Box::new(dyn_map.to_dynamic_map()?)),
+            ReflectRef::Set(dyn_set) => Ok(Box::new(dyn_set.to_dynamic_set()?)),
+            ReflectRef::Enum(dyn_enum) => Ok(Box::new(dyn_enum.to_dynamic_enum()?)),
             #[cfg(feature = "functions")]
             ReflectRef::Function(dyn_function) => Ok(Box::new(dyn_function.to_dynamic_function())),
-            ReflectRef::Opaque(value) => value.reflect_clone().map(|v| v.into_partial_reflect()),
+            ReflectRef::Opaque(value) => Ok(value.reflect_clone()?.into_partial_reflect()),
         }
     }
 
@@ -347,15 +355,15 @@ where
     /// Opaque values have no dynamic form, so they will always return an error when `reflect_clone` fails.
     fn reflect_clone_incomplete(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
         match self.reflect_clone() {
-            // Prefer a concrete clone to preserve data
+            // Prefer a concrete clone to preserve data.
             Ok(cloned) => Ok(cloned.into_partial_reflect()),
-            // A concrete clone failed,
-            // almost always because of a non-cloneable field such as `#[reflect(ignore)]`.
-            // We should try to salvage a dynamic copy that simply omits those fields.
+            // A concrete clone failed, almost always because of a field that is excluded from
+            // reflection, such as `#[reflect(ignore)]`. Fall back to a dynamic copy, which drops
+            // those fields. Reflected non-cloneable opaque fields still propagate as an error.
             Err(err) => match self.reflect_ref() {
-                // Opaque values have no dynamic form so just return the error.
+                // Opaque values have no dynamic form, so just return the error.
                 ReflectRef::Opaque(_) => Err(err),
-                _ => Ok(self.to_dynamic()?),
+                _ => self.to_dynamic(),
             },
         }
     }
