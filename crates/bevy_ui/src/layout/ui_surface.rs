@@ -35,6 +35,10 @@ fn viewport_node_id() -> NodeId {
     NodeId::from(0u64)
 }
 
+fn node_id_entity(node_id: NodeId) -> Entity {
+    Entity::try_from_bits(u64::from(node_id)).expect("missing layout entity")
+}
+
 #[derive(Component, Debug, Clone, Default)]
 #[doc(hidden)]
 pub struct ComputedLayout {
@@ -264,7 +268,6 @@ fn build_runtime_layout_tree<'a>(
     runtime_nodes.insert(
         node_id,
         RuntimeLayoutNode {
-            entity: Some(entity),
             style: CoreNode::from_node(node, layout_context),
             children: child_ids,
         },
@@ -277,7 +280,6 @@ fn build_runtime_layout_tree<'a>(
 }
 
 struct RuntimeLayoutNode<'a> {
-    entity: Option<Entity>,
     style: CoreNode<'a>,
     children: Vec<NodeId>,
 }
@@ -285,7 +287,6 @@ struct RuntimeLayoutNode<'a> {
 impl<'a> RuntimeLayoutNode<'a> {
     fn viewport(root_node_id: NodeId) -> Self {
         Self {
-            entity: None,
             style: CoreNode::viewport(),
             children: vec![root_node_id],
         }
@@ -364,12 +365,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
             return;
         }
 
-        let entity = self
-            .nodes
-            .get(&node_id)
-            .expect("missing layout node")
-            .entity
-            .expect("missing layout entity");
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
@@ -402,14 +398,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
                     |_, _| 0.0,
                     |known_dimensions, available_space| {
                         let taffy_style = style.to_taffy_style();
-                        let Some(entity) = tree
-                            .nodes
-                            .get(&node_id)
-                            .expect("missing layout node")
-                            .entity
-                        else {
-                            return taffy::Size::ZERO;
-                        };
+                        let entity = node_id_entity(node_id);
                         (tree.measure_function)(
                             known_dimensions,
                             available_space,
@@ -429,12 +418,7 @@ impl CacheTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
             return self.viewport_layout.cache.get(input);
         }
 
-        let entity = self
-            .nodes
-            .get(&node_id)
-            .expect("missing layout node")
-            .entity
-            .expect("missing layout entity");
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get(entity)
             .expect("missing computed layout")
@@ -448,12 +432,7 @@ impl CacheTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
             return;
         }
 
-        let entity = self
-            .nodes
-            .get_mut(&node_id)
-            .expect("missing layout node")
-            .entity
-            .expect("missing layout entity");
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
@@ -468,12 +447,7 @@ impl CacheTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
             return;
         }
 
-        let entity = self
-            .nodes
-            .get_mut(&node_id)
-            .expect("missing layout node")
-            .entity
-            .expect("missing layout entity");
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
@@ -555,12 +529,7 @@ impl RoundTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
             return self.viewport_layout.unrounded;
         }
 
-        let entity = self
-            .nodes
-            .get(&node_id)
-            .expect("missing layout node")
-            .entity
-            .expect("missing layout entity");
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get(entity)
             .expect("missing computed layout")
@@ -574,12 +543,7 @@ impl RoundTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
             return;
         }
 
-        let entity = self
-            .nodes
-            .get(&node_id)
-            .expect("missing layout node")
-            .entity
-            .expect("missing layout entity");
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
