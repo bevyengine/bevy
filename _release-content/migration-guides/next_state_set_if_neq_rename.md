@@ -12,3 +12,5 @@ The following names have changed:
 - `CommandsStatesExt::set_state_if_neq` is now `CommandsStatesExt::set_state_if_different`
 - `ReflectFreelyMutableState::set_next_state_if_neq` is now `ReflectFreelyMutableState::set_next_state_if_different`
 - `ReflectFreelyMutableStateFns::set_next_state_if_neq` is now `ReflectFreelyMutableStateFns::set_next_state_if_different`
+
+Deprecated compatibility wrappers have been added for the renamed methods (`NextState::set_if_neq`, `CommandsStatesExt::set_state_if_neq`, and `ReflectFreelyMutableState::set_next_state_if_neq`) to allow existing code to compile with deprecation warnings.
