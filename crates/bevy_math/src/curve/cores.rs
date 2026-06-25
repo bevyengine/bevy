@@ -236,7 +236,7 @@ impl<T> EvenCore<T> {
 /// `samples` must be at least 2.
 ///
 /// This function will never panic, but it may return invalid indices if its assumptions are violated.
-pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
+pub const fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
     let subdivs = samples - 1;
     let step = domain.length() / subdivs as f32;
     let t_shifted = t - domain.start();
@@ -616,7 +616,7 @@ impl<T> ChunkedUnevenCore<T> {
 
     /// The sample width: the number of values that are contained in each sample.
     #[inline]
-    pub fn width(&self) -> usize {
+    pub const fn width(&self) -> usize {
         self.values.len() / self.times.len()
     }
 
