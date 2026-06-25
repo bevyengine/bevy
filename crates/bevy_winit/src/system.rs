@@ -376,6 +376,9 @@ pub(crate) fn changed_windows(
                 }
 
             if window.resolution != cache.resolution {
+                // When changing the window resolution, only the physical resolution is important for a winit request.
+                // The scale factor will impact the window after the `WindowResized` Message is received and the contents redrawn with the (potentially) new scale factor.
+
                 let requested_physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
@@ -395,6 +398,7 @@ pub(crate) fn changed_windows(
                     // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
                     if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
                         let event = react_to_resize(entity, &mut window, new_physical_size);
+                        // Need to send two very similar events because different systems rely on those.
                         window_resized.write(event.clone());
                         window_event.write(WindowEvent::WindowResized(event));
                     }
