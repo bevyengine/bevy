@@ -151,6 +151,7 @@ impl FilteredAccessData {
     ) -> Option<Self> {
         let a = AccessData::try_new(value.access(), trace);
 
+        #[expect(clippy::question_mark, reason = "wat")]
         if a.is_none() {
             return None;
         }
