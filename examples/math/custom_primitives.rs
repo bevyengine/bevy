@@ -432,9 +432,7 @@ impl Measured2d for Heart {
 
 // The `Bounded2d` or `Bounded3d` traits are used to compute the Axis Aligned Bounding Boxes or bounding circles / spheres for primitives.
 impl Bounded2d for Heart {
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        let isometry = isometry.into();
-
+    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
         // The center of the circle at the center of the right wing of the heart
         let circle_center = isometry.rotation * Vec2::new(self.radius, 0.0);
         // The maximum X and Y positions of the two circles of the wings of the heart.
@@ -451,9 +449,7 @@ impl Bounded2d for Heart {
         }
     }
 
-    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        let isometry = isometry.into();
-
+    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
         // The bounding circle of the heart is not at its origin. This `offset` is the offset between the center of the bounding circle and its translation.
         let offset = self.radius / ops::powf(2f32, 1.5);
         // The center of the bounding circle
