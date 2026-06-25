@@ -1573,14 +1573,14 @@ pub enum AppExit {
     Success,
     /// The [`App`] experienced an unhandleable error.
     /// Holds the exit code we expect our app to return.
-    Error(NonZero<u8>),
+    Error(NonZero<u8>, Option<String>),
 }
 
 impl AppExit {
     /// Creates a [`AppExit::Error`] with an error code of 1.
     #[must_use]
     pub const fn error() -> Self {
-        Self::Error(NonZero::<u8>::MIN)
+        Self::Error(NonZero::<u8>::MIN, None)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Success`].
@@ -1592,7 +1592,7 @@ impl AppExit {
     /// Returns `true` if `self` is a [`AppExit::Error`].
     #[must_use]
     pub const fn is_error(&self) -> bool {
-        matches!(self, AppExit::Error(_))
+        matches!(self, AppExit::Error(..))
     }
 
     /// Creates a [`AppExit`] from a code.
@@ -1602,7 +1602,7 @@ impl AppExit {
     #[must_use]
     pub const fn from_code(code: u8) -> Self {
         match NonZero::<u8>::new(code) {
-            Some(code) => Self::Error(code),
+            Some(code) => Self::Error(code, None),
             None => Self::Success,
         }
     }
@@ -1620,7 +1620,12 @@ impl Termination for AppExit {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
             // We leave logging an error to our users
-            AppExit::Error(value) => ExitCode::from(value.get()),
+            AppExit::Error(value, message) => {
+                if let Some(message) = message {
+                    std::eprintln!("Error: {message}");
+                }
+                ExitCode::from(value.get())
+            }
         }
     }
 }
@@ -1991,6 +1996,24 @@ mod tests {
         assert_eq!(exit, AppExit::from_code(4));
     }
 
+    #[test]
+    fn app_exit_error_with_message() {
+        use core::num::NonZero;
+
+        let error_message = alloc::string::String::from("A critical error occurred");
+        let app_exit = AppExit::Error(NonZero::<u8>::new(42).unwrap(), Some(error_message.clone()));
+
+        assert!(app_exit.is_error());
+        assert!(!app_exit.is_success());
+
+        if let AppExit::Error(code, message) = app_exit {
+            assert_eq!(code.get(), 42);
+            assert_eq!(message, Some(error_message));
+        } else {
+            panic!("Expected AppExit::Error");
+        }
+    }
+
     /// Custom runners should be in charge of when `app::update` gets called as they may need to
     /// coordinate some state.
     /// bug: <https://github.com/bevyengine/bevy/issues/10385>
@@ -2027,9 +2050,8 @@ mod tests {
 
     #[test]
     fn app_exit_size() {
-        // There wont be many of them so the size isn't an issue but
-        // it's nice they're so small let's keep it that way.
-        assert_eq!(size_of::<AppExit>(), size_of::<u8>());
+        // There wont be many of them so the size isn't an issue.
+        assert!(size_of::<AppExit>() > size_of::<u8>());
     }
 
     #[test]
