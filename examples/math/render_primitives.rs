@@ -180,7 +180,10 @@ const TRIANGLE_3D: Triangle3d = Triangle3d {
     ],
 };
 
-const PLANE_2D: Plane2d = Plane2d { normal: Dir2::Y };
+const PLANE_2D: Plane2d = Plane2d {
+    normal: Dir2::Y,
+    offset: 0.0,
+};
 const PLANE_3D: Plane3d = Plane3d {
     normal: Dir3::Y,
     half_size: Vec2::new(BIG_3D, BIG_3D),
