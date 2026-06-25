@@ -1616,6 +1616,10 @@ impl From<u8> for AppExit {
 
 #[cfg(feature = "std")]
 impl Termination for AppExit {
+    #[expect(
+        clippy::print_stderr,
+        reason = "Termination::report needs to write error message to stderr on exit."
+    )]
     fn report(self) -> ExitCode {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
