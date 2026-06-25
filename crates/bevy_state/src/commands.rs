@@ -57,7 +57,6 @@ impl CommandsStatesExt for Commands<'_, '_> {
         });
     }
 
-    #[allow(deprecated)]
     fn set_state_if_neq<S: FreelyMutableState>(&mut self, state: S) {
         self.set_state_if_different(state);
     }
