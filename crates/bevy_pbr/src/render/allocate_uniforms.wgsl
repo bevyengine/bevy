@@ -161,7 +161,7 @@ fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
         let block_end = min(block_start + WORKGROUP_SIZE, chunk_count);
         let global_id = block_start + local_id.x;
         if (global_id < block_end) {
-            output_offsets[local_id.x] = sum + fan_buffer[global_id];
+            output_offsets[local_id.x] = fan_buffer[global_id];
         }
         workgroupBarrier();
 
@@ -172,11 +172,12 @@ fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
         // Note that we don't need a workgroup barrier here because
         // `hillis_steele_scan` already did one.
         if (global_id < block_end) {
-            fan_buffer[global_id] = output_offsets[local_id.x];
+            fan_buffer[global_id] = sum + output_offsets[local_id.x];
         }
 
         // Save the sum coming out of this block for the next one.
         sum = output_offsets[WORKGROUP_SIZE - 1u];
+        workgroupBarrier();
     }
 }
 
