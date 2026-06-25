@@ -384,16 +384,6 @@ pub(crate) fn changed_windows(
                     window.resolution.physical_height(),
                 );
 
-                let cached_physical_size = PhysicalSize::new(
-                    cache.physical_width(),
-                    cache.physical_height(),
-                );
-
-                // Note: this may be different from `winit`'s base scale factor if
-                // `scale_factor_override` is set to Some(f32)
-                let requested_scale_factor = window.scale_factor();
-                let cached_scale_factor = cache.scale_factor();
-
                 // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
                 if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
                     let event = react_to_resize(entity, &mut window, new_physical_size);
