@@ -176,7 +176,7 @@ fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
         }
 
         // Save the sum coming out of this block for the next one.
-        sum = output_offsets[WORKGROUP_SIZE - 1u];
+        sum += output_offsets[WORKGROUP_SIZE - 1u];
         workgroupBarrier();
     }
 }
