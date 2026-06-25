@@ -236,7 +236,7 @@ impl<T> EvenCore<T> {
 /// `samples` must be at least 2.
 ///
 /// This function will never panic, but it may return invalid indices if its assumptions are violated.
-pub const fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
+pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
     let subdivs = samples - 1;
     let step = domain.length() / subdivs as f32;
     let t_shifted = t - domain.start();
