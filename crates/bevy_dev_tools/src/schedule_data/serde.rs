@@ -149,15 +149,10 @@ impl FilteredAccessData {
         value: &bevy_ecs::query::FilteredAccess,
         trace: &mut ComponentTrace,
     ) -> Option<Self> {
-        let a = AccessData::try_new(value.access(), trace);
-
-        #[expect(clippy::question_mark, reason = "wat")]
-        if a.is_none() {
-            return None;
-        }
+        let a = AccessData::try_new(value.access(), trace)?;
 
         Some(Self {
-            access: a.unwrap(),
+            access: a,
             required: trace.get_indexes(value.required().iter()),
             filter_sets: value
                 .filter_sets()
