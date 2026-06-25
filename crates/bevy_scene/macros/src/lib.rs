@@ -43,7 +43,6 @@ use syn::{parse_macro_input, DeriveInput};
 ///     ]
 /// }
 /// ```
-#[doc(hidden)]
 #[proc_macro]
 pub fn bsn(input: TokenStream) -> TokenStream {
     crate::bsn::bsn(input)
@@ -62,7 +61,7 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 /// This is not possible with separate [`bsn!`] calls, and is a key motivation for using [`bsn_list!`].
 ///
 /// See [`bsn!`] for an example of the syntax.
-/// See the `bevy_scene` crate docs for a high-level overview of the key concepts.#[doc(hidden)]
+/// See the `bevy_scene` crate docs for a high-level overview of the key concepts.
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
     crate::bsn::bsn_list(input)
