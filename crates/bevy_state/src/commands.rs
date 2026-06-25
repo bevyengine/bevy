@@ -30,10 +30,7 @@ pub trait CommandsStatesExt {
     ///
     /// Note that commands introduce sync points to the ECS schedule, so modifying `NextState`
     /// directly may be more efficient depending on your use-case.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `set_state_if_different` instead"
-    )]
+    #[deprecated(since = "0.19.0", note = "use `set_state_if_different` instead")]
     fn set_state_if_neq<S: FreelyMutableState>(&mut self, state: S);
 }
 

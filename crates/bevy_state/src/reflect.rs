@@ -89,10 +89,7 @@ impl ReflectFreelyMutableState {
         (self.0.set_next_state_if_different)(world, state, registry);
     }
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`], skipping state transitions if the target state is the same as the current state.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `set_next_state_if_different` instead"
-    )]
+    #[deprecated(since = "0.19.0", note = "use `set_next_state_if_different` instead")]
     pub fn set_next_state_if_neq(
         &self,
         world: &mut World,

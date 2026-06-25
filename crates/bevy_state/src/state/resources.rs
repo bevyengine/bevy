@@ -213,10 +213,7 @@ impl<S: FreelyMutableState> NextState<S> {
     ///
     /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
     /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
-    #[deprecated(
-        since = "0.19.0",
-        note = "use `set_if_different` instead"
-    )]
+    #[deprecated(since = "0.19.0", note = "use `set_if_different` instead")]
     pub fn set_if_neq(&mut self, state: S) {
         self.set_if_different(state);
     }
