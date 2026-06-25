@@ -5,7 +5,7 @@ use crate::{DynamicEntity, DynamicWorld, WorldFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId},
     entity::ContainsEntity,
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
@@ -381,10 +381,8 @@ impl<'w> DynamicWorldBuilder<'w> {
         let ids: Vec<ComponentId> = self
             .original_world
             .components()
-            .iter_registered()
-            .map(ComponentInfo::id)
+            .iter_registered_ids()
             .collect();
-
         for component_id in ids {
             let entity = component_id.entity();
 

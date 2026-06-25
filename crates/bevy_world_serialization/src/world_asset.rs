@@ -5,7 +5,7 @@ use crate::{DynamicWorld, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
-    component::{ComponentCloneBehavior, ComponentId, ComponentInfo},
+    component::{ComponentCloneBehavior, ComponentId},
     entity::{ContainsEntity, Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
@@ -74,13 +74,7 @@ impl WorldAsset {
             .components()
             .get_id(TypeId::of::<DefaultQueryFilters>());
 
-        let ids: Vec<ComponentId> = self
-            .world
-            .components()
-            .iter_registered()
-            .map(ComponentInfo::id)
-            .collect();
-
+        let ids: Vec<ComponentId> = self.world.components().iter_registered_ids().collect();
         // Resources archetype
         for component_id in ids {
             let source_entity = component_id.entity();

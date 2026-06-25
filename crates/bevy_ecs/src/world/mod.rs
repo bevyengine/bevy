@@ -3317,15 +3317,11 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let ids: Vec<ComponentId> = self
-            .components()
-            .iter_registered()
-            .map(ComponentInfo::id)
-            .collect();
+        let ids: Vec<ComponentId> = self.components().iter_registered_ids().collect();
         for component_id in ids {
             let entity = component_id.entity();
             if self.entities().contains_spawned(entity) {
-                // only resource entities should have a component where the component_id matches the entity.
+                // only resource entities with a matching component_id should have a component.
                 self.entity_mut(entity).remove_by_id(component_id);
             }
         }
