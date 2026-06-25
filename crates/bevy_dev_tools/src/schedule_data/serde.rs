@@ -111,14 +111,21 @@ pub struct AccessData {
 }
 
 impl AccessData {
-    fn new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Self {
-        Self {
-            read_and_writes: trace.get_indexes(value.read_and_writes().iter()),
-            writes: trace.get_indexes(value.writes().iter()),
+    fn try_new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Option<Self> {
+        let x = value.try_reads_and_writes();
+        let y = value.try_writes();
+
+        if x.is_err() || y.is_err() {
+            return None;
+        }
+
+        Some(Self {
+            read_and_writes: trace.get_indexes(x.unwrap().iter()),
+            writes: trace.get_indexes(y.unwrap().iter()),
             read_and_writes_inverted: value.read_and_writes_inverted(),
             writes_inverted: value.writes_inverted(),
             archetypal: trace.get_indexes(value.archetypal().iter()),
-        }
+        })
     }
 }
 
@@ -138,9 +145,18 @@ pub struct FilteredAccessData {
 }
 
 impl FilteredAccessData {
-    fn new(value: &bevy_ecs::query::FilteredAccess, trace: &mut ComponentTrace) -> Self {
-        Self {
-            access: AccessData::new(value.access(), trace),
+    fn try_new(
+        value: &bevy_ecs::query::FilteredAccess,
+        trace: &mut ComponentTrace,
+    ) -> Option<Self> {
+        let a = AccessData::try_new(value.access(), trace);
+
+        if a.is_none() {
+            return None;
+        }
+
+        Some(Self {
+            access: a.unwrap(),
             required: trace.get_indexes(value.required().iter()),
             filter_sets: value
                 .filter_sets()
@@ -150,7 +166,7 @@ impl FilteredAccessData {
                     without: trace.get_indexes(f.without().iter()),
                 })
                 .collect(),
-        }
+        })
     }
 }
 
@@ -298,10 +314,14 @@ impl ScheduleData {
                         == core::any::TypeId::of::<ApplyDeferred>(),
                     exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
-                    combined_access: AccessData::new(combined_access, &mut component_trace),
+                    combined_access: AccessData::try_new(combined_access, &mut component_trace)
+                        .unwrap_or_default(),
                     filtered_accesses: filtered_accesses
                         .iter()
-                        .map(|fa| FilteredAccessData::new(fa, &mut component_trace))
+                        .map(|fa| {
+                            FilteredAccessData::try_new(fa, &mut component_trace)
+                                .unwrap_or_default()
+                        })
                         .collect(),
                 }
             })

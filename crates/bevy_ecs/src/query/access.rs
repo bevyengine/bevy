@@ -395,18 +395,6 @@ impl Access {
         AccessConflicts::Individual(conflicts)
     }
 
-    /// All accessed components, or forbidden components if
-    /// `Self::component_read_and_writes_inverted` is set.
-    pub fn read_and_writes(&self) -> &ComponentIdSet {
-        &self.read_and_writes
-    }
-
-    /// All exclusively-accessed components, or components that may not be
-    /// exclusively accessed if `Self::component_writes_inverted` is set.
-    pub fn writes(&self) -> &ComponentIdSet {
-        &self.writes
-    }
-
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::read_and_writes`.
     pub fn read_and_writes_inverted(&self) -> bool {
