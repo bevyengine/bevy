@@ -174,6 +174,14 @@ fn on_pointer_press(
     let Ok((mut editable_text, node, target, transform, text_scroll)) =
         text_input_query.get_mut(press.entity)
     else {
+        // The press landed on something that isn't an `EditableText`.
+        // If a text input currently holds focus, clear it so clicking away unfocuses.
+        if input_focus
+            .get()
+            .is_some_and(|focused| text_input_query.contains(focused))
+        {
+            input_focus.clear();
+        }
         return;
     };
 
