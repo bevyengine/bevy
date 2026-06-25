@@ -394,14 +394,12 @@ pub(crate) fn changed_windows(
                 let requested_scale_factor = window.scale_factor();
                 let cached_scale_factor = cache.scale_factor();
 
-                if requested_physical_size != cached_physical_size || requested_scale_factor != cached_scale_factor {
-                    // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
-                    if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
-                        let event = react_to_resize(entity, &mut window, new_physical_size);
-                        // Need to send two very similar events because different systems rely on those.
-                        window_resized.write(event.clone());
-                        window_event.write(WindowEvent::WindowResized(event));
-                    }
+                // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
+                if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
+                    let event = react_to_resize(entity, &mut window, new_physical_size);
+                    // Need to send two very similar events because different systems rely on those.
+                    window_resized.write(event.clone());
+                    window_event.write(WindowEvent::WindowResized(event));
                 }
             }
 
