@@ -1038,7 +1038,7 @@ use bevy_ecs::prelude::*;
 /// | `bsn! { … }`      | Macro call    | Calls a macro on the value inside of the braces                 |
 ///
 /// ### Syntax example
-/// 
+///
 /// ```rust,ignore
 /// bsn! {
 ///     some_scene()        // include a scene function
