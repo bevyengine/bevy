@@ -172,6 +172,7 @@ impl App {
     /// let mut app = App::new();
     /// loop {
     ///     println!("Start updating");
+    ///     app.world_mut().write_message(AppExit::Success);
     ///     app.update();
     ///     if let Some(exit) = app.should_exit() {
     ///         match exit {
