@@ -12,17 +12,20 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res},
 };
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, TextureView, TextureViewDescriptor,
-    },
+    render_resource::{Buffer, BufferDescriptor, BufferUsages},
     renderer::RenderDevice,
+};
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_render::{
+    render_resource::{
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+    },
+    texture::CachedTexture,
 };
 
 /// Size of the `LightSample` shader struct in bytes.
@@ -31,8 +34,8 @@ const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
 /// Size of the `ResolvedLightSamplePacked` shader struct in bytes.
 const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 24;
 
-/// Size of the GI `Reservoir` shader struct in bytes.
-const GI_RESERVOIR_STRUCT_SIZE: u64 = 48;
+/// Size of the `Reservoir` shader struct in bytes.
+const RESERVOIR_STRUCT_SIZE: u64 = 48;
 
 pub const LIGHT_TILE_BLOCKS: u64 = 128;
 pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
@@ -45,10 +48,8 @@ pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 pub struct SolariLightingResources {
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub di_reservoirs_a: TextureView,
-    pub di_reservoirs_b: TextureView,
-    pub gi_reservoirs_a: Buffer,
-    pub gi_reservoirs_b: Buffer,
+    pub reservoirs_a: Buffer,
+    pub reservoirs_b: Buffer,
     pub world_cache_checksums: Buffer,
     pub world_cache_life: Buffer,
     pub world_cache_radiance: Buffer,
@@ -120,33 +121,16 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
-        let di_reservoirs = |name| {
-            render_device
-                .create_texture(&TextureDescriptor {
-                    label: Some(name),
-                    size: view_size.to_extents(),
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::Rgba32Uint,
-                    usage: TextureUsages::STORAGE_BINDING,
-                    view_formats: &[],
-                })
-                .create_view(&TextureViewDescriptor::default())
-        };
-        let di_reservoirs_a = di_reservoirs("solari_lighting_di_reservoirs_a");
-        let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
-
-        let gi_reservoirs = |name| {
+        let reservoirs_buffer = |name| {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
-                size: (view_size.x * view_size.y) as u64 * GI_RESERVOIR_STRUCT_SIZE,
+                size: (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE,
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
             })
         };
-        let gi_reservoirs_a = gi_reservoirs("solari_lighting_gi_reservoirs_a");
-        let gi_reservoirs_b = gi_reservoirs("solari_lighting_gi_reservoirs_b");
+        let reservoirs_a = reservoirs_buffer("solari_lighting_reservoirs_a");
+        let reservoirs_b = reservoirs_buffer("solari_lighting_reservoirs_b");
 
         let world_cache_checksums = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_checksums"),
@@ -228,10 +212,8 @@ pub fn prepare_solari_lighting_resources(
         commands.entity(entity).insert(SolariLightingResources {
             light_tile_samples,
             light_tile_resolved_samples,
-            di_reservoirs_a,
-            di_reservoirs_b,
-            gi_reservoirs_a,
-            gi_reservoirs_b,
+            reservoirs_a,
+            reservoirs_b,
             world_cache_checksums,
             world_cache_life,
             world_cache_radiance,
