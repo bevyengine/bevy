@@ -245,10 +245,13 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                 }
 
                 match event {
-                    WindowEvent::Resized(size) => self
-                        .bevy_window_events
-                        .send(react_to_resize(window, &mut win, size)),
+                    WindowEvent::Resized(size) => {
+                        warn!("Handling Winit's WindowEvent::Resized and sending Bevy's WindowEvent::WindowResized");
+                        self.bevy_window_events
+                            .send(react_to_resize(window, &mut win, size));
+                    }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                        warn!("Handling Winit's WindowEvent::ScaleFactorChanged. Current WindowResolution :{:?}", win.resolution);
                         let (window_backend_scale_factor_changed, window_scale_factor_changed) =
                             react_to_scale_factor_change(window, &mut win, scale_factor);
 
@@ -829,9 +832,11 @@ impl WinitAppRunnerState {
                     world.write_message(e);
                 }
                 BevyWindowEvent::WindowResized(e) => {
+                    warn!("Forwarding WindowEvent::WindowResized as WindowResized.");
                     world.write_message(e);
                 }
                 BevyWindowEvent::WindowScaleFactorChanged(e) => {
+                    warn!("Forwarding WindowEvent::WindowScaleFactorChanged as WindowScaleFactorChanged.");
                     world.write_message(e);
                 }
                 BevyWindowEvent::WindowThemeChanged(e) => {
