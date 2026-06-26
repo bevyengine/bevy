@@ -125,7 +125,7 @@ pub struct FeathersPlugins;
 impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(TabNavigationPlugin)
+            .add(TabNavigationPlugin::default())
             .add(FeathersCorePlugin)
     }
 }

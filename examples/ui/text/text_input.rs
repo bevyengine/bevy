@@ -35,7 +35,7 @@ use bevy::text::{EditableText, TextCursorStyle};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(TabNavigationPlugin)
+        .add_plugins(TabNavigationPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, text_submission)
         .run();

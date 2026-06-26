@@ -26,7 +26,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin::default()))
         .insert_resource(DemoWidgetStates {
             slider_value: 50.0,
             slider_click: TrackClick::Snap,

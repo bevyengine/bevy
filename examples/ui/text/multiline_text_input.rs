@@ -15,7 +15,7 @@ use bevy::ui_widgets::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin::default()))
         .add_systems(Startup, setup)
         .run();
 }
