@@ -174,10 +174,8 @@ impl ComputedNode {
 
     /// Returns the inner border radius for each of the node's corners in physical pixels.
     pub fn inner_radius(&self) -> ResolvedBorderRadius {
-        fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
-            let s = 0.5 * size + offset;
-            let sm = s.x.min(s.y);
-            r.min(sm)
+        fn clamp_corner(r: Vec2, size: Vec2, offset: Vec2) -> Vec2 {
+            r.min(0.5 * size + offset)
         }
         let b = Vec4::from((self.border.min_inset, self.border.max_inset));
         let s = self.size() - b.xy() - b.zw();
