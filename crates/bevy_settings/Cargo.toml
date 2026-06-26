@@ -1,6 +1,6 @@
 [package]
 # crate was originally published as bevy-settings and can't be renamed on crates.io
-name = "bevy-settings"
+name = "bevy_settings"
 version = "0.20.0-dev"
 edition = "2024"
 description = "User settings framework for Bevy Engine"
