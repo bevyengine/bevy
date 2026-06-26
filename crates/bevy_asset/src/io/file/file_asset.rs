@@ -9,14 +9,17 @@ use async_io::Timer;
 use async_lock::{Semaphore, SemaphoreGuard};
 use futures_lite::StreamExt;
 
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+};
 #[cfg(target_os = "windows")]
 use core::marker::PhantomData;
 #[cfg(not(target_os = "windows"))]
 use core::time::Duration;
 #[cfg(not(target_os = "windows"))]
 use futures_util::{future, pin_mut};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{FileAssetReader, FileAssetWriter};
 
@@ -72,6 +75,10 @@ impl<'a> Reader for GuardedFile<'a> {
 }
 
 impl AssetReader for FileAssetReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Borrowed(&self.root_path)
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         #[cfg(not(target_os = "windows"))]
         let _guard = maybe_get_semaphore().await;
@@ -172,6 +179,10 @@ impl AssetReader for FileAssetReader {
 }
 
 impl AssetWriter for FileAssetWriter {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Borrowed(&self.root_path)
+    }
+
     async fn write<'a>(&'a self, path: &'a Path) -> Result<Box<Writer>, AssetWriterError> {
         let full_path = self.root_path.join(path);
         if let Some(parent) = full_path.parent() {
