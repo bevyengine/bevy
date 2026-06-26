@@ -159,8 +159,9 @@ impl Time<Virtual> {
     /// Returns the speed the clock advanced relative to your system clock in
     /// this update, as [`f32`].
     ///
-    /// Returns `0.0` if the game was paused or what the `relative_speed` value
-    /// was at the start of this update.
+    /// Returns `0.0` if the game was paused. Otherwise returns the multiplier
+    /// actually applied to the real delta this update (`delta / raw_delta`), which
+    /// equals [`relative_speed()`](Self::relative_speed) unless clamping reduced the delta.
     #[inline]
     pub fn effective_speed(&self) -> f32 {
         self.context().effective_speed as f32
@@ -169,8 +170,9 @@ impl Time<Virtual> {
     /// Returns the speed the clock advanced relative to your system clock in
     /// this update, as [`f64`].
     ///
-    /// Returns `0.0` if the game was paused or what the `relative_speed` value
-    /// was at the start of this update.
+    /// Returns `0.0` if the game was paused. Otherwise returns the multiplier
+    /// actually applied to the real delta this update (`delta / raw_delta`), which
+    /// equals [`relative_speed()`](Self::relative_speed) unless clamping reduced the delta.
     #[inline]
     pub fn effective_speed_f64(&self) -> f64 {
         self.context().effective_speed
@@ -237,13 +239,13 @@ impl Time<Virtual> {
     /// Updates the elapsed duration of `self` by `raw_delta` * `relative_speed`, up to the `max_delta`.
     fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
-        let effective_speed = if self.context().paused {
+        let speed = if self.context().paused {
             0.0
         } else {
             self.context().relative_speed
         };
-        let scaled = if effective_speed != 1.0 {
-            raw_delta.mul_f64(effective_speed)
+        let scaled = if speed != 1.0 {
+            raw_delta.mul_f64(speed)
         } else {
             // avoid rounding when at normal speed
             raw_delta
@@ -258,7 +260,11 @@ impl Time<Virtual> {
         } else {
             scaled
         };
-        self.context_mut().effective_speed = effective_speed;
+        self.context_mut().effective_speed = if raw_delta.is_zero() {
+            speed
+        } else {
+            delta.as_secs_f64() / raw_delta.as_secs_f64()
+        };
         self.advance_by(delta);
     }
 }
@@ -425,6 +431,7 @@ mod test {
 
         assert_eq!(time.delta(), Duration::from_millis(500));
         assert_eq!(time.elapsed(), Duration::from_millis(1250));
+        assert!((time.effective_speed() - 500.0 / 750.0).abs() < f32::EPSILON);
 
         time.set_max_delta(Duration::from_secs(1));
 
@@ -450,6 +457,7 @@ mod test {
         time.advance_with_raw_delta(Duration::from_millis(16));
 
         assert_eq!(time.delta(), time.max_delta());
+        assert_eq!(time.effective_speed(), 62.5);
     }
 
     #[test]
