@@ -363,16 +363,10 @@ pub fn camera_system(
 
     let mut changed_window_ids = EntityHashSet::default();
     changed_window_ids.extend(window_created_reader.read().map(|event| event.window));
-    changed_window_ids.extend(window_resized_reader.read().map(|event| {
-        warn!("Camera system got Bevy's WindowResized message.");
-        event.window
-    }));
+    changed_window_ids.extend(window_resized_reader.read().map(|event| event.window));
     let scale_factor_changed_window_ids: EntityHashSet = window_scale_factor_changed_reader
         .read()
-        .map(|event| {
-            warn!("Camera system got Bevy's WindowScaleFactorChanged message.");
-            event.window
-        })
+        .map(|event| event.window)
         .collect();
     changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 

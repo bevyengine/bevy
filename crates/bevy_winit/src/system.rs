@@ -302,7 +302,6 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 /// - [`Window::transparent`] cannot be changed after the window is created.
 /// - [`Window::canvas`] cannot be changed after the window is created.
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
-#[tracing::instrument(skip_all)]
 pub(crate) fn changed_windows(
     mut commands: Commands,
     mut changed_windows: Query<
@@ -378,8 +377,6 @@ pub(crate) fn changed_windows(
                 }
 
             if window.resolution != cache.resolution {
-                warn!("WindowResolution has changed.");
-
                 let cache_physical_size = PhysicalSize::new(
                     cache.resolution.physical_width(),
                     cache.resolution.physical_height(),
@@ -392,7 +389,6 @@ pub(crate) fn changed_windows(
                 if cache_physical_size != requested_physical_size {
                     // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
                     if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
-                        warn!("Winit resize request handled instantly: changing the resolution. Sending WindowResized events.");
                         let event = react_to_resize(entity, &mut window, new_physical_size);
                         // Need to send two very similar events because different systems rely on those.
                         window_resized.write(event.clone());
@@ -405,7 +401,6 @@ pub(crate) fn changed_windows(
 
                 if cache_scale_factor != requested_scale_factor {
                     // If the scale factor has changed we don't query anything from winit, but send events for camera system to handle.
-                    warn!("Scale factor has changed. Sending ScaleFactor Message.");
                     let event = WindowScaleFactorChanged { scale_factor: requested_scale_factor as f64, window: entity};
                     // Need to send two very similar events because different systems rely on those.
                     window_rescaled.write(event.clone());
