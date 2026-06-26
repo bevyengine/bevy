@@ -141,11 +141,11 @@ impl ComputedNode {
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
-        const fn compute_radius(radius: f32, outer_distance: f32) -> f32 {
-            if radius > 0. {
-                radius + outer_distance
+        const fn compute_radius(radius: Vec2, outer_distance: f32) -> Vec2 {
+            if 0. < radius.x && 0. < radius.y {
+                Vec2::new(radius.x + outer_distance, radius.y + outer_distance)
             } else {
-                0.
+                Vec2::ZERO
             }
         }
         ResolvedBorderRadius {
