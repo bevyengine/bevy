@@ -9,10 +9,14 @@ use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use core::fmt;
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+///
+/// - `Val::Percent` x/y values are resolved based on the computed length of the Ui Node on the respective axis.
+/// - `Val::Auto` is resolved to `0.`.
+#[derive(Clone, Copy, Reflect, PartialEq)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -20,25 +24,33 @@ use core::ops::Mul;
     reflect(Serialize, Deserialize)
 )]
 pub struct Val2 {
-    /// Translate the node along the x-axis.
-    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
-    /// `Val::Auto` is resolved to `0.`.
-    pub x: Val,
-    /// Translate the node along the y-axis.
-    /// `Val::Percent` values are resolved based on the computed height of the UI Node.
-    /// `Val::Auto` is resolved to `0.`.
-    pub y: Val,
+    values: [f32; 2],
+    units: u8,
 }
 
 impl Val2 {
+    const AUTO: u8 = 0;
+    const PX: u8 = 1;
+    const PERCENT: u8 = 2;
+    const VW: u8 = 3;
+    const VH: u8 = 4;
+    const VMIN: u8 = 5;
+    const VMAX: u8 = 6;
+    const MASK: u8 = 0x0f;
+
     pub const ZERO: Self = Self {
-        x: Val::ZERO,
-        y: Val::ZERO,
+        values: [0.; 2],
+        units: Self::PX | (Self::PX << 4),
     };
 
     /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
-        Self { x, y }
+        let (ux, vx) = Self::pack(x);
+        let (uy, vy) = Self::pack(y);
+        Self {
+            values: [vx, vy],
+            units: ux | uy << 4,
+        }
     }
 
     /// Creates a new [`Val2`] where both components are the same value
@@ -56,16 +68,28 @@ impl Val2 {
         Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
+    /// Returns the x-axis value.
+    #[inline]
+    pub const fn x(&self) -> Val {
+        Self::unpack(self.units & Self::MASK, self.values[0])
+    }
+
+    /// Returns the y-axis value.
+    #[inline]
+    pub const fn y(&self) -> Val {
+        Self::unpack((self.units >> 4) & Self::MASK, self.values[1])
+    }
+
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
     /// and `viewport_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
     pub fn resolve(&self, scale_factor: f32, base_size: Vec2, viewport_size: Vec2) -> Vec2 {
         Vec2::new(
-            self.x
+            self.x()
                 .resolve(scale_factor, base_size.x, viewport_size)
                 .unwrap_or(0.),
-            self.y
+            self.y()
                 .resolve(scale_factor, base_size.y, viewport_size)
                 .unwrap_or(0.),
         )
@@ -84,10 +108,10 @@ impl Val2 {
     /// );
     /// ```
     pub fn try_add(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_add(other.x), self.y.try_add(other.y)) else {
+        let (Ok(x), Ok(y)) = (self.x().try_add(other.x()), self.y().try_add(other.y())) else {
             return Err(ValArithmeticError::IncompatibleUnits);
         };
-        Ok(Self { x, y })
+        Ok(Self::new(x, y))
     }
 
     /// Try to subtract two `Val2`s component-wise.
@@ -103,10 +127,43 @@ impl Val2 {
     /// );
     /// ```
     pub fn try_sub(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_sub(other.x), self.y.try_sub(other.y)) else {
+        let (Ok(x), Ok(y)) = (self.x().try_sub(other.x()), self.y().try_sub(other.y())) else {
             return Err(ValArithmeticError::IncompatibleUnits);
         };
-        Ok(Self { x, y })
+        Ok(Self::new(x, y))
+    }
+
+    const fn pack(val: Val) -> (u8, f32) {
+        match val {
+            Val::Auto => (Self::AUTO, 0.),
+            Val::Px(value) => (Self::PX, value),
+            Val::Percent(value) => (Self::PERCENT, value),
+            Val::Vw(value) => (Self::VW, value),
+            Val::Vh(value) => (Self::VH, value),
+            Val::VMin(value) => (Self::VMIN, value),
+            Val::VMax(value) => (Self::VMAX, value),
+        }
+    }
+
+    const fn unpack(unit: u8, value: f32) -> Val {
+        match unit {
+            Self::PX => Val::Px(value),
+            Self::PERCENT => Val::Percent(value),
+            Self::VW => Val::Vw(value),
+            Self::VH => Val::Vh(value),
+            Self::VMIN => Val::VMin(value),
+            Self::VMAX => Val::VMax(value),
+            _ => Val::Auto,
+        }
+    }
+}
+
+impl fmt::Debug for Val2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Val2")
+            .field("x", &self.x())
+            .field("y", &self.y())
+            .finish()
     }
 }
 
