@@ -160,8 +160,9 @@ impl Time<Virtual> {
     /// this update, as [`f32`].
     ///
     /// Returns `0.0` if the game was paused. Otherwise returns the multiplier
-    /// actually applied to the real delta this update (`delta / raw_delta`), which
-    /// equals [`relative_speed()`](Self::relative_speed) unless clamping reduced the delta.
+    /// actually applied to the `raw_delta` this update. This will usually equal
+    /// [`relative_speed()`](Self::relative_speed), but if the delta was clamped by
+    /// [`max_delta()`](Self::max_delta), it will be less than [`relative_speed()`](Self::relative_speed).
     #[inline]
     pub fn effective_speed(&self) -> f32 {
         self.context().effective_speed as f32
@@ -171,8 +172,9 @@ impl Time<Virtual> {
     /// this update, as [`f64`].
     ///
     /// Returns `0.0` if the game was paused. Otherwise returns the multiplier
-    /// actually applied to the real delta this update (`delta / raw_delta`), which
-    /// equals [`relative_speed()`](Self::relative_speed) unless clamping reduced the delta.
+    /// actually applied to the `raw_delta` this update. This will usually equal
+    /// [`relative_speed()`](Self::relative_speed), but if the delta was clamped by
+    /// [`max_delta()`](Self::max_delta), it will be less than [`relative_speed()`](Self::relative_speed).
     #[inline]
     pub fn effective_speed_f64(&self) -> f64 {
         self.context().effective_speed
@@ -250,21 +252,17 @@ impl Time<Virtual> {
             // avoid rounding when at normal speed
             raw_delta
         };
-        let delta = if scaled > max_delta {
+        let (effective_speed, delta) = if scaled > max_delta {
             debug!(
                 "delta time larger than maximum delta, clamping delta to {:?} and skipping {:?}",
                 max_delta,
                 scaled - max_delta
             );
-            max_delta
+            (max_delta.as_secs_f64() / raw_delta.as_secs_f64(), max_delta)
         } else {
-            scaled
+            (speed, scaled)
         };
-        self.context_mut().effective_speed = if raw_delta.is_zero() {
-            speed
-        } else {
-            delta.as_secs_f64() / raw_delta.as_secs_f64()
-        };
+        self.context_mut().effective_speed = effective_speed;
         self.advance_by(delta);
     }
 }
@@ -419,19 +417,24 @@ mod test {
 
         time.advance_with_raw_delta(Duration::from_millis(250));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.effective_speed(), 1.0);
         assert_eq!(time.delta(), Duration::from_millis(250));
         assert_eq!(time.elapsed(), Duration::from_millis(250));
 
         time.advance_with_raw_delta(Duration::from_millis(500));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.effective_speed(), 1.0);
         assert_eq!(time.delta(), Duration::from_millis(500));
         assert_eq!(time.elapsed(), Duration::from_millis(750));
 
         time.advance_with_raw_delta(Duration::from_millis(750));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert!((time.effective_speed() - 500.0 / 750.0).abs() < f32::EPSILON);
         assert_eq!(time.delta(), Duration::from_millis(500));
         assert_eq!(time.elapsed(), Duration::from_millis(1250));
-        assert!((time.effective_speed() - 500.0 / 750.0).abs() < f32::EPSILON);
 
         time.set_max_delta(Duration::from_secs(1));
 
@@ -439,11 +442,15 @@ mod test {
 
         time.advance_with_raw_delta(Duration::from_millis(750));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.effective_speed(), 1.0);
         assert_eq!(time.delta(), Duration::from_millis(750));
         assert_eq!(time.elapsed(), Duration::from_millis(2000));
 
         time.advance_with_raw_delta(Duration::from_millis(1250));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert!((time.effective_speed() - 1000.0 / 1250.0).abs() < f32::EPSILON);
         assert_eq!(time.delta(), Duration::from_millis(1000));
         assert_eq!(time.elapsed(), Duration::from_millis(3000));
     }
@@ -457,6 +464,7 @@ mod test {
         time.advance_with_raw_delta(Duration::from_millis(16));
 
         assert_eq!(time.delta(), time.max_delta());
+        // 62.5 = max_delta / raw_delta = 1000 / 16
         assert_eq!(time.effective_speed(), 62.5);
     }
 
