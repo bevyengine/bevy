@@ -93,35 +93,44 @@ pub struct SystemData {
     pub exclusive: bool,
     /// Whether this system has deferred buffers to apply.
     pub deferred: bool,
-
     /// Combined access for the system
     pub combined_access: AccessData,
     /// Filtered accesses for the system
     pub filtered_accesses: Vec<FilteredAccessData>,
+    // TODO: Store run conditions specific to this system.
 }
 
-/// Access wrapper
+/// A serializable version of [`bevy_ecs::query::Access`] (docs copied from there).
+/// Tracks read and write access to specific elements in a collection.
+///
+/// All indexes are into [`ScheduleData::components`]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct AccessData {
-    read_and_writes: Vec<u32>,
-    writes: Vec<u32>,
-    read_and_writes_inverted: bool,
-    writes_inverted: bool,
-    archetypal: Vec<u32>,
+    /// All accessed components, or forbidden components if
+    /// `Self::component_read_and_writes_inverted` is set.
+    pub read_and_writes: Vec<u32>,
+    /// All exclusively-accessed components, or components that may not be
+    /// exclusively accessed if `Self::component_writes_inverted` is set.
+    pub writes: Vec<u32>,
+    /// Is `true` if this component can read all components *except* those
+    /// present in `Self::read_and_writes`.
+    pub read_and_writes_inverted: bool,
+    /// Is `true` if this component can write to all components *except* those
+    /// present in `Self::writes`.
+    pub writes_inverted: bool,
+    /// Components that are not accessed, but whose presence in an archetype affect query results.
+    pub archetypal: Vec<u32>,
 }
 
 impl AccessData {
     fn try_new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Option<Self> {
-        let x = value.try_reads_and_writes();
-        let y = value.try_writes();
-
-        if x.is_err() || y.is_err() {
-            return None;
-        }
+        // try_reads_and_writes returns error if reads_and_writes_inverted=true, thus its always false
+        let read_and_writes = value.try_reads_and_writes().ok()?;
+        let writes = value.try_writes().ok()?;
 
         Some(Self {
-            read_and_writes: trace.get_indexes(x.unwrap().iter()),
-            writes: trace.get_indexes(y.unwrap().iter()),
+            read_and_writes: trace.get_indexes(read_and_writes.iter()),
+            writes: trace.get_indexes(writes.iter()),
             read_and_writes_inverted: value.read_and_writes_inverted(),
             writes_inverted: value.writes_inverted(),
             archetypal: trace.get_indexes(value.archetypal().iter()),
@@ -129,19 +138,50 @@ impl AccessData {
     }
 }
 
-/// `AccessFilters` wrapper
+/// A serializable version of [`bevy_ecs::query::AccessFilters`] (docs copied from there).
+/// A clause in disjunctive normal form that filters entities by their components.
+/// An [`AccessFilters`] matches entities that have *all* the components in the
+/// `with` filters and *none* of the components in the `without` filters.
+///
+/// All indexes are into [`ScheduleData::components`]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct AccessFiltersData {
-    with: Vec<u32>,
-    without: Vec<u32>,
+    /// The set of components that must all be present for this [`AccessFilters`] to match.
+    pub with: Vec<u32>,
+    /// The set of components that must all be absent for this [`AccessFilters`] to match.
+    pub without: Vec<u32>,
 }
 
-/// `FilteredAccess` wrapper
+/// A serializable version of [`bevy_ecs::query::FilteredAccess`] (docs copied from there).
+/// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
+///
+/// Used internally to statically check if queries are disjoint.
+///
+/// Subtle: a `read` or `write` in `access` should not be considered to imply a
+/// `with` access.
+///
+/// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
+/// otherwise would allow for queries to be considered disjoint when they shouldn't:
+/// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
+/// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
+///   from this we could reasonably conclude that the queries are disjoint but they aren't.
+///
+/// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
+/// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
+/// queries would be incorrectly considered disjoint:
+/// - `Query<&mut T>`  read/write `T`
+/// - `Query<Option<&T>>` accesses nothing
+///
+/// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct FilteredAccessData {
-    access: AccessData,
-    required: Vec<u32>,
-    filter_sets: Vec<AccessFiltersData>,
+    ///
+    pub access: AccessData,
+    ///
+    pub required: Vec<u32>,
+    /// An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
+    /// Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
+    pub filter_sets: Vec<AccessFiltersData>,
 }
 
 impl FilteredAccessData {
@@ -149,10 +189,10 @@ impl FilteredAccessData {
         value: &bevy_ecs::query::FilteredAccess,
         trace: &mut ComponentTrace,
     ) -> Option<Self> {
-        let a = AccessData::try_new(value.access(), trace)?;
+        let access = AccessData::try_new(value.access(), trace)?;
 
         Some(Self {
-            access: a,
+            access,
             required: trace.get_indexes(value.required().iter()),
             filter_sets: value
                 .filter_sets()
@@ -219,7 +259,7 @@ pub enum AccessConflict {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
 pub struct SystemSetIndex(pub u32);
 
-// Helper to build the components used by systems in this schedule
+/// Helper to build the components used by systems in this schedule
 struct ComponentTrace<'a> {
     world_components: &'a Components,
     component_id_to_index: HashMap<ComponentId, usize>,
@@ -257,9 +297,9 @@ impl<'a> ComponentTrace<'a> {
         ids.map(|id| self.get_index(id)).collect()
     }
 
-    fn get_indexes3<'b>(&mut self, ids: impl Iterator<Item = &'b ComponentId>) -> Vec<u32> {
-        ids.map(|id| self.get_index(*id)).collect()
-    }
+    // fn get_indexes3<'b>(&mut self, ids: impl Iterator<Item = &'b ComponentId>) -> Vec<u32> {
+    //     ids.map(|id| self.get_index(*id)).collect()
+    // }
 }
 
 impl ScheduleData {
@@ -410,7 +450,9 @@ impl ScheduleData {
                         // The systems conflict on the world if there's no particular component IDs.
                         AccessConflict::World
                     } else {
-                        AccessConflict::Components(component_trace.get_indexes3(conflicts.iter()))
+                        AccessConflict::Components(
+                            component_trace.get_indexes(conflicts.iter().copied()),
+                        )
                     },
                 }
             })

@@ -56,7 +56,7 @@ impl SystemWithAccess {
         &self.system
     }
 
-    /// Access
+    /// Returns the underlying [`FilteredAccessSet`]
     pub fn access(&self) -> &FilteredAccessSet {
         &self.access
     }

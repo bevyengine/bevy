@@ -708,7 +708,10 @@ impl Schedule {
         Ok(iter)
     }
 
-    /// Sys
+    /// Returns an iterator over all systems with access in this schedule.
+    ///
+    /// Note: this method will return [`ScheduleNotInitialized`] if the
+    /// schedule has never been initialized or run.
     pub fn systems_with_access(
         &self,
     ) -> Result<impl Iterator<Item = (SystemKey, &SystemWithAccess)> + Sized, ScheduleNotInitialized>
