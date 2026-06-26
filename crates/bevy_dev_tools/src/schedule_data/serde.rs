@@ -93,24 +93,24 @@ pub struct SystemData {
     pub exclusive: bool,
     /// Whether this system has deferred buffers to apply.
     pub deferred: bool,
-    /// Combined access for the system
+    /// Combined access for the system, summarises `Self::filtered_accesses`
     pub combined_access: AccessData,
-    /// Filtered accesses for the system
+    /// Filtered accesses for the system, generally 1x per system query
     pub filtered_accesses: Vec<FilteredAccessData>,
     // TODO: Store run conditions specific to this system.
 }
 
-/// A serializable version of [`bevy_ecs::query::Access`] (docs copied from there).
-/// Tracks read and write access to specific elements in a collection.
+/// A serializable version of [`bevy_ecs::query::Access`].
+/// Tracks read and write access to specific components.
 ///
 /// All indexes are into [`ScheduleData::components`]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct AccessData {
     /// All accessed components, or forbidden components if
-    /// `Self::component_read_and_writes_inverted` is set.
+    /// `Self::read_and_writes_inverted` is set.
     pub read_and_writes: Vec<u32>,
     /// All exclusively-accessed components, or components that may not be
-    /// exclusively accessed if `Self::component_writes_inverted` is set.
+    /// exclusively accessed if `Self::writes_inverted` is set.
     pub writes: Vec<u32>,
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::read_and_writes`.
@@ -124,7 +124,12 @@ pub struct AccessData {
 
 impl AccessData {
     fn try_new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Option<Self> {
-        // try_reads_and_writes returns error if reads_and_writes_inverted=true, thus its always false
+        // TODO: `try_reads_and_writes` returns error if `read_and_writes_inverted=true`,
+        // thus `AccessData` always has `read_and_writes_inverted=false`
+        // Consider making `try_reads_and_writes()` return an enum of Normal or Except
+        // Then can remove `read_and_writes_inverted()`.
+        // Similarly for `try_writes()` and `writes_inverted` and `writes_inverted()`.
+
         let read_and_writes = value.try_reads_and_writes().ok()?;
         let writes = value.try_writes().ok()?;
 
@@ -138,49 +143,32 @@ impl AccessData {
     }
 }
 
-/// A serializable version of [`bevy_ecs::query::AccessFilters`] (docs copied from there).
+/// A serializable version of [`bevy_ecs::query::AccessFilters`].
 /// A clause in disjunctive normal form that filters entities by their components.
-/// An [`AccessFilters`] matches entities that have *all* the components in the
+/// An [`AccessFiltersData`] matches entities that have *all* the components in the
 /// `with` filters and *none* of the components in the `without` filters.
 ///
 /// All indexes are into [`ScheduleData::components`]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct AccessFiltersData {
-    /// The set of components that must all be present for this [`AccessFilters`] to match.
+    /// The set of components that must all be present for this [`AccessFiltersData`] to match.
     pub with: Vec<u32>,
-    /// The set of components that must all be absent for this [`AccessFilters`] to match.
+    /// The set of components that must all be absent for this [`AccessFiltersData`] to match.
     pub without: Vec<u32>,
 }
 
 /// A serializable version of [`bevy_ecs::query::FilteredAccess`] (docs copied from there).
-/// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
+/// Corresponds to a query in the system signature.
 ///
-/// Used internally to statically check if queries are disjoint.
-///
-/// Subtle: a `read` or `write` in `access` should not be considered to imply a
-/// `with` access.
-///
-/// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
-/// otherwise would allow for queries to be considered disjoint when they shouldn't:
-/// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
-/// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
-///   from this we could reasonably conclude that the queries are disjoint but they aren't.
-///
-/// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
-/// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
-/// queries would be incorrectly considered disjoint:
-/// - `Query<&mut T>`  read/write `T`
-/// - `Query<Option<&T>>` accesses nothing
-///
-/// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
+/// All indexes are into [`ScheduleData::components`]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct FilteredAccessData {
-    ///
+    /// The access of the Query (components that have read/writes)
     pub access: AccessData,
-    ///
+    /// Required components (summary of read/writes from `Self::access` ).
     pub required: Vec<u32>,
-    /// An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
-    /// Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
+    /// An array of filter sets to express `With` or `Without` clauses.
+    /// Each filter set is `Or`-d together
     pub filter_sets: Vec<AccessFiltersData>,
 }
 
@@ -296,10 +284,6 @@ impl<'a> ComponentTrace<'a> {
     fn get_indexes(&mut self, ids: impl Iterator<Item = ComponentId>) -> Vec<u32> {
         ids.map(|id| self.get_index(id)).collect()
     }
-
-    // fn get_indexes3<'b>(&mut self, ids: impl Iterator<Item = &'b ComponentId>) -> Vec<u32> {
-    //     ids.map(|id| self.get_index(*id)).collect()
-    // }
 }
 
 impl ScheduleData {
