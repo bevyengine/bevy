@@ -93,7 +93,7 @@ pub struct SystemData {
     pub exclusive: bool,
     /// Whether this system has deferred buffers to apply.
     pub deferred: bool,
-    /// Combined access for the system, summarises `Self::filtered_accesses`
+    /// Combined access for the system, summarizes `Self::filtered_accesses`
     pub combined_access: AccessData,
     /// Filtered accesses for the system, generally 1x per system query
     pub filtered_accesses: Vec<FilteredAccessData>,
