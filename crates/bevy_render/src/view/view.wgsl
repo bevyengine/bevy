@@ -75,9 +75,10 @@ struct View {
     /// This count is used to fetch the correct point or spot shadow map to use for this view.
     /// This must be **multiplied** with the light_id.
     point_spot_shadow_map_count: u32,
-    // This offset is used to fetch the correct point or spot shadow map to use for this view.
-    /// This must be **added after** the shadow_map_count is multiplied with the light_id.
-    point_spot_shadow_map_index_add_offset: u32,
+    /// This index is used to fetch the correct point or spot shadow map to use for this view.
+    /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
+    /// This must be **added after** the `shadow_map_count` is multiplied with the `light_id`.
+    point_spot_shadow_map_index: u32,
 };
 
 /// World space:

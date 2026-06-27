@@ -466,7 +466,7 @@ fn apply_pbr_lighting(
         view_bindings::view.view_from_world[3].z
     ), in.world_position);
     let point_spot_shadow_map_count = view_bindings::view.point_spot_shadow_map_count;
-    let point_spot_shadow_map_add_offset = view_bindings::view.point_spot_shadow_map_index_add_offset;
+    let point_spot_shadow_map_index = view_bindings::view.point_spot_shadow_map_index;
     let cluster_index = clustering::view_fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
@@ -498,7 +498,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_point_shadow(
                 light_id,
                 point_spot_shadow_map_count,
-                point_spot_shadow_map_add_offset,
+                point_spot_shadow_map_index,
                 in.world_position,
                 in.world_normal,
                 in.frag_coord.xy
@@ -535,7 +535,7 @@ fn apply_pbr_lighting(
             transmitted_shadow = shadows::fetch_point_shadow(
                 light_id,
                 point_spot_shadow_map_count,
-                point_spot_shadow_map_add_offset,
+                point_spot_shadow_map_index,
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,
                 in.frag_coord.xy
@@ -571,7 +571,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_spot_shadow(
                 light_id,
                 point_spot_shadow_map_count,
-                point_spot_shadow_map_add_offset,
+                point_spot_shadow_map_index,
                 in.world_position,
                 in.world_normal,
                 view_bindings::clustered_lights.data[light_id].shadow_map_near_z,
@@ -609,7 +609,7 @@ fn apply_pbr_lighting(
             transmitted_shadow = shadows::fetch_spot_shadow(
                 light_id,
                 point_spot_shadow_map_count,
-                point_spot_shadow_map_add_offset,
+                point_spot_shadow_map_index,
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,
                 view_bindings::clustered_lights.data[light_id].shadow_map_near_z,

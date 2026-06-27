@@ -674,13 +674,12 @@ pub struct ViewUniform {
     /// This represents the total number of shadow maps (not counting shadow maps of different face indices)
     /// that have been generated to be utilized by all possible views.
     /// This count is used to fetch the correct point or spot shadow map to use for this view.
-    /// This must be **multiplied** with the light_id.
+    /// This must be **multiplied** with the `light_id`.
     pub point_spot_shadow_map_count: u32,
-    /// This offset is used to fetch the correct point or spot shadow map to use for this view.
+    /// This index is used to fetch the correct point or spot shadow map to use for this view.
     /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
-    /// This represents the additive index of the point/spot shadow map that this view should use.
-    /// This must be **added after** the shadow_map_count is multiplied with the light_id.
-    pub point_spot_shadow_map_index_add_offset: u32,
+    /// This must be **added after** the `shadow_map_count` is multiplied with the `light_id`.
+    pub point_spot_shadow_map_index: u32,
 }
 
 #[derive(Resource)]
@@ -1160,7 +1159,7 @@ pub fn prepare_view_uniforms(
                 point_spot_shadow_map_count: (own_shadow_map_view_to_index.len()
                     + num_view_agnostic_shadow_map)
                     as u32,
-                point_spot_shadow_map_index_add_offset: *own_shadow_map_view_to_index
+                point_spot_shadow_map_index: *own_shadow_map_view_to_index
                     .get(&entity)
                     // Refer to the view agnostic point/spot shadow map,
                     // which is after all of the view-specific ones.
