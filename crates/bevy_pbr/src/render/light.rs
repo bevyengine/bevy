@@ -1621,37 +1621,43 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
-                let insert_shadow_map = match auxiliary_entity {
-                    Some((entity, _)) => point_and_spot_light_view_entities.1.get(entity).is_none(),
-                    None => point_and_spot_light_view_entities.0.is_empty(),
-                };
-
-                if insert_shadow_map {
-                    let light_view_entities: Vec<_> =
-                        (0..6).map(|_| commands.spawn_empty().id()).collect();
-
-                    create_point_shadow_maps(
-                        &mut commands,
-                        &mut point_and_spot_light_view_entities,
-                        &mut point_light_depth_attachments,
-                        &global_clusterable_object_meta,
-                        views,
-                        (
-                            &cube_face_rotations,
-                            point_light_frusta,
-                            light_view_entities,
-                        ),
-                        &point_light_depth_texture,
-                        (light_entity, light_main_entity, light),
-                        point_light_shadow_map.size as u32,
-                        (
-                            point_spot_shadow_aux_entities.len(),
-                            auxiliary_entity,
-                            aux_entity_index,
-                        ),
-                        gpu_preprocessing_support.max_supported_mode,
-                    );
+                match auxiliary_entity {
+                    Some((entity, _)) => {
+                        if point_and_spot_light_view_entities.1.get(entity).is_some() {
+                            continue;
+                        }
+                    }
+                    None => {
+                        if !point_and_spot_light_view_entities.0.is_empty() {
+                            continue;
+                        }
+                    }
                 }
+
+                let light_view_entities: Vec<_> =
+                    (0..6).map(|_| commands.spawn_empty().id()).collect();
+
+                create_point_shadow_maps(
+                    &mut commands,
+                    &mut point_and_spot_light_view_entities,
+                    &mut point_light_depth_attachments,
+                    &global_clusterable_object_meta,
+                    views,
+                    (
+                        &cube_face_rotations,
+                        point_light_frusta,
+                        light_view_entities,
+                    ),
+                    &point_light_depth_texture,
+                    (light_entity, light_main_entity, light),
+                    point_light_shadow_map.size as u32,
+                    (
+                        point_spot_shadow_aux_entities.len(),
+                        auxiliary_entity,
+                        aux_entity_index,
+                    ),
+                    gpu_preprocessing_support.max_supported_mode,
+                );
             }
         }
 
@@ -1818,33 +1824,38 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
-                let insert_shadow_map = match auxiliary_entity {
-                    Some((entity, _)) => point_and_spot_light_view_entities.1.get(entity).is_none(),
-                    None => point_and_spot_light_view_entities.0.is_empty(),
-                };
-
-                if insert_shadow_map {
-                    let view_light_entity = commands.spawn_empty().id();
-
-                    create_spot_shadow_map(
-                        &mut commands,
-                        &mut point_and_spot_light_view_entities,
-                        &mut directional_light_depth_attachments,
-                        (num_directional_cascades_enabled, light_index),
-                        views,
-                        &directional_light_depth_texture,
-                        view_light_entity,
-                        (light_entity, light_main_entity, light),
-                        spot_light_frustum,
-                        directional_light_shadow_map.size as u32,
-                        (
-                            point_spot_shadow_aux_entities.len(),
-                            auxiliary_entity,
-                            aux_entity_index,
-                        ),
-                        gpu_preprocessing_support.max_supported_mode,
-                    );
+                match auxiliary_entity {
+                    Some((entity, _)) => {
+                        if point_and_spot_light_view_entities.1.get(entity).is_some() {
+                            continue;
+                        }
+                    }
+                    None => {
+                        if !point_and_spot_light_view_entities.0.is_empty() {
+                            continue;
+                        }
+                    }
                 }
+                let view_light_entity = commands.spawn_empty().id();
+
+                create_spot_shadow_map(
+                    &mut commands,
+                    &mut point_and_spot_light_view_entities,
+                    &mut directional_light_depth_attachments,
+                    (num_directional_cascades_enabled, light_index),
+                    views,
+                    &directional_light_depth_texture,
+                    view_light_entity,
+                    (light_entity, light_main_entity, light),
+                    spot_light_frustum,
+                    directional_light_shadow_map.size as u32,
+                    (
+                        point_spot_shadow_aux_entities.len(),
+                        auxiliary_entity,
+                        aux_entity_index,
+                    ),
+                    gpu_preprocessing_support.max_supported_mode,
+                );
             }
         }
 
