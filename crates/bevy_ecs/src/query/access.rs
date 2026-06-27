@@ -503,7 +503,7 @@ impl InvertibleComponentIdSet<'_> {
     }
 
     /// Iterate the underlying component ids
-    pub fn iter(&self) -> ComponentIdIter<Ones<'_>> {
+    pub fn iter_underlying(&self) -> ComponentIdIter<Ones<'_>> {
         match self {
             InvertibleComponentIdSet::Included(b) | InvertibleComponentIdSet::Excluded(b) => {
                 b.iter()
