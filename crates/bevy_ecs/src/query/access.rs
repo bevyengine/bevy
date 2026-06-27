@@ -484,12 +484,12 @@ impl Access {
     }
 }
 
-/// Either all or nothing in a [`ComponentIdSet`]
+/// A set of [`ComponentId`]s that is either a finite set, or the complement of a finite set.
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum InvertibleComponentIdSet<'a> {
-    /// All components in the set
+    /// A finite [`InvertibleComponentIdSet`] that includes all components in the inner set.
     Included(&'a ComponentIdSet),
-    /// All components *not* in the set
+    /// An unbounded [`InvertibleComponentIdSet`] that includes all components *not* in the inner set.
     Excluded(&'a ComponentIdSet),
 }
 
