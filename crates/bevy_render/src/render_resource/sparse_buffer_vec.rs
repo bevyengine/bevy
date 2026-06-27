@@ -852,8 +852,9 @@ fn set_dirty_bits_for_vector_growth(
         if old_final_dirty_bit_offset == BITS_PER_WORD - 1 {
             old_final_summary_bit_offset += 1;
         }
-        if let Some(ref mut old_final_atomic_summary_word) =
-            summary.get_mut(old_final_summary_word_index as usize)
+        if old_final_summary_bit_offset < BITS_PER_WORD
+            && let Some(ref mut old_final_atomic_summary_word) =
+                summary.get_mut(old_final_summary_word_index as usize)
         {
             // We don't add one to `old_final_summary_bit_offset` here because
             // we want to include the block that `old_len - 1` is on.
