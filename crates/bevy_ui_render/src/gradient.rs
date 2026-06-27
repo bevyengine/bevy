@@ -641,7 +641,7 @@ struct UiGradientVertex {
     position: [f32; 3],
     uv: [f32; 2],
     flags: u32,
-    radius: [[f32; 4]; 4],
+    radius: [[f32; 4]; 2],
     border: [f32; 4],
     size: [f32; 2],
     point: [f32; 2],
@@ -858,12 +858,7 @@ pub fn prepare_gradient(
                                 position: positions_clipped[i].into(),
                                 uv: uvs[i].into(),
                                 flags: stop_flags | shader_flags::CORNERS[i],
-                                radius: [
-                                    gradient.border_radius.top_left,
-                                    gradient.border_radius.top_right,
-                                    gradient.border_radius.bottom_right,
-                                    gradient.border_radius.bottom_left,
-                                ],
+                                radius: gradient.border_radius.into(),
                                 border: [
                                     gradient.border.min_inset.x,
                                     gradient.border.min_inset.y,
