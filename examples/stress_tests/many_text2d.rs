@@ -44,6 +44,10 @@ struct Args {
     #[argh(switch)]
     recompute: bool,
 
+    /// whether to enable TrueType hinting.
+    #[argh(switch)]
+    hinting: bool,
+
     /// whether to disable all frustum culling.
     #[argh(switch)]
     no_frustum_culling: bool,
@@ -120,6 +124,11 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
     // Builds and spawns the `Text2d`s, distributing them in a way that ensures a
     // good distribution of on-screen and off-screen entities.
+    let hinting = if args.hinting {
+        FontHinting::Enabled
+    } else {
+        FontHinting::Disabled
+    };
     let mut text2ds = vec![];
     for y in -half_y..half_y {
         for x in -half_x..half_x {
@@ -138,6 +147,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 } else {
                     Justify::Left
                 }),
+                hinting,
                 Transform {
                     translation,
                     rotation,

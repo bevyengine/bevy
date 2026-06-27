@@ -360,15 +360,15 @@ impl TextPipeline {
                             Some(info) => info,
                             None => {
                                 if maybe_scaler.is_none() {
+                                    let font_id = [font.data.id(), font.index.into()];
+                                    let hint = hinting.is_enabled()
+                                        && font_smoothing == FontSmoothing::AntiAliased;
                                     maybe_scaler = Some(
                                         scale_cx
                                             .0
-                                            .builder(font_ref)
+                                            .builder_with_id(font_ref, font_id)
                                             .size(font_size)
-                                            .hint(
-                                                hinting.is_enabled()
-                                                    && font_smoothing == FontSmoothing::AntiAliased,
-                                            )
+                                            .hint(hint)
                                             .normalized_coords(coords)
                                             .build(),
                                     );

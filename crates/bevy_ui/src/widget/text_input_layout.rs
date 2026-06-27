@@ -359,8 +359,10 @@ pub fn update_editable_text_layout(
                                         font_data.index as usize,
                                     )
                                     .unwrap();
+                                    let font_id = [font_data.data.id(), font_data.index.into()];
+
                                     let mut scaler = scale_cx
-                                        .builder(font_ref)
+                                        .builder_with_id(font_ref, font_id)
                                         .size(font_size)
                                         .hint(matches!(*hinting, FontHinting::Enabled))
                                         .normalized_coords(coords)
