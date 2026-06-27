@@ -177,6 +177,10 @@ fn on_pointer_press(
         return;
     };
 
+    input_focus.set(press.entity, FocusCause::Pressed);
+
+    press.propagate(false);
+
     if editable_text.is_composing() {
         // The IME is active; all input needs to be routed there, including pointer presses.
         return;
@@ -204,10 +208,6 @@ fn on_pointer_press(
         2 => editable_text.queue_edit(TextEdit::SelectWordAtPoint(local_pos)),
         _ => editable_text.queue_edit(TextEdit::SelectAll),
     }
-
-    input_focus.set(press.entity, FocusCause::Pressed);
-
-    press.propagate(false);
 }
 
 /// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
@@ -235,6 +235,8 @@ fn on_pointer_drag(
         return;
     };
 
+    drag.propagate(false);
+
     if editable_text.is_composing() {
         // The IME is active; all input needs to be routed there, including pointer drags.
         return;
@@ -252,8 +254,6 @@ fn on_pointer_drag(
     editable_text
         .pending_edits
         .push(TextEdit::ExtendSelectionToPoint(current_local_pos));
-
-    drag.propagate(false);
 }
 
 /// System that processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`] widget.

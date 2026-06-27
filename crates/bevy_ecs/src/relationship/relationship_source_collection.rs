@@ -237,7 +237,7 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
+    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
         EntityHashSet::new()
@@ -493,7 +493,7 @@ impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity,
 }
 
 impl RelationshipSourceCollection for EntityIndexSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a>>;
+    type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
         EntityIndexSet::new()
