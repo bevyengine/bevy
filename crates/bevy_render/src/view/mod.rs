@@ -672,13 +672,13 @@ pub struct ViewUniform {
     pub mip_bias: f32,
     pub frame_count: u32,
     /// This offset is used to fetch the correct point or spot shadow map to use for this view.
-    /// This is used to accommodates views that may be configured to have their own point or spot shadow maps.
+    /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
     /// This represents the total number of shadow maps (not counting shadow maps of different face indices)
     /// that have been generated to be utilized by all possible views.
     /// This must be multiplied to the initial index.
     pub point_spot_shadow_map_index_mult_offset: u32,
     /// This offset is used to fetch the correct point or spot shadow map to use for this view.
-    /// This is used to accommodates views that may be configured to have their own point or spot shadow maps.
+    /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
     /// This represents the additive index of the point/spot shadow map that this view should use.
     /// This must be added to the index after the multiplicative offset has been applied.
     pub point_spot_shadow_map_index_add_offset: u32,

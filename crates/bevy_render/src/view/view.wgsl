@@ -71,11 +71,11 @@ struct View {
     mip_bias: f32,
     frame_count: u32,
     // This offset is used to fetch the correct point shadow map to use for this view.
-    // This is used to accommodates views that may be configured to have their own point shadow maps.
+    // This is used to accommodate views that may be configured to have their own point shadow maps.
     // This offset must be applied to the index first.
     point_spot_shadow_map_index_mult_offset: u32,
     // This offset is used to fetch the correct point shadow map to use for this view.
-    // This is used to accommodates views that may be configured to have their own point shadow maps.
+    // This is used to accommodate views that may be configured to have their own point shadow maps.
     // This offset must be added after the index has been multiplied by the multiplicative offset.
     point_spot_shadow_map_index_add_offset: u32,
 };
