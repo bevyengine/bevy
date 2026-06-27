@@ -168,7 +168,7 @@ pub enum NodeImageMode {
     /// The image will be resized the to cover the entire node.
     Cover,
     /// The image will be resized to the maximum size within the node's bounds
-    Contain
+    Contain,
 }
 
 impl NodeImageMode {
