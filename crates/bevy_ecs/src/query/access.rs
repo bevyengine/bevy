@@ -395,18 +395,6 @@ impl Access {
         AccessConflicts::Individual(conflicts)
     }
 
-    /// Is `true` if this component can read all components *except* those
-    /// present in `Self::read_and_writes`.
-    pub fn read_and_writes_inverted(&self) -> bool {
-        self.read_and_writes_inverted
-    }
-
-    /// Is `true` if this component can write to all components *except* those
-    /// present in `Self::writes`.
-    pub fn writes_inverted(&self) -> bool {
-        self.writes_inverted
-    }
-
     /// Returns the indices of the components that this has an archetypal access to.
     ///
     /// These are components whose values are not accessed (and thus will never cause conflicts),

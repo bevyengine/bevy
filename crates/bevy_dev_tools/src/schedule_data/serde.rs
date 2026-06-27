@@ -123,23 +123,20 @@ pub struct AccessData {
 }
 
 impl AccessData {
-    fn try_new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Option<Self> {
-        // TODO: `try_reads_and_writes` returns error if `read_and_writes_inverted=true`,
-        // thus `AccessData` always has `read_and_writes_inverted=false`
-        // Consider making `try_reads_and_writes()` return an enum of Normal or Except
-        // Then can remove `read_and_writes_inverted()`.
-        // Similarly for `try_writes()` and `writes_inverted` and `writes_inverted()`.
+    fn new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Self {
+        let read_and_writes = value.reads_and_writes();
+        let writes = value.writes();
 
-        let read_and_writes = value.try_reads_and_writes().ok()?;
-        let writes = value.try_writes().ok()?;
+        let read_and_writes_inverted = read_and_writes.inverted();
+        let writes_inverted = writes.inverted();
 
-        Some(Self {
+        Self {
             read_and_writes: trace.get_indexes(read_and_writes.iter()),
             writes: trace.get_indexes(writes.iter()),
-            read_and_writes_inverted: value.read_and_writes_inverted(),
-            writes_inverted: value.writes_inverted(),
+            read_and_writes_inverted,
+            writes_inverted,
             archetypal: trace.get_indexes(value.archetypal().iter()),
-        })
+        }
     }
 }
 
@@ -173,13 +170,10 @@ pub struct FilteredAccessData {
 }
 
 impl FilteredAccessData {
-    fn try_new(
-        value: &bevy_ecs::query::FilteredAccess,
-        trace: &mut ComponentTrace,
-    ) -> Option<Self> {
-        let access = AccessData::try_new(value.access(), trace)?;
+    fn new(value: &bevy_ecs::query::FilteredAccess, trace: &mut ComponentTrace) -> Self {
+        let access = AccessData::new(value.access(), trace);
 
-        Some(Self {
+        Self {
             access,
             required: trace.get_indexes(value.required().iter()),
             filter_sets: value
@@ -190,7 +184,7 @@ impl FilteredAccessData {
                     without: trace.get_indexes(f.without().iter()),
                 })
                 .collect(),
-        })
+        }
     }
 }
 
@@ -334,14 +328,10 @@ impl ScheduleData {
                         == core::any::TypeId::of::<ApplyDeferred>(),
                     exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
-                    combined_access: AccessData::try_new(combined_access, &mut component_trace)
-                        .unwrap_or_default(),
+                    combined_access: AccessData::new(combined_access, &mut component_trace),
                     filtered_accesses: filtered_accesses
                         .iter()
-                        .map(|fa| {
-                            FilteredAccessData::try_new(fa, &mut component_trace)
-                                .unwrap_or_default()
-                        })
+                        .map(|fa| FilteredAccessData::new(fa, &mut component_trace))
                         .collect(),
                 }
             })
