@@ -73,7 +73,7 @@ struct BoxShadowVertex {
     uvs: [f32; 2],
     vertex_color: [f32; 4],
     size: [f32; 2],
-    radius: [f32; 4],
+    radius: [[f32; 4]; 2],
     blur: f32,
     bounds: [f32; 2],
 }

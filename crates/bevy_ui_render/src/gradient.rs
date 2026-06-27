@@ -641,7 +641,7 @@ struct UiGradientVertex {
     position: [f32; 3],
     uv: [f32; 2],
     flags: u32,
-    radius: [f32; 4],
+    radius: [[f32; 4]; 4],
     border: [f32; 4],
     size: [f32; 2],
     point: [f32; 2],

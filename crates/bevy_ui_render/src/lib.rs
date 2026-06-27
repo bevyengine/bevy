@@ -1446,7 +1446,7 @@ struct UiVertex {
     pub flags: u32,
     /// Border radius of the UI node.
     /// Ordering: top left, top right, bottom right, bottom left.
-    pub radius: [f32; 4],
+    pub radius: [[f32; 4]; 2],
     /// Border thickness of the UI node.
     /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],

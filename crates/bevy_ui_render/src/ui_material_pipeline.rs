@@ -98,7 +98,7 @@ pub struct UiMaterialVertex {
     pub uv: [f32; 2],
     pub size: [f32; 2],
     pub border: [f32; 4],
-    pub radius: [f32; 4],
+    pub radius: [[f32; 4]; 2],
 }
 
 // in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -296,7 +296,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Affine2,
     pub rect: Rect,
     pub border: BorderRect,
-    pub border_radius: [f32; 4],
+    pub border_radius: [[f32; 4]; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
