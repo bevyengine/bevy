@@ -4144,7 +4144,7 @@ mod tests {
         let mut resources = world
             .iter_resources()
             .collect::<Vec<(&ComponentInfo, Ptr<'_>)>>();
-        resources.sort_by(|a, b| a.0.id().cmp(&b.0.id()));
+        resources.sort_by_key(|a| a.0.id());
 
         assert_eq!(resources.len(), 2);
 
@@ -4175,7 +4175,7 @@ mod tests {
         let mut resources = world
             .iter_resources_mut()
             .collect::<Vec<(&ComponentInfo, MutUntyped<'_>)>>();
-        resources.sort_by(|a, b| a.0.id().cmp(&b.0.id()));
+        resources.sort_by_key(|a| a.0.id());
 
         let mut iter = resources.into_iter();
 
