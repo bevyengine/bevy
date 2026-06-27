@@ -1100,7 +1100,7 @@ pub fn prepare_lights(
             Some((entity, MainEntity::from(main_entity)))
         })
         .collect();
-    if views_count - point_spot_shadow_aux_entities.len() > 0 {
+    if views_count > point_spot_shadow_aux_entities.len() {
         // There exist views that necessitate creating the shared shadow map.
         // The shared shadow map has an auxiliary entity of None.
         point_spot_shadow_aux_entities.push(None);
