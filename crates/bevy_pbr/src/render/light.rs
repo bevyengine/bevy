@@ -944,7 +944,7 @@ pub struct PointAndSpotLightViewEntities {
     pub shared_light_view_entities: Vec<Entity>,
     /// This map stores light view entities for cameras that have opted in to
     /// have their own point and spot light shadow maps. It is keyed by the camera's
-    /// main entity.
+    /// view entity.
     pub light_view_entities_by_view: EntityHashMap<Vec<Entity>>,
 }
 
@@ -1694,11 +1694,10 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
-                // TODO fix this after refactor
-                let light_view_entities = if let Some((_, main_entity)) = auxiliary_entity {
+                let light_view_entities = if let Some((entity, _)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
                         .light_view_entities_by_view
-                        .get(&main_entity.entity());
+                        .get(entity);
                     if let Some(view_light_entities) = entry {
                         view_light_entities.to_vec()
                     } else {
