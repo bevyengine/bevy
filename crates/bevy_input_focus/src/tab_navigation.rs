@@ -180,7 +180,7 @@ pub struct TabNavigation<'w, 's> {
     >,
     // Query for parents.
     parent_query: Query<'w, 's, &'static ChildOf>,
-    config: Res<'w, TabNavigationConfig>,
+    config: Option<Res<'w, TabNavigationConfig>>,
 }
 
 impl TabNavigation<'_, '_> {
@@ -348,7 +348,7 @@ impl TabNavigation<'_, '_> {
                 .get(parent)
                 .ok()
                 .and_then(|(_, tabgroup, _)| tabgroup.focus_only_visible)
-                .unwrap_or(self.config.focus_only_visible);
+                .unwrap_or_else(|| self.config.as_deref().is_some_and(|c| c.focus_only_visible));
 
             if (!visible_only || inherited_visibility.is_none_or(|v| v.get()))
                 && let Some(tabindex) = tabindex
