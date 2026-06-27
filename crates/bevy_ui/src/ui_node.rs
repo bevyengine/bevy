@@ -2807,13 +2807,21 @@ impl ResolvedBorderRadius {
     };
 }
 
-impl From<ResolvedBorderRadius> for [Vec2; 4] {
+impl From<ResolvedBorderRadius> for [[f32; 4]; 2] {
     fn from(radius: ResolvedBorderRadius) -> Self {
         [
-            radius.top_left,
-            radius.top_right,
-            radius.bottom_right,
-            radius.bottom_left,
+            [
+                radius.top_left.x,
+                radius.top_right.x,
+                radius.bottom_right.x,
+                radius.bottom_left.x,
+            ],
+            [
+                radius.top_left.y,
+                radius.top_right.y,
+                radius.bottom_right.y,
+                radius.bottom_left.y,
+            ],
         ]
     }
 }
