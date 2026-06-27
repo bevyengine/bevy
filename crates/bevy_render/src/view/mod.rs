@@ -1046,10 +1046,9 @@ pub fn prepare_view_uniforms(
         .enumerate()
         .map(|(index, entity)| (entity, index))
         .collect();
-    let num_view_agnostic_shadow_map = if views
-        .iter()
-        .any(|(_, camera, _, _, _, _, _)| camera.is_some_and(|camera| !camera.has_own_point_and_spot_light_shadow_maps))
-    {
+    let num_view_agnostic_shadow_map = if views.iter().any(|(_, camera, _, _, _, _, _)| {
+        camera.is_some_and(|camera| !camera.has_own_point_and_spot_light_shadow_maps)
+    }) {
         1
     } else {
         0
