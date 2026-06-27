@@ -517,7 +517,9 @@ impl InvertibleComponentIdSet<'_> {
     /// Iterate the underlying component ids
     pub fn iter(&self) -> ComponentIdIter<Ones<'_>> {
         match self {
-            InvertibleComponentIdSet::Included(b) | InvertibleComponentIdSet::Excluded(b) => b.iter(),
+            InvertibleComponentIdSet::Included(b) | InvertibleComponentIdSet::Excluded(b) => {
+                b.iter()
+            }
         }
     }
 }
