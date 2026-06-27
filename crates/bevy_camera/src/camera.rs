@@ -410,7 +410,7 @@ pub struct Camera {
     pub invert_culling: bool,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
-    /// Whether this camera will generate its own shadow maps for any lights in the scene.
+    /// Whether this camera will generate its own shadow maps for any point lights and spot lights in the scene.
     ///
     /// If true, point and spot light shadow maps unique to this camera will be generated.
     /// The shadow maps will be generated using the same render layers and HLOD configuration as this camera.
