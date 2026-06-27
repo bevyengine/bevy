@@ -21,12 +21,14 @@ use bevy::{
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled, Selected},
     ui_widgets::{
-        checkbox_self_update, listbox_update_selection, radio_self_update, slider_self_update,
-        Activate, ActivateOnPress, RadioGroup, RequestClose, SliderPrecision, SliderStep,
-        SliderValue, ValueChange,
+        checkbox_self_update, listbox_update_selection,
+        popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
+        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
+        SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
 };
+use std::sync::Arc;
 
 /// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
@@ -101,6 +103,55 @@ fn demo_root() -> impl Scene {
 }
 
 fn demo_column_1() -> impl Scene {
+    // Lazily-constructed menu popup
+    let popup: Arc<dyn Fn() -> Box<dyn Scene> + Sync + Send> = Arc::new(|| {
+        Box::new(bsn!(
+            @FeathersMenuPopup
+            // Override popover placement to right-align the popup
+            Popover {
+                positions: vec![
+                    PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::End,
+                        gap: 2.0,
+                    },
+                    PopoverPlacement {
+                        side: PopoverSide::Top,
+                        align: PopoverAlign::End,
+                        gap: 2.0,
+                    },
+                ],
+                window_margin: 10.0,
+            }
+            Children [
+                (
+                    @FeathersMenuItem {
+                        @caption: bsn! { Text("MenuItem 4") ThemedText }
+                    }
+                    on(|_: On<Activate>| {
+                        info!("Menu item 4 clicked!");
+                    })
+                ),
+                (
+                    @FeathersMenuItem {
+                        @caption: bsn! { Text("MenuItem 5") ThemedText }
+                    }
+                    on(|_: On<Activate>| {
+                        info!("Menu item 5 clicked!");
+                    })
+                ),
+                (
+                    @FeathersMenuItem {
+                        @caption: bsn! { Text("MenuItem 6") ThemedText }
+                    }
+                    on(|_: On<Activate>| {
+                        info!("Menu item 6 clicked!");
+                    })
+                )
+            ]
+        ))
+    });
+
     bsn! {
         Node {
             display: Display::Flex,
@@ -203,6 +254,20 @@ fn demo_column_1() -> impl Scene {
                                         })
                                     )
                                 ]
+                            )
+                        ]
+                    ),
+                    (
+                        @FeathersLazyMenu { popup }
+                        Children [
+                            (
+                                @FeathersMenuToolButton {
+                                    @caption: bsn! { Text("\u{0398}") ThemedText }
+                                }
+                                AccessibleLabel("Menu Example")
+                                Node {
+                                    flex_grow: 1.0,
+                                }
                             )
                         ]
                     )
