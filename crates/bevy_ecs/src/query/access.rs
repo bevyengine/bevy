@@ -5,7 +5,6 @@ use crate::{
 };
 use alloc::{format, string::String, vec, vec::Vec};
 use core::fmt::Debug;
-use core::ops::{BitAnd, BitAndAssign, BitOrAssign, Sub, SubAssign};
 use derive_more::From;
 use thiserror::Error;
 
@@ -239,7 +238,7 @@ impl Access {
             &other.writes,
             other.writes_inverted,
         );
-        self.archetypal.bitor_assign(&other.archetypal);
+        self.archetypal.union_with(&other.archetypal);
     }
 
     /// Removes any access from `self` that would conflict with `other`.
@@ -387,11 +386,11 @@ impl Access {
             let temp_conflicts: ComponentIdSet =
                 match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
                     (true, true) => return AccessConflicts::All,
-                    (false, true) => lhs_writes.sub(rhs_reads_and_writes),
-                    (true, false) => rhs_reads_and_writes.sub(lhs_writes),
-                    (false, false) => lhs_writes.bitand(rhs_reads_and_writes),
+                    (false, true) => lhs_writes - rhs_reads_and_writes,
+                    (true, false) => rhs_reads_and_writes - lhs_writes,
+                    (false, false) => lhs_writes & rhs_reads_and_writes,
                 };
-            conflicts.bitor_assign(&temp_conflicts);
+            conflicts.union_with(&temp_conflicts);
         }
 
         AccessConflicts::Individual(conflicts)
@@ -500,13 +499,13 @@ fn invertible_union_with(
     other_inverted: bool,
 ) {
     match (*self_inverted, other_inverted) {
-        (true, true) => self_set.bitand_assign(other_set),
-        (true, false) => self_set.sub_assign(other_set),
+        (true, true) => self_set.intersect_with(other_set),
+        (true, false) => self_set.difference_with(other_set),
         (false, true) => {
             *self_inverted = true;
-            *self_set = other_set.clone().sub(self_set);
+            *self_set = other_set - self_set;
         }
-        (false, false) => self_set.bitor_assign(other_set),
+        (false, false) => self_set.union_with(other_set),
     }
 }
 
@@ -804,14 +803,14 @@ impl FilteredAccess {
     /// `Or<((With<A>, With<C>), (With<A>, Without<D>), (Without<B>, With<C>), (Without<B>, Without<D>))>`.
     pub fn extend(&mut self, other: &FilteredAccess) {
         self.access.extend(&other.access);
-        self.required.bitor_assign(&other.required);
+        self.required.union_with(&other.required);
 
         // We can avoid allocating a new array of bitsets if `other` contains just a single set of filters:
         // in this case we can short-circuit by performing an in-place union for each bitset.
         if other.filter_sets.len() == 1 {
             for filter in &mut self.filter_sets {
-                filter.with.bitor_assign(&other.filter_sets[0].with);
-                filter.without.bitor_assign(&other.filter_sets[0].without);
+                filter.with.union_with(&other.filter_sets[0].with);
+                filter.without.union_with(&other.filter_sets[0].without);
             }
             return;
         }
@@ -820,8 +819,8 @@ impl FilteredAccess {
         for filter in &self.filter_sets {
             for other_filter in &other.filter_sets {
                 let mut new_filter = filter.clone();
-                new_filter.with.bitor_assign(&other_filter.with);
-                new_filter.without.bitor_assign(&other_filter.without);
+                new_filter.with.union_with(&other_filter.with);
+                new_filter.without.union_with(&other_filter.without);
                 new_filters.push(new_filter);
             }
         }
@@ -1116,8 +1115,6 @@ impl FilteredAccessSet {
 
 #[cfg(test)]
 mod tests {
-    use core::ops::{BitAndAssign, BitOrAssign, SubAssign};
-
     use super::{invertible_difference_with, invertible_union_with};
     use crate::{
         component::{ComponentId, ComponentIdSet},
@@ -1658,27 +1655,27 @@ mod tests {
         let set_23 = set_from_u32s(vec![2, 3]);
 
         let mut s = set_13.clone();
-        s.bitor_assign(&set_23);
+        s.union_with(&set_23);
         assert_eq!(s, set_from_u32s(vec![1, 2, 3]));
 
         let mut s = set_23.clone();
-        s.bitor_assign(&set_13);
+        s.union_with(&set_13);
         assert_eq!(s, set_from_u32s(vec![1, 2, 3]));
 
         let mut s = set_13.clone();
-        s.bitand_assign(&set_23);
+        s.intersect_with(&set_23);
         assert_eq!(s, set_from_u32s(vec![3]));
 
         let mut s = set_23.clone();
-        s.bitand_assign(&set_13);
+        s.intersect_with(&set_13);
         assert_eq!(s, set_from_u32s(vec![3]));
 
         let mut s = set_13.clone();
-        s.sub_assign(&set_23);
+        s.difference_with(&set_23);
         assert_eq!(s, set_from_u32s(vec![1]));
 
         let mut s = set_23.clone();
-        s.sub_assign(&set_13);
+        s.difference_with(&set_13);
         assert_eq!(s, set_from_u32s(vec![2]));
     }
 }

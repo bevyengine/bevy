@@ -488,7 +488,9 @@ fn apply_settings_to_world(
         } else {
             // The resource does not exist, so create a default.
             let component_id = reflect_component.register_component(world);
-            let mut res_entity = world.spawn_empty_at(component_id.entity()).unwrap();
+            let mut res_entity = world
+                .spawn_empty_at(component_id.entity())
+                .expect("entity was just allocated");
 
             let reflect_default = ty.data::<ReflectDefault>().unwrap();
             let mut default_value = reflect_default.default();

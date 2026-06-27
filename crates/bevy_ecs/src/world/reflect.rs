@@ -204,7 +204,7 @@ impl World {
             self.entity_mut(entity).insert_reflect(reflected_resource);
         } else {
             self.spawn_empty_at(entity)
-                .unwrap()
+                .expect("entity isn't already spawned")
                 .insert_reflect(reflected_resource);
         }
     }

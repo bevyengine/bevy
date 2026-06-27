@@ -1940,7 +1940,9 @@ impl World {
 
         let resource = func(self);
         move_as_ptr!(resource);
-        let entity_mut = self.spawn_at_with_caller(entity, resource, caller).unwrap();
+        // cannot panic because self.get_entity(entity) was None (entity hasn't been spawned)
+        // and self.register_component ensures that the entity is not invalid.
+        let entity_mut = self.spawn_at_unchecked(entity, resource, caller);
         (resource_id, entity_mut)
     }
 
@@ -2988,7 +2990,7 @@ impl World {
         let mut entity_mut = if self.entities().contains_spawned(entity) {
             self.entity_mut(entity)
         } else {
-            self.spawn_empty_at(entity).unwrap()
+            self.spawn_empty_at_unchecked(entity, caller)
         };
         // SAFETY: pointer valid for this component id per precondition
         unsafe {
@@ -3522,18 +3524,15 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let ids: Vec<ComponentId> = self
-            .components()
+        self.components()
             .iter_registered()
-            .map(ComponentInfo::id)
-            .collect();
-        ids.into_iter().filter_map(|component_id| {
-            let entity = component_id.entity();
-            let component_info = self.components().get_info(component_id)?;
-            let entity_cell = self.get_entity(entity).ok()?;
-            let resource = entity_cell.get_by_id(component_id).ok()?;
-            Some((component_info, resource))
-        })
+            .filter_map(|component_info| {
+                let component_id = component_info.id();
+                let entity = component_id.entity();
+                let entity_cell = self.get_entity(entity).ok()?;
+                let resource = entity_cell.get_by_id(component_id).ok()?;
+                Some((component_info, resource))
+            })
     }
 
     /// Mutably iterates over all resources in the world.
@@ -3602,32 +3601,25 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
-        let ids: Vec<ComponentId> = self
+        let unsafe_world = self.as_unsafe_world_cell();
+
+        unsafe_world
             .components()
             .iter_registered()
-            .map(ComponentInfo::id)
-            .collect();
+            .filter_map(move |component_info| {
+                let component_id = component_info.id();
+                let entity_cell = unsafe_world.get_entity(component_id.entity()).ok()?;
 
-        let unsafe_world = self.as_unsafe_world_cell();
-        let components = unsafe_world.components();
+                // SAFETY:
+                // - We have exclusive world access
+                // - `UnsafeEntityCell::get_mut_by_id` doesn't access components
+                // or resource_entities mutably
+                // - `resource_entities` doesn't contain duplicate entities, so
+                // no duplicate references are created
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
 
-        ids.into_iter().filter_map(move |component_id| {
-            // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-            let component_info =
-                unsafe { components.get_info(component_id).debug_checked_unwrap() };
-
-            let entity_cell = unsafe_world.get_entity(component_id.entity()).ok()?;
-
-            // SAFETY:
-            // - We have exclusive world access
-            // - `UnsafeEntityCell::get_mut_by_id` doesn't access components
-            // or resource_entities mutably
-            // - `resource_entities` doesn't contain duplicate entities, so
-            // no duplicate references are created
-            let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
-
-            Some((component_info, mut_untyped))
-        })
+                Some((component_info, mut_untyped))
+            })
     }
 
     /// Gets a pointer to `!Send` data with the id [`ComponentId`] if it exists.
@@ -3956,7 +3948,7 @@ mod tests {
         prelude::{DetectChanges, Event, Mut, On, Res},
         ptr::OwningPtr,
         resource::Resource,
-        world::{error::EntityMutableFetchError, DeferredWorld},
+        world::{error::EntityMutableFetchError, DeferredWorld, MutUntyped},
     };
     use alloc::{
         borrow::ToOwned,
@@ -3967,6 +3959,7 @@ mod tests {
     };
     use bevy_ecs_macros::Component;
     use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_ptr::Ptr;
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
@@ -4148,9 +4141,14 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut iter = world.iter_resources();
+        let mut resources = world
+            .iter_resources()
+            .collect::<Vec<(&ComponentInfo, Ptr<'_>)>>();
+        resources.sort_by(|a, b| a.0.id().cmp(&b.0.id()));
 
-        let (info, ptr) = iter.next().unwrap();
+        assert_eq!(resources.len(), 2);
+
+        let (info, ptr) = resources[0];
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
@@ -4158,12 +4156,10 @@ mod tests {
             &"Hello, world!".to_string()
         );
 
-        let (info, ptr) = iter.next().unwrap();
+        let (info, ptr) = resources[1];
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
-
-        assert!(iter.next().is_none());
     }
 
     #[test]
@@ -4176,7 +4172,12 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut iter = world.iter_resources_mut();
+        let mut resources = world
+            .iter_resources_mut()
+            .collect::<Vec<(&ComponentInfo, MutUntyped<'_>)>>();
+        resources.sort_by(|a, b| a.0.id().cmp(&b.0.id()));
+
+        let mut iter = resources.into_iter();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());

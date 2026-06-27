@@ -3,7 +3,7 @@ title: "Components as Entities"
 pull_requests: [24728]
 ---
 
-- `ComponentId::new` now takes `Entity` as an argument instead of `usize`. For debugging, you can use `ComponentId::index`.
+- `ComponentId::new` now takes `Entity` as an argument instead of `usize`. For debugging, you can use `ComponentId::from_u32`.
 - `ComponentId::index` was removed in favor of implementing `ContainsEntity`, call `ComponentId::entity` to get the underlying entity.
 - `ComponentIdSet` is now an `EntityEquivalentHashSet` instead of a `FixedBitSet`. This means that methods like `union_with` no longer work, use `bitor_assign` instead.
 - `ComponentIds` has been removed. Instead of `ComponentIds`, `ComponentsRegistrator::new` now takes `EntityAllocator`, while `ComponentsQueuedRegistrator::new` now takes `RemoteAllocator`.

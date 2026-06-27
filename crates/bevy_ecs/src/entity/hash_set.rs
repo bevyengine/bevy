@@ -88,6 +88,23 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentHashSet<K> {
     }
 }
 
+impl<K: EntityEquivalent + Hash + Clone> EntityEquivalentHashSet<K> {
+    /// In-place union of two `EntityEquivalentHashSet`s..
+    pub fn union_with(&mut self, rhs: &Self) {
+        self.0.bitor_assign(&rhs.0);
+    }
+
+    /// In-place intersection of two `EntityEquivalentHashSet`s.
+    pub fn intersect_with(&mut self, rhs: &Self) {
+        self.0.bitand_assign(&rhs.0);
+    }
+
+    /// In-place difference of two `EntityEquivalentHashSet`s.
+    pub fn difference_with(&mut self, rhs: &Self) {
+        self.0.sub_assign(&rhs.0);
+    }
+}
+
 impl<K: EntityEquivalent + Hash> Deref for EntityEquivalentHashSet<K> {
     type Target = HashSet<K, EntityHash>;
 

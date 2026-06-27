@@ -378,12 +378,7 @@ impl<'w> DynamicWorldBuilder<'w> {
             .components()
             .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
-        let ids: Vec<ComponentId> = self
-            .original_world
-            .components()
-            .iter_registered_ids()
-            .collect();
-        for component_id in ids {
+        for component_id in self.original_world.components().iter_registered_ids() {
             let entity = component_id.entity();
 
             if !self.original_world.entities().contains_spawned(entity) {
