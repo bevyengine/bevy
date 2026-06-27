@@ -977,7 +977,7 @@ pub struct ViewLightEntities {
 #[derive(Component)]
 pub struct PointLightShadowViewEntities {
     /// The pointlight shadow views associated with a camera that has opted
-    /// in to its own shadow maps.
+    /// into its own shadow maps.
     pub shadow_view_entities: Vec<Entity>,
 }
 
@@ -987,7 +987,7 @@ pub struct PointLightShadowViewEntities {
 #[derive(Component)]
 pub struct SpotLightShadowViewEntity {
     /// The spotlight shadow view associated with a camera that has opted
-    /// in to its own shadow maps.
+    /// into its own shadow maps.
     pub shadow_view_entity: Entity,
 }
 
