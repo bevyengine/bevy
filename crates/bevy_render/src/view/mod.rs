@@ -287,7 +287,7 @@ pub struct RetainedViewEntity {
     /// associated with as well. This entity stores that camera.
     ///
     /// This is also used for point and spot shadow views that
-    /// are specific to a camera, configurable via `has_own_shadow_maps` per camera.
+    /// are specific to a camera, configurable via `has_own_point_and_spot_light_shadow_maps` per camera.
     ///
     /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
     pub auxiliary_entity: MainEntity,
@@ -1040,7 +1040,7 @@ pub fn prepare_view_uniforms(
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
         .filter(|(_, extracted_camera, _, _, _, _, _)| {
-            extracted_camera.is_some_and(|camera| camera.has_own_shadow_maps)
+            extracted_camera.is_some_and(|camera| camera.has_own_point_and_spot_light_shadow_maps)
         })
         .map(|(entity, _, _, _, _, _, _)| entity)
         .enumerate()
@@ -1048,7 +1048,7 @@ pub fn prepare_view_uniforms(
         .collect();
     let num_view_agnostic_shadow_map = if views
         .iter()
-        .any(|(_, camera, _, _, _, _, _)| camera.is_some_and(|camera| !camera.has_own_shadow_maps))
+        .any(|(_, camera, _, _, _, _, _)| camera.is_some_and(|camera| !camera.has_own_point_and_spot_light_shadow_maps))
     {
         1
     } else {

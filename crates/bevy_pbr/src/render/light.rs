@@ -1094,7 +1094,7 @@ pub fn prepare_lights(
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
         .filter(|(_, _, _, _, _, _, _, camera)| {
-            camera.is_some_and(|camera| camera.has_own_shadow_maps)
+            camera.is_some_and(|camera| camera.has_own_point_and_spot_light_shadow_maps)
         })
         .map(|(entity, main_entity, _, _, _, _, _, _)| {
             Some((entity, MainEntity::from(main_entity)))

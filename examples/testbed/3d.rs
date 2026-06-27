@@ -802,7 +802,7 @@ mod render_layers {
                         physical_size: window_half_size,
                         ..default()
                     }),
-                    has_own_shadow_maps: true,
+                    has_own_point_and_spot_light_shadow_maps: true,
                     ..default()
                 },
                 DespawnOnExit(CURRENT_SCENE),
