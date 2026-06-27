@@ -1915,7 +1915,7 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
-                // There should be only one `view_light_entity` for spotlights.=
+                // There should be only one `view_light_entity` for spotlights.
                 let view_light_entity = if let Some((entity, _)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
                         .light_view_entities_by_view
