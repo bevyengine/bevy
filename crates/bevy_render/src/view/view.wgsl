@@ -70,13 +70,13 @@ struct View {
     color_grading: ColorGrading,
     mip_bias: f32,
     frame_count: u32,
-    // This offset is used to fetch the correct point shadow map to use for this view.
-    // This is used to accommodate views that may be configured to have their own point shadow maps.
-    // This offset must be applied to the index first.
-    point_spot_shadow_map_index_mult_offset: u32,
-    // This offset is used to fetch the correct point shadow map to use for this view.
-    // This is used to accommodate views that may be configured to have their own point shadow maps.
-    // This offset must be added after the index has been multiplied by the multiplicative offset.
+    /// This represents the total number of shadow maps (not counting shadow maps of different face indices)
+    /// that have been generated to be utilized by all possible views.
+    /// This count is used to fetch the correct point or spot shadow map to use for this view.
+    /// This must be **multiplied** with the light_id.
+    point_spot_shadow_map_count: u32,
+    // This offset is used to fetch the correct point or spot shadow map to use for this view.
+    /// This must be **added after** the shadow_map_count is multiplied with the light_id.
     point_spot_shadow_map_index_add_offset: u32,
 };
 

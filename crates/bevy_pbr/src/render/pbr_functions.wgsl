@@ -465,7 +465,7 @@ fn apply_pbr_lighting(
         view_bindings::view.view_from_world[2].z,
         view_bindings::view.view_from_world[3].z
     ), in.world_position);
-    let point_spot_shadow_map_mult_offset = view_bindings::view.point_spot_shadow_map_index_mult_offset;
+    let point_spot_shadow_map_count = view_bindings::view.point_spot_shadow_map_count;
     let point_spot_shadow_map_add_offset = view_bindings::view.point_spot_shadow_map_index_add_offset;
     let cluster_index = clustering::view_fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     var clusterable_object_index_ranges =
@@ -497,7 +497,7 @@ fn apply_pbr_lighting(
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(
                 light_id,
-                point_spot_shadow_map_mult_offset,
+                point_spot_shadow_map_count,
                 point_spot_shadow_map_add_offset,
                 in.world_position,
                 in.world_normal,
@@ -534,7 +534,7 @@ fn apply_pbr_lighting(
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_point_shadow(
                 light_id,
-                point_spot_shadow_map_mult_offset,
+                point_spot_shadow_map_count,
                 point_spot_shadow_map_add_offset,
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,
@@ -570,7 +570,7 @@ fn apply_pbr_lighting(
                     mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(
                 light_id,
-                point_spot_shadow_map_mult_offset,
+                point_spot_shadow_map_count,
                 point_spot_shadow_map_add_offset,
                 in.world_position,
                 in.world_normal,
@@ -608,7 +608,7 @@ fn apply_pbr_lighting(
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_spot_shadow(
                 light_id,
-                point_spot_shadow_map_mult_offset,
+                point_spot_shadow_map_count,
                 point_spot_shadow_map_add_offset,
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,

@@ -129,7 +129,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // Unpack the view.
     let exposure = view.exposure;
-    let point_spot_shadow_map_mult_offset = view.point_spot_shadow_map_index_mult_offset;
+    let point_spot_shadow_map_count = view.point_spot_shadow_map_count;
     let point_spot_shadow_map_add_offset = view.point_spot_shadow_map_index_add_offset;
 
     // Sample the depth to put an upper bound on the length of the ray (as we
@@ -395,7 +395,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                     shadow = fetch_point_shadow_without_normal(light_id,
-                        point_spot_shadow_map_mult_offset,
+                        point_spot_shadow_map_count,
                         point_spot_shadow_map_add_offset,
                         vec4(P_world, 1.0),
                         position.xy
@@ -421,7 +421,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                     shadow = fetch_spot_shadow_without_normal(light_id,
-                        point_spot_shadow_map_mult_offset,
+                        point_spot_shadow_map_count,
                         point_spot_shadow_map_add_offset,
                         vec4(P_world, 1.0),
                         position.xy
@@ -458,7 +458,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
 fn fetch_point_shadow_without_normal(
     light_id: u32,
-    point_shadow_map_mult_offset: u32,
+    point_spot_shadow_map_count: u32,
     point_shadow_map_add_offset: u32,
     frag_position: vec4<f32>,
     frag_coord_xy: vec2<f32>
@@ -493,13 +493,13 @@ fn fetch_point_shadow_without_normal(
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     let flip_z = vec3(1.0, 1.0, -1.0);
-    let array_index = light_id * point_shadow_map_mult_offset + point_shadow_map_add_offset;
+    let array_index = light_id * point_spot_shadow_map_count + point_shadow_map_add_offset;
     return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, array_index, frag_coord_xy);
 }
 
 fn fetch_spot_shadow_without_normal(
     light_id: u32,
-    view_specific_spot_shadow_map_mult_offset: u32,
+    point_spot_shadow_map_count: u32,
     view_specific_spot_shadow_map_add_offset: u32,
     frag_position: vec4<f32>,
     frag_coord_xy: vec2<f32>
@@ -538,7 +538,7 @@ fn fetch_spot_shadow_without_normal(
 
     // 0.1 must match POINT_LIGHT_NEAR_Z
     let depth = 0.1 / -projected_position.z;
-    let array_index = i32(light_id * view_specific_spot_shadow_map_mult_offset) + i32(view_specific_spot_shadow_map_add_offset)
+    let array_index = i32(light_id * point_spot_shadow_map_count) + i32(view_specific_spot_shadow_map_add_offset)
         + lights.spot_light_shadowmap_offset;
     return sample_shadow_map(
         shadow_uv,

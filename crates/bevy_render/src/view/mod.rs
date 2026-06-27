@@ -671,16 +671,15 @@ pub struct ViewUniform {
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
-    /// This offset is used to fetch the correct point or spot shadow map to use for this view.
-    /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
     /// This represents the total number of shadow maps (not counting shadow maps of different face indices)
     /// that have been generated to be utilized by all possible views.
-    /// This must be multiplied to the initial index.
-    pub point_spot_shadow_map_index_mult_offset: u32,
+    /// This count is used to fetch the correct point or spot shadow map to use for this view.
+    /// This must be **multiplied** with the light_id.
+    pub point_spot_shadow_map_count: u32,
     /// This offset is used to fetch the correct point or spot shadow map to use for this view.
     /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
     /// This represents the additive index of the point/spot shadow map that this view should use.
-    /// This must be added to the index after the multiplicative offset has been applied.
+    /// This must be **added after** the shadow_map_count is multiplied with the light_id.
     pub point_spot_shadow_map_index_add_offset: u32,
 }
 
@@ -1158,7 +1157,7 @@ pub fn prepare_view_uniforms(
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
-                point_spot_shadow_map_index_mult_offset: (own_shadow_map_view_to_index.len()
+                point_spot_shadow_map_count: (own_shadow_map_view_to_index.len()
                     + num_view_agnostic_shadow_map)
                     as u32,
                 point_spot_shadow_map_index_add_offset: *own_shadow_map_view_to_index
