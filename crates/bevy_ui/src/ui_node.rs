@@ -2561,6 +2561,21 @@ impl BorderRadius {
     }
 
     #[inline]
+    pub const fn elliptical(
+        top_left: Val2,
+        top_right: Val2,
+        bottom_right: Val2,
+        bottom_left: Val2,
+    ) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
+    }
+
+    #[inline]
     /// Sets the radii to logical pixel values.
     pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
