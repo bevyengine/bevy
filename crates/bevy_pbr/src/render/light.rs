@@ -918,12 +918,12 @@ pub(crate) fn remove_point_and_spot_light_view_entities(
     mut commands: Commands,
 ) {
     if let Ok(entities) = query.get(remove.entity) {
-        for e in entities.0.iter().copied() {
+        for e in entities.shared_light_view_entities.iter().copied() {
             if let Ok(mut ec) = commands.get_entity(e) {
                 ec.despawn();
             }
         }
-        for v in entities.1.values() {
+        for v in entities.light_view_entities_by_view.values() {
             for e in v.iter().copied() {
                 if let Ok(mut ec) = commands.get_entity(e) {
                     ec.despawn();
@@ -935,12 +935,18 @@ pub(crate) fn remove_point_and_spot_light_view_entities(
 
 /// A component that stores the shadow maps associated with a point or spot
 /// light.
-///
-/// The first entry stores shadow maps that are not specific to any view.
-/// The second entry stores shadow maps keyed by a camera view entity that
-/// is configured to have its own shadow map.
 #[derive(Component, Default)]
-pub struct PointAndSpotLightViewEntities(Vec<Entity>, EntityHashMap<Vec<Entity>>);
+pub struct PointAndSpotLightViewEntities {
+    /// The light view entities that store the shadow maps which are not specific to any view.
+    ///
+    /// If a camera has not opted in to have its own point and spot light shadow map,
+    /// it would utilize the [`ShadowView`]s attached to these light view entities.
+    pub shared_light_view_entities: Vec<Entity>,
+    /// This map stores light view entities for cameras that have opted in to
+    /// have their own point and spot light shadow maps. It is keyed by the camera's
+    /// main entity.
+    pub light_view_entities_by_view: EntityHashMap<Vec<Entity>>,
+}
 
 #[derive(Component)]
 pub struct ShadowView {
@@ -1536,22 +1542,27 @@ pub fn prepare_lights(
         if !light.shadow_maps_enabled {
             despawn_entities(
                 &mut commands,
-                mem::take(&mut point_and_spot_light_view_entities.0),
+                mem::take(&mut point_and_spot_light_view_entities.shared_light_view_entities),
             );
-            for (view_entity, light_view_entities) in
-                point_and_spot_light_view_entities.1.iter_mut()
+            for (view_entity, light_view_entities) in point_and_spot_light_view_entities
+                .light_view_entities_by_view
+                .iter_mut()
             {
                 commands
                     .entity(*view_entity)
                     .remove::<PointLightShadowViewEntities>();
                 despawn_entities(&mut commands, mem::take(light_view_entities));
             }
-            mem::take(&mut point_and_spot_light_view_entities.1);
+            mem::take(&mut point_and_spot_light_view_entities.light_view_entities_by_view);
             continue;
         }
 
-        let init = point_and_spot_light_view_entities.0.is_empty()
-            && point_and_spot_light_view_entities.1.is_empty();
+        let init = point_and_spot_light_view_entities
+            .shared_light_view_entities
+            .is_empty()
+            && point_and_spot_light_view_entities
+                .light_view_entities_by_view
+                .is_empty();
         if init {
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
@@ -1585,8 +1596,9 @@ pub fn prepare_lights(
         } else {
             // Remove any view-specific shadow maps that are no longer requested
             let mut to_remove = vec![];
-            for (view_entity, light_view_entities) in
-                point_and_spot_light_view_entities.1.iter_mut()
+            for (view_entity, light_view_entities) in point_and_spot_light_view_entities
+                .light_view_entities_by_view
+                .iter_mut()
             {
                 if !point_spot_shadow_aux_entities
                     .iter()
@@ -1603,18 +1615,27 @@ pub fn prepare_lights(
                 }
             }
             to_remove.iter().for_each(|entity| {
-                point_and_spot_light_view_entities.1.remove(entity);
+                point_and_spot_light_view_entities
+                    .light_view_entities_by_view
+                    .remove(entity);
             });
 
             // Remove the non view specific shadow map if it is no longer needed
-            if !point_and_spot_light_view_entities.0.is_empty()
+            if !point_and_spot_light_view_entities
+                .shared_light_view_entities
+                .is_empty()
                 && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1]
                     .is_some()
             {
-                for view_light_entity in point_and_spot_light_view_entities.0.iter() {
+                for view_light_entity in point_and_spot_light_view_entities
+                    .shared_light_view_entities
+                    .iter()
+                {
                     commands.entity(*view_light_entity).despawn();
                 }
-                point_and_spot_light_view_entities.0.clear();
+                point_and_spot_light_view_entities
+                    .shared_light_view_entities
+                    .clear();
             }
 
             // Add any shadow maps that are missing
@@ -1623,12 +1644,19 @@ pub fn prepare_lights(
             {
                 match auxiliary_entity {
                     Some((entity, _)) => {
-                        if point_and_spot_light_view_entities.1.get(entity).is_some() {
+                        if point_and_spot_light_view_entities
+                            .light_view_entities_by_view
+                            .get(entity)
+                            .is_some()
+                        {
                             continue;
                         }
                     }
                     None => {
-                        if !point_and_spot_light_view_entities.0.is_empty() {
+                        if !point_and_spot_light_view_entities
+                            .shared_light_view_entities
+                            .is_empty()
+                        {
                             continue;
                         }
                     }
@@ -1666,14 +1694,15 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
+                // TODO fix this after refactor
                 let light_view_entities = if let Some((_, main_entity)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
-                        .1
+                        .light_view_entities_by_view
                         .get(&main_entity.entity());
                     if let Some(view_light_entities) = entry {
                         view_light_entities.to_vec()
                     } else {
-                        // This should not happen - point_and_spot_light_view_entities.1
+                        // This should not happen - point_and_spot_light_view_entities.light_view_entities_by_view
                         // should be synced with auxiliary_entities at this point
                         // with the logic in the "if init else" block,
                         // but it is not a fatal error if it does happen. It should have
@@ -1681,7 +1710,9 @@ pub fn prepare_lights(
                         continue;
                     }
                 } else {
-                    point_and_spot_light_view_entities.0.to_vec()
+                    point_and_spot_light_view_entities
+                        .shared_light_view_entities
+                        .to_vec()
                 };
                 create_point_shadow_maps(
                     &mut commands,
@@ -1743,22 +1774,27 @@ pub fn prepare_lights(
         if !light.shadow_maps_enabled {
             despawn_entities(
                 &mut commands,
-                mem::take(&mut point_and_spot_light_view_entities.0),
+                mem::take(&mut point_and_spot_light_view_entities.shared_light_view_entities),
             );
-            for (view_entity, light_view_entities) in
-                point_and_spot_light_view_entities.1.iter_mut()
+            for (view_entity, light_view_entities) in point_and_spot_light_view_entities
+                .light_view_entities_by_view
+                .iter_mut()
             {
                 commands
                     .entity(*view_entity)
                     .remove::<SpotLightShadowViewEntity>();
                 despawn_entities(&mut commands, mem::take(light_view_entities));
             }
-            mem::take(&mut point_and_spot_light_view_entities.1);
+            mem::take(&mut point_and_spot_light_view_entities.light_view_entities_by_view);
             continue;
         }
 
-        let init = point_and_spot_light_view_entities.0.is_empty()
-            && point_and_spot_light_view_entities.1.is_empty();
+        let init = point_and_spot_light_view_entities
+            .shared_light_view_entities
+            .is_empty()
+            && point_and_spot_light_view_entities
+                .light_view_entities_by_view
+                .is_empty();
 
         if init {
             for (aux_entity_index, auxiliary_entity) in
@@ -1788,8 +1824,9 @@ pub fn prepare_lights(
         } else {
             // Remove any view-specific shadow maps that are no longer requested
             let mut to_remove = vec![];
-            for (view_entity, light_view_entities) in
-                point_and_spot_light_view_entities.1.iter_mut()
+            for (view_entity, light_view_entities) in point_and_spot_light_view_entities
+                .light_view_entities_by_view
+                .iter_mut()
             {
                 if !point_spot_shadow_aux_entities
                     .iter()
@@ -1806,18 +1843,27 @@ pub fn prepare_lights(
                 }
             }
             to_remove.iter().for_each(|entity| {
-                point_and_spot_light_view_entities.1.remove(entity);
+                point_and_spot_light_view_entities
+                    .light_view_entities_by_view
+                    .remove(entity);
             });
 
             // Remove the non view specific shadow map if it is no longer needed
-            if !point_and_spot_light_view_entities.0.is_empty()
+            if !point_and_spot_light_view_entities
+                .shared_light_view_entities
+                .is_empty()
                 && point_spot_shadow_aux_entities[point_spot_shadow_aux_entities.len() - 1]
                     .is_some()
             {
-                for view_light_entity in point_and_spot_light_view_entities.0.iter() {
+                for view_light_entity in point_and_spot_light_view_entities
+                    .shared_light_view_entities
+                    .iter()
+                {
                     commands.entity(*view_light_entity).despawn();
                 }
-                point_and_spot_light_view_entities.0.clear();
+                point_and_spot_light_view_entities
+                    .shared_light_view_entities
+                    .clear();
             }
 
             // Add any shadow maps that are missing
@@ -1826,12 +1872,19 @@ pub fn prepare_lights(
             {
                 match auxiliary_entity {
                     Some((entity, _)) => {
-                        if point_and_spot_light_view_entities.1.get(entity).is_some() {
+                        if point_and_spot_light_view_entities
+                            .light_view_entities_by_view
+                            .get(entity)
+                            .is_some()
+                        {
                             continue;
                         }
                     }
                     None => {
-                        if !point_and_spot_light_view_entities.0.is_empty() {
+                        if !point_and_spot_light_view_entities
+                            .shared_light_view_entities
+                            .is_empty()
+                        {
                             continue;
                         }
                     }
@@ -1864,14 +1917,15 @@ pub fn prepare_lights(
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
                 // There should be only one `view_light_entity` for spotlights.
+                // TODO fix this after refactoring. should use entity, not the main one.
                 let view_light_entity = if let Some((_, main_entity)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
-                        .1
+                        .light_view_entities_by_view
                         .get(&main_entity.entity());
                     if let Some(v) = entry {
                         v[0]
                     } else {
-                        // This should not happen - point_and_spot_light_view_entities.1
+                        // This should not happen - point_and_spot_light_view_entities.light_view_entities_by_view
                         // should be synced with auxiliary_entities at this point
                         // with the logic in the "if init else" block,
                         // but it is not a fatal error if it does happen. It should have
@@ -1879,7 +1933,7 @@ pub fn prepare_lights(
                         continue;
                     }
                 } else {
-                    point_and_spot_light_view_entities.0[0]
+                    point_and_spot_light_view_entities.shared_light_view_entities[0]
                 };
                 create_spot_shadow_map(
                     &mut commands,
@@ -2469,7 +2523,7 @@ fn create_point_shadow_maps(
 
     if let Some((entity, _)) = auxiliary_entity {
         point_and_spot_light_view_entities
-            .1
+            .light_view_entities_by_view
             .insert(*entity, light_view_entities.to_vec());
 
         // Ensure these view-specific shadow maps are rendered in `per_view_shadow_pass`.
@@ -2480,7 +2534,7 @@ fn create_point_shadow_maps(
                 shadow_view_entities: light_view_entities,
             });
     } else {
-        point_and_spot_light_view_entities.0 = light_view_entities;
+        point_and_spot_light_view_entities.shared_light_view_entities = light_view_entities;
     }
 }
 
@@ -2610,7 +2664,7 @@ fn create_spot_shadow_map(
 
     if let Some((entity, _)) = auxiliary_entity {
         point_and_spot_light_view_entities
-            .1
+            .light_view_entities_by_view
             .insert(*entity, vec![view_light_entity]);
 
         // Ensure these view-specific shadow maps are rendered in `per_view_shadow_pass`.
@@ -2619,7 +2673,7 @@ fn create_spot_shadow_map(
             shadow_view_entity: view_light_entity,
         });
     } else {
-        point_and_spot_light_view_entities.0 = vec![view_light_entity];
+        point_and_spot_light_view_entities.shared_light_view_entities = vec![view_light_entity];
     }
 }
 
