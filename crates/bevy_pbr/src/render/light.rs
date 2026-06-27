@@ -2311,7 +2311,7 @@ pub fn prepare_lights(
         .retain(|entity, _| live_shadow_mapping_lights.contains(entity));
 }
 
-/// Creates six point shadow map for a `RetainedViewEntity` identified by the `light_main_entity`,
+/// Creates six point shadow maps for a `RetainedViewEntity` identified by the `light_main_entity`,
 /// the `auxiliary_entity` (the `main_entity` part), and the six cube face rotation indices.
 ///
 /// Six new depth attachments are created per unique auxiliary entity, identified by its
