@@ -230,6 +230,7 @@ pub fn extract_debug_overlay(
                         min: Vec2::ZERO,
                         max: rect.size(),
                     },
+                    scaling_mode: crate::UiItemScaling::default(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,

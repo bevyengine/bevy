@@ -40,7 +40,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{vec2, Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -334,6 +334,25 @@ pub enum NodeType {
     Border(u32), // shader flags
 }
 
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+pub enum UiItemScalingMode {
+    ///Stretch this axis
+    #[default]
+    Stretch,
+    /// Preserve aspect ratio.
+    /// length >= axis length
+    Cover,
+    ///Preserve aspect ratio.
+    /// length <= axis length
+    Contain,
+    // in the future maybe scale up/down/
+}
+
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+pub struct UiItemScaling {
+    horizontal: UiItemScalingMode,
+    vertical: UiItemScalingMode,
+}
 pub enum ExtractedUiItem {
     Node {
         color: LinearRgba,
@@ -341,6 +360,7 @@ pub enum ExtractedUiItem {
         atlas_scaling: Option<Vec2>,
         flip_x: bool,
         flip_y: bool,
+        scaling_mode: UiItemScaling,
         /// Border radius of the UI node.
         /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
@@ -432,6 +452,7 @@ pub fn extract_uinode_background_colors(
                         min: Vec2::ZERO,
                         max: uinode.size,
                     },
+                    scaling_mode: UiItemScaling::default(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -459,6 +480,7 @@ pub fn extract_uinode_background_colors(
                         min: Vec2::ZERO,
                         max: uinode.size,
                     },
+                    scaling_mode: UiItemScaling::default(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -533,7 +555,6 @@ pub fn extract_uinode_images(
         } else {
             None
         };
-
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -543,6 +564,19 @@ pub fn extract_uinode_images(
             transform: transform.into(),
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
+                scaling_mode: match image.image_mode {
+                    // bevy_ui::widget::NodeImageMode::Auto => todo!(),
+                    // bevy_ui::widget::NodeImageMode::Stretch => todo!(),
+                    bevy_ui::widget::NodeImageMode::Cover => UiItemScaling {
+                        horizontal: UiItemScalingMode::Cover,
+                        vertical: UiItemScalingMode::Cover,
+                    },
+                    bevy_ui::widget::NodeImageMode::Contain => UiItemScaling {
+                        horizontal: UiItemScalingMode::Contain,
+                        vertical: UiItemScalingMode::Contain,
+                    },
+                    _ => UiItemScaling::default(),
+                },
                 rect,
                 atlas_scaling,
                 flip_x: image.flip_x,
@@ -645,6 +679,7 @@ pub fn extract_uinode_borders(
                             max: computed_node.size(),
                             ..Default::default()
                         },
+                        scaling_mode: UiItemScaling::default(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
@@ -678,6 +713,7 @@ pub fn extract_uinode_borders(
                         max: outline_size,
                         ..Default::default()
                     },
+                    scaling_mode: UiItemScaling::default(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -870,6 +906,7 @@ pub fn extract_viewport_nodes(
                     min: Vec2::ZERO,
                     max: uinode.size,
                 },
+                scaling_mode: UiItemScaling::default(),
                 atlas_scaling: None,
                 flip_x: false,
                 flip_y: false,
@@ -1088,6 +1125,7 @@ pub fn extract_text_shadows(
                             min: Vec2::ZERO,
                             max: run.strikethrough_size(),
                         },
+                        scaling_mode: UiItemScaling::default(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
@@ -1113,6 +1151,7 @@ pub fn extract_text_shadows(
                             min: Vec2::ZERO,
                             max: run.underline_size(),
                         },
+                        scaling_mode: UiItemScaling::default(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
@@ -1202,6 +1241,7 @@ pub fn extract_text_decorations(
                             min: Vec2::ZERO,
                             max: run.bounds.size(),
                         },
+                        scaling_mode: UiItemScaling::default(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
@@ -1232,6 +1272,7 @@ pub fn extract_text_decorations(
                             min: Vec2::ZERO,
                             max: run.strikethrough_size(),
                         },
+                        scaling_mode: UiItemScaling::default(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
@@ -1262,6 +1303,7 @@ pub fn extract_text_decorations(
                             min: Vec2::ZERO,
                             max: run.underline_size(),
                         },
+                        scaling_mode: UiItemScaling::default(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
@@ -1538,6 +1580,7 @@ pub fn prepare_uinodes(
                 }
                 match &extracted_uinode.item {
                     ExtractedUiItem::Node {
+                        scaling_mode,
                         atlas_scaling,
                         flip_x,
                         flip_y,
@@ -1559,10 +1602,50 @@ pub fn prepare_uinodes(
 
                         let transform = extracted_uinode.transform;
 
+                        let bounding_rect_size = if let Some(img) =
+                            gpu_images.get(extracted_uinode.image)
+                        {
+                            let img_aspect = img.aspect_ratio().ratio();
+                            // I don't know why clamp_v_to_cover actually means clamp_h_to_cover
+                            // but it seems to work
+                            let clamp_v_to_cover = rect_size.x >= img_aspect * rect_size.y;
+                            vec2(
+                                match scaling_mode.horizontal {
+                                    UiItemScalingMode::Stretch => rect_size.x,
+                                    UiItemScalingMode::Cover if !clamp_v_to_cover => {
+                                        img_aspect * rect_size.y
+                                    }
+                                    UiItemScalingMode::Cover if clamp_v_to_cover => rect_size.x,
+                                    UiItemScalingMode::Contain if !clamp_v_to_cover => rect_size.x,
+                                    UiItemScalingMode::Contain if clamp_v_to_cover => {
+                                        img_aspect * rect_size.y
+                                    }
+                                    _ => unreachable!(),
+                                },
+                                match scaling_mode.vertical {
+                                    UiItemScalingMode::Stretch => rect_size.y,
+                                    UiItemScalingMode::Cover if !clamp_v_to_cover => rect_size.y,
+                                    UiItemScalingMode::Cover if clamp_v_to_cover => {
+                                        rect_size.x / img_aspect
+                                    }
+                                    UiItemScalingMode::Contain if clamp_v_to_cover => rect_size.y,
+                                    UiItemScalingMode::Contain if !clamp_v_to_cover => {
+                                        rect_size.x / img_aspect
+                                    }
+                                    _ => unreachable!(),
+                                },
+                            )
+                        } else {
+                            rect_size
+                        };
+
                         // Specify the corners of the node
-                        let positions = QUAD_VERTEX_POSITIONS
-                            .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
-                        let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+                        let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                            transform
+                                .transform_point2(pos * bounding_rect_size)
+                                .extend(0.)
+                        });
+                        let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * bounding_rect_size);
 
                         // Calculate the effect of clipping
                         // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)

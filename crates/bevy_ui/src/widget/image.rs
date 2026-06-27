@@ -165,6 +165,10 @@ pub enum NodeImageMode {
         /// *original texture size* are above this value.
         stretch_value: f32,
     },
+    /// The image will be resized the to cover the entire node.
+    Cover,
+    /// The image will be resized to the maximum size within the node's bounds
+    Contain
 }
 
 impl NodeImageMode {

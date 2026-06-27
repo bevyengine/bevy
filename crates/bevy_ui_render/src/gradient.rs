@@ -410,6 +410,7 @@ pub fn extract_gradients(
                                 min: Vec2::ZERO,
                                 max: uinode.size,
                             },
+                            scaling_mode: UiItemScaling::default(),
                             atlas_scaling: None,
                             flip_x: false,
                             flip_y: false,

@@ -12,7 +12,7 @@ const IMAGE_GROUP_BOX_INIT_WIDTH: f32 =
     (IMAGE_GROUP_BOX_MIN_WIDTH + IMAGE_GROUP_BOX_MAX_WIDTH) / 2.;
 const IMAGE_GROUP_BOX_INIT_HEIGHT: f32 =
     (IMAGE_GROUP_BOX_MIN_HEIGHT + IMAGE_GROUP_BOX_MAX_HEIGHT) / 2.;
-const TEXT_PREFIX: &str = "Compare NodeImageMode(Auto, Stretch) press `Up`/`Down` to resize height, press `Left`/`Right` to resize width\n";
+const TEXT_PREFIX: &str = "Compare NodeImageMode(Auto, Stretch, Cover, Contain) press `Up`/`Down` to resize height, press `Left`/`Right` to resize width\n";
 
 fn main() {
     App::new()
@@ -167,6 +167,64 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ImageNode {
                                 image: image_handle.clone(),
                                 image_mode: NodeImageMode::Stretch,
+                                ..default()
+                            },
+                        ));
+                    }
+                });
+
+            builder
+                .spawn((
+                    ImageGroup,
+                    Node {
+                        display: Display::Flex,
+                        justify_content: JustifyContent::Start,
+                        width: percent(IMAGE_GROUP_BOX_INIT_WIDTH),
+                        height: percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
+                        ..default()
+                    },
+                    BackgroundColor(Color::from(tailwind::BLUE_100)),
+                ))
+                .with_children(|parent| {
+                    for width in [10., 20., 30., 40.] {
+                        parent.spawn((
+                            Node {
+                                height: percent(100),
+                                width: percent(width),
+                                ..default()
+                            },
+                            ImageNode {
+                                image: image_handle.clone(),
+                                image_mode: NodeImageMode::Cover,
+                                ..default()
+                            },
+                        ));
+                    }
+                });
+
+            builder
+                .spawn((
+                    ImageGroup,
+                    Node {
+                        display: Display::Flex,
+                        justify_content: JustifyContent::Start,
+                        width: percent(IMAGE_GROUP_BOX_INIT_WIDTH),
+                        height: percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
+                        ..default()
+                    },
+                    BackgroundColor(Color::from(tailwind::BLUE_100)),
+                ))
+                .with_children(|parent| {
+                    for width in [10., 20., 30., 40.] {
+                        parent.spawn((
+                            Node {
+                                height: percent(100),
+                                width: percent(width),
+                                ..default()
+                            },
+                            ImageNode {
+                                image: image_handle.clone(),
+                                image_mode: NodeImageMode::Contain,
                                 ..default()
                             },
                         ));
