@@ -470,16 +470,16 @@ impl Access {
     pub fn try_iter_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
-        let a = self.reads_and_writes();
+        let invertible_set = self.reads_and_writes();
 
-        let InvertibleComponentIdSet::Included(b) = a else {
+        let InvertibleComponentIdSet::Included(component_set) = invertible_set else {
             return Err(UnboundedAccessError {
                 writes_inverted: self.writes_inverted,
                 read_and_writes_inverted: self.read_and_writes_inverted,
             });
         };
 
-        let reads_and_writes = b.iter().map(|index| {
+        let reads_and_writes = component_set.iter().map(|index| {
             if self.writes.contains(index) {
                 ComponentAccessKind::Exclusive(index)
             } else {
