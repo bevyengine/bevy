@@ -505,6 +505,23 @@ pub enum InvertibleComponentIdSet<'a> {
     Excluded(&'a ComponentIdSet),
 }
 
+impl InvertibleComponentIdSet<'_> {
+    /// Returns true if this is Excluded, otherwise false
+    pub fn inverted(&self) -> bool {
+        match self {
+            InvertibleComponentIdSet::Included(_) => false,
+            InvertibleComponentIdSet::Excluded(_) => true,
+        }
+    }
+
+    /// Iterate the underlying component ids
+    pub fn iter(&self) -> ComponentIdIter<Ones<'_>> {
+        match self {
+            InvertibleComponentIdSet::Included(b) | InvertibleComponentIdSet::Excluded(b) => b.iter(),
+        }
+    }
+}
+
 /// Performs an in-place union of `other` into `self`, where either set may be inverted.
 ///
 /// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
