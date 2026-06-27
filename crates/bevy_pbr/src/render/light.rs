@@ -1915,12 +1915,11 @@ pub fn prepare_lights(
             for (aux_entity_index, auxiliary_entity) in
                 point_spot_shadow_aux_entities.iter().enumerate()
             {
-                // There should be only one `view_light_entity` for spotlights.
-                // TODO fix this after refactoring. should use entity, not the main one.
-                let view_light_entity = if let Some((_, main_entity)) = auxiliary_entity {
+                // There should be only one `view_light_entity` for spotlights.=
+                let view_light_entity = if let Some((entity, _)) = auxiliary_entity {
                     let entry = point_and_spot_light_view_entities
                         .light_view_entities_by_view
-                        .get(&main_entity.entity());
+                        .get(entity);
                     if let Some(v) = entry {
                         v[0]
                     } else {
