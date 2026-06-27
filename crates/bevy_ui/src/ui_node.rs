@@ -230,10 +230,11 @@ impl ComputedNode {
         };
         let r = if local_point.y < 0. { top } else { bottom };
         let corner_to_point = local_point.abs() - 0.5 * self.size;
+        if !(corner_to_point.max_element() < 0.) || r.cmple(Vec2::ZERO).any() {
+            return corner_to_point.max_element() < 0.;
+        }
         let q = corner_to_point + r;
-        let l = q.max(Vec2::ZERO).length();
-        let m = q.max_element().min(0.);
-        l + m - r < 0.
+        q.cmple(Vec2::ZERO).any() || (q / r).length_squared() < 1.
     }
 
     /// Transform a point to normalized node space with the center of the node at the origin and the corners at [+/-0.5, +/-0.5]
