@@ -154,7 +154,9 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 VertexFormat::Float32x2,
                 // flags
                 VertexFormat::Uint32,
-                // radius
+                // border radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // border radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // border
                 VertexFormat::Float32x4,

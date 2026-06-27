@@ -138,7 +138,9 @@ where
                 VertexFormat::Float32x2,
                 // border widths
                 VertexFormat::Float32x4,
-                // border radius
+                // border radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // border radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
             ],
         );

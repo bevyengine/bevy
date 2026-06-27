@@ -145,7 +145,9 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x4,
                 // target rect size
                 VertexFormat::Float32x2,
-                // corner radius values (top left, top right, bottom right, bottom left)
+                // corner radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // corner radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // blur radius
                 VertexFormat::Float32,
