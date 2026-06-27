@@ -1,7 +1,7 @@
 ---
 title: "Feathers menu improvements"
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [24784]
 ---
 
 In addition to `FeathersMenu`, there is now `FeathersLazyMenu`. While the former expects a
