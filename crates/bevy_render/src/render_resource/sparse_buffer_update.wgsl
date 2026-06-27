@@ -20,8 +20,8 @@ struct SparseBufferUpdateMetadata {
 @group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
 // The buffer we're copying from.
 @group(0) @binding(1) var<storage> src_buffer: array<u32>;
-// For each page in `src_buffer`, the page in `dest_buffer` that we should copy
-// it to.
+// For each element in `src_buffer`, the element in `dest_buffer` that we should
+// copy it to.
 @group(0) @binding(2) var<storage> indices: array<u32>;
 // Metadata that describes the operation.
 @group(0) @binding(3) var<uniform> metadata: SparseBufferUpdateMetadata;

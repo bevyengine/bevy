@@ -419,8 +419,8 @@ impl SparseBufferStagingBuffers {
 /// [`crate::render_resource::buffer_vec::AtomicRawBufferVec`], but instead of
 /// reuploading the entire buffer to the GPU when it's changed, it tracks
 /// changes on a per-element level and uploads only the elements that changed if
-/// the number of such pages is small. It uses a compute shader to scatter the
-/// changed elements.
+/// the number of such elements is small. It uses a compute shader to scatter
+/// those changed elements.
 ///
 /// As the stored data is [`AtomicPod`], multiple threads may update the buffer
 /// simultaneously. Note that, like
@@ -1063,14 +1063,10 @@ mod tests {
         // Ensures that the `BitIter` is correct.
         #[test]
         fn bit_iter(bits: u64) {
-            let mut bits_reference: Vec<_> = (0u32..64u32).filter(|bit_pos| {
+            let bits_reference: Vec<_> = (0u32..64u32).filter(|bit_pos| {
                 (bits & (1 << bit_pos)) != 0
             }).collect();
-            bits_reference.sort_unstable();
-
-            let mut bits_iter_results: Vec<_> = BitIter::new(bits).collect();
-            bits_iter_results.sort_unstable();
-
+            let bits_iter_results: Vec<_> = BitIter::new(bits).collect();
             assert_eq!(bits_iter_results, bits_reference);
         }
 
@@ -1136,7 +1132,7 @@ mod tests {
             // Make sure that all dirty block bits past the last valid dirty
             // block bit are clear.
             if !summary.is_empty() {
-                let last_summary_word_index = summary.len() - 1;
+                let last_summary_word_index = summary.len();
                 let last_padding_block_index = last_summary_word_index * BITS_PER_WORD as usize;
                 let last_dirty_word_index = (new_len as usize - 1) / BITS_PER_WORD as usize;
                 for padding_block_index in (last_dirty_word_index + 1)..last_padding_block_index {
