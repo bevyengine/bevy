@@ -25,6 +25,12 @@ pub fn extract_raytracing_scene(
     render_entities: Extract<Query<RenderEntity>>,
     mut commands: Commands,
 ) {
+    for main_entity in removed_raytracing_meshes.read() {
+        if let Ok(render_entity) = render_entities.get(main_entity) {
+            commands.entity(render_entity).remove::<RaytracingMesh3d>();
+        }
+    }
+
     for (render_entity, mesh, material, transform, previous_frame_transform) in &instances {
         let mut commands = commands.entity(render_entity);
 
@@ -37,12 +43,6 @@ pub fn extract_raytracing_scene(
             )),
             None => commands.insert((mesh.clone(), material.clone(), *transform)),
         };
-    }
-
-    for main_entity in removed_raytracing_meshes.read() {
-        if let Ok(render_entity) = render_entities.get(main_entity) {
-            commands.entity(render_entity).remove::<RaytracingMesh3d>();
-        }
     }
 }
 
