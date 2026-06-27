@@ -5,15 +5,8 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::orthonormalize
 #import bevy_solari::realtime_bindings::{
-    world_cache_life,
-    world_cache_checksums,
-    world_cache_radiance,
-    world_cache_geometry_data,
-    world_cache_luminance_deltas,
-    world_cache_a,
+    world_cache,
     world_cache_b,
-    world_cache_active_cell_indices,
-    world_cache_active_cells_count,
     WorldCacheGeometryData,
 }
 
@@ -65,24 +58,24 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
-        let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
+        let existing_checksum = atomicCompareExchangeWeak(&world_cache[key].checksums, WORLD_CACHE_EMPTY_CELL, checksum).old_value;
 
         // Cell already exists or is empty - reset lifetime
         if existing_checksum == checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
 #ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
-            atomicStore(&world_cache_life[key], cell_lifetime);
+            atomicStore(&world_cache[key].life, cell_lifetime);
 #else
-            atomicMax(&world_cache_life[key], cell_lifetime);
+            atomicMax(&world_cache[key].life, cell_lifetime);
 #endif
         }
 
         if existing_checksum == checksum {
             // Cache entry already exists - get radiance
-            return world_cache_radiance[key].rgb;
+            return world_cache[key].radiance.rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - initialize it
-            world_cache_geometry_data[key].world_position = world_position;
-            world_cache_geometry_data[key].world_normal = world_normal;
+            world_cache[key].geometry_data.world_position = world_position;
+            world_cache[key].geometry_data.world_normal = world_normal;
             return vec3(0.0);
         } else {
             // Collision - linear probe to next entry

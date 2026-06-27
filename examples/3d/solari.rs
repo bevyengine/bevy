@@ -50,6 +50,7 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
+    // `RenderDiagnosticsPlugin` may not support on Metal platform.
     app.add_plugins((
         DefaultPlugins,
         SolariPlugins,

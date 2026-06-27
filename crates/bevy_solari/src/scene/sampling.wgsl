@@ -183,12 +183,12 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
 #endif
 
         return ResolvedLightSample(
-        vec4(direction_to_light, 0.0),
-        -direction_to_light,
-        directional_light.luminance,
-        directional_light.inverse_pdf,
-    );
-} else {
+            vec4(direction_to_light, 0.0),
+            -direction_to_light,
+            directional_light.luminance,
+            directional_light.inverse_pdf,
+        );
+    } else {
         let triangle_count = light_source.kind >> 1u;
         let triangle_id = light_sample.light_id & 0xFFFFu;
         let barycentrics = triangle_barycentrics(light_sample.seed);

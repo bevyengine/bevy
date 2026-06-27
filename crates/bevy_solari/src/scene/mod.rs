@@ -9,7 +9,9 @@ pub use types::RaytracingMesh3d;
 
 use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
+use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_render::settings::WgpuFeatures;
 use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     mesh::{
@@ -39,6 +41,7 @@ impl Plugin for RaytracingScenePlugin {
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
         let render_device = render_app.world().resource::<RenderDevice>();
+
         let features = render_device.features();
         if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
@@ -47,6 +50,11 @@ impl Plugin for RaytracingScenePlugin {
             );
             return;
         }
+
+        let solari_features = SolariFeatures {
+            buffer_binding_array: features.contains(WgpuFeatures::BUFFER_BINDING_ARRAY),
+        };
+        render_app.insert_resource(solari_features);
 
         app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
 
@@ -60,7 +68,7 @@ impl Plugin for RaytracingScenePlugin {
         render_app
             .init_gpu_resource::<BlasManager>()
             .init_gpu_resource::<StandardMaterialAssets>()
-            .insert_resource(RaytracingSceneBindings::new())
+            .insert_resource(RaytracingSceneBindings::new(solari_features))
             .add_systems(ExtractSchedule, extract_raytracing_scene)
             .add_systems(
                 Render,
@@ -75,5 +83,16 @@ impl Plugin for RaytracingScenePlugin {
                     prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
+    }
+}
+
+#[derive(Default, Copy, Clone, Resource)]
+pub struct SolariFeatures {
+    buffer_binding_array: bool,
+}
+
+impl SolariFeatures {
+    pub fn buffer_binding_array(&self) -> bool {
+        self.buffer_binding_array
     }
 }
