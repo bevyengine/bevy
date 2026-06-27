@@ -407,30 +407,22 @@ impl Access {
         &self.archetypal
     }
 
-    /// Returns the set of components with read or write access,
-    /// or an error if the access is unbounded.
-    pub fn try_reads_and_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+    /// Returns the set of components with read or write access
+    pub fn reads_and_writes(&self) -> InvertibleComponentIdSet<'_> {
         // writes_inverted is only ever true when read_and_writes_inverted is
         // also true. Therefore it is sufficient to check just read_and_writes_inverted.
         if self.read_and_writes_inverted {
-            return Err(UnboundedAccessError {
-                writes_inverted: self.writes_inverted,
-                read_and_writes_inverted: self.read_and_writes_inverted,
-            });
+            return InvertibleComponentIdSet::Excluded(&self.read_and_writes);
         }
-        Ok(&self.read_and_writes)
+        InvertibleComponentIdSet::Included(&self.read_and_writes)
     }
 
-    /// Returns the set of components with write access,
-    /// or an error if the access is unbounded.
-    pub fn try_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+    /// Returns the set of components with write access
+    pub fn writes(&self) -> InvertibleComponentIdSet<'_> {
         if self.writes_inverted {
-            return Err(UnboundedAccessError {
-                writes_inverted: self.writes_inverted,
-                read_and_writes_inverted: self.read_and_writes_inverted,
-            });
+            return InvertibleComponentIdSet::Excluded(&self.writes);
         }
-        Ok(&self.writes)
+        InvertibleComponentIdSet::Included(&self.writes)
     }
 
     /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
@@ -466,7 +458,16 @@ impl Access {
     pub fn try_iter_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
-        let reads_and_writes = self.try_reads_and_writes()?.iter().map(|index| {
+        let a = self.reads_and_writes();
+
+        let InvertibleComponentIdSet::Included(b) = a else {
+            return Err(UnboundedAccessError {
+                writes_inverted: self.writes_inverted,
+                read_and_writes_inverted: self.read_and_writes_inverted,
+            });
+        };
+
+        let reads_and_writes = b.iter().map(|index| {
             if self.writes.contains(index) {
                 ComponentAccessKind::Exclusive(index)
             } else {
@@ -481,6 +482,15 @@ impl Access {
 
         Ok(reads_and_writes.chain(archetypal))
     }
+}
+
+/// Either all or nothing in a [`ComponentIdSet`]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub enum InvertibleComponentIdSet<'a> {
+    /// All components in the set
+    Included(&'a ComponentIdSet),
+    /// All components *not* in the set
+    Excluded(&'a ComponentIdSet),
 }
 
 /// Performs an in-place union of `other` into `self`, where either set may be inverted.
