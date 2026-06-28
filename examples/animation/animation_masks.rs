@@ -140,7 +140,7 @@ fn setup_scene(
 
     // Spawn the fox.
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         Transform::from_scale(Vec3::splat(0.07)),
@@ -268,7 +268,7 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                     } else {
                         selected_button_text_style.clone()
                     },
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     Node {
                         flex_grow: 1.0,
                         margin: UiRect::vertical(px(3)),

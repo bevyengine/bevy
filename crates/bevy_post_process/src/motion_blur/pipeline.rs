@@ -7,21 +7,18 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{
-        binding_types::{
-            sampler, texture_2d, texture_2d_multisampled, texture_depth_2d,
-            texture_depth_2d_multisampled, uniform_buffer_sized,
-        },
+        binding_types::{sampler, texture_2d, texture_2d_multisampled, uniform_buffer_sized},
         BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor,
-        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        ColorTargetState, ColorWrites, FilterMode, FragmentState, PipelineCache,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
+        TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa},
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -51,7 +48,7 @@ impl MotionBlurPipeline {
                 // Motion Vectors
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 // Depth
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 // Linear Sampler
                 sampler(SamplerBindingType::Filtering),
                 // Motion blur settings uniform input
@@ -69,7 +66,7 @@ impl MotionBlurPipeline {
                 // Motion Vectors
                 texture_2d_multisampled(TextureSampleType::Float { filterable: false }),
                 // Depth
-                texture_depth_2d_multisampled(),
+                texture_2d_multisampled(TextureSampleType::Float { filterable: false }),
                 // Linear Sampler
                 sampler(SamplerBindingType::Filtering),
                 // Motion blur settings uniform input
@@ -79,7 +76,11 @@ impl MotionBlurPipeline {
             ),
         );
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..Default::default()
+        });
         let layout = BindGroupLayoutDescriptor::new("motion_blur_layout", mb_layout);
         let layout_msaa = BindGroupLayoutDescriptor::new("motion_blur_layout_msaa", mb_layout_msaa);
 
@@ -110,7 +111,7 @@ pub fn init_motion_blur_pipeline(
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct MotionBlurPipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
     samples: u32,
 }
 
@@ -131,7 +132,6 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         {
-            shader_defs.push("NO_DEPTH_TEXTURE_SUPPORT".into());
             shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
         }
 
@@ -143,11 +143,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -166,14 +162,14 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlurUniform>>,
+    cameras: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlurUniform>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, view, msaa) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             MotionBlurPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: msaa.samples(),
             },
         );

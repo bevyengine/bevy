@@ -16,9 +16,8 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_pbr::{
-    MeshPipeline, MeshPipelineKey, MeshPipelineSet, SetMeshViewBindGroup, ViewKeyCache,
+    MeshPipeline, MeshPipelineKey, MeshPipelineSystems, SetMeshViewBindGroup, ViewKeyCache,
 };
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -27,10 +26,10 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
     Render, RenderApp, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::error;
@@ -46,7 +45,7 @@ impl Plugin for LineGizmo3dPlugin {
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .add_render_command::<Transparent3d, DrawLineGizmo3dStrip>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
-            .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
                 GizmoRenderSystems::QueueLineGizmos3d.in_set(RenderSystems::Queue),
@@ -55,7 +54,7 @@ impl Plugin for LineGizmo3dPlugin {
                 RenderStartup,
                 init_line_gizmo_pipelines
                     .after(init_line_gizmo_uniform_bind_group_layout)
-                    .after(MeshPipelineSet),
+                    .after(MeshPipelineSystems),
             )
             .add_systems(
                 Render,
@@ -98,8 +97,8 @@ fn init_line_gizmo_pipelines(
             ],
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Greater,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Greater),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -137,10 +136,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
         key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(key.view_key.into());
 
         descriptor.set_layout(0, view_layout.main_layout.clone());
         descriptor.vertex.buffers = line_gizmo_vertex_buffer_layouts(key.strip);
@@ -155,11 +151,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
             fragment.shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.view_key.target_format();
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -210,16 +202,9 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.view_key.target_format();
 
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(key.view_key.into());
         let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {
@@ -238,6 +223,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -252,8 +238,8 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             layout,
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Greater,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Greater),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),

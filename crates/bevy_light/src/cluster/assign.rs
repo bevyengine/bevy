@@ -176,7 +176,7 @@ pub(crate) fn assign_objects_to_clusters(
 
     clusterable_objects.clear();
 
-    // Collect clusterable objects if GPU clustering is enabled.
+    // Collect clusterable objects if GPU clustering is disabled.
     if global_cluster_settings.gpu_clustering.is_none() {
         // collect just the relevant query data into a persisted vec to avoid reallocating each frame
         clusterable_objects.extend(point_lights_query.iter().filter_map(

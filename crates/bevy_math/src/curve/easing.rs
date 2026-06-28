@@ -293,7 +293,7 @@ all_tuples_enumerated!(
 /// [the unit interval]: Interval::UNIT
 /// [`sample`]: EasingCurve::sample
 /// [`sample_clamped`]: EasingCurve::sample_clamped
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct EasingCurve<T> {
@@ -495,7 +495,7 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
     QuarticIn,
-    /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
+    /// `f(t) = 1.0 - (1.0 - t)⁴`
     ///
     #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
     QuarticOut,
@@ -610,7 +610,7 @@ pub enum EaseFunction {
     /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
     ///
     /// As with `EaseFunction::ExponentialIn`, the precise definition adjusts it slightly
-    // so it hits both `(0, 0)` and `(1, 1)`.
+    /// so it hits both `(0, 0)` and `(1, 1)`.
     ///
     #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
     ExponentialOut,
@@ -636,7 +636,7 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/BackIn.svg")]
     BackIn,
-    /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
+    /// `f(t) = 1.0 + 2.70158 * (t - 1.0)³ + 1.70158 * (t - 1.0)²`
     ///
     #[doc = include_str!("../../images/easefunction/BackOut.svg")]
     BackOut,
@@ -743,7 +743,7 @@ pub struct CubicInOutCurve;
 #[derive(Copy, Clone)]
 pub struct QuarticInCurve;
 
-/// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
+/// `f(t) = 1.0 - (1.0 - t)⁴`
 ///
 #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
 #[derive(Copy, Clone)]
@@ -924,7 +924,7 @@ pub struct ElasticInOutCurve;
 #[derive(Copy, Clone)]
 pub struct BackInCurve;
 
-/// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
+/// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ + 1.70158 * (t - 1.0)²`
 ///
 #[doc = include_str!("../../images/easefunction/BackOut.svg")]
 #[derive(Copy, Clone)]

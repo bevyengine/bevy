@@ -2,60 +2,49 @@
     mesh2d_functions as mesh_functions,
     mesh2d_vertex_output::VertexOutput,
     mesh2d_view_bindings::view,
+    mesh2d_vertex_input::{Vertex, decompress_vertex}
 }
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
 #endif
-
-struct Vertex {
-    @builtin(instance_index) instance_index: u32,
-#ifdef VERTEX_POSITIONS
-    @location(0) position: vec3<f32>,
+#ifdef SRGB_OUTPUT
+#import bevy_render::color_operations::linear_to_srgb
 #endif
-#ifdef VERTEX_NORMALS
-    @location(1) normal: vec3<f32>,
+#ifdef OKLAB_OUTPUT
+#import bevy_render::color_operations::linear_rgb_to_oklab
 #endif
-#ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
-#endif
-#ifdef VERTEX_TANGENTS
-    @location(3) tangent: vec4<f32>,
-#endif
-#ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
-#endif
-};
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
+    let uncompressed_vertex = decompress_vertex(vertex, vertex.instance_index);
 #ifdef VERTEX_UVS
-    out.uv = vertex.uv;
+    out.uv = uncompressed_vertex.uv;
 #endif
 
 #ifdef VERTEX_POSITIONS
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
         world_from_local,
-        vec4<f32>(vertex.position, 1.0)
+        vec4<f32>(uncompressed_vertex.position, 1.0)
     );
     out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
 #endif
 
 #ifdef VERTEX_NORMALS
-    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(vertex.normal, vertex.instance_index);
+    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(uncompressed_vertex.normal, vertex.instance_index);
 #endif
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
         world_from_local,
-        vertex.tangent
+        uncompressed_vertex.tangent
     );
 #endif
 
 #ifdef VERTEX_COLORS
-    out.color = vertex.color;
+    out.color = uncompressed_vertex.color;
 #endif
     return out;
 }
@@ -68,6 +57,12 @@ fn fragment(
     var color = in.color;
 #ifdef TONEMAP_IN_SHADER
     color = tonemapping::tone_mapping(color, view.color_grading);
+#endif
+#ifdef SRGB_OUTPUT
+    color = vec4(linear_to_srgb(color.rgb), color.a);
+#endif
+#ifdef OKLAB_OUTPUT
+    color = vec4(linear_rgb_to_oklab(color.rgb), color.a);
 #endif
     return color;
 #else

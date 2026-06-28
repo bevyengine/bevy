@@ -104,16 +104,14 @@ where
         }
 
         indices
-            .chunks_exact(3)
+            .as_chunks()
+            .0
+            .iter()
             .enumerate()
             .fold(
                 (f32::MAX, None),
-                |(closest_distance, closest_hit), (tri_idx, triangle)| {
-                    let [Ok(a), Ok(b), Ok(c)] = [
-                        triangle[0].try_into(),
-                        triangle[1].try_into(),
-                        triangle[2].try_into(),
-                    ] else {
+                |(closest_distance, closest_hit), (tri_idx, &[a, b, c])| {
+                    let [Ok(a), Ok(b), Ok(c)] = [a.try_into(), b.try_into(), c.try_into()] else {
                         return (closest_distance, closest_hit);
                     };
 
@@ -136,17 +134,14 @@ where
             .1
     } else {
         positions
-            .chunks_exact(3)
+            .as_chunks()
+            .0
+            .iter()
+            .map(|&[a, b, c]| [Vec3::from(a), Vec3::from(b), Vec3::from(c)])
             .enumerate()
             .fold(
                 (f32::MAX, None),
-                |(closest_distance, closest_hit), (tri_idx, triangle)| {
-                    let tri_vertices = [
-                        Vec3::from(triangle[0]),
-                        Vec3::from(triangle[1]),
-                        Vec3::from(triangle[2]),
-                    ];
-
+                |(closest_distance, closest_hit), (tri_idx, tri_vertices)| {
                     match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
                         Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
                             (hit.distance, Some((tri_idx, hit)))

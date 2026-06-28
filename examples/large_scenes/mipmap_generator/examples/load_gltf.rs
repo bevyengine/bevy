@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(-1.0, 2.0, -3.0),
     ));
 
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load(
             // This seems to be the correct path but bevy doesn't resolve it.
             GltfAssetLabel::Scene(0)

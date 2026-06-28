@@ -45,7 +45,7 @@ fn setup(
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
-            alpha_mode: AlphaMode::Mask(0.5),
+            alpha_mode: AlphaMode::Mask(0.1),
             unlit: true,
             ..default()
         })),

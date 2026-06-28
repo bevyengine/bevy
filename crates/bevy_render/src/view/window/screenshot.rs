@@ -9,7 +9,7 @@ use crate::{
     renderer::RenderDevice,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
@@ -45,7 +45,7 @@ use std::{
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
-#[reflect(Debug)]
+#[reflect(Debug, Event)]
 pub struct ScreenshotCaptured {
     pub entity: Entity,
     #[deref]
@@ -229,7 +229,8 @@ fn extract_screenshots(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+    let (mut commands, primary_window, screenshots) =
+        system_state.get_mut(&mut main_world).unwrap();
 
     targets.clear();
     seen_targets.clear();
@@ -409,7 +410,9 @@ impl Plugin for ScreenshotPlugin {
         embedded_asset!(app, "screenshot.wgsl");
 
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+        app.register_type::<Screenshot>()
+            .register_type::<ScreenshotCaptured>()
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
             .add_systems(
                 First,
                 clear_screenshots
@@ -426,7 +429,7 @@ impl Plugin for ScreenshotPlugin {
             .insert_resource(RenderScreenshotsSender(tx))
             .init_resource::<RenderScreenshotTargets>()
             .init_resource::<RenderScreenshotsPrepared>()
-            .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
             .add_systems(RenderStartup, init_screenshot_to_screen_pipeline)
             .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
             .add_systems(
@@ -687,7 +690,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
-                    RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetUsages::MAIN_WORLD,
                 ),
             )) {
                 error!("Failed to send screenshot: {}", e);

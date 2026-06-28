@@ -12,7 +12,7 @@ name = "bevy_mobile_example"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-bevy = { path = "../../" }
+bevy = { path = "../../", features = ["android-game-activity"] }
 
 [lints]
 workspace = true

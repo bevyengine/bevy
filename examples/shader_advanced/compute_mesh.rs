@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::allocator::MeshAllocator,
+        mesh::allocator::{MeshAllocator, MeshAllocatorSettings},
         render_resource::{
             binding_types::{storage_buffer, uniform_buffer},
             *,
@@ -65,7 +65,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
         };
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             // This allows using the mesh allocator slabs as
             // storage buffers directly in the compute shader.
             // Which means that we can write from our compute

@@ -13,7 +13,9 @@ use bevy_utils::BloomFilter;
 // is outweighed by the n^2 check
 const USE_FILTER_THRESHOLD: usize = 4;
 
-/// Check if `Q` has any internal conflicts.
+/// Check `Q` for internal conflicts, panicking if there are any.
+///
+/// Returns an error if not all components are registered.
 #[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
     let Some(state) = Q::get_state(components) else {
@@ -72,14 +74,8 @@ fn has_conflicts_large<'a, Q: QueryData>(
             }
             EcsAccessType::Component(EcsAccessLevel::ReadAll)
             | EcsAccessType::Component(EcsAccessLevel::WriteAll) => true,
-            EcsAccessType::Resource(ResourceAccessLevel::Read(resource_id))
-            | EcsAccessType::Resource(ResourceAccessLevel::Write(resource_id)) => {
-                filter.check_insert(&resource_id.index())
-            }
             EcsAccessType::Access(access) => {
-                if access.has_read_all_resources() || access.has_write_all_resources() {
-                    true
-                } else if let Ok(component_iter) = access.try_iter_component_access() {
+                if let Ok(component_iter) = access.try_iter_access() {
                     let mut needs_check = false;
                     for kind in component_iter {
                         let index = match kind {
@@ -88,11 +84,6 @@ fn has_conflicts_large<'a, Q: QueryData>(
                             | crate::query::ComponentAccessKind::Archetypal(id) => id.index(),
                         };
                         if filter.check_insert(&index) {
-                            needs_check = true;
-                        }
-                    }
-                    for resource_id in access.resource_reads_and_writes() {
-                        if filter.check_insert(&resource_id.index()) {
                             needs_check = true;
                         }
                     }
@@ -123,8 +114,6 @@ fn has_conflicts_large<'a, Q: QueryData>(
 pub enum EcsAccessType<'a> {
     /// Accesses [`Component`](crate::prelude::Component) data
     Component(EcsAccessLevel),
-    /// Accesses [`Resource`](crate::prelude::Resource) data
-    Resource(ResourceAccessLevel),
     /// borrowed access from [`WorldQuery::State`](crate::query::WorldQuery)
     Access(&'a Access),
     /// Does not access any data that can conflict.
@@ -146,32 +135,19 @@ impl<'a> EcsAccessType<'a> {
 
             (Empty, _)
             | (_, Empty)
-            | (Component(_), Resource(_))
-            | (Resource(_), Component(_))
             // read only access doesn't conflict
             | (Component(Read(_)), Component(Read(_)))
             | (Component(ReadAll), Component(Read(_)))
             | (Component(Read(_)), Component(ReadAll))
             | (Component(ReadAll), Component(ReadAll))
-            | (Resource(ResourceAccessLevel::Read(_)), Resource(ResourceAccessLevel::Read(_))) => {
+             => {
                 Ok(())
             }
 
             (Component(Read(id)), Component(Write(id_other)))
             | (Component(Write(id)), Component(Read(id_other)))
             | (Component(Write(id)), Component(Write(id_other)))
-            | (
-                Resource(ResourceAccessLevel::Read(id)),
-                Resource(ResourceAccessLevel::Write(id_other)),
-            )
-            | (
-                Resource(ResourceAccessLevel::Write(id)),
-                Resource(ResourceAccessLevel::Read(id_other)),
-            )
-            | (
-                Resource(ResourceAccessLevel::Write(id)),
-                Resource(ResourceAccessLevel::Write(id_other)),
-            ) => if id == id_other {
+ => if id == id_other {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
@@ -179,41 +155,28 @@ impl<'a> EcsAccessType<'a> {
 
             // Borrowed Access
             (Component(Read(component_id)), Access(access))
-            | (Access(access), Component(Read(component_id))) => if access.has_component_write(component_id) {
+            | (Access(access), Component(Read(component_id))) => if access.has_write(component_id) {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
             },
 
             (Component(Write(component_id)), Access(access))
-            | (Access(access), Component(Write(component_id))) => if access.has_component_read(component_id) {
+            | (Access(access), Component(Write(component_id))) => if access.has_read(component_id) {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
             },
 
             (Component(ReadAll), Access(access))
-            | (Access(access), Component(ReadAll)) => if access.has_any_component_write() {
+            | (Access(access), Component(ReadAll)) => if access.has_any_write() {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
             },
 
             (Component(WriteAll), Access(access))
-            | (Access(access), Component(WriteAll))=> if access.has_any_component_read() {
-                Err(AccessConflictError(*self, other))
-            } else {
-                Ok(())
-            },
-
-            (Resource(ResourceAccessLevel::Read(component_id)), Access(access))
-            | (Access(access), Resource(ResourceAccessLevel::Read(component_id))) => if access.has_resource_write(component_id) {
-                Err(AccessConflictError(*self, other))
-            } else {
-                Ok(())
-            },
-            (Resource(ResourceAccessLevel::Write(component_id)), Access(access))
-            | (Access(access), Resource(ResourceAccessLevel::Write(component_id))) => if access.has_resource_read(component_id) {
+            | (Access(access), Component(WriteAll))=> if access.has_any_read() {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
@@ -240,15 +203,6 @@ pub enum EcsAccessLevel {
     ReadAll,
     /// Potentially writes all [`Component`](crate::prelude::Component)'s in the [`World`](crate::prelude::World)
     WriteAll,
-}
-
-/// Access level needed by [`QueryData`] fetch to the resource.
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
-pub enum ResourceAccessLevel {
-    /// Reads the resource with [`ComponentId`]
-    Read(ComponentId),
-    /// Writes the resource with [`ComponentId`]
-    Write(ComponentId),
 }
 
 /// Error returned from [`EcsAccessType::is_compatible`]
@@ -319,16 +273,6 @@ impl Display for AccessConflictError<'_> {
                 f,
                 "Access has a read that conflicts with component write all"
             ),
-            (Access(_), Resource(ResourceAccessLevel::Read(id)))
-            | (Resource(ResourceAccessLevel::Read(id)), Access(_)) => write!(
-                f,
-                "Access has a write that conflicts with resource {id:?} read."
-            ),
-            (Access(_), Resource(ResourceAccessLevel::Write(id)))
-            | (Resource(ResourceAccessLevel::Write(id)), Access(_)) => write!(
-                f,
-                "Access has a read that conflicts with resource {id:?} write."
-            ),
             (Access(_), Access(_)) => write!(f, "Access conflicts with other Access"),
 
             _ => {
@@ -338,7 +282,7 @@ impl Display for AccessConflictError<'_> {
     }
 }
 
-/// Error returned from [`has_conflicts`].
+/// Error indicating the entity does not have all requested component ids.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum QueryAccessError {
     /// Component was not registered on world
@@ -355,7 +299,7 @@ impl Display for QueryAccessError {
             QueryAccessError::ComponentNotRegistered => {
                 write!(
                     f,
-                    "At least one component in Q was not registered in world. 
+                    "At least one component in Q was not registered in world.
                     Consider calling `World::register_component`"
                 )
             }
@@ -389,353 +333,162 @@ mod tests {
         world
     }
 
-    #[test]
-    fn simple_compatible() {
+    fn assert_compatible<Q: WorldQuery + QueryData>() {
         let world = setup_world();
         let c = world.components();
 
-        // Compatible
-        let state = <&mut C1 as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<&mut C1>(&state).is_ok());
-        assert!(has_conflicts_large::<&mut C1>(&state).is_ok());
-        assert!(has_conflicts::<&mut C1>(c).is_ok());
+        let state = <Q>::get_state(c).unwrap();
+        assert!(has_conflicts_small::<Q>(&state).is_ok());
+        assert!(has_conflicts_large::<Q>(&state).is_ok());
+        assert!(has_conflicts::<Q>(c).is_ok());
+    }
 
-        let state = <&C1 as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<&C1>(&state).is_ok());
-        assert!(has_conflicts_large::<&C1>(&state).is_ok());
-        assert!(has_conflicts::<&C1>(c).is_ok());
+    fn assert_conflicted<Q: WorldQuery + QueryData>() {
+        let world = setup_world();
+        let c = world.components();
 
-        let state = <(&C1, &C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&C1, &C1)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&C1, &C1)>(&state).is_ok());
-        assert!(has_conflicts::<(&C1, &C1)>(c).is_ok());
+        let state = <Q>::get_state(c).unwrap();
+        assert!(has_conflicts_small::<Q>(&state).is_err());
+        assert!(has_conflicts_large::<Q>(&state).is_err());
+        let _ = has_conflicts::<Q>(c);
+    }
+
+    #[test]
+    fn simple_compatible() {
+        assert_compatible::<&mut C1>();
+        assert_compatible::<&C1>();
+        assert_compatible::<(&C1, &C1)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn conflict_component_read_conflicts_write() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&C1, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&C1, &mut C1)>(&state).is_err());
-        assert!(has_conflicts_large::<(&C1, &mut C1)>(&state).is_err());
-        let _ = has_conflicts::<(&C1, &mut C1)>(c);
+        assert_conflicted::<(&C1, &mut C1)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn conflict_component_write_conflicts_read() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&mut C1, &C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, &C1)>(&state).is_err());
-        assert!(has_conflicts_large::<(&mut C1, &C1)>(&state).is_err());
-        let _ = has_conflicts::<(&mut C1, &C1)>(c);
+        assert_conflicted::<(&mut C1, &C1)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn conflict_component_write_conflicts_write() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&mut C1, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, &mut C1)>(&state).is_err());
-        assert!(has_conflicts_large::<(&mut C1, &mut C1)>(&state).is_err());
-        let _ = has_conflicts::<(&mut C1, &mut C1)>(c);
+        assert_conflicted::<(&mut C1, &mut C1)>();
     }
 
     #[test]
     fn entity_ref_compatible() {
-        let world = setup_world();
-        let c = world.components();
-
-        // Compatible
-        let state = <(EntityRef, &C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRef, &C1)>(&state).is_ok());
-        assert!(has_conflicts_large::<(EntityRef, &C1)>(&state).is_ok());
-        assert!(has_conflicts::<(EntityRef, &C1)>(c).is_ok());
-
-        let state = <(&C1, EntityRef) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&C1, EntityRef)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&C1, EntityRef)>(&state).is_ok());
-        assert!(has_conflicts::<(&C1, EntityRef)>(c).is_ok());
-
-        let state = <(EntityRef, EntityRef) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRef, EntityRef)>(&state).is_ok());
-        assert!(has_conflicts_large::<(EntityRef, EntityRef)>(&state).is_ok());
-        assert!(has_conflicts::<(EntityRef, EntityRef)>(c).is_ok());
+        assert_compatible::<(EntityRef, &C1)>();
+        assert_compatible::<(&C1, EntityRef)>();
+        assert_compatible::<(EntityRef, EntityRef)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_ref_conflicts_component_write() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityRef, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRef, &mut C1)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityRef, &mut C1)>(&state).is_err());
-        let _ = has_conflicts::<(EntityRef, &mut C1)>(c);
+        assert_conflicted::<(EntityRef, &mut C1)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn component_write_conflicts_entity_ref() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&mut C1, EntityRef) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, EntityRef)>(&state).is_err());
-        assert!(has_conflicts_large::<(&mut C1, EntityRef)>(&state).is_err());
-        let _ = has_conflicts::<(&mut C1, EntityRef)>(c);
+        assert_conflicted::<(&mut C1, EntityRef)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_mut_conflicts_component_read() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityMut, &C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMut, &C1)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityMut, &C1)>(&state).is_err());
-        let _ = has_conflicts::<(EntityMut, &C1)>(c);
+        assert_conflicted::<(EntityMut, &C1)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn component_read_conflicts_entity_mut() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&C1, EntityMut) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&C1, EntityMut)>(&state).is_err());
-        assert!(has_conflicts_large::<(&C1, EntityMut)>(&state).is_err());
-        let _ = has_conflicts::<(&C1, EntityMut)>(c);
+        assert_conflicted::<(&C1, EntityMut)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_mut_conflicts_component_write() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityMut, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMut, &mut C1)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityMut, &mut C1)>(&state).is_err());
-        let _ = has_conflicts::<(EntityMut, &mut C1)>(c);
+        assert_conflicted::<(EntityMut, &mut C1)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn component_write_conflicts_entity_mut() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&mut C1, EntityMut) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, EntityMut)>(&state).is_err());
-        assert!(has_conflicts_large::<(&mut C1, EntityMut)>(&state).is_err());
-        let _ = has_conflicts::<(&mut C1, EntityMut)>(c);
+        assert_conflicted::<(&mut C1, EntityMut)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_mut_conflicts_entity_ref() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityMut, EntityRef) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMut, EntityRef)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityMut, EntityRef)>(&state).is_err());
-        let _ = has_conflicts::<(EntityMut, EntityRef)>(c);
+        assert_conflicted::<(EntityMut, EntityRef)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_ref_conflicts_entity_mut() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityRef, EntityMut) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRef, EntityMut)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityRef, EntityMut)>(&state).is_err());
-        let _ = has_conflicts::<(EntityRef, EntityMut)>(c);
+        assert_conflicted::<(EntityRef, EntityMut)>();
     }
 
     #[test]
     fn entity_ref_except_compatible() {
-        let world = setup_world();
-        let c = world.components();
-
-        // Compatible
-        let state = <(EntityRefExcept<C1>, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRefExcept<C1>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts_large::<(EntityRefExcept<C1>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts::<(EntityRefExcept<C1>, &mut C1)>(c).is_ok());
-
-        let state = <(&mut C1, EntityRefExcept<C1>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, EntityRefExcept<C1>)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&mut C1, EntityRefExcept<C1>)>(&state).is_ok());
-        assert!(has_conflicts::<(&mut C1, EntityRefExcept<C1>)>(c).is_ok());
-
-        let state = <(&C2, EntityRefExcept<C1>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&C2, EntityRefExcept<C1>)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&C2, EntityRefExcept<C1>)>(&state).is_ok());
-        assert!(has_conflicts::<(&C2, EntityRefExcept<C1>)>(c).is_ok());
-
-        let state = <(&mut C1, EntityRefExcept<(C1, C2)>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, EntityRefExcept<(C1, C2)>)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&mut C1, EntityRefExcept<(C1, C2)>)>(&state).is_ok());
-        assert!(has_conflicts::<(&mut C1, EntityRefExcept<(C1, C2)>)>(c).is_ok());
-
-        let state = <(EntityRefExcept<(C1, C2)>, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRefExcept<(C1, C2)>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts_large::<(EntityRefExcept<(C1, C2)>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts::<(EntityRefExcept<(C1, C2)>, &mut C1)>(c).is_ok());
-
-        let state =
-            <(&mut C1, &mut C2, EntityRefExcept<(C1, C2)>) as WorldQuery>::get_state(c).unwrap();
-        assert!(
-            has_conflicts_small::<(&mut C1, &mut C2, EntityRefExcept<(C1, C2)>)>(&state).is_ok()
-        );
-        assert!(
-            has_conflicts_large::<(&mut C1, &mut C2, EntityRefExcept<(C1, C2)>)>(&state).is_ok()
-        );
-        assert!(has_conflicts::<(&mut C1, &mut C2, EntityRefExcept<(C1, C2)>)>(c).is_ok());
-
-        let state =
-            <(&mut C1, EntityRefExcept<(C1, C2)>, &mut C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(
-            has_conflicts_small::<(&mut C1, EntityRefExcept<(C1, C2)>, &mut C2)>(&state).is_ok()
-        );
-        assert!(
-            has_conflicts_large::<(&mut C1, EntityRefExcept<(C1, C2)>, &mut C2)>(&state).is_ok()
-        );
-        assert!(has_conflicts::<(&mut C1, EntityRefExcept<(C1, C2)>, &mut C2)>(c).is_ok());
-
-        let state =
-            <(EntityRefExcept<(C1, C2)>, &mut C1, &mut C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(
-            has_conflicts_small::<(EntityRefExcept<(C1, C2)>, &mut C1, &mut C2)>(&state).is_ok()
-        );
-        assert!(
-            has_conflicts_large::<(EntityRefExcept<(C1, C2)>, &mut C1, &mut C2)>(&state).is_ok()
-        );
-        assert!(has_conflicts::<(EntityRefExcept<(C1, C2)>, &mut C1, &mut C2)>(c).is_ok());
+        assert_compatible::<(EntityRefExcept<C1>, &mut C1)>();
+        assert_compatible::<(&mut C1, EntityRefExcept<C1>)>();
+        assert_compatible::<(&C2, EntityRefExcept<C1>)>();
+        assert_compatible::<(&mut C1, EntityRefExcept<(C1, C2)>)>();
+        assert_compatible::<(EntityRefExcept<(C1, C2)>, &mut C1)>();
+        assert_compatible::<(&mut C1, &mut C2, EntityRefExcept<(C1, C2)>)>();
+        assert_compatible::<(&mut C1, EntityRefExcept<(C1, C2)>, &mut C2)>();
+        assert_compatible::<(EntityRefExcept<(C1, C2)>, &mut C1, &mut C2)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_ref_except_conflicts_component_write() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityRefExcept<C1>, &mut C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityRefExcept<C1>, &mut C2)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityRefExcept<C1>, &mut C2)>(&state).is_err());
-        let _ = has_conflicts::<(EntityRefExcept<C1>, &mut C2)>(c);
+        assert_conflicted::<(EntityRefExcept<C1>, &mut C2)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn component_write_conflicts_entity_ref_except() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&mut C2, EntityRefExcept<C1>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C2, EntityRefExcept<C1>)>(&state).is_err());
-        assert!(has_conflicts_large::<(&mut C2, EntityRefExcept<C1>)>(&state).is_err());
-        let _ = has_conflicts::<(&mut C2, EntityRefExcept<C1>)>(c);
+        assert_conflicted::<(&mut C2, EntityRefExcept<C1>)>();
     }
 
     #[test]
     fn entity_mut_except_compatible() {
-        let world = setup_world();
-        let c = world.components();
-
-        // Compatible
-        let state = <(EntityMutExcept<C1>, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMutExcept<C1>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts_large::<(EntityMutExcept<C1>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts::<(EntityMutExcept<C1>, &mut C1)>(c).is_ok());
-
-        let state = <(&mut C1, EntityMutExcept<C1>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, EntityMutExcept<C1>)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&mut C1, EntityMutExcept<C1>)>(&state).is_ok());
-        assert!(has_conflicts::<(&mut C1, EntityMutExcept<C1>)>(c).is_ok());
-
-        let state = <(&mut C1, EntityMutExcept<(C1, C2)>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C1, EntityMutExcept<(C1, C2)>)>(&state).is_ok());
-        assert!(has_conflicts_large::<(&mut C1, EntityMutExcept<(C1, C2)>)>(&state).is_ok());
-        assert!(has_conflicts::<(&mut C1, EntityMutExcept<(C1, C2)>)>(c).is_ok());
-
-        let state = <(EntityMutExcept<(C1, C2)>, &mut C1) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMutExcept<(C1, C2)>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts_large::<(EntityMutExcept<(C1, C2)>, &mut C1)>(&state).is_ok());
-        assert!(has_conflicts::<(EntityMutExcept<(C1, C2)>, &mut C1)>(c).is_ok());
-
-        let state =
-            <(&mut C1, &mut C2, EntityMutExcept<(C1, C2)>) as WorldQuery>::get_state(c).unwrap();
-        assert!(
-            has_conflicts_small::<(&mut C1, &mut C2, EntityMutExcept<(C1, C2)>)>(&state).is_ok()
-        );
-        assert!(
-            has_conflicts_large::<(&mut C1, &mut C2, EntityMutExcept<(C1, C2)>)>(&state).is_ok()
-        );
-        assert!(has_conflicts::<(&mut C1, &mut C2, EntityMutExcept<(C1, C2)>)>(c).is_ok());
-
-        let state =
-            <(&mut C1, EntityMutExcept<(C1, C2)>, &mut C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(
-            has_conflicts_small::<(&mut C1, EntityMutExcept<(C1, C2)>, &mut C2)>(&state).is_ok()
-        );
-        assert!(
-            has_conflicts_large::<(&mut C1, EntityMutExcept<(C1, C2)>, &mut C2)>(&state).is_ok()
-        );
-        assert!(has_conflicts::<(&mut C1, EntityMutExcept<(C1, C2)>, &mut C2)>(c).is_ok());
-
-        let state =
-            <(EntityMutExcept<(C1, C2)>, &mut C1, &mut C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(
-            has_conflicts_small::<(EntityMutExcept<(C1, C2)>, &mut C1, &mut C2)>(&state).is_ok()
-        );
-        assert!(
-            has_conflicts_large::<(EntityMutExcept<(C1, C2)>, &mut C1, &mut C2)>(&state).is_ok()
-        );
-        assert!(has_conflicts::<(EntityMutExcept<(C1, C2)>, &mut C1, &mut C2)>(c).is_ok());
+        assert_compatible::<(EntityMutExcept<C1>, &mut C1)>();
+        assert_compatible::<(&mut C1, EntityMutExcept<C1>)>();
+        assert_compatible::<(&mut C1, EntityMutExcept<(C1, C2)>)>();
+        assert_compatible::<(EntityMutExcept<(C1, C2)>, &mut C1)>();
+        assert_compatible::<(&mut C1, &mut C2, EntityMutExcept<(C1, C2)>)>();
+        assert_compatible::<(&mut C1, EntityMutExcept<(C1, C2)>, &mut C2)>();
+        assert_compatible::<(EntityMutExcept<(C1, C2)>, &mut C1, &mut C2)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_mut_except_conflicts_component_read() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityMutExcept<C1>, &C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMutExcept<C1>, &C2)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityMutExcept<C1>, &C2)>(&state).is_err());
-        let _ = has_conflicts::<(EntityMutExcept<C1>, &C2)>(c);
+        assert_conflicted::<(EntityMutExcept<C1>, &C2)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn component_read_conflicts_entity_mut_except() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&C2, EntityMutExcept<C1>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&C2, EntityMutExcept<C1>)>(&state).is_err());
-        assert!(has_conflicts_large::<(&C2, EntityMutExcept<C1>)>(&state).is_err());
-        let _ = has_conflicts::<(&C2, EntityMutExcept<C1>)>(c);
+        assert_conflicted::<(&C2, EntityMutExcept<C1>)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn entity_mut_except_conflicts_component_write() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(EntityMutExcept<C1>, &mut C2) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(EntityMutExcept<C1>, &mut C2)>(&state).is_err());
-        assert!(has_conflicts_large::<(EntityMutExcept<C1>, &mut C2)>(&state).is_err());
-        let _ = has_conflicts::<(EntityMutExcept<C1>, &mut C2)>(c);
+        assert_conflicted::<(EntityMutExcept<C1>, &mut C2)>();
     }
 
     #[test]
     #[should_panic(expected = "conflicts")]
     fn component_write_conflicts_entity_mut_except() {
-        let world = setup_world();
-        let c = world.components();
-        let state = <(&mut C2, EntityMutExcept<C1>) as WorldQuery>::get_state(c).unwrap();
-        assert!(has_conflicts_small::<(&mut C2, EntityMutExcept<C1>)>(&state).is_err());
-        assert!(has_conflicts_large::<(&mut C2, EntityMutExcept<C1>)>(&state).is_err());
-        let _ = has_conflicts::<(&mut C2, EntityMutExcept<C1>)>(c);
+        assert_conflicted::<(&mut C2, EntityMutExcept<C1>)>();
     }
 }

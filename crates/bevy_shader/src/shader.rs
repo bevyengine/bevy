@@ -191,15 +191,17 @@ impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> 
             .shader_defs
             .iter()
             .map(|def| match def {
-                ShaderDefVal::Bool(name, b) => {
-                    (name.clone(), naga_oil::compose::ShaderDefValue::Bool(*b))
-                }
+                ShaderDefVal::Bool(name, b) => (
+                    name.to_string(),
+                    naga_oil::compose::ShaderDefValue::Bool(*b),
+                ),
                 ShaderDefVal::Int(name, i) => {
-                    (name.clone(), naga_oil::compose::ShaderDefValue::Int(*i))
+                    (name.to_string(), naga_oil::compose::ShaderDefValue::Int(*i))
                 }
-                ShaderDefVal::UInt(name, i) => {
-                    (name.clone(), naga_oil::compose::ShaderDefValue::UInt(*i))
-                }
+                ShaderDefVal::UInt(name, i) => (
+                    name.to_string(),
+                    naga_oil::compose::ShaderDefValue::UInt(*i),
+                ),
             })
             .collect();
 
@@ -281,6 +283,12 @@ impl From<&Source> for naga_oil::compose::ShaderType {
                 naga::ShaderStage::Compute => panic!("glsl compute not yet implemented"),
                 naga::ShaderStage::Task => panic!("task shaders not yet implemented"),
                 naga::ShaderStage::Mesh => panic!("mesh shaders not yet implemented"),
+                naga::ShaderStage::RayGeneration => {
+                    panic!("ray generation shader not yet implemented")
+                }
+                naga::ShaderStage::Miss => panic!("miss shader not yet implemented"),
+                naga::ShaderStage::AnyHit => panic!("any hit shader not yet implemented"),
+                naga::ShaderStage::ClosestHit => panic!("closest hit shader not yet implemented"),
             },
             #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
             Source::Glsl(_, _) => panic!(

@@ -29,7 +29,7 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
-use bevy_render::view::RetainedViewEntity;
+use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     mesh::RenderMesh,
     render_asset::{
@@ -47,8 +47,9 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::{ExtractedView, RenderVisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    texture::GpuImage,
+    view::ExtractedView,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
 use bevy_utils::Parallel;
@@ -198,7 +199,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ```
 ///
 /// [`MeshMaterial2d`]: crate::MeshMaterial2d
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
+#[derive(Component, FromTemplate, Clone, Debug, Deref, DerefMut, Reflect, From)]
 #[reflect(Component, Default, Clone)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
@@ -280,7 +281,7 @@ where
         app.init_asset::<M>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
             .register_type::<MeshMaterial2d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>, GpuImage>::default())
             .add_systems(
                 PostUpdate,
                 check_entities_needing_specialization::<M>.after(AssetEventSystems),
@@ -288,12 +289,12 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
+                .init_gpu_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .init_gpu_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
@@ -578,6 +579,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
         }
         Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::KhronosPbrNeutral => Mesh2dPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 
@@ -655,7 +657,7 @@ pub struct SpecializedMaterial2dViewPipelineCache<M> {
 impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -664,7 +666,7 @@ impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
 impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -830,7 +832,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                )
                 | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(
@@ -1032,7 +1037,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     // entity field here entirely, but we currently can't do so
                     // because UI creates multiple render entities for each main
                     // entity in its sorted phases.
-                    transparent_phase.add(Transparent2d {
+                    transparent_phase.add_retained(Transparent2d {
                         entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,
                         pipeline: pipeline_id,

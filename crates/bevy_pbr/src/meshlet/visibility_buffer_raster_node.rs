@@ -2,7 +2,7 @@ use super::{
     pipelines::MeshletPipelines,
     resource_manager::{MeshletViewBindGroups, MeshletViewResources, ResourceManager},
 };
-use crate::{LightEntity, ShadowView, ViewLightEntities};
+use crate::{LightEntity, ShadowView};
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::prepass::PreviousViewUniformOffset;
 use bevy_ecs::prelude::*;
@@ -27,7 +27,6 @@ pub fn meshlet_visibility_buffer_raster(
         &PreviousViewUniformOffset,
         &MeshletViewBindGroups,
         &MeshletViewResources,
-        &ViewLightEntities,
     )>,
     view_light_query: Query<(
         &ShadowView,
@@ -47,7 +46,6 @@ pub fn meshlet_visibility_buffer_raster(
         previous_view_offset,
         meshlet_view_bind_groups,
         meshlet_view_resources,
-        lights,
     ) = view.into_inner();
 
     let Some((
@@ -194,19 +192,15 @@ pub fn meshlet_visibility_buffer_raster(
     ctx.command_encoder().pop_debug_group();
     time_span.end(ctx.command_encoder());
 
-    for light_entity in &lights.lights {
-        let Ok((
-            shadow_view,
-            light_type,
-            view_offset,
-            previous_view_offset,
-            meshlet_view_bind_groups,
-            meshlet_view_resources,
-        )) = view_light_query.get(*light_entity)
-        else {
-            continue;
-        };
-
+    for (
+        shadow_view,
+        light_type,
+        view_offset,
+        previous_view_offset,
+        meshlet_view_bind_groups,
+        meshlet_view_resources,
+    ) in view_light_query.iter()
+    {
         let shadow_visibility_buffer_hardware_raster_pipeline =
             if let LightEntity::Directional { .. } = light_type {
                 visibility_buffer_hardware_raster_shadow_view_unclipped_pipeline

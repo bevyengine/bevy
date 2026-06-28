@@ -277,7 +277,7 @@ fn spawn_cube(
 // Spawns the flight helmet.
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -369,38 +369,40 @@ fn spawn_water(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
-        MeshMaterial3d(water_materials.add(ExtendedMaterial {
-            base: StandardMaterial {
-                base_color: BLACK.into(),
-                perceptual_roughness: 0.09,
-                ..default()
-            },
-            extension: Water {
-                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
-                    |settings| {
-                        settings.is_srgb = false;
-                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            mag_filter: ImageFilterMode::Linear,
-                            min_filter: ImageFilterMode::Linear,
-                            ..default()
-                        });
-                    },
-                ),
-                // These water settings are just random values to create some
-                // variety.
-                settings: WaterSettings {
-                    octave_vectors: [
-                        vec4(0.080, 0.059, 0.073, -0.062),
-                        vec4(0.153, 0.138, -0.149, -0.195),
-                    ],
-                    octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 5.0,
-                    octave_strengths: vec4(0.16, 0.18, 0.093, 0.044),
+        MeshMaterial3d(
+            water_materials.add(ExtendedMaterial {
+                base: StandardMaterial {
+                    base_color: BLACK.into(),
+                    perceptual_roughness: 0.09,
+                    ..default()
                 },
-            },
-        })),
+                extension: Water {
+                    normals: asset_server
+                        .load_builder()
+                        .with_settings::<ImageLoaderSettings>(|settings| {
+                            settings.is_srgb = false;
+                            settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                address_mode_u: ImageAddressMode::Repeat,
+                                address_mode_v: ImageAddressMode::Repeat,
+                                mag_filter: ImageFilterMode::Linear,
+                                min_filter: ImageFilterMode::Linear,
+                                ..default()
+                            });
+                        })
+                        .load("textures/water_normals.png"),
+                    // These water settings are just random values to create some
+                    // variety.
+                    settings: WaterSettings {
+                        octave_vectors: [
+                            vec4(0.080, 0.059, 0.073, -0.062),
+                            vec4(0.153, 0.138, -0.149, -0.195),
+                        ],
+                        octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 5.0,
+                        octave_strengths: vec4(0.16, 0.18, 0.093, 0.044),
+                    },
+                },
+            }),
+        ),
         Transform::from_scale(Vec3::splat(100.0)),
         WaterModel,
     ));
@@ -432,7 +434,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
             ..default()
         },
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 5000.0,
             ..default()
         },

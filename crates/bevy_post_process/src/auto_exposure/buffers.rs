@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::*;
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_platform::collections::hash_map::Entry;
 use bevy_render::{
     render_resource::{StorageBuffer, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
@@ -11,7 +11,7 @@ use super::{pipeline::AutoExposureUniform, AutoExposure};
 
 #[derive(Resource, Default)]
 pub(super) struct AutoExposureBuffers {
-    pub(super) buffers: HashMap<Entity, AutoExposureBuffer>,
+    pub(super) buffers: EntityHashMap<AutoExposureBuffer>,
 }
 
 pub(super) struct AutoExposureBuffer {

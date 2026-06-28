@@ -26,11 +26,17 @@ pub mod experimental {
 
 mod atmosphere;
 mod cluster;
-mod components;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 mod gltf;
-use bevy_render::sync_component::SyncComponent;
+use bevy_light::cluster::GlobalClusterSettings;
+use bevy_render::{
+    sync_component::SyncComponent,
+    view::{
+        RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin,
+        RenderShadowMapVisibleEntities,
+    },
+};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -58,10 +64,11 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
+use bevy_light::{
+    AmbientLight, DirectionalLight, PointLight, RectLight, ShadowFilteringMethod, SpotLight,
+};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
-pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
@@ -103,8 +110,6 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
-#[cfg(feature = "bluenoise_texture")]
-use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
 use bevy_material::AlphaMode;
 use bevy_render::{
@@ -112,10 +117,11 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     render_resource::{
         Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
+    RenderSystems,
 };
 
 use std::path::PathBuf;
@@ -123,9 +129,6 @@ use std::path::PathBuf;
 fn shader_ref(path: PathBuf) -> ShaderRef {
     ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
 }
-
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 19;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 20;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -161,6 +164,25 @@ impl Default for PbrPlugin {
 #[derive(Resource)]
 pub struct Bluenoise {
     /// Texture handle for spatio-temporal blue noise
+    pub texture: Handle<Image>,
+}
+
+/// LTC (Linearly Transformed Cosines) LUT textures for area light shading.
+///
+/// It is a texture array containing 2 LUT textures:
+/// The first entry encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
+/// The second entry encodes amplitude and Fresnel-related weights.
+///
+/// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
+#[derive(Resource, Clone)]
+pub struct AreaLightLuts {
+    pub image: Handle<Image>,
+}
+
+// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
+/// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
+#[derive(Resource, Clone)]
+pub struct DfgLut {
     pub texture: Handle<Image>,
 }
 
@@ -222,6 +244,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight, Self>::default(),
                 SyncComponentPlugin::<PointLight, Self>::default(),
                 SyncComponentPlugin::<SpotLight, Self>::default(),
+                SyncComponentPlugin::<RectLight, Self>::default(),
                 SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
             .add_plugins((
@@ -259,15 +282,16 @@ impl Plugin for PbrPlugin {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             #[cfg(feature = "bluenoise_texture")]
             let handle = {
-                let image = Image::from_buffer(
+                let mut image = Image::from_buffer(
                     include_bytes!("bluenoise/stbn.ktx2"),
-                    ImageType::Extension("ktx2"),
-                    CompressedImageFormats::NONE,
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
                     false,
                     ImageSampler::Default,
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .expect("Failed to decode embedded blue-noise texture");
+                image.texture_descriptor.label = Some("bluenoise");
                 images.add(image)
             };
 
@@ -278,6 +302,60 @@ impl Plugin for PbrPlugin {
                 render_app
                     .world_mut()
                     .insert_resource(Bluenoise { texture: handle });
+            }
+        }
+
+        let has_area_light_luts = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<AreaLightLuts>());
+
+        if !has_area_light_luts {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            #[cfg(feature = "area_light_luts")]
+            let handle = {
+                let mut image = Image::from_buffer(
+                    include_bytes!("ltc/ltc.ktx2"),
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded LTC LUTs");
+                image.texture_descriptor.label = Some("area_light_luts");
+                images.add(image)
+            };
+            #[cfg(not(feature = "area_light_luts"))]
+            let handle = images.add(area_light_luts_placeholder());
+
+            let area_light_luts = AreaLightLuts { image: handle };
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(area_light_luts);
+            }
+        }
+
+        let has_dfg_lut = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<DfgLut>());
+
+        if !has_dfg_lut {
+            #[cfg(feature = "dfg_lut")]
+            let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
+                Image::from_buffer(
+                    include_bytes!("environment_map/dfg.ktx2"),
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded DFG LUT"),
+            );
+            #[cfg(not(feature = "dfg_lut"))]
+            let texture = Handle::default();
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(DfgLut { texture });
             }
         }
 
@@ -311,6 +389,7 @@ impl Plugin for PbrPlugin {
                     extract_ambient_light_resource,
                     extract_ambient_light,
                     extract_shadow_filtering_method,
+                    extract_shadow_lod_origin,
                     late_sweep_material_instances,
                 ),
             )
@@ -320,27 +399,44 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
-                    prepare_clusters_for_cpu_clustering.in_set(RenderSystems::PrepareResources),
+                    prepare_clusters_for_cpu_clustering
+                        .in_set(RenderSystems::PrepareResources)
+                        .run_if(
+                            |global_cluster_settings: Res<GlobalClusterSettings>| -> bool {
+                                global_cluster_settings.gpu_clustering.is_none()
+                            },
+                        ),
                 ),
             )
-            .init_resource::<LightMeta>()
-            .init_resource::<RenderMaterialBindings>()
+            .init_gpu_resource::<LightMeta>()
+            .init_gpu_resource::<RenderMaterialBindings>()
+            .init_resource::<RenderShadowLodOrigin>()
             .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
-        render_app.world_mut().add_observer(extracted_light_removed);
+        render_app
+            .world_mut()
+            .add_observer(remove_point_and_spot_light_view_entities);
 
         render_app.add_systems(
             Core3d,
             (
-                shadow_pass::<EARLY_SHADOW_PASS>
+                per_view_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(shadow_pass::<LATE_SHADOW_PASS>),
-                shadow_pass::<LATE_SHADOW_PASS>
+                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>),
+                per_view_shadow_pass::<LATE_SHADOW_PASS>
+                    .after(late_prepass_build_indirect_parameters)
+                    .before(main_build_indirect_parameters)
+                    .before(Core3dSystems::MainPass),
+                shared_shadow_pass::<EARLY_SHADOW_PASS>
+                    .after(early_prepass_build_indirect_parameters)
+                    .before(early_downsample_depth)
+                    .before(shared_shadow_pass::<LATE_SHADOW_PASS>),
+                shared_shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
                     .before(Core3dSystems::MainPass),
@@ -368,7 +464,7 @@ pub fn stbn_placeholder() -> Image {
             size: Extent3d::default(),
             format,
             dimension: TextureDimension::D2,
-            label: None,
+            label: Some("bluenoise_placeholder"),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING,
@@ -381,18 +477,69 @@ pub fn stbn_placeholder() -> Image {
     }
 }
 
+pub fn area_light_luts_placeholder() -> Image {
+    let format = TextureFormat::Rgba16Float;
+    let data = vec![0; 16];
+    Image {
+        data: Some(data),
+        data_order: TextureDataOrder::default(),
+        texture_descriptor: TextureDescriptor {
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 2,
+            },
+            format,
+            dimension: TextureDimension::D2,
+            label: Some("area_light_luts_placeholder"),
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        },
+        sampler: ImageSampler::Default,
+        texture_view_descriptor: Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        }),
+        asset_usage: RenderAssetUsages::RENDER_WORLD,
+        copy_on_resize: false,
+    }
+}
+
 impl SyncComponent<PbrPlugin> for DirectionalLight {
-    type Out = Self;
+    type Target = (
+        Self,
+        ExtractedDirectionalLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        DirectionalLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for PointLight {
-    type Out = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        PointAndSpotLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
-    type Out = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        PointAndSpotLightViewEntities,
+    );
+}
+impl SyncComponent<PbrPlugin> for RectLight {
+    type Target = (Self, ExtractedRectLight);
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {
-    type Out = Self;
+    type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
-    type Out = Self;
+    type Target = Self;
 }

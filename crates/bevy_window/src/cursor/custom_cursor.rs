@@ -1,6 +1,7 @@
 use crate::cursor::CursorIcon;
 use alloc::string::String;
 use bevy_asset::Handle;
+use bevy_ecs::template::FromTemplate;
 use bevy_image::{Image, TextureAtlas};
 use bevy_math::URect;
 
@@ -8,7 +9,7 @@ use bevy_math::URect;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A custom cursor created from an image.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, FromTemplate)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -19,6 +20,7 @@ pub struct CustomCursorImage {
     /// or 32 bit float rgba. PNG images work well for this.
     pub handle: Handle<Image>,
     /// An optional texture atlas used to render the image.
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
     ///
@@ -63,13 +65,14 @@ pub struct CustomCursorUrl {
 }
 
 /// Custom cursor image data.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, FromTemplate)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Clone, PartialEq, Hash)
 )]
 pub enum CustomCursor {
+    #[default]
     /// Use an image as the cursor.
     Image(CustomCursorImage),
     /// Use a URL to an image as the cursor. Note that this currently only works on the web.

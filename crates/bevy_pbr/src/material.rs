@@ -29,6 +29,7 @@ use bevy_material::{
     labels::{DrawFunctionLabel, InternedShaderLabel, ShaderLabel},
     MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
+use bevy_math::{Affine3, Affine3Ext as _};
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
 };
@@ -37,12 +38,14 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers;
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
+use bevy_render::GpuResourceAppExt;
 use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -58,7 +61,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_shader::ShaderDefVal;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::Parallel;
 use core::{
     any::{Any, TypeId},
@@ -277,6 +280,79 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 }
 
+/// A resource that caches resolved shader handles for a specific material type.
+#[derive(Resource)]
+pub struct MaterialShaders<M: Material> {
+    shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]>,
+    _marker: PhantomData<M>,
+}
+
+impl<M: Material> Default for MaterialShaders<M> {
+    fn default() -> Self {
+        Self {
+            shaders: SmallVec::new(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<M: Material> MaterialShaders<M> {
+    pub fn with_shader_cache(
+        shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]>,
+    ) -> Self {
+        Self {
+            shaders,
+            _marker: PhantomData,
+        }
+    }
+}
+
+fn initialize_material_shaders<M: Material>(
+    render_world: &World,
+) -> SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]> {
+    let asset_server = render_world.resource::<AssetServer>();
+    let mut shaders = SmallVec::new();
+
+    let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
+        let maybe_shader = match shader_ref {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        };
+        if let Some(shader) = maybe_shader {
+            shaders.push((label, shader));
+        }
+    };
+
+    add_shader(MaterialVertexShader.intern(), M::vertex_shader());
+    add_shader(MaterialFragmentShader.intern(), M::fragment_shader());
+    add_shader(PrepassVertexShader.intern(), M::prepass_vertex_shader());
+    add_shader(PrepassFragmentShader.intern(), M::prepass_fragment_shader());
+    add_shader(DeferredVertexShader.intern(), M::deferred_vertex_shader());
+    add_shader(
+        DeferredFragmentShader.intern(),
+        M::deferred_fragment_shader(),
+    );
+
+    #[cfg(feature = "meshlet")]
+    {
+        add_shader(
+            MeshletFragmentShader.intern(),
+            M::meshlet_mesh_fragment_shader(),
+        );
+        add_shader(
+            MeshletPrepassFragmentShader.intern(),
+            M::meshlet_mesh_prepass_fragment_shader(),
+        );
+        add_shader(
+            MeshletDeferredFragmentShader.intern(),
+            M::meshlet_mesh_deferred_fragment_shader(),
+        );
+    }
+
+    shaders
+}
+
 #[derive(Default)]
 pub struct MaterialsPlugin {
     /// Debugging flags that can optionally be set when constructing the renderer.
@@ -288,25 +364,28 @@ impl Plugin for MaterialsPlugin {
         app.add_plugins((PrepassPipelinePlugin, PrepassPlugin::new(self.debug_flags)));
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SpecializedMaterialPipelineCache>()
-                .init_resource::<SpecializedMeshPipelines<MaterialPipelineSpecializer>>()
-                .init_resource::<LightKeyCache>()
-                .init_resource::<SpecializedShadowMaterialPipelineCache>()
+                .init_gpu_resource::<SpecializedMaterialPipelineCache>()
+                .init_gpu_resource::<SpecializedMeshPipelines<MaterialPipelineSpecializer>>()
+                .init_gpu_resource::<LightKeyCache>()
+                .init_gpu_resource::<SpecializedShadowMaterialPipelineCache>()
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<RenderMaterialInstances>()
                 .allow_ambiguous_resource::<RenderMaterialInstances>()
                 .init_resource::<MaterialBindGroupAllocators>()
                 .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
-                .init_resource::<PendingMeshMaterialQueues>()
+                .init_gpu_resource::<PendingMeshMaterialQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterialQueues>()
-                .init_resource::<PendingShadowQueues>()
+                .init_gpu_resource::<PendingShadowQueues>()
                 .allow_ambiguous_resource::<PendingShadowQueues>()
                 .add_render_command::<Shadow, DrawPrepass>()
                 .add_render_command::<Shadow, DrawDepthOnlyPrepass>()
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline.after(MeshPipelineSet))
+                .add_systems(
+                    RenderStartup,
+                    init_material_pipeline.after(MeshPipelineSystems),
+                )
                 .add_systems(
                     Render,
                     (
@@ -330,9 +409,11 @@ impl Plugin for MaterialsPlugin {
                 .add_systems(
                     Render,
                     (
-                        check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
+                        check_views_lights_need_specialization
+                            .in_set(RenderSystems::Specialize)
+                            .before(specialize_shadows),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since PrepareViews is after PrepareAssets
+                        // which is fine since Specialize is after PrepareAssets
                         specialize_shadows
                             .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),
@@ -379,7 +460,9 @@ where
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let shaders = initialize_material_shaders::<M>(render_app.world());
             render_app
+                .insert_resource(MaterialShaders::<M>::with_shader_cache(shaders))
                 .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
                 .add_systems(
                     ExtractSchedule,
@@ -415,14 +498,6 @@ fn add_material_bind_group_allocator<M: Material>(
         ),
     );
 }
-
-/// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
-/// have a material.
-///
-/// See the comments in [`RenderMaterialInstances::mesh_material`] for more
-/// information.
-pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
-    AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -571,17 +646,16 @@ pub struct RenderMaterialInstances {
 }
 
 impl RenderMaterialInstances {
-    /// Returns the mesh material ID for the entity with the given mesh, or a
-    /// dummy mesh material ID if the mesh has no material ID.
+    /// Returns the mesh material ID for the entity with the given mesh, or
+    /// `None` if the mesh has no material ID.
     ///
     /// Meshes almost always have materials, but in very specific circumstances
     /// involving custom pipelines they won't. (See the
     /// `specialized_mesh_pipelines` example.)
-    pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
-        match self.instances.get(&entity) {
-            Some(render_instance) => render_instance.asset_id,
-            None => DUMMY_MESH_MATERIAL.into(),
-        }
+    pub(crate) fn mesh_material(&self, entity: MainEntity) -> Option<UntypedAssetId> {
+        self.instances
+            .get(&entity)
+            .map(|instance| instance.asset_id)
     }
 }
 
@@ -629,6 +703,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
         }
         Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::KhronosPbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 
@@ -929,7 +1004,7 @@ pub(crate) fn specialize_material_meshes(
             mut specialized_material_pipeline_cache,
             mut pending_mesh_material_queues,
             dirty_specializations,
-        } = state.get_mut(world);
+        } = state.get_mut(world).unwrap();
 
         for (view, visible_entities) in &views {
             all_views.insert(view.retained_view_entity);
@@ -988,12 +1063,13 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 }
 
+                // Check for material instance, mesh, and material. If any of
+                // these fail, it's probably because the relevant asset hasn't
+                // loaded yet. In that case, add the entity to the list of
+                // pending mesh materials and bail.
                 let Some(material_instance) =
                     render_material_instances.instances.get(visible_entity)
                 else {
-                    // We couldn't fetch the material instance, probably because
-                    // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending mesh materials and bail.
                     view_pending_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1002,9 +1078,6 @@ pub(crate) fn specialize_material_meshes(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
-                    // We couldn't fetch the mesh, probably because it hasn't
-                    // been loaded yet. Add the entity to the list of pending
-                    // mesh materials and bail.
                     view_pending_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1014,9 +1087,6 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
-                    // We couldn't fetch the material, probably because the
-                    // material hasn't been loaded yet. Add the entity to the
-                    // list of pending mesh materials and bail.
                     view_pending_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1109,8 +1179,12 @@ pub fn queue_material_meshes(
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
+    mesh_assets: Res<RenderAssets<RenderMesh>>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    maybe_batched_instance_buffers: Option<
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
@@ -1177,11 +1251,12 @@ pub fn queue_material_meshes(
                 continue;
             };
 
+            // Check for material instance, mesh, and material. If any of these
+            // fail, it's probably because the relevant asset hasn't loaded yet.
+            // In that case, add the entity to the list of pending mesh
+            // materials and bail.
             let Some(material_instance) = render_material_instances.instances.get(visible_entity)
             else {
-                // We couldn't fetch the material, probably because the material
-                // hasn't been loaded yet. Add the entity to the list of pending
-                // mesh materials and bail.
                 view_pending_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
@@ -1189,18 +1264,12 @@ pub fn queue_material_meshes(
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
-                // We couldn't fetch the mesh, probably because it hasn't been
-                // loaded yet. Add the entity to the list of pending mesh
-                // materials and bail.
                 view_pending_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
-                // We couldn't fetch the material, probably because the material
-                // hasn't been loaded yet. Add the entity to the list of pending
-                // mesh materials and bail.
                 view_pending_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
@@ -1220,9 +1289,20 @@ pub fn queue_material_meshes(
                     else {
                         continue;
                     };
-                    transmissive_phase.add(Transmissive3d {
+                    transmissive_phase.add_retained(Transmissive3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
-                            mesh_center: mesh_instance.center,
+                            mesh_center: get_mesh_instance_world_from_local(
+                                *visible_entity,
+                                mesh_instance.current_uniform_index,
+                                &render_mesh_instances,
+                                maybe_batched_instance_buffers.as_deref(),
+                            )
+                            .transform_point3(
+                                mesh_assets
+                                    .get(mesh_instance.mesh_asset_id())
+                                    .unwrap()
+                                    .aabb_center,
+                            ),
                             depth_bias: material.properties.depth_bias,
                         },
                         entity: (Entity::PLACEHOLDER, *visible_entity),
@@ -1309,9 +1389,20 @@ pub fn queue_material_meshes(
                     else {
                         continue;
                     };
-                    transparent_phase.add(Transparent3d {
+                    transparent_phase.add_retained(Transparent3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
-                            mesh_center: mesh_instance.center,
+                            mesh_center: get_mesh_instance_world_from_local(
+                                *visible_entity,
+                                mesh_instance.current_uniform_index,
+                                &render_mesh_instances,
+                                maybe_batched_instance_buffers.as_deref(),
+                            )
+                            .transform_point3(
+                                mesh_assets
+                                    .get(mesh_instance.mesh_asset_id())
+                                    .unwrap()
+                                    .aabb_center,
+                            ),
                             depth_bias: material.properties.depth_bias,
                         },
                         entity: (Entity::PLACEHOLDER, *visible_entity),
@@ -1441,10 +1532,17 @@ pub fn base_specialize(
 }
 fn prepass_specialize(
     world: &mut World,
-    key: ErasedMaterialPipelineKey,
+    key: &ErasedMaterialPipelineKey,
     layout: &MeshVertexBufferLayoutRef,
     properties: &Arc<MaterialProperties>,
 ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
+    if let Some(pipelines) =
+        world.get_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>()
+        && let Some(id) = pipelines.get_pipeline(key, layout)
+    {
+        return Ok(id);
+    }
+
     world.resource_scope(
         |world, mut pipelines: Mut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>| {
             let prepass_pipeline = world.resource::<PrepassPipeline>().clone();
@@ -1455,7 +1553,7 @@ fn prepass_specialize(
                 properties: properties.clone(),
             };
 
-            pipelines.specialize(pipeline_cache, &specializer, key, layout)
+            pipelines.specialize(pipeline_cache, &specializer, key.clone(), layout)
         },
     )
 }
@@ -1506,7 +1604,7 @@ where
         SRes<DrawFunctions<Opaque3dDeferred>>,
         SRes<DrawFunctions<AlphaMask3dDeferred>>,
         SRes<DrawFunctions<Shadow>>,
-        SRes<AssetServer>,
+        SRes<MaterialShaders<M>>,
         M::Param,
     );
 
@@ -1528,7 +1626,7 @@ where
             opaque_deferred_draw_functions,
             alpha_mask_deferred_draw_functions,
             shadow_draw_functions,
-            asset_server,
+            material_shaders,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
@@ -1667,42 +1765,7 @@ where
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
 
-        let mut shaders = SmallVec::new();
-        let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
-            let mayber_shader = match shader_ref {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            };
-            if let Some(shader) = mayber_shader {
-                shaders.push((label, shader));
-            }
-        };
-        add_shader(MaterialVertexShader.intern(), M::vertex_shader());
-        add_shader(MaterialFragmentShader.intern(), M::fragment_shader());
-        add_shader(PrepassVertexShader.intern(), M::prepass_vertex_shader());
-        add_shader(PrepassFragmentShader.intern(), M::prepass_fragment_shader());
-        add_shader(DeferredVertexShader.intern(), M::deferred_vertex_shader());
-        add_shader(
-            DeferredFragmentShader.intern(),
-            M::deferred_fragment_shader(),
-        );
-
-        #[cfg(feature = "meshlet")]
-        {
-            add_shader(
-                MeshletFragmentShader.intern(),
-                M::meshlet_mesh_fragment_shader(),
-            );
-            add_shader(
-                MeshletPrepassFragmentShader.intern(),
-                M::meshlet_mesh_prepass_fragment_shader(),
-            );
-            add_shader(
-                MeshletDeferredFragmentShader.intern(),
-                M::meshlet_mesh_deferred_fragment_shader(),
-            );
-        }
+        let shaders = material_shaders.shaders.clone();
 
         let bindless = material_uses_bindless_resources::<M>(render_device);
         let bind_group_data = material.bind_group_data();
@@ -1741,8 +1804,8 @@ where
         else {
             return;
         };
-        let bind_group_allactor = bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-        bind_group_allactor.free(material_binding_id);
+        let bind_group_allocator = bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
+        bind_group_allocator.free(material_binding_id);
     }
 }
 
@@ -1777,5 +1840,39 @@ pub fn write_material_bind_group_buffers(
 ) {
     for (_, allocator) in allocators.iter_mut() {
         allocator.write_buffers(&render_device, &render_queue);
+    }
+}
+
+/// Returns the world-from-local transform for the given mesh instance.
+pub fn get_mesh_instance_world_from_local(
+    entity: MainEntity,
+    current_uniform_index: InputUniformIndex,
+    render_mesh_instances: &RenderMeshInstances,
+    maybe_batched_instance_buffers: Option<&BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+) -> Affine3 {
+    // The way we fetch the world-from-local transform depends on whether we're
+    // doing CPU or GPU preprocessing. If we're doing CPU preprocessing, we have
+    // the world-from-local transform handy in `RenderMeshInstancesCpu`.
+    // Otherwise, if we're doing GPU preprocessing, we need to pull the
+    // transform out of the `MeshInputUniform` GPU buffer.
+    match *render_mesh_instances {
+        RenderMeshInstances::CpuBuilding(ref render_mesh_instances_cpu) => {
+            let Some(render_mesh_instance) = render_mesh_instances_cpu.get(&entity) else {
+                return Affine3::IDENTITY;
+            };
+            render_mesh_instance.transforms.world_from_local
+        }
+        RenderMeshInstances::GpuBuilding(_) => {
+            let Some(batched_instance_buffers) = maybe_batched_instance_buffers else {
+                return Affine3::IDENTITY;
+            };
+            let Some(mesh_input_uniform) = batched_instance_buffers
+                .current_input_buffer
+                .get(current_uniform_index.0)
+            else {
+                return Affine3::IDENTITY;
+            };
+            Affine3::from_transpose(mesh_input_uniform.world_from_local)
+        }
     }
 }

@@ -82,6 +82,15 @@ impl<'a, T: Send> BufferedReceiver<'a, T> {
     }
 }
 
+impl<'a, T: Send> Clone for BufferedReceiver<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            channel: self.channel,
+            rx: self.rx.clone(),
+        }
+    }
+}
+
 /// A wrapper around a `Vec<T>` that automatically returns it to the [`BufferedChannel`]'s pool when
 /// dropped.
 pub struct RecycledVec<'a, T: Send> {

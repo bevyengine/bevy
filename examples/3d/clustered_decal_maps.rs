@@ -50,14 +50,14 @@ impl FromWorld for AppTextures {
         let asset_server = world.resource::<AssetServer>();
         AppTextures {
             decal_base_color_texture: asset_server.load("branding/bevy_bird_dark.png"),
-            decal_normal_map_texture: asset_server.load_with_settings(
-                get_web_asset_url("BevyLogo-Normal.png"),
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            ),
-            decal_metallic_roughness_map_texture: asset_server.load_with_settings(
-                get_web_asset_url("BevyLogo-MetallicRoughness.png"),
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            ),
+            decal_normal_map_texture: asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+                .load(get_web_asset_url("BevyLogo-Normal.png")),
+            decal_metallic_roughness_map_texture: asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+                .load(get_web_asset_url("BevyLogo-MetallicRoughness.png")),
             decal_emissive_texture: asset_server.load(get_web_asset_url("BevyLogo-Emissive.png")),
         }
     }
@@ -207,10 +207,10 @@ fn spawn_plane_mesh(
     // Give the plane some texture.
     //
     // Note that, as this is a normal map, we must disable sRGB when loading.
-    let normal_map_texture = asset_server.load_with_settings(
-        "textures/ScratchedGold-Normal.png",
-        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-    );
+    let normal_map_texture = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+        .load("textures/ScratchedGold-Normal.png");
 
     // Actually spawn the plane.
     commands.spawn((

@@ -7,9 +7,9 @@ use crate::{
     query::{
         ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
         QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
-        QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
-        SingleEntityQueryData,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryNotDenseError, QueryParIter,
+        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -684,6 +684,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// # Example
     ///
     /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
@@ -706,11 +713,47 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`iter`](Self::iter) for read-only query items.
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F>
-    where
-        D: IterQueryData,
-    {
-        self.reborrow().into_iter()
+    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+        self.reborrow().iter_inner()
+    }
+
+    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
+    /// # Example
+    ///
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     for player in &query {
+    ///         println!("Say hello to {}!", player.name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
+    /// ```
+    #[inline]
+    pub fn iter_inner(self) -> QueryIter<'w, 's, D, F> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - We consume the query, so mutable queries cannot alias.
+        //   Read-only queries are `Copy`, but may alias themselves.
+        unsafe { QueryIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` read-only query items without repetition.
@@ -767,9 +810,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_inner`](Self::iter_combinations_inner) for mutable query item combinations with the full `'world` lifetime.
     #[inline]
-    pub fn iter_combinations_mut<const K: usize>(
-        &mut self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    pub fn iter_combinations_mut<const K: usize>(&mut self) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().iter_combinations_inner()
     }
 
@@ -798,7 +842,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
     #[inline]
-    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K> {
+    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe { QueryCombinationIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
@@ -947,7 +994,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///        unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -1002,7 +1049,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///         unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -1061,7 +1108,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///         unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -1106,6 +1153,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// # Safety
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees.
@@ -1139,7 +1193,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    ) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.iter_combinations_inner()
     }
@@ -1381,7 +1438,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a contiguous iterator over the query results for the given
-    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// [`World`](crate::world::World) or [`Err`] with [`QueryNotDenseError`] if the query is not dense hence not contiguously
     /// iterable.
     ///
     /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
@@ -1412,16 +1469,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     ///
     /// A mutable version: [`Self::contiguous_iter_mut`]
-    pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
+    pub fn contiguous_iter(
+        &self,
+    ) -> Result<QueryContiguousIter<'_, 's, D::ReadOnly, F>, QueryNotDenseError>
     where
         D::ReadOnly: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        self.as_readonly().contiguous_iter_inner().ok()
+        self.as_readonly().contiguous_iter_inner()
     }
 
     /// Returns a mutable contiguous iterator over the query results for the given
-    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// [`World`](crate::world::World) or [`Err`] with [`QueryNotDenseError`] if the query is not dense hence not contiguously
     /// iterable.
     ///
     /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
@@ -1453,19 +1512,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     /// ```
     /// An immutable version: [`Self::contiguous_iter`]
-    pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
+    pub fn contiguous_iter_mut(
+        &mut self,
+    ) -> Result<QueryContiguousIter<'_, 's, D, F>, QueryNotDenseError>
     where
         D: ContiguousQueryData,
         F: ArchetypeFilter,
     {
-        self.reborrow().contiguous_iter_inner().ok()
+        self.reborrow().contiguous_iter_inner()
     }
 
     /// Returns a contiguous iterator over the query results for the given
-    /// [`World`](crate::world::World) or [`Err`] with this [`Query`] if the query is not dense hence not contiguously
+    /// [`World`](crate::world::World) or [`Err`] with [`QueryNotDenseError`] if the query is not dense hence not contiguously
     /// iterable.
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
-    pub fn contiguous_iter_inner(self) -> Result<QueryContiguousIter<'w, 's, D, F>, Self>
+    pub fn contiguous_iter_inner(
+        self,
+    ) -> Result<QueryContiguousIter<'w, 's, D, F>, QueryNotDenseError>
     where
         D: ContiguousQueryData,
         F: ArchetypeFilter,
@@ -1474,7 +1537,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // - `self.world` has permission to access the required components
         // - `self.world` was used to initialize `self.state`
         unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
-            .ok_or(self)
+            .ok_or(QueryNotDenseError(DebugName::type_name::<Self>()))
     }
 
     /// Returns the read-only query item for the given [`Entity`].
@@ -2668,11 +2731,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D,
     type IntoIter = QueryIter<'w, 's, D, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        // SAFETY:
-        // - `self.world` has permission to access the required components.
-        // - We consume the query, so mutable queries cannot alias.
-        //   Read-only queries are `Copy`, but may alias themselves.
-        unsafe { QueryIter::new(self.world, self.state, self.last_run, self.this_run) }
+        self.iter_inner()
     }
 }
 
@@ -2691,36 +2750,6 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
-    }
-}
-
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
-    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
-    ///
-    /// This can only return immutable data (mutable data will be cast to an immutable form).
-    /// See [`Self::iter_mut`] for queries that contain at least one mutable component.
-    ///
-    /// # Example
-    ///
-    /// Here, the `report_names_system` iterates over the `Player` component of every entity
-    /// that contains it:
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Player { name: String }
-    /// #
-    /// fn report_names_system(query: Query<&Player>) {
-    ///     for player in &query {
-    ///         println!("Say hello to {}!", player.name);
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(report_names_system);
-    /// ```
-    #[inline]
-    pub fn iter_inner(&self) -> QueryIter<'w, 's, D::ReadOnly, F> {
-        (*self).into_iter()
     }
 }
 
@@ -2793,16 +2822,31 @@ impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
+/// struct Hiding;
+///
+/// #[derive(Component)]
 /// struct Boss {
 ///    health: f32
 /// };
 ///
-/// fn hurt_boss(mut boss: Single<&mut Boss>) {
+/// #[derive(Component)]
+/// struct EnemySize {
+///    height: f32
+/// };
+///
+/// fn hurt_boss(mut boss: Single<&mut Boss, Without<Hiding>>) {
 ///    boss.health -= 4.0;
+/// }
+///
+/// fn hurt_and_shrink_boss(mut boss_and_size: Single<(&mut Boss, &mut EnemySize)>) {
+///    let (mut boss, mut size) = boss_and_size.into_inner();
+///    boss.health -= 4.0;
+///    size.height *= 0.5;
 /// }
 /// ```
 /// Note that because [`Single`] implements [`Deref`] and [`DerefMut`], methods and fields like `health` can be accessed directly.
 /// You can also access the underlying data manually, by calling `.deref`/`.deref_mut`, or by using the `*` operator.
+/// When mutable elements appear in [`Single`], use `.into_inner` to extract the tuple elements to mutate them.
 pub struct Single<'w, 's, D: IterQueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w, 's>,
     pub(crate) _filter: PhantomData<F>,

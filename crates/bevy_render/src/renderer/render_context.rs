@@ -13,6 +13,7 @@ use bevy_ecs::system::{
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
+#[cfg(feature = "trace")]
 use bevy_log::info_span;
 use core::marker::PhantomData;
 use wgpu::CommandBuffer;
@@ -38,16 +39,20 @@ impl PendingCommandBuffers {
         self.0.buffers.extend(buffers);
     }
 
+    pub fn append(&mut self, buffers: &mut Vec<CommandBuffer>) {
+        self.0.buffers.append(buffers);
+    }
+
     pub fn push_encoder(&mut self, encoder: CommandEncoder) {
         self.0.encoders.push(encoder);
     }
 
-    pub fn take(&mut self) -> Vec<CommandBuffer> {
-        let encoders: Vec<_> = self.0.encoders.drain(..).collect();
-        for encoder in encoders {
-            self.0.buffers.push(encoder.finish());
-        }
-        core::mem::take(&mut self.0.buffers)
+    pub fn take(&mut self) -> impl Iterator<Item = CommandBuffer> {
+        let inner = &mut *self.0;
+        inner
+            .buffers
+            .drain(..)
+            .chain(inner.encoders.drain(..).map(CommandEncoder::finish))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -66,6 +71,14 @@ struct RenderContextStateInner {
     render_device: Option<RenderDevice>,
 }
 
+impl RenderContextStateInner {
+    fn flush_encoder(&mut self) {
+        if let Some(encoder) = self.command_encoder.take() {
+            self.command_buffers.push(encoder.finish());
+        }
+    }
+}
+
 /// A resource that holds the current render context state, including command encoder and command buffers.
 /// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to flush
 /// command buffers at the end of each render system in topological system order.
@@ -79,9 +92,7 @@ impl Default for RenderContextState {
 
 impl RenderContextState {
     fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.0.command_encoder.take() {
-            self.0.command_buffers.push(encoder.finish());
-        }
+        self.0.flush_encoder();
     }
 
     fn command_encoder(&mut self) -> &mut CommandEncoder {
@@ -96,26 +107,26 @@ impl RenderContextState {
         })
     }
 
-    pub fn finish(&mut self) -> Vec<CommandBuffer> {
+    pub fn finish(&mut self) -> impl Iterator<Item = CommandBuffer> {
         self.flush_encoder();
-        core::mem::take(&mut self.0.command_buffers)
+        self.0.command_buffers.drain(..)
     }
 }
 
 impl SystemBuffer for RenderContextState {
-    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
-        let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        #[cfg(feature = "trace")]
+        let _span =
+            info_span!("RenderContextState::apply", system = %_system_meta.name()).entered();
 
         let inner = &mut *self.0;
 
         // flush to ensure correct submission order
-        if let Some(encoder) = inner.command_encoder.take() {
-            inner.command_buffers.push(encoder.finish());
-        }
+        inner.flush_encoder();
 
         if !inner.command_buffers.is_empty() {
             let mut pending = world.resource_mut::<PendingCommandBuffers>();
-            pending.push(core::mem::take(&mut inner.command_buffers));
+            pending.append(&mut inner.command_buffers);
         }
 
         inner.render_device = None;
@@ -190,8 +201,8 @@ pub struct FlushCommands<'w> {
 impl<'w> FlushCommands<'w> {
     /// Flushes all pending command buffers to the render queue.
     pub fn flush(&mut self) {
-        let buffers = self.pending.take();
-        if !buffers.is_empty() {
+        let mut buffers = self.pending.take().peekable();
+        if buffers.peek().is_some() {
             self.queue.submit(buffers);
         }
     }
@@ -249,7 +260,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        component_access_set.add_unfiltered_resource_read(state.resource_id);
+        component_access_set.add_resource_read(state.resource_id);
 
         <Query<'_, '_, D, F> as SystemParam>::init_access(
             &state.query_state,
@@ -260,11 +271,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
         _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
         let current_view = unsafe { world.get_resource::<CurrentView>() };
 
@@ -278,47 +290,15 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
         // SAFETY: Query state access is properly registered in init_access.
         // The caller ensures the world matches the one used in init_state.
-        let result = unsafe { state.query_state.get_unchecked(world, entity) };
+        let item = unsafe { state.query_state.get_unchecked(world, entity) }.map_err(|_| {
+            SystemParamValidationError::skipped::<Self>("Current view entity does not match query")
+        })?;
 
-        if result.is_err() {
-            return Err(SystemParamValidationError::skipped::<Self>(
-                "Current view entity does not match query",
-            ));
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        // SAFETY: We have registered resource read access and validate_param succeeded
-        let current_view = unsafe {
-            world
-                .get_resource::<CurrentView>()
-                .expect("CurrentView must exist")
-        };
-
-        let entity = current_view.entity();
-
-        // SAFETY: Query state access is properly registered in init_access.
-        // validate_param verified the entity matches.
-        let item = unsafe {
-            state
-                .query_state
-                .get_unchecked(world, entity)
-                .expect("view entity must match query")
-        };
-
-        ViewQuery {
+        Ok(ViewQuery {
             entity,
             item,
             _filter: PhantomData,
-        }
+        })
     }
 }
 

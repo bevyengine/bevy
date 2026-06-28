@@ -11,6 +11,8 @@ use bevy_app::{App, Plugin};
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
@@ -27,11 +29,15 @@ use wgpu_types::{
 
 /// Trait used to provide default values for Bevy-external types that
 /// do not implement [`Default`].
+#[deprecated(
+    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
+)]
 pub trait BevyDefault {
     /// Returns the default value for a type.
     fn bevy_default() -> Self;
 }
 
+#[expect(deprecated, reason = "deprecated")]
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
@@ -240,41 +246,55 @@ impl Plugin for ImagePlugin {
     }
 }
 
-pub const TEXTURE_ASSET_INDEX: u64 = 0;
-pub const SAMPLER_ASSET_INDEX: u64 = 1;
-
+/// The format of an on-disk image asset.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
+    /// An image in basis universal format.
     #[cfg(feature = "basis-universal")]
     Basis,
+    /// An image in BMP format.
     #[cfg(feature = "bmp")]
     Bmp,
+    /// An image in DDS format.
     #[cfg(feature = "dds")]
     Dds,
+    /// An image in Farbfeld format.
     #[cfg(feature = "ff")]
     Farbfeld,
+    /// An image in GIF format.
     #[cfg(feature = "gif")]
     Gif,
+    /// An image in Open EXR format.
     #[cfg(feature = "exr")]
     OpenExr,
+    /// An image in Radiance HDR format.
     #[cfg(feature = "hdr")]
     Hdr,
+    /// An image in ICO format.
     #[cfg(feature = "ico")]
     Ico,
+    /// An image in JPEG format.
     #[cfg(feature = "jpeg")]
     Jpeg,
+    /// An image in Khronos KTX2 format.
     #[cfg(feature = "ktx2")]
     Ktx2,
+    /// An image in PNG format.
     #[cfg(feature = "png")]
     Png,
+    /// An image in general PNM format
     #[cfg(feature = "pnm")]
     Pnm,
+    /// An image in QOI format.
     #[cfg(feature = "qoi")]
     Qoi,
+    /// An image in TGA format.
     #[cfg(feature = "tga")]
     Tga,
+    /// An image in TIFF format.
     #[cfg(feature = "tiff")]
     Tiff,
+    /// An image in WEBP format.
     #[cfg(feature = "webp")]
     WebP,
 }
@@ -395,6 +415,9 @@ impl ImageFormat {
         }
     }
 
+    /// Returns the image format associated with the given MIME type.
+    ///
+    /// `None` is returned if the MIME type is unknown, or its format's feature is not enabled.
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         #[expect(
             clippy::allow_attributes,
@@ -428,6 +451,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the image format associated with the given file extension.
+    ///
+    /// `None` is returned if the extension is unknown, or its format's feature is not enabled.
     pub fn from_extension(extension: &str) -> Option<Self> {
         #[expect(
             clippy::allow_attributes,
@@ -458,6 +484,7 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the equivalent [`image::ImageFormat`] if available.
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         #[expect(
             clippy::allow_attributes,
@@ -513,6 +540,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the equivalent bevy [`ImageFormat`] of an [`image::ImageFormat`].
+    ///
+    /// Returns `None` if the format is unsupported, or its feature is disabled.
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
         #[expect(
             clippy::allow_attributes,
@@ -542,7 +572,9 @@ impl ImageFormat {
     }
 }
 
+/// A trait for creating [`Extent3d`] values.
 pub trait ToExtents {
+    /// Converts this type to an [`Extent3d`].
     fn to_extents(self) -> Extent3d;
 }
 impl ToExtents for UVec2 {
@@ -576,6 +608,7 @@ impl ToExtents for UVec3 {
     derive(Reflect),
     reflect(opaque, Default, Debug, Clone)
 )]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 #[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct Image {
     /// Raw pixel data.
@@ -606,9 +639,29 @@ pub struct Image {
     /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
     ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
+    /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
+}
+
+#[cfg(feature = "serialize")]
+mod image_serde {
+    use super::*;
+
+    impl Serialize for Image {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            super::super::serialized_image::SerializedImage::from_image(self.clone())
+                .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Image {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            super::super::serialized_image::SerializedImage::deserialize(deserializer)
+                .map(super::super::serialized_image::SerializedImage::into_image)
+        }
+    }
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -778,6 +831,7 @@ pub enum ImageSamplerBorderColor {
     reflect(Default, Debug, Clone)
 )]
 pub struct ImageSamplerDescriptor {
+    /// An optional label used to identify this sampler in logs.
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
     pub address_mode_u: ImageAddressMode,
@@ -875,6 +929,7 @@ impl ImageSamplerDescriptor {
         self
     }
 
+    /// Converts this sampler to its `wgpu` equivalent.
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -1053,7 +1108,7 @@ impl Image {
     ) -> Self {
         if let Ok(pixel_size) = format.pixel_size() {
             debug_assert_eq!(
-                size.volume() * pixel_size,
+                pixel_count(size) * pixel_size,
                 data.len(),
                 "Pixel data, size and format have to match",
             );
@@ -1099,7 +1154,7 @@ impl Image {
         // We rely on the default texture format being RGBA8UnormSrgb
         // when constructing a transparent color from bytes.
         // If this changes, this function will need to be updated.
-        let format = TextureFormat::bevy_default();
+        let format = TextureFormat::Rgba8UnormSrgb;
         if let Ok(pixel_size) = format.pixel_size() {
             debug_assert!(pixel_size == 4);
         }
@@ -1117,7 +1172,7 @@ impl Image {
         Image::new_uninit(
             Extent3d::default(),
             TextureDimension::D2,
-            TextureFormat::bevy_default(),
+            TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::default(),
         )
     }
@@ -1138,7 +1193,7 @@ impl Image {
         if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
             && pixel_size > 0
         {
-            let byte_len = pixel_size * size.volume();
+            let byte_len = pixel_size * pixel_count(size);
             debug_assert_eq!(
                 pixel.len() % pixel_size,
                 0,
@@ -1194,7 +1249,7 @@ impl Image {
             0;
             format.pixel_size().expect(
                 "Failed to create Image: can't get pixel size for this TextureFormat"
-            ) * size.volume()
+            ) * pixel_count(size)
         ];
 
         Image {
@@ -1264,7 +1319,7 @@ impl Image {
         if let Some(ref mut data) = self.data
             && let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
         {
-            data.resize(size.volume() * pixel_size, 0);
+            data.resize(pixel_count(size) * pixel_size, 0);
         }
     }
 
@@ -1274,7 +1329,7 @@ impl Image {
         &mut self,
         new_size: Extent3d,
     ) -> Result<(), TextureReinterpretationError> {
-        if new_size.volume() != self.texture_descriptor.size.volume() {
+        if pixel_count(new_size) != pixel_count(self.texture_descriptor.size) {
             return Err(TextureReinterpretationError::IncompatibleSizes {
                 old: self.texture_descriptor.size,
                 new: new_size,
@@ -1292,7 +1347,7 @@ impl Image {
     pub fn resize_in_place(&mut self, new_size: Extent3d) {
         if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size() {
             let old_size = self.texture_descriptor.size;
-            let byte_len = pixel_size * new_size.volume();
+            let byte_len = pixel_size * pixel_count(new_size);
             self.texture_descriptor.size = new_size;
 
             let Some(ref mut data) = self.data else {
@@ -1342,6 +1397,9 @@ impl Image {
         layers: u32,
     ) -> Result<(), TextureReinterpretationError> {
         // Must be a stacked image, and the height must be divisible by layers.
+        if layers < 2 {
+            return Err(TextureReinterpretationError::NotEnoughLayers);
+        }
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureReinterpretationError::WrongDimension);
         }
@@ -1362,6 +1420,108 @@ impl Image {
         })?;
 
         Ok(())
+    }
+
+    /// Returns a newly constructed 2D image using the same properties as &self from a grid of tiles of the specified size,
+    /// The new image is constructed in a vertical stack of tiles to be used as a 2D array texture.
+    ///
+    /// This is primarily for preparing grid based tilesets.
+    ///
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable by `size_in_tiles`.
+    pub fn create_stacked_array_from_2d_grid(
+        &self,
+        rows: u32,
+        columns: u32,
+    ) -> Result<Image, TextureReinterpretationError> {
+        // In a texture 2d array, there must be at least 2 textures or else a render validation
+        // error will be thrown.
+        if rows * columns < 2 {
+            return Err(TextureReinterpretationError::NotEnoughLayers);
+        }
+        // Must be a grid image, and the image height and width must be divisible by the rows and columns.
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureReinterpretationError::WrongDimension);
+        }
+        if self.texture_descriptor.size.depth_or_array_layers != 1 {
+            return Err(TextureReinterpretationError::InvalidLayerCount);
+        }
+        if !self.height().is_multiple_of(rows) {
+            return Err(
+                TextureReinterpretationError::GridHeightNotDivisibleByTileHeight {
+                    height: self.height(),
+                    tile_count_y: rows,
+                },
+            );
+        }
+        if !self.width().is_multiple_of(columns) {
+            return Err(
+                TextureReinterpretationError::GridWidthNotDivisibleByTileWidth {
+                    width: self.width(),
+                    tile_count_x: columns,
+                },
+            );
+        }
+
+        let tile_width = self.width() / columns;
+        let tile_height = self.height() / rows;
+        let tiles_x = columns as usize;
+        let tiles_y = rows as usize;
+        let image_width = self.width() as usize;
+        let total_tiles = tiles_x * tiles_y;
+
+        let new_data = match &self.data {
+            Some(pixels) => {
+                let mut new_data: Vec<u8> = Vec::with_capacity(pixels.len());
+
+                let pixel_size = self
+                    .texture_descriptor
+                    .format
+                    .pixel_size()
+                    .map_err(|_| TextureReinterpretationError::InvalidTextureFormat)?;
+
+                // Iterate tiles in row-major order (left-to-right, top-to-bottom).
+                let tile_height_usize = tile_height as usize;
+                let tile_width_usize = tile_width as usize;
+
+                for ty in 0..tiles_y {
+                    for tx in 0..tiles_x {
+                        for row in 0..tile_height_usize {
+                            let src_row = ty * tile_height_usize + row;
+                            let src_col = tx * tile_width_usize;
+                            let src_start = (src_row * image_width + src_col) * pixel_size;
+                            let src_end = src_start + tile_width_usize * pixel_size;
+                            new_data.extend_from_slice(&pixels[src_start..src_end]);
+                        }
+                    }
+                }
+
+                Some(new_data)
+            }
+            None => None,
+        };
+
+        // Transform the grid of tiles into a single vertical stack of tiles.
+
+        let new_image = Image {
+            data: new_data,
+            data_order: self.data_order,
+            texture_descriptor: TextureDescriptor {
+                size: Extent3d {
+                    width: tile_width,
+                    height: tile_height,
+                    depth_or_array_layers: total_tiles as u32,
+                },
+                ..self.texture_descriptor.clone()
+            },
+            sampler: self.sampler.clone(),
+            texture_view_descriptor: self.texture_view_descriptor.clone(),
+            asset_usage: self.asset_usage,
+            copy_on_resize: self.copy_on_resize,
+        };
+
+        Ok(new_image)
     }
 
     /// Convert a texture from a format to another. Only a few formats are
@@ -1457,6 +1617,9 @@ impl Image {
             .contains(Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
                 .required_features()
+                .contains(Features::TEXTURE_COMPRESSION_ASTC_HDR)
+            || format_description
+                .required_features()
                 .contains(Features::TEXTURE_COMPRESSION_BC)
             || format_description
                 .required_features()
@@ -1532,7 +1695,7 @@ impl Image {
         if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
             && pixel_size > 0
         {
-            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            let byte_len = pixel_size * pixel_count(self.texture_descriptor.size);
             debug_assert_eq!(
                 pixel.len() % pixel_size,
                 0,
@@ -1635,7 +1798,10 @@ impl Image {
     /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
     /// you used when writing it using this function.
     ///
-    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    /// For RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    ///
+    /// For R formats the linear RGB [`Color`] will be converted to grayscale
+    /// and the R channel will be the luminance.
     ///
     /// Other [`TextureFormat`]s are unsupported, such as:
     ///  - block-compressed formats
@@ -1967,20 +2133,30 @@ impl Image {
     }
 }
 
+/// A [UASTC] texture channel layout
+///
+/// [UASTC]: https://github.com/BinomialLLC/basis_universal/wiki/UASTC-Texture-Specification/b624c07ad3c659e7b0f0badcb36e9a6b8820a99d
 #[derive(Clone, Copy, Debug)]
-pub enum DataFormat {
+pub enum TextureChannelLayout {
+    /// 3-color
     Rgb,
+    /// 4-color
     Rgba,
+    /// 1-color (R) extended to 3 (RRR)
     Rrr,
+    /// 2-color (RG) extended to 4 (RRRG)
     Rrrg,
+    /// 2-color
     Rg,
 }
 
 /// Texture data need to be transcoded from this format for use with `wgpu`.
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
+    /// Has to be transcoded from a compressed ETC1S texture.
     Etc1s,
-    Uastc(DataFormat),
+    /// Has to be transcoded from a compressed UASTC texture.
+    Uastc(TextureChannelLayout),
     /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
     /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.
@@ -1992,25 +2168,79 @@ pub enum TranscodeFormat {
 /// An error that occurs when reinterpreting an image.
 #[derive(Error, Debug)]
 pub enum TextureReinterpretationError {
+    /// The pixel volumes of the original and reinterpreted extents were different.
     #[error("incompatible sizes: old = {old:?} new = {new:?}")]
-    IncompatibleSizes { old: Extent3d, new: Extent3d },
+    IncompatibleSizes {
+        /// The original image extent.
+        old: Extent3d,
+        /// The desired reinterpreted extent.
+        new: Extent3d,
+    },
+    /// The image was expected to be 2d.
     #[error("must be a 2d image")]
     WrongDimension,
+    /// In a texture 2d array, there needs to be at least 2 layers or else a render validation error
+    /// will be throw.
+    #[error("Rows * Columns must be > 1")]
+    NotEnoughLayers,
+    /// The image was expected to have a single layer.
     #[error("must not already be a layered image")]
     InvalidLayerCount,
+    /// The stacked image could not be evenly divided into the desired number of image layers.
     #[error("can not evenly divide height = {height} by layers = {layers}")]
-    HeightNotDivisibleByLayers { height: u32, layers: u32 },
+    HeightNotDivisibleByLayers {
+        /// The total image height in pixels.
+        height: u32,
+        /// The desired number of image layers.
+        layers: u32,
+    },
+    /// The grid height is not divisible by the number of tiles in the height.
+    #[error("can not evenly divide grid with height = {height} by tiles = {tile_count_y}")]
+    GridHeightNotDivisibleByTileHeight {
+        /// The total image height in pixels.
+        height: u32,
+        /// The desired number of image layers.
+        tile_count_y: u32,
+    },
+    /// The grid width is not divisible by the number of tiles in the width.
+    #[error("can not evenly divide grid with width = {width} by tiles = {tile_count_x}")]
+    GridWidthNotDivisibleByTileWidth {
+        /// The total image height in pixels.
+        width: u32,
+        /// The desired number of image layers.
+        tile_count_x: u32,
+    },
+    /// The texture format is not supported.
+    #[error("Cannot process texture in its current format. Is it compressed?")]
+    InvalidTextureFormat,
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
+    /// Attempted to access a pixel outside the texture bounds.
     #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
-    OutOfBounds { x: u32, y: u32, z: u32 },
+    OutOfBounds {
+        /// The pixel x-coordinate.
+        x: u32,
+        /// The pixel y-coordinate.
+        y: u32,
+        /// The pixel z-coordinate.
+        z: u32,
+    },
+    /// Attempted to perform an image operation on an unsupported texture format.
+    ///
+    /// Most often this is returned when attempting to access pixel data of compressed textures.
     #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
+    /// Attempted to access the data of an image before it was initialized, or after it was moved
+    /// to the GPU.
+    ///
+    /// See [`RenderAssetUsages`] for more information about when an asset's data is moved, and
+    /// how to retain it if necessary.
     #[error("image data is not initialized")]
     Uninitialized,
+    /// The texture's dimension was different than indicated by the accessor used.
     #[error("attempt to access texture with different dimension")]
     WrongDimension,
 }
@@ -2062,6 +2292,12 @@ pub enum ImageType<'a> {
 }
 
 impl<'a> ImageType<'a> {
+    /// Attempts to detect the appropriate [`ImageFormat`] for this image type.
+    ///
+    /// # Errors
+    ///
+    /// A [`TextureError`] will be returned if this image type is a MIME type or file extension for
+    /// an unsupported or disabled format.
     pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
         match self {
             ImageType::MimeType(mime_type) => ImageFormat::from_mime_type(mime_type)
@@ -2073,16 +2309,9 @@ impl<'a> ImageType<'a> {
     }
 }
 
-/// Used to calculate the volume of an item.
-pub trait Volume {
-    fn volume(&self) -> usize;
-}
-
-impl Volume for Extent3d {
-    /// Calculates the volume of the [`Extent3d`].
-    fn volume(&self) -> usize {
-        (self.width * self.height * self.depth_or_array_layers) as usize
-    }
+/// Calculates the total number of pixels in the item.
+fn pixel_count(item: Extent3d) -> usize {
+    (item.width * item.height * item.depth_or_array_layers) as usize
 }
 
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
@@ -2103,21 +2332,57 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 bitflags::bitflags! {
+    /// A set of flags describing the compressed formats supported by a render device.
     #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
+        /// No support for compressed textures.
         const NONE     = 0;
+        /// Support for Adaptive Scalable Texture Compression.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ASTC`]
+        /// - [ASTC Format Specification]
+        ///
+        /// [ASTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ASTC
         const ASTC_LDR = 1 << 0;
-        const BC       = 1 << 1;
-        const ETC2     = 1 << 2;
+        /// Support for ASTC HDR textures.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ASTC_HDR`]
+        const ASTC_HDR = 1 << 1;
+        /// Support for Block Compressed textures.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_BC`]
+        /// - [S3TC Format Specification] (BC1, BC2, BC3)
+        /// - [RGTC Format Specification] (BC4, BC5)
+        /// - [BPTC Format Specification] (BC6, BC7)
+        ///
+        /// [S3TC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#S3TC
+        /// [RGTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#RGTC
+        /// [BPTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#BPTC
+        const BC       = 1 << 2;
+        /// Support for Ericsson Texture Compression.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ETC2`]
+        /// - [ETC2 Format Specification]
+        ///
+        /// [ETC2 Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ETC2
+        const ETC2     = 1 << 3;
     }
 }
 
 impl CompressedImageFormats {
+    /// Get the supported texture compression formats from a wgpu device's features.
     pub fn from_features(features: Features) -> Self {
         let mut supported_compressed_formats = Self::default();
         if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
+        }
+        if features.contains(Features::TEXTURE_COMPRESSION_ASTC_HDR) {
+            supported_compressed_formats |= Self::ASTC_HDR;
         }
         if features.contains(Features::TEXTURE_COMPRESSION_BC) {
             supported_compressed_formats |= Self::BC;
@@ -2128,6 +2393,10 @@ impl CompressedImageFormats {
         supported_compressed_formats
     }
 
+    /// Returns `true` if the given [`TextureFormat`] is supported by the available compression
+    /// features.
+    ///
+    /// Always returns `true` for uncompressed formats.
     pub fn supports(&self, format: TextureFormat) -> bool {
         match format {
             TextureFormat::Bc1RgbaUnorm
@@ -2154,6 +2423,10 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Astc {
+                channel: wgpu_types::AstcChannel::Hdr,
+                ..
+            } => self.contains(CompressedImageFormats::ASTC_HDR),
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
@@ -2430,6 +2703,111 @@ mod test {
     }
 
     #[test]
+    fn create_array_from_2d_grid() {
+        // 2x2 pixel image
+        let image = Image::new_fill(
+            Extent3d {
+                width: 6,
+                height: 6,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(2, 2).unwrap();
+
+        // 2x2 pixel image with 1px tiles should convert to a 2d array of 4 layers
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 2 * 2
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
+
+        // 9x2 pixel image with 3x2px tiles should convert to array of 3 layers
+        let image = Image::new_fill(
+            Extent3d {
+                width: 9,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 3).unwrap();
+
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 3
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
+
+        let image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 2).unwrap();
+
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 2
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
+    }
+
+    #[test]
     fn image_clear() {
         let mut image = Image::new_fill(
             Extent3d {
@@ -2454,7 +2832,7 @@ mod test {
     fn get_or_init_sampler_modifications() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
-        // a load_with_settings call wants to customize the descriptor
+        // a LoadBuilder::with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
             .set_filter(ImageFilterMode::Linear)
@@ -2471,7 +2849,7 @@ mod test {
     fn get_or_init_sampler_anisotropy() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
-        // a load_with_settings call wants to customize the descriptor
+        // a LoadBuilder::with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
             .set_anisotropic_filter(8);

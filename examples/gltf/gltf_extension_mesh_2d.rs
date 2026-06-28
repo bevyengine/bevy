@@ -3,7 +3,7 @@
 use bevy::{
     asset::LoadContext,
     gltf::{
-        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
         GltfPlugin,
     },
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
@@ -55,7 +55,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/barycentric/barycentric.gltf")),
         ),
@@ -92,7 +92,7 @@ impl Plugin for GltfToMesh2dPlugin {
 struct GltfExtensionHandlerToMesh2d;
 
 impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
 

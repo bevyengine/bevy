@@ -3,7 +3,7 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 //!
-//! [`Material2d`]: bevy::sprite::Material2d
+//! [`Material2d`]: bevy::sprite_render::Material2d
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -23,12 +23,12 @@ use bevy::{
             BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
             DepthStencilState, Face, FragmentState, MultisampleState, PipelineCache,
             PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
-            VertexFormat, VertexState, VertexStepMode,
+            SpecializedRenderPipelines, StencilFaceState, StencilState, VertexFormat, VertexState,
+            VertexStepMode,
         },
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities},
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
@@ -126,7 +126,7 @@ fn star(
 pub struct ColoredMesh2d;
 
 impl SyncComponent for ColoredMesh2d {
-    type Out = Self;
+    type Target = Self;
 }
 
 /// Custom pipeline for 2d meshes with vertex colors
@@ -167,10 +167,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.target_format();
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -200,12 +197,13 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -401,13 +399,13 @@ pub fn queue_colored_mesh2d(
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
         // Queue all entities visible to that view
         let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
             continue;
         };
-        for (render_entity, visible_entity) in visible_entities.entities.iter() {
+        for (render_entity, visible_entity) in visible_entities.iter_visible() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;
@@ -416,13 +414,16 @@ pub fn queue_colored_mesh2d(
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
                     continue;
                 };
-                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
+                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                );
 
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
                 let mesh_z = mesh2d_transforms.world_from_local.translation.z;
-                transparent_phase.add(Transparent2d {
+                transparent_phase.add_retained(Transparent2d {
                     entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,

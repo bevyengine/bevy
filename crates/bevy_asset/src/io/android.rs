@@ -1,3 +1,6 @@
+//! Asset reader for Android devices.
+//! See [`AndroidAssetReader`] for details.
+
 use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 use alloc::{borrow::ToOwned, boxed::Box, ffi::CString, vec::Vec};
 use futures_lite::stream;

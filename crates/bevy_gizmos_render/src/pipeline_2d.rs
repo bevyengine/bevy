@@ -15,9 +15,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
-use bevy_render::RenderStartup;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -25,9 +23,10 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite_render::{
     init_mesh_2d_pipeline, Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup,
@@ -47,8 +46,8 @@ impl Plugin for LineGizmo2dPlugin {
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
             .add_render_command::<Transparent2d, DrawLineGizmo2dStrip>()
             .add_render_command::<Transparent2d, DrawLineJointGizmo2d>()
-            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
                 GizmoRenderSystems::QueueLineGizmos2d
@@ -111,11 +110,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.mesh_key.target_format();
 
         let shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -150,12 +145,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             layout,
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -196,11 +192,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.mesh_key.target_format();
 
         let shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -228,6 +220,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -243,8 +236,8 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -317,7 +310,7 @@ fn queue_line_and_joint_gizmos_2d(
         };
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, config) in &line_gizmos {

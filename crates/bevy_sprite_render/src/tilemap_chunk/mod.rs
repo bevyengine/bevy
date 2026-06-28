@@ -11,6 +11,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
+    template::FromTemplate,
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -48,7 +49,7 @@ pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
@@ -126,8 +127,10 @@ impl Default for TileData {
 
 /// Component storing the data of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Clone, Debug)]
+///
+/// Data is interpreted in Y-up format. Use [`TilemapChunkTileData::from_y_down_tiles`] to convert from Y-down formatted data.
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, Default)]
+#[reflect(Component, Clone, Debug, Default)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 
 fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -254,5 +257,89 @@ impl TilemapChunkTileData {
         self.0
             .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
             .and_then(|opt| opt.as_ref())
+    }
+
+    /// Creates a [`TilemapChunkTileData`] by converting tile data from Y-down format to Y-up format.
+    pub fn from_y_down_tiles(chunk_size: UVec2, mut data: Vec<Option<TileData>>) -> Self {
+        for y in 0..chunk_size.y / 2 {
+            // reverse the order of rows to convert from Y-down to Y-up format
+            // a row from the top is swapped with the row mirrored around the middle, which is from the bottom
+            let row_start = y * chunk_size.x;
+            let mirrored_row_start = (chunk_size.y - 1 - y) * chunk_size.x;
+
+            let (top_portion, bottom_portion) = data.split_at_mut(mirrored_row_start as usize);
+
+            top_portion[row_start as usize..(row_start + chunk_size.x) as usize]
+                .swap_with_slice(&mut bottom_portion[..chunk_size.x as usize]);
+        }
+
+        Self(data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_y_down_tiles_with_odd_chunk_height() {
+        let chunk_size = UVec2::new(2, 3);
+        let data = vec![
+            1, 2, //
+            3, 4, //
+            5, 6,
+        ]
+        .into_iter()
+        .map(|tileset_index: u16| Some(TileData::from_tileset_index(tileset_index)))
+        .collect();
+
+        let TilemapChunkTileData(data) = TilemapChunkTileData::from_y_down_tiles(chunk_size, data);
+        let data = data
+            .into_iter()
+            .map(|opt| opt.map(|tile| tile.tileset_index))
+            .collect::<Vec<_>>();
+
+        let expected_data = vec![
+            5, 6, //
+            3, 4, //
+            1, 2,
+        ]
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
+
+        assert_eq!(data, expected_data);
+    }
+
+    #[test]
+    fn test_from_y_down_tiles_with_even_chunk_height() {
+        let chunk_size = UVec2::new(2, 4);
+        let data = vec![
+            1, 2, //
+            3, 4, //
+            5, 6, //
+            7, 8,
+        ]
+        .into_iter()
+        .map(|tileset_index| Some(TileData::from_tileset_index(tileset_index)))
+        .collect();
+
+        let TilemapChunkTileData(data) = TilemapChunkTileData::from_y_down_tiles(chunk_size, data);
+        let data = data
+            .into_iter()
+            .map(|opt| opt.map(|tile| tile.tileset_index))
+            .collect::<Vec<_>>();
+
+        let expected_data = vec![
+            7, 8, //
+            5, 6, //
+            3, 4, //
+            1, 2,
+        ]
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
+
+        assert_eq!(data, expected_data);
     }
 }

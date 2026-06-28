@@ -2,17 +2,28 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    ComputedNode, GlobalZIndex, ZIndex,
+    GlobalZIndex, ZIndex,
 };
-use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use core::ops::Range;
+
+/// The order of the node in the UI layout.
+/// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
+///
+/// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
+#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default)]
+pub struct ComputedStackIndex(pub u32);
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
 /// The first entry is the furthest node from the camera and is the first one to get rendered
 /// while the last entry is the first node to receive interactions.
-#[derive(Debug, Resource, Default)]
+#[derive(Debug, Resource, Default, Reflect)]
+#[reflect(Resource, Default)]
 pub struct UiStack {
     /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
     pub partition: Vec<Range<usize>>,
@@ -43,14 +54,17 @@ impl ChildBufferCache {
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
-    mut visited_root_nodes: Local<HashSet<Entity>>,
+    mut visited_root_nodes: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
+    zindex_global_node_query: Query<
+        (Entity, &GlobalZIndex, Option<&ZIndex>),
+        With<ComputedStackIndex>,
+    >,
     ui_children: UiChildren,
-    zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
-    mut update_query: Query<&mut ComputedNode>,
+    zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut ComputedStackIndex>,
 ) {
     ui_stack.partition.clear();
     ui_stack.uinodes.clear();
@@ -97,8 +111,8 @@ pub fn ui_stack_system(
     }
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok(mut node) = update_query.get_mut(*entity) {
-            node.bypass_change_detection().stack_index = i as u32;
+        if let Ok(mut stack_index) = update_query.get_mut(*entity) {
+            stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
     }
 }
@@ -107,7 +121,7 @@ fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
     ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);

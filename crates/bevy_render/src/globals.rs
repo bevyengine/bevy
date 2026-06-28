@@ -2,7 +2,7 @@ use crate::{
     extract_resource::ExtractResource,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_diagnostic::FrameCount;
@@ -18,7 +18,7 @@ impl Plugin for GlobalsPlugin {
         load_shader_library!(app, "globals.wgsl");
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<GlobalsBuffer>()
+                .init_gpu_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
                 .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
                 .add_systems(
@@ -48,7 +48,7 @@ pub struct GlobalsUniform {
     /// The delta time since the previous frame in seconds
     delta_time: f32,
     /// Frame count since the start of the app.
-    /// It wraps to zero when it reaches the maximum value of a u32.
+    /// It wraps to zero when it reaches `u32::MAX`.
     frame_count: u32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

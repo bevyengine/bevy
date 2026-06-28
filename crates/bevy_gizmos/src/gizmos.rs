@@ -229,43 +229,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegated to existing `SystemParam` implementation.
-        unsafe {
-            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)?;
-        }
-
-        // SAFETY: Delegated to existing `SystemParam` implementation.
-        let (_, f1) = unsafe {
-            GizmosState::<Config, Clear>::get_param(
-                &mut state.state,
-                system_meta,
-                world,
-                world.change_tick(),
-            )
-        };
-        // This if-block is to accommodate an Option<Gizmos> SystemParam.
-        // The user may decide not to initialize a gizmo group, so its config will not exist.
-        if f1.get_config::<Config>().is_none() {
-            Err(SystemParamValidationError::invalid::<Self>(
-                format!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", 
-                Config::type_path())))
-        } else {
-            Ok(())
-        }
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         let (mut f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
@@ -273,20 +242,27 @@ where
                 system_meta,
                 world,
                 change_tick,
-            )
+            )?
         };
 
         // Accessing the GizmoConfigStore in every API call reduces performance significantly.
         // Implementing SystemParam manually allows us to cache whether the config is currently enabled.
         // Having this available allows for cheap early returns when gizmos are disabled.
-        let (config, config_ext) = f1.into_inner().config::<Config>();
+        //
+        // We use `get_config` instead of `config` to accommodate `Option<Gizmos>`:
+        // the user may decide not to initialize a gizmo group, so its config will not exist.
+        let (config, config_ext) = f1.into_inner().get_config::<Config>().ok_or_else(|| {
+            SystemParamValidationError::invalid::<Self>(
+                format!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", 
+                Config::type_path()))
+        })?;
         f0.enabled = config.enabled;
 
-        Gizmos {
+        Ok(Gizmos {
             buffer: f0,
             config,
             config_ext,
-        }
+        })
     }
 }
 

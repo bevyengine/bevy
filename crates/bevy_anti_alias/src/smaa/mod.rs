@@ -31,8 +31,6 @@
 //! [SMAA]: https://www.iryoku.com/smaa/
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-#[cfg(not(feature = "smaa_luts"))]
-use bevy_core_pipeline::tonemapping::lut_placeholder;
 use bevy_core_pipeline::{
     schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
     tonemapping::tonemapping,
@@ -41,15 +39,13 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    lifecycle::Remove,
-    observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image, ToExtents};
+use bevy_image::{Image, ToExtents};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -72,7 +68,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
@@ -85,6 +81,13 @@ pub struct SmaaPlugin;
 /// for a [`bevy_camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
+#[extract_component_sync_target((
+	Self,
+	SmaaTextures,
+    SmaaPipelines,
+    SmaaBindGroups,
+    ViewSmaaPipelines,
+))]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
@@ -172,7 +175,7 @@ struct SmaaNeighborhoodBlendingPipeline {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SmaaNeighborhoodBlendingPipelineKey {
     /// The format of the framebuffer.
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     /// The quality preset.
     preset: SmaaPreset,
 }
@@ -317,8 +320,33 @@ impl Plugin for SmaaPlugin {
         };
         #[cfg(not(feature = "smaa_luts"))]
         let smaa_luts = {
+            use bevy_asset::RenderAssetUsages;
+            use bevy_image::ImageSampler;
+            use bevy_render::render_resource::{Extent3d, TextureDataOrder};
+
             let mut images = app.world_mut().resource_mut::<bevy_asset::Assets<Image>>();
-            let handle = images.add(lut_placeholder());
+
+            let format = TextureFormat::Rgba8Unorm;
+            let data = vec![255, 0, 255, 255];
+            let handle = images.add(Image {
+                data: Some(data),
+                data_order: TextureDataOrder::default(),
+                texture_descriptor: TextureDescriptor {
+                    size: Extent3d::default(),
+                    format,
+                    dimension: TextureDimension::D2,
+                    label: None,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                    view_formats: &[],
+                },
+                sampler: ImageSampler::Default,
+                texture_view_descriptor: None,
+                asset_usage: RenderAssetUsages::RENDER_WORLD,
+                copy_on_resize: false,
+            });
+
             SmaaLuts {
                 area_lut: handle.clone(),
                 search_lut: handle.clone(),
@@ -331,21 +359,10 @@ impl Plugin for SmaaPlugin {
             return;
         };
 
-        // TODO: remove this manual cleanup when ExtractComponent gets support
-        // for cleanup of derived components
-        render_app.add_observer(|event: On<Remove, Smaa>, mut commands: Commands| {
-            commands.entity(event.entity).remove::<(
-                SmaaTextures,
-                SmaaPipelines,
-                SmaaBindGroups,
-                ViewSmaaPipelines,
-            )>();
-        });
-
         render_app
             .insert_resource(smaa_luts)
             .init_resource::<SmaaSpecializedRenderPipelines>()
-            .init_resource::<SmaaInfoUniformBuffer>()
+            .init_gpu_resource::<SmaaInfoUniformBuffer>()
             .add_systems(RenderStartup, init_smaa_pipelines)
             .add_systems(
                 Render,
@@ -464,6 +481,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("edge_detection_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -474,11 +492,12 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: stencil_face_state,
                     back: stencil_face_state,
@@ -521,6 +540,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("blending_weight_calculation_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -531,11 +551,12 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: stencil_face_state,
                     back: stencil_face_state,
@@ -566,16 +587,18 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("neighborhood_blending_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
                 entry_point: Some("neighborhood_blending_fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             ..default()
         }
@@ -589,9 +612,9 @@ fn prepare_smaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
-    view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
+    cameras: Query<(Entity, &ExtractedView, &Smaa), With<ExtractedCamera>>,
 ) {
-    for (entity, view, smaa) in &view_targets {
+    for (entity, view, smaa) in &cameras {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
             &smaa_pipelines.edge_detection,
@@ -612,11 +635,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: if view.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    target_format: view.target_format,
                     preset: smaa.preset,
                 },
             );
@@ -812,7 +831,7 @@ impl SmaaPreset {
     }
 }
 
-pub(crate) fn smaa(
+pub fn smaa(
     view: ViewQuery<(
         &ViewTarget,
         &ViewSmaaPipelines,

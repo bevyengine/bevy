@@ -2,6 +2,7 @@ use bevy_material::descriptor::{
     BindGroupLayoutDescriptor, CachedComputePipelineId, CachedRenderPipelineId,
     ComputePipelineDescriptor, PipelineDescriptor, RenderPipelineDescriptor,
 };
+use smallvec::SmallVec;
 
 use crate::{
     render_resource::*,
@@ -16,7 +17,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_log::error;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::{hash_map::RawEntryMut, HashMap, HashSet};
 use bevy_shader::{
     CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
     ValidateShader,
@@ -79,8 +80,15 @@ impl CachedPipelineState {
     }
 }
 
+// The default webgpu `max_bind_groups` is 4. Most desktop GPUs support 8.
+// Since the element size we used below is small, we inline 8 on the stack.
+const BIND_GROUP_LAYOUTS_INLINE_CAPACITY: usize = 8;
+
 type ImmediateSize = u32;
-type LayoutCacheKey = (Vec<BindGroupLayoutId>, ImmediateSize);
+type LayoutCacheKey = (
+    SmallVec<[BindGroupLayoutId; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>,
+    ImmediateSize,
+);
 #[derive(Default)]
 struct LayoutCache {
     layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
@@ -100,7 +108,8 @@ impl LayoutCache {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
                     .map(BindGroupLayout::value)
-                    .collect::<Vec<_>>();
+                    .map(Some)
+                    .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
                 Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
@@ -174,15 +183,17 @@ impl BindGroupLayoutCache {
     fn get(
         &mut self,
         render_device: &RenderDevice,
-        descriptor: BindGroupLayoutDescriptor,
+        descriptor: &BindGroupLayoutDescriptor,
     ) -> BindGroupLayout {
-        self.bgls
-            .entry(descriptor)
-            .or_insert_with_key(|descriptor| {
-                render_device
-                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries)
-            })
-            .clone()
+        match self.bgls.raw_entry_mut().from_key(descriptor) {
+            RawEntryMut::Occupied(entry) => entry.into_mut(),
+            RawEntryMut::Vacant(slot) => {
+                let created = render_device
+                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries);
+                slot.insert(descriptor.clone(), created).1
+            }
+        }
+        .clone()
     }
 }
 
@@ -211,6 +222,8 @@ pub struct PipelineCache {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     pub(crate) synchronous_pipeline_compilation: bool,
+    /// If `true`, the shader cache needs to be repopulated from the main world's `Assets<Shader>`.
+    needs_shader_reload: bool,
 }
 
 impl PipelineCache {
@@ -243,7 +256,7 @@ impl PipelineCache {
         }
 
         global_shader_defs.push(ShaderDefVal::UInt(
-            String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+            "AVAILABLE_STORAGE_BUFFER_BINDINGS".into(),
             device.limits().max_storage_buffers_per_shader_stage,
         ));
 
@@ -262,6 +275,7 @@ impl PipelineCache {
             pipelines: default(),
             global_shader_defs,
             synchronous_pipeline_compilation,
+            needs_shader_reload: true,
         }
     }
 
@@ -438,7 +452,7 @@ impl PipelineCache {
         self.bindgroup_layout_cache
             .lock()
             .unwrap()
-            .get(&self.device, bind_group_layout_descriptor.clone())
+            .get(&self.device, bind_group_layout_descriptor)
     }
 
     /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
@@ -474,9 +488,9 @@ impl PipelineCache {
             .layout
             .iter()
             .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
             })
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
 
         create_pipeline_task(
             async move {
@@ -526,14 +540,20 @@ impl PipelineCache {
                         fragment_module.unwrap(),
                         fragment.entry_point.as_deref(),
                         fragment.targets.as_slice(),
+                        fragment
+                            .constants
+                            .iter()
+                            .map(|(k, v)| (k.as_ref(), *v))
+                            .collect::<Vec<_>>(),
                     )
                 });
 
-                // TODO: Expose the rest of this somehow
-                let compilation_options = PipelineCompilationOptions {
-                    constants: &[],
-                    zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
-                };
+                let vertex_constants: Vec<(&str, f64)> = descriptor
+                    .vertex
+                    .constants
+                    .iter()
+                    .map(|(k, v)| (k.as_ref(), *v))
+                    .collect();
 
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview_mask: None,
@@ -546,18 +566,24 @@ impl PipelineCache {
                         buffers: &vertex_buffer_layouts,
                         entry_point: descriptor.vertex.entry_point.as_deref(),
                         module: &vertex_module,
-                        // TODO: Should this be the same as the fragment compilation options?
-                        compilation_options: compilation_options.clone(),
+                        compilation_options: PipelineCompilationOptions {
+                            constants: &vertex_constants,
+                            zero_initialize_workgroup_memory: descriptor
+                                .zero_initialize_workgroup_memory,
+                        },
                     },
-                    fragment: fragment_data
-                        .as_ref()
-                        .map(|(module, entry_point, targets)| RawFragmentState {
+                    fragment: fragment_data.as_ref().map(
+                        |(module, entry_point, targets, constants)| RawFragmentState {
                             entry_point: entry_point.as_deref(),
                             module,
                             targets,
-                            // TODO: Should this be the same as the vertex compilation options?
-                            compilation_options,
-                        }),
+                            compilation_options: PipelineCompilationOptions {
+                                constants,
+                                zero_initialize_workgroup_memory: descriptor
+                                    .zero_initialize_workgroup_memory,
+                            },
+                        },
+                    ),
                     cache: None,
                 };
 
@@ -582,9 +608,9 @@ impl PipelineCache {
             .layout
             .iter()
             .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
             })
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
 
         create_pipeline_task(
             async move {
@@ -605,14 +631,18 @@ impl PipelineCache {
 
                 drop((shader_cache, layout_cache));
 
+                let constants: Vec<(&str, f64)> = descriptor
+                    .constants
+                    .iter()
+                    .map(|(k, v)| (k.as_ref(), *v))
+                    .collect();
                 let descriptor = RawComputePipelineDescriptor {
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
                     entry_point: descriptor.entry_point.as_deref(),
-                    // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &[],
+                        constants: &constants,
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
@@ -719,6 +749,18 @@ impl PipelineCache {
         shaders: Extract<Res<Assets<Shader>>>,
         mut events: Extract<MessageReader<AssetEvent<Shader>>>,
     ) {
+        if cache.needs_shader_reload {
+            cache.needs_shader_reload = false;
+            for (id, shader) in shaders.iter() {
+                let mut shader = shader.clone();
+                shader.shader_defs.extend(cache.global_shader_defs.clone());
+                cache.set_shader(id, shader);
+            }
+            // Drain events so we don't double-process shaders we just loaded.
+            for _ in events.read() {}
+            return;
+        }
+
         for event in events.read() {
             #[expect(
                 clippy::match_same_arms,

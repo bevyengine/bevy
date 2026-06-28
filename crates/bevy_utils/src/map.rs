@@ -1,9 +1,13 @@
 use core::{any::TypeId, hash::Hash};
 
 use bevy_platform::{
-    collections::{hash_map::Entry, HashMap},
+    collections::HashMap,
     hash::{Hashed, NoOpHash, PassHash},
 };
+use indexmap::map::IndexMap;
+
+/// The [`Entry`][indexmap::map::Entry] type for [`TypeIdMap`].
+pub use indexmap::map::Entry as TypeIdMapEntry;
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
 /// Iteration order only depends on the order of insertions and deletions.
@@ -34,14 +38,14 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
     }
 }
 
-/// A specialized hashmap type with Key of [`TypeId`]
+/// A specialized map type with Key of [`TypeId`]
 /// Iteration order only depends on the order of insertions and deletions.
-pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
+pub type TypeIdMap<V> = IndexMap<TypeId, V, NoOpHash>;
 
 /// Extension trait to make use of [`TypeIdMap`] more ergonomic.
 ///
 /// Each function on this trait is a trivial wrapper for a function
-/// on [`HashMap`], replacing a `TypeId` key with a
+/// on [`IndexMap`], replacing a `TypeId` key with a
 /// generic parameter `T`.
 ///
 /// # Examples
@@ -80,7 +84,7 @@ pub trait TypeIdMapExt<V> {
     fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V>;
 
     /// Gets the type `T`'s entry in the map for in-place manipulation.
-    fn entry_type<T: ?Sized + 'static>(&mut self) -> Entry<'_, TypeId, V, NoOpHash>;
+    fn entry_type<T: ?Sized + 'static>(&mut self) -> TypeIdMapEntry<'_, TypeId, V>;
 }
 
 impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
@@ -101,11 +105,11 @@ impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
 
     #[inline]
     fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V> {
-        self.remove(&TypeId::of::<T>())
+        self.shift_remove(&TypeId::of::<T>())
     }
 
     #[inline]
-    fn entry_type<T: ?Sized + 'static>(&mut self) -> Entry<'_, TypeId, V, NoOpHash> {
+    fn entry_type<T: ?Sized + 'static>(&mut self) -> TypeIdMapEntry<'_, TypeId, V> {
         self.entry(TypeId::of::<T>())
     }
 }

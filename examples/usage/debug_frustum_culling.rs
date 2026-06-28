@@ -15,17 +15,17 @@
 //! from a given camera's view, which entities are visible, and when
 //! that change happens during an entity's Aabb interaction with a camera's Frustum.
 //!
-//! This example contains a scene with a camera [`MyCamera`] that has its
+//! This example contains a scene with a camera `MyCamera` that has its
 //! [`Frustum`](bevy::camera::primitives::Frustum) gizmo visible.
-//! A collection of [`MyShape`]s, with their individual
+//! A collection of `MyShape`s, with their individual
 //! [`Aabb`](bevy::camera::primitives::Aabb) gizmos visible, periodically move in and
 //! out of the camera's frustum. The [`Aabb`](bevy::camera::primitives::Aabb)
-//! gizmos are colored red when they have been culled from [`MyCamera`]'s view.
+//! gizmos are colored red when they have been culled from `MyCamera`'s view.
 //! The gizmos change color to green when the shape is considered visible by the
 //! camera and would be extracted for rendering.
 //!
 //! A second active camera, controllable via the [`FreeCameraPlugin`], is used to observe the scene.
-//! This second camera's view occupies most of the window. [`MyCamera`]'s view is visible in the
+//! This second camera's view occupies most of the window. `MyCamera`'s view is visible in the
 //! bottom right ninth of the screen.
 
 use bevy::{

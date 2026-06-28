@@ -19,6 +19,8 @@ fn main() {
         .add_systems(OnEnter(GameState::B), on_b_enter)
         .add_systems(OnExit(GameState::A), on_a_exit)
         .add_systems(OnExit(GameState::B), on_b_exit)
+        .add_systems(OnEnter(GameState::C(1)), on_c_1_enter)
+        .add_systems(OnExit(GameState::C(1)), on_c_1_exit)
         .add_systems(Update, toggle)
         .insert_resource(TickTock(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .run();
@@ -29,6 +31,7 @@ enum GameState {
     #[default]
     A,
     B,
+    C(u8),
 }
 
 #[derive(Resource)]
@@ -117,6 +120,52 @@ fn on_b_exit(mut commands: Commands) {
     ));
 }
 
+fn on_c_1_enter(mut commands: Commands) {
+    info!("on_c_1_enter");
+    commands.spawn((
+        DespawnWhen::new(|transition| matches!(transition.exited, Some(GameState::C(_)))),
+        Text::new("Game is in state 'C(1)'"),
+        TextFont {
+            font_size: FontSize::Px(33.0),
+            ..default()
+        },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(100),
+            left: px(0),
+            ..default()
+        },
+        (children![DespawnWhen::new(|transition| matches!(
+            transition.exited,
+            Some(GameState::C(_))
+        ))]),
+    ));
+}
+
+fn on_c_1_exit(mut commands: Commands) {
+    info!("on_c_1_exit");
+    commands.spawn((
+        DespawnWhen::new(|transition| matches!(transition.entered, Some(GameState::C(1)))),
+        Text::new("Game state 'C(1)' will be back in 1 second"),
+        TextFont {
+            font_size: FontSize::Px(33.0),
+            ..default()
+        },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(100),
+            left: px(500),
+            ..default()
+        },
+        (children![DespawnWhen::new(|transition| matches!(
+            transition.entered,
+            Some(GameState::C(_))
+        ))]),
+    ));
+}
+
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera3d::default());
 }
@@ -132,6 +181,7 @@ fn toggle(
     }
     *next_state = match state.get() {
         GameState::A => NextState::Pending(GameState::B),
-        GameState::B => NextState::Pending(GameState::A),
+        GameState::B => NextState::Pending(GameState::C(1)),
+        GameState::C(_) => NextState::Pending(GameState::A),
     }
 }

@@ -29,10 +29,10 @@ jobs:
       NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
       MSRV: ${{ steps.msrv.outputs.MSRV }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: stable
       - name: get MSRV
@@ -98,7 +98,7 @@ jobs:
         shell: bash
 
       - name: Checkout Bevy main branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: "bevyengine/bevy"
           ref: "main"
@@ -106,7 +106,7 @@ jobs:
 
       - name: Setup Rust
         id: rust
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
@@ -115,16 +115,8 @@ jobs:
       - name: Create lock file
         run: cargo update
 
-      - name: Install Bevy dependencies
-        uses: ./.github/actions/install-linux-deps
-        with:
-          wayland: true
-          xkb: true
-          x264: true
-          fontconfig: true
-
       # Fetch the cache using the complete key - to avoid rebuilding the cache if nothing changed
-      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         id: cache
         with:
           path: |
@@ -134,6 +126,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
+          lookup-only: true
+
+      - name: Install Bevy dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+          x264: true
+          fontconfig: true
 
       # Build Bevy for the dev profile, used by check, doc, ...
       - name: Build dev cache
@@ -147,7 +149,7 @@ jobs:
 
       - name: Save cache
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -156,3 +158,34 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
+
+  build-apt-cache:
+    name: Build apt kisak/turtle Cache
+    runs-on: ubuntu-24.04
+
+    steps:
+      # prepare the date - used to rebuild the cache daily to catch new versions
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Install llvmpipe and lavapipe
+        run: |
+          sudo apt-get update -y -qq
+          sudo add-apt-repository ppa:kisak/turtle -y
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
+            libgl1-mesa-dri mesa-vulkan-drivers
+          rm -rf ~/apt-cache; mkdir ~/apt-cache
+          for package in libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium libdisplay-info1 mesa-vulkan-drivers; do
+              echo $package
+              dpkg -L $package | while IFS= read -r f; do if test -f "$f"; then echo "$f"; fi; done | xargs -d '\n' cp --parents --target-directory ~/apt-cache/
+          done
+
+      - name: Save cache
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/apt-cache/
+          key: ${{ runner.os }}-apt-kisak_turtle-${{ steps.get-date.outputs.date }}

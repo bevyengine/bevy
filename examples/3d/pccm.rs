@@ -82,7 +82,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the glTF scene.
-    commands.spawn(SceneRoot(asset_server.load(OUTER_CUBE_URL)));
+    commands.spawn(WorldAssetRoot(asset_server.load(OUTER_CUBE_URL)));
 
     spawn_camera(&mut commands);
     spawn_inner_cube(&mut commands, &mut meshes, &mut materials);

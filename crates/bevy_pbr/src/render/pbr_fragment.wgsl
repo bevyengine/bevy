@@ -55,10 +55,11 @@ fn pbr_input_from_vertex_output(
     pbr_input.material.base_color = in.color;
 #endif
 
+    let is_logically_front = pbr_functions::winding_corrected_front_facing(pbr_input.flags, is_front);
     pbr_input.world_normal = pbr_functions::prepare_world_normal(
         in.world_normal,
         double_sided,
-        is_front,
+        is_logically_front,
     );
 
 #ifdef LOAD_PREPASS_NORMALS
@@ -86,10 +87,12 @@ fn pbr_input_from_standard_material(
     let base_color = pbr_bindings::material_array[material_indices[slot].material].base_color;
     let deferred_lighting_pass_id =
         pbr_bindings::material_array[material_indices[slot].material].deferred_lighting_pass_id;
+    let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
     let flags = pbr_bindings::material.flags;
     let base_color = pbr_bindings::material.base_color;
     let deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
+    let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif
 
     let double_sided = (flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
@@ -98,6 +101,7 @@ fn pbr_input_from_standard_material(
     pbr_input.material.flags = flags;
     pbr_input.material.base_color *= base_color;
     pbr_input.material.deferred_lighting_pass_id = deferred_lighting_pass_id;
+    let is_logically_front = pbr_functions::winding_corrected_front_facing(pbr_input.flags, is_front);
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
@@ -237,6 +241,7 @@ pbr_input.material.uv_transform = uv_transform;
 #endif // VERTEX_UVS
 
     pbr_input.material.flags = flags;
+    pbr_input.material.alpha_cutoff = alpha_cutoff;
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
@@ -246,13 +251,10 @@ pbr_input.material.uv_transform = uv_transform;
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_color;
         pbr_input.material.attenuation_distance =
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_distance;
-        pbr_input.material.alpha_cutoff =
-                pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
         pbr_input.material.ior = pbr_bindings::material.ior;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
-        pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif  // BINDLESS
 
         // reflectance
@@ -496,7 +498,8 @@ pbr_input.material.uv_transform = uv_transform;
 #endif  // VERTEX_UVS
 
 #ifdef BINDLESS
-        var specular_transmission: f32 = pbr_bindings::material_array[slot].specular_transmission;
+        var specular_transmission: f32 =
+                pbr_bindings::material_array[material_indices[slot].material].specular_transmission;
 #else   // BINDLESS
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #endif  // BINDLESS
@@ -706,7 +709,13 @@ pbr_input.material.uv_transform = uv_transform;
 #endif  // MESHLET_MESH_MATERIAL_PASS
             ).rgb;
 
-        pbr_input.N = pbr_functions::apply_normal_mapping(flags, TBN, double_sided, is_front, Nt);
+        pbr_input.N = pbr_functions::apply_normal_mapping(
+            flags,
+            TBN,
+            double_sided,
+            is_logically_front,
+            Nt,
+        );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP
 
@@ -748,7 +757,7 @@ pbr_input.material.uv_transform = uv_transform;
             flags,
             TBN,
             double_sided,
-            is_front,
+            is_logically_front,
             clearcoat_Nt,
         );
 

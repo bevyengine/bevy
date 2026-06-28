@@ -1,10 +1,12 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
 use bevy_utils::prelude::DebugName;
+use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
+    component::Mutable,
     prelude::QueryBuilder,
     query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
@@ -226,7 +228,8 @@ impl ParamBuilder {
     }
 
     /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
-    pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
+    pub fn resource_mut<'w, T: Resource<Mutability = Mutable>>(
+    ) -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
 
@@ -416,24 +419,6 @@ where
         match &mut self.inner {
             BuilderSystemInner::Initialized { system, .. } => system.queue_deferred(world),
             BuilderSystemInner::Uninitialized { .. } => {}
-            BuilderSystemInner::Invalid => unreachable!(),
-        }
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        match &mut self.inner {
-            // SAFETY: requirements upheld by the caller.
-            BuilderSystemInner::Initialized { system, .. } => unsafe {
-                system.validate_param_unsafe(world)
-            },
-            BuilderSystemInner::Uninitialized { .. } => panic!(
-                "BuilderSystem {} was not initialized before calling validate_param_unsafe.",
-                self.name()
-            ),
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
@@ -631,6 +616,17 @@ all_tuples!(
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
     fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
+        self.into_iter()
+            .map(|builder| builder.build(world))
+            .collect()
+    }
+}
+
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>, const N: usize>
+    SystemParamBuilder<SmallVec<[P; N]>> for SmallVec<[B; N]>
+{
+    fn build(self, world: &mut World) -> <SmallVec<[P; N]> as SystemParam>::State {
         self.into_iter()
             .map(|builder| builder.build(world))
             .collect()

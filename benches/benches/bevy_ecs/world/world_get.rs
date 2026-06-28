@@ -5,7 +5,7 @@ use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
     entity::Entity,
-    system::{Query, SystemState},
+    system::Query,
     world::{EntityMut, World},
 };
 use chacha20::ChaCha8Rng;
@@ -268,10 +268,8 @@ pub fn query_get(criterion: &mut Criterion) {
                 .spawn_batch((0..entity_count).map(|_| Table::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
-            let mut query = SystemState::<Query<&Table>>::new(&mut world);
-            let query = query.get(&world);
 
-            bencher.iter(|| {
+            let query = move |query: Query<&Table>| {
                 let mut count = 0;
                 for comp in entities.iter().flat_map(|&e| query.get(e)) {
                     black_box(comp);
@@ -279,6 +277,10 @@ pub fn query_get(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
@@ -287,10 +289,8 @@ pub fn query_get(criterion: &mut Criterion) {
                 .spawn_batch((0..entity_count).map(|_| Sparse::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
-            let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
-            let query = query.get(&world);
 
-            bencher.iter(|| {
+            let query = move |query: Query<&Sparse>| {
                 let mut count = 0;
                 for comp in entities.iter().flat_map(|&e| query.get(e)) {
                     black_box(comp);
@@ -298,6 +298,10 @@ pub fn query_get(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
     }
@@ -318,10 +322,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 .collect();
             entity_groups.shuffle(&mut deterministic_rand());
 
-            let mut query = SystemState::<Query<&Table>>::new(&mut world);
-            let query = query.get(&world);
-
-            bencher.iter(|| {
+            let query = move |query: Query<&Table>| {
                 let mut count = 0;
                 for comp in entity_groups
                     .iter()
@@ -332,6 +333,10 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
         group.bench_function(format!("{entity_count}_calls_sparse"), |bencher| {
@@ -341,10 +346,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 .collect();
             entity_groups.shuffle(&mut deterministic_rand());
 
-            let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
-            let query = query.get(&world);
-
-            bencher.iter(|| {
+            let query = move |query: Query<&Sparse>| {
                 let mut count = 0;
                 for comp in entity_groups
                     .iter()
@@ -355,6 +357,10 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
     }

@@ -3,7 +3,7 @@ use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::{
     change_detection::{DetectChanges, Res},
     entity::Entity,
-    message::{MessageCursor, MessageWriter},
+    message::MessageCursor,
     prelude::*,
     system::SystemState,
     world::FromWorld,
@@ -39,7 +39,8 @@ use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
-    converters, create_windows,
+    converters::{self, convert_touch_phase},
+    create_windows,
     system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, RawWinitWindowEvent, UpdateMode,
     WinitSettings, WinitUserEvent, WINIT_WINDOWS,
@@ -78,10 +79,7 @@ pub(crate) struct WinitAppRunnerState {
     /// Raw Winit window events to send
     raw_winit_events: Vec<RawWinitWindowEvent>,
 
-    message_writer_system_state: SystemState<(
-        MessageWriter<'static, WindowResized>,
-        MessageWriter<'static, WindowBackendScaleFactorChanged>,
-        MessageWriter<'static, WindowScaleFactorChanged>,
+    windows_system_state: SystemState<
         Query<
             'static,
             'static,
@@ -91,19 +89,16 @@ pub(crate) struct WinitAppRunnerState {
                 &'static mut WinitWindowPressedKeys,
             ),
         >,
-    )>,
+    >,
     /// time at which next tick is scheduled to run when `update_mode` is [`UpdateMode::Reactive`]
     scheduled_tick_start: Option<Instant>,
 }
 
 impl WinitAppRunnerState {
     fn new(mut app: App) -> Self {
-        let message_writer_system_state: SystemState<(
-            MessageWriter<WindowResized>,
-            MessageWriter<WindowBackendScaleFactorChanged>,
-            MessageWriter<WindowScaleFactorChanged>,
+        let windows_system_state: SystemState<
             Query<(&mut Window, &mut CachedWindow, &mut WinitWindowPressedKeys)>,
-        )> = SystemState::new(app.world_mut());
+        > = SystemState::new(app.world_mut());
 
         Self {
             app,
@@ -121,7 +116,7 @@ impl WinitAppRunnerState {
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
             raw_winit_events: Vec::new(),
-            message_writer_system_state,
+            windows_system_state,
             scheduled_tick_start: None,
         }
     }
@@ -163,12 +158,13 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
-                requested_resume: Some(resume),
-                ..
+                requested_resume, ..
             } => {
                 // If the resume time is not after now, it means that at least the wait timeout
-                // has elapsed.
-                resume <= Instant::now()
+                // has elapsed. Alternatively, if the resume time is unset, the wait never elapses.
+                requested_resume
+                    .map(|resume| resume <= Instant::now())
+                    .unwrap_or_default()
             }
             _ => true,
         };
@@ -181,7 +177,7 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         // Create the initial window if needed
         let mut create_window = SystemState::<CreateWindowParams>::from_world(self.world_mut());
-        create_windows(event_loop, create_window.get_mut(self.world_mut()));
+        create_windows(event_loop, create_window.get_mut(self.world_mut()).unwrap());
         create_window.apply(self.world_mut());
     }
 
@@ -195,7 +191,7 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
             WinitUserEvent::WindowAdded => {
                 let mut create_window =
                     SystemState::<CreateWindowParams>::from_world(self.world_mut());
-                create_windows(event_loop, create_window.get_mut(self.world_mut()));
+                create_windows(event_loop, create_window.get_mut(self.world_mut()).unwrap());
                 create_window.apply(self.world_mut());
             }
         }
@@ -217,14 +213,10 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         WINIT_WINDOWS.with_borrow(|winit_windows| {
             ACCESS_KIT_ADAPTERS.with_borrow_mut(|access_kit_adapters| {
-                let (
-                    mut window_resized,
-                    mut window_backend_scale_factor_changed,
-                    mut window_scale_factor_changed,
-                    mut windows,
-                ) = self
-                    .message_writer_system_state
-                    .get_mut(self.app.world_mut());
+                let mut windows = self
+                    .windows_system_state
+                    .get_mut(self.app.world_mut())
+                    .unwrap();
 
                 let Some(window) = winit_windows.get_window_entity(window_id) else {
                     warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -253,17 +245,18 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                 }
 
                 match event {
-                    WindowEvent::Resized(size) => {
-                        react_to_resize(window, &mut win, size, &mut window_resized);
-                    }
+                    WindowEvent::Resized(size) => self
+                        .bevy_window_events
+                        .send(react_to_resize(window, &mut win, size)),
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                        react_to_scale_factor_change(
-                            window,
-                            &mut win,
-                            scale_factor,
-                            &mut window_backend_scale_factor_changed,
-                            &mut window_scale_factor_changed,
-                        );
+                        let (window_backend_scale_factor_changed, window_scale_factor_changed) =
+                            react_to_scale_factor_change(window, &mut win, scale_factor);
+
+                        self.bevy_window_events
+                            .send(window_backend_scale_factor_changed);
+                        if let Some(window_scale_factor_changed) = window_scale_factor_changed {
+                            self.bevy_window_events.send(window_scale_factor_changed);
+                        }
                     }
                     WindowEvent::CloseRequested => self
                         .bevy_window_events
@@ -334,24 +327,29 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                             y: delta.y,
                         }));
                     }
-                    WindowEvent::MouseWheel { delta, .. } => match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Line,
-                                x,
-                                y,
-                                window,
-                            });
+                    WindowEvent::MouseWheel { delta, phase, .. } => {
+                        let phase = convert_touch_phase(phase);
+                        match delta {
+                            event::MouseScrollDelta::LineDelta(x, y) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Line,
+                                    x,
+                                    y,
+                                    window,
+                                    phase,
+                                });
+                            }
+                            event::MouseScrollDelta::PixelDelta(p) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Pixel,
+                                    x: p.x as f32,
+                                    y: p.y as f32,
+                                    window,
+                                    phase,
+                                });
+                            }
                         }
-                        event::MouseScrollDelta::PixelDelta(p) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Pixel,
-                                x: p.x as f32,
-                                y: p.y as f32,
-                                window,
-                            });
-                        }
-                    },
+                    }
                     WindowEvent::Touch(touch) => {
                         let location = touch
                             .location
@@ -459,7 +457,10 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
-        create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
+        create_monitors(
+            event_loop,
+            create_monitor.get_mut(self.world_mut()).unwrap(),
+        );
         create_monitor.apply(self.world_mut());
 
         // TODO: This is a workaround for https://github.com/bevyengine/bevy/issues/17488
@@ -516,7 +517,7 @@ impl WinitAppRunnerState {
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        let (config, windows) = focused_windows_state.get(self.world());
+        let (config, windows) = focused_windows_state.get(self.world()).unwrap();
         let focused = windows.iter().any(|(_, window)| window.focused);
 
         let mut update_mode = config.update_mode(focused);
@@ -541,10 +542,11 @@ impl WinitAppRunnerState {
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&self.world()).unwrap();
-                self.world_mut()
-                    .entity_mut(entity)
-                    .remove::<RawHandleWrapper>();
+                if let Ok(entity) = query.single(&self.world()) {
+                    self.world_mut()
+                        .entity_mut(entity)
+                        .remove::<RawHandleWrapper>();
+                }
             }
         }
 
@@ -572,7 +574,7 @@ impl WinitAppRunnerState {
                                 SystemState::<CreateWindowParams>::from_world(self.world_mut());
 
                             let (.., mut handlers, accessibility_requested, monitors) =
-                                create_window.get_mut(self.world_mut());
+                                create_window.get_mut(self.world_mut()).unwrap();
 
                             let winit_window = winit_windows.create_window(
                                 event_loop,
@@ -605,7 +607,7 @@ impl WinitAppRunnerState {
         let begin_frame_time = Instant::now();
 
         if should_update {
-            let (_, windows) = focused_windows_state.get(self.world());
+            let (_, windows) = focused_windows_state.get(self.world()).unwrap();
             // If no windows exist, this will evaluate to `true`.
             let all_invisible = windows.iter().all(|w| !w.1.visible);
 
@@ -648,7 +650,7 @@ impl WinitAppRunnerState {
             }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.world());
+            let (config, windows) = focused_windows_state.get(self.world()).unwrap();
             let focused = windows.iter().any(|(_, window)| window.focused);
             update_mode = config.update_mode(focused);
         }
@@ -670,13 +672,13 @@ impl WinitAppRunnerState {
                 // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                 // we cannot use the visibility to drive rendering on these platforms
                 // so we cannot discern whether to beneficially use `Poll` or not?
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(
+                cfg_select! {
+                    not(any(
                         target_arch = "wasm32",
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
+                    )) =>
                     {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
                             winit_windows.windows.iter().any(|(_, w)| {
@@ -690,7 +692,7 @@ impl WinitAppRunnerState {
                             ControlFlow::Poll
                         });
                     }
-                    else {
+                    _ => {
                         event_loop.set_control_flow(ControlFlow::Wait);
                     }
                 }
@@ -891,11 +893,12 @@ pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppE
     trace!("starting winit event loop");
     // The winit docs mention using `spawn` instead of `run` on Wasm.
     // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+    cfg_select! {
+        target_arch = "wasm32" => {
             event_loop.spawn_app(runner_state);
             AppExit::Success
-        } else {
+        }
+        _ => {
             let mut runner_state = runner_state;
             if let Err(err) = event_loop.run_app(&mut runner_state) {
                 bevy_log::error!("winit event loop returned an error: {err}");
@@ -913,42 +916,51 @@ pub(crate) fn react_to_resize(
     window_entity: Entity,
     window: &mut Window,
     size: PhysicalSize<u32>,
-    window_resized: &mut MessageWriter<WindowResized>,
-) {
+) -> WindowResized {
     window
         .resolution
         .set_physical_resolution(size.width, size.height);
 
-    window_resized.write(WindowResized {
+    WindowResized {
         window: window_entity,
         width: window.width(),
         height: window.height(),
-    });
+    }
 }
 
 pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
     window: &mut Window,
     scale_factor: f64,
-    window_backend_scale_factor_changed: &mut MessageWriter<WindowBackendScaleFactorChanged>,
-    window_scale_factor_changed: &mut MessageWriter<WindowScaleFactorChanged>,
+) -> (
+    WindowBackendScaleFactorChanged,
+    Option<WindowScaleFactorChanged>,
 ) {
     let prior_factor = window.resolution.scale_factor();
     window.resolution.set_scale_factor(scale_factor as f32);
 
-    window_backend_scale_factor_changed.write(WindowBackendScaleFactorChanged {
+    let window_backend_scale_factor_changed = WindowBackendScaleFactorChanged {
         window: window_entity,
         scale_factor,
-    });
+    };
 
     let scale_factor_override = window.resolution.scale_factor_override();
 
-    if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {
-        window_scale_factor_changed.write(WindowScaleFactorChanged {
-            window: window_entity,
-            scale_factor,
-        });
-    }
+    let window_scale_factor_changed =
+        if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {
+            let window_scale_factor_changed = WindowScaleFactorChanged {
+                window: window_entity,
+                scale_factor,
+            };
+            Some(window_scale_factor_changed)
+        } else {
+            None
+        };
+
+    (
+        window_backend_scale_factor_changed,
+        window_scale_factor_changed,
+    )
 }
 
 #[cfg(test)]
@@ -998,6 +1010,30 @@ mod tests {
             })
         );
         assert_eq!(window_scale_factor_changed_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 2);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowBackendScaleFactorChanged(
+                WindowBackendScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 2.0
+                }
+            ))
+        );
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowScaleFactorChanged(
+                WindowScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 2.0
+                }
+            ))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
     }
 
     #[test]
@@ -1030,6 +1066,21 @@ mod tests {
         let window_scale_factor_changed_messages =
             app.world().resource::<Messages<WindowScaleFactorChanged>>();
         assert!(window_scale_factor_changed_messages.is_empty());
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowBackendScaleFactorChanged(
+                WindowBackendScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 1.0
+                }
+            ))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
     }
 
     fn setup_react_to_scale_factor_change_test_app(
@@ -1039,25 +1090,142 @@ mod tests {
         let mut app = App::new();
         app.add_message::<WindowBackendScaleFactorChanged>();
         app.add_message::<WindowScaleFactorChanged>();
+        app.add_message::<BevyWindowEvent>();
         app.add_systems(
             Update,
             move |mut window: Single<(Entity, &mut Window)>,
-                  mut window_backend_scale_factor_changed: MessageWriter<
-                      WindowBackendScaleFactorChanged,
-                  >,
-                  mut window_scale_factor_changed: MessageWriter<WindowScaleFactorChanged>| {
-                react_to_scale_factor_change(
-                    window.0,
-                    &mut window.1,
-                    changed_scale_factor,
-                    &mut window_backend_scale_factor_changed,
-                    &mut window_scale_factor_changed,
-                );
+                  mut window_backend_scale_factor_changed_writer: MessageWriter<
+                WindowBackendScaleFactorChanged,
+            >,
+                  mut window_scale_factor_changed_writer: MessageWriter<
+                WindowScaleFactorChanged,
+            >,
+                  mut window_event: MessageWriter<BevyWindowEvent>| {
+                let (window_backend_scale_factor_changed, window_scale_factor_changed) =
+                    react_to_scale_factor_change(window.0, &mut window.1, changed_scale_factor);
+                window_backend_scale_factor_changed_writer
+                    .write(window_backend_scale_factor_changed.clone());
+                window_event.write(BevyWindowEvent::WindowBackendScaleFactorChanged(
+                    window_backend_scale_factor_changed,
+                ));
+                if let Some(window_scale_factor_changed) = window_scale_factor_changed {
+                    window_scale_factor_changed_writer.write(window_scale_factor_changed.clone());
+                    window_event.write(BevyWindowEvent::WindowScaleFactorChanged(
+                        window_scale_factor_changed,
+                    ));
+                }
             },
         );
 
         let mut window = Window::default();
         window.resolution.set_scale_factor(initial_scale_factor);
+        let window_entity = app.world_mut().spawn(window).id();
+
+        (app, window_entity)
+    }
+
+    #[test]
+    fn test_react_to_resize_with_changed_size() {
+        let (mut app, window_entity) =
+            setup_react_to_resize(PhysicalSize::new(1280, 720), PhysicalSize::new(1920, 1080));
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity).unwrap();
+        assert_eq!(window.resolution.physical_width(), 1920);
+        assert_eq!(window.resolution.physical_height(), 1080);
+
+        let window_resized_messages = app.world().resource::<Messages<WindowResized>>();
+        assert_eq!(window_resized_messages.len(), 1);
+
+        let mut window_resized_messages_iter =
+            window_resized_messages.iter_current_update_messages();
+        assert_eq!(
+            window_resized_messages_iter.next(),
+            Some(&WindowResized {
+                window: window_entity,
+                width: 1920.0,
+                height: 1080.0
+            })
+        );
+        assert_eq!(window_resized_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowResized(WindowResized {
+                window: window_entity,
+                width: 1920.0,
+                height: 1080.0
+            }))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
+    }
+
+    #[test]
+    fn test_react_to_resize_with_same_size() {
+        let (mut app, window_entity) =
+            setup_react_to_resize(PhysicalSize::new(1280, 720), PhysicalSize::new(1280, 720));
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity).unwrap();
+        assert_eq!(window.resolution.physical_width(), 1280);
+        assert_eq!(window.resolution.physical_height(), 720);
+
+        let window_resized_messages = app.world().resource::<Messages<WindowResized>>();
+        assert_eq!(window_resized_messages.len(), 1);
+
+        let mut window_resized_messages_iter =
+            window_resized_messages.iter_current_update_messages();
+        assert_eq!(
+            window_resized_messages_iter.next(),
+            Some(&WindowResized {
+                window: window_entity,
+                width: 1280.0,
+                height: 720.0
+            })
+        );
+        assert_eq!(window_resized_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowResized(WindowResized {
+                window: window_entity,
+                width: 1280.0,
+                height: 720.0
+            }))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
+    }
+
+    fn setup_react_to_resize(
+        initial_size: PhysicalSize<u32>,
+        changed_size: PhysicalSize<u32>,
+    ) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_message::<WindowResized>();
+        app.add_message::<BevyWindowEvent>();
+        app.add_systems(
+            Update,
+            move |mut window: Single<(Entity, &mut Window)>,
+                  mut window_resized_writer: MessageWriter<WindowResized>,
+                  mut window_event: MessageWriter<BevyWindowEvent>| {
+                let window_resized = react_to_resize(window.0, &mut window.1, changed_size);
+                window_resized_writer.write(window_resized.clone());
+                window_event.write(BevyWindowEvent::WindowResized(window_resized));
+            },
+        );
+
+        let mut window = Window::default();
+        window
+            .resolution
+            .set_physical_resolution(initial_size.width, initial_size.height);
         let window_entity = app.world_mut().spawn(window).id();
 
         (app, window_entity)

@@ -85,7 +85,7 @@ fn setup(
         Hdr,
         Camera3d::default(),
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 3000.0,
             ..default()
         },
@@ -112,7 +112,7 @@ fn setup(
             // The object must not be metallic, or else the reflectance is
             // ignored per the Filament spec:
             //
-            // <https://google.github.io/filament/Filament.html#listing_fnormal>
+            // <https://google.github.io/filament/Filament.md.html#listing_fnormal>
             metallic: 0.0,
             perceptual_roughness: 0.0,
             ..default()

@@ -9,6 +9,21 @@ use crate::{
 ///
 /// Use [`PopulatedMessageReader<T>`] to skip the system if there are no messages.
 ///
+/// # Usage
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Message)]
+/// pub struct MyMessage(String); // Custom message type.
+/// fn my_system(mut reader: MessageReader<MyMessage>) {
+///     for msg in reader.read() {
+///         println!("{}", msg.0)
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
 /// # Concurrency
 ///
 /// Unlike [`MessageWriter<T>`], systems with `MessageReader<T>` param can be executed concurrently
@@ -162,35 +177,15 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         system_meta: &crate::system::SystemMeta,
         world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
         change_tick: crate::change_detection::Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: requirements are upheld by MessageReader's implementation
-        unsafe {
-            PopulatedMessageReader(MessageReader::get_param(
-                state,
-                system_meta,
-                world,
-                change_tick,
-            ))
-        }
-    }
-
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &crate::system::SystemMeta,
-        world: crate::world::unsafe_world_cell::UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: requirements are upheld by MessageReader's implementation
-        unsafe { MessageReader::<M>::validate_param(state, system_meta, world) }?;
-
-        // SAFETY: requirements are upheld by MessageReader's implementation
-        let reader =
-            unsafe { MessageReader::get_param(state, system_meta, world, world.change_tick()) };
+        let reader = unsafe { MessageReader::get_param(state, system_meta, world, change_tick)? };
         if reader.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "message queue is empty",
             ))
         } else {
-            Ok(())
+            Ok(PopulatedMessageReader(reader))
         }
     }
 }

@@ -6,8 +6,8 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
-//! with forward or deferred rendering and don't require a prepass.
+//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
+//! or deferred rendering and don't require a prepass.
 //!
 //! Each clustered decal may contain up to 4 textures. By default, the 4
 //! textures correspond to the base color, a normal map, a metallic-roughness
@@ -46,7 +46,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
@@ -168,7 +168,7 @@ impl Plugin for ClusteredDecalPlugin {
         };
 
         render_app
-            .init_resource::<DecalsBuffer>()
+            .init_gpu_resource::<DecalsBuffer>()
             .init_resource::<RenderClusteredDecals>()
             .add_systems(ExtractSchedule, (extract_decals, extract_clustered_decal))
             .add_systems(
@@ -185,7 +185,7 @@ impl Plugin for ClusteredDecalPlugin {
 }
 
 impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
-    type Out = Self;
+    type Target = Self;
 }
 
 // This is needed because of the orphan rule not allowing implementing

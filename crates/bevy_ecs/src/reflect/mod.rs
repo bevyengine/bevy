@@ -17,6 +17,7 @@ mod entity_commands;
 mod event;
 mod from_world;
 mod map_entities;
+mod message;
 mod resource;
 
 use bevy_utils::prelude::DebugName;
@@ -26,6 +27,7 @@ pub use entity_commands::ReflectCommandExt;
 pub use event::{ReflectEvent, ReflectEventFns};
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
+pub use message::{ReflectMessage, ReflectMessageFns};
 pub use resource::ReflectResource;
 
 /// A [`Resource`] storing [`TypeRegistry`] for

@@ -254,6 +254,7 @@ pub fn init_meshlet_pipelines(
                 shader_defs: vec!["MESHLET".into()],
                 entry_point: Some("downsample_depth_second".into()),
                 zero_initialize_workgroup_memory: false,
+                constants: vec![],
             },
         ),
 
@@ -386,8 +387,8 @@ pub fn init_meshlet_pipelines(
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -406,8 +407,8 @@ pub fn init_meshlet_pipelines(
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -426,8 +427,8 @@ pub fn init_meshlet_pipelines(
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth16Unorm,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -436,6 +437,7 @@ pub fn init_meshlet_pipelines(
                 shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                 entry_point: Some("resolve_material_depth".into()),
                 targets: vec![],
+                constants: vec![],
             }),
             ..default()
         }),

@@ -255,6 +255,54 @@ fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));
 }
 
+// PBR Neutral tone mapping
+// https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/pbrNeutral.glsl
+// Adapted under Apache 2.0, per https://github.com/KhronosGroup/ToneMapping/tree/main/LICENSES
+fn tonemapping_pbr_neutral(color_in: vec3<f32>) -> vec3<f32> {
+    // Parameter controlling when highlight compression starts
+    // (`K_s` in specification)
+    const start_compression: f32 = 0.8 - 0.04;
+
+    // Parameter controlling the speed of desaturation
+    // (`K-d` in specification)
+    const desaturation: f32 = 0.15;
+
+    // `x` in the specification equation
+    let min_channel = min(color_in.r, min(color_in.g, color_in.b));
+
+    // The amount that the "toe" adjustment reduces the color
+    // `f` in the specification equation
+    let offset = select(0.04, min_channel - 6.25 * min_channel * min_channel, min_channel < 0.08);
+
+    // The original color, minus the "toe" reduction
+    // `c_in - f` in the specification equation
+    let offset_color = color_in - offset;
+
+    // Maximum of all offset color channels
+    // `p` in the specification equation
+    let max_channel = max(offset_color.r, max(offset_color.g, offset_color.b));
+    if max_channel < start_compression {
+        // "toe" at the low-end; or uncompressed, offset color for most of the range
+        return offset_color;
+    }
+
+    // This doesn't exist in the specification equation. It is part of optimizing
+    // the math for computation.
+    let d = 1.0 - start_compression;
+
+    // Maximum color channel, scaled to asymptotically approach 1.0
+    let new_max_channel = 1.0 - d * d / (max_channel + d - start_compression);
+
+    // Full color, from offset color, with the same scale applied as `new_max_channel`
+    // `p_n` in the specification equation
+    let color = offset_color * (new_max_channel / max_channel);
+
+    // Amount to desaturate, used as the blend factor when mixing between
+    // full color and desaturated.
+    let g = 1.0 - 1.0 / (desaturation * (max_channel - new_max_channel) + 1.0);
+    return mix(color, vec3(new_max_channel), g);
+}
+
 // Source: Advanced VR Rendering, GDC 2015, Alex Vlachos, Valve, Slide 49
 // https://media.steampowered.com/apps/valve/2015/Alex_Vlachos_Advanced_VR_Rendering_GDC2015.pdf
 fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
@@ -372,6 +420,8 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     color = sample_tony_mc_mapface_lut(color);
 #else ifdef TONEMAP_METHOD_BLENDER_FILMIC
     color = sample_blender_filmic_lut(color.rgb);
+#else ifdef TONEMAP_METHOD_PBR_NEUTRAL
+    color = tonemapping_pbr_neutral(color.rgb);
 #endif
 
     // Perceptual post tonemapping grading

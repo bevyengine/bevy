@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Pat, Path, Result};
@@ -118,8 +119,8 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
             type SourceStates = #source_state_type;
 
-            fn should_exist(sources: #source_state_type) -> Option<Self> {
-                matches!(sources, #source_state_value).then_some(Self::default())
+            fn should_exist(sources: #source_state_type) -> #FQOption<Self> {
+                ::core::matches!(sources, #source_state_value).then_some(Self::default())
             }
         }
 

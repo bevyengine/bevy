@@ -61,7 +61,7 @@ impl RenderDevice {
             wgpu::ShaderSource::SpirV(source)
                 if self
                     .features()
-                    .contains(wgpu::Features::EXPERIMENTAL_PASSTHROUGH_SHADERS) =>
+                    .contains(wgpu::Features::PASSTHROUGH_SHADERS) =>
             {
                 // SAFETY:
                 // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.

@@ -7,7 +7,10 @@ use crate::{
 use bevy_math::curve::{iterable::IterableCurve, Interval};
 use bevy_mesh::morph::MorphWeights;
 use bevy_reflect::{FromReflect, Reflect, Reflectable};
-use core::{any::TypeId, fmt::Debug};
+use core::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 
 /// This type allows an [`IterableCurve`] valued in `f32` to be used as an [`AnimationCurve`]
 /// that animates [morph weights].
@@ -52,6 +55,14 @@ struct WeightsCurveEvaluator {
     /// The number of morph targets that are to be animated.
     morph_target_count: Option<u32>,
 }
+
+/// Type indicating that the sampled value from an animation curve is coming from a
+/// [`WeightsCurve`].
+///
+/// You shouldn't need to interact with this type unless you're manually evaluating animation
+/// curves.
+#[derive(Reflect)]
+pub struct WeightsCurveSample(pub Vec<f32>);
 
 impl<C> AnimationCurve for WeightsCurve<C>
 where
@@ -103,6 +114,12 @@ where
             .stack_blend_weights_and_graph_nodes
             .push((weight, graph_node));
         Ok(())
+    }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        Box::new(WeightsCurveSample(
+            self.0.sample_iter_clamped(t).collect::<Vec<f32>>(),
+        ))
     }
 }
 

@@ -125,7 +125,7 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.depth_stencil.as_mut().unwrap().depth_compare = CompareFunction::Always;
+        descriptor.depth_stencil.as_mut().unwrap().depth_compare = Some(CompareFunction::Always);
 
         descriptor.vertex.shader_defs.push("FORWARD_DECAL".into());
 

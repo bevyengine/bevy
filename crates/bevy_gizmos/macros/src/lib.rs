@@ -2,7 +2,7 @@
 
 //! Derive implementations for `bevy_gizmos`.
 
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
@@ -16,7 +16,7 @@ pub fn derive_gizmo_config_group(input: TokenStream) -> TokenStream {
         let bevy_reflect_path: Path = manifest.get_path("bevy_reflect");
 
         ast.generics.make_where_clause().predicates.push(
-            parse_quote! { Self: #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath + Default},
+            parse_quote! { Self: #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath + #FQDefault},
         );
 
         let struct_name = &ast.ident;

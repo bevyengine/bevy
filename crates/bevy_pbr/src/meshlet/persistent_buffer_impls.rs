@@ -4,6 +4,7 @@ use super::{asset::Meshlet, persistent_buffer::PersistentGpuBufferable};
 use alloc::sync::Arc;
 use bevy_math::Vec2;
 use bevy_render::render_resource::BufferAddress;
+use wgpu_types::WriteOnly;
 
 impl PersistentGpuBufferable for Arc<[BvhNode]> {
     type Metadata = u32;
@@ -15,14 +16,16 @@ impl PersistentGpuBufferable for Arc<[BvhNode]> {
     fn write_bytes_le(
         &self,
         base_meshlet_index: Self::Metadata,
-        buffer_slice: &mut [u8],
+        mut buffer_slice: WriteOnly<[u8]>,
         buffer_offset: BufferAddress,
     ) {
         const SIZE: usize = size_of::<BvhNode>();
         for (i, &node) in self.iter().enumerate() {
             let bytes: [u8; SIZE] =
                 bytemuck::cast(node.offset_aabbs(base_meshlet_index, buffer_offset));
-            buffer_slice[i * SIZE..(i + 1) * SIZE].copy_from_slice(&bytes);
+            buffer_slice
+                .slice(i * SIZE..(i + 1) * SIZE)
+                .copy_from_slice(&bytes);
         }
     }
 }
@@ -56,7 +59,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
     fn write_bytes_le(
         &self,
         (vertex_position_offset, vertex_attribute_offset, index_offset): Self::Metadata,
-        buffer_slice: &mut [u8],
+        mut buffer_slice: WriteOnly<[u8]>,
         _: BufferAddress,
     ) {
         let vertex_position_offset = (vertex_position_offset * 8) as u32;
@@ -74,7 +77,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
                 start_index_id: meshlet.start_index_id + index_offset,
                 ..*meshlet
             });
-            buffer_slice[i..(i + size)].clone_from_slice(&bytes);
+            buffer_slice.slice(i..(i + size)).copy_from_slice(&bytes);
         }
     }
 }
@@ -86,8 +89,13 @@ impl PersistentGpuBufferable for Arc<[MeshletCullData]> {
         self.len() * size_of::<MeshletCullData>()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
-        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
+    fn write_bytes_le(
+        &self,
+        _: Self::Metadata,
+        mut buffer_slice: WriteOnly<[u8]>,
+        _: BufferAddress,
+    ) {
+        buffer_slice.copy_from_slice(bytemuck::cast_slice(self));
     }
 }
 
@@ -98,8 +106,13 @@ impl PersistentGpuBufferable for Arc<[u8]> {
         self.len()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
-        buffer_slice.clone_from_slice(self);
+    fn write_bytes_le(
+        &self,
+        _: Self::Metadata,
+        mut buffer_slice: WriteOnly<[u8]>,
+        _: BufferAddress,
+    ) {
+        buffer_slice.copy_from_slice(self);
     }
 }
 
@@ -110,8 +123,13 @@ impl PersistentGpuBufferable for Arc<[u32]> {
         self.len() * size_of::<u32>()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
-        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
+    fn write_bytes_le(
+        &self,
+        _: Self::Metadata,
+        mut buffer_slice: WriteOnly<[u8]>,
+        _: BufferAddress,
+    ) {
+        buffer_slice.copy_from_slice(bytemuck::cast_slice(self));
     }
 }
 
@@ -122,7 +140,12 @@ impl PersistentGpuBufferable for Arc<[Vec2]> {
         self.len() * size_of::<Vec2>()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
-        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
+    fn write_bytes_le(
+        &self,
+        _: Self::Metadata,
+        mut buffer_slice: WriteOnly<[u8]>,
+        _: BufferAddress,
+    ) {
+        buffer_slice.copy_from_slice(bytemuck::cast_slice(self));
     }
 }

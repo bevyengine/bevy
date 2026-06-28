@@ -60,7 +60,7 @@ use crate::{
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
-    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -112,13 +112,13 @@ pub struct HookContext {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_platform::collections::HashSet;
+/// use bevy_ecs::entity::EntityHashSet;
 ///
 /// #[derive(Component)]
 /// struct MyTrackedComponent;
 ///
 /// #[derive(Resource, Default)]
-/// struct TrackedEntities(HashSet<Entity>);
+/// struct TrackedEntities(EntityHashSet);
 ///
 /// let mut world = World::new();
 /// world.init_resource::<TrackedEntities>();
@@ -639,7 +639,7 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.removed_components()
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.removed_components())
     }
 }

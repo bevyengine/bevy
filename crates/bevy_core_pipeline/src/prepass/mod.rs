@@ -25,7 +25,13 @@
 //!
 //! Currently only works for 3D.
 
+pub mod background_motion_vectors;
 pub mod node;
+
+pub use background_motion_vectors::{
+    BackgroundMotionVectorsBindGroup, BackgroundMotionVectorsPipelineId,
+    BackgroundMotionVectorsPlugin, NoBackgroundMotionVectors,
+};
 
 use core::ops::Range;
 
@@ -96,6 +102,7 @@ pub struct DeferredPrepassDoubleBuffer;
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,
+    pub unjittered_clip_from_world: Mat4,
     pub clip_from_view: Mat4,
     pub world_from_clip: Mat4,
     pub view_from_clip: Mat4,

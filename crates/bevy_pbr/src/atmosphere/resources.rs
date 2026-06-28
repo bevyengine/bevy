@@ -477,8 +477,9 @@ struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 pub struct GpuAtmosphere {
     //TODO: rename to Planet later?
     pub ground_albedo: Vec3,
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
+    pub world_to_atmosphere: Mat4,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -488,8 +489,9 @@ pub fn prepare_atmosphere_uniforms(
     for (entity, atmosphere) in atmospheres {
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
-            bottom_radius: atmosphere.bottom_radius,
-            top_radius: atmosphere.top_radius,
+            inner_radius: atmosphere.inner_radius,
+            outer_radius: atmosphere.outer_radius,
+            world_to_atmosphere: atmosphere.world_to_atmosphere,
         });
     }
     Ok(())
@@ -507,9 +509,16 @@ impl AtmosphereTransforms {
     }
 }
 
+/// Transforms between world space and atmosphere space.
+///
+/// Up is the local planet surface normal, so the horizon stays along the x-z
+/// plane for horizon-detail parameterization. Back is chosen from a constant
+/// world-horizontal direction such as `Vec3A::NEG_Z`, then projected orthogonal
+/// to up. It may drift slightly from world-horizontal but stays camera-independent.
 #[derive(ShaderType)]
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
+    atmosphere_from_world: Mat4,
 }
 
 #[derive(Component)]
@@ -525,7 +534,10 @@ impl AtmosphereTransformsOffset {
 }
 
 pub(super) fn prepare_atmosphere_transforms(
-    views: Query<(Entity, &ExtractedView), (With<ExtractedAtmosphere>, With<Camera3d>)>,
+    views: Query<
+        (Entity, &ExtractedView, &GpuAtmosphere),
+        (With<ExtractedAtmosphere>, With<Camera3d>),
+    >,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut atmo_uniforms: ResMut<AtmosphereTransforms>,
@@ -540,24 +552,38 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view) in &views {
-        let world_from_view = view.world_from_view.affine();
-        let camera_z = world_from_view.matrix3.z_axis;
-        let camera_y = world_from_view.matrix3.y_axis;
-        let atmo_z = camera_z
-            .with_y(0.0)
-            .try_normalize()
-            .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
-        let atmo_y = Vec3A::Y;
-        let atmo_x = atmo_y.cross(atmo_z).normalize();
-        let world_from_atmosphere =
-            Affine3A::from_cols(atmo_x, atmo_y, atmo_z, world_from_view.translation);
+    for (entity, view, gpu_atmosphere) in &views {
+        // Camera position in atmosphere space
+        let cam_world = view.world_from_view.translation();
+        let cam_pos = Vec3A::from(
+            gpu_atmosphere
+                .world_to_atmosphere
+                .transform_point3(cam_world),
+        );
 
-        let world_from_atmosphere = Mat4::from(world_from_atmosphere);
+        // Up is the local planet surface normal.
+        let atmo_y = cam_pos.try_normalize().unwrap_or(Vec3A::Y);
+
+        // World-horizontal reference for back, projected orthogonal to atmo_y.
+        let world_ref = Vec3A::NEG_Z;
+        let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
+        let atmo_z = ref_horizontal.normalize();
+        let atmo_x = atmo_y.cross(atmo_z).normalize();
+
+        let world_from_atmosphere = Mat4::from(Affine3A::from_cols(
+            atmo_x,
+            atmo_y,
+            atmo_z,
+            view.world_from_view.translation_vec3a(),
+        ));
+        // The shader only uses the upper-left 3x3 block, where transpose equals inverse for
+        // orthonormal matrices and is cheaper than computing the full inverse.
+        let atmosphere_from_world = world_from_atmosphere.transpose();
 
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
+                atmosphere_from_world,
             }),
         });
     }
@@ -773,37 +799,37 @@ pub(crate) struct AtmosphereData {
     pub settings: GpuAtmosphereSettings,
 }
 
-pub fn init_atmosphere_buffer(mut commands: Commands) {
-    commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(AtmosphereData {
-            atmosphere: GpuAtmosphere {
-                ground_albedo: Vec3::ZERO,
-                bottom_radius: 0.0,
-                top_radius: 0.0,
-            },
-            settings: GpuAtmosphereSettings::default(),
-        }),
-    });
-}
-
-#[derive(Resource)]
+#[derive(Component)]
 pub struct AtmosphereBuffer {
     pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
 
-pub(crate) fn write_atmosphere_buffer(
+pub(crate) fn prepare_atmosphere_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<(&GpuAtmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
-    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+    mut views: Query<
+        (
+            Entity,
+            &GpuAtmosphere,
+            &GpuAtmosphereSettings,
+            Option<&mut AtmosphereBuffer>,
+        ),
+        With<ExtractedAtmosphere>,
+    >,
+    mut commands: Commands,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
-        return;
-    };
-
-    atmosphere_buffer.buffer.set(AtmosphereData {
-        atmosphere: atmosphere.clone(),
-        settings: settings.clone(),
-    });
-    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+        let data = AtmosphereData {
+            atmosphere: atmosphere.clone(),
+            settings: settings.clone(),
+        };
+        if let Some(mut atmosphere_buffer) = existing_buffer {
+            atmosphere_buffer.buffer.set(data);
+            atmosphere_buffer.buffer.write_buffer(&device, &queue);
+        } else {
+            let mut buffer = StorageBuffer::from(data);
+            buffer.write_buffer(&device, &queue);
+            commands.entity(entity).insert(AtmosphereBuffer { buffer });
+        }
+    }
 }

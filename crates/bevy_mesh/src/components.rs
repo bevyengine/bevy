@@ -3,7 +3,7 @@ use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut, component::Component, message::MessageReader,
-    reflect::ReflectComponent, system::Query,
+    reflect::ReflectComponent, system::Query, template::FromTemplate,
 };
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -37,7 +37,9 @@ use derive_more::derive::From;
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]
 pub struct Mesh2d(pub Handle<Mesh>);
@@ -92,7 +94,9 @@ impl AsAssetId for Mesh2d {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]
 pub struct Mesh3d(pub Handle<Mesh>);

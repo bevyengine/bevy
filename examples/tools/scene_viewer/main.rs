@@ -14,8 +14,11 @@ use bevy::{
     camera::primitives::{Aabb, Sphere},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
+    dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
+    mesh::MeshAttributeCompressionFlags,
     pbr::DefaultOpaqueRendererMethod,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     render::occlusion_culling::OcclusionCulling,
 };
@@ -55,6 +58,21 @@ struct Args {
     /// enable `GltfPlugin::convert_coordinates::meshes`
     #[argh(switch)]
     convert_mesh_coordinates: Option<bool>,
+    /// disables the infinite grid
+    #[argh(switch)]
+    no_infinite_grid: bool,
+    /// enable mesh attribute compression
+    #[argh(switch)]
+    mesh_attribute_compression: bool,
+    /// enable mesh index compression
+    #[argh(switch)]
+    mesh_index_compression: bool,
+    /// enable motion blur
+    #[argh(switch)]
+    motion_blur: bool,
+    /// set the motion blur shutter angle
+    #[argh(option)]
+    motion_blur_shutter_angle: Option<f32>,
 }
 
 impl Args {
@@ -95,6 +113,13 @@ fn main() {
                 ..default()
             })
             .set(GltfPlugin {
+                mesh_attribute_compression: if args.mesh_attribute_compression {
+                    MeshAttributeCompressionFlags::all()
+                        .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                } else {
+                    MeshAttributeCompressionFlags::empty()
+                },
+                mesh_index_compression: args.mesh_index_compression,
                 convert_coordinates: GltfConvertCoordinates {
                     rotate_scene_entity: args.convert_scene_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
@@ -104,6 +129,7 @@ fn main() {
         FreeCameraPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
+        InfiniteGridPlugin,
     ))
     .insert_resource(args)
     .add_systems(Startup, setup)
@@ -138,6 +164,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     let scene_path = &args.scene_path;
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene((*scene_path).clone());
+
+    if !args.no_infinite_grid {
+        commands.spawn(InfiniteGrid);
+    }
 
     commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
 }
@@ -186,7 +216,6 @@ fn setup_scene_after_load(
             run_speed: 3.0 * walk_speed,
             ..default()
         };
-
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
         info!("{}", *scene_handle);
@@ -231,6 +260,20 @@ fn setup_scene_after_load(
                 .insert(Msaa::Off)
                 .insert(DepthPrepass)
                 .insert(DeferredPrepass);
+        }
+
+        if args.motion_blur {
+            camera.insert((
+                MotionBlur {
+                    shutter_angle: args
+                        .motion_blur_shutter_angle
+                        .unwrap_or_else(|| MotionBlur::default().shutter_angle),
+                    ..Default::default()
+                },
+                // MSAA and MotionBlur are not compatible on WebGL.
+                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+                Msaa::Off,
+            ));
         }
 
         // Spawn a default light if the scene does not have one

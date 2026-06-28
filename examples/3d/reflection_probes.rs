@@ -111,7 +111,9 @@ fn setup(
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb"))),
+        WorldAssetRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+        ),
         CubesScene,
     ));
 }
@@ -195,7 +197,7 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.specular_environment_map.clone(),
+                image: Some(cubemaps.specular_environment_map.clone()),
                 brightness: ENV_MAP_INTENSITY,
                 ..default()
             });

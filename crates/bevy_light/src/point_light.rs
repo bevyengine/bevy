@@ -156,7 +156,7 @@ impl PointLight {
 /// Add to a [`PointLight`] to add a light texture effect.
 /// A texture mask is applied to the light source to modulate its intensity,  
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(PointLight)]
 pub struct PointLightTexture {

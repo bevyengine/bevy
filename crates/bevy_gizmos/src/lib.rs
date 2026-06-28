@@ -38,6 +38,7 @@ pub mod retained;
 pub mod rounded_box;
 mod simplex_stroke_font;
 pub mod stroke_text;
+pub mod transform_gizmo;
 
 #[cfg(feature = "bevy_mesh")]
 pub mod skinned_mesh_bounds;
@@ -67,6 +68,13 @@ pub mod prelude {
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
+    };
+
+    #[doc(hidden)]
+    pub use crate::transform_gizmo::{
+        TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode,
+        TransformGizmoPlugin, TransformGizmoSettings, TransformGizmoSpace, TransformGizmoState,
+        TransformGizmoSystems,
     };
 }
 

@@ -16,7 +16,7 @@ Please refer example [README](../../README.md#setup) for NDK/SDK related instruc
 When using `cargo-apk`, it must use `NativeActivity`, so you need to edit it in `Cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", features = ["android-native-activity"] }
 ```
 
 Then the following fields must be added to `Cargo.toml`:
@@ -46,6 +46,8 @@ Please refer example [README](../../README.md#debugging) for debugging instructi
 Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing.
+
+Keep in mind that if you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
 
 To use a different API, the following fields must be updated in `Cargo.toml`:
 

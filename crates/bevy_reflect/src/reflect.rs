@@ -318,9 +318,6 @@ where
     /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
     /// `take` in a useful fashion, automatically constructing an appropriate
     /// [`ReflectCloneError`] if the downcast fails.
-    ///
-    /// This is an associated function, rather than a method, because methods
-    /// with generic types prevent dyn-compatibility.
     fn reflect_clone_and_take<T: 'static>(&self) -> Result<T, ReflectCloneError>
     where
         Self: TypePath + Sized,

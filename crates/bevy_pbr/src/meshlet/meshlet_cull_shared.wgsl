@@ -170,15 +170,15 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
 }
 
 fn occlusion_cull_projection() -> mat4x4<f32> {
-#ifdef FIRST_CULLING_PASS
-    return view.clip_from_world;
-#else
+#ifdef MESHLET_FIRST_CULLING_PASS
     return previous_view.clip_from_world;
+#else
+    return view.clip_from_world;
 #endif
 }
 
 fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
-#ifdef FIRST_CULLING_PASS
+#ifdef MESHLET_FIRST_CULLING_PASS
     let prev_world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].previous_world_from_local);
     return previous_view.clip_from_world * prev_world_from_local;
 #else

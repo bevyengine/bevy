@@ -48,6 +48,27 @@ fn deal_damage_over_time(
     }
 }
 
+// This system both reads and writes `DealDamage` messages.
+//
+// Trying to do this with a `MessageReader` and a `MessageWriter` will fail with conflicts,
+// since they both use the same underlying resource.
+// Instead, you may use a `MessageMutator`, which allows both reading and writing.
+fn apply_extra_damage(mut dmg_messages: MessageMutator<DealDamage>) {
+    let mut extra = Vec::new();
+    for message in dmg_messages.read() {
+        if message.amount >= 10 {
+            extra.push(DealDamage {
+                amount: message.amount / 10,
+            });
+        }
+    }
+    // Note that this system will read messages it wrote itself!
+    // These are written after the `read()`, so they will be read the next time it runs.
+    for message in extra {
+        dmg_messages.write(message);
+    }
+}
+
 // This system mutates the 'DealDamage' messages to apply some armor value
 // It also sends an 'ArmorBlockedDamage' message if the value of 'DealDamage' is zero
 //
@@ -124,6 +145,7 @@ fn main() {
             Update,
             (
                 deal_damage_over_time,
+                apply_extra_damage,
                 apply_armor_to_damage,
                 apply_damage_to_health,
             )
