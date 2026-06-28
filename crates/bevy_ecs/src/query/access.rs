@@ -13,18 +13,11 @@ use thiserror::Error;
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
 #[derive(Eq, PartialEq, Default, Hash, Debug)]
 pub struct Access {
-    /// All accessed components, or forbidden components if
-    /// `Self::component_read_and_writes_inverted` is set.
-    read_and_writes: ComponentIdSet,
+    /// All accessed components, or forbidden components if `Excluded`.
+    read_and_writes: InvertibleComponentIdSet,
     /// All exclusively-accessed components, or components that may not be
-    /// exclusively accessed if `Self::component_writes_inverted` is set.
-    writes: ComponentIdSet,
-    /// Is `true` if this component can read all components *except* those
-    /// present in `Self::read_and_writes`.
-    read_and_writes_inverted: bool,
-    /// Is `true` if this component can write to all components *except* those
-    /// present in `Self::writes`.
-    writes_inverted: bool,
+    /// exclusively accessed if `Excluded`.
+    writes: InvertibleComponentIdSet,
     // Components that are not accessed, but whose presence in an archetype affect query results.
     archetypal: ComponentIdSet,
 }
@@ -35,8 +28,6 @@ impl Clone for Access {
         Self {
             read_and_writes: self.read_and_writes.clone(),
             writes: self.writes.clone(),
-            read_and_writes_inverted: self.read_and_writes_inverted,
-            writes_inverted: self.writes_inverted,
             archetypal: self.archetypal.clone(),
         }
     }
@@ -44,8 +35,6 @@ impl Clone for Access {
     fn clone_from(&mut self, source: &Self) {
         self.read_and_writes.clone_from(&source.read_and_writes);
         self.writes.clone_from(&source.writes);
-        self.read_and_writes_inverted = source.read_and_writes_inverted;
-        self.writes_inverted = source.writes_inverted;
         self.archetypal.clone_from(&source.archetypal);
     }
 }
@@ -54,10 +43,8 @@ impl Access {
     /// Creates an empty [`Access`] collection.
     pub const fn new() -> Self {
         Self {
-            read_and_writes_inverted: false,
-            writes_inverted: false,
-            read_and_writes: ComponentIdSet::new(),
-            writes: ComponentIdSet::new(),
+            read_and_writes: InvertibleComponentIdSet::new(),
+            writes: InvertibleComponentIdSet::new(),
             archetypal: ComponentIdSet::new(),
         }
     }
@@ -66,23 +53,22 @@ impl Access {
     /// This is equivalent to calling `read_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_read_all() -> Self {
-        let mut access = Self::new();
-        // Note that we cannot use `read_all()`
-        // because `FixedBitSet::clear()` is not `const`.
-        access.read_and_writes_inverted = true;
-        access
+        Self {
+            read_and_writes: InvertibleComponentIdSet::new_excluded(),
+            writes: InvertibleComponentIdSet::new(),
+            archetypal: ComponentIdSet::new(),
+        }
     }
 
     /// Creates an [`Access`] with read and write access to all components.
     /// This is equivalent to calling `write_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_write_all() -> Self {
-        let mut access = Self::new();
-        // Note that we cannot use `write_all()`
-        // because `FixedBitSet::clear()` is not `const`.
-        access.read_and_writes_inverted = true;
-        access.writes_inverted = true;
-        access
+        Self {
+            read_and_writes: InvertibleComponentIdSet::new_excluded(),
+            writes: InvertibleComponentIdSet::new_excluded(),
+            archetypal: ComponentIdSet::new(),
+        }
     }
 
     /// Adds access to the component given by `index`.
@@ -226,16 +212,12 @@ impl Access {
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access) {
         invertible_union_with(
-            &mut self.read_and_writes,
-            &mut self.read_and_writes_inverted,
-            &other.read_and_writes,
-            other.read_and_writes_inverted,
+            self.read_and_writes.underlying(),
+            other.read_and_writes.underlying(),
         );
         invertible_union_with(
-            &mut self.writes,
-            &mut self.writes_inverted,
-            &other.writes,
-            other.writes_inverted,
+            self.writes.underlying_mut(),
+            other.writes.underlying(),
         );
         self.archetypal.union_with(&other.archetypal);
     }
@@ -246,15 +228,11 @@ impl Access {
     pub fn remove_conflicting_access(&mut self, other: &Access) {
         invertible_difference_with(
             &mut self.read_and_writes,
-            &mut self.read_and_writes_inverted,
             &other.writes,
-            other.writes_inverted,
         );
         invertible_difference_with(
             &mut self.writes,
-            &mut self.writes_inverted,
             &other.read_and_writes,
-            other.read_and_writes_inverted,
         );
     }
 
@@ -268,23 +246,17 @@ impl Access {
         for (
             lhs_writes,
             rhs_reads_and_writes,
-            lhs_writes_inverted,
-            rhs_reads_and_writes_inverted,
         ) in [
             (
                 &self.writes,
                 &other.read_and_writes,
-                self.writes_inverted,
-                other.read_and_writes_inverted,
             ),
             (
                 &other.writes,
                 &self.read_and_writes,
-                other.writes_inverted,
-                self.read_and_writes_inverted,
             ),
         ] {
-            match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
+            match (lhs_writes.inverted(), rhs_reads_and_writes.inverted()) {
                 (true, true) => return false,
                 (false, true) => {
                     if !lhs_writes.is_subset(rhs_reads_and_writes) {
@@ -313,23 +285,17 @@ impl Access {
         for (
             our_components,
             their_components,
-            our_components_inverted,
-            their_components_inverted,
         ) in [
             (
                 &self.read_and_writes,
                 &other.read_and_writes,
-                self.read_and_writes_inverted,
-                other.read_and_writes_inverted,
             ),
             (
                 &self.writes,
                 &other.writes,
-                self.writes_inverted,
-                other.writes_inverted,
             ),
         ] {
-            match (our_components_inverted, their_components_inverted) {
+            match (our_components.inverted(), their_components.inverted()) {
                 (true, true) => {
                     if !their_components.is_subset(our_components) {
                         return false;
@@ -364,26 +330,20 @@ impl Access {
         for (
             lhs_writes,
             rhs_reads_and_writes,
-            lhs_writes_inverted,
-            rhs_reads_and_writes_inverted,
         ) in [
             (
                 &self.writes,
                 &other.read_and_writes,
-                self.writes_inverted,
-                other.read_and_writes_inverted,
             ),
             (
                 &other.writes,
                 &self.read_and_writes,
-                other.writes_inverted,
-                self.read_and_writes_inverted,
             ),
         ] {
             // There's no way that I can see to do this without a temporary.
             // Neither CNF nor DNF allows us to avoid one.
             let temp_conflicts: ComponentIdSet =
-                match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
+                match (lhs_writes.inverted(), rhs_reads_and_writes.inverted()) {
                     (true, true) => return AccessConflicts::All,
                     (false, true) => lhs_writes.difference(rhs_reads_and_writes).collect(),
                     (true, false) => rhs_reads_and_writes.difference(lhs_writes).collect(),
@@ -408,21 +368,13 @@ impl Access {
     }
 
     /// Returns the set of components with read or write access
-    pub fn reads_and_writes(&self) -> InvertibleComponentIdSet<'_> {
-        // writes_inverted is only ever true when read_and_writes_inverted is
-        // also true. Therefore it is sufficient to check just read_and_writes_inverted.
-        if self.read_and_writes_inverted {
-            return InvertibleComponentIdSet::Excluded(&self.read_and_writes);
-        }
-        InvertibleComponentIdSet::Included(&self.read_and_writes)
+    pub fn reads_and_writes(&self) -> &InvertibleComponentIdSet {
+        &self.read_and_writes
     }
 
     /// Returns the set of components with write access
-    pub fn writes(&self) -> InvertibleComponentIdSet<'_> {
-        if self.writes_inverted {
-            return InvertibleComponentIdSet::Excluded(&self.writes);
-        }
-        InvertibleComponentIdSet::Included(&self.writes)
+    pub fn writes(&self) -> &InvertibleComponentIdSet {
+        &self.writes
     }
 
     /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
@@ -462,8 +414,8 @@ impl Access {
 
         let InvertibleComponentIdSet::Included(component_set) = invertible_set else {
             return Err(UnboundedAccessError {
-                writes_inverted: self.writes_inverted,
-                read_and_writes_inverted: self.read_and_writes_inverted,
+                writes_inverted: self.writes.inverted(),
+                read_and_writes_inverted: self.read_and_writes.inverted(),
             });
         };
 
@@ -485,29 +437,46 @@ impl Access {
 }
 
 /// A set of [`ComponentId`]s that is either a finite set, or the complement of a finite set.
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
-pub enum InvertibleComponentIdSet<'a> {
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+pub enum InvertibleComponentIdSet {
     /// A finite [`InvertibleComponentIdSet`] that includes all components in the inner set.
-    Included(&'a ComponentIdSet),
+    Included(ComponentIdSet),
     /// An unbounded [`InvertibleComponentIdSet`] that includes all components *not* in the inner set.
-    Excluded(&'a ComponentIdSet),
+    Excluded(ComponentIdSet),
 }
 
-impl InvertibleComponentIdSet<'_> {
+impl Default for InvertibleComponentIdSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InvertibleComponentIdSet {
+    const fn new() -> Self {
+        Self::Included(ComponentIdSet::new())
+    }
+
+    const fn new_excluded() -> Self {
+        Self::Excluded(ComponentIdSet::new())
+    }
+
     /// Returns true if this is Excluded, otherwise false
     pub fn inverted(&self) -> bool {
         match self {
-            InvertibleComponentIdSet::Included(_) => false,
-            InvertibleComponentIdSet::Excluded(_) => true,
+            Self::Included(_) => false,
+            Self::Excluded(_) => true,
         }
     }
 
-    /// Iterate the underlying component ids
-    pub fn iter_underlying(&self) -> ComponentIdIter<Ones<'_>> {
+    fn underlying(&self) -> &ComponentIdSet {
         match self {
-            InvertibleComponentIdSet::Included(b) | InvertibleComponentIdSet::Excluded(b) => {
-                b.iter()
-            }
+            Self::Included(b) | Self::Excluded(b) => b,
+        }
+    }
+
+    fn underlying_mut(&mut self) -> &mut ComponentIdSet {
+        match self {
+            Self::Included(b) | Self::Excluded(b) => b,
         }
     }
 }
@@ -521,12 +490,10 @@ impl InvertibleComponentIdSet<'_> {
 /// Note that this may change `self_inverted` to `true` if we add an infinite
 /// set to a finite one, resulting in a new infinite set.
 fn invertible_union_with(
-    self_set: &mut ComponentIdSet,
-    self_inverted: &mut bool,
-    other_set: &ComponentIdSet,
-    other_inverted: bool,
+    self_set: &mut InvertibleComponentIdSet,
+    other_set: &InvertibleComponentIdSet,
 ) {
-    match (*self_inverted, other_inverted) {
+    match (self_set.inverted(), other_set.inverted()) {
         (true, true) => self_set.intersect_with(other_set),
         (true, false) => self_set.difference_with(other_set),
         (false, true) => {
