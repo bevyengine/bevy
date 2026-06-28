@@ -134,8 +134,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         }
 
         // Try terminating into the world cache
-        if terminate_into_cache(&reservoir, &weight_sum, &selected_target_function, &non_resampled_radiance,
-            path, ray_hit, ray.t, bounce, rng) {
+        if terminate_into_cache(&reservoir, &weight_sum, &selected_target_function, &non_resampled_radiance, path, ray_hit, ray.t, bounce, rng) {
             break;
         }
 
