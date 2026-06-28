@@ -409,6 +409,16 @@ impl Access {
     ///
     /// This includes components with write access, since write access also allows you to read the
     /// component.
+    #[deprecated = "Use try_reads instead"]
+    pub fn try_reads_and_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+        self.try_reads()
+    }
+
+    /// Returns the set of components with read access,
+    /// or an error if the access is unbounded.
+    ///
+    /// This includes components with write access, since write access also allows you to read the
+    /// component.
     pub fn try_reads(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
         // writes_inverted is only ever true when read_and_writes_inverted is
         // also true. Therefore it is sufficient to check just read_and_writes_inverted.
