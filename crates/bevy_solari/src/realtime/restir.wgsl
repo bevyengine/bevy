@@ -53,10 +53,10 @@ fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
-    let prev_camera_homog = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
-    let prev_camera_world_position = prev_camera_homog.xyz / prev_camera_homog.w;
+    let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
+    let previous_camera_world_position = previous_camera_homogeneous.xyz / previous_camera_homogeneous.w;
     let merge_result = merge_reservoirs(initial_reservoir, surface.world_position, surface.world_normal, surface.material,
-        temporal.reservoir, temporal.world_position, temporal.world_normal, temporal.material, prev_camera_world_position, false, &rng);
+        temporal.reservoir, temporal.world_position, temporal.world_normal, temporal.material, previous_camera_world_position, false, &rng);
 
     reservoirs_b[pixel_index] = merge_result.merged_reservoir;
 }
@@ -287,12 +287,12 @@ fn merge_reservoirs(
 
     // Visibility for the cross-domain targets
     if other_sample_at_canonical.target_function > 0.0 && other_sample_at_canonical_jacobian > 0.0 {
-        let vis = trace_light_visibility(canonical_world_position + canonical_world_normal * RAY_T_MIN, other_sample_at_canonical.sample_world_position);
-        other_sample_at_canonical.target_function *= vis;
+        let visibility = trace_light_visibility(canonical_world_position + canonical_world_normal * RAY_T_MIN, other_sample_at_canonical.sample_world_position);
+        other_sample_at_canonical.target_function *= visibility;
     }
     if canonical_sample_at_other.target_function > 0.0 && canonical_sample_at_other_jacobian > 0.0 {
-        let vis = trace_light_visibility(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position);
-        canonical_sample_at_other.target_function *= vis;
+        let visibility = trace_light_visibility(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position);
+        canonical_sample_at_other.target_function *= visibility;
     }
 
     // Defensive balance heuristic MIS (for spatial reuse only)
@@ -354,14 +354,14 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         let light_contribution = calculate_resolved_light_contribution(resolved, world_position, world_normal);
 
         // MIS weight against the bounce-0 BRDF-emissive strategy, recomputed from this surface's
-        // brdf and material rather than baked into W at generation. Mirrors the bounce-0
+        // brdf and material rather than baked into the unbiased contribution weight at generation. Mirrors the bounce-0
         // nee_mis_weight in generate_initial_reservoir, which puts the same factor in the target.
         var nee_mis_weight = 1.0;
         if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
             let light_count = arrayLength(&light_sources);
             let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
             let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
-            let p_nee_strategy = f32(constants.initial_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
+            let p_nee_strategy = f32(constants.primary_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
             nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
         }
@@ -385,7 +385,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
             let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
             let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
             let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
-            brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.initial_di_samples));
+            brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
         }
 
         return ReservoirContribution(brdf_radiance, luminance(brdf_radiance), vec4(reservoir.sample_point_world_position, 1.0));

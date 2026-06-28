@@ -46,7 +46,7 @@ enable wgpu_ray_query;
 // state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {
     confidence_weight_cap: f32,
-    initial_di_samples: u32,
+    primary_di_samples: u32,
     secondary_di_samples: u32,
     max_bounces: u32,
     world_cache_max_temporal_samples: f32,

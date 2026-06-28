@@ -26,6 +26,8 @@ struct InitialSamplingResult {
     non_resampled_radiance: vec3<f32>,
 }
 
+// Path vertices use the following convention: x0 = camera, x1 = primary ray hit (the G-buffer
+// surface), x2 = first BRDF-sampled hit (the reconnection vertex).
 struct PathState {
     ray_origin: vec3<f32>,
     normal: vec3<f32>,
@@ -40,8 +42,8 @@ struct PathState {
     // If false, candidates built on x2 are shaded directly into non_resampled_radiance instead of
     // published to the reservoir
     x2_reusable: bool,
-    // Primary (x1) brdf toward x2, computed once when x2 is captured
-    primary_brdf_at_x2: vec3<f32>,
+    // brdf at x1 for the direction toward x2
+    x1_brdf: vec3<f32>,
 }
 
 fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, workgroup_id: vec2<u32>, pixel_id: vec2<u32>, rng: ptr<function, u32>) -> InitialSamplingResult {
@@ -70,7 +72,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     path.x2_position = vec3(0.0);
     path.x2_normal = vec3(0.0);
     path.x2_reusable = false;
-    path.primary_brdf_at_x2 = vec3(0.0);
+    path.x1_brdf = vec3(0.0);
 
     for (var bounce = 0u; bounce < constants.max_bounces; bounce++) {
         let NdotV = max(dot(path.normal, path.wo), 0.0001);
@@ -80,7 +82,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         // metals have too narrow a lobe for NEE to help, so mostly skip it there and let
         // BRDF-sampled emissive do the work. Pure dielectrics always run NEE.
         let p_nee = mix(1.0, path.material.perceptual_roughness, path.material.metallic);
-        let di_samples = select(constants.secondary_di_samples, constants.initial_di_samples, bounce == 0u);
+        let di_samples = select(constants.secondary_di_samples, constants.primary_di_samples, bounce == 0u);
         generate_nee_candidate(&reservoir, &weight_sum, &selected_target_function, &non_resampled_radiance,
             path, F_ab, p_nee, di_samples, workgroup_id, bounce, rng);
 
@@ -112,16 +114,16 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
             path.x2_position = ray_hit.world_position;
             path.x2_normal = ray_hit.world_normal;
 
-            path.primary_brdf_at_x2 = evaluate_brdf(wo, next_bounce.wi, world_normal, material, primary_F_ab);
+            path.x1_brdf = evaluate_brdf(wo, next_bounce.wi, world_normal, material, primary_F_ab);
 
             path.x2_reusable = reconnection_reusable(ray.t, p_brdf, next_bounce.wi, next_bounce.diffuse_selected, ray_hit, world_position, material.perceptual_roughness, primary_NdotV);
 
             // The primary brdf*cos is applied at shade time, so divide it out of next_bounce.throughput
             // to leave 1/pdf (or 1/specular_weight for mirrors, avoiding the 1/INF = 0 that would kill
             // mirror GI).
-            path.throughput_past_x1 *= next_bounce.throughput / max(path.primary_brdf_at_x2, vec3(0.0001));
+            path.throughput_past_x1 *= next_bounce.throughput / max(path.x1_brdf, vec3(0.0001));
         } else {
-            // Later bounces keep the full brdf*cos/pdf for L_at_rc.
+            // Later bounces keep the full brdf*cos/pdf for L_at_reconnection.
             path.throughput_past_x1 *= next_bounce.throughput;
         }
 
@@ -144,9 +146,10 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         path.material = ray_hit.material;
 
         // Russian roulette for early termination
-        // throughput_past_x1 drops the primary brdf*cos, so multiply it back by primary_brdf_at_x2 to
-        // recover the bounded throughput.
-        let full_throughput = path.throughput_past_x1 * max(path.primary_brdf_at_x2, vec3(0.0001));
+        // throughput_past_x1 has the primary brdf*cos divided out (so it can be re-applied at shade
+        // time), which inflates it. Multiply x1_brdf back in to get the true energy-bounded path
+        // throughput, which is the correct quantity for the RR survival probability.
+        let full_throughput = path.throughput_past_x1 * max(path.x1_brdf, vec3(0.0001));
         let rr = saturate(luminance(full_throughput));
         if rand_f(rng) >= rr { break; }
         path.throughput_past_x1 /= rr;
@@ -186,29 +189,30 @@ fn generate_nee_candidate(
 
     if bounce == 0u {
         // Bounce 0. Store the light sample so reservoir_contribution can re-resolve it each frame.
-        // nee_mis_weight goes in the target (recomputed per pixel on reuse), not W, so W stays free
-        // of this pixel's brdf pdf and the NEE plus emissive partition stays valid across reuse.
-        let nee_w = di.weight_sum * visibility * nee_mis_weight / p_nee;
-        *weight_sum += nee_w;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < nee_w {
+        // nee_mis_weight goes in the target (recomputed per pixel on reuse), not the contribution
+        // weight, so the weight stays free of this pixel's brdf pdf and the NEE plus emissive
+        // partition stays valid across reuse.
+        let nee_weight = di.weight_sum * visibility * nee_mis_weight / p_nee;
+        *weight_sum += nee_weight;
+        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < nee_weight {
             (*reservoir).light_sample = di.light_sample;
             *selected_target_function = di.target_function * nee_mis_weight;
         }
     } else {
-        // Deeper bounces. Bake the path through this vertex into L_at_rc (x_rc = x2). di_W is the
+        // Deeper bounces. Bake the path through this vertex into L_at_reconnection (x_reconnection = x2). di_weight is the
         // sub-reservoir's inverse pdf, including the 1/p_nee stochastic-NEE compensation.
-        let di_W = di.weight_sum / di.target_function;
-        let L_at_rc = path.throughput_past_x1 * di.brdf_current * di.radiance * visibility * di_W * nee_mis_weight / p_nee;
+        let di_weight = di.weight_sum / di.target_function;
+        let L_at_reconnection = path.throughput_past_x1 * di.brdf_current * di.radiance * visibility * di_weight * nee_mis_weight / p_nee;
         if !path.x2_reusable {
-            *non_resampled_radiance += path.primary_brdf_at_x2 * L_at_rc;
+            *non_resampled_radiance += path.x1_brdf * L_at_reconnection;
         } else {
-            let nee_target = luminance(path.primary_brdf_at_x2 * L_at_rc);
+            let nee_target = luminance(path.x1_brdf * L_at_reconnection);
             *weight_sum += nee_target;
             if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < nee_target {
                 (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
                 (*reservoir).sample_point_world_position = path.x2_position;
                 (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
-                (*reservoir).radiance = L_at_rc;
+                (*reservoir).radiance = L_at_reconnection;
                 *selected_target_function = nee_target;
             }
         }
@@ -285,17 +289,17 @@ fn generate_emissive_candidate(
         // x1 -> x2 not reuse-safe (mirror or sharp lobe, or a failed gate). Valid only at this pixel,
         // so accumulate directly instead of publishing, since a shift would waste it or make a
         // firefly. Mirror lobes always land here (p_brdf = INF, footprint 0), where the MIS weight is 1.
-        *non_resampled_radiance += path.primary_brdf_at_x2 * path.throughput_past_x1 * ray_hit.material.emissive * emissive_mis_weight;
+        *non_resampled_radiance += path.x1_brdf * path.throughput_past_x1 * ray_hit.material.emissive * emissive_mis_weight;
     } else if bounce == 0u {
-        // Bounce 0. x_rc is the directly-visible light, so the stored radiance is the raw emission.
+        // Bounce 0. x_reconnection is the directly-visible light, so the stored radiance is the raw emission.
         // 1/p_brdf (in throughput_past_x1) goes into the weight. emissive_mis_weight goes in the
         // target only, recomputed per pixel in reservoir_contribution (dual of the bounce-0 NEE
         // candidate). The view-independent area pdf is bitcast into the unused seed field, and being
         // nonzero also tags this as a bounce-0 sample (deeper samples write seed == 0 and aren't reweighted).
-        let emissive_w = luminance(path.primary_brdf_at_x2 * path.throughput_past_x1 * ray_hit.material.emissive) * emissive_mis_weight;
-        let emissive_target = luminance(path.primary_brdf_at_x2 * ray_hit.material.emissive) * emissive_mis_weight;
-        *weight_sum += emissive_w;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < emissive_w {
+        let emissive_weight = luminance(path.x1_brdf * path.throughput_past_x1 * ray_hit.material.emissive) * emissive_mis_weight;
+        let emissive_target = luminance(path.x1_brdf * ray_hit.material.emissive) * emissive_mis_weight;
+        *weight_sum += emissive_weight;
+        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < emissive_weight {
             (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, bitcast<u32>(area_pdf));
             (*reservoir).sample_point_world_position = path.x2_position;
             (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
@@ -304,15 +308,15 @@ fn generate_emissive_candidate(
         }
     } else {
         // Deeper bounces are genuine indirect. Everything past x2 is sub-path noise frozen into
-        // L_at_rc (the standard reconnection-shift approximation), fine to reuse as-is.
-        let emissive_L_at_rc = path.throughput_past_x1 * ray_hit.material.emissive * emissive_mis_weight;
-        let emissive_target = luminance(path.primary_brdf_at_x2 * emissive_L_at_rc);
+        // L_at_reconnection (the standard reconnection-shift approximation), fine to reuse as-is.
+        let emissive_L_at_reconnection = path.throughput_past_x1 * ray_hit.material.emissive * emissive_mis_weight;
+        let emissive_target = luminance(path.x1_brdf * emissive_L_at_reconnection);
         *weight_sum += emissive_target;
         if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < emissive_target {
             (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
             (*reservoir).sample_point_world_position = path.x2_position;
             (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
-            (*reservoir).radiance = emissive_L_at_rc;
+            (*reservoir).radiance = emissive_L_at_reconnection;
             *selected_target_function = emissive_target;
         }
     }
@@ -342,19 +346,19 @@ fn terminate_into_cache(
     let cached_radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray_t, WORLD_CACHE_CELL_LIFETIME, rng);
 
     let cache_outgoing = (ray_hit.material.base_color / PI) * cached_radiance;
-    let cache_L_at_rc = path.throughput_past_x1 * cache_outgoing;
+    let cache_L_at_reconnection = path.throughput_past_x1 * cache_outgoing;
     if !path.x2_reusable {
-        *non_resampled_radiance += path.primary_brdf_at_x2 * cache_L_at_rc;
+        *non_resampled_radiance += path.x1_brdf * cache_L_at_reconnection;
         return true;
     }
-    let cache_target = luminance(path.primary_brdf_at_x2 * cache_L_at_rc);
+    let cache_target = luminance(path.x1_brdf * cache_L_at_reconnection);
     *weight_sum += cache_target;
 
     if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < cache_target {
         (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
         (*reservoir).sample_point_world_position = path.x2_position;
         (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
-        (*reservoir).radiance = cache_L_at_rc;
+        (*reservoir).radiance = cache_L_at_reconnection;
         *selected_target_function = cache_target;
     }
 

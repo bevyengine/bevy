@@ -53,7 +53,7 @@ pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct SolariLightingUniforms {
     confidence_weight_cap: f32,
-    initial_di_samples: u32,
+    primary_di_samples: u32,
     secondary_di_samples: u32,
     max_bounces: u32,
     world_cache_max_temporal_samples: f32,
@@ -70,7 +70,7 @@ impl SolariLightingUniforms {
     fn new(settings: &SolariLighting, frame_count: u32) -> Self {
         Self {
             confidence_weight_cap: settings.confidence_weight_cap,
-            initial_di_samples: settings.initial_di_samples,
+            primary_di_samples: settings.primary_di_samples,
             secondary_di_samples: settings.secondary_di_samples,
             max_bounces: settings.max_bounces,
             world_cache_max_temporal_samples: settings.world_cache_max_temporal_samples,

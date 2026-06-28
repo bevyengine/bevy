@@ -104,7 +104,7 @@ pub struct SolariLighting {
     ///
     /// Higher values reduce noise in directly-lit areas at the cost of more work
     /// per frame. Lower values are faster but noisier.
-    pub initial_di_samples: u32,
+    pub primary_di_samples: u32,
 
     /// Number of direct light samples taken at each indirect bounce during
     /// initial sampling.
@@ -181,7 +181,7 @@ impl Default for SolariLighting {
     fn default() -> Self {
         Self {
             confidence_weight_cap: 8.0,
-            initial_di_samples: 8,
+            primary_di_samples: 8,
             secondary_di_samples: 4,
             max_bounces: 3,
             world_cache_max_temporal_samples: 32.0,
