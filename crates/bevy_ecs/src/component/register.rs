@@ -184,10 +184,7 @@ impl<'w> ComponentsRegistrator<'w> {
         register_required_components: fn(ComponentId, &mut RequiredComponentsRegistrator),
         update_from_component: fn(&mut ComponentHooks) -> &mut ComponentHooks,
     ) {
-        // SAFETY: ensured by caller.
-        unsafe {
-            self.components.register_component_inner(id, descriptor);
-        }
+        self.components.register_component_inner(id, descriptor);
         let prev = self.components.indices.insert(type_id, id);
         debug_assert!(prev.is_none());
 
@@ -244,10 +241,7 @@ impl<'w> ComponentsRegistrator<'w> {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         let id = ComponentId::new(self.allocator.alloc());
-        // SAFETY: The id is fresh.
-        unsafe {
-            self.components.register_component_inner(id, descriptor);
-        }
+        self.components.register_component_inner(id, descriptor);
         id
     }
 
@@ -514,12 +508,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.register_arbitrary_dynamic(descriptor, |registrator, id, descriptor| {
-            // SAFETY: Id uniqueness handled by caller.
-            unsafe {
-                registrator
-                    .components
-                    .register_component_inner(id, descriptor);
-            }
+            registrator
+                .components
+                .register_component_inner(id, descriptor);
         })
     }
 

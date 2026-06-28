@@ -156,6 +156,7 @@ fn add_archetypes(world: &mut World, count: u16) {
         if i & (1 << 15) != 0 {
             e.insert(A::<28>(1.0));
         }
+        e.despawn();
     }
 }
 

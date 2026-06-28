@@ -387,21 +387,18 @@ pub struct Components {
 impl Components {
     /// This registers any descriptor, component or resource.
     ///
-    /// # Safety
-    ///
-    /// The id must have never been registered before. This must be a fresh registration.
+    /// This function panics if the id has never been registered before.
     #[inline]
-    pub(super) unsafe fn register_component_inner(
+    pub(super) fn register_component_inner(
         &mut self,
         id: ComponentId,
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
         let info = ComponentInfo::new(id, descriptor);
-        // SAFETY: The id has never been registered before.
-        unsafe {
-            self.components.insert_unique_unchecked(id, info);
-        }
+        self.components
+            .try_insert(id, info)
+            .expect("this component has already been registered");
     }
 
     /// Returns the number of components registered or queued with this instance.
@@ -648,7 +645,6 @@ impl Components {
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`].
-    /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
     pub(super) unsafe fn register_non_send_unchecked(
@@ -657,10 +653,7 @@ impl Components {
         component_id: ComponentId,
         descriptor: ComponentDescriptor,
     ) {
-        // SAFETY: ensured by caller
-        unsafe {
-            self.register_component_inner(component_id, descriptor);
-        }
+        self.register_component_inner(component_id, descriptor);
         let prev = self.indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
