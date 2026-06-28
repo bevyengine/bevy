@@ -6,13 +6,11 @@ enable wgpu_ray_query;
 #import bevy_render::utils::octahedral_decode
 #import bevy_solari::brdf::{brdf_pdf, evaluate_brdf, F_AB}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar}
-#import bevy_solari::initial_path::{generate_initial_reservoir, INITIAL_DI_SAMPLES, InitialSamplingResult}
-#import bevy_solari::realtime_bindings::{constants, depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, view, view_output}
+#import bevy_solari::initial_path::{generate_initial_reservoir, InitialSamplingResult}
+#import bevy_solari::realtime_bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output}
 #import bevy_solari::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_light_visibility}
 #import bevy_solari::scene_bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
-
-const CONFIDENCE_WEIGHT_CAP = 8.0;
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const SPECULAR_DOMINANCE_SKIP_RESAMPLING_THRESHOLD = 0.2;
@@ -22,7 +20,7 @@ fn initial(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invoc
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_index;
+    var rng = pixel_index + constants.frame_rng;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
@@ -42,7 +40,7 @@ fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_index + 0xBB67AE85u;
+    var rng = pixel_index + constants.frame_rng + 0xBB67AE85u;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 { return; }
@@ -68,7 +66,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_index + 0x6A09E667u;
+    var rng = pixel_index + constants.frame_rng + 0x6A09E667u;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
@@ -129,7 +127,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         point_temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
     }
 
-    var permute_rng = constants.frame_index;
+    var permute_rng = constants.frame_rng;
     let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id, rand_u(&permute_rng), view.main_pass_viewport.zw);
 
     // Check if the pixel features have changed heavily between the current and previous frame
@@ -153,7 +151,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         temporal.reservoir.light_sample.light_id = (light_id << 16u) | triangle_id;
     }
 
-    temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
+    temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, constants.confidence_weight_cap);
 
     return temporal;
 }
@@ -363,7 +361,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
             let light_count = arrayLength(&light_sources);
             let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
             let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
-            let p_nee_strategy = f32(INITIAL_DI_SAMPLES) * (1.0 / inverse_solid_angle_pdf) * p_nee;
+            let p_nee_strategy = f32(constants.initial_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
             nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
         }
@@ -387,7 +385,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
             let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
             let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
             let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
-            brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(INITIAL_DI_SAMPLES));
+            brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.initial_di_samples));
         }
 
         return ReservoirContribution(brdf_radiance, luminance(brdf_radiance), vec4(reservoir.sample_point_world_position, 1.0));

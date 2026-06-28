@@ -33,6 +33,7 @@ enable wgpu_ray_query;
 @group(1) @binding(19) var<storage, read_write> world_cache_b: array<u32, 1024u>;
 @group(1) @binding(20) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(21) var<storage, read_write> world_cache_active_cells_count: u32;
+@group(1) @binding(22) var<uniform> constants: SolariLightingSettings;
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
@@ -41,11 +42,22 @@ enable wgpu_ray_query;
 @group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 #endif
 
-struct PushConstants {
-    frame_index: u32,
+// User-configurable settings from the `SolariLighting` component, plus per-frame
+// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
+struct SolariLightingSettings {
+    confidence_weight_cap: f32,
+    initial_di_samples: u32,
+    secondary_di_samples: u32,
+    max_bounces: u32,
+    world_cache_max_temporal_samples: f32,
+    world_cache_direct_light_sample_count: u32,
+    world_cache_max_gi_ray_distance: f32,
+    world_cache_cell_updates_soft_cap: u32,
+    world_cache_position_base_cell_size: f32,
+    world_cache_position_lod_scale: f32,
+    frame_rng: u32,
     reset: u32,
 }
-var<immediate> constants: PushConstants;
 
 // Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {

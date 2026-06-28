@@ -9,26 +9,13 @@ enable wgpu_ray_query;
     world_cache_checksums,
     world_cache_radiance,
     world_cache_geometry_data,
+    constants,
 }
-
-/// How responsive the world cache is to changes in lighting (higher is less responsive but more stable, lower is more responsive but less stable)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 32.0;
-/// How many direct light samples each cell takes when updating each frame
-const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
-/// Maximum amount of distance to trace GI rays between two cache cells
-const WORLD_CACHE_MAX_GI_RAY_DISTANCE: f32 = 50.0;
-/// Soft upper limit on the amount of cache cells to update each frame
-const WORLD_CACHE_CELL_UPDATES_SOFT_CAP: u32 = 40000u;
 
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 10u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
-
-/// Size of a cache cell at the lowest LOD in meters
-const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.15;
-/// How fast the world cache transitions between LODs as a function of distance to the camera
-const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 15.0;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
@@ -94,16 +81,16 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 #endif
 
 fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32, rng: ptr<function, u32>) -> f32 {
-    let camera_distance = distance(view_position, world_position) / WORLD_CACHE_POSITION_LOD_SCALE;
+    let camera_distance = distance(view_position, world_position) / constants.world_cache_position_lod_scale;
     let lod_f = log2(1.0 + camera_distance);
     let lod_fract = fract(lod_f);
     let lod = floor(lod_f) + select(0.0, 1.0, rand_f(rng) < lod_fract * lod_fract * lod_fract);
-    var cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE * exp2(lod);
+    var cell_size = constants.world_cache_position_base_cell_size * exp2(lod);
 
     // Reduce light leaks
     if ray_t < cell_size {
-        let shrunk_lod = max(floor(log2(ray_t / WORLD_CACHE_POSITION_BASE_CELL_SIZE)), 0.0);
-        cell_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE * exp2(shrunk_lod);
+        let shrunk_lod = max(floor(log2(ray_t / constants.world_cache_position_base_cell_size)), 0.0);
+        cell_size = constants.world_cache_position_base_cell_size * exp2(shrunk_lod);
     }
 
     return cell_size;
