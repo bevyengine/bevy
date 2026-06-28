@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
@@ -644,28 +639,6 @@ impl World {
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.components.component_id::<T>()
-    }
-
-    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
-    ///
-    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
-    /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
-    /// [`World::insert_resource`] instead.
-    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
-    pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
-        self.components_registrator().register_component::<R>()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned [`ComponentId`] is specific to the [`World`] instance it was retrieved from
-    /// and should not be used with another [`World`] instance.
-    ///
-    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
-    /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
-    #[deprecated(since = "0.19.0", note = "use component_id")]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.components.get_id(TypeId::of::<T>())
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -2015,12 +1988,6 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
-    #[deprecated(since = "0.19.0", note = "use World::init_non_send")]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
-        self.init_non_send::<R>()
-    }
-
     /// Initializes new non-send data and returns the [`ComponentId`] created for it.
     ///
     /// If the data already exists, nothing happens.
@@ -2052,12 +2019,6 @@ impl World {
             });
         }
         component_id
-    }
-
-    /// Inserts a new non-send resource with the given `value`.
-    #[deprecated(since = "0.19.0", note = "use World::insert_non_send")]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
-        self.insert_non_send(value);
     }
 
     /// Inserts new non-send data with the given `value`.
@@ -2092,12 +2053,6 @@ impl World {
             .expect("ResourceCache is in sync")
             .take::<R>()?;
         Some(value)
-    }
-
-    /// Removes a `!Send` resource from the world and returns it, if present.
-    #[deprecated(since = "0.19.0", note = "use World::remove_non_send")]
-    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        self.remove_non_send::<R>()
     }
 
     /// Removes `!Send` data from the world and returns it, if present.
@@ -2401,12 +2356,6 @@ impl World {
         unsafe { untyped.with_type() }
     }
 
-    /// Gets an immutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use World::non_send")]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
-        self.non_send::<R>()
-    }
-
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
@@ -2427,12 +2376,6 @@ impl World {
                 DebugName::type_name::<R>()
             ),
         }
-    }
-
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use World::non_send_mut")]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        self.non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
@@ -2457,13 +2400,6 @@ impl World {
         }
     }
 
-    /// Gets a reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use World::get_non_send")]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        self.get_non_send::<R>()
-    }
-
     /// Gets a reference to the non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
@@ -2475,13 +2411,6 @@ impl World {
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
         unsafe { self.as_unsafe_world_cell_readonly().get_non_send() }
-    }
-
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use World::get_non_send_mut")]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        self.get_non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
@@ -2592,7 +2521,7 @@ impl World {
                         archetype_id: first_location.archetype_id,
                     };
                     move_as_ptr!(first_bundle);
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2622,7 +2551,7 @@ impl World {
                                     }
                                 }
                                 move_as_ptr!(bundle);
-                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                                 unsafe {
                                     cache.inserter.insert(
                                         entity,
@@ -2743,7 +2672,7 @@ impl World {
                     move_as_ptr!(first_bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - B::Effect: NoBundleEffect`
                     // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -2785,7 +2714,7 @@ impl World {
                     move_as_ptr!(bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - `B::Effect: NoBundleEffect`
                     // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -3064,13 +2993,16 @@ impl World {
         } else {
             self.spawn_empty()
         };
-        entity_mut.insert_by_id_with_caller(
-            component_id,
-            value,
-            InsertMode::Replace,
-            caller,
-            RelationshipHookMode::Run,
-        );
+        // SAFETY: pointer valid for this component id per precondition
+        unsafe {
+            entity_mut.insert_by_id_with_caller(
+                component_id,
+                value,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            )
+        };
     }
 
     /// Inserts new `!Send` data with the given `value`. Will replace the value if it already

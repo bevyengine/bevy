@@ -1,6 +1,6 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnListRoot, BsnNamedField, BsnRelatedSceneList,
-    BsnRoot, BsnScene, BsnSceneFn, BsnSceneFnArg, BsnSceneFnArgs, BsnSceneList, BsnSceneListItem,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
+    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
     BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
@@ -10,10 +10,10 @@ use syn::{
     braced, bracketed,
     buffer::Cursor,
     parenthesized,
-    parse::{Parse, ParseBuffer, ParseStream},
+    parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Paren, Tilde},
-    Block, Expr, Ident, Lit, LitStr, Path, Result, Token,
+    Block, Ident, Lit, LitStr, Path, Result, Token,
 };
 
 /// Functionally identical to [`Punctuated`](syn::punctuated::Punctuated), but fills the given `$list` Vec instead
@@ -154,11 +154,11 @@ impl BsnEntry {
                 }
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
-
+                    let args = input.parse::<BsnFnArgs>()?;
                     let bsn_constructor = BsnConstructor {
                         type_path: path,
                         function,
-                        args: input.parse()?,
+                        args,
                     };
                     if is_template {
                         BsnEntry::TemplateConstructor(bsn_constructor)
@@ -168,7 +168,7 @@ impl BsnEntry {
                 }
                 PathType::Function => {
                     if input.peek(Paren) {
-                        let args = input.parse()?;
+                        let args = input.parse::<BsnFnArgs>()?;
                         BsnEntry::UncachedScene(BsnScene::Fn(BsnSceneFn { path, args }))
                     } else {
                         BsnEntry::UncachedScene(BsnScene::Expression(quote! {#path}))
@@ -205,29 +205,6 @@ impl Parse for BsnSceneListItem {
     }
 }
 
-impl Parse for BsnSceneFnArgs {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let args = if input.peek(Paren) {
-            let content;
-            parenthesized!(content in input);
-            Some(content.parse_terminated(BsnSceneFnArg::parse, Token![,])?)
-        } else {
-            None
-        };
-        Ok(Self(args))
-    }
-}
-
-impl Parse for BsnSceneFnArg {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(Token![#]) {
-            input.parse::<Token![#]>()?;
-            Ok(Self::Name(input.parse::<Ident>()?))
-        } else {
-            Ok(Self::Expr(Expr::parse(input)?))
-        }
-    }
-}
 impl BsnScene {
     fn parse(input: ParseStream) -> Result<Self> {
         let cached = if input.peek(Token![:]) {
@@ -289,14 +266,11 @@ impl BsnScene {
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
-                    let func = BsnSceneFn {
-                        path,
-                        args: input.parse()?,
-                    };
-                    if func.args.0.is_some() {
+                    let args = input.parse::<BsnFnArgs>()?;
+                    if !args.0.is_empty() {
                         err_if_cached("Cannot cache Scene function with arguments")?;
                     }
-                    BsnScene::Fn(func)
+                    BsnScene::Fn(BsnSceneFn { path, args })
                 }
                 path_type => {
                     return Err(syn::Error::new(
@@ -384,6 +358,7 @@ impl Parse for BsnNamedField {
             false
         };
         let name = input.parse::<Ident>()?;
+        let mut is_name_shorthand = false;
         let value = if input.peek(Colon) {
             input.parse::<Colon>()?;
 
@@ -393,12 +368,14 @@ impl Parse for BsnNamedField {
                 Some(input.parse::<BsnValue>()?)
             }
         } else {
+            is_name_shorthand = true;
             None
         };
         Ok(BsnNamedField {
             name,
             value,
             is_prop,
+            is_name_shorthand,
         })
     }
 }
@@ -408,6 +385,49 @@ impl Parse for BsnUnnamedField {
         let value = input.parse::<BsnValue>()?;
         Ok(BsnUnnamedField { value })
     }
+}
+
+/// Parses tuple arguments into a list of [`TokenStream`]s. This avoids
+/// fully parsing Rust expressions, which makes this less strict and cheaper to parse.
+/// This also allows autocomplete to work, even if the tokens aren't a valid rust expression.
+///
+/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a TokenStream.
+fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
+    let content;
+    parenthesized!(content in input);
+    let mut args = Vec::new();
+    let mut current_tokens = Vec::new();
+    let mut in_closure_args = false;
+    let mut generic_scope = 0;
+    while !content.is_empty() {
+        let tt = content.parse::<TokenTree>()?;
+        match &tt {
+            TokenTree::Punct(punct) => match punct.as_char() {
+                ',' if !in_closure_args && generic_scope == 0 => {
+                    args.push(TokenStream::from_iter(current_tokens.drain(..)));
+                }
+                '|' => {
+                    in_closure_args = !in_closure_args;
+                    current_tokens.push(tt);
+                }
+                '<' => {
+                    generic_scope += 1;
+                    current_tokens.push(tt);
+                }
+                '>' => {
+                    generic_scope -= 1;
+                    current_tokens.push(tt);
+                }
+                _ => current_tokens.push(tt),
+            },
+            _ => current_tokens.push(tt),
+        }
+    }
+
+    if !current_tokens.is_empty() {
+        args.push(TokenStream::from_iter(current_tokens));
+    }
+    Ok(args)
 }
 
 /// Parse a closure "loosely" without caring about the tokens between `|...|` and `{...}`. This ensures autocomplete works.
@@ -524,6 +544,41 @@ impl Parse for BsnValue {
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })
+    }
+}
+
+impl Parse for BsnFnArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut fn_args = Vec::new();
+        for tokens in parse_tuple_loose(input)? {
+            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?)
+        }
+        Ok(BsnFnArgs(fn_args))
+    }
+}
+
+impl Parse for BsnFnArg {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(if input.peek(Token![#]) {
+            let forked = input.fork();
+            if let Ok(ident) = forked.parse::<EntityNameIdent>() {
+                input.advance_to(&forked);
+                BsnFnArg::EntityName(ident.0)
+            } else {
+                BsnFnArg::Tokens(input.parse::<TokenStream>()?)
+            }
+        } else {
+            BsnFnArg::Tokens(input.parse::<TokenStream>()?)
+        })
+    }
+}
+
+struct EntityNameIdent(Ident);
+
+impl Parse for EntityNameIdent {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<Token![#]>()?;
+        Ok(EntityNameIdent(input.parse::<Ident>()?))
     }
 }
 

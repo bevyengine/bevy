@@ -247,8 +247,9 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     // The `KHR_materials_anisotropy` spec states:
     //
     // > This heuristic can probably be improved upon
-    let a = pow(2.0, pow(2.0, 1.0 - anisotropy * (1.0 - roughness)));
-    bent_normal = normalize(mix(bent_normal, N, a));
+    let bendFactor = 1.0 - anisotropy * (1.0 - roughness);
+    let bendFactorPow4 = bendFactor * bendFactor * bendFactor * bendFactor;
+    bent_normal = normalize(mix(bent_normal, N, bendFactorPow4));
 
     // The `KHR_materials_anisotropy` spec states:
     //
@@ -763,7 +764,7 @@ fn apply_pbr_lighting(
     // If we are lightmapped, disable the ambient contribution if requested.
     // This is to avoid double-counting ambient light. (It might be part of the lightmap)
 #ifdef LIGHTMAP
-    let enable_ambient = view_bindings::lights.ambient_light_affects_lightmapped_meshes != 0u;
+    let enable_ambient = (view_bindings::lights.ambient_light_flags & mesh_view_types::AMBIENT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT) != 0u;
 #else   // LIGHTMAP
     let enable_ambient = true;
 #endif  // LIGHTMAP
@@ -851,19 +852,14 @@ fn apply_pbr_lighting(
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
     transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
-    if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {
-        // We reuse the `atmospheric_fog()` function here, as it's fundamentally
-        // equivalent to the attenuation that takes place inside the material volume,
-        // and will allow us to eventually hook up subsurface scattering more easily
-        var attenuation_fog: mesh_view_types::Fog;
-        attenuation_fog.base_color.a = 1.0;
-        attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
-        // TODO: Add the subsurface scattering factor below
-        // attenuation_fog.bi = /* ... */
-        transmitted_light = bevy_pbr::fog::atmospheric_fog(
-            attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
-            vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scattered light contribution here
-        ).rgb;
+    if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u
+        && in.material.attenuation_distance != 0.0 {
+        // Compute light attenuation using Beer's law.
+        let transmittance = pow(
+            in.material.attenuation_color.rgb,
+            vec3<f32>(thickness / in.material.attenuation_distance),
+        );
+        transmitted_light *= transmittance;
     }
 #endif
 

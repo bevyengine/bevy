@@ -221,7 +221,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     ///
     /// * The pointer must be [properly aligned].
     ///
-    /// * It must be "dereferenceable" in the sense defined in [the module documentation].
+    /// * It must be "dereferenceable" in the sense defined in [the `core::ptr` documentation].
     ///
     /// * The pointer must point to an initialized instance of `T`.
     ///
@@ -246,7 +246,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// println!("{ref_x}");
     /// ```
     ///
-    /// [the module documentation]: core::ptr#safety
+    /// [the `core::ptr` documentation]: core::ptr#safety
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {

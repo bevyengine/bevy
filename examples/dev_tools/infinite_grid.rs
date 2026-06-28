@@ -19,6 +19,7 @@ fn main() {
             InfiniteGridPlugin,
         ))
         .add_systems(Startup, setup_system)
+        .add_systems(Update, toggle_visibility)
         .run();
 }
 
@@ -65,4 +66,23 @@ fn setup_system(
         ),
         Transform::from_xyz(0.0, -2.0, 0.0),
     ));
+}
+
+fn toggle_visibility(
+    query: Single<(&mut Visibility, &InheritedVisibility), With<InfiniteGrid>>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    let (mut visibility, inherited_visibility) = query.into_inner();
+
+    // Toggle infinite plane visibility by pressing 'P'
+    if input.just_pressed(KeyCode::KeyP) {
+        match inherited_visibility.get() {
+            true => {
+                *visibility = Visibility::Hidden;
+            }
+            false => {
+                *visibility = Visibility::Visible;
+            }
+        }
+    }
 }

@@ -211,6 +211,50 @@ macro_rules! scene_impl {
 
 all_tuples!(scene_impl, 0, 12, P);
 
+impl<S> Scene for Option<S>
+where
+    S: Scene,
+{
+    #[inline]
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|value| value.resolve(context, scene))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(value) = &self {
+            value.register_dependencies(dependencies);
+        }
+    }
+}
+
+impl<L: SceneList> SceneList for Option<L>
+where
+    L: SceneList,
+{
+    #[inline]
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|scene_list| scene_list.resolve_list(context, scenes))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(scene_list) = &self {
+            scene_list.register_dependencies(dependencies);
+        }
+    }
+}
+
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
 /// Functionally, a [`TemplatePatch`] scene will initialize a [`Default`] value of the patched
@@ -519,6 +563,12 @@ impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
     }
 }
 
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn Scene>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
 impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneListScope<S>) -> Self {
         Box::new(value)
@@ -528,6 +578,18 @@ impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
 impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneScope<S>) -> Self {
         Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Some(Box::new(value))
     }
 }
 

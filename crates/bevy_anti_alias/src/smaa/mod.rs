@@ -481,6 +481,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("edge_detection_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -491,6 +492,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
@@ -538,6 +540,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("blending_weight_calculation_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -548,6 +551,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
@@ -583,6 +587,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: Some("neighborhood_blending_vertex_main".into()),
                 buffers: vec![],
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -593,6 +598,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             ..default()
         }
