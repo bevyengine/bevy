@@ -166,6 +166,13 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+    pub(crate) const AUTO: u8 = 0;
+    pub(crate) const PX: u8 = 1;
+    pub(crate) const PERCENT: u8 = 2;
+    pub(crate) const VW: u8 = 3;
+    pub(crate) const VH: u8 = 4;
+    pub(crate) const VMIN: u8 = 5;
+    pub(crate) const VMAX: u8 = 6;
 
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
@@ -348,6 +355,39 @@ impl Val {
             (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
             (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
             _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
+
+    /// Packs a [`Val`] into a u8 unit discriminator and f32 numeric value.
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// let (unit, value) = Val::pack(percent(50.));
+    ///
+    /// assert_eq!(Val::unpack(unit, value), percent(50.));
+    /// ```
+    pub const fn pack(val: Val) -> (u8, f32) {
+        match val {
+            Val::Auto => (Self::AUTO, 0.),
+            Val::Px(value) => (Self::PX, value),
+            Val::Percent(value) => (Self::PERCENT, value),
+            Val::Vw(value) => (Self::VW, value),
+            Val::Vh(value) => (Self::VH, value),
+            Val::VMin(value) => (Self::VMIN, value),
+            Val::VMax(value) => (Self::VMAX, value),
+        }
+    }
+
+    /// Unpacks  a u8 unit discriminator and f32 numeric value into a [`Val`].
+    pub const fn unpack(unit: u8, value: f32) -> Val {
+        match unit {
+            Self::PX => Val::Px(value),
+            Self::PERCENT => Val::Percent(value),
+            Self::VW => Val::Vw(value),
+            Self::VH => Val::Vh(value),
+            Self::VMIN => Val::VMin(value),
+            Self::VMAX => Val::VMax(value),
+            _ => Val::Auto,
         }
     }
 }

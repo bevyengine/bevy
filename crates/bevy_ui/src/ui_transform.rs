@@ -29,24 +29,17 @@ pub struct Val2 {
 }
 
 impl Val2 {
-    const AUTO: u8 = 0;
-    const PX: u8 = 1;
-    const PERCENT: u8 = 2;
-    const VW: u8 = 3;
-    const VH: u8 = 4;
-    const VMIN: u8 = 5;
-    const VMAX: u8 = 6;
     const MASK: u8 = 0x0f;
 
     pub const ZERO: Self = Self {
         values: [0.; 2],
-        units: Self::PX | (Self::PX << 4),
+        units: Val::PX | (Val::PX << 4),
     };
 
     /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
-        let (ux, vx) = Self::pack(x);
-        let (uy, vy) = Self::pack(y);
+        let (ux, vx) = Val::pack(x);
+        let (uy, vy) = Val::pack(y);
         Self {
             values: [vx, vy],
             units: ux | uy << 4,
@@ -71,13 +64,13 @@ impl Val2 {
     /// Returns the x-axis value.
     #[inline]
     pub const fn x(&self) -> Val {
-        Self::unpack(self.units & Self::MASK, self.values[0])
+        Val::unpack(self.units & Self::MASK, self.values[0])
     }
 
     /// Returns the y-axis value.
     #[inline]
     pub const fn y(&self) -> Val {
-        Self::unpack((self.units >> 4) & Self::MASK, self.values[1])
+        Val::unpack((self.units >> 4) & Self::MASK, self.values[1])
     }
 
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
@@ -131,30 +124,6 @@ impl Val2 {
             return Err(ValArithmeticError::IncompatibleUnits);
         };
         Ok(Self::new(x, y))
-    }
-
-    const fn pack(val: Val) -> (u8, f32) {
-        match val {
-            Val::Auto => (Self::AUTO, 0.),
-            Val::Px(value) => (Self::PX, value),
-            Val::Percent(value) => (Self::PERCENT, value),
-            Val::Vw(value) => (Self::VW, value),
-            Val::Vh(value) => (Self::VH, value),
-            Val::VMin(value) => (Self::VMIN, value),
-            Val::VMax(value) => (Self::VMAX, value),
-        }
-    }
-
-    const fn unpack(unit: u8, value: f32) -> Val {
-        match unit {
-            Self::PX => Val::Px(value),
-            Self::PERCENT => Val::Percent(value),
-            Self::VW => Val::Vw(value),
-            Self::VH => Val::Vh(value),
-            Self::VMIN => Val::VMin(value),
-            Self::VMAX => Val::VMax(value),
-            _ => Val::Auto,
-        }
     }
 }
 
