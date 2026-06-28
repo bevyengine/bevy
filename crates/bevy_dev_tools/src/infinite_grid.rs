@@ -86,7 +86,7 @@ impl Plugin for InfiniteGridPlugin {
 /// The component used to represent an infinite grid.
 ///
 /// This is intended for use as a ground plane in editor-like tools.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Copy, Clone)]
 #[reflect(Component, Default)]
 #[require(
     InfiniteGridSettings,
@@ -390,6 +390,12 @@ fn queue_infinite_grids(
         let Some(render_visible_mesh_entities) = entities.get::<InfiniteGrid>() else {
             continue;
         };
+
+        // Remove meshes that have been despawned or removed due to Visibility settings
+        for (render_entity, main_entity) in &render_visible_mesh_entities.removed_entities {
+            phase.remove(*render_entity, *main_entity);
+        }
+
         for (render_entity, main_entity) in render_visible_mesh_entities.iter_visible() {
             let Ok(transform) = infinite_grids.get(*render_entity) else {
                 continue;
@@ -415,7 +421,7 @@ fn queue_infinite_grids(
     }
 }
 
-/// Checks if the point is one the plane
+/// Checks if the point is on the plane
 fn plane_check(plane: &GlobalTransform, point: Vec3) -> bool {
     plane.up().dot(plane.translation() - point).abs() > f32::EPSILON
 }

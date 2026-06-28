@@ -1,17 +1,7 @@
-//! Framework for saving and loading user settings files (e.g. user preferences) in Bevy
+//! Framework for saving and loading user settings files in Bevy
 //! applications.
 //!
-//! For purposes of this crate, the term "preferences" and "settings" are defined as:
-//! * **Preferences** are configuration files that store persistent choices made by the end user
-//!   while the app is running. Examples are audio volume, window position, or "show the tutorial".
-//!   A key distinction is that these configuration files are consumed and produced by the same app.
-//! * **Settings** is a more general term, which also includes configuration files produced by a
-//!   different application, such as a text editor or external settings app.
-//!
-//! Refer to [`PreferencesPlugin`] for detailed usage information.
-
-// Required to make proc macros work in bevy itself.
-extern crate self as bevy_settings;
+//! Refer to [`SettingsPlugin`] for detailed usage information.
 
 use core::any::TypeId;
 use core::time::Duration;
@@ -43,59 +33,59 @@ mod store_wasm;
 use bevy_time::{Time, Timer, TimerMode};
 use serde::de::DeserializeSeed;
 #[cfg(not(target_arch = "wasm32"))]
-use store_fs::PreferencesStore;
+use store_fs::SettingsStore;
 
 #[cfg(target_arch = "wasm32")]
-use store_wasm::PreferencesStore;
+use store_wasm::SettingsStore;
 
-/// Plugin to orchestrate loading and saving of user preferences.
+/// Plugin to orchestrate loading and saving settings.
 ///
-/// You are required to provide a unique application name, so that your preferences don't overwrite
+/// You are required to provide a unique application name, so that your settings don't overwrite
 /// those of other apps. To ensure global uniqueness, it is recommended to use a
 /// [reverse domain name](https://en.wikipedia.org/wiki/Reverse_domain_name_notation),
 /// e.g. "com.example.myapp". The plugin will create a directory with that name in the
-/// appropriate filesystem location (depending on platform) for app preferences. For platforms
+/// appropriate filesystem location (depending on platform) for app settings. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
 /// If you are do not have a domain name and cannot
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
 ///
-/// Adding this plugin causes an immediate load of preferences (from either the filesystem or
+/// Adding this plugin causes an immediate load of settings (from either the filesystem or
 /// browser local storage, depending on platform).
 ///
 /// When using this plugin, care must be taken to ensure that plugins execute in the proper order.
-/// Loading preferences causes registered settings to be inserted into the world as bevy resources.
+/// Loading settings causes registered settings to be inserted into the world as bevy resources.
 /// You cannot access these values before they are loaded, but you may want to use the loaded values
 /// when configuring other plugins. For this reason, it's generally a good idea to initialize and
-/// load preferences before other plugins. The preferences plugin does not depend on any other
+/// load settings before other plugins. The settings plugin does not depend on any other
 /// plugins.
 ///
-/// In many cases, you may want to introduce additional "glue" plugins that copy preference
+/// In many cases, you may want to introduce additional "glue" plugins that copy setting
 /// properties after they are loaded. For example, the
 /// [`WindowPlugin`](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowPlugin.html) plugin knows
-/// nothing about preferences, but if you want the window size and position to persist between runs
+/// nothing about settings, but if you want the window size and position to persist between runs
 /// you can add an additional plugin which copies the window settings from the resource to the
 /// actual window entity.
 ///
-/// Saving of preferences is not automatic; the recommended practice is to issue a
-/// [`SavePreferencesDeferred`] command after modifying a settings resource. This will wait for
+/// Saving of settings is not automatic; the recommended practice is to issue a
+/// [`SaveSettingsDeferred`] command after modifying a settings resource. This will wait for
 /// a short interval and then spawn an i/o task to write out the changed settings file. You can
-/// also issue a [`SavePreferencesSync::IfChanged`] command immediately before exiting the app.
+/// also issue a [`SaveSettingsSync::IfChanged`] command immediately before exiting the app.
 /// Note that on some platforms, depending on how the user exits (such as invoking Command-Q on
 /// ``MacOS``) there may be no opportunity to intercept the app exit event, so the most reliable
 /// approach is to use both techniques: deferred save and save-on-exit.
 ///
-/// Saving is crash-resistant: if the app crashes in the middle of a save, the preferences file
+/// Saving is crash-resistant: if the app crashes in the middle of a save, the settings file
 /// will not be corrupted (it writes to a temporary file first, then uses atomic operations to
 /// replace the previous file).
-pub struct PreferencesPlugin {
+pub struct SettingsPlugin {
     /// The unique name of the application.
     pub app_name: String,
 }
 
-impl PreferencesPlugin {
-    /// Construct a new `PreferencesPlugin` for the given application name.
+impl SettingsPlugin {
+    /// Construct a new `SettingsPlugin` for the given application name.
     pub fn new(app_name: &str) -> Self {
         Self {
             app_name: app_name.to_string(),
@@ -103,7 +93,7 @@ impl PreferencesPlugin {
     }
 }
 
-impl Plugin for PreferencesPlugin {
+impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         let app_name = self.app_name.clone();
         let world = app.world();
@@ -117,7 +107,7 @@ impl Plugin for PreferencesPlugin {
         let types = app_types.read();
 
         let world = app.world_mut();
-        let file_index = build_preferences_registry(&app_name, &types, last_save);
+        let file_index = build_settings_registry(&app_name, &types, last_save);
 
         // Now load each of the toml files we discovered, and apply their properties to
         // the resources in the world.
@@ -128,7 +118,7 @@ impl Plugin for PreferencesPlugin {
         // Cache the index so that we don't have to do it again when saving (and also makes
         // saving more deterministic).
         drop(types);
-        world.insert_resource::<PreferencesFileRegistry>(file_index);
+        world.insert_resource::<SettingsFileRegistry>(file_index);
 
         app.add_systems(PostUpdate, handle_delayed_save);
     }
@@ -144,8 +134,8 @@ impl Plugin for PreferencesPlugin {
 ///
 /// You can also control which file the type gets saved to via
 /// `settings_group(file = "<filename>")`. This should be the base name of the file without the
-/// extension. The default name is `settings`, which will cause the preferences to be written out
-/// to `settings.toml` in the app's preferences directory.
+/// extension. The default name is `settings`, which will cause the settings to be written out
+/// to `settings.toml` in the app's settings directory.
 pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
@@ -186,83 +176,83 @@ impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSet
     }
 }
 
-/// List of resource types that will be associated with a specific preferences file.
+/// List of resource types that will be associated with a specific settings file.
 /// Also tracks when that file was last written or read.
 #[derive(Default)]
-struct PreferenceFileManifest {
+struct SettingsFileManifest {
     last_save: Tick,
     resource_types: Vec<TypeId>,
 }
 
-/// Records the game tick when preferences were last loaded or saved. This is used to determine
-/// which preferences files have changed and need to be saved. Also tracks which settings files
+/// Records the game tick when settings were last loaded or saved. This is used to determine
+/// which settings files have changed and need to be saved. Also tracks which settings files
 /// are associated with which resource types.
 #[derive(Resource)]
-struct PreferencesFileRegistry {
+struct SettingsFileRegistry {
     /// App name (from plugin)
     app_name: String,
 
-    /// List of known preferences files, determined by scanning reflection registry.
-    files: HashMap<&'static str, PreferenceFileManifest>,
+    /// List of known settings files, determined by scanning reflection registry.
+    files: HashMap<&'static str, SettingsFileManifest>,
 
     /// Timer used for batched saving.
     save_timer: Timer,
 }
 
-/// A Command which saves preferences to disk. This blocks the command queue until saving
+/// A Command which saves settings to disk. This blocks the command queue until saving
 /// is complete.
 #[derive(Default, PartialEq)]
-pub enum SavePreferencesSync {
-    /// Save preferences only if they have changed since the most recent load or save.
+pub enum SaveSettingsSync {
+    /// Save settings only if they have changed since the most recent load or save.
     #[default]
     IfChanged,
-    /// Save preferences unconditionally.
+    /// Save settings unconditionally.
     Always,
 }
 
-impl Command for SavePreferencesSync {
+impl Command for SaveSettingsSync {
     type Out = ();
 
     fn apply(self, world: &mut World) {
-        save_preferences(world, false, self == SavePreferencesSync::Always);
+        save_settings(world, false, self == SaveSettingsSync::Always);
     }
 }
 
-/// A [`Command`] which saves preferences to disk. Actual file system operations happen in another thread.
+/// A [`Command`] which saves settings to disk. Actual file system operations happen in another thread.
 #[derive(Default, PartialEq)]
-pub enum SavePreferences {
-    /// Save preferences only if they have changed since the most recent load or save.
+pub enum SaveSettings {
+    /// Save settings only if they have changed since the most recent load or save.
     #[default]
     IfChanged,
-    /// Save preferences unconditionally.
+    /// Save settings unconditionally.
     Always,
 }
 
-impl Command for SavePreferences {
+impl Command for SaveSettings {
     type Out = ();
 
     fn apply(self, world: &mut World) {
-        save_preferences(world, true, self == SavePreferences::Always);
+        save_settings(world, true, self == SaveSettings::Always);
     }
 }
 
-/// A Command which saves changed preferences after a delay. This is debounced: issuing this
+/// A Command which saves changed settings after a delay. This is debounced: issuing this
 /// command multiple times resets the delay timer each time. This is meant to be used for settings
 /// which change at a high frequency, such as dragging a slider which controls the game's audio
 /// volume. The default delay is 1.0 seconds.
-pub struct SavePreferencesDeferred(pub Duration);
+pub struct SaveSettingsDeferred(pub Duration);
 
-impl Default for SavePreferencesDeferred {
+impl Default for SaveSettingsDeferred {
     fn default() -> Self {
         Self(Duration::from_secs(1))
     }
 }
 
-impl Command for SavePreferencesDeferred {
+impl Command for SaveSettingsDeferred {
     type Out = ();
 
     fn apply(self, world: &mut World) {
-        let Some(mut registry) = world.get_resource_mut::<PreferencesFileRegistry>() else {
+        let Some(mut registry) = world.get_resource_mut::<SettingsFileRegistry>() else {
             return;
         };
 
@@ -272,10 +262,10 @@ impl Command for SavePreferencesDeferred {
     }
 }
 
-fn save_preferences(world: &mut World, use_async: bool, force: bool) {
+fn save_settings(world: &mut World, use_async: bool, force: bool) {
     let this_run = world.change_tick();
-    let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
-        warn!("Preferences registry not found - did you forget to install the PreferencesPlugin?");
+    let Some(registry) = world.get_resource::<SettingsFileRegistry>() else {
+        warn!("Settings registry not found - did you forget to install the SettingsPlugin?");
         return;
     };
     let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
@@ -285,9 +275,9 @@ fn save_preferences(world: &mut World, use_async: bool, force: bool) {
     let types = app_types.read();
 
     for (filename, manifest) in registry.files.iter() {
-        if force || has_preferences_changed(world, manifest) {
+        if force || has_settings_changed(world, manifest) {
             let table = resources_to_toml(world, &types, manifest);
-            let store = PreferencesStore::new(&registry.app_name);
+            let store = SettingsStore::new(&registry.app_name);
             if use_async {
                 store.save_async(filename, table);
             } else {
@@ -297,13 +287,13 @@ fn save_preferences(world: &mut World, use_async: bool, force: bool) {
     }
 
     // Update timestamps
-    let mut registry = world.get_resource_mut::<PreferencesFileRegistry>().unwrap();
+    let mut registry = world.get_resource_mut::<SettingsFileRegistry>().unwrap();
     for manifest in registry.files.values_mut() {
         manifest.last_save = this_run;
     }
 }
 
-fn has_preferences_changed(world: &World, manifest: &PreferenceFileManifest) -> bool {
+fn has_settings_changed(world: &World, manifest: &SettingsFileManifest) -> bool {
     let this_run = world.read_change_tick();
     manifest.resource_types.iter().any(|r| {
         let Some(component_id) = world.components().get_id(*r) else {
@@ -319,7 +309,7 @@ fn has_preferences_changed(world: &World, manifest: &PreferenceFileManifest) -> 
 fn resources_to_toml(
     world: &World,
     types: &TypeRegistry,
-    manifest: &PreferenceFileManifest,
+    manifest: &SettingsFileManifest,
 ) -> toml::map::Map<String, toml::Value> {
     let mut table = toml::Table::new();
 
@@ -383,19 +373,19 @@ fn resources_to_toml(
     table
 }
 
-/// Builds the preferences file registry by scanning the type registry for settings resources.
+/// Builds the settings file registry by scanning the type registry for settings resources.
 /// This is separated from loading to enable testing without file I/O.
 ///
-/// Returns the [`PreferencesFileRegistry`] that tracks which resources are associated with
+/// Returns the [`SettingsFileRegistry`] that tracks which resources are associated with
 /// which settings files.
-fn build_preferences_registry(
+fn build_settings_registry(
     app_name: &str,
     types: &TypeRegistry,
     last_save: Tick,
-) -> PreferencesFileRegistry {
+) -> SettingsFileRegistry {
     // Build an index that remembers all of the resource types that are to be saved to
     // each individual settings file.
-    let mut file_index = PreferencesFileRegistry {
+    let mut file_index = SettingsFileRegistry {
         app_name: app_name.to_string(),
         files: HashMap::new(),
         save_timer: Timer::new(Duration::from_secs(1), TimerMode::Once),
@@ -418,7 +408,7 @@ fn build_preferences_registry(
         let pending_file = file_index
             .files
             .entry(filename)
-            .or_insert(PreferenceFileManifest {
+            .or_insert(SettingsFileManifest {
                 last_save,
                 resource_types: Vec::new(),
             });
@@ -434,11 +424,11 @@ fn load_settings_file(
     world: &mut World,
     app_name: &str,
     filename: &str,
-    manifest: &PreferenceFileManifest,
+    manifest: &SettingsFileManifest,
     types: &TypeRegistry,
 ) {
     // Load the TOML file
-    let store = PreferencesStore::new(app_name);
+    let store = SettingsStore::new(app_name);
     let toml = store.load(filename);
     if toml.is_none() {
         warn!("Filename {filename}.toml not found");
@@ -456,7 +446,7 @@ fn load_settings_file(
 fn apply_settings_to_world(
     world: &mut World,
     toml: Option<&toml::Table>,
-    manifest: &PreferenceFileManifest,
+    manifest: &SettingsFileManifest,
     types: &TypeRegistry,
 ) {
     for tid in manifest.resource_types.iter() {
@@ -593,13 +583,13 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
 }
 
 fn handle_delayed_save(
-    mut preferences: ResMut<PreferencesFileRegistry>,
+    mut settings: ResMut<SettingsFileRegistry>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    preferences.save_timer.tick(time.delta());
-    if preferences.save_timer.just_finished() {
-        commands.queue(SavePreferences::IfChanged);
+    settings.save_timer.tick(time.delta());
+    if settings.save_timer.just_finished() {
+        commands.queue(SaveSettings::IfChanged);
     }
 }
 
@@ -608,6 +598,8 @@ mod tests {
     use super::*;
     use bevy_ecs::change_detection::Tick;
     use bevy_reflect::Reflect;
+    // Required to make proc macros work in bevy itself.
+    extern crate self as bevy_settings;
 
     /// Test resource that uses default settings group name (derived from type name)
     #[derive(Resource, SettingsGroup, Reflect, Default)]
@@ -646,7 +638,7 @@ mod tests {
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
 
-        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+        let registry = build_settings_registry("test_app", &types, Tick::new(0));
 
         assert_eq!(registry.app_name, "test_app");
         assert_eq!(registry.files.len(), 1);
@@ -661,7 +653,7 @@ mod tests {
         let mut types = TypeRegistry::default();
         types.register::<CounterRefreshRateSettings>();
 
-        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+        let registry = build_settings_registry("test_app", &types, Tick::new(0));
 
         assert_eq!(registry.app_name, "test_app");
         assert_eq!(registry.files.len(), 1);
@@ -677,7 +669,7 @@ mod tests {
         types.register::<CounterSettings>();
         types.register::<ExtraCounterSettings>();
 
-        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+        let registry = build_settings_registry("test_app", &types, Tick::new(0));
 
         // Both resources should be in the same file
         assert_eq!(registry.files.len(), 1);
@@ -694,7 +686,7 @@ mod tests {
         types.register::<CounterSettings>();
         types.register::<AudioSettings>();
 
-        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+        let registry = build_settings_registry("test_app", &types, Tick::new(0));
 
         // Resources should be in different files
         assert_eq!(registry.files.len(), 2);
@@ -722,7 +714,7 @@ mod tests {
         world.insert_resource(CounterRefreshRateSettings::Fast);
 
         // Build a manifest with both resource types
-        let manifest = PreferenceFileManifest {
+        let manifest = SettingsFileManifest {
             last_save: Tick::new(0),
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),
@@ -887,7 +879,7 @@ mod tests {
         ));
 
         // Build a manifest with both resource types
-        let manifest = PreferenceFileManifest {
+        let manifest = SettingsFileManifest {
             last_save: Tick::new(0),
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),
@@ -987,7 +979,7 @@ mod tests {
         world.insert_resource(CounterSettings { count: 100 });
         world.insert_resource(CounterRefreshRateSettings::Fast);
 
-        let manifest = PreferenceFileManifest {
+        let manifest = SettingsFileManifest {
             last_save: Tick::new(0),
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),
@@ -1034,7 +1026,7 @@ mod tests {
         );
         // Note: "enabled" field is missing from the TOML
 
-        let manifest = PreferenceFileManifest {
+        let manifest = SettingsFileManifest {
             last_save: Tick::new(0),
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),

@@ -79,6 +79,8 @@ pub trait ReflectFn<'env, Marker>: ReflectFnMut<'env, Marker> {
 macro_rules! impl_reflect_fn {
     ($(($Arg:ident, $arg:ident)),*) => {
         // === (...) -> ReturnType === //
+        #[expect(clippy::allow_attributes, reason = "This lint is part of a macro, which may not always trigger the `extra_unused_lifetimes` lint")]
+        #[allow(clippy::extra_unused_lifetimes, reason = "lifetime `a` may be unused because `Arg` is optional")]
         impl<'env, $($Arg,)* ReturnType, Function> ReflectFn<'env, fn($($Arg),*) -> [ReturnType]> for Function
         where
             $($Arg: FromArg,)*

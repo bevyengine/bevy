@@ -580,8 +580,8 @@ impl BsnType {
                     #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id);
                 });
             }
-            Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
-                assignments.push(quote! {#(#base_path.)*#member = #ty;});
+            Some(value @ BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
+                assignments.push(quote! {#(#base_path.)*#member = #value;});
             }
             Some(BsnValue::Type(ty)) => {
                 let mut new_path = base_path.to_vec();
@@ -730,7 +730,7 @@ impl ToTokens for BsnValue {
                 let inner = t.0.iter();
                 quote! {(#(#inner),*)}.to_tokens(tokens);
             }
-            BsnValue::Type(ty) => ty.to_tokens(tokens),
+            BsnValue::Type(ty) => quote! {(#ty).into()}.to_tokens(tokens),
             BsnValue::Name(_) => {
                 // Name requires additional context to convert to tokens
                 unreachable!()
@@ -906,6 +906,47 @@ mod tests {
         assert!(ctx.errors[0]
             .to_string()
             .contains("Field `x` is missing a value"));
+    }
+
+    #[test]
+    fn enum_variant_field_values_use_implicit_into() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let mut assignments = Vec::new();
+        let font = BsnType {
+            path: parse_quote!(TextFont),
+            enum_variant: None,
+            fields: BsnFields::Named(vec![BsnNamedField {
+                is_prop: false,
+                is_name_shorthand: false,
+                name: parse_quote!(font_size),
+                value: Some(BsnValue::Type(BsnType {
+                    path: parse_quote!(TextSize),
+                    enum_variant: Some(parse_quote!(Large)),
+                    fields: BsnFields::Named(Vec::new()),
+                })),
+            }]),
+        };
+
+        let res = font.push_struct_patch(
+            &mut ctx,
+            &mut assignments,
+            false,
+            false,
+            PatchTarget {
+                path: &[Member::Named(parse_quote!(value))],
+                is_ref: false,
+            },
+        );
+
+        assert!(res.is_ok());
+        assert!(ctx.errors.is_empty());
+        assert_eq!(
+            assignments[0].to_string(),
+            "value . font_size = (TextSize :: Large { }) . into () ;"
+        );
     }
 
     #[test]

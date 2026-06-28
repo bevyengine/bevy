@@ -2846,6 +2846,42 @@ mod tests {
     }
 
     #[test]
+    fn enum_variant_field_values_use_implicit_into() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Default, Clone)]
+        struct TextFont {
+            font_size: FontSize,
+        }
+
+        #[derive(Default, Clone, Debug, PartialEq, Eq)]
+        struct FontSize(u32);
+
+        enum TextSize {
+            Large,
+        }
+
+        impl From<TextSize> for FontSize {
+            fn from(value: TextSize) -> Self {
+                match value {
+                    TextSize::Large => FontSize(24),
+                }
+            }
+        }
+
+        let entity = world
+            .spawn_scene(bsn! {
+                TextFont {
+                    font_size: TextSize::Large,
+                }
+            })
+            .unwrap();
+
+        assert_eq!(entity.get::<TextFont>().unwrap().font_size, FontSize(24));
+    }
+
+    #[test]
     fn field_name_shorthand() {
         let mut app = test_app();
         let world = app.world_mut();
@@ -2922,5 +2958,66 @@ mod tests {
             })
             .unwrap();
         assert!(entity.get::<Foo>().is_some());
+    }
+
+    #[test]
+    fn scene_nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn! {
+            #root
+            patch
+        };
+
+        let expected_id = Some(world.spawn_scene(root).unwrap().id());
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
+    }
+
+    #[test]
+    fn scene_list_nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn_list! {
+            #root patch
+        };
+
+        let expected_id = Some(world.spawn_scene_list(root).unwrap()[0]);
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
     }
 }

@@ -116,10 +116,10 @@ pub enum GltfError {
     InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
-    ReadAssetBytesError(#[from] Box<ReadAssetBytesError>),
+    ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] Box<AssetLoadError>),
+    AssetLoadError(#[from] AssetLoadError),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
@@ -1944,10 +1944,7 @@ async fn load_buffers(
                             .path()
                             .resolve_embed_str(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
-                        load_context
-                            .read_asset_bytes(buffer_path)
-                            .await
-                            .map_err(Box::new)?
+                        load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
                 buffer_data.push(buffer_bytes);

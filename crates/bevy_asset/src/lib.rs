@@ -3001,13 +3001,9 @@ mod tests {
     impl From<&AssetLoadError> for TestAssetLoadError {
         fn from(value: &AssetLoadError) -> TestAssetLoadError {
             match value {
-                AssetLoadError::RequestedHandleTypeMismatch {
-                    requested,
-                    actual_asset_name,
-                    ..
-                } => Self::RequestedHandleTypeMismatch {
-                    requested: *requested,
-                    actual_asset_name,
+                AssetLoadError::RequestedHandleTypeMismatch (err) => Self::RequestedHandleTypeMismatch {
+                    requested: err.requested,
+                    actual_asset_name: err.actual_asset_name,
                 },
                 AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
                 AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {

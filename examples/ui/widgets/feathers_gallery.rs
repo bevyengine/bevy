@@ -462,7 +462,9 @@ fn demo_column_1() -> impl Scene {
                             )
                         ]
                     )
-                    (@FeathersColorSwatch SwatchType::Rgb),
+                    (@FeathersColorSwatch {
+                        @opaque_color_percentage: 30.0,
+                    } SwatchType::Rgb),
                 ]
             ),
             (
@@ -625,6 +627,8 @@ fn demo_column_2() -> impl Scene {
                                             (
                                                 @FeathersNumberInput
                                                 DemoScalarField
+                                                NumberInputPrecision(2)
+                                                HardLimit::f32(0.0..100.0)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
@@ -632,15 +636,14 @@ fn demo_column_2() -> impl Scene {
                                                 on(
                                                     |value_change: On<ValueChange<f32>>,
                                                     mut states: ResMut<DemoWidgetStates>| {
-                                                    if value_change.is_final {
-                                                        states.scalar_prop = value_change.value;
-                                                    }
+                                                    states.scalar_prop = value_change.value;
                                                 })
                                             ),
                                             label_small("Scalar property (copy)"),
                                             (
                                                 @FeathersNumberInput
                                                 DemoScalarField
+                                                NumberInputPrecision(4)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
@@ -648,9 +651,7 @@ fn demo_column_2() -> impl Scene {
                                                 on(
                                                     |value_change: On<ValueChange<f32>>,
                                                     mut states: ResMut<DemoWidgetStates>| {
-                                                    if value_change.is_final {
-                                                        states.scalar_prop = value_change.value;
-                                                    }
+                                                    states.scalar_prop = value_change.value;
                                                 })
                                             ),
                                             label_small("Vec3 property"),
@@ -667,6 +668,7 @@ fn demo_column_2() -> impl Scene {
                                                         @sigil_color: tokens::TEXT_INPUT_X_AXIS,
                                                         @label_text: "X",
                                                     }
+                                                    NumberInputPrecision(2)
                                                     DemoVec3Field::X
                                                     Node {
                                                         flex_grow: 1.0,
@@ -675,9 +677,7 @@ fn demo_column_2() -> impl Scene {
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
-                                                        if value_change.is_final {
-                                                            states.vec3_prop.x = value_change.value;
-                                                        }
+                                                        states.vec3_prop.x = value_change.value;
                                                     })
                                                 ),
                                                 (
@@ -685,6 +685,7 @@ fn demo_column_2() -> impl Scene {
                                                         @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
                                                         @label_text: "Y",
                                                     }
+                                                    NumberInputPrecision(2)
                                                     DemoVec3Field::Y
                                                     Node {
                                                         flex_grow: 1.0,
@@ -692,9 +693,7 @@ fn demo_column_2() -> impl Scene {
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
-                                                        if value_change.is_final {
-                                                            states.vec3_prop.y = value_change.value;
-                                                        }
+                                                        states.vec3_prop.y = value_change.value;
                                                     })
                                                 ),
                                                 (
@@ -702,6 +701,7 @@ fn demo_column_2() -> impl Scene {
                                                         @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                                         @label_text: "Z",
                                                     }
+                                                    NumberInputPrecision(2)
                                                     DemoVec3Field::Z
                                                     Node {
                                                         flex_grow: 1.0,
@@ -709,9 +709,7 @@ fn demo_column_2() -> impl Scene {
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
-                                                        if value_change.is_final {
-                                                            states.vec3_prop.z = value_change.value;
-                                                        }
+                                                        states.vec3_prop.z = value_change.value;
                                                     })
                                                 ),
                                             ],
@@ -835,10 +833,9 @@ fn update_colors(
         }
 
         for scalar_input_ent in q_scalar_input.iter() {
-            commands.trigger(UpdateNumberInput {
-                entity: scalar_input_ent,
-                value: NumberInputValue::F32(states.scalar_prop),
-            });
+            commands
+                .entity(scalar_input_ent)
+                .insert(NumberInputValue::F32(states.scalar_prop));
         }
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {
@@ -848,10 +845,9 @@ fn update_colors(
                 DemoVec3Field::Z => states.vec3_prop.z,
             };
 
-            commands.trigger(UpdateNumberInput {
-                entity: vec3_input_ent,
-                value: NumberInputValue::F32(new_value),
-            });
+            commands
+                .entity(vec3_input_ent)
+                .insert(NumberInputValue::F32(new_value));
         }
     }
 }

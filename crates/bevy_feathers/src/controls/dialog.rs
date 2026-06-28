@@ -7,17 +7,19 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
 use bevy_text::FontWeight;
 use bevy_ui::{
-    px, vh, vw, AlignItems, BorderRadius, BoxShadow, Display, FixedNode, FlexDirection,
-    GlobalZIndex, JustifyContent, Node, OverrideClip, PositionType, UiRect, Val,
+    px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
+    FlexDirection, GlobalZIndex, JustifyContent, Node, OverrideClip, PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{Activate, ModalDialog, ModalDialogBarrier, RequestClose};
+use bevy_ui_widgets::{
+    Activate, Dialog, DialogDragHandle, ModalDialog, ModalDialogBarrier, RequestClose,
+};
 
 use crate::{
     constants::{fonts, icons, size},
     controls::{ButtonVariant, FeathersToolButton},
     display::icon,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, ThemedText},
     tokens,
 };
 
@@ -88,6 +90,101 @@ impl FeathersDialog {
                 Children [
                     {props.contents}
                 ]
+            ]
+        }
+    }
+}
+
+/// Props used to construct a [`FeathersFloatingDialog`] scene.
+pub struct FeathersFloatingDialogProps {
+    /// Title shown in the window's drag bar.
+    pub title: String,
+    /// Body content of the window.
+    pub contents: Box<dyn SceneList>,
+    /// How wide the window should be.
+    pub width: Val,
+    /// Initial left offset (the window is absolutely positioned).
+    pub left: Val,
+    /// Initial top offset.
+    pub top: Val,
+}
+
+impl Default for FeathersFloatingDialogProps {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            contents: Box::new(bsn_list!()),
+            width: Val::Auto,
+            left: px(120),
+            top: px(120),
+        }
+    }
+}
+
+/// A non-modal, movable floating dialog with a draggable title bar and a close button.
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[scene(FeathersFloatingDialogProps)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersFloatingDialog;
+
+impl FeathersFloatingDialog {
+    /// Scene function for a floating window.
+    pub fn scene(props: FeathersFloatingDialogProps) -> impl Scene {
+        bsn! {
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                position_type: PositionType::Absolute,
+                left: {props.left},
+                top: {props.top},
+                border_radius: BorderRadius::all(px(4)),
+                border: UiRect::all(px(1.0)),
+                width: {props.width},
+            }
+            Dialog
+            ThemeBackgroundColor(tokens::DIALOG_BG)
+            ThemeBorderColor(tokens::DIALOG_BORDER)
+            InheritableThemeTextColor(tokens::DIALOG_TEXT)
+            BoxShadow::new(
+                Srgba::BLACK.with_alpha(0.9).into(),
+                px(0),
+                px(0),
+                px(1),
+                px(4),
+            )
+            // Closing despawns the window.
+            on(|close: On<RequestClose>, mut commands: Commands| {
+                commands.entity(close.event_target()).despawn();
+            })
+            Children [
+                // Title bar; dragging it moves the window.
+                (
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::SpaceBetween,
+                        padding: UiRect::all(px(6.0)),
+                    }
+                    DialogDragHandle
+                    ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
+                    InheritableFont {
+                        font: fonts::REGULAR,
+                        font_size: size::HEADER_FONT,
+                        weight: FontWeight::BOLD,
+                    }
+                    Children [
+                        (Text({props.title}) ThemedText),
+                        @FeathersDialogClose
+                    ]
+                ),
+                (
+                    @FeathersDialogBody
+                    Children [
+                        {props.contents}
+                    ]
+                )
             ]
         }
     }
