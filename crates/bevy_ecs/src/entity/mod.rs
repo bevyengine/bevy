@@ -98,14 +98,14 @@ pub use hash::*;
 pub mod hash_map;
 pub mod hash_set;
 
-pub use hash_map::EntityHashMap;
-pub use hash_set::EntityHashSet;
+pub use hash_map::{EntityEquivalentHashMap, EntityHashMap};
+pub use hash_set::{EntityEquivalentHashSet, EntityHashSet};
 
 pub mod index_map;
 pub mod index_set;
 
-pub use index_map::EntityIndexMap;
-pub use index_set::EntityIndexSet;
+pub use index_map::{EntityEquivalentIndexMap, EntityIndexMap};
+pub use index_set::{EntityEquivalentIndexSet, EntityIndexSet};
 
 pub mod unique_array;
 pub mod unique_slice;

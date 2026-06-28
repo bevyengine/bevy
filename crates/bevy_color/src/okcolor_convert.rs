@@ -12,18 +12,18 @@ use crate::{okhsla::Okhsla, LinearRgba, Okhsva, Oklaba};
 use bevy_math::ops;
 
 #[derive(Clone, Copy)]
-pub(crate) struct LC {
-    pub(crate) L: f32,
-    pub(crate) C: f32,
+struct LC {
+    L: f32,
+    C: f32,
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct ST {
-    pub(crate) S: f32,
-    pub(crate) T: f32,
+struct ST {
+    S: f32,
+    T: f32,
 }
 
-pub(crate) fn to_ST(cusp: LC) -> ST {
+fn to_ST(cusp: LC) -> ST {
     let L = cusp.L;
     let C = cusp.C;
     ST {
@@ -113,7 +113,7 @@ fn compute_max_saturation(a: f32, b: f32) -> f32 {
 
 // finds L_cusp and C_cusp for a given hue
 // a and b must be normalized so a^2 + b^2 == 1
-pub(crate) fn find_cusp(a: f32, b: f32) -> LC {
+fn find_cusp(a: f32, b: f32) -> LC {
     // First, find the maximum saturation (saturation S = C/L)
     let S_cusp = compute_max_saturation(a, b);
 
@@ -279,14 +279,14 @@ fn get_ST_mid(a_: f32, b_: f32) -> ST {
     ST { S, T }
 }
 
-pub(crate) fn toe(x: f32) -> f32 {
+fn toe(x: f32) -> f32 {
     let k_1: f32 = 0.206;
     let k_2: f32 = 0.03;
     let k_3: f32 = (1. + k_1) / (1. + k_2);
     0.5 * (k_3 * x - k_1 + ops::sqrt((k_3 * x - k_1) * (k_3 * x - k_1) + 4. * k_2 * k_3 * x))
 }
 
-pub(crate) fn toe_inv(x: f32) -> f32 {
+fn toe_inv(x: f32) -> f32 {
     let k_1 = 0.206;
     let k_2 = 0.03;
     let k_3 = (1. + k_1) / (1. + k_2);
@@ -300,9 +300,25 @@ pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
         b: lab_b,
         alpha,
     } = value;
-    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     // Patch: Fixes NaN for pure black and white colors.
-    if C < f32::EPSILON {
+    if lab_l >= 1.0 {
+        return Okhsla {
+            hue: 0.0,
+            saturation: 0.0,
+            lightness: 1.0,
+            alpha,
+        };
+    }
+    if lab_l <= 0.0 {
+        return Okhsla {
+            hue: 0.0,
+            saturation: 0.0,
+            lightness: 0.0,
+            alpha,
+        };
+    }
+    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
+    if C == 0. {
         let l = toe(lab_l);
         return Okhsla {
             hue: 0.,
@@ -360,9 +376,9 @@ pub(crate) fn okhsl_to_oklab(value: Okhsla) -> Oklaba {
     } = value;
     let h = h / 360.;
 
-    if l == 1. {
+    if l >= 1. {
         return LinearRgba::new(1., 1., 1., alpha).into();
-    } else if l == 0. {
+    } else if l <= 0. {
         return LinearRgba::new(0., 0., 0., alpha).into();
     }
 
@@ -407,9 +423,25 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
         b: lab_b,
         alpha,
     } = value;
-    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     // Patch: Fixes NaN for pure black and white colors.
-    if C < f32::EPSILON {
+    if lab_l >= 1.0 {
+        return Okhsva {
+            hue: 0.0,
+            saturation: 0.0,
+            value: 1.0,
+            alpha,
+        };
+    }
+    if lab_l <= 0.0 {
+        return Okhsva {
+            hue: 0.0,
+            saturation: 0.0,
+            value: 0.0,
+            alpha,
+        };
+    }
+    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
+    if C == 0. {
         // In this case, value is equal to lightness.
         let l = toe(lab_l);
         return Okhsva {
@@ -472,7 +504,7 @@ pub(crate) fn okhsv_to_oklab(value: Okhsva) -> Oklaba {
     } = value;
     let h = h / 360.;
 
-    if v == 0. {
+    if v <= 0. {
         return LinearRgba::new(0., 0., 0., alpha).into();
     }
 
