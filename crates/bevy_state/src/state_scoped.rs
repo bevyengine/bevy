@@ -761,12 +761,15 @@ pub fn enable_entities_on_enter_state<S: States>(
 }
 
 /// Marks this entity as owning its [`Disabled`] state.
-/// When present, parent-driven enable/disable propogation skips this entity
+/// When present, parent-driven enable and disable propagation skips this entity
 /// and its descendants.
 ///
 /// Automatically required by state-driven disabling components
-/// i.e. ([`EnabledIn`], [`DisabledIn`], [`EnabledIf`], [`DisabledIf`]).
-/// Can be inserted manually to shield an entity from parent's disabled propagation.
+/// i.e., ([`EnabledIn`], [`DisabledIn`], [`EnabledIf`], [`DisabledIf`]).
+/// Can be inserted manually.
+///
+/// If you only want to block re-enabling while still allowing a parent disable to
+/// propagate to this entity, use [`DisabledSelf`] instead.
 /// ```
 /// # use bevy_app::Startup;
 /// use bevy_state::prelude::*;
@@ -791,7 +794,6 @@ pub fn enable_entities_on_enter_state<S: States>(
 ///             // This entity and its descendants will be ignored by parent state transitions.
 ///             ShieldedChild,
 ///             OwnsDisabled,
-///             Disabled,
 ///         )]
 ///     ));
 /// }
@@ -808,7 +810,7 @@ pub fn enable_entities_on_enter_state<S: States>(
 /// app.add_systems(Startup, spawn_parent_entity);
 /// ```
 ///
-/// See also [`EnabledIn`], [`DisabledIn`], [`EnabledIf`], and [`DisabledIf`].
+/// See also [`DisabledSelf`], [`EnabledIn`], [`DisabledIn`], [`EnabledIf`], and [`DisabledIf`].
 #[derive(Component, Clone, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -816,6 +818,67 @@ pub fn enable_entities_on_enter_state<S: States>(
     reflect(Component, Clone, Default)
 )]
 pub struct OwnsDisabled;
+
+/// Marks this entity as independently disabled.
+/// When present, parent-driven **enable** propagation skips this entity and its
+/// descendants, but parent-driven **disable** propagation still applies.
+///
+/// Use this when you want a child to be disabled together with its parent, but you
+/// do not want the parent re-enabling to automatically clear [`Disabled`] from this
+/// entity or its descendants.
+///
+/// Note: state-driven disabling components require [`OwnsDisabled`], which blocks
+/// both disable and enable propagation. If an entity has both [`OwnsDisabled`] and
+/// [`DisabledSelf`], [`OwnsDisabled`] takes precedence.
+/// ```
+/// # use bevy_app::Startup;
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::{prelude::*, system::ScheduleSystem, entity_disabling::Disabled};
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     InGame,
+/// }
+///
+/// # #[derive(Component)]
+/// # struct ParentEntity;
+/// # #[derive(Component)]
+/// # struct ShieldedChild;
+/// fn spawn_parent_entity(mut commands: Commands) {
+///     commands.spawn((
+///         ParentEntity,
+///         EnabledIn(GameState::MainMenu),
+///         children![(
+///             // This entity will be disabled when its parent is disabled, but it
+///             // will stay disabled when the parent is re-enabled.
+///             ShieldedChild,
+///             DisabledSelf,
+///         )]
+///     ));
+/// }
+///
+/// # struct AppMock;
+/// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
+/// # }
+/// # struct Update;
+/// # let mut app = AppMock;
+///
+/// app.init_state::<GameState>();
+/// app.add_systems(Startup, spawn_parent_entity);
+/// ```
+///
+/// See also [`OwnsDisabled`], [`EnabledIn`], [`DisabledIn`], [`EnabledIf`], and [`DisabledIf`].
+#[derive(Component, Clone, Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Clone, Default)
+)]
+pub struct DisabledSelf;
 
 /// Removes [`OwnsDisabled`] component from an entity
 /// when its managing state-driven disabling components are removed
@@ -828,12 +891,12 @@ pub fn on_state_disabled_component_remove<C: Component>(on: On<Remove, C>, mut c
 /// Entities marked with this component will be automatically enabled
 /// when the world is in the given state, and disabled otherwise.
 ///
-/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// This component takes ownership of adding or removing the entity's [`Disabled`] component
 /// at state transitions and component insertion.
 /// At component removal, [`Disabled`] is left as is.
 ///
 /// # Note
-/// System is added on state registration, so `Res<State<S>>` should always exist
+/// System is added on state registration, so `Res<State<S>>` should always exist.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -927,12 +990,12 @@ pub fn on_enabled_in_insert<S: States>(
 /// Entities marked with this component will be automatically disabled
 /// when the world is in the given state, and enabled otherwise.
 ///
-/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// This component takes ownership of adding or removing the entity's [`Disabled`] component
 /// at state transitions and component insertion.
 /// At component removal, [`Disabled`] is left as is.
 ///
 /// # Note
-/// System is added on state registration, so `Res<State<S>>` should always exist
+/// System is added on state registration, so `Res<State<S>>` should always exist.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -1024,15 +1087,14 @@ pub fn on_disabled_in_insert<S: States>(
 }
 
 /// Entities marked with this component will be automatically enabled
-/// when predicate returns `true` for current state, disabled otherwise.
+/// when the predicate returns `true` for the current state, disabled otherwise.
 ///
-/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// This component takes ownership of adding or removing the entity's [`Disabled`] component
 /// at state transitions and component insertion.
 /// At component removal, [`Disabled`] is left as is.
 ///
 /// # Note
-/// System is added on state registration, so `Res<State<S>>` should always exist
-///
+/// System is added on state registration, so `Res<State<S>>` should always exist.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -1136,14 +1198,14 @@ pub fn on_enabled_if_insert<S: States>(
 }
 
 /// Entities marked with this component will be automatically disabled
-/// when predicate returns `true` for current state, enabled otherwise.
+/// when the predicate returns `true` for the current state, enabled otherwise.
 ///
-/// This component takes ownership of adding or removing entity's [`Disabled`] component
+/// This component takes ownership of adding or removing the entity's [`Disabled`] component
 /// at state transitions and component insertion.
 /// At component removal, [`Disabled`] is left as is.
 ///
 /// # Note
-/// System is added on state registration, so `Res<State<S>>` should always exist
+/// System is added on state registration, so `Res<State<S>>` should always exist.
 ///
 /// ```
 /// # use bevy_app::Startup;
@@ -1247,7 +1309,8 @@ pub fn on_disabled_if_insert<S: States>(
     }
 }
 
-/// Propagates enabling to `entity` and its descendants, stopping at [`OwnsDisabled`].
+/// Propagates enabling to `entity` and its descendants, stopping at [`OwnsDisabled`]
+/// and [`DisabledSelf`].
 fn propagate_enable(commands: &mut Commands, entity: Entity) {
     commands.queue(move |world: &mut World| {
         let mut stack = vec![entity];
@@ -1262,7 +1325,9 @@ fn propagate_enable(commands: &mut Commands, entity: Entity) {
                 .unwrap_or_default();
             drop(entity_mut);
             for child in children {
-                if world.get::<OwnsDisabled>(child).is_none() {
+                if world.get::<OwnsDisabled>(child).is_none()
+                    && world.get::<DisabledSelf>(child).is_none()
+                {
                     stack.push(child);
                 }
             }
@@ -1535,7 +1600,7 @@ mod tests {
     }
 
     #[test]
-    fn enabled_in_disabled_in_recursive() {
+    fn enabled_in_disabled_in_propagation() {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
         enum State {
             Off,
@@ -1611,5 +1676,61 @@ mod tests {
         assert!(is_disabled::<Entity2>(app.world_mut()));
         assert!(!is_disabled::<Entity3>(app.world_mut()));
         assert!(!is_disabled::<Entity4>(app.world_mut()));
+    }
+
+    #[test]
+    fn disabled_self_blocks_re_enable_but_not_disable() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            Off,
+            On,
+        }
+
+        #[derive(Component)]
+        struct Parent;
+        #[derive(Component)]
+        struct Child;
+        #[derive(Component)]
+        struct Grandchild;
+
+        fn is_disabled<T: Component>(world: &mut World) -> bool {
+            world
+                .query_filtered::<&Disabled, (With<T>, Allow<Disabled>)>()
+                .single(world)
+                .is_ok()
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::On);
+        app.update();
+
+        app.world_mut().spawn((
+            Parent,
+            EnabledIn(State::On),
+            bevy_ecs::children![(Child, DisabledSelf, bevy_ecs::children![(Grandchild)])],
+        ));
+
+        // In State::On the whole hierarchy is enabled.
+        assert!(!is_disabled::<Parent>(app.world_mut()));
+        assert!(!is_disabled::<Child>(app.world_mut()));
+        assert!(!is_disabled::<Grandchild>(app.world_mut()));
+
+        // Switch to State::Off: parent is disabled, disable propagates through DisabledSelf.
+        app.world_mut().commands().set_state(State::Off);
+        app.update();
+
+        assert!(is_disabled::<Parent>(app.world_mut()));
+        assert!(is_disabled::<Child>(app.world_mut()));
+        assert!(is_disabled::<Grandchild>(app.world_mut()));
+
+        // Switch back to State::On: parent is enabled, but DisabledSelf blocks re-enable.
+        app.world_mut().commands().set_state(State::On);
+        app.update();
+
+        assert!(!is_disabled::<Parent>(app.world_mut()));
+        assert!(is_disabled::<Child>(app.world_mut()));
+        assert!(is_disabled::<Grandchild>(app.world_mut()));
     }
 }
