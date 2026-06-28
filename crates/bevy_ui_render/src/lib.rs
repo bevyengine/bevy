@@ -607,13 +607,13 @@ pub fn extract_uinode_images(
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
                 scaling_mode: match image.image_mode {
-                    // bevy_ui::widget::NodeImageMode::Auto => todo!(),
-                    // bevy_ui::widget::NodeImageMode::Stretch => todo!(),
-                    bevy_ui::widget::NodeImageMode::Cover => UiItemScaling {
+                    // NodeImageMode::Auto => todo!(),
+                    // NodeImageMode::Stretch => todo!(),
+                    NodeImageMode::Cover => UiItemScaling {
                         horizontal: UiItemScalingMode::Cover,
                         vertical: UiItemScalingMode::Cover,
                     },
-                    bevy_ui::widget::NodeImageMode::Contain => UiItemScaling {
+                    NodeImageMode::Contain => UiItemScaling {
                         horizontal: UiItemScalingMode::Contain,
                         vertical: UiItemScalingMode::Contain,
                     },
