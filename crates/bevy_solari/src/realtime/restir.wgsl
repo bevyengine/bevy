@@ -241,8 +241,7 @@ fn merge_reservoirs(
     let canonical_sample_at_canonical = reservoir_contribution(canonical_reservoir, canonical_resolved, canonical_world_position, canonical_world_normal, canonical_wo, canonical_material, canonical_F_ab);
 
     // Skip resampling empty reservoirs
-    let other_is_empty = other_reservoir.light_sample.light_id == NULL_LIGHT_ID && all(other_reservoir.radiance == vec3(0.0));
-    if other_reservoir.confidence_weight == 0.0 || other_is_empty {
+    if other_reservoir.confidence_weight == 0.0 {
         return ReservoirMergeResult(canonical_reservoir, canonical_sample_at_canonical.brdf_radiance);
     }
 
