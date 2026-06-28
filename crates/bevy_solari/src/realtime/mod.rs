@@ -146,7 +146,10 @@ pub struct SolariLighting {
     /// Higher values let the cache converge faster after lighting changes at the
     /// cost of more work per frame. Lower values are cheaper but make the cache
     /// slower to update.
-    pub world_cache_cell_updates_soft_cap: u32,
+    ///
+    /// This is a stochastic target. On average it will update this many cells,
+    /// but individual frames may update more or less cells.
+    pub world_cache_cell_updates_soft_target: u32,
 
     /// Size of a world cache cell at the lowest LOD, in meters.
     ///
@@ -184,7 +187,7 @@ impl Default for SolariLighting {
             world_cache_max_temporal_samples: 32.0,
             world_cache_direct_light_sample_count: 32,
             world_cache_max_gi_ray_distance: 50.0,
-            world_cache_cell_updates_soft_cap: 40000,
+            world_cache_cell_updates_soft_target: 40000,
             world_cache_position_base_cell_size: 0.15,
             world_cache_position_lod_scale: 15.0,
             reset: true, // No temporal history on the first frame

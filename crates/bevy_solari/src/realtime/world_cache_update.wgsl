@@ -27,7 +27,7 @@ fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     let geometry_data = world_cache_geometry_data[cell_index];
     var rng = cell_index + constants.frame_rng;
 
-    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_cap) / f32(world_cache_active_cells_count) { return; }
+    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache_active_cells_count) { return; }
 
     let new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
 
@@ -42,7 +42,7 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     let geometry_data = world_cache_geometry_data[cell_index];
     var rng = cell_index + constants.frame_rng;
 
-    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_cap) / f32(world_cache_active_cells_count) { return; }
+    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache_active_cells_count) { return; }
 
     let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
     let ray = trace_ray(geometry_data.world_position + (geometry_data.world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, constants.world_cache_max_gi_ray_distance, RAY_FLAG_NONE);
@@ -61,7 +61,7 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let cell_index = world_cache_active_cell_indices[active_cell_id.x];
     var rng = cell_index + constants.frame_rng;
 
-    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_cap) / f32(world_cache_active_cells_count) { return; }
+    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache_active_cells_count) { return; }
 
     let old_radiance = world_cache_radiance[cell_index];
     let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
