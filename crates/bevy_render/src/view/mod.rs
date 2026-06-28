@@ -608,7 +608,7 @@ impl ColorGrading {
 }
 
 /// A resource, part of the render world, that stores the resolved origin for
-/// LOD selection for shadow maps of point and spot lights.
+/// LOD selection for view-agnostic shadow maps of point and spot lights.
 #[derive(Default, Resource, Debug)]
 pub struct RenderShadowLodOrigin(pub Vec3);
 
@@ -1112,14 +1112,15 @@ pub fn prepare_view_uniforms(
                 if extracted_view.retained_view_entity.auxiliary_entity
                     == MainEntity::from(Entity::PLACEHOLDER) =>
             {
-                // If this is a shadow map not associated with a camera (a point
-                // light or spot light shadow map), use the shadow LOD origin.
+                // If this is a shadow map not associated with a camera (the view-agnostic
+                // point light or spot light shadow map), use the shadow LOD origin.
                 shadow_lod_origin.0
             }
             (None, Some(shadow_lod_origin)) => {
                 // Otherwise, if we're rendering a shadow map that is associated
-                // with a camera (i.e. a directional light shadow map, at
-                // present), we use the position of that camera as the LOD view
+                // with a camera (i.e. a directional light shadow map, or a point/spot
+                // light shadow map associated with an opted-in camera),
+                // we use the position of that camera as the LOD view
                 // position. This ensures that each rendered object has a shadow
                 // and that no invisible objects have shadows.
                 match views.get(
