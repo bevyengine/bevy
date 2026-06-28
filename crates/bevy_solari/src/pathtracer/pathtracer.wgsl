@@ -80,9 +80,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             throughput *= next_bounce.throughput;
 
             // Russian roulette for early termination
-            let p = luminance(throughput);
-            if rand_f(&rng) > p { break; }
-            throughput /= p;
+            let rr = saturate(luminance(throughput));
+            if rand_f(&rng) >= rr { break; }
+            throughput /= rr;
         } else { break; }
     }
 

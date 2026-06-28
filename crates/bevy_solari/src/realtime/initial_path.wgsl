@@ -146,7 +146,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         path.wo = -next_bounce.wi;
         path.material = ray_hit.material;
 
-        // Russian roulette on the full path throughput.
+        // Russian roulette for early termination
         // throughput_past_x1 drops the primary brdf*cos, so multiply it back by primary_brdf_at_x2 to
         // recover the bounded throughput.
         let full_throughput = path.throughput_past_x1 * max(path.primary_brdf_at_x2, vec3(0.0001));
