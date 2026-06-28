@@ -390,7 +390,7 @@ impl Access {
 
         let archetypal = self
             .archetypal
-            .difference(&self.read_and_writes.underlying())
+            .difference(self.read_and_writes.underlying())
             .map(ComponentAccessKind::Archetypal);
 
         Ok(reads_and_writes.chain(archetypal))
@@ -446,18 +446,18 @@ impl InvertibleComponentIdSet {
 
     #[inline]
     fn clear(&mut self) {
-        self.underlying_mut().clear()
+        self.underlying_mut().clear();
     }
 
     // NOTE: here we are relying on [`Access`] to manage inverted, perhaps higher level methods should move
     #[inline]
     fn insert(&mut self, index: ComponentId) {
-        self.underlying_mut().insert(index)
+        self.underlying_mut().insert(index);
     }
 
     #[inline]
     fn remove(&mut self, index: ComponentId) {
-        self.underlying_mut().remove(index)
+        self.underlying_mut().remove(index);
     }
 
     #[inline]
@@ -472,22 +472,22 @@ impl InvertibleComponentIdSet {
 
     #[inline]
     fn difference_with(&mut self, other: &InvertibleComponentIdSet) {
-        self.underlying_mut().difference_with(&other.underlying())
+        self.underlying_mut().difference_with(other.underlying());
     }
 
     #[inline]
     fn intersect_with(&mut self, other: &InvertibleComponentIdSet) {
-        self.underlying_mut().intersect_with(&other.underlying())
+        self.underlying_mut().intersect_with(other.underlying());
     }
 
     #[inline]
     fn difference_from(&mut self, other: &InvertibleComponentIdSet) {
-        self.underlying_mut().difference_from(&other.underlying())
+        self.underlying_mut().difference_from(other.underlying());
     }
 
     #[inline]
     fn union_with(&mut self, other: &InvertibleComponentIdSet) {
-        self.underlying_mut().union_with(&other.underlying())
+        self.underlying_mut().union_with(other.underlying());
     }
 
     #[inline]
@@ -495,7 +495,7 @@ impl InvertibleComponentIdSet {
         &'a self,
         other: &'a InvertibleComponentIdSet,
     ) -> ComponentIdIter<Difference<'a>> {
-        self.underlying().difference(&other.underlying())
+        self.underlying().difference(other.underlying())
     }
 
     #[inline]
@@ -503,17 +503,17 @@ impl InvertibleComponentIdSet {
         &'a self,
         other: &'a InvertibleComponentIdSet,
     ) -> ComponentIdIter<Intersection<'a>> {
-        self.underlying().intersection(&other.underlying())
+        self.underlying().intersection(other.underlying())
     }
 
     #[inline]
     fn is_disjoint(&self, other: &InvertibleComponentIdSet) -> bool {
-        self.underlying().is_disjoint(&other.underlying())
+        self.underlying().is_disjoint(other.underlying())
     }
 
     #[inline]
     fn is_subset(&self, other: &InvertibleComponentIdSet) -> bool {
-        self.underlying().is_subset(&other.underlying())
+        self.underlying().is_subset(other.underlying())
     }
 }
 
@@ -1732,7 +1732,7 @@ mod tests {
 
     #[test]
     fn invertible_union_with_tests() {
-        let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
+        let invertible_union = |self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
             let mut self_set = invertible(bit_set(4, [0, 1]), self_inverted);
             let other_set = invertible(bit_set(4, [0, 2]), other_inverted);
@@ -1774,7 +1774,7 @@ mod tests {
 
     #[test]
     fn invertible_difference_with_tests() {
-        let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
+        let invertible_difference = |self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
             let mut self_set = invertible(bit_set(4, [0, 1]), self_inverted);
             let other_set = invertible(bit_set(4, [0, 2]), other_inverted);
