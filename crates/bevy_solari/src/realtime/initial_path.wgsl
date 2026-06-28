@@ -20,6 +20,7 @@ enable wgpu_ray_query;
 
 const RECONNECTION_FOOTPRINT_KAPPA = 0.02;
 const RECONNECTION_ROUGHNESS_MIN = 0.3;
+const RECONNECTION_RELAX_DISTANCE = 1.0;
 
 struct InitialSamplingResult {
     reservoir: Reservoir,
@@ -388,14 +389,18 @@ fn reconnection_reusable(ray_t: f32, p_brdf: f32, wi: vec3<f32>, diffuse_selecte
     let footprint_ok = ray_footprint >= (RECONNECTION_FOOTPRINT_KAPPA / 100.0) * primary_footprint;
 
     // Roughness floor at x1, only for specular lobes (a diffuse bounce is always rough). Guards
-    // low-roughness or high-curvature cases where the footprint bound is unreliable.
+    // low-roughness specular lobes that resample with poorly-conditioned MIS/jacobian. The footprint
+    // test alone is too permissive here.
     let x1_lobe_ok = diffuse_selected || x1_perceptual_roughness >= RECONNECTION_ROUGHNESS_MIN;
 
     // Guard at x2. A sharp reflector there makes the stored radiance view-dependent and wrong to
-    // reuse from a neighbor's direction. Low only for low-roughness metals. Diffuse, rough, and
-    // emissive vertices are reuse-safe.
+    // reuse from a neighbor's direction. The roughness floor relaxes with segment length: a distant
+    // glossy x2 is seen by neighbors from nearly the same direction, so the view-dependence washes out.
+    // Diffuse, rough, and emissive vertices are always reuse-safe.
     let x2_is_light = any(ray_hit.material.emissive > vec3(0.0));
-    let x2_end_ok = x2_is_light || mix(1.0, ray_hit.material.perceptual_roughness, ray_hit.material.metallic) >= RECONNECTION_ROUGHNESS_MIN;
+    let x2_roughness = mix(1.0, ray_hit.material.perceptual_roughness, ray_hit.material.metallic);
+    let x2_roughness_floor = RECONNECTION_ROUGHNESS_MIN * saturate(RECONNECTION_RELAX_DISTANCE / ray_t);
+    let x2_end_ok = x2_is_light || x2_roughness >= x2_roughness_floor;
 
     return footprint_ok && x1_lobe_ok && x2_end_ok;
 }
