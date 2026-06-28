@@ -209,7 +209,7 @@ pub(crate) fn on_changed_font_color(
 // per [`Slot`]. [`build_theme`] then maps each theme token to a slot using
 // a mapping which can be got from [`default_token_slots`] and looks up its color
 
-/// A single semantic colour role, these are all the colors that make up
+/// A single semantic color role, these are all the colors that make up
 /// a theme.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 pub enum Slot {
@@ -338,7 +338,7 @@ impl Slot {
     }
 }
 
-/// Fully-resolved colours: one [`Color`] per [`Slot`], built by
+/// Fully-resolved colors: one [`Color`] per [`Slot`], built by
 /// [`EditablePalette::resolve`] and read by [`build_theme`]. Indexed by slot.
 #[derive(Clone, Debug)]
 pub struct ResolvedPalette([Color; Slot::COUNT]);
@@ -396,7 +396,7 @@ pub struct EditablePalette {
 }
 
 impl EditablePalette {
-    /// Bake the parametric palette into one resolved colour per [`Slot`].
+    /// Bake the parametric palette into one resolved color per [`Slot`].
     ///
     /// The `copy_from_slice` blocks below rely on each ramp's variants being
     /// contiguous and in order within [`Slot`] (Neutral0..=Neutral6, etc.).
