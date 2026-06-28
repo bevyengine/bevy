@@ -1323,7 +1323,6 @@ fn propagate_enable(commands: &mut Commands, entity: Entity) {
                 .get::<Children>()
                 .map(|c| c.iter().copied().collect())
                 .unwrap_or_default();
-            drop(entity_mut);
             for child in children {
                 if world.get::<OwnsDisabled>(child).is_none()
                     && world.get::<DisabledSelf>(child).is_none()
@@ -1348,7 +1347,6 @@ fn propagate_disable(commands: &mut Commands, entity: Entity) {
                 .get::<Children>()
                 .map(|c| c.iter().copied().collect())
                 .unwrap_or_default();
-            drop(entity_mut);
             for child in children {
                 if world.get::<OwnsDisabled>(child).is_none() {
                     stack.push(child);
@@ -1368,6 +1366,13 @@ mod tests {
         app::{AppExtStates, StatesPlugin},
         prelude::CommandsStatesExt,
     };
+
+    fn is_disabled<T: Component>(world: &mut World) -> bool {
+        world
+            .query_filtered::<&Disabled, (With<T>, Allow<Disabled>)>()
+            .single(world)
+            .is_ok()
+    }
 
     #[test]
     fn despawn_on_exit_from_computed_state() {
@@ -1617,13 +1622,6 @@ mod tests {
         #[derive(Component)]
         struct Entity4;
 
-        fn is_disabled<T: Component>(world: &mut World) -> bool {
-            world
-                .query_filtered::<&Disabled, (With<T>, Allow<Disabled>)>()
-                .single(world)
-                .is_ok()
-        }
-
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
 
@@ -1692,13 +1690,6 @@ mod tests {
         struct Child;
         #[derive(Component)]
         struct Grandchild;
-
-        fn is_disabled<T: Component>(world: &mut World) -> bool {
-            world
-                .query_filtered::<&Disabled, (With<T>, Allow<Disabled>)>()
-                .single(world)
-                .is_ok()
-        }
 
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
