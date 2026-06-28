@@ -13,7 +13,7 @@ use thiserror::Error;
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
 #[derive(Eq, PartialEq, Default, Hash, Debug)]
 pub struct Access {
-    /// All accessed components, or forbidden components if [`Self::read_inverted`] is set.
+    /// All accessed components, or forbidden components if [`Self::reads_inverted`] is set.
     ///
     /// Note: this includes those in [`Self::writes`], since a mutable access also allows read-only
     /// access.
@@ -23,7 +23,7 @@ pub struct Access {
     writes: ComponentIdSet,
     /// Is `true` if this component can read all components *except* those
     /// present in [`Self::reads`].
-    read_inverted: bool,
+    reads_inverted: bool,
     /// Is `true` if this component can write to all components *except* those
     /// present in [`Self::writes`].
     writes_inverted: bool,
@@ -37,7 +37,7 @@ impl Clone for Access {
         Self {
             reads: self.reads.clone(),
             writes: self.writes.clone(),
-            read_inverted: self.read_inverted,
+            reads_inverted: self.reads_inverted,
             writes_inverted: self.writes_inverted,
             archetypal: self.archetypal.clone(),
         }
@@ -46,7 +46,7 @@ impl Clone for Access {
     fn clone_from(&mut self, source: &Self) {
         self.reads.clone_from(&source.reads);
         self.writes.clone_from(&source.writes);
-        self.read_inverted = source.read_inverted;
+        self.reads_inverted = source.reads_inverted;
         self.writes_inverted = source.writes_inverted;
         self.archetypal.clone_from(&source.archetypal);
     }
@@ -56,7 +56,7 @@ impl Access {
     /// Creates an empty [`Access`] collection.
     pub const fn new() -> Self {
         Self {
-            read_inverted: false,
+            reads_inverted: false,
             writes_inverted: false,
             reads: ComponentIdSet::new(),
             writes: ComponentIdSet::new(),
@@ -71,7 +71,7 @@ impl Access {
         let mut access = Self::new();
         // Note that we cannot use `read_all()`
         // because `FixedBitSet::clear()` is not `const`.
-        access.read_inverted = true;
+        access.reads_inverted = true;
         access
     }
 
@@ -82,14 +82,14 @@ impl Access {
         let mut access = Self::new();
         // Note that we cannot use `write_all()`
         // because `FixedBitSet::clear()` is not `const`.
-        access.read_inverted = true;
+        access.reads_inverted = true;
         access.writes_inverted = true;
         access
     }
 
     /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
-        if !self.read_inverted {
+        if !self.reads_inverted {
             self.reads.insert(index);
         } else {
             self.reads.remove(index);
@@ -119,7 +119,7 @@ impl Access {
     /// [`Self::remove_read`].
     pub fn remove_read(&mut self, index: ComponentId) {
         self.remove_write(index);
-        if self.read_inverted {
+        if self.reads_inverted {
             self.reads.insert(index);
         } else {
             self.reads.remove(index);
@@ -160,12 +160,12 @@ impl Access {
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_read(&self, index: ComponentId) -> bool {
-        self.read_inverted ^ self.reads.contains(index)
+        self.reads_inverted ^ self.reads.contains(index)
     }
 
     /// Returns `true` if this can access any component.
     pub fn has_any_read(&self) -> bool {
-        self.read_inverted || !self.reads.is_clear()
+        self.reads_inverted || !self.reads.is_clear()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
@@ -193,7 +193,7 @@ impl Access {
     /// Sets this as having access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn read_all(&mut self) {
-        self.read_inverted = true;
+        self.reads_inverted = true;
         self.reads.clear();
     }
 
@@ -208,7 +208,7 @@ impl Access {
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn has_read_all(&self) -> bool {
-        self.read_inverted && self.reads.is_clear()
+        self.reads_inverted && self.reads.is_clear()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
@@ -225,7 +225,7 @@ impl Access {
 
     /// Removes all accesses.
     pub fn clear(&mut self) {
-        self.read_inverted = false;
+        self.reads_inverted = false;
         self.writes_inverted = false;
         self.reads.clear();
         self.writes.clear();
@@ -235,9 +235,9 @@ impl Access {
     pub fn extend(&mut self, other: &Access) {
         invertible_union_with(
             &mut self.reads,
-            &mut self.read_inverted,
+            &mut self.reads_inverted,
             &other.reads,
-            other.read_inverted,
+            other.reads_inverted,
         );
         invertible_union_with(
             &mut self.writes,
@@ -254,7 +254,7 @@ impl Access {
     pub fn remove_conflicting_access(&mut self, other: &Access) {
         invertible_difference_with(
             &mut self.reads,
-            &mut self.read_inverted,
+            &mut self.reads_inverted,
             &other.writes,
             other.writes_inverted,
         );
@@ -262,7 +262,7 @@ impl Access {
             &mut self.writes,
             &mut self.writes_inverted,
             &other.reads,
-            other.read_inverted,
+            other.reads_inverted,
         );
     }
 
@@ -278,13 +278,13 @@ impl Access {
                 &self.writes,
                 &other.reads,
                 self.writes_inverted,
-                other.read_inverted,
+                other.reads_inverted,
             ),
             (
                 &other.writes,
                 &self.reads,
                 other.writes_inverted,
-                self.read_inverted,
+                self.reads_inverted,
             ),
         ] {
             match (lhs_writes_inverted, rhs_reads_inverted) {
@@ -322,8 +322,8 @@ impl Access {
             (
                 &self.reads,
                 &other.reads,
-                self.read_inverted,
-                other.read_inverted,
+                self.reads_inverted,
+                other.reads_inverted,
             ),
             (
                 &self.writes,
@@ -369,13 +369,13 @@ impl Access {
                 &self.writes,
                 &other.reads,
                 self.writes_inverted,
-                other.read_inverted,
+                other.reads_inverted,
             ),
             (
                 &other.writes,
                 &self.reads,
                 other.writes_inverted,
-                self.read_inverted,
+                self.reads_inverted,
             ),
         ] {
             // There's no way that I can see to do this without a temporary.
@@ -412,10 +412,10 @@ impl Access {
     pub fn try_reads(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
         // writes_inverted is only ever true when read_and_writes_inverted is
         // also true. Therefore it is sufficient to check just read_and_writes_inverted.
-        if self.read_inverted {
+        if self.reads_inverted {
             return Err(UnboundedAccessError {
                 writes_inverted: self.writes_inverted,
-                read_inverted: self.read_inverted,
+                reads_inverted: self.reads_inverted,
             });
         }
         Ok(&self.reads)
@@ -427,7 +427,7 @@ impl Access {
         if self.writes_inverted {
             return Err(UnboundedAccessError {
                 writes_inverted: self.writes_inverted,
-                read_inverted: self.read_inverted,
+                reads_inverted: self.reads_inverted,
             });
         }
         Ok(&self.writes)
@@ -539,7 +539,7 @@ pub struct UnboundedAccessError {
     pub writes_inverted: bool,
     /// [`Access`] is defined in terms of _excluding_ [shared](ComponentAccessKind::Shared) and
     /// [exclusive](ComponentAccessKind::Exclusive) access.
-    pub read_inverted: bool,
+    pub reads_inverted: bool,
 }
 
 /// Describes the level of access for a particular component as defined in an [`Access`].
@@ -1647,7 +1647,7 @@ mod tests {
             result,
             Err(UnboundedAccessError {
                 writes_inverted: true,
-                read_inverted: true
+                reads_inverted: true
             }),
         );
     }
@@ -1666,7 +1666,7 @@ mod tests {
             result,
             Err(UnboundedAccessError {
                 writes_inverted: false,
-                read_inverted: true
+                reads_inverted: true
             }),
         );
     }
