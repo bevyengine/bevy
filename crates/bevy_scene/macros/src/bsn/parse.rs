@@ -1,7 +1,7 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnName, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
-    BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnName,
+    BsnNamedField, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList,
+    BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};

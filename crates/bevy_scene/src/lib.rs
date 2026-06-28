@@ -1531,7 +1531,10 @@ mod tests {
             }
         }
 
-        let id = world.spawn_scene(a("root_entity", "child_entity")).unwrap().id();
+        let id = world
+            .spawn_scene(a("root_entity", "child_entity"))
+            .unwrap()
+            .id();
 
         let root = world.entity(id);
         let root_name = root.get::<Name>().unwrap();
