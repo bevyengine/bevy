@@ -111,22 +111,19 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         if bounce == 0u {
             path.x2_position = ray_hit.world_position;
             path.x2_normal = ray_hit.world_normal;
-            // Evaluate at the sampled direction, not normalize(x2 - x1). The reconstructed direction
-            // has enough float error (from the RAY_T_MIN offset and hit rounding) to fail the strict
-            // NdotH mirror gate in evaluate_specular_brdf and zero out the brdf for mirror metals.
+
             path.primary_brdf_at_x2 = evaluate_brdf(wo, next_bounce.wi, world_normal, material, primary_F_ab);
 
             path.x2_reusable = reconnection_reusable(ray.t, p_brdf, next_bounce.wi, next_bounce.diffuse_selected, ray_hit, world_position, material.perceptual_roughness, primary_NdotV);
-        }
 
-        // At bounce 0 the primary brdf*cos is applied at shade time, so divide it out of
-        // next_bounce.throughput to leave 1/pdf (or 1/specular_weight for mirrors, avoiding the
-        // 1/INF = 0 that would kill mirror GI). Later bounces keep the full brdf*cos/pdf for L_at_rc.
-        var throughput_step = next_bounce.throughput;
-        if bounce == 0u {
-            throughput_step = next_bounce.throughput / max(path.primary_brdf_at_x2, vec3(0.0001));
+            // The primary brdf*cos is applied at shade time, so divide it out of next_bounce.throughput
+            // to leave 1/pdf (or 1/specular_weight for mirrors, avoiding the 1/INF = 0 that would kill
+            // mirror GI).
+            path.throughput_past_x1 *= next_bounce.throughput / max(path.primary_brdf_at_x2, vec3(0.0001));
+        } else {
+            // Later bounces keep the full brdf*cos/pdf for L_at_rc.
+            path.throughput_past_x1 *= next_bounce.throughput;
         }
-        path.throughput_past_x1 *= throughput_step;
 
         // Resample emissive hits
         if any(ray_hit.material.emissive > vec3(0.0)) {
