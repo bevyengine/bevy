@@ -6,8 +6,8 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
-//! with forward or deferred rendering and don't require a prepass.
+//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
+//! or deferred rendering and don't require a prepass.
 //!
 //! Each clustered decal may contain up to 4 textures. By default, the 4
 //! textures correspond to the base color, a normal map, a metallic-roughness
