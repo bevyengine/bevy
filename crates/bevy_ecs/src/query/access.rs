@@ -520,6 +520,8 @@ impl InvertibleComponentIdSet {
 fn swap_inverted(value: &mut InvertibleComponentIdSet) {
     if let InvertibleComponentIdSet::Included(content) = value {
         *value = InvertibleComponentIdSet::Excluded(core::mem::take(content));
+    } else if let InvertibleComponentIdSet::Excluded(content) = value {
+        *value = InvertibleComponentIdSet::Included(core::mem::take(content));
     }
 }
 
