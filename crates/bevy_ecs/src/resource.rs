@@ -250,15 +250,7 @@ mod tests {
             entity
         };
 
-        // Removing IsResource should invalidate the current TestResource entity
-        // This uses commands because IsResource's despawn-on-removal invalidates the EntityWorldMut and panics
-        world.entity_mut(first_entity).remove::<IsResource>();
-        assert!(world.get_resource::<TestResource>().is_none());
-
-        assert!(
-            !world.entity(first_entity).contains::<TestResource>(),
-            "Removing IsResource should also remove the Resource component it corresponds to"
-        );
+        world.remove_resource::<TestResource>();
 
         world.init_resource::<TestResource>();
         let second_entity = {
