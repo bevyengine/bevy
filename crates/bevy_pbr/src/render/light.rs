@@ -1908,6 +1908,7 @@ pub fn prepare_lights(
                         light_entity: *light_entity,
                         cascade_index,
                     },
+                    view_layers.clone(),
                 ));
 
                 if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
