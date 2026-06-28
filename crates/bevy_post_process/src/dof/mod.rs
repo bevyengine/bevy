@@ -48,8 +48,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
+        ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
