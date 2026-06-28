@@ -7,7 +7,7 @@
 //! To create a depth-only camera, we create a [`Camera3d`] and set its
 //! [`RenderTarget`] to [`RenderTarget::None`] to disable creation of a color
 //! buffer. Then we add a system to the Core3d schedule that copies the
-//! [`bevy::render::view::ViewDepthTexture`] that Bevy creates for that camera
+//! [`bevy::render::view::ViewDepthStencilTexture`] that Bevy creates for that camera
 //! to a texture. This texture can then be attached to a material and sampled in
 //! the shader.
 //!
@@ -35,7 +35,7 @@ use bevy::{
         },
         renderer::{RenderContext, ViewQuery},
         texture::GpuImage,
-        view::ViewDepthTexture,
+        view::ViewDepthStencilTexture,
         RenderApp,
     },
     shader::ShaderRef,
@@ -125,7 +125,7 @@ fn main() {
 }
 
 fn copy_depth_texture_system(
-    view: ViewQuery<(&ExtractedCamera, &ViewDepthTexture)>,
+    view: ViewQuery<(&ExtractedCamera, &ViewDepthStencilTexture)>,
     demo_depth_texture: Option<Res<DemoDepthTexture>>,
     image_assets: Res<RenderAssets<GpuImage>>,
     mut ctx: RenderContext,

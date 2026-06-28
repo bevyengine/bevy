@@ -33,7 +33,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
-    view::{prepare_view_targets, Msaa, ViewDepthTexture, ViewTarget},
+    view::{prepare_view_targets, Msaa, ViewDepthStencilTexture, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -186,7 +186,7 @@ pub fn motion_blur(
         &ViewTarget,
         &MotionBlurPipelineId,
         &ViewPrepassTextures,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &MotionBlurUniform,
         &Msaa,
     )>,

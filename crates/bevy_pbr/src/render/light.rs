@@ -935,7 +935,7 @@ pub struct PointAndSpotLightViewEntities(Vec<Entity>);
 
 #[derive(Component)]
 pub struct ShadowView {
-    pub depth_attachment: DepthViewAttachment,
+    pub depth_attachment: DepthStencilViewAttachment,
     pub pass_name: String,
 }
 
@@ -1368,8 +1368,9 @@ pub fn prepare_lights(
 
     live_shadow_mapping_lights.clear();
 
-    let mut point_light_depth_attachments = HashMap::<u32, DepthViewAttachment>::default();
-    let mut directional_light_depth_attachments = HashMap::<u32, DepthViewAttachment>::default();
+    let mut point_light_depth_attachments = HashMap::<u32, DepthStencilViewAttachment>::default();
+    let mut directional_light_depth_attachments =
+        HashMap::<u32, DepthStencilViewAttachment>::default();
 
     let point_light_depth_texture = texture_cache.get(
         &render_device,
@@ -1862,7 +1863,7 @@ pub fn prepare_lights(
                 // NOTE: For point and spotlights, we reuse the same depth attachment for all views.
                 // However, for directional lights, we want a new depth attachment for each view,
                 // so that the view is cleared for each view.
-                let depth_attachment = DepthViewAttachment::new(
+                let depth_attachment = DepthStencilViewAttachment::new(
                     DepthStencilViews::DepthOnly {
                         depth_view: depth_texture_view.clone(),
                     },
@@ -2019,7 +2020,7 @@ pub fn prepare_lights(
 /// all cameras.
 fn create_point_shadow_maps(
     commands: &mut Commands,
-    point_light_depth_attachments: &mut HashMap<u32, DepthViewAttachment>,
+    point_light_depth_attachments: &mut HashMap<u32, DepthStencilViewAttachment>,
     global_clusterable_object_meta: &ResMut<GlobalClusterableObjectMeta>,
     (cube_face_rotations, point_light_frusta, light_view_entities): (
         &Vec<Transform>,
@@ -2072,7 +2073,7 @@ fn create_point_shadow_maps(
                             array_layer_count: Some(1u32),
                         });
 
-                DepthViewAttachment::new(
+                DepthStencilViewAttachment::new(
                     DepthStencilViews::DepthOnly {
                         depth_view: depth_texture_view,
                     },
@@ -2132,7 +2133,7 @@ fn create_point_shadow_maps(
 /// This shadow map is shared across all cameras.
 fn create_spot_shadow_map(
     commands: &mut Commands,
-    directional_light_depth_attachments: &mut HashMap<u32, DepthViewAttachment>,
+    directional_light_depth_attachments: &mut HashMap<u32, DepthStencilViewAttachment>,
     (num_directional_cascades_enabled, light_index): (usize, usize),
     directional_light_depth_texture: &CachedTexture,
     view_light_entity: Entity,
@@ -2168,7 +2169,7 @@ fn create_spot_shadow_map(
                         array_layer_count: Some(1u32),
                     });
 
-            DepthViewAttachment::new(
+            DepthStencilViewAttachment::new(
                 DepthStencilViews::DepthOnly {
                     depth_view: depth_texture_view,
                 },

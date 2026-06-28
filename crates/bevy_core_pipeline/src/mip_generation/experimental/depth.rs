@@ -36,7 +36,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::TextureCache,
-    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
+    view::{ExtractedView, NoIndirectDrawing, ViewDepthStencilTexture},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -64,7 +64,7 @@ pub fn early_downsample_depth(
     view: ViewQuery<(
         &ViewDepthPyramid,
         &ViewDownsampleDepthBindGroup,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&OcclusionCullingSubviewEntities>,
     )>,
     shadow_view_query: Query<(
@@ -139,7 +139,7 @@ pub fn late_downsample_depth(
     view: ViewQuery<(
         &ViewDepthPyramid,
         &ViewDownsampleDepthBindGroup,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&OcclusionCullingSubviewEntities>,
     )>,
     shadow_view_query: Query<(
@@ -736,10 +736,10 @@ pub fn prepare_downsample_depth_view_bind_groups(
         (
             Entity,
             &ViewDepthPyramid,
-            Option<&ViewDepthTexture>,
+            Option<&ViewDepthStencilTexture>,
             Option<&OcclusionCullingSubview>,
         ),
-        Or<(With<ViewDepthTexture>, With<OcclusionCullingSubview>)>,
+        Or<(With<ViewDepthStencilTexture>, With<OcclusionCullingSubview>)>,
     >,
 ) {
     for (view_entity, view_depth_pyramid, view_depth_texture, shadow_occlusion_culling) in

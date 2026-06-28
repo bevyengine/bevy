@@ -5,7 +5,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, ViewQuery},
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ViewDepthStencilTexture, ViewTarget, ViewUniformOffset},
 };
 
 use crate::prepass::DepthPrepass;
@@ -18,7 +18,7 @@ pub fn oit_resolve(
         &ViewTarget,
         &ViewUniformOffset,
         &OitResolvePipelineId,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&MainPassResolutionOverride>,
         Has<DepthPrepass>,
     )>,

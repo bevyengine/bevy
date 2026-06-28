@@ -35,7 +35,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget},
     Extract,
 };
 use bevy_shader::Shader;
@@ -282,7 +282,7 @@ pub fn extract_volumetric_fog(
 pub fn volumetric_fog(
     view: ViewQuery<(
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &ViewVolumetricFogPipelines,
         &ViewVolumetricFog,
         &MeshViewBindGroup,

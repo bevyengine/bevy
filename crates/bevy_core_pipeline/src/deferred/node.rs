@@ -12,7 +12,7 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::ViewDepthTexture,
+    view::ViewDepthStencilTexture,
 };
 
 use crate::prepass::ViewPrepassTextures;
@@ -23,7 +23,7 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 type DeferredPrepassViewQueryData = (
     &'static ExtractedCamera,
     &'static ExtractedView,
-    &'static ViewDepthTexture,
+    &'static ViewDepthStencilTexture,
     &'static ViewPrepassTextures,
     Option<&'static MainPassResolutionOverride>,
     Has<OcclusionCulling>,
@@ -111,7 +111,7 @@ fn run_deferred_prepass_system(
     view_entity: Entity,
     camera: &ExtractedCamera,
     extracted_view: &ExtractedView,
-    view_depth_texture: &ViewDepthTexture,
+    view_depth_texture: &ViewDepthStencilTexture,
     view_prepass_textures: &ViewPrepassTextures,
     resolution_override: Option<&MainPassResolutionOverride>,
     is_late: bool,

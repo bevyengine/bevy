@@ -157,14 +157,14 @@ impl DepthStencilViews {
 
 /// A wrapper for a [`CachedTexture`] that is used as a depth [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
-pub struct DepthAttachment {
+pub struct DepthStencilAttachment {
     pub texture: CachedTexture,
     pub previous_frame_texture: Option<CachedTexture>,
-    depth_stencil_view_attachment: DepthViewAttachment,
+    depth_stencil_view_attachment: DepthStencilViewAttachment,
     pub previous_frame_depth_stencil_views: Option<DepthStencilViews>,
 }
 
-impl DepthAttachment {
+impl DepthStencilAttachment {
     pub fn depth_stencil_views(&self) -> &DepthStencilViews {
         &self.depth_stencil_view_attachment.depth_stencil_views
     }
@@ -245,7 +245,7 @@ impl DepthAttachment {
         Self {
             texture,
             previous_frame_texture,
-            depth_stencil_view_attachment: DepthViewAttachment::new(
+            depth_stencil_view_attachment: DepthStencilViewAttachment::new(
                 depth_stencil_views,
                 depth_clear_value,
                 stencil_clear_value,
@@ -270,12 +270,12 @@ impl DepthAttachment {
 
 /// A wrapper for a [`TextureView`] that is used as a [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
-pub struct DepthViewAttachment {
+pub struct DepthStencilViewAttachment {
     pub depth_stencil_views: DepthStencilViews,
     depth_stencil_data: DepthStencilData,
 }
 
-impl DepthViewAttachment {
+impl DepthStencilViewAttachment {
     pub fn new(
         depth_stencil_views: DepthStencilViews,
         depth_clear_value: Option<f32>,
