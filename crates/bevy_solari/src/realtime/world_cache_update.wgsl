@@ -103,7 +103,7 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
 
         weight_sum += resampling_weight;
 
-        if rand_f(rng) < resampling_weight / weight_sum {
+        if weight_sum > 0.0 && rand_f(rng) * weight_sum < resampling_weight {
             selected_sample_radiance = contribution;
             selected_sample_target_function = target_function;
             selected_sample_world_position = resolved_light_sample.world_position;

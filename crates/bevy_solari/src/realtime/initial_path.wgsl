@@ -252,7 +252,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
 
         weight_sum += resampling_weight;
 
-        if rand_f(rng) < resampling_weight / weight_sum {
+        if weight_sum > 0.0 && rand_f(rng) * weight_sum < resampling_weight {
             selected_target_function = target_function;
             selected_light_sample = light_tile_samples[tile_sample];
             selected_world_position = resolved_light_sample.world_position;
@@ -360,15 +360,16 @@ fn terminate_into_cache(
         *non_resampled_radiance += path.x1_brdf * cache_L_at_reconnection;
         return true;
     }
-    let cache_target = luminance(path.x1_brdf * cache_L_at_reconnection);
-    *weight_sum += cache_target;
 
-    if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < cache_target {
+    let target_function = luminance(path.x1_brdf * cache_L_at_reconnection);
+    let resampling_weight = target_function;
+    *weight_sum += resampling_weight;
+    if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
         (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
         (*reservoir).sample_point_world_position = path.x2_position;
         (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
         (*reservoir).radiance = cache_L_at_reconnection;
-        *selected_target_function = cache_target;
+        *selected_target_function = target_function;
     }
 
     return true;

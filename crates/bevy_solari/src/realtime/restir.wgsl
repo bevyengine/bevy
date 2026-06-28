@@ -320,7 +320,7 @@ fn merge_reservoirs(
     combined_reservoir.confidence_weight = canonical_reservoir.confidence_weight + other_reservoir.confidence_weight;
     let weight_sum = canonical_sample_resampling_weight + other_sample_resampling_weight;
 
-    if rand_f(rng) < other_sample_resampling_weight / weight_sum {
+    if weight_sum > 0.0 && rand_f(rng) * weight_sum < other_sample_resampling_weight {
         combined_reservoir.sample_point_world_position = other_reservoir.sample_point_world_position;
         combined_reservoir.sample_point_world_normal = other_reservoir.sample_point_world_normal;
         combined_reservoir.radiance = other_reservoir.radiance;
