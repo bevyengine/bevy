@@ -3,6 +3,7 @@
 struct PreviousViewUniforms {
     view_from_world: mat4x4<f32>,
     clip_from_world: mat4x4<f32>,
+    unjittered_clip_from_world: mat4x4<f32>,
     clip_from_view: mat4x4<f32>,
     world_from_clip: mat4x4<f32>,
     view_from_clip: mat4x4<f32>,
