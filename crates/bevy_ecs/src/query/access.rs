@@ -73,7 +73,7 @@ impl Access {
 
     /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
-        if !self.read_and_writes_inverted {
+        if !self.read_and_writes.inverted() {
             self.read_and_writes.insert(index);
         } else {
             self.read_and_writes.remove(index);
@@ -83,7 +83,7 @@ impl Access {
     /// Adds exclusive access to the component given by `index`.
     pub fn add_write(&mut self, index: ComponentId) {
         self.add_read(index);
-        if !self.writes_inverted {
+        if !self.writes.inverted() {
             self.writes.insert(index);
         } else {
             self.writes.remove(index);
@@ -100,7 +100,7 @@ impl Access {
     /// `remove_read`.
     pub fn remove_read(&mut self, index: ComponentId) {
         self.remove_write(index);
-        if self.read_and_writes_inverted {
+        if self.read_and_writes.inverted() {
             self.read_and_writes.insert(index);
         } else {
             self.read_and_writes.remove(index);
@@ -116,7 +116,7 @@ impl Access {
     /// `extend` with a call to `extend` followed by a call to
     /// `remove_write`.
     pub fn remove_write(&mut self, index: ComponentId) {
-        if self.writes_inverted {
+        if self.writes.inverted() {
             self.writes.insert(index);
         } else {
             self.writes.remove(index);
@@ -138,22 +138,22 @@ impl Access {
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_read(&self, index: ComponentId) -> bool {
-        self.read_and_writes_inverted ^ self.read_and_writes.contains(index)
+        self.read_and_writes.inverted() ^ self.read_and_writes.contains(index)
     }
 
     /// Returns `true` if this can access any component.
     pub fn has_any_read(&self) -> bool {
-        self.read_and_writes_inverted || !self.read_and_writes.is_clear()
+        self.read_and_writes.inverted() || !self.read_and_writes.is_clear()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
     pub fn has_write(&self, index: ComponentId) -> bool {
-        self.writes_inverted ^ self.writes.contains(index)
+        self.writes.inverted() ^ self.writes.contains(index)
     }
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_write(&self) -> bool {
-        self.writes_inverted || !self.writes.is_clear()
+        self.writes.inverted() || !self.writes.is_clear()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -171,7 +171,7 @@ impl Access {
     /// Sets this as having access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn read_all(&mut self) {
-        self.read_and_writes_inverted = true;
+        set_inverted(&mut self.read_and_writes, true);
         self.read_and_writes.clear();
     }
 
@@ -179,46 +179,40 @@ impl Access {
     #[inline]
     pub fn write_all(&mut self) {
         self.read_all();
-        self.writes_inverted = true;
+        set_inverted(&mut self.writes, true);
         self.writes.clear();
     }
 
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn has_read_all(&self) -> bool {
-        self.read_and_writes_inverted && self.read_and_writes.is_clear()
+        self.read_and_writes.inverted() && self.read_and_writes.is_clear()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
     #[inline]
     pub fn has_write_all(&self) -> bool {
-        self.writes_inverted && self.writes.is_clear()
+        self.writes.inverted() && self.writes.is_clear()
     }
 
     /// Removes all writes.
     pub fn clear_writes(&mut self) {
-        self.writes_inverted = false;
+        set_inverted(&mut self.writes, false);
         self.writes.clear();
     }
 
     /// Removes all accesses.
     pub fn clear(&mut self) {
-        self.read_and_writes_inverted = false;
-        self.writes_inverted = false;
+        set_inverted(&mut self.read_and_writes, false);
+        set_inverted(&mut self.writes, false);
         self.read_and_writes.clear();
         self.writes.clear();
     }
 
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access) {
-        invertible_union_with(
-            self.read_and_writes.underlying(),
-            other.read_and_writes.underlying(),
-        );
-        invertible_union_with(
-            self.writes.underlying_mut(),
-            other.writes.underlying(),
-        );
+        invertible_union_with(&mut self.read_and_writes, &other.read_and_writes);
+        invertible_union_with(&mut self.writes, &other.writes);
         self.archetypal.union_with(&other.archetypal);
     }
 
@@ -226,14 +220,8 @@ impl Access {
     /// This removes any reads and writes for any component written by `other`,
     /// and removes any writes for any component read by `other`.
     pub fn remove_conflicting_access(&mut self, other: &Access) {
-        invertible_difference_with(
-            &mut self.read_and_writes,
-            &other.writes,
-        );
-        invertible_difference_with(
-            &mut self.writes,
-            &other.read_and_writes,
-        );
+        invertible_difference_with(&mut self.read_and_writes, &other.writes);
+        invertible_difference_with(&mut self.writes, &other.read_and_writes);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
@@ -243,18 +231,9 @@ impl Access {
     pub fn is_compatible(&self, other: &Access) -> bool {
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
-        for (
-            lhs_writes,
-            rhs_reads_and_writes,
-        ) in [
-            (
-                &self.writes,
-                &other.read_and_writes,
-            ),
-            (
-                &other.writes,
-                &self.read_and_writes,
-            ),
+        for (lhs_writes, rhs_reads_and_writes) in [
+            (&self.writes, &other.read_and_writes),
+            (&other.writes, &self.read_and_writes),
         ] {
             match (lhs_writes.inverted(), rhs_reads_and_writes.inverted()) {
                 (true, true) => return false,
@@ -282,18 +261,9 @@ impl Access {
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
     pub fn is_subset(&self, other: &Access) -> bool {
-        for (
-            our_components,
-            their_components,
-        ) in [
-            (
-                &self.read_and_writes,
-                &other.read_and_writes,
-            ),
-            (
-                &self.writes,
-                &other.writes,
-            ),
+        for (our_components, their_components) in [
+            (&self.read_and_writes, &other.read_and_writes),
+            (&self.writes, &other.writes),
         ] {
             match (our_components.inverted(), their_components.inverted()) {
                 (true, true) => {
@@ -327,18 +297,9 @@ impl Access {
 
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
-        for (
-            lhs_writes,
-            rhs_reads_and_writes,
-        ) in [
-            (
-                &self.writes,
-                &other.read_and_writes,
-            ),
-            (
-                &other.writes,
-                &self.read_and_writes,
-            ),
+        for (lhs_writes, rhs_reads_and_writes) in [
+            (&self.writes, &other.read_and_writes),
+            (&other.writes, &self.read_and_writes),
         ] {
             // There's no way that I can see to do this without a temporary.
             // Neither CNF nor DNF allows us to avoid one.
@@ -429,7 +390,7 @@ impl Access {
 
         let archetypal = self
             .archetypal
-            .difference(&self.read_and_writes)
+            .difference(&self.read_and_writes.underlying())
             .map(ComponentAccessKind::Archetypal);
 
         Ok(reads_and_writes.chain(archetypal))
@@ -461,6 +422,7 @@ impl InvertibleComponentIdSet {
     }
 
     /// Returns true if this is Excluded, otherwise false
+    #[inline]
     pub fn inverted(&self) -> bool {
         match self {
             Self::Included(_) => false,
@@ -468,16 +430,103 @@ impl InvertibleComponentIdSet {
         }
     }
 
+    #[inline]
     fn underlying(&self) -> &ComponentIdSet {
         match self {
             Self::Included(b) | Self::Excluded(b) => b,
         }
     }
 
+    #[inline]
     fn underlying_mut(&mut self) -> &mut ComponentIdSet {
         match self {
             Self::Included(b) | Self::Excluded(b) => b,
         }
+    }
+
+    #[inline]
+    fn clear(&mut self) {
+        self.underlying_mut().clear()
+    }
+
+    // NOTE: here we are relying on [`Access`] to manage inverted, perhaps higher level methods should move
+    #[inline]
+    fn insert(&mut self, index: ComponentId) {
+        self.underlying_mut().insert(index)
+    }
+
+    #[inline]
+    fn remove(&mut self, index: ComponentId) {
+        self.underlying_mut().remove(index)
+    }
+
+    #[inline]
+    fn contains(&self, index: ComponentId) -> bool {
+        self.underlying().contains(index)
+    }
+
+    #[inline]
+    fn is_clear(&self) -> bool {
+        self.underlying().is_clear()
+    }
+
+    #[inline]
+    fn difference_with(&mut self, other: &InvertibleComponentIdSet) {
+        self.underlying_mut().difference_with(&other.underlying())
+    }
+
+    #[inline]
+    fn intersect_with(&mut self, other: &InvertibleComponentIdSet) {
+        self.underlying_mut().intersect_with(&other.underlying())
+    }
+
+    #[inline]
+    fn difference_from(&mut self, other: &InvertibleComponentIdSet) {
+        self.underlying_mut().difference_from(&other.underlying())
+    }
+
+    #[inline]
+    fn union_with(&mut self, other: &InvertibleComponentIdSet) {
+        self.underlying_mut().union_with(&other.underlying())
+    }
+
+    #[inline]
+    fn difference<'a>(
+        &'a self,
+        other: &'a InvertibleComponentIdSet,
+    ) -> ComponentIdIter<Difference<'a>> {
+        self.underlying().difference(&other.underlying())
+    }
+
+    #[inline]
+    fn intersection<'a>(
+        &'a self,
+        other: &'a InvertibleComponentIdSet,
+    ) -> ComponentIdIter<Intersection<'a>> {
+        self.underlying().intersection(&other.underlying())
+    }
+
+    #[inline]
+    fn is_disjoint(&self, other: &InvertibleComponentIdSet) -> bool {
+        self.underlying().is_disjoint(&other.underlying())
+    }
+
+    #[inline]
+    fn is_subset(&self, other: &InvertibleComponentIdSet) -> bool {
+        self.underlying().is_subset(&other.underlying())
+    }
+}
+
+fn swap_inverted(value: &mut InvertibleComponentIdSet) {
+    if let InvertibleComponentIdSet::Included(content) = value {
+        *value = InvertibleComponentIdSet::Excluded(core::mem::take(content));
+    }
+}
+
+fn set_inverted(value: &mut InvertibleComponentIdSet, target: bool) {
+    let current = value.inverted();
+    if current != target {
+        swap_inverted(value);
     }
 }
 
@@ -497,7 +546,7 @@ fn invertible_union_with(
         (true, true) => self_set.intersect_with(other_set),
         (true, false) => self_set.difference_with(other_set),
         (false, true) => {
-            *self_inverted = true;
+            set_inverted(self_set, true);
             self_set.difference_from(other_set);
         }
         (false, false) => self_set.union_with(other_set),
@@ -513,16 +562,14 @@ fn invertible_union_with(
 /// Note that this may change `self_inverted` to `false` if we remove an
 /// infinite set from another infinite one, resulting in a finite difference.
 fn invertible_difference_with(
-    self_set: &mut ComponentIdSet,
-    self_inverted: &mut bool,
-    other_set: &ComponentIdSet,
-    other_inverted: bool,
+    self_set: &mut InvertibleComponentIdSet,
+    other_set: &InvertibleComponentIdSet,
 ) {
     // We can share the implementation of `invertible_union_with` with some algebra:
     // A - B = A & !B = !(!A | B)
-    *self_inverted = !*self_inverted;
-    invertible_union_with(self_set, self_inverted, other_set, other_inverted);
-    *self_inverted = !*self_inverted;
+    swap_inverted(self_set);
+    invertible_union_with(self_set, other_set);
+    swap_inverted(self_set);
 }
 
 /// Error returned when attempting to iterate over items included in an [`Access`]
@@ -1325,7 +1372,7 @@ mod tests {
         component::ComponentId,
         query::{
             access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, ComponentIdSet,
-            FilteredAccess, FilteredAccessSet, UnboundedAccessError,
+            FilteredAccess, FilteredAccessSet, InvertibleComponentIdSet, UnboundedAccessError,
         },
     };
     use alloc::{vec, vec::Vec};
@@ -1667,6 +1714,14 @@ mod tests {
         );
     }
 
+    fn invertible(content: ComponentIdSet, inverted: bool) -> InvertibleComponentIdSet {
+        if inverted {
+            InvertibleComponentIdSet::Excluded(content)
+        } else {
+            InvertibleComponentIdSet::Included(content)
+        }
+    }
+
     /// Create a `ComponentIdSet` with a given number of total bits and a given list of bits to set.
     /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
     fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> ComponentIdSet {
@@ -1679,33 +1734,28 @@ mod tests {
     fn invertible_union_with_tests() {
         let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
-            let mut self_set = bit_set(4, [0, 1]);
-            let other_set = bit_set(4, [0, 2]);
-            invertible_union_with(
-                &mut self_set,
-                &mut self_inverted,
-                &other_set,
-                other_inverted,
-            );
-            (self_set, self_inverted)
+            let mut self_set = invertible(bit_set(4, [0, 1]), self_inverted);
+            let other_set = invertible(bit_set(4, [0, 2]), other_inverted);
+            invertible_union_with(&mut self_set, &other_set);
+            self_set
         };
 
         // Check each combination of `inverted` flags
-        let (s, i) = invertible_union(false, false);
+        let s = invertible_union(false, false);
         // [0, 1] | [0, 2] = [0, 1, 2]
-        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), false));
+        assert_eq!(s, invertible(bit_set(4, [0, 1, 2]), false));
 
-        let (s, i) = invertible_union(false, true);
+        let s = invertible_union(false, true);
         // [0, 1] | [1, 3, ...] = [0, 1, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [2]), true));
+        assert_eq!(s, invertible(bit_set(4, [2]), true));
 
-        let (s, i) = invertible_union(true, false);
+        let s = invertible_union(true, false);
         // [2, 3, ...] | [0, 2] = [0, 2, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [1]), true));
+        assert_eq!(s, invertible(bit_set(4, [1]), true));
 
-        let (s, i) = invertible_union(true, true);
+        let s = invertible_union(true, true);
         // [2, 3, ...] | [1, 3, ...] = [1, 2, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [0]), true));
+        assert_eq!(s, invertible(bit_set(4, [0]), true));
     }
 
     #[test]
@@ -1714,52 +1764,40 @@ mod tests {
         // make sure we invert the bits beyond the original length.
         // Failing to call `grow` before `toggle_range` would cause bit 1 to be zero,
         // which would incorrectly treat it as included in the output set.
-        let mut self_set = bit_set(1, [0]);
-        let mut self_inverted = false;
-        let other_set = bit_set(3, [0, 1]);
-        let other_inverted = true;
-        invertible_union_with(
-            &mut self_set,
-            &mut self_inverted,
-            &other_set,
-            other_inverted,
-        );
+        let mut self_set = invertible(bit_set(1, [0]), false);
+        let other_set = invertible(bit_set(3, [0, 1]), true);
+        invertible_union_with(&mut self_set, &other_set);
 
         // [0] | [2, ...] = [0, 2, ...]
-        assert_eq!((self_set, self_inverted), (bit_set(3, [1]), true));
+        assert_eq!(self_set, invertible(bit_set(3, [1]), true));
     }
 
     #[test]
     fn invertible_difference_with_tests() {
         let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
-            let mut self_set = bit_set(4, [0, 1]);
-            let other_set = bit_set(4, [0, 2]);
-            invertible_difference_with(
-                &mut self_set,
-                &mut self_inverted,
-                &other_set,
-                other_inverted,
-            );
-            (self_set, self_inverted)
+            let mut self_set = invertible(bit_set(4, [0, 1]), self_inverted);
+            let other_set = invertible(bit_set(4, [0, 2]), other_inverted);
+            invertible_difference_with(&mut self_set, &other_set);
+            self_set
         };
 
         // Check each combination of `inverted` flags
-        let (s, i) = invertible_difference(false, false);
+        let s = invertible_difference(false, false);
         // [0, 1] - [0, 2] = [1]
-        assert_eq!((s, i), (bit_set(4, [1]), false));
+        assert_eq!(s, invertible(bit_set(4, [1]), false));
 
-        let (s, i) = invertible_difference(false, true);
+        let s = invertible_difference(false, true);
         // [0, 1] - [1, 3, ...] = [0]
-        assert_eq!((s, i), (bit_set(4, [0]), false));
+        assert_eq!(s, invertible(bit_set(4, [0]), false));
 
-        let (s, i) = invertible_difference(true, false);
+        let s = invertible_difference(true, false);
         // [2, 3, ...] - [0, 2] = [3, ...]
-        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), true));
+        assert_eq!(s, invertible(bit_set(4, [0, 1, 2]), true));
 
-        let (s, i) = invertible_difference(true, true);
+        let s = invertible_difference(true, true);
         // [2, 3, ...] - [1, 3, ...] = [2]
-        assert_eq!((s, i), (bit_set(4, [2]), false));
+        assert_eq!(s, invertible(bit_set(4, [2]), false));
     }
 
     #[test]
