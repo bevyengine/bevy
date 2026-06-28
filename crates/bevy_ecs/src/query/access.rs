@@ -1605,7 +1605,7 @@ mod tests {
 
     #[test]
     fn invertible_union_with_tests() {
-        let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
+        let invertible_union = |self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
             let mut self_set = bit_set(4, [0, 1], self_inverted);
             let other_set = bit_set(4, [0, 2], other_inverted);
@@ -1647,7 +1647,7 @@ mod tests {
 
     #[test]
     fn invertible_difference_with_tests() {
-        let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
+        let invertible_difference = |self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
             let mut self_set = bit_set(4, [0, 1], self_inverted);
             let other_set = bit_set(4, [0, 2], other_inverted);
