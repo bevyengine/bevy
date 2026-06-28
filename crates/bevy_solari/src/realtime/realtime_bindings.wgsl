@@ -43,7 +43,8 @@ enable wgpu_ray_query;
 
 struct PushConstants {
     frame_index: u32,
-    reset: u32}
+    reset: u32,
+}
 var<immediate> constants: PushConstants;
 
 // Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
