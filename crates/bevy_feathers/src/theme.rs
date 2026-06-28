@@ -218,21 +218,21 @@ pub enum Slot {
     Neutral0,
     /// Surface bodies & menus: `PANE_BODY_BG`, `SUBPANE_BODY_BG`, `DIALOG_BG`, `MENU_BG`, `COLOR_PLANE_BG`.
     Neutral1,
-    /// Recessed fills & chrome: `SLIDER_BG*`, `SCROLLBAR_BG`, `TEXT_INPUT_BG`, `MENU_BORDER`, 
+    /// Recessed fills & chrome: `SLIDER_BG*`, `SCROLLBAR_BG`, `TEXT_INPUT_BG`, `MENU_BORDER`,
     /// `MENUITEM_BG_HOVER`, `LISTROW_BG_HOVER`, `BUTTON_PLAIN_BG_HOVER`/`_PRESSED`,
     /// `BUTTON_BG_DISABLED`, `BUTTON_PRIMARY_BG_DISABLED`, `PANE_HEADER_BORDER`/`_DIVIDER`.
     Neutral2,
     /// Raised container headers & borders: `SUBPANE_HEADER_BG`, `GROUP_HEADER_BG`/`_BORDER`,
     /// `GROUP_BODY_BG`/`_BORDER`, `DIALOG_BORDER`, `DIALOG_HEADER_BG`.
     Neutral3,
-    /// Control rest bg & borders + selected row: `BUTTON_BG`, `CHECKBOX_BG`/`_BORDER`, `RADIO_BORDER`, 
+    /// Control rest bg & borders + selected row: `BUTTON_BG`, `CHECKBOX_BG`/`_BORDER`, `RADIO_BORDER`,
     /// `SWITCH_BG`/`_BORDER`, `TEXT_INPUT_LABEL_BG`, `MENUITEM_BG_PRESSED`/`_FOCUSED`,
     /// `LISTROW_BG_SELECTED`, `SLIDER_BAR_DISABLED`, `SUBPANE_HEADER_BORDER`, `SUBPANE_BODY_BORDER`.
     Neutral4,
-    /// Control hover: `BUTTON_BG_HOVER`, `CHECKBOX_BG`/`_BORDER_HOVER`, `RADIO_BORDER_HOVER`, 
+    /// Control hover: `BUTTON_BG_HOVER`, `CHECKBOX_BG`/`_BORDER_HOVER`, `RADIO_BORDER_HOVER`,
     /// `SWITCH_BG`/`_BORDER_HOVER`.
     Neutral5,
-    /// Control pressed: `BUTTON_BG_PRESSED`, `CHECKBOX_BG`/`_BORDER_PRESSED`, `RADIO_BORDER_PRESSED`, 
+    /// Control pressed: `BUTTON_BG_PRESSED`, `CHECKBOX_BG`/`_BORDER_PRESSED`, `RADIO_BORDER_PRESSED`,
     /// `SWITCH_BG`/`_BORDER_PRESSED`.
     Neutral6,
     /// Bright on-surface labels: `BUTTON_TEXT`, `MENUITEM_TEXT`, `TEXT_INPUT_TEXT`, `LISTROW_TEXT`,
@@ -241,30 +241,30 @@ pub enum Slot {
     /// Body text & switch knob: `TEXT_MAIN`, `DIALOG_TEXT`, `CHECKBOX_TEXT`, `RADIO_TEXT`,
     /// `SWITCH_SLIDE_BG`/`_BORDER` (+ hover/pressed).
     Text1,
-    /// Disabled bright text + dimmed text: `BUTTON_TEXT_DISABLED`, `BUTTON_PRIMARY_TEXT_DISABLED`, 
-    /// `SLIDER_TEXT_DISABLED`, `MENUITEM_TEXT_DISABLED`, `TEXT_INPUT_TEXT_DISABLED`, 
+    /// Disabled bright text + dimmed text: `BUTTON_TEXT_DISABLED`, `BUTTON_PRIMARY_TEXT_DISABLED`,
+    /// `SLIDER_TEXT_DISABLED`, `MENUITEM_TEXT_DISABLED`, `TEXT_INPUT_TEXT_DISABLED`,
     /// `LISTROW_TEXT_DISABLED`, `TEXT_DIM`.
     TextDim0,
-    /// Disabled checkbox/radio/switch borders, marks, knob & label text: the 
-    /// `BORDER`/`BORDER_CHECKED`/`MARK`/`TEXT` `_DISABLED` variants of `CHECKBOX_*`/`RADIO_*`, plus 
-    /// `SWITCH`'s `BORDER`/`SLIDE_BG`/`SLIDE_BORDER` `_DISABLED` (+ checked). Their `BG*_DISABLED` 
+    /// Disabled checkbox/radio/switch borders, marks, knob & label text: the
+    /// `BORDER`/`BORDER_CHECKED`/`MARK`/`TEXT` `_DISABLED` variants of `CHECKBOX_*`/`RADIO_*`, plus
+    /// `SWITCH`'s `BORDER`/`SLIDE_BG`/`SLIDE_BORDER` `_DISABLED` (+ checked). Their `BG*_DISABLED`
     /// fills are [`Slot::Transparent`].
     TextDim1,
-    /// Base call-to-action: `BUTTON_PRIMARY_BG`, `SLIDER_BAR`, `SCROLLBAR_THUMB`, 
-    /// `*_BG_CHECKED`/`*_BORDER_CHECKED` (checkbox/switch), `RADIO_BORDER_CHECKED`, `RADIO_MARK`, 
+    /// Base call-to-action: `BUTTON_PRIMARY_BG`, `SLIDER_BAR`, `SCROLLBAR_THUMB`,
+    /// `*_BG_CHECKED`/`*_BORDER_CHECKED` (checkbox/switch), `RADIO_BORDER_CHECKED`, `RADIO_MARK`,
     /// `TEXT_INPUT_SELECTION`.
     Accent0,
-    /// Call-to-action hover: `BUTTON_PRIMARY_BG_HOVER`, `SLIDER_BAR_HOVER`/`_PRESSED`, 
-    /// `*_BG_CHECKED_HOVER`/`*_BORDER_CHECKED_HOVER` (checkbox/switch), `RADIO_BORDER_CHECKED_HOVER`, 
+    /// Call-to-action hover: `BUTTON_PRIMARY_BG_HOVER`, `SLIDER_BAR_HOVER`/`_PRESSED`,
+    /// `*_BG_CHECKED_HOVER`/`*_BORDER_CHECKED_HOVER` (checkbox/switch), `RADIO_BORDER_CHECKED_HOVER`,
     /// `RADIO_MARK_HOVER`.
     Accent1,
-    /// Call-to-action pressed: `BUTTON_PRIMARY_BG_PRESSED`, `SCROLLBAR_THUMB_HOVER`, 
-    /// `*_BG_CHECKED_PRESSED`/`*_BORDER_CHECKED_PRESSED` (checkbox/switch), 
+    /// Call-to-action pressed: `BUTTON_PRIMARY_BG_PRESSED`, `SCROLLBAR_THUMB_HOVER`,
+    /// `*_BG_CHECKED_PRESSED`/`*_BORDER_CHECKED_PRESSED` (checkbox/switch),
     /// `RADIO_BORDER_CHECKED_PRESSED`, `RADIO_MARK_PRESSED`.
     Accent2,
     /// Brightest accent: `TEXT_INPUT_CURSOR`.
     Accent3,
-    /// Foreground over accent-filled components: `BUTTON_PRIMARY_TEXT`, `SLIDER_TEXT`, `CHECKBOX_MARK`, 
+    /// Foreground over accent-filled components: `BUTTON_PRIMARY_TEXT`, `SLIDER_TEXT`, `CHECKBOX_MARK`,
     /// `SWITCH_SLIDE_BG`/`_BORDER_CHECKED` (+ hover/pressed).
     Contrast,
     /// Keyboard focus ring: `FOCUS_RING`.
@@ -275,8 +275,8 @@ pub enum Slot {
     YAxis,
     /// Blue axis: `TEXT_INPUT_Z_AXIS`.
     ZAxis,
-    /// Always [`Color::NONE`]; used by tokens that paint nothing: `BUTTON_PLAIN_BG`/`_DISABLED`, 
-    /// all `RADIO_BG*`, `*_BG_DISABLED`/`*_BG_CHECKED_DISABLED` (checkbox/switch), 
+    /// Always [`Color::NONE`]; used by tokens that paint nothing: `BUTTON_PLAIN_BG`/`_DISABLED`,
+    /// all `RADIO_BG*`, `*_BG_DISABLED`/`*_BG_CHECKED_DISABLED` (checkbox/switch),
     /// `TEXT_INPUT_SELECTION_UNFOCUSED`, `LISTROW_BG`.
     Transparent,
 }
@@ -377,14 +377,14 @@ pub struct EditablePalette {
     /// Lightness of each neutral ramp stop; forms [`Slot::Neutral0`]..=[`Slot::Neutral6`].
     pub neutrals: OklchaArray<7>,
 
-    /// Lightness of each accent stop; forms [`Slot::Accent0`]..=[`Slot::Accent3`] 
+    /// Lightness of each accent stop; forms [`Slot::Accent0`]..=[`Slot::Accent3`]
     /// (and [`Slot::FocusRing`], derived from `accent[0]`).
     pub accent: OklchaArray<4>,
 
     /// Foreground on accent-filled components (white in most themes); forms [`Slot::Contrast`].
     pub contrast: Oklcha,
 
-    /// Lightness of each text stop; forms [`Slot::Text0`]..=[`Slot::Text1`] 
+    /// Lightness of each text stop; forms [`Slot::Text0`]..=[`Slot::Text1`]
     /// (and [`Slot::TextDim0`]..=[`Slot::TextDim1`], derived).
     pub text: OklchaArray<2>,
 
