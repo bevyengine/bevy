@@ -173,10 +173,8 @@ fn generate_nee_candidate(
     if rand_f(rng) >= p_nee { return; }
 
     let di = sample_light_ris(path.ray_origin, path.normal, path.wo, path.material, F_ab, di_samples, workgroup_id, bounce, rng);
-    if di.target_function <= 0.0 { return; }
-
-    // Single visibility trace for the chosen sample
-    let visibility = trace_light_visibility(path.ray_origin, di.world_position);
+    let di_target_function = luminance(di.brdf_radiance);
+    if di_target_function <= 0.0 { return; }
 
     // MIS against the BRDF strategy. RIS over N candidates makes the effective NEE pdf at the
     // winner roughly N * light_pdf(winner), so scale by p_nee for the stochastic gate.
@@ -188,45 +186,43 @@ fn generate_nee_candidate(
     }
 
     if bounce == 0u {
-        // Bounce 0. Store the light sample so reservoir_contribution can re-resolve it each frame.
-        // nee_mis_weight goes in the target (recomputed per pixel on reuse), not the contribution
-        // weight, so the weight stays free of this pixel's brdf pdf and the NEE plus emissive
-        // partition stays valid across reuse.
-        let nee_weight = di.weight_sum * visibility * nee_mis_weight / p_nee;
-        *weight_sum += nee_weight;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < nee_weight {
+        // Bounce 0: Candidate is the light sample, stored by reference and re-resolved each frame
+        // nee_mis_weight goes into the target function since it gets recomputed per-pixel during reuse
+        let target_function = di_target_function * nee_mis_weight;
+        let resampling_weight = target_function * di.unbiased_contribution_weight / p_nee;
+
+        *weight_sum += resampling_weight;
+        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
             (*reservoir).light_sample = di.light_sample;
-            *selected_target_function = di.target_function * nee_mis_weight;
+            *selected_target_function = target_function;
         }
     } else {
-        // Deeper bounces. Bake the path through this vertex into L_at_reconnection (x_reconnection = x2). di_weight is the
-        // sub-reservoir's inverse pdf, including the 1/p_nee stochastic-NEE compensation.
-        let di_weight = di.weight_sum / di.target_function;
-        let L_at_reconnection = path.throughput_past_x1 * di.brdf_current * di.radiance * visibility * di_weight * nee_mis_weight / p_nee;
+        // Deeper bounces: Candidate is the reconnection radiance at x2
+        let L_at_reconnection = path.throughput_past_x1 * di.brdf_radiance * di.unbiased_contribution_weight * nee_mis_weight / p_nee;
         if !path.x2_reusable {
+            // x1 -> x2 not reuse-safe: shade directly at this pixel instead of publishing.
             *non_resampled_radiance += path.x1_brdf * L_at_reconnection;
         } else {
-            let nee_target = luminance(path.x1_brdf * L_at_reconnection);
-            *weight_sum += nee_target;
-            if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < nee_target {
+            let target_function = luminance(path.x1_brdf * L_at_reconnection);
+            let resampling_weight = target_function;
+
+            *weight_sum += resampling_weight;
+            if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
                 (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
                 (*reservoir).sample_point_world_position = path.x2_position;
                 (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
                 (*reservoir).radiance = L_at_reconnection;
-                *selected_target_function = nee_target;
+                *selected_target_function = target_function;
             }
         }
     }
 }
 
 struct DiSample {
-    weight_sum: f32,
-    target_function: f32,
+    unbiased_contribution_weight: f32,
     light_sample: LightSample,
-    world_position: vec4<f32>,
     wi: vec3<f32>,
-    radiance: vec3<f32>,
-    brdf_current: vec3<f32>,
+    brdf_radiance: vec3<f32>,
     inverse_solid_angle_pdf: f32,
     brdf_rays_can_hit: bool,
 }
@@ -240,8 +236,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
     var selected_light_sample = LightSample(NULL_LIGHT_ID, 0u);
     var selected_world_position = vec4(0.0);
     var selected_wi = vec3(0.0);
-    var selected_radiance = vec3(0.0);
-    var selected_brdf_current = vec3(0.0);
+    var selected_brdf_radiance = vec3(0.0);
     var selected_inverse_solid_angle_pdf = 0.0;
     var selected_brdf_rays_can_hit = false;
     let mis_weight = 1.0 / f32(di_samples);
@@ -250,8 +245,9 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
         let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, normal);
         let brdf_current = evaluate_brdf(wo, light_contribution.wi, normal, material, F_ab);
+        let brdf_radiance = brdf_current * light_contribution.radiance;
 
-        let target_function = luminance(brdf_current * light_contribution.radiance);
+        let target_function = luminance(brdf_radiance);
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 
         weight_sum += resampling_weight;
@@ -263,12 +259,17 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
             selected_wi = light_contribution.wi;
             selected_inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf;
             selected_brdf_rays_can_hit = light_contribution.brdf_rays_can_hit;
-            selected_radiance = light_contribution.radiance;
-            selected_brdf_current = brdf_current;
+            selected_brdf_radiance = brdf_radiance;
         }
     }
 
-    return DiSample(weight_sum, selected_target_function, selected_light_sample, selected_world_position, selected_wi, selected_radiance, selected_brdf_current, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
+    var unbiased_contribution_weight = 0.0;
+    if selected_target_function > 0.0 {
+        unbiased_contribution_weight = weight_sum / selected_target_function;
+        unbiased_contribution_weight *= trace_light_visibility(ray_origin, selected_world_position);
+    }
+
+    return DiSample(unbiased_contribution_weight, selected_light_sample, selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
 }
 
 fn generate_emissive_candidate(
@@ -276,8 +277,15 @@ fn generate_emissive_candidate(
     weight_sum: ptr<function, f32>,
     selected_target_function: ptr<function, f32>,
     non_resampled_radiance: ptr<function, vec3<f32>>,
-    path: PathState, ray_hit: ResolvedRayHitFull, wi: vec3<f32>, p_brdf: f32, ray_t: f32,
-    p_nee: f32, di_samples: u32, bounce: u32, rng: ptr<function, u32>,
+    path: PathState,
+    ray_hit: ResolvedRayHitFull,
+    wi: vec3<f32>,
+    p_brdf: f32,
+    ray_t: f32,
+    p_nee: f32,
+    di_samples: u32,
+    bounce: u32,
+    rng: ptr<function, u32>,
 ) {
     let NdotV_hit = max(dot(ray_hit.world_normal, -wi), 0.0001);
     let light_count = arrayLength(&light_sources);
@@ -286,38 +294,39 @@ fn generate_emissive_candidate(
     let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(di_samples));
 
     if !path.x2_reusable {
-        // x1 -> x2 not reuse-safe (mirror or sharp lobe, or a failed gate). Valid only at this pixel,
-        // so accumulate directly instead of publishing, since a shift would waste it or make a
-        // firefly. Mirror lobes always land here (p_brdf = INF, footprint 0), where the MIS weight is 1.
+        // x1 -> x2 not reuse-safe (mirror/sharp lobe or failed gate): shade directly at this pixel
+        // instead of publishing, since a reuse shift would waste it or make a firefly. Mirror lobes
+        // always land here (p_brdf = INF, footprint 0), where emissive_mis_weight is 1.
         *non_resampled_radiance += path.x1_brdf * path.throughput_past_x1 * ray_hit.material.emissive * emissive_mis_weight;
-    } else if bounce == 0u {
-        // Bounce 0. x_reconnection is the directly-visible light, so the stored radiance is the raw emission.
-        // 1/p_brdf (in throughput_past_x1) goes into the weight. emissive_mis_weight goes in the
-        // target only, recomputed per pixel in reservoir_contribution (dual of the bounce-0 NEE
-        // candidate). The view-independent area pdf is bitcast into the unused seed field, and being
-        // nonzero also tags this as a bounce-0 sample (deeper samples write seed == 0 and aren't reweighted).
-        let emissive_weight = luminance(path.x1_brdf * path.throughput_past_x1 * ray_hit.material.emissive) * emissive_mis_weight;
-        let emissive_target = luminance(path.x1_brdf * ray_hit.material.emissive) * emissive_mis_weight;
-        *weight_sum += emissive_weight;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < emissive_weight {
+        return;
+    }
+
+    if bounce == 0u {
+        // Bounce 0: Candidate is the emissive hit
+        let target_function = luminance(path.x1_brdf * ray_hit.material.emissive) * emissive_mis_weight;
+        let resampling_weight = luminance(path.x1_brdf * path.throughput_past_x1 * ray_hit.material.emissive) * emissive_mis_weight;
+
+        *weight_sum += resampling_weight;
+        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
             (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, bitcast<u32>(area_pdf));
             (*reservoir).sample_point_world_position = path.x2_position;
             (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
             (*reservoir).radiance = ray_hit.material.emissive;
-            *selected_target_function = emissive_target;
+            *selected_target_function = target_function;
         }
     } else {
-        // Deeper bounces are genuine indirect. Everything past x2 is sub-path noise frozen into
-        // L_at_reconnection (the standard reconnection-shift approximation), fine to reuse as-is.
+        // Deeper bounces: Candidate is the reconnection radiance at x2
         let emissive_L_at_reconnection = path.throughput_past_x1 * ray_hit.material.emissive * emissive_mis_weight;
-        let emissive_target = luminance(path.x1_brdf * emissive_L_at_reconnection);
-        *weight_sum += emissive_target;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < emissive_target {
+        let target_function = luminance(path.x1_brdf * emissive_L_at_reconnection);
+        let resampling_weight = target_function;
+
+        *weight_sum += resampling_weight;
+        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
             (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
             (*reservoir).sample_point_world_position = path.x2_position;
             (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
             (*reservoir).radiance = emissive_L_at_reconnection;
-            *selected_target_function = emissive_target;
+            *selected_target_function = target_function;
         }
     }
 }
