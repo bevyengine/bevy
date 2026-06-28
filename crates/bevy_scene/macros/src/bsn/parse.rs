@@ -1,5 +1,5 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnName, BsnNamedField,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
     BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
@@ -102,7 +102,7 @@ impl BsnEntry {
             BsnEntry::CachedScene(BsnScene::parse(input)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            BsnEntry::Name(input.parse::<Ident>()?)
+            BsnEntry::Name(input.parse::<BsnName>()?)
         } else if input.peek(Brace) || input.peek(At) {
             BsnEntry::UncachedScene(BsnScene::parse(input)?)
         } else {
@@ -540,7 +540,7 @@ impl Parse for BsnValue {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            BsnValue::Name(input.parse::<Ident>()?)
+            BsnValue::Name(input.parse::<BsnName>()?)
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })
@@ -573,12 +573,22 @@ impl Parse for BsnFnArg {
     }
 }
 
-struct EntityNameIdent(Ident);
+struct EntityNameIdent(BsnName);
 
 impl Parse for EntityNameIdent {
     fn parse(input: ParseStream) -> Result<Self> {
         input.parse::<Token![#]>()?;
-        Ok(EntityNameIdent(input.parse::<Ident>()?))
+        Ok(EntityNameIdent(input.parse::<BsnName>()?))
+    }
+}
+
+impl Parse for BsnName {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Brace) {
+            Ok(BsnName::Expr(braced_tokens(input)?))
+        } else {
+            Ok(BsnName::Ident(input.parse::<Ident>()?))
+        }
     }
 }
 

@@ -14,7 +14,7 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 
 #[derive(Debug)]
 pub enum BsnEntry {
-    Name(Ident),
+    Name(BsnName),
     FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
     FromTemplateConstructor(BsnConstructor),
@@ -105,6 +105,12 @@ pub struct BsnUnnamedField {
 }
 
 #[derive(Debug)]
+pub enum BsnName {
+    Ident(Ident),
+    Expr(TokenStream),
+}
+
+#[derive(Debug)]
 pub enum BsnValue {
     Expr(TokenStream),
     Closure(TokenStream),
@@ -112,12 +118,12 @@ pub enum BsnValue {
     Lit(Lit),
     Type(BsnType),
     Tuple(BsnTuple),
-    Name(Ident),
+    Name(BsnName),
 }
 
 #[derive(Debug)]
 pub enum BsnFnArg {
-    EntityName(Ident),
+    EntityName(BsnName),
     Tokens(TokenStream),
 }
 

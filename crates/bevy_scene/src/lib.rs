@@ -1511,6 +1511,43 @@ mod tests {
                 .0
         );
     }
+
+    #[test]
+    fn bsn_dynamic_name_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        fn a(root_name: &str, child_name: &str) -> impl Scene {
+            let root_name_str = root_name.to_string();
+            let child_name_str = child_name.to_string();
+            bsn! {
+                #{root_name_str}
+                Children [
+                    (
+                        #{child_name_str}
+                        Reference(#{root_name_str})
+                    )
+                ]
+            }
+        }
+
+        let id = world.spawn_scene(a("root_entity", "child_entity")).unwrap().id();
+
+        let root = world.entity(id);
+        let root_name = root.get::<Name>().unwrap();
+        assert_eq!(root_name.as_str(), "root_entity");
+
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+
+        let child = world.entity(children[0]);
+        let child_name = child.get::<Name>().unwrap();
+        assert_eq!(child_name.as_str(), "child_entity");
+
+        let reference = child.get::<Reference>().unwrap();
+        assert_eq!(reference.0, id);
+    }
+
     #[test]
     fn bsn_reverse_reference() {
         let mut app = test_app();
