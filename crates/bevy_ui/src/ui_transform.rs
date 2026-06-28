@@ -29,8 +29,6 @@ pub struct Val2 {
 }
 
 impl Val2 {
-    const MASK: u8 = 0x0f;
-
     pub const ZERO: Self = Self {
         values: [0.; 2],
         units: Val::PX | (Val::PX << 4),
@@ -64,13 +62,13 @@ impl Val2 {
     /// Returns the x-axis value.
     #[inline]
     pub const fn x(&self) -> Val {
-        Val::unpack(self.units & Self::MASK, self.values[0])
+        Val::unpack(self.units & 0x0f, self.values[0])
     }
 
     /// Returns the y-axis value.
     #[inline]
     pub const fn y(&self) -> Val {
-        Val::unpack((self.units >> 4) & Self::MASK, self.values[1])
+        Val::unpack(self.units >> 4, self.values[1])
     }
 
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
