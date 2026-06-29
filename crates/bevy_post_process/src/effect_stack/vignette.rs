@@ -113,11 +113,10 @@ impl ExtractComponent for Vignette {
 #[derive(ShaderType, Default)]
 pub struct VignetteUniform {
     pub(super) intensity: f32,
-    pub(super) radius: f32,
+    pub(super) inv_radius: f32,
     pub(super) smoothness: f32,
-    pub(super) roundness: f32,
-    pub(super) center: Vec2,
-    pub(super) edge_compensation: f32,
     pub(super) unused: u32,
+    pub(super) uv_offset: Vec2,
+    pub(super) uv_scale: Vec2,
     pub(super) color: Vec4,
 }
