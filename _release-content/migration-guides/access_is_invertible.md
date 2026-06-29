@@ -8,7 +8,7 @@ Removed from [`bevy_ecs::query::Access`] methods that gave `Result<ComponentIdSe
 - `try_reads_and_writes()`
 - `try_writes()`
 
-Added new functions that return a new enum `InvertibleComponentIdSet`:
+Added new functions that return a new enum `InvertibleComponentIdSetRef`:
 
 - `reads_and_writes()`
 - `writes()`

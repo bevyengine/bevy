@@ -408,21 +408,21 @@ impl Access {
     }
 
     /// Returns the set of components with read or write access
-    pub fn reads_and_writes(&self) -> InvertibleComponentIdSet<'_> {
+    pub fn reads_and_writes(&self) -> InvertibleComponentIdSetRef<'_> {
         // writes_inverted is only ever true when read_and_writes_inverted is
         // also true. Therefore it is sufficient to check just read_and_writes_inverted.
         if self.read_and_writes_inverted {
-            return InvertibleComponentIdSet::Excluded(&self.read_and_writes);
+            return InvertibleComponentIdSetRef::Excluded(&self.read_and_writes);
         }
-        InvertibleComponentIdSet::Included(&self.read_and_writes)
+        InvertibleComponentIdSetRef::Included(&self.read_and_writes)
     }
 
     /// Returns the set of components with write access
-    pub fn writes(&self) -> InvertibleComponentIdSet<'_> {
+    pub fn writes(&self) -> InvertibleComponentIdSetRef<'_> {
         if self.writes_inverted {
-            return InvertibleComponentIdSet::Excluded(&self.writes);
+            return InvertibleComponentIdSetRef::Excluded(&self.writes);
         }
-        InvertibleComponentIdSet::Included(&self.writes)
+        InvertibleComponentIdSetRef::Included(&self.writes)
     }
 
     /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
@@ -460,7 +460,7 @@ impl Access {
     ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
         let invertible_set = self.reads_and_writes();
 
-        let InvertibleComponentIdSet::Included(component_set) = invertible_set else {
+        let InvertibleComponentIdSetRef::Included(component_set) = invertible_set else {
             return Err(UnboundedAccessError {
                 writes_inverted: self.writes_inverted,
                 read_and_writes_inverted: self.read_and_writes_inverted,
@@ -486,28 +486,19 @@ impl Access {
 
 /// A set of [`ComponentId`]s that is either a finite set, or the complement of a finite set.
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
-pub enum InvertibleComponentIdSet<'a> {
-    /// A finite [`InvertibleComponentIdSet`] that includes all components in the inner set.
+pub enum InvertibleComponentIdSetRef<'a> {
+    /// A finite [`InvertibleComponentIdSetRef`] that includes all components in the inner set.
     Included(&'a ComponentIdSet),
-    /// An unbounded [`InvertibleComponentIdSet`] that includes all components *not* in the inner set.
+    /// An unbounded [`InvertibleComponentIdSetRef`] that includes all components *not* in the inner set.
     Excluded(&'a ComponentIdSet),
 }
 
-impl InvertibleComponentIdSet<'_> {
+impl InvertibleComponentIdSetRef<'_> {
     /// Returns true if this is Excluded, otherwise false
     pub fn inverted(&self) -> bool {
         match self {
-            InvertibleComponentIdSet::Included(_) => false,
-            InvertibleComponentIdSet::Excluded(_) => true,
-        }
-    }
-
-    /// Iterate the underlying component ids
-    pub fn iter_underlying(&self) -> ComponentIdIter<Ones<'_>> {
-        match self {
-            InvertibleComponentIdSet::Included(b) | InvertibleComponentIdSet::Excluded(b) => {
-                b.iter()
-            }
+            InvertibleComponentIdSetRef::Included(_) => false,
+            InvertibleComponentIdSetRef::Excluded(_) => true,
         }
     }
 }
