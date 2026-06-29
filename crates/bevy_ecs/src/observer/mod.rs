@@ -380,6 +380,26 @@ impl World {
 
     /// Remove the observer from the cache, called when an observer gets despawned
     pub(crate) fn unregister_observer(&mut self, entity: Entity, descriptor: ObserverDescriptor) {
+        // Remove this observer from all the corresponding ObservedBy components.
+        for &observing in descriptor.entities.iter() {
+            let Ok(mut observing) = self.get_entity_mut(observing) else {
+                // This can happen when ObservedBy is despawning and is despawning the related
+                // observers.
+                continue;
+            };
+            let Some(mut observed_by) = observing.get_mut::<ObservedBy>() else {
+                // In "normal" usage, this should be impossible, but there's nothing stopping a user
+                // from just removing the ObservedBy component themselves. While that's odd usage,
+                // there's no reason to panic if a user does so.
+                continue;
+            };
+
+            observed_by.0.retain(|e| *e != entity);
+            if observed_by.0.is_empty() {
+                observing.remove::<ObservedBy>();
+            }
+        }
+
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
