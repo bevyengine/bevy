@@ -124,11 +124,9 @@ pub struct AccessData {
 
 impl AccessData {
     fn try_new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Option<Self> {
-        // TODO: `try_reads_and_writes` returns error if `read_and_writes_inverted=true`,
+        // NOTE: `try_reads_and_writes` returns error if `read_and_writes_inverted=true`,
         // thus `AccessData` always has `read_and_writes_inverted=false`
-        // Consider making `try_reads_and_writes()` return an enum of Normal or Except
-        // Then can remove `read_and_writes_inverted()`.
-        // Similarly for `try_writes()` and `writes_inverted` and `writes_inverted()`.
+        // Similarly for `try_writes` and `writes_inverted=false`
 
         let read_and_writes = value.try_reads_and_writes().ok()?;
         let writes = value.try_writes().ok()?;
@@ -136,8 +134,8 @@ impl AccessData {
         Some(Self {
             read_and_writes: trace.get_indexes(read_and_writes.iter()),
             writes: trace.get_indexes(writes.iter()),
-            read_and_writes_inverted: value.read_and_writes_inverted(),
-            writes_inverted: value.writes_inverted(),
+            read_and_writes_inverted: false,
+            writes_inverted: false,
             archetypal: trace.get_indexes(value.archetypal().iter()),
         })
     }
