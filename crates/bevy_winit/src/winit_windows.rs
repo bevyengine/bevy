@@ -85,21 +85,11 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
             WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
-                let select_monitor = &maybe_selected_monitor
-                    .clone()
-                    .expect("Unable to get monitor.");
-
-                if let Some(video_mode) =
-                    get_selected_videomode(select_monitor, &video_mode_selection)
-                {
-                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
-                } else {
-                    warn!(
-                        "Could not find valid fullscreen video mode for {:?} {:?}",
-                        monitor_selection, video_mode_selection
-                    );
-                    winit_window_attributes
-                }
+                winit_window_attributes.with_fullscreen(Some(resolve_exclusive_fullscreen(
+                    maybe_selected_monitor.clone(),
+                    monitor_selection,
+                    video_mode_selection,
+                )))
             }
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
@@ -382,6 +372,35 @@ pub fn get_selected_videomode(
                 && mode.bit_depth() == specified.bit_depth
         }),
     }
+}
+
+/// Resolves a `WindowMode::Fullscreen` request to a [`Fullscreen`] value.
+///
+/// Tries exclusive fullscreen first; falls back to borderless fullscreen and logs a
+/// warning if the monitor cannot be resolved or no matching video mode is available.
+pub(crate) fn resolve_exclusive_fullscreen(
+    monitor: Option<MonitorHandle>,
+    monitor_selection: MonitorSelection,
+    video_mode_selection: VideoModeSelection,
+) -> Fullscreen {
+    let video_mode = monitor
+        .as_ref()
+        .and_then(|m| get_selected_videomode(m, &video_mode_selection));
+    if let Some(video_mode) = video_mode {
+        return Fullscreen::Exclusive(video_mode);
+    }
+    if monitor.is_none() {
+        warn!(
+            "Could not find monitor for {:?}; falling back to borderless fullscreen",
+            monitor_selection
+        );
+    } else {
+        warn!(
+            "Could not find valid fullscreen video mode for {:?} {:?}; falling back to borderless fullscreen",
+            monitor_selection, video_mode_selection
+        );
+    }
+    Fullscreen::Borderless(monitor)
 }
 
 /// Gets a monitor's current video-mode.

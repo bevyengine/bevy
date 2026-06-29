@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        gpu_readback::{Readback, ReadbackComplete},
+        gpu_readback::{Readback, ReadbackComplete, ReadbackOnce},
         render_asset::RenderAssets,
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
@@ -35,6 +35,7 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)
+        .add_systems(Update, trigger_once_readback)
         .run();
 }
 
@@ -60,6 +61,21 @@ impl Plugin for GpuReadbackPlugin {
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackBuffer(Handle<ShaderBuffer>);
+
+fn trigger_once_readback(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    readback_buffer: Res<ReadbackBuffer>,
+    mut commands: Commands,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        commands
+            .spawn(ReadbackOnce::buffer(readback_buffer.0.clone()))
+            .observe(|event: On<ReadbackComplete>| {
+                let data: Vec<u32> = event.to_shader_type();
+                info!("Buffer (once) {:?}", data);
+            });
+    }
+}
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackImage(Handle<Image>);

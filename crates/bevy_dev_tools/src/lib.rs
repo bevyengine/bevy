@@ -30,3 +30,5 @@ pub use easy_screenshot::*;
 pub mod render_debug;
 
 pub mod infinite_grid;
+
+pub mod world_asset_helpers;

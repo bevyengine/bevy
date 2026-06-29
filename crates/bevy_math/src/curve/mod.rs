@@ -873,7 +873,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
             .into_iter()
             .filter(|t| t.is_finite() && domain.contains(*t))
             .collect_vec();
-        times.sort_by(f32::total_cmp);
+        times.sort_unstable_by(f32::total_cmp);
         times.dedup();
         if times.len() < 2 {
             return Err(ResamplingError::NotEnoughSamples(times.len()));
@@ -914,7 +914,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
             .into_iter()
             .filter(|t| t.is_finite() && domain.contains(*t))
             .collect_vec();
-        times.sort_by(f32::total_cmp);
+        times.sort_unstable_by(f32::total_cmp);
         times.dedup();
         if times.len() < 2 {
             return Err(ResamplingError::NotEnoughSamples(times.len()));

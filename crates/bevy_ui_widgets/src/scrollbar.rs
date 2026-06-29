@@ -4,6 +4,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -31,6 +32,15 @@ pub enum ControlOrientation {
     /// Vertical orientation (stretching from top to bottom)
     #[default]
     Vertical,
+}
+
+/// An event which indicates that we want to scroll the specified item into view (adjusting
+/// the scroll position of it's parent).
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[entity_event(propagate)]
+pub struct ScrollIntoView {
+    /// The activated entity.
+    pub entity: Entity,
 }
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.
@@ -74,7 +84,7 @@ pub struct Scrollbar {
 /// A `ScrollbarThumb` UI node does not have a `Node` component. It only has `Border` and `BorderRadius` styling properties.
 /// Its layout is handled after `ui_layout_system` in `update_scroll_thumb` so that its size and position can be set relative to the scrolling area's
 /// size and scroll position.
-#[derive(Component, FromTemplate, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 #[require(
     ScrollbarDragState,
     ComputedNode,

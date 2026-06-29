@@ -463,7 +463,7 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
             else {
                 return Err(D::Error::custom(format!(
                     "Could not find asset type by name \"{}\" for UntypedHandle",
-                    &typed_handle_reference.asset_type
+                    typed_handle_reference.asset_type
                 )));
             };
             let type_id = asset_type.type_id();

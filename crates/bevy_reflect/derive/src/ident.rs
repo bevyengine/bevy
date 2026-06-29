@@ -1,4 +1,5 @@
 use proc_macro2::Ident;
+use syn::Path;
 
 /// Returns the "reflected" ident for a given string.
 ///
@@ -17,4 +18,21 @@ use proc_macro2::Ident;
 pub(crate) fn get_reflect_ident(base_ident: &Ident) -> Ident {
     let reflected = format!("Reflect{base_ident}");
     Ident::new(&reflected, base_ident.span())
+}
+
+pub(crate) fn get_reflect_path(path: &Path) -> Path {
+    let mut path = path.clone();
+
+    match path.segments.last_mut() {
+        Some(segment) if !is_reflected_ident(&segment.ident) => {
+            segment.ident = get_reflect_ident(&segment.ident);
+        }
+        _ => {}
+    }
+    path
+}
+
+fn is_reflected_ident(ident: &Ident) -> bool {
+    let ident_str = ident.to_string();
+    ident_str.starts_with("Reflect")
 }

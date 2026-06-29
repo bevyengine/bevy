@@ -284,7 +284,7 @@ impl UiSurface {
         }
     }
 
-    /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
+    /// Get the layout geometry for the taffy node corresponding to the UI node [`Entity`].
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     /// On success returns a pair consisting of the final resolved layout values after rounding
     /// and the size of the node after layout resolution but before rounding.

@@ -23,11 +23,16 @@ pub(crate) fn calculate_text_scroll_clip(
     global_transform: &UiGlobalTransform,
 ) -> Option<CalculatedClip> {
     if text_scroll.is_some() {
+        let content_box = uinode.content_box();
+        let text_clip = Rect::from_center_size(
+            global_transform.affine().translation + content_box.center(),
+            content_box.size(),
+        );
         Some(
             maybe_clip
                 .cloned()
                 .unwrap_or_default()
-                .with_rect(uinode.content_box(), global_transform),
+                .with_rect(text_clip, global_transform),
         )
     } else {
         maybe_clip.cloned()
@@ -146,7 +151,7 @@ pub fn extract_text_cursor(
                 }
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
                     clip: clip.clone(),
                     image: AssetId::default(),
@@ -175,7 +180,7 @@ pub fn extract_text_cursor(
             && !cursor_style.color.is_fully_transparent()
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
                 clip: clip.clone(),
                 image: AssetId::default(),
@@ -259,7 +264,7 @@ pub fn extract_preedit_underlines(
 
         for rect in text_layout_info.preedit_underline_rects.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                 clip: clip.clone(),
                 image: AssetId::default(),

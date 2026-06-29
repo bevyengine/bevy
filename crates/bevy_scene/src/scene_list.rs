@@ -1,6 +1,7 @@
 use crate::{
     ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies, SceneScope,
 };
+use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
 /// This behaves like a list of [`Scene`], where each entry in the list is a new entity (see [`Scene`] for more details).
@@ -137,6 +138,46 @@ macro_rules! scene_list_impl {
 }
 
 all_tuples!(scene_list_impl, 0, 12, P);
+
+impl<S: Scene, const N: usize> SceneList for SmallVec<[S; N]> {
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        for scene in self {
+            let mut resolved_scene = ResolvedScene::default();
+            scene.resolve(context, &mut resolved_scene)?;
+            scenes.push(resolved_scene);
+        }
+        Ok(())
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        for scene in self {
+            scene.register_dependencies(dependencies);
+        }
+    }
+}
+
+impl<const N: usize> SceneList for SmallVec<[Box<dyn SceneList>; N]> {
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        for scene_list in self {
+            scene_list.resolve_list(context, scenes)?;
+        }
+        Ok(())
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        for scene_list in self {
+            scene_list.register_dependencies(dependencies);
+        }
+    }
+}
 
 impl<S: Scene> SceneList for Vec<S> {
     fn resolve_list(

@@ -42,7 +42,6 @@ bevy_ecs::define_label!(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
     AppLabel,
-    APP_LABEL_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
@@ -1546,6 +1545,11 @@ fn run_once(mut app: App) -> AppExit {
 
     app.should_exit().unwrap_or(AppExit::Success)
 }
+
+/// A [`SystemSet`] for systems that should run before app exit (but
+/// after an [`AppExit`] message has been sent).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnAppExitSystems;
 
 /// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.

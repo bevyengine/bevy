@@ -243,7 +243,7 @@ fn update_sparse_buffers(
             command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some(&*format!(
                     "sparse buffer update ({})",
-                    &sparse_buffer_update_job.label
+                    sparse_buffer_update_job.label
                 )),
                 timestamp_writes: None,
             });
