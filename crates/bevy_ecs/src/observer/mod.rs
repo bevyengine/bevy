@@ -1902,7 +1902,8 @@ mod tests {
             .spawn(Observer::new(|_: On<Hi>| {}).with_entities([target, target]))
             .id();
 
-        // This is likely not desirable, but preventing this is not worth it.
+        // Having an observer observe the same entity multiple times is likely not desired, but
+        // preventing this is not worth it, so make sure it behaves correctly.
         assert_eq!(
             world.entity(target).get::<ObservedBy>().unwrap().get(),
             &[observer, observer]
