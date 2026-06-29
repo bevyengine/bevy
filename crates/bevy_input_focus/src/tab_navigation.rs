@@ -43,9 +43,9 @@ use bevy_window::PrimaryWindow;
 use log::warn;
 use thiserror::Error;
 
-use crate::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
 #[cfg(feature = "bevy_picking")]
 use crate::AcquireFocus;
+use crate::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
 
 #[cfg(feature = "bevy_reflect")]
 use {
