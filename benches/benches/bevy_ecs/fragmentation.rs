@@ -28,6 +28,7 @@ fn iter_frag_empty(c: &mut Criterion) {
                 res += e.to_bits();
                 black_box(t);
             });
+            black_box(res);
         };
         let query_id = world.register_system(query);
         b.iter(|| {
@@ -43,6 +44,7 @@ fn iter_frag_empty(c: &mut Criterion) {
                 res += e.to_bits();
                 black_box(t);
             });
+            black_box(res);
         };
         let query_id = world.register_system(query);
         b.iter(|| {

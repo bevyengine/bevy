@@ -1,5 +1,6 @@
 use bevy_ecs::entity::{Entity, EntityGeneration, EntityHashSet};
 use chacha20::ChaCha8Rng;
+use core::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput};
 use rand::{RngExt, SeedableRng};
 
@@ -42,19 +43,22 @@ pub fn entity_set_build_and_lookup(c: &mut Criterion) {
         });
         group.bench_function(BenchmarkId::new("entity_set_lookup_hit", size), |bencher| {
             let set = EntityHashSet::from_iter(entities.iter().copied());
-            bencher.iter(|| entities.iter().copied().filter(|e| set.contains(e)).count());
+            bencher
+                .iter(|| black_box(entities.iter().copied().filter(|e| set.contains(e)).count()));
         });
         group.bench_function(
             BenchmarkId::new("entity_set_lookup_miss_id", size),
             |bencher| {
                 let set = EntityHashSet::from_iter(entities.iter().copied());
                 bencher.iter(|| {
-                    entities
-                        .iter()
-                        .copied()
-                        .map(|e| Entity::from_bits(e.to_bits() + 1))
-                        .filter(|e| set.contains(e))
-                        .count()
+                    black_box(
+                        entities
+                            .iter()
+                            .copied()
+                            .map(|e| Entity::from_bits(e.to_bits() + 1))
+                            .filter(|e| set.contains(e))
+                            .count(),
+                    )
                 });
             },
         );
@@ -63,12 +67,14 @@ pub fn entity_set_build_and_lookup(c: &mut Criterion) {
             |bencher| {
                 let set = EntityHashSet::from_iter(entities.iter().copied());
                 bencher.iter(|| {
-                    entities
-                        .iter()
-                        .copied()
-                        .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)))
-                        .filter(|e| set.contains(e))
-                        .count()
+                    black_box(
+                        entities
+                            .iter()
+                            .copied()
+                            .map(|e| Entity::from_bits(e.to_bits() + (1 << 32)))
+                            .filter(|e| set.contains(e))
+                            .count(),
+                    )
                 });
             },
         );
