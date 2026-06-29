@@ -36,8 +36,8 @@ impl Val2 {
 
     /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
-        let (ux, vx) = Val::pack(x);
-        let (uy, vy) = Val::pack(y);
+        let (ux, vx) = x.pack();
+        let (uy, vy) = y.pack();
         Self {
             values: [vx, vy],
             units: ux | uy << 4,

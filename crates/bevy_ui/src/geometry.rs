@@ -361,13 +361,13 @@ impl Val {
     /// Packs a [`Val`] into a u8 unit discriminator and f32 numeric value.
     ///
     /// ```
-    /// # use bevy_ui::Val;
-    /// let (unit, value) = Val::pack(percent(50.));
+    /// # use bevy_ui::{Val, percent};
+    /// let (unit, value) = percent(50.).pack();
     ///
     /// assert_eq!(Val::unpack(unit, value), percent(50.));
     /// ```
-    pub const fn pack(val: Val) -> (u8, f32) {
-        match val {
+    pub const fn pack(self) -> (u8, f32) {
+        match self {
             Val::Auto => (Self::AUTO, 0.),
             Val::Px(value) => (Self::PX, value),
             Val::Percent(value) => (Self::PERCENT, value),
