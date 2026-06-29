@@ -23,16 +23,11 @@ pub(crate) fn calculate_text_scroll_clip(
     global_transform: &UiGlobalTransform,
 ) -> Option<CalculatedClip> {
     if text_scroll.is_some() {
-        let content_box = uinode.content_box();
-        let text_clip = Rect::from_center_size(
-            global_transform.affine().translation + content_box.center(),
-            content_box.size(),
-        );
         Some(
             maybe_clip
                 .cloned()
                 .unwrap_or_default()
-                .with_rect(text_clip, global_transform),
+                .with_rect(uinode.content_box(), global_transform),
         )
     } else {
         maybe_clip.cloned()
