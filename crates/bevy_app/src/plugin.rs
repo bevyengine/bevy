@@ -144,12 +144,26 @@ mod sealed {
     impl<P: Plugin> Plugins<PluginMarker> for P {
         #[track_caller]
         fn add_to_app(self, app: &mut App) {
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This lint only triggers sometimes, based on the features enabled."
+            )]
+            #[allow(unused_variables, reason = "plugin_name is only used with std enabled")]
             if let Err(AppError::DuplicatePlugin { plugin_name }) =
                 app.add_boxed_plugin(Box::new(self))
             {
-                panic!(
-                    "Error adding plugin {plugin_name}: : plugin was already added in application"
-                )
+                // We cannot use `warn!` here because this may occur before the Bevy logger is initialized.
+                // eprintln! is used as a fallback here, although it's generally not recommended for libraries to use directly.
+                //
+                // However, both `dbg!` and `eprintln!` are only available with the `std` feature.
+                // This is not a critical error, so we've chosen to simply ignore it in `no_std` environments.
+                #[cfg(feature = "std")]
+                {
+                    std::eprintln!(
+                        "Error adding plugin {plugin_name}: plugin was already added in application.
+                        A second copy of this plugin was ignored, and the settings of the first added copy will be used.",
+                    );
+                }
             }
         }
     }
@@ -191,4 +205,44 @@ mod sealed {
         P,
         S
     );
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn duplicate_plugins_does_not_panic() {
+        use crate::{App, Plugin};
+
+        struct MyPlugin;
+        impl Plugin for MyPlugin {
+            fn build(&self, _app: &mut App) {}
+        }
+
+        let mut app = App::new();
+        app.add_plugins(MyPlugin);
+        app.add_plugins(MyPlugin); // should not panic
+    }
+
+    #[test]
+    fn duplicate_plugin_in_plugin_group_does_not_panic() {
+        use crate::{App, Plugin, PluginGroup, PluginGroupBuilder};
+
+        struct MyPlugin;
+        impl Plugin for MyPlugin {
+            fn build(&self, _app: &mut App) {}
+        }
+
+        struct MyPluginGroup;
+        impl PluginGroup for MyPluginGroup {
+            fn build(self) -> PluginGroupBuilder {
+                PluginGroupBuilder::start::<MyPluginGroup>()
+                    .add(MyPlugin)
+                    .add(MyPlugin) // duplicate, should not panic
+            }
+        }
+
+        let mut app = App::new();
+        app.add_plugins(MyPluginGroup); // should not panic
+        app.add_plugins(MyPlugin); // should not panic either
+    }
 }
