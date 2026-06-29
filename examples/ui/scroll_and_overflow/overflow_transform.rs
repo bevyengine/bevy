@@ -63,6 +63,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             align_items: AlignItems::Center,
                                             ..default()
                                         },
+                                        BoxShadow::new(
+                                            Color::srgb(0.15, 0.30, 0.25).darker(0.05),
+                                            px(30),
+                                            px(30),
+                                            px(0),
+                                            px(4),
+                                        ),
                                         InnerNode,
                                         BackgroundColor(NAVY.into()),
                                         UiTransform::from_rotation(Rot2::degrees(45.)),
