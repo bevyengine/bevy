@@ -122,22 +122,22 @@ impl Access {
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_read(&self, index: ComponentId) -> bool {
-        self.read_and_writes._inverted() ^ self.read_and_writes.contains(index)
+        self.read_and_writes.inverted() ^ self.read_and_writes.contains(index)
     }
 
     /// Returns `true` if this can access any component.
     pub fn has_any_read(&self) -> bool {
-        self.read_and_writes._inverted() || !self.read_and_writes.is_clear()
+        self.read_and_writes.inverted() || !self.read_and_writes.is_clear()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
     pub fn has_write(&self, index: ComponentId) -> bool {
-        self.writes._inverted() ^ self.writes.contains(index)
+        self.writes.inverted() ^ self.writes.contains(index)
     }
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_write(&self) -> bool {
-        self.writes._inverted() || !self.writes.is_clear()
+        self.writes.inverted() || !self.writes.is_clear()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -170,13 +170,13 @@ impl Access {
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn has_read_all(&self) -> bool {
-        self.read_and_writes._inverted() && self.read_and_writes.is_clear()
+        self.read_and_writes.inverted() && self.read_and_writes.is_clear()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
     #[inline]
     pub fn has_write_all(&self) -> bool {
-        self.writes._inverted() && self.writes.is_clear()
+        self.writes.inverted() && self.writes.is_clear()
     }
 
     /// Removes all writes.
@@ -195,7 +195,8 @@ impl Access {
 
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access) {
-        self.read_and_writes.invertible_union_with(&other.read_and_writes);
+        self.read_and_writes
+            .invertible_union_with(&other.read_and_writes);
         self.writes.invertible_union_with(&other.writes);
         self.archetypal.union_with(&other.archetypal);
     }
@@ -204,8 +205,10 @@ impl Access {
     /// This removes any reads and writes for any component written by `other`,
     /// and removes any writes for any component read by `other`.
     pub fn remove_conflicting_access(&mut self, other: &Access) {
-        self.read_and_writes.invertible_difference_with(&other.writes);
-        self.writes.invertible_difference_with(&other.read_and_writes);
+        self.read_and_writes
+            .invertible_difference_with(&other.writes);
+        self.writes
+            .invertible_difference_with(&other.read_and_writes);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
@@ -219,7 +222,7 @@ impl Access {
             (&self.writes, &other.read_and_writes),
             (&other.writes, &self.read_and_writes),
         ] {
-            let a = lhs_writes.foo2(rhs_reads_and_writes);
+            let a = lhs_writes.is_compatible(rhs_reads_and_writes);
             if let Some(b) = a {
                 return b;
             }
@@ -235,7 +238,7 @@ impl Access {
             (&self.read_and_writes, &other.read_and_writes),
             (&self.writes, &other.writes),
         ] {
-            let a = our_components.foo3(their_components);
+            let a = our_components.is_invertible_subset(their_components);
             if let Some(b) = a {
                 return b;
             }
@@ -255,12 +258,12 @@ impl Access {
             (&self.writes, &other.read_and_writes),
             (&other.writes, &self.read_and_writes),
         ] {
-            if lhs_writes._inverted() && rhs_reads_and_writes._inverted() {
+            if lhs_writes.inverted() && rhs_reads_and_writes.inverted() {
                 return AccessConflicts::All;
             }
             // There's no way that I can see to do this without a temporary.
             // Neither CNF nor DNF allows us to avoid one.
-            let temp_conflicts: ComponentIdSet = lhs_writes.foo4(rhs_reads_and_writes);
+            let temp_conflicts: ComponentIdSet = lhs_writes.get_conflicts(rhs_reads_and_writes);
             conflicts.union_with(&temp_conflicts);
         }
 
@@ -326,8 +329,8 @@ impl Access {
 
         let InvertibleComponentIdSet::Included(component_set) = invertible_set else {
             return Err(UnboundedAccessError {
-                writes_inverted: self.writes._inverted(),
-                read_and_writes_inverted: self.read_and_writes._inverted(),
+                writes_inverted: self.writes.inverted(),
+                read_and_writes_inverted: self.read_and_writes.inverted(),
             });
         };
 
@@ -374,7 +377,7 @@ impl InvertibleComponentIdSet {
 
     /// Returns true if this is Excluded, otherwise false
     #[inline]
-    pub fn _inverted(&self) -> bool {
+    pub fn inverted(&self) -> bool {
         match self {
             Self::Included(_) => false,
             Self::Excluded(_) => true,
@@ -402,7 +405,7 @@ impl InvertibleComponentIdSet {
 
     /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
-        if !self._inverted() {
+        if !self.inverted() {
             self.insert(index);
         } else {
             self.remove(index);
@@ -411,7 +414,7 @@ impl InvertibleComponentIdSet {
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_write(&mut self, index: ComponentId) {
-        if !self._inverted() {
+        if !self.inverted() {
             self.insert(index);
         } else {
             self.remove(index);
@@ -420,7 +423,7 @@ impl InvertibleComponentIdSet {
 
     /// Removes both read and write access to the component given by `index`.
     pub fn remove_read(&mut self, index: ComponentId) {
-        if self._inverted() {
+        if self.inverted() {
             self.insert(index);
         } else {
             self.remove(index);
@@ -429,16 +432,16 @@ impl InvertibleComponentIdSet {
 
     /// Removes write access to the component given by `index`.
     pub fn remove_write(&mut self, index: ComponentId) {
-        if self._inverted() {
+        if self.inverted() {
             self.insert(index);
         } else {
             self.remove(index);
         }
     }
 
-    /// Needs a name
-    pub fn foo2(&self, other: &InvertibleComponentIdSet) -> Option<bool> {
-        match (self._inverted(), other._inverted()) {
+    /// Returns true if is compatible
+    pub fn is_compatible(&self, other: &InvertibleComponentIdSet) -> Option<bool> {
+        match (self.inverted(), other.inverted()) {
             (true, true) => return Some(false),
             (false, true) => {
                 if !self.is_subset(other) {
@@ -459,9 +462,9 @@ impl InvertibleComponentIdSet {
         None
     }
 
-    /// Needs a name
-    pub fn foo3(&self, other: &InvertibleComponentIdSet) -> Option<bool> {
-        match (self._inverted(), other._inverted()) {
+    /// Determines if is invertible subset
+    pub fn is_invertible_subset(&self, other: &InvertibleComponentIdSet) -> Option<bool> {
+        match (self.inverted(), other.inverted()) {
             (true, true) => {
                 if !other.is_subset(self) {
                     return Some(false);
@@ -484,9 +487,10 @@ impl InvertibleComponentIdSet {
         None
     }
 
-    /// Needs a name
-    pub fn foo4(&self, other: &InvertibleComponentIdSet) -> ComponentIdSet {
-        match (self._inverted(), other._inverted()) {
+    /// We have a conflict if we write and they read or write, or if they
+    /// write and we read or write.
+    pub fn get_conflicts(&self, other: &InvertibleComponentIdSet) -> ComponentIdSet {
+        match (self.inverted(), other.inverted()) {
             (true, true) => ComponentIdSet::new(),
             (false, true) => self.underlying().difference(other.underlying()).collect(),
             (true, false) => other.underlying().difference(self.underlying()).collect(),
@@ -537,7 +541,7 @@ impl InvertibleComponentIdSet {
         self: &mut InvertibleComponentIdSet,
         other: &InvertibleComponentIdSet,
     ) {
-        match (self._inverted(), other._inverted()) {
+        match (self.inverted(), other.inverted()) {
             (true, true) => self.underlying_mut().intersect_with(other.underlying()),
             (true, false) => self.underlying_mut().difference_with(other.underlying()),
             (false, true) => {
@@ -568,7 +572,7 @@ impl InvertibleComponentIdSet {
     }
 
     fn set_inverted(self: &mut InvertibleComponentIdSet, target: bool) {
-        let current = self._inverted();
+        let current = self.inverted();
         if current != target {
             self.swap_inverted();
         }
@@ -581,7 +585,6 @@ impl InvertibleComponentIdSet {
             *self = InvertibleComponentIdSet::Included(core::mem::take(content));
         }
     }
-
 }
 
 /// Error returned when attempting to iterate over items included in an [`Access`]
