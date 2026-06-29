@@ -1,5 +1,6 @@
 //! Demonstrates nested transformed UI clipping.
 
+use bevy::color::palettes::css::LIGHT_BLUE;
 use bevy::color::palettes::css::NAVY;
 use bevy::math::ops::sin;
 use bevy::prelude::*;
@@ -61,6 +62,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             margin: auto().all(),
                                             border_radius: BorderRadius::all(percent(20.)),
                                             align_items: AlignItems::Center,
+                                            border: px(5.).all(),
+                                            padding: px(5.).all(),
                                             ..default()
                                         },
                                         BoxShadow::new(
@@ -72,6 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ),
                                         InnerNode,
                                         BackgroundColor(NAVY.into()),
+                                        BorderColor::all(LIGHT_BLUE),
                                         UiTransform::from_rotation(Rot2::degrees(45.)),
                                         children![
                                             (
