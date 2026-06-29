@@ -71,6 +71,40 @@ impl Val2 {
         Val::unpack(self.units >> 4, self.values[1])
     }
 
+    /// Set a new x value.
+    ///
+    /// ```
+    /// # use bevy_ui::{px, percent, Val2};
+    /// let mut val = Val2::new(percent(50), px(20));
+    /// val.set_x(px(10));
+    ///
+    /// assert_eq!(val.x(), px(10));
+    /// assert_eq!(val.y(), px(20));
+    /// ```
+    #[inline]
+    pub const fn set_x(&mut self, x: Val) {
+        let (unit, value) = x.pack();
+        self.values[0] = value;
+        self.units = (self.units & 0xf0) | unit;
+    }
+
+    /// Set a new y value.
+    ///
+    /// ```
+    /// # use bevy_ui::{px, percent, Val2};
+    /// let mut val = Val2::new(px(10), percent(50));
+    /// val.set_y(px(20));
+    ///
+    /// assert_eq!(val.x(), px(10));
+    /// assert_eq!(val.y(), px(20));
+    /// ```
+    #[inline]
+    pub const fn set_y(&mut self, y: Val) {
+        let (unit, value) = y.pack();
+        self.values[1] = value;
+        self.units = (self.units & 0x0f) | (unit << 4);
+    }
+
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
     /// and `viewport_size`.
     ///
