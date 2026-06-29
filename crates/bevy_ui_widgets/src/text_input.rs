@@ -12,7 +12,8 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
-    FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
+    AcquireFocus, FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
+    InputFocusVisible,
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press, Release};
@@ -165,6 +166,9 @@ fn on_pointer_press(
     )>,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
+    mut focus_visible: ResMut<InputFocusVisible>,
+    windows: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
     if press.button != PointerButton::Primary {
@@ -179,8 +183,15 @@ fn on_pointer_press(
         if input_focus
             .get()
             .is_some_and(|focused| text_input_query.contains(focused))
+            && press.entity == press.original_event_target()
         {
-            input_focus.clear();
+            focus_visible.0 = false;
+            if let Ok(window) = windows.single() {
+                commands.trigger(AcquireFocus {
+                    focused_entity: press.entity,
+                    window,
+                });
+            }
         }
         return;
     };

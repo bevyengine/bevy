@@ -259,6 +259,31 @@ impl Traversal<AcquireFocus> for WindowTraversal {
     }
 }
 
+/// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
+pub fn acquire_focus(
+    mut acquire_focus: On<AcquireFocus>,
+    focusable: Query<(), With<tab_navigation::TabIndex>>,
+    windows: Query<(), With<Window>>,
+    mut focus: ResMut<InputFocus>,
+) {
+    // If the entity has a TabIndex
+    if focusable.contains(acquire_focus.focused_entity) {
+        // Stop and focus it
+        acquire_focus.propagate(false);
+        // Don't mutate unless we need to, for change detection
+        if focus.get() != Some(acquire_focus.focused_entity) {
+            focus.set(acquire_focus.focused_entity, FocusCause::Navigated);
+        }
+    } else if windows.contains(acquire_focus.focused_entity) {
+        // Stop and clear focus
+        acquire_focus.propagate(false);
+        // Don't mutate unless we need to, for change detection
+        if focus.get().is_some() {
+            focus.clear();
+        }
+    }
+}
+
 /// Plugin which sets up the core input focus system.
 ///
 /// This includes the[`InputFocus`] and [`InputFocusVisible`] resources,
@@ -272,6 +297,7 @@ impl Plugin for InputFocusPlugin {
         app.add_systems(PostStartup, set_initial_focus)
             .init_resource::<InputFocus>()
             .init_resource::<InputFocusVisible>()
+            .add_observer(acquire_focus)
             .add_systems(
                 PostUpdate,
                 process_recorded_focus_changes.in_set(InputFocusSystems::FocusChangeEvents),

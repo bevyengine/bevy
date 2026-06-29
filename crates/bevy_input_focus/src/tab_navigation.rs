@@ -38,11 +38,13 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_window::{PrimaryWindow, Window};
+use bevy_window::PrimaryWindow;
 use log::warn;
 use thiserror::Error;
 
-use crate::{AcquireFocus, FocusCause, FocusedInput, InputFocus, InputFocusVisible};
+use crate::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
+#[cfg(feature = "bevy_picking")]
+use crate::AcquireFocus;
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -351,38 +353,12 @@ impl TabNavigation<'_, '_> {
     }
 }
 
-/// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
-pub(crate) fn acquire_focus(
-    mut acquire_focus: On<AcquireFocus>,
-    focusable: Query<(), With<TabIndex>>,
-    windows: Query<(), With<Window>>,
-    mut focus: ResMut<InputFocus>,
-) {
-    // If the entity has a TabIndex
-    if focusable.contains(acquire_focus.focused_entity) {
-        // Stop and focus it
-        acquire_focus.propagate(false);
-        // Don't mutate unless we need to, for change detection
-        if focus.get() != Some(acquire_focus.focused_entity) {
-            focus.set(acquire_focus.focused_entity, FocusCause::Navigated);
-        }
-    } else if windows.contains(acquire_focus.focused_entity) {
-        // Stop and clear focus
-        acquire_focus.propagate(false);
-        // Don't mutate unless we need to, for change detection
-        if focus.get().is_some() {
-            focus.clear();
-        }
-    }
-}
-
 /// Plugin for navigating between focusable entities using keyboard input.
 pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-        app.add_observer(acquire_focus);
         #[cfg(feature = "bevy_picking")]
         app.add_observer(click_to_focus);
     }
