@@ -5,8 +5,11 @@ use bevy_ecs::{
     bundle::Bundle,
     children,
     component::Component,
+    event::EntityEvent,
     hierarchy::Children,
-    query::Changed,
+    lifecycle::Insert,
+    observer::On,
+    query::{Changed, With},
     reflect::ReflectComponent,
     system::{Commands, Query},
 };
@@ -19,6 +22,7 @@ use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     constants::size,
     palette,
+    rounded_corners::RoundedCorners,
 };
 
 /// A color swatch widget.
@@ -36,6 +40,8 @@ pub struct FeathersColorSwatchProps {
     /// Set a percentage of the swatch to display the opaque version of the
     /// current color.
     pub opaque_color_percentage: f32,
+    /// Rounded corners options
+    pub corners: RoundedCorners,
 }
 
 /// Component that contains the value of the color swatch. This is copied to the child element
@@ -73,7 +79,7 @@ impl FeathersColorSwatch {
             Node {
                 height: size::ROW_HEIGHT,
                 min_width: size::ROW_HEIGHT,
-                border_radius: px(5),
+                border_radius: {props.corners.to_border_radius(4.0)},
             }
             FeathersColorSwatch
             ColorSwatchValue
@@ -87,7 +93,7 @@ impl FeathersColorSwatch {
                         top: px(0),
                         bottom: px(0),
                         right: px(0),
-                        border_radius: px(5),
+                        border_radius: {props.corners.to_border_radius(4.0)},
                     }
                     ColorSwatchFg
                     BackgroundColor({palette::ACCENT.with_alpha(0.5)})
@@ -131,6 +137,25 @@ pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         )],
     )
 }
+
+// fn handle_update_swatch_color(
+//     insert: On<Insert, ColorSwatchValue>,
+//     q_swatch: Query<(&ColorSwatchValue, &Children)>,
+//     mut commands: Commands,
+// ) {
+//     let swatch_ent = insert.event_target();
+//     if let Ok((&ColorSwatchValue(value), children)) = q_swatch.get(swatch_ent) {
+//         if let Some(first_child) = children.first() {
+//             commands.entity(*first_child).insert(BackgroundColor(value));
+//         }
+
+//         if let Some(second_child) = children.get(1) {
+//             commands
+//                 .entity(*second_child)
+//                 .insert(BackgroundColor(value.with_alpha(1.0)));
+//         }
+//     }
+// }
 
 fn update_swatch_color(
     q_swatch: Query<(&ColorSwatchValue, &Children), Changed<ColorSwatchValue>>,

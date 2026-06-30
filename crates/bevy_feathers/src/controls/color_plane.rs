@@ -65,7 +65,7 @@ pub enum FeathersColorPlane {
 /// Component that contains the two components of the selected color, as well as the "z" value.
 /// The x and y values determine the placement of the thumb element, while the z value controls
 /// the background gradient.
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Component, Default, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct ColorPlaneValue(pub Vec3);
 
