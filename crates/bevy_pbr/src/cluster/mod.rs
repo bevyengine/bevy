@@ -7,7 +7,7 @@ use bevy_light::{
         ClusterableObjectCounts, ClusterableObjects, Clusters, GlobalClusterGpuSettings,
         GlobalClusterSettings,
     },
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, RectLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
@@ -104,7 +104,7 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
 }
 
 /// The GPU-side structure that stores information about a clustered light
-/// (point or spot).
+/// (point, spot or rectangle).
 ///
 /// This is *not* used for other clustered objects, such as light probes.
 #[derive(Copy, Clone, ShaderType, Default, Pod, Zeroable, Debug)]
@@ -112,8 +112,11 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
 pub struct GpuClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
+    // For rect lights: rotation quaternion.
     pub(crate) light_custom_data: Vec4,
+    // For rect lights: pack height in color_inverse_square_range.w.
     pub(crate) color_inverse_square_range: Vec4,
+    // For rect lights: pack  width in position_radius.w.
     pub(crate) position_radius: Vec4,
     pub(crate) flags: u32,
     pub(crate) shadow_depth_bias: f32,
@@ -223,8 +226,8 @@ struct GpuClusterableObjectIndexListsStorage {
 #[derive(ShaderType, Default)]
 struct GpuClusterOffsetsAndCountsStorage {
     /// The starting offset, followed by the number of point lights, spot
-    /// lights, reflection probes, and irradiance volumes in each cluster, in
-    /// that order. The remaining fields are filled with zeroes.
+    /// lights, rect lights, reflection probes, and irradiance volumes in each cluster,
+    /// in that order. The remaining fields are filled with zeroes.
     #[shader(size(runtime))]
     data: Vec<GpuClusterOffsetAndCounts>,
 }
@@ -352,6 +355,7 @@ impl GpuClusteredLights {
 type ClusterExtractionMapperQueryFlags = (
     Has<PointLight>,
     Has<SpotLight>,
+    Has<RectLight>,
     Has<EnvironmentMapLight>,
     Has<IrradianceVolume>,
     Has<ClusteredDecal>,
@@ -360,6 +364,7 @@ type ClusterExtractionMapperQueryFlags = (
 type ClusterExtractionMapperQueryFilter = Or<(
     With<PointLight>,
     With<SpotLight>,
+    With<RectLight>,
     With<EnvironmentMapLight>,
     With<IrradianceVolume>,
     With<ClusteredDecal>,
@@ -421,6 +426,7 @@ pub fn extract_clusters_for_cpu_clustering(
                     (
                         is_point_light,
                         is_spot_light,
+                        is_rect_light,
                         is_reflection_probe,
                         is_irradiance_volume,
                         is_clustered_decal,
@@ -437,7 +443,7 @@ pub fn extract_clusters_for_cpu_clustering(
                 if let Some(render_entity) = maybe_render_entity {
                     if is_clustered_decal {
                         data.push(ExtractedClusterableObjectElement::Decal(**render_entity));
-                    } else if is_point_light || is_spot_light {
+                    } else if is_point_light || is_spot_light || is_rect_light {
                         data.push(ExtractedClusterableObjectElement::Light(**render_entity));
                     }
                 }
@@ -631,9 +637,14 @@ impl ViewClusterBindings {
                         offset as u32,
                         counts.point_lights,
                         counts.spot_lights,
-                        counts.reflection_probes,
+                        counts.rect_lights,
                     ),
-                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
+                    uvec4(
+                        counts.reflection_probes,
+                        counts.irradiance_volumes,
+                        counts.decals,
+                        0,
+                    ),
                 ]);
             }
         }

@@ -139,6 +139,7 @@ bitflags::bitflags! {
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
         const SPOT_LIGHT                        = 1 << 5;
+        const RECT_LIGHT                        = 1 << 6;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -1319,6 +1320,37 @@ pub fn prepare_lights(
                 } else {
                     0.0
                 },
+            });
+        global_clusterable_object_meta
+            .entity_to_index
+            .insert(*entity, index);
+        debug_assert_eq!(
+            global_clusterable_object_meta.entity_to_index.len(),
+            global_clusterable_object_meta.gpu_clustered_lights.len()
+        );
+    }
+
+    for entity in &rect_light_entities {
+        let light = rect_lights.get(*entity).unwrap().2;
+
+        let index = global_clusterable_object_meta.gpu_clustered_lights.len();
+        global_clusterable_object_meta
+            .gpu_clustered_lights
+            .add(GpuClusteredLight {
+                light_custom_data: Vec4::from(light.transform.rotation()),
+                color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
+                    * light.intensity)
+                    .xyz()
+                    .extend(light.height),
+                position_radius: light.transform.translation().extend(light.width),
+                flags: PointLightFlags::RECT_LIGHT.bits(),
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadow_map_near_z: 0.0,
+                spot_light_tan_angle: 0.0,
+                decal_index: u32::MAX,
+                range: light.range,
+                soft_shadow_size: 0.0,
             });
         global_clusterable_object_meta
             .entity_to_index

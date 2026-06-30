@@ -374,7 +374,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
         var clusterable_object_index_ranges = clustering::unpack_clusterable_object_index_ranges(cluster_index);
         for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i < clusterable_object_index_ranges.first_rect_light_index_offset;
             i = i + 1u)
         {
             let light_id = clustering::get_clusterable_object_id(i);
