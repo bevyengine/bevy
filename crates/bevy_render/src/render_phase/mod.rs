@@ -208,8 +208,6 @@ impl RenderMultidrawableBin {
 /// [`RenderMultidrawableBatchSetGpuBuffers::render_binned_mesh_instance_buffer`]
 /// array.
 ///
-/// These two arrays are parallel and always have the same length.
-///
 /// These binned mesh instance indices aren't stable from frame to frame; they
 /// can change as entities are added and removed from bins. To reference a mesh
 /// instance in a stable manner, simply use [`MainEntity`].
@@ -268,14 +266,15 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         }
     }
 
-    /// Inserts an entity into the GPU buffers.
+    /// Inserts an entity into the GPU buffers and returns its index.
+    #[must_use]
     fn insert(
         &mut self,
         bin: &mut RenderMultidrawableBin,
         main_entity: MainEntity,
         input_uniform_index: InputUniformIndex,
         bin_index: RenderBinIndex,
-    ) {
+    ) -> RenderBinnedMeshInstanceIndex {
         // Creates a `GpuRenderBinnedMeshInstance`.
         let gpu_render_bin_entry = GpuRenderBinnedMeshInstance {
             input_uniform_index: input_uniform_index.0,
@@ -310,6 +309,8 @@ impl RenderMultidrawableBatchSetGpuBuffers {
             self.bin_metadata_buffer.values()[bin_metadata_index as usize].instance_count as usize,
             bin.entity_to_binned_mesh_instance_index.len()
         );
+
+        render_binned_mesh_instance_buffer_index
     }
 
     /// Removes an entity from a bin.
@@ -328,10 +329,10 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         bin: &mut RenderMultidrawableBin,
         bin_index: RenderBinIndex,
         entity_to_remove: MainEntity,
-    ) -> Option<(RenderBinnedMeshInstanceIndex, GpuRenderBinnedMeshInstance)> {
+    ) -> RenderMultidrawableBatchSetGpuInstanceRemovalResult {
         // Remove the entity from the `entity_to_binned_mesh_instance_index`
         // map.
-        let old_index = bin
+        let removed_instance_index = bin
             .entity_to_binned_mesh_instance_index
             .remove(&entity_to_remove)
             .expect("Entity not in bin");
@@ -344,21 +345,30 @@ impl RenderMultidrawableBatchSetGpuBuffers {
             bin.entity_to_binned_mesh_instance_index.len()
         );
 
-        // Remove the entity from the reverse
-        // `render_binned_mesh_instance_buffer` list, as well
-        // as the parallel `render_binned_mesh_instance_buffer`.  Because binned
-        // mesh instance indices must be contiguous, this requires use of
-        // `swap_remove`.
+        // Remove the entity from the `render_binned_mesh_instance_buffer` list.
+        // Because binned mesh instance indices must be contiguous, this
+        // requires use of `swap_remove`.
         self.render_binned_mesh_instance_buffer
-            .swap_remove(old_index.0 as usize);
+            .swap_remove(removed_instance_index.0 as usize);
 
         // If an entity was displaced (i.e. has a new binned mesh instance index
         // now), then return that to the caller so that they can perform
         // whatever bookkeeping is necessary.
-        self.render_binned_mesh_instance_buffer
-            .values()
-            .get(old_index.0 as usize)
-            .map(|gpu_render_binned_mesh_instance| (old_index, *gpu_render_binned_mesh_instance))
+        RenderMultidrawableBatchSetGpuInstanceRemovalResult {
+            removed_instance_index,
+            displaced_instance: self
+                .render_binned_mesh_instance_buffer
+                .values()
+                .get(removed_instance_index.0 as usize)
+                .map(|displaced_instance| {
+                    (
+                        RenderBinnedMeshInstanceIndex(
+                            self.render_binned_mesh_instance_buffer.len() as u32,
+                        ),
+                        *displaced_instance,
+                    )
+                }),
+        }
     }
 }
 
@@ -369,6 +379,23 @@ impl RenderMultidrawableBatchSetGpuBuffers {
 #[derive(Clone, Copy, Default, PartialEq, Debug, Pod, Zeroable, Deref, DerefMut)]
 #[repr(transparent)]
 pub(crate) struct RenderBinIndex(pub(crate) u32);
+
+/// Represents the changes to the [`RenderMultidrawableBatchSetGpuBuffers`] that
+/// occurred as a result of an instance removal operation
+/// ([`RenderMultidrawableBatchSetGpuBuffers::remove`]).
+///
+/// Because we use `swap_remove` to remove instances, removal of an instance
+/// from the middle of the buffer causes *displacement* of another instance to
+/// fill the gap. This structure contains information about the instance that
+/// was displaced in such cases so that the caller of `remove` can perform
+/// additional bookkeeping.
+struct RenderMultidrawableBatchSetGpuInstanceRemovalResult {
+    /// The index of the instance that was removed from the buffer.
+    removed_instance_index: RenderBinnedMeshInstanceIndex,
+    /// The former index of the instance that was displaced to fill the gap, as
+    /// well as the corresponding [`GpuRenderBinnedMeshInstance`].
+    displaced_instance: Option<(RenderBinnedMeshInstanceIndex, GpuRenderBinnedMeshInstance)>,
+}
 
 /// The number of threads per workgroup in the `allocate_uniforms` shader.
 pub const UNIFORM_ALLOCATION_WORKGROUP_SIZE: u32 = 256;
@@ -392,32 +419,32 @@ pub const UNIFORM_ALLOCATION_WORKGROUP_SIZE: u32 = 256;
 ///          ├───────────┤                                      ┌────────────┐
 ///          │ Bin Key B ├───┬─────────────────────────────────►│ Bin 1      │◄──────────────────┐
 ///          ├───────────┤   │                                  └─┬──────────┤                   │
-///          │ Bin Key C │   │        Mesh Input                  │ Entity 3 │                   │
-///          ├───────────┤   │        Uniform to                  ├──────────┤                   │
-///          │    ...    │   │        Entity             ┌───────►│ Entity 7 ├────────┐          │
+///          │ Bin Key C │   │                                    │ Entity 3 │                   │
+///          ├───────────┤   │        Mesh Instance               ├──────────┤                   │
+///          │    ...    │   │        to Entity          ┌───────►│ Entity 7 ├────────┐          │
 ///                          │                           │        ├──────────┤        │          │
 ///                          │       │   ...    │        │        │ Entity 9 │        │          │
 ///                          │       ├──────────┤        │      ┌─┴──────────┤        │          │
 ///                          │       │ Entity 4 │        │      │ Bin 2      │        │          │
 ///                          │       ├──────────┤        │      └─┬──────────┤        │          │
-///                          │   ┌──►│ Entity 7 ├────────┘        │   ...    │        │          │
-///                          │   │   ├──────────┤                                     │          │
-///                          │   │   │ Entity 1 │                                     │          │
-///                          │   │   ├──────────┤                                     │          │
-///                          │   │   │ Entity 3 │                                     │          │
-///                          │   │   ├──────────┤                                     │          │
-///                          │   │   │   ...    │                                     │          │
-///   CPU ▲                  │   │                                                    │          │
-/// ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄│┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄│┄
-///   GPU ▼                  │   │                                                    │          │
-///                          │   │                                 Binned Mesh        │          │
-///                          │   │                                 Instances          │          │
-///                          │   │                                                    │          │
-///                          │   │                              │      ...        │   │          │
-///                          │   │                            ┌─┴─────────────────┤   │          │
-///                          │   │                            │ Mesh Instance 4   │◄──┘          │
-///                          │   │                            └─┬─────────────────┤              │
-///                          │   └──────────────────────────────┤ Input Uniform 5 │              │
+///                          │       │ Entity 7 │◄───────┘        │   ...    │        │          │
+///                          │       ├──────────┤                                     │          │
+///                          │       │ Entity 1 │                                     │          │
+///                          │       ├──────────┤                                     │          │
+///                          │       │ Entity 3 │                                     │          │
+///                          │       ├──────────┤                                     │          │
+///                          │       │   ...    │                                     │          │
+///   CPU ▲                  │                                                        │          │
+/// ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄│┄
+///   GPU ▼                  │                                                        │          │
+///                          │                                     Binned Mesh        │          │
+///                          │                                     Instances          │          │
+///                          │                                                        │          │
+///                          │                                  │      ...        │   │          │
+///                          │                                ┌─┴─────────────────┤   │          │
+///                          │                                │ Mesh Instance 4   │◄──┘          │
+///                          │                                └─┬─────────────────┤              │
+///                          │                                  │ Input Uniform 5 │              │
 ///                          │                                  ├─────────────────┤              │
 ///                          │                                  │ Bin 1           ├──────────────┤
 ///                          │                                ┌─┴─────────────────┤              │
@@ -465,9 +492,9 @@ where
     /// set.
     indirect_parameters_offset_to_bin_index: Vec<RenderBinIndex>,
 
-    /// A reverse mapping from the index of the `MeshInputUniform` back to the
+    /// A reverse mapping from the `RenderBinnedMeshInstanceIndex` back to the
     /// associated [`MainEntity`].
-    mesh_input_uniform_index_to_entity: Vec<MainEntity>,
+    binned_mesh_instance_index_to_entity: Vec<MainEntity>,
 
     /// The total number of mesh instances in the batch.
     pub(crate) instance_count: u32,
@@ -486,7 +513,7 @@ where
             bins: vec![],
             bin_free_list: vec![],
             indirect_parameters_offset_to_bin_index: vec![],
-            mesh_input_uniform_index_to_entity: vec![],
+            binned_mesh_instance_index_to_entity: vec![],
             instance_count: 0,
         }
     }
@@ -517,16 +544,6 @@ where
         main_entity: MainEntity,
         input_uniform_index: InputUniformIndex,
     ) {
-        if (input_uniform_index.0 as usize) >= self.mesh_input_uniform_index_to_entity.len() {
-            self.mesh_input_uniform_index_to_entity
-                .extend(iter::repeat_n(
-                    MainEntity::from(Entity::PLACEHOLDER),
-                    input_uniform_index.0 as usize - self.mesh_input_uniform_index_to_entity.len()
-                        + 1,
-                ));
-        }
-        self.mesh_input_uniform_index_to_entity[input_uniform_index.0 as usize] = main_entity;
-
         let bin_index;
         match self.bin_key_to_bin_index.entry(bin_key) {
             Entry::Occupied(occupied_entry) => {
@@ -564,8 +581,14 @@ where
 
         // Update the GPU buffers.
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
-        self.gpu_buffers
-            .insert(bin, main_entity, input_uniform_index, bin_index);
+        let binned_mesh_instance_index =
+            self.gpu_buffers
+                .insert(bin, main_entity, input_uniform_index, bin_index);
+        debug_assert_eq!(
+            binned_mesh_instance_index.0 as usize,
+            self.binned_mesh_instance_index_to_entity.len()
+        );
+        self.binned_mesh_instance_index_to_entity.push(main_entity);
     }
 
     /// Removes the given entity from the bin with the given key.
@@ -579,18 +602,47 @@ where
             .expect("Bin key not present");
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
 
-        let maybe_displaced_binned_mesh_instance =
-            self.gpu_buffers.remove(bin, bin_index, main_entity);
-        if let Some((old_binned_mesh_instance_index, displaced_binned_mesh_instance)) =
-            maybe_displaced_binned_mesh_instance
-        {
-            let displaced_entity = self.mesh_input_uniform_index_to_entity
-                [displaced_binned_mesh_instance.input_uniform_index as usize];
-            self.bins[displaced_binned_mesh_instance.bin_index as usize]
-                .as_mut()
-                .expect("Bin not present")
-                .entity_to_binned_mesh_instance_index
-                .insert(displaced_entity, old_binned_mesh_instance_index);
+        let instance_removal_result = self.gpu_buffers.remove(bin, bin_index, main_entity);
+
+        // Because the instance is removed with `swap_remove`, we have two cases
+        // to consider.
+        match instance_removal_result.displaced_instance {
+            // Case 1: The instance was removed from the middle of the array. In
+            // that case, we have a *displaced entity* that was swapped in to
+            // fill the hole. We need to update the table that maps binned mesh
+            // instance index to entity and the reverse table that maps entity
+            // to binned mesh instance index.
+            Some((displaced_instance_index, displaced_instance)) => {
+                debug_assert_eq!(
+                    displaced_instance_index.0 + 1,
+                    self.binned_mesh_instance_index_to_entity.len() as u32
+                );
+                let displaced_entity = self.binned_mesh_instance_index_to_entity.pop().expect(
+                    "If an entity was displaced, the list of mesh instances must be nonempty",
+                );
+                self.binned_mesh_instance_index_to_entity
+                    [instance_removal_result.removed_instance_index.0 as usize] = displaced_entity;
+                self.bins[displaced_instance.bin_index as usize]
+                    .as_mut()
+                    .expect("Bin not present")
+                    .entity_to_binned_mesh_instance_index
+                    .insert(
+                        displaced_entity,
+                        instance_removal_result.removed_instance_index,
+                    );
+            }
+
+            // Case 2: The instance was removed from the end of the array. In
+            // that case, we have no displaced entity, so all we need to do is
+            // to remove it from the instance index to entity table.
+            None => {
+                debug_assert_eq!(
+                    instance_removal_result.removed_instance_index.0 + 1,
+                    self.binned_mesh_instance_index_to_entity.len() as u32
+                );
+                let removed_entity = self.binned_mesh_instance_index_to_entity.pop();
+                debug_assert_eq!(removed_entity, Some(main_entity));
+            }
         }
 
         self.instance_count -= 1;
@@ -2286,7 +2338,7 @@ mod tests {
     use bevy_platform::collections::HashMap;
     use proptest_derive::Arbitrary;
 
-    use crate::render_phase::GpuRenderBinnedMeshInstance;
+    use crate::render_phase::{GpuRenderBinnedMeshInstance, RenderBinnedMeshInstanceIndex};
 
     /// A `proptest`-based randomized test for `RenderMultidrawableBatchSet`.
     ///
@@ -2630,6 +2682,14 @@ mod tests {
             batch_set: &RenderMultidrawableBatchSet<MockBinnedPhaseItem>,
             expected: &[MainEntityHashSet],
         ) {
+            assert_eq!(
+                batch_set
+                    .gpu_buffers
+                    .render_binned_mesh_instance_buffer
+                    .len(),
+                batch_set.binned_mesh_instance_index_to_entity.len()
+            );
+
             for (render_bin_buffer_index, gpu_render_binned_mesh_instance) in batch_set
                 .gpu_buffers
                 .render_binned_mesh_instance_buffer
@@ -2637,8 +2697,11 @@ mod tests {
                 .iter()
                 .enumerate()
             {
-                let mapped_entity = batch_set.mesh_input_uniform_index_to_entity
-                    [gpu_render_binned_mesh_instance.input_uniform_index as usize];
+                let render_bin_buffer_index =
+                    RenderBinnedMeshInstanceIndex(render_bin_buffer_index as u32);
+
+                let mapped_entity = batch_set.binned_mesh_instance_index_to_entity
+                    [render_bin_buffer_index.0 as usize];
 
                 // Make sure that the `GpuRenderBinnedMeshInstance::bin_index`
                 // matches the `CpuRenderBinnedMeshInstance::bin_index`.
@@ -2656,7 +2719,7 @@ mod tests {
                     .entity_to_binned_mesh_instance_index
                     .iter()
                     .find_map(|(entity, buffer_index)| {
-                        if render_bin_buffer_index as u32 == buffer_index.0 {
+                        if render_bin_buffer_index.0 == buffer_index.0 {
                             Some(entity)
                         } else {
                             None
