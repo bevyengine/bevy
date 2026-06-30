@@ -3,6 +3,7 @@ use crate::{
     component::ComponentId,
     query::Access,
     resource::Resource,
+    resource::IS_RESOURCE,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::Ptr;
@@ -179,6 +180,18 @@ impl<'w, 's> FilteredResources<'w, 's> {
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
     pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'w>, ResourceFetchError> {
+        assert!(
+            // SAFETY: We only access required components
+            unsafe {
+                !self
+                    .world
+                    .world_metadata()
+                    .get_required_components_by_id(component_id)
+                    .is_none_or(|required| !required.direct.contains_key(&IS_RESOURCE))
+            },
+            "resource does not have IsResource as a required component"
+        );
+
         if !self.access.has_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
@@ -464,6 +477,18 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// # Safety
     /// It is the callers responsibility to ensure that there are no conflicting borrows of anything in `access` for the duration of the returned value.
     unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
+        assert!(
+            // SAFETY: We only access required components
+            unsafe {
+                !self
+                    .world
+                    .world_metadata()
+                    .get_required_components_by_id(component_id)
+                    .is_none_or(|required| !required.direct.contains_key(&IS_RESOURCE))
+            },
+            "resource does not have IsResource as a required component"
+        );
+
         let component_id = self
             .world
             .components()
