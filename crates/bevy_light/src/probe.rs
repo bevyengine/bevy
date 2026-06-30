@@ -280,6 +280,12 @@ pub struct GeneratedEnvironmentMapLight {
     /// Whether this light contributes diffuse lighting to meshes that already
     /// have baked lightmaps.
     pub affects_lightmapped_mesh_diffuse: bool,
+
+    /// Whether to re-filter the environment map.
+    ///
+    /// After setting this to true, it will automatically be toggled
+    /// back to false at the end of the frame.
+    pub regenerate: bool,
 }
 
 impl Default for GeneratedEnvironmentMapLight {
@@ -289,6 +295,7 @@ impl Default for GeneratedEnvironmentMapLight {
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
+            regenerate: true,
         }
     }
 }
