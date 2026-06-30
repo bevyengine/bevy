@@ -24,7 +24,7 @@ use bevy::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
             PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
-        renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
+        renderer::{RenderContext, RenderDevice, RenderGraph, RenderGraphSystems, RenderQueue},
         Extract, Render, RenderApp, RenderSystems,
     },
     window::ExitCondition,
@@ -219,7 +219,10 @@ impl Plugin for ImageCopyPlugin {
                 Render,
                 receive_image_from_buffer.after(RenderSystems::Render),
             )
-            .add_systems(RenderGraph, image_copy_driver);
+            .add_systems(
+                RenderGraph,
+                image_copy_driver.after(RenderGraphSystems::Submit),
+            );
     }
 }
 
