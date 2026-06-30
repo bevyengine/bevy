@@ -1,11 +1,12 @@
 #import bevy_pbr::cluster::{
     CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
     CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
-    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, ClusterMetadata, ClusterableObjectZSlice,
-    calculate_sphere_cluster_bounds, compute_view_from_world_scale
+    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterMetadata,
+    ClusterableObjectZSlice, calculate_sphere_cluster_bounds, compute_view_from_world_scale
 }
 #import bevy_pbr::mesh_view_types::{
-    ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT
+    ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT,
+    POINT_LIGHT_FLAGS_RECT_LIGHT_BIT
 }
 #import bevy_render::view::View
 
@@ -75,14 +76,18 @@ fn z_slice_main(
     // Figure out which type of object we are, and calculate our position and range.
     // We use a sphere to conservatively construct our AABB.
     if (id < last_clustered_light_id) {
-        // We're a light (either point light or spot light).
+        // We're a light (point, spot, or rect light).
         object_index = id;
         let flags = clustered_lights.data[object_index].flags;
-        object_type = select(
-            CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
-            CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
-            (flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT) != 0u
-        );
+        if ((flags & POINT_LIGHT_FLAGS_RECT_LIGHT_BIT) != 0u) {
+            object_type = CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT;
+        } else {
+            object_type = select(
+                CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
+                CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
+                (flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT) != 0u
+            );
+        }
         position = clustered_lights.data[object_index].position_radius.xyz;
         radius = clustered_lights.data[object_index].range;
     } else if (id < last_reflection_probe_id) {
