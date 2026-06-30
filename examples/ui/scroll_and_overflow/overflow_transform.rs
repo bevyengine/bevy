@@ -1,4 +1,4 @@
-//! Demonstrates nested transformed UI clipping.
+//! Displays a rotating node with text and images, clipped by multiple rotating ancestor nodes.
 
 use bevy::color::palettes::css::LIGHT_BLUE;
 use bevy::color::palettes::css::NAVY;
