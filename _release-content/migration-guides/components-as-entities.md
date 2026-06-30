@@ -17,3 +17,14 @@ In 0.19, you could attach components to a resource by simply calling `world.spaw
 let entity = world.register_component::<R>().entity();
 world.spawn_at(entity, (Res1, Comp1, Comp2));
 ```
+
+Additionally, manually implementing `Resource` through
+
+```rust
+#[derive(Component, Default)]
+struct R;
+
+impl Resource for R {}
+```
+
+has become less viable, as now `Res` and `ResMut` panic when `IsResource` has not been made a required component for a resource.
