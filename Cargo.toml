@@ -5203,6 +5203,15 @@ doc-scrape-examples = true
 [package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
 
+[[example]]
+name = "test_transform_mesh"
+path = "tests/3d/test_transform_mesh.rs"
+doc-scrape-examples = true
+required-features = ["pbr_anisotropy_texture", "bevy_dev_tools"]
+
+[package.metadata.example.test_transform_mesh]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
