@@ -2714,7 +2714,7 @@ mod tests {
                 // Make sure that the entity in the
                 // `RenderMultidrawableBin::entity_to_binned_mesh_instance_index`
                 // table matches the entity in the
-                // `mesh_input_uniform_index_to_entity`.
+                // `binned_mesh_instance_index_to_entity` table.
                 let Some(entity) = render_bin
                     .entity_to_binned_mesh_instance_index
                     .iter()
