@@ -2758,6 +2758,7 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::component::Component;
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::system::assert_is_system;
@@ -3074,5 +3075,24 @@ mod tests {
         schedule.run(&mut world);
 
         fn message_system(_: MessageReader<MissingEvent>) {}
+    }
+
+    #[test]
+    #[should_panic]
+    fn missing_resource_marker() {
+        #[derive(Component, Default)]
+        struct R;
+        // In order to prevent UB, one should always have `IsResource` by a required component
+        // for every type `R` that implements Resource, else using `Res` and `ResMut` panics.
+        impl Resource for R {}
+
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        world
+            .run_system_cached(
+                |_: Option<Res<R>>, _: Option<Single<&mut R, Without<IsResource>>>| {},
+            )
+            .unwrap();
     }
 }

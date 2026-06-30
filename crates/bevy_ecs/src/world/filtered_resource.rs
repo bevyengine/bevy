@@ -477,6 +477,12 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// # Safety
     /// It is the callers responsibility to ensure that there are no conflicting borrows of anything in `access` for the duration of the returned value.
     unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
+        let component_id = self
+            .world
+            .components()
+            .valid_component_id::<R>()
+            .ok_or(ResourceFetchError::NotRegistered)?;
+
         assert!(
             // SAFETY: We only access required components
             unsafe {
@@ -489,11 +495,6 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             "resource does not have IsResource as a required component"
         );
 
-        let component_id = self
-            .world
-            .components()
-            .valid_component_id::<R>()
-            .ok_or(ResourceFetchError::NotRegistered)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
             // SAFETY: The underlying type of the resource is `R`.
