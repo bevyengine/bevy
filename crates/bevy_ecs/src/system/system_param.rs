@@ -676,9 +676,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     fn init_state(world: &mut World) -> Self::State {
         let component_id = world.components_registrator().register_component::<T>();
         assert!(
-            !world
+            world
                 .get_required_components_by_id(component_id)
-                .is_none_or(|required| !required.direct.contains_key(&IS_RESOURCE)),
+                .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE)),
             "resource does not have IsResource as a required component"
         );
         component_id
@@ -740,9 +740,9 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
     fn init_state(world: &mut World) -> Self::State {
         let component_id = world.components_registrator().register_component::<T>();
         assert!(
-            !world
+            world
                 .get_required_components_by_id(component_id)
-                .is_none_or(|required| !required.direct.contains_key(&IS_RESOURCE)),
+                .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE)),
             "resource does not have IsResource as a required component"
         );
         component_id

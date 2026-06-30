@@ -183,11 +183,10 @@ impl<'w, 's> FilteredResources<'w, 's> {
         assert!(
             // SAFETY: We only access required components
             unsafe {
-                !self
-                    .world
+                self.world
                     .world_metadata()
                     .get_required_components_by_id(component_id)
-                    .is_none_or(|required| !required.direct.contains_key(&IS_RESOURCE))
+                    .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE))
             },
             "resource does not have IsResource as a required component"
         );
@@ -486,11 +485,10 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         assert!(
             // SAFETY: We only access required components
             unsafe {
-                !self
-                    .world
+                self.world
                     .world_metadata()
                     .get_required_components_by_id(component_id)
-                    .is_none_or(|required| !required.direct.contains_key(&IS_RESOURCE))
+                    .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE))
             },
             "resource does not have IsResource as a required component"
         );
