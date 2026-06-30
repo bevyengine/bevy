@@ -72,7 +72,10 @@ use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
+use crate::{
+    LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
+    PreviousMeshInputUniform,
+};
 
 use super::{ShadowView, ViewLightEntities};
 
@@ -1418,7 +1421,10 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
             // `current_input`
             (3, storage_buffer_read_only::<MeshInputUniform>(false)),
             // `previous_input`
-            (4, storage_buffer_read_only::<MeshInputUniform>(false)),
+            (
+                4,
+                storage_buffer_read_only::<PreviousMeshInputUniform>(false),
+            ),
             // `indices`
             (5, storage_buffer_read_only::<PreprocessWorkItem>(false)),
             // `output`

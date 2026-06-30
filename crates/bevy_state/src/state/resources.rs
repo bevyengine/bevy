@@ -187,14 +187,14 @@ pub enum NextState<S: FreelyMutableState> {
     /// There is a pending transition for state `S`
     ///
     /// This will not trigger state transitions schedules if the target state is the same as the current one.
-    PendingIfNeq(S),
+    PendingIfDifferent(S),
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
     /// This will run the state transition schedules [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit).
-    /// If you want to skip those schedules for the same where we are transitioning to the same state, use [`set_if_neq`](Self::set_if_neq) instead.
+    /// If you want to skip those schedules when transitioning to the same state, use [`set_if_different`](Self::set_if_different) instead.
     pub fn set(&mut self, state: S) {
         *self = Self::Pending(state);
     }
@@ -203,10 +203,19 @@ impl<S: FreelyMutableState> NextState<S> {
     ///
     /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
     /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
-    pub fn set_if_neq(&mut self, state: S) {
+    pub fn set_if_different(&mut self, state: S) {
         if !matches!(self, Self::Pending(s) if s == &state) {
-            *self = Self::PendingIfNeq(state);
+            *self = Self::PendingIfDifferent(state);
         }
+    }
+
+    /// Tentatively set a pending state transition to `Some(state)`.
+    ///
+    /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
+    /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
+    #[deprecated(since = "0.19.0", note = "use `set_if_different` instead")]
+    pub fn set_if_neq(&mut self, state: S) {
+        self.set_if_different(state);
     }
 
     /// Remove any pending changes to [`State<S>`]
@@ -225,7 +234,7 @@ pub(crate) fn take_next_state<S: FreelyMutableState>(
             next_state.set_changed();
             Some((x, true))
         }
-        NextState::PendingIfNeq(x) => {
+        NextState::PendingIfDifferent(x) => {
             next_state.set_changed();
             Some((x, false))
         }

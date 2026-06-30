@@ -953,6 +953,25 @@ mod text_wrap {
                 ));
             }
         }
+
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                padding: UiRect::px(10.0, 10.0, 8.0, 6.0),
+                top: px(300.0),
+                left: px(300.0),
+                width: vmin(30.0),
+                ..default()
+            },
+            BackgroundColor::from(bevy::color::palettes::css::GREEN),
+            Text::new("initial text here"),
+            TextColor(Color::WHITE),
+            TextLayout {
+                justify: Justify::Left,
+                linebreak: LineBreak::WordBoundary,
+            },
+            DespawnOnExit(super::Scene::TextWrap),
+        ));
     }
 }
 

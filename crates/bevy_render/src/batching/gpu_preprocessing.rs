@@ -167,7 +167,7 @@ pub enum GpuPreprocessingMode {
 pub struct BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: AtomicPod,
+    BDI: BufferDataInput,
 {
     /// The uniform data inputs for the current frame.
     ///
@@ -181,7 +181,7 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: PreviousInstanceInputUniformBuffer<BDI>,
+    pub previous_input_buffer: PreviousInstanceInputUniformBuffer<BDI::Previous>,
 
     /// The data needed to render buffers for each phase.
     ///
@@ -193,7 +193,7 @@ where
 impl<BD, BDI> Default for BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: AtomicPod,
+    BDI: BufferDataInput,
 {
     fn default() -> Self {
         BatchedInstanceBuffers {
@@ -202,6 +202,22 @@ where
             phase_instance_buffers: TypeIdMap::default(),
         }
     }
+}
+
+/// A trait that defines the data that we supply to the GPU for a single mesh
+/// instance (2D or 3D).
+///
+/// A compute shader is expected to expand this data to the full *buffer data*
+/// type. See [`BatchedInstanceBuffers`] for more detail.
+pub trait BufferDataInput: AtomicPod {
+    /// The type of the data that we supply for the GPU for the previous
+    type Previous: AtomicPod;
+}
+
+// We don't use GPU mesh preprocessing for the 2D pipeline, so we implement
+// `BufferDataInput` for the unit type here.
+impl BufferDataInput for () {
+    type Previous = ();
 }
 
 /// The GPU buffers holding the data needed to render batches for a single
@@ -420,23 +436,23 @@ where
 /// large size, enough to hold all push operations that could possibly occur on
 /// the worker threads, and only synchronize the changed portion of the buffer
 /// to the GPU on each frame.
-pub struct PreviousInstanceInputUniformBuffer<BDI>
+pub struct PreviousInstanceInputUniformBuffer<BPDI>
 where
-    BDI: AtomicPod,
+    BPDI: AtomicPod,
 {
     /// The buffer containing the data that will be uploaded to the GPU.
-    buffer: AtomicRawBufferVec<BDI>,
+    buffer: AtomicRawBufferVec<BPDI>,
 
     /// The number of elements pushed since the last [`Self::reserve`].
     atomic_len: AtomicU32,
 }
 
-impl<BDI> PreviousInstanceInputUniformBuffer<BDI>
+impl<BPDI> PreviousInstanceInputUniformBuffer<BPDI>
 where
-    BDI: AtomicPod,
+    BPDI: AtomicPod,
 {
     /// Creates a new, empty buffer.
-    pub fn new() -> PreviousInstanceInputUniformBuffer<BDI> {
+    pub fn new() -> PreviousInstanceInputUniformBuffer<BPDI> {
         PreviousInstanceInputUniformBuffer {
             buffer: AtomicRawBufferVec::with_label(
                 BufferUsages::STORAGE,
@@ -475,7 +491,7 @@ where
     /// Appends a value and returns its index. Thread-safe.
     ///
     /// [`Self::reserve`] must have been called first with sufficient capacity.
-    pub fn push(&self, value: BDI) -> u32 {
+    pub fn push(&self, value: BPDI) -> u32 {
         let index = self.atomic_len.fetch_add(1, Ordering::Relaxed);
         debug_assert!(
             (index as usize) < self.buffer.len() as usize,
@@ -499,9 +515,9 @@ where
     }
 }
 
-impl<BDI> Default for PreviousInstanceInputUniformBuffer<BDI>
+impl<BPDI> Default for PreviousInstanceInputUniformBuffer<BPDI>
 where
-    BDI: AtomicPod,
+    BPDI: AtomicPod,
 {
     fn default() -> Self {
         Self::new()
@@ -1383,7 +1399,7 @@ impl FromWorld for GpuPreprocessingSupport {
 impl<BD, BDI> BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: AtomicPod,
+    BDI: BufferDataInput,
 {
     /// Creates new buffers.
     pub fn new() -> Self {
@@ -1658,6 +1674,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                         if *current_batch_set_key == *batch_set_key {
                             if *current_bin_key == *bin_key {
                                 SortedPhaseItemBatchability::BatchOk
+                            } else if no_indirect_drawing {
+                                // Without indirect drawing, different meshes need separate batch sets
+                                SortedPhaseItemBatchability::BreakBatchSet
                             } else {
                                 SortedPhaseItemBatchability::BreakBatch
                             }

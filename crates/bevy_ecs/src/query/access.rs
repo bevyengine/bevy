@@ -86,24 +86,12 @@ impl Access {
     }
 
     /// Adds access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::add_read")]
-    pub fn add_component_read(&mut self, index: ComponentId) {
-        self.add_read(index);
-    }
-
-    /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
         if !self.read_and_writes_inverted {
             self.read_and_writes.insert(index);
         } else {
             self.read_and_writes.remove(index);
         }
-    }
-
-    /// Adds exclusive access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::add_write")]
-    pub fn add_component_write(&mut self, index: ComponentId) {
-        self.add_write(index);
     }
 
     /// Adds exclusive access to the component given by `index`.
@@ -114,30 +102,6 @@ impl Access {
         } else {
             self.writes.remove(index);
         }
-    }
-
-    /// Adds access to the resource given by `index`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "Call `FilteredAccessSet::add_resource_read`.  If this is called in a `WorldQuery` impl, then you will need to implement `init_nested_access` to modify the `FilteredAccessSet`."
-    )]
-    pub fn add_resource_read(&mut self, index: ComponentId) {
-        self.add_read(index);
-    }
-
-    /// Adds exclusive access to the resource given by `index`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "Call `FilteredAccessSet::add_resource_write`.  If this is called in a `WorldQuery` impl, then you will need to implement `init_nested_access` to modify the `FilteredAccessSet`."
-    )]
-    pub fn add_resource_write(&mut self, index: ComponentId) {
-        self.add_write(index);
-    }
-
-    /// Removes both read and write access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::remove_read")]
-    pub fn remove_component_read(&mut self, index: ComponentId) {
-        self.remove_read(index);
     }
 
     /// Removes both read and write access to the component given by `index`.
@@ -155,12 +119,6 @@ impl Access {
         } else {
             self.read_and_writes.remove(index);
         }
-    }
-
-    /// Removes write access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::remove_write")]
-    pub fn remove_component_write(&mut self, index: ComponentId) {
-        self.remove_write(index);
     }
 
     /// Removes write access to the component given by `index`.
@@ -193,20 +151,8 @@ impl Access {
     }
 
     /// Returns `true` if this can access the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_read")]
-    pub fn has_component_read(&self, index: ComponentId) -> bool {
-        self.has_read(index)
-    }
-
-    /// Returns `true` if this can access the component given by `index`.
     pub fn has_read(&self, index: ComponentId) -> bool {
         self.read_and_writes_inverted ^ self.read_and_writes.contains(index)
-    }
-
-    /// Returns `true` if this can access any component.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_read")]
-    pub fn has_any_component_read(&self) -> bool {
-        self.has_any_read()
     }
 
     /// Returns `true` if this can access any component.
@@ -215,49 +161,13 @@ impl Access {
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_write")]
-    pub fn has_component_write(&self, index: ComponentId) -> bool {
-        self.has_write(index)
-    }
-
-    /// Returns `true` if this can exclusively access the component given by `index`.
     pub fn has_write(&self, index: ComponentId) -> bool {
         self.writes_inverted ^ self.writes.contains(index)
     }
 
     /// Returns `true` if this accesses any component mutably.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_write")]
-    pub fn has_any_component_write(&self) -> bool {
-        self.has_any_write()
-    }
-
-    /// Returns `true` if this accesses any component mutably.
     pub fn has_any_write(&self) -> bool {
         self.writes_inverted || !self.writes.is_clear()
-    }
-
-    /// Returns `true` if this can access the resource given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_read")]
-    pub fn has_resource_read(&self, index: ComponentId) -> bool {
-        self.has_read(index)
-    }
-
-    /// Returns `true` if this can access any resource.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_read")]
-    pub fn has_any_resource_read(&self) -> bool {
-        self.has_any_read()
-    }
-
-    /// Returns `true` if this can exclusively access the resource given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_write")]
-    pub fn has_resource_write(&self, index: ComponentId) -> bool {
-        self.has_write(index)
-    }
-
-    /// Returns `true` if this accesses any resource mutably.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_write")]
-    pub fn has_any_resource_write(&self) -> bool {
-        self.has_any_write()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -272,23 +182,11 @@ impl Access {
         self.archetypal.contains(index)
     }
 
-    /// Sets this as having access to all components (i.e. `EntityRef`).
-    #[deprecated(since = "0.19.0", note = "use Access::read_all")]
-    pub fn read_all_components(&mut self) {
-        self.read_all();
-    }
-
     /// Sets this as having access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn read_all(&mut self) {
         self.read_and_writes_inverted = true;
         self.read_and_writes.clear();
-    }
-
-    /// Sets this as having mutable access to all components (i.e. `EntityMut` and `&mut World`).
-    #[deprecated(since = "0.19.0", note = "use Access::write_all")]
-    pub fn write_all_components(&mut self) {
-        self.write_all();
     }
 
     /// Sets this as having mutable access to all components (i.e. `EntityMut` and `&mut World`).
@@ -300,21 +198,9 @@ impl Access {
     }
 
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
-    #[deprecated(since = "0.19.0", note = "use Access::has_read_all")]
-    pub fn has_read_all_components(&self) -> bool {
-        self.has_read_all()
-    }
-
-    /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn has_read_all(&self) -> bool {
         self.read_and_writes_inverted && self.read_and_writes.is_clear()
-    }
-
-    /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
-    #[deprecated(since = "0.19.0", note = "use Access::has_write_all")]
-    pub fn has_write_all_components(&self) -> bool {
-        self.has_write_all()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
@@ -373,12 +259,6 @@ impl Access {
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
-    #[deprecated(since = "0.19.0", note = "use Access::is_compatible")]
-    pub fn is_components_compatible(&self, other: &Access) -> bool {
-        self.is_compatible(other)
-    }
-
-    /// Returns `true` if the access and `other` can be active at the same time.
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
@@ -425,13 +305,6 @@ impl Access {
         }
 
         true
-    }
-
-    /// Returns `true` if the set is a subset of another, i.e. `other` contains
-    /// at least all the values in `self`.
-    #[deprecated(since = "0.19.0", note = "use Access::is_subset")]
-    pub fn is_subset_components(&self, other: &Access) -> bool {
-        self.is_subset(other)
     }
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
@@ -558,14 +431,6 @@ impl Access {
             });
         }
         Ok(&self.writes)
-    }
-
-    /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
-    #[deprecated(since = "0.19.0", note = "use Access::try_iter_access")]
-    pub fn try_iter_component_access(
-        &self,
-    ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
-        self.try_iter_access()
     }
 
     /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
@@ -848,22 +713,10 @@ impl FilteredAccess {
     }
 
     /// Adds access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::add_read")]
-    pub fn add_component_read(&mut self, index: ComponentId) {
-        self.add_read(index);
-    }
-
-    /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
         self.access.add_read(index);
         self.add_required(index);
         self.and_with(index);
-    }
-
-    /// Adds exclusive access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::add_write")]
-    pub fn add_component_write(&mut self, index: ComponentId) {
-        self.add_write(index);
     }
 
     /// Adds exclusive access to the component given by `index`.
@@ -981,18 +834,6 @@ impl FilteredAccess {
     /// Sets the underlying unfiltered access as having mutable access to all components.
     pub fn write_all(&mut self) {
         self.access.write_all();
-    }
-
-    /// Sets the underlying unfiltered access as having access to all components.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::read_all")]
-    pub fn read_all_components(&mut self) {
-        self.read_all();
-    }
-
-    /// Sets the underlying unfiltered access as having mutable access to all components.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::write_all")]
-    pub fn write_all_components(&mut self) {
-        self.write_all();
     }
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
@@ -1197,12 +1038,6 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a resource to the set.
-    #[deprecated(since = "0.19.0", note = "FilteredAccessSet::add_resource_read")]
-    pub fn add_unfiltered_resource_read(&mut self, index: ComponentId) {
-        self.add_resource_read(index);
-    }
-
-    /// Adds a read access to a resource to the set.
     pub fn add_resource_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_read(index);
@@ -1222,12 +1057,6 @@ impl FilteredAccessSet {
         let mut filter = FilteredAccess::default();
         filter.access.read_all();
         self.add(filter);
-    }
-
-    /// Adds a write access to a resource to the set.
-    #[deprecated(since = "0.19.0", note = "FilteredAccessSet::add_resource_write")]
-    pub fn add_unfiltered_resource_write(&mut self, index: ComponentId) {
-        self.add_resource_write(index);
     }
 
     /// Adds a write access to a resource to the set.

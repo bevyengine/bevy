@@ -193,6 +193,7 @@ fn on_pointer_press(
     };
 
     input_focus.set(press.entity, FocusCause::Pressed);
+
     press.propagate(false);
 
     if editable_text.is_composing() {
@@ -252,6 +253,8 @@ fn on_pointer_drag(
         return;
     };
 
+    drag.propagate(false);
+
     if editable_text.is_composing() {
         // The IME is active; all input needs to be routed there, including pointer drags.
         return;
@@ -269,8 +272,6 @@ fn on_pointer_drag(
     editable_text.queue_edit(TextEdit::ExtendSelectionToPoint(
         clamped_local_point - node.content_box().min + current_offset,
     ));
-
-    drag.propagate(false);
 }
 
 fn text_input_autoscroll_system(
