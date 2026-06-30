@@ -14,7 +14,9 @@
 // are known as *early mesh preprocessing* and *late mesh preprocessing*
 // respectively.
 
-#import bevy_pbr::mesh_preprocess_types::{IndirectParametersMetadata, MeshInput, PreprocessWorkItem}
+#import bevy_pbr::mesh_preprocess_types::{
+    IndirectParametersMetadata, MeshInput, PreviousMeshInput, PreprocessWorkItem
+}
 #import bevy_pbr::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
     MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS
@@ -85,7 +87,7 @@ struct Immediates {
 // The current frame's `MeshInput`.
 @group(0) @binding(3) var<storage> current_input: array<MeshInput>;
 // The `MeshInput` values from the previous frame.
-@group(0) @binding(4) var<storage> previous_input: array<MeshInput>;
+@group(0) @binding(4) var<storage> previous_input: array<PreviousMeshInput>;
 // Indices into the `MeshInput` buffer.
 //
 // There may be many indices that map to the same `MeshInput`.
