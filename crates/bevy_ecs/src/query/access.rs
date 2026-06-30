@@ -24,11 +24,13 @@ impl Default for InvertibleComponentIdSet {
 
 impl InvertibleComponentIdSet {
     /// Creates a new empty `InvertibleSet`.
+    #[inline]
     pub const fn new() -> Self {
         Self::Included(ComponentIdSet::new())
     }
 
     /// Creates a new `InvertibleSet` that includes all components.
+    #[inline]
     pub const fn new_all() -> Self {
         Self::Excluded(ComponentIdSet::new())
     }
@@ -74,6 +76,7 @@ impl InvertibleComponentIdSet {
 
     /// Returns `true` if the set is empty.
     /// Note that an unbounded set is never clear.
+    #[inline]
     pub fn is_clear(&self) -> bool {
         match self {
             Self::Included(included) => included.is_clear(),
@@ -83,6 +86,7 @@ impl InvertibleComponentIdSet {
 
     /// Returns `true` if the set contains all components.
     /// Note that a finite set is never fully set.
+    #[inline]
     pub fn is_all(&self) -> bool {
         match self {
             Self::Included(_) => false,
@@ -91,6 +95,7 @@ impl InvertibleComponentIdSet {
     }
 
     /// Returns `true` if this is an unbounded set, or `false` if it is a finite set.
+    #[inline]
     pub fn is_unbounded(&self) -> bool {
         match self {
             Self::Included(_) => false,
@@ -100,6 +105,7 @@ impl InvertibleComponentIdSet {
 
     /// If this is a finite set, returns the set.
     /// If this is an unbounded set, returns `None`.
+    #[inline]
     pub fn into_finite_set(self) -> Option<ComponentIdSet> {
         match self {
             Self::Included(included) => Some(included),
@@ -109,6 +115,7 @@ impl InvertibleComponentIdSet {
 
     /// If this is a finite set, returns the set.
     /// If this is an unbounded set, returns `None`.
+    #[inline]
     pub fn as_finite_set(&self) -> Option<&ComponentIdSet> {
         match self {
             Self::Included(included) => Some(included),
