@@ -26,8 +26,11 @@ use thiserror::Error;
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
 /// and then writes the final processed bytes with [`Writer`]. The resulting bytes must be loadable with the given [`Process::OutputLoader`].
 ///
-/// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadTransformAndSave`] implementation
-/// of [`Process`].
+/// This is a "low level", maximally flexible interface. Most use cases are better served by the
+/// [`make_load_transform_and_save_processor`] macro that generates an implementation of
+/// [`Process`].
+///
+/// [`make_load_transform_and_save_processor`]: crate::make_load_transform_and_save_processor
 pub trait Process: TypePath + Send + Sync + Sized + 'static {
     /// The configuration / settings used to process the asset. This will be stored in the [`AssetMeta`] and is user-configurable per-asset.
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
@@ -45,24 +48,145 @@ pub trait Process: TypePath + Send + Sync + Sized + 'static {
     >;
 }
 
+/// Creates a [`Process`] implementation (aka an asset processor) that loads an asset with the given
+/// [`AssetLoader`], transforms the asset using the given [`AssetTransformer`],  and then saves the
+/// final asset with the given [`AssetSaver`].
+///
+/// This macro requires creating two structs: the processor and the processor's settings. It also
+/// requires that the processor struct includes 2 or 3 fields:
+///
+/// 1. `loader` whose type must implement [`AssetLoader`].
+/// 2. (optional) `transformer` whose type must implement [`AssetTransformer`]. If omitted, the
+///    loaded asset is passed to the saver without being transformed.
+/// 3. `saver` whose type must implement [`AssetSaver`].
+///
+/// This macro **does not** support generics since each concrete instance needs to be registered
+/// anyway.
+///
+/// Here are examples of defining such processors:
+///
+/// ```rust
+/// # use bevy_asset::{*, saver::*, transformer::*, processor::*, io::*};
+/// # use bevy_reflect::TypePath;
+/// # #[derive(TypePath)]
+/// # pub struct FakeSaver;
+/// # impl AssetSaver for FakeSaver {
+/// #     type Asset = ();
+/// #     type Settings = ();
+/// #     type Error = ProcessError;
+/// #     type OutputLoader = ();
+/// #
+/// #     async fn save(
+/// #         &self,
+/// #         _writer: &mut Writer,
+/// #         _asset: SavedAsset<'_, '_, Self::Asset>,
+/// #         _settings: &Self::Settings,
+/// #         _asset_path: AssetPath<'_>,
+/// #     ) -> Result<(), Self::Error> {
+/// #         todo!()
+/// #     }
+/// # }
+/// # type ImageLoader = ();
+/// # type CompressedImageSaver = FakeSaver;
+/// // This processor only needs to load and save.
+/// make_load_transform_and_save_processor!{
+///     /// This is a doc comment!
+///     pub struct ImageProcessor {
+///         loader: ImageLoader,
+///         saver: CompressedImageSaver,
+///     }
+///
+///     // This is another doc comment!
+///     pub struct ImageProcessorSettings { .. }
+/// }
+///
+/// # type CoolTextLoader = ();
+/// # type ReplaceBadWordsWithStars = IdentityAssetTransformer<()>;
+/// # type CoolTextSaver = FakeSaver;
+/// make_load_transform_and_save_processor!{
+///     pub struct CoolTextProcessor {
+///         loader: CoolTextLoader,
+///         transformer: ReplaceBadWordsWithStars,
+///         saver: CoolTextSaver,
+///     }
+///
+///     pub struct CoolTextProcessorSettings { .. }
+/// }
+/// ```
+#[macro_export]
+macro_rules! make_load_transform_and_save_processor {
+    ($(#[$meta:meta])* $v:vis struct $ty:ident {
+        loader: $loader:ty,
+        $(transformer: $transformer:ty,)?
+        saver: $saver:ty $(,)?
+    }
+
+    $(#[$meta2:meta])*
+    $v2:vis struct $settings_ty:ident { .. }) => {
+        $(#[$meta])*
+        #[derive(bevy_reflect::TypePath)]
+        $v struct $ty {
+            $(transformer: $transformer,)?
+            saver: $saver,
+        }
+
+        impl $ty {
+            /// Creates a new instance of this processor, with the given `saver`.
+            pub fn new($(transformer: $transformer,)? saver: $saver) -> Self {
+                Self {
+                    $(transformer: {
+                        let t: $transformer = transformer;
+                        t
+                    },)?
+                    saver,
+                }
+            }
+        }
+
+        $(#[$meta])*
+        #[derive(serde::Serialize, serde::Deserialize, Default)]
+        $v2 struct $settings_ty {
+            loader_settings: <$loader as $crate::AssetLoader>::Settings,
+            $(transformer_settings: <$transformer as $crate::transformer::AssetTransformer>::Settings,)?
+            saver_settings: <$saver as $crate::saver::AssetSaver>::Settings,
+        }
+
+        impl $crate::processor::Process for $ty {
+            type Settings = $settings_ty;
+            type OutputLoader = <$saver as $crate::saver::AssetSaver>::OutputLoader;
+
+            async fn process(
+                &self,
+                context: &mut $crate::processor::ProcessContext<'_>,
+                settings: &$settings_ty,
+                writer: &mut $crate::io::Writer,
+            ) -> Result<<<Self as $crate::processor::Process>::OutputLoader as $crate::AssetLoader>::Settings, $crate::processor::ProcessError> {
+                let transformer = &$crate::transformer::IdentityAssetTransformer::<
+                    <$loader as $crate::AssetLoader>::Asset
+                >::new();
+                let transformer_settings = &();
+                $(
+                    let _ = (transformer, transformer_settings);
+                    let transformer: &$transformer = &self.transformer;
+                    let transformer_settings = &settings.transformer_settings;
+                )?
+                $crate::processor::load_transform_and_save::<$loader, _, _>(
+                    (transformer, &self.saver),
+                    (&settings.loader_settings, transformer_settings, &settings.saver_settings),
+                    context,
+                    writer,
+                ).await
+            }
+        }
+    };
+}
+
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms
 /// the `L` asset into an `S` [`AssetSaver`] asset using the `T` [`AssetTransformer`], and lastly saves the asset using the `S` [`AssetSaver`].
 ///
-/// When creating custom processors, it is generally recommended to use the [`LoadTransformAndSave`] [`Process`] implementation,
-/// as it encourages you to separate your code into an [`AssetLoader`] capable of loading assets without processing enabled,
-/// an [`AssetTransformer`] capable of converting from an `L` asset to an `S` asset, and
-/// an [`AssetSaver`] that allows you save any `S` asset. However you can
-/// also implement [`Process`] directly if [`LoadTransformAndSave`] feels limiting or unnecessary.
-///
-/// If your [`Process`] does not need to transform the [`Asset`], you can use [`IdentityAssetTransformer`] as `T`.
-/// This will directly return the input [`Asset`], allowing your [`Process`] to directly load and then save an [`Asset`].
-/// However, this pattern should only be used for cases such as file format conversion.
-/// Otherwise, consider refactoring your [`AssetLoader`] and [`AssetSaver`] to isolate the transformation step into an explicit [`AssetTransformer`].
-///
-/// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
-///
 /// [`Asset`]: crate::Asset
 #[derive(TypePath)]
+#[deprecated = "Use `make_load_transform_and_save_processor` instead."]
 pub struct LoadTransformAndSave<
     L: AssetLoader,
     T: AssetTransformer<AssetInput = L::Asset>,
@@ -73,6 +197,10 @@ pub struct LoadTransformAndSave<
     marker: PhantomData<fn() -> L>,
 }
 
+#[expect(
+    deprecated,
+    reason = "We need to maintain the trait impls until we delete `LoadTransformAndSave`"
+)]
 impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S>
     for LoadTransformAndSave<L, IdentityAssetTransformer<L::Asset>, S>
 {
@@ -90,6 +218,7 @@ impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S>
 /// `LoaderSettings` corresponds to [`AssetLoader::Settings`], `TransformerSettings` corresponds to [`AssetTransformer::Settings`],
 /// and `SaverSettings` corresponds to [`AssetSaver::Settings`].
 #[derive(Serialize, Deserialize, Default)]
+#[deprecated = "Use `make_load_transform_and_save_processor` instead."]
 pub struct LoadTransformAndSaveSettings<LoaderSettings, TransformerSettings, SaverSettings> {
     /// The [`AssetLoader::Settings`] for [`LoadTransformAndSave`].
     pub loader_settings: LoaderSettings,
@@ -99,6 +228,10 @@ pub struct LoadTransformAndSaveSettings<LoaderSettings, TransformerSettings, Sav
     pub saver_settings: SaverSettings,
 }
 
+#[expect(
+    deprecated,
+    reason = "We need to maintain the trait impls until we delete `LoadTransformAndSave`"
+)]
 impl<
         L: AssetLoader,
         T: AssetTransformer<AssetInput = L::Asset>,
@@ -181,6 +314,10 @@ pub enum ProcessError {
     ExtensionRequired,
 }
 
+#[expect(
+    deprecated,
+    reason = "We need to maintain the trait impls until we delete `LoadTransformAndSave`"
+)]
 impl<Loader, Transformer, Saver> Process for LoadTransformAndSave<Loader, Transformer, Saver>
 where
     Loader: AssetLoader,
@@ -197,34 +334,54 @@ where
         settings: &Self::Settings,
         writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
-            context
-                .load_source_asset::<Loader>(&settings.loader_settings)
-                .await?,
-        )
-        .unwrap();
-
-        let post_transformed_asset = self
-            .transformer
-            .transform(pre_transformed_asset, &settings.transformer_settings)
-            .await
-            .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
-
-        let saved_asset =
-            SavedAsset::<Transformer::AssetOutput>::from_transformed(&post_transformed_asset);
-
-        let output_settings = self
-            .saver
-            .save(
-                writer,
-                saved_asset,
+        load_transform_and_save::<Loader, Transformer, Saver>(
+            (&self.transformer, &self.saver),
+            (
+                &settings.loader_settings,
+                &settings.transformer_settings,
                 &settings.saver_settings,
-                context.path.clone(),
-            )
-            .await
-            .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-        Ok(output_settings)
+            ),
+            context,
+            writer,
+        )
+        .await
     }
+}
+
+/// Loads the reader in `context` with the `L` loader, transforms it with the `T` transformer, and
+/// saves it to `writer` with the `S` saver.
+pub async fn load_transform_and_save<L, T, S>(
+    (transformer, saver): (&T, &S),
+    (loader_settings, transformer_settings, saver_settings): (
+        &L::Settings,
+        &T::Settings,
+        &S::Settings,
+    ),
+    context: &mut ProcessContext<'_>,
+    writer: &mut Writer,
+) -> Result<<<S as AssetSaver>::OutputLoader as AssetLoader>::Settings, ProcessError>
+where
+    L: AssetLoader,
+    T: AssetTransformer<AssetInput = L::Asset>,
+    S: AssetSaver<Asset = T::AssetOutput>,
+{
+    let pre_transformed_asset = TransformedAsset::<L::Asset>::from_loaded(
+        context.load_source_asset::<L>(loader_settings).await?,
+    )
+    .unwrap();
+
+    let post_transformed_asset = transformer
+        .transform(pre_transformed_asset, transformer_settings)
+        .await
+        .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
+
+    let saved_asset = SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
+
+    let output_settings = saver
+        .save(writer, saved_asset, saver_settings, context.path.clone())
+        .await
+        .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+    Ok(output_settings)
 }
 
 /// A type-erased variant of [`Process`] that enables interacting with processor implementations without knowing

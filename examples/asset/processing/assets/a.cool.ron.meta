@@ -1,7 +1,7 @@
 (
     meta_format_version: "1.0",
     asset: Process(
-        processor: "LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>",
+        processor: "CoolTextProcessor",
         settings: (
             loader_settings: (),
             transformer_settings: (
