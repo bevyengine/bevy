@@ -26,12 +26,14 @@
 
 use alloc::vec::Vec;
 use bevy_app::{App, Plugin, Startup};
+use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
+    resource::Resource,
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
 use bevy_input::{
@@ -78,6 +80,9 @@ pub struct TabGroup {
     /// of this group. If false, then tabbing within the group will cycle through all non-modal
     /// tab groups.
     pub modal: bool,
+
+    /// Override global setting for only focusing entities that are visible.
+    pub focus_only_visible: Option<bool>,
 }
 
 impl TabGroup {
@@ -86,6 +91,7 @@ impl TabGroup {
         Self {
             order,
             modal: false,
+            focus_only_visible: None,
         }
     }
 
@@ -94,6 +100,7 @@ impl TabGroup {
         Self {
             order: 0,
             modal: true,
+            focus_only_visible: None,
         }
     }
 }
@@ -163,11 +170,17 @@ pub struct TabNavigation<'w, 's> {
     tabindex_query: Query<
         'w,
         's,
-        (Entity, Option<&'static TabIndex>, Option<&'static Children>),
+        (
+            Entity,
+            Option<&'static TabIndex>,
+            Option<&'static Children>,
+            Option<&'static InheritedVisibility>,
+        ),
         Without<TabGroup>,
     >,
     // Query for parents.
     parent_query: Query<'w, 's, &'static ChildOf>,
+    config: Option<Res<'w, TabNavigationConfig>>,
 }
 
 impl TabNavigation<'_, '_> {
@@ -327,8 +340,18 @@ impl TabNavigation<'_, '_> {
         parent: Entity,
         tab_group_idx: usize,
     ) {
-        if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
-            if let Some(tabindex) = tabindex
+        if let Ok((entity, tabindex, children, inherited_visibility)) =
+            self.tabindex_query.get(parent)
+        {
+            let visible_only = self
+                .tabgroup_query
+                .get(parent)
+                .ok()
+                .and_then(|(_, tabgroup, _)| tabgroup.focus_only_visible)
+                .unwrap_or_else(|| self.config.as_deref().is_some_and(|c| c.focus_only_visible));
+
+            if (!visible_only || inherited_visibility.is_none_or(|v| v.get()))
+                && let Some(tabindex) = tabindex
                 && tabindex.0 >= 0
             {
                 out.push((entity, *tabindex, tab_group_idx));
@@ -376,11 +399,27 @@ pub(crate) fn acquire_focus(
     }
 }
 
+/// Global configuration for tab navigation.
+#[derive(Debug, Clone, Resource, Default)]
+pub struct TabNavigationConfig {
+    /// Whether to only focus entities that are visible, globally.
+    /// Can be overridden per-[`TabGroup`] via [`TabGroup::focus_only_visible`].
+    pub focus_only_visible: bool,
+}
+
 /// Plugin for navigating between focusable entities using keyboard input.
-pub struct TabNavigationPlugin;
+#[derive(Default)]
+pub struct TabNavigationPlugin {
+    /// Whether to only focus entities that are visible, globally.
+    /// Can be overridden per-[`TabGroup`] via [`TabGroup::focus_only_visible`].
+    pub focus_only_visible: bool,
+}
 
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(TabNavigationConfig {
+            focus_only_visible: self.focus_only_visible,
+        });
         app.add_systems(Startup, setup_tab_navigation);
         app.add_observer(acquire_focus);
         #[cfg(feature = "bevy_picking")]
@@ -477,6 +516,7 @@ mod tests {
     fn test_tab_navigation() {
         let mut app = App::new();
         let world = app.world_mut();
+        world.insert_resource(TabNavigationConfig::default());
 
         let tab_group_entity = world.spawn(TabGroup::new(0)).id();
         let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
@@ -506,6 +546,7 @@ mod tests {
     fn test_tab_navigation_between_groups_is_sorted_by_group() {
         let mut app = App::new();
         let world = app.world_mut();
+        world.insert_resource(TabNavigationConfig::default());
 
         let tab_group_1 = world.spawn(TabGroup::new(0)).id();
         let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_1))).id();

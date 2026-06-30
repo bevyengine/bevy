@@ -31,7 +31,7 @@ use crate::ModalDialog;
 /// [`crate::ModalDialogBarrier`]; when absent it is a movable, non-blocking floating window.
 #[derive(Component, Debug, Reflect, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Dialog)))]
-#[require(TabGroup { order: 0, modal: false })]
+#[require(TabGroup { order: 0, modal: false, focus_only_visible: None })]
 #[reflect(Component)]
 pub struct Dialog;
 
