@@ -1,9 +1,12 @@
 use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
-    ErasedAssetIndex, ReflectHandle, UntypedAssetId,
+    ErasedAssetIndex, ParseAssetPathError, ReflectHandle, UntypedAssetId,
 };
-use alloc::sync::Arc;
-use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
+use alloc::{string::String, sync::Arc};
+use bevy_ecs::{
+    error::BevyError,
+    template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext},
+};
 use bevy_platform::{collections::Equivalent, sync::Mutex};
 use bevy_reflect::{enums::Enum, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath};
 use core::{
@@ -278,6 +281,10 @@ pub enum HandleTemplate<T: Asset> {
     ///
     /// This should generally be constructed using [`HandleTemplate::value`] or [`asset_value`].
     Value(ArcMutexValue<T>),
+    /// The `HandleTemplate` was constructed from a string that was not a valid path - see
+    /// [`AssetPath::try_parse`]. Attempting to spawn a scene with this `HandleTemplate` will
+    /// result in an error.
+    ParseError(ParseAssetPathError),
 }
 
 impl<T: Asset> HandleTemplate<T> {
@@ -324,9 +331,30 @@ impl<T: Asset> Default for HandleTemplate<T> {
     }
 }
 
-impl<I: Into<AssetPath<'static>>, T: Asset> From<I> for HandleTemplate<T> {
-    fn from(value: I) -> Self {
-        Self::Path(value.into())
+// This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
+// by ensuring that this is stored as a `CowArc::Static`.
+// Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
+impl<T: Asset> From<&'static str> for HandleTemplate<T> {
+    fn from(value: &'static str) -> Self {
+        match AssetPath::try_parse_static(value) {
+            Ok(path) => HandleTemplate::Path(path),
+            Err(err) => HandleTemplate::ParseError(err),
+        }
+    }
+}
+
+impl<T: Asset> From<String> for HandleTemplate<T> {
+    fn from(value: String) -> Self {
+        match AssetPath::try_parse(value.as_str()) {
+            Ok(path) => HandleTemplate::Path(path.into_owned()),
+            Err(err) => HandleTemplate::ParseError(err),
+        }
+    }
+}
+
+impl<'a, T: Asset> From<AssetPath<'a>> for HandleTemplate<T> {
+    fn from(value: AssetPath<'a>) -> Self {
+        HandleTemplate::Path(value.into_owned())
     }
 }
 
@@ -339,9 +367,11 @@ impl<T: Asset> From<Handle<T>> for HandleTemplate<T> {
 impl<T: Asset> Template for HandleTemplate<T> {
     type Output = Handle<T>;
     fn build_template(&self, context: &mut TemplateContext) -> bevy_ecs::error::Result<Handle<T>> {
-        Ok(match self {
-            HandleTemplate::Path(asset_path) => context.resource::<AssetServer>().load(asset_path),
-            HandleTemplate::Handle(handle) => handle.clone(),
+        match self {
+            HandleTemplate::Path(asset_path) => {
+                Ok(context.resource::<AssetServer>().load(asset_path))
+            }
+            HandleTemplate::Handle(handle) => Ok(handle.clone()),
             HandleTemplate::Value(value) => {
                 // This unwrap is ok. If another caller panicked while holding this mutex, then the
                 // program is in an invalid state and this should panic too.
@@ -352,12 +382,13 @@ impl<T: Asset> Template for HandleTemplate<T> {
                         // when it is in this state (AssetOrHandle is private).
                         let handle = context.resource::<AssetServer>().add(value.take().unwrap());
                         *value_or_handle = AssetOrHandle::Handle(handle.clone());
-                        handle
+                        Ok(handle)
                     }
-                    AssetOrHandle::Handle(handle) => handle.clone(),
+                    AssetOrHandle::Handle(handle) => Ok(handle.clone()),
                 }
             }
-        })
+            HandleTemplate::ParseError(err) => Err(BevyError::from(*err)),
+        }
     }
 
     fn clone_template(&self) -> Self {
@@ -365,6 +396,7 @@ impl<T: Asset> Template for HandleTemplate<T> {
             HandleTemplate::Path(asset_path) => HandleTemplate::Path(asset_path.clone()),
             HandleTemplate::Handle(handle) => HandleTemplate::Handle(handle.clone()),
             HandleTemplate::Value(value) => HandleTemplate::Value(value.clone()),
+            HandleTemplate::ParseError(err) => HandleTemplate::ParseError(*err),
         }
     }
 }

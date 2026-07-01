@@ -1092,7 +1092,9 @@ mod tests {
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
     use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
-    use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_asset::{
+        Asset, AssetApp, AssetLoader, AssetPath, AssetPlugin, AssetServer, Assets, Handle,
+    };
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::name::Name;
     use bevy_ecs::prelude::*;
@@ -2034,11 +2036,27 @@ mod tests {
             }
         }
 
-        let id = world.spawn_scene(scene()).unwrap().id();
-        let root = world.entity(id);
+        fn get_handle(world: &World, id: Entity) -> Handle<Image> {
+            world.entity(id).get::<Sprite>().unwrap().0.clone()
+        }
 
-        let sprite = root.get::<Sprite>().unwrap();
-        assert_eq!(sprite.0, handle);
+        let id = world.spawn_scene(scene()).unwrap().id();
+        assert_eq!(get_handle(world, id), handle);
+
+        let string = String::from("image.png");
+        let string_id = world.spawn_scene(bsn! { Sprite(string) }).unwrap().id();
+        assert_eq!(get_handle(world, string_id), handle);
+
+        let path = AssetPath::parse("image.png");
+        let path_id = world.spawn_scene(bsn! { Sprite(path) }).unwrap().id();
+        assert_eq!(get_handle(world, path_id), handle);
+
+        assert!(world.spawn_scene(bsn! { Sprite("malformed#") }).is_err());
+
+        let malformed_string = String::from("malformed#");
+        assert!(world
+            .spawn_scene(bsn! { Sprite(malformed_string) })
+            .is_err());
     }
 
     #[test]
