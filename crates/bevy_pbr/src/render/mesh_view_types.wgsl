@@ -23,6 +23,7 @@ const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
+const POINT_LIGHT_FLAGS_RECT_LIGHT_BIT: u32                         = 1u << 6u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,

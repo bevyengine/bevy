@@ -117,11 +117,16 @@ fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
 }
 
 // Returns the total number of objects in the given cluster.
+//
+// The per-type counts are laid out as:
+//   [0] = (offset, point lights, spot lights, rect lights)
+//   [1] = (reflection probes, irradiance volumes, decals, pad)
 fn cluster_object_count(cluster_index: u32) -> u32 {
     return
         offsets_and_counts.data[cluster_index][0].y +
         offsets_and_counts.data[cluster_index][0].z +
         offsets_and_counts.data[cluster_index][0].w +
         offsets_and_counts.data[cluster_index][1].x +
-        offsets_and_counts.data[cluster_index][1].y;
+        offsets_and_counts.data[cluster_index][1].y +
+        offsets_and_counts.data[cluster_index][1].z;
 }

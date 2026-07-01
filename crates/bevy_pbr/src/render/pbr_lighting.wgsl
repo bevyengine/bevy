@@ -2,11 +2,12 @@
 
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    mesh_view_types::RectLight,
     mesh_view_bindings as view_bindings,
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
-#import bevy_render::maths::{PI, orthonormalize}
+#import bevy_render::maths::{PI, orthonormalize, quat_rotate}
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -1011,8 +1012,26 @@ fn ltc_integrate_quad(
 }
 
 #ifdef AREA_LIGHT_LUTS
+// Decodes a rect light packed into a `ClusteredLight` (see `GpuClusteredLight`
+// in bevy_pbr/src/cluster/mod.rs).
+fn unpack_clustered_rect_light(light_id: u32) -> RectLight {
+    let light = &view_bindings::clustered_lights.data[light_id];
+    let rotation = (*light).light_custom_data;
+    return RectLight(
+        vec4<f32>((*light).color_inverse_square_range.xyz, 1.0),
+        (*light).position_radius.xyz,
+        // width
+        (*light).position_radius.w,
+        quat_rotate(rotation, vec3<f32>(1.0, 0.0, 0.0)),
+        // height
+        (*light).color_inverse_square_range.w,
+        quat_rotate(rotation, vec3<f32>(0.0, 1.0, 0.0)),
+        (*light).range,
+    );
+}
+
 fn rect_light(
-    light_id: u32,
+    light: RectLight,
     input: ptr<function, LightingInput>,
     enable_diffuse: bool,
 ) -> vec3<f32> {
@@ -1024,20 +1043,19 @@ fn rect_light(
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let perceptual_roughness = (*input).layers[LAYER_BASE].perceptual_roughness;
 
-    let light = &view_bindings::lights.rect_lights[light_id];
-    let light_to_frag = (*light).position - P;
+    let light_to_frag = light.position - P;
     let distance_square = dot(light_to_frag, light_to_frag);
-    let inverse_range_squared = 1.0 / max((*light).range * (*light).range, 0.0001);
+    let inverse_range_squared = 1.0 / max(light.range * light.range, 0.0001);
     let range_falloff = getRangeFalloff(distance_square, inverse_range_squared);
 
-    let light_normal = cross((*light).up, (*light).right);
-    let hw = (*light).right * (*light).width  * 0.5;
-    let hh = (*light).up   * (*light).height * 0.5;
+    let light_normal = cross(light.up, light.right);
+    let hw = light.right * light.width  * 0.5;
+    let hh = light.up   * light.height * 0.5;
     var corners: array<vec3<f32>, 4>;
-    corners[0] = (*light).position + hw - hh;
-    corners[1] = (*light).position - hw - hh;
-    corners[2] = (*light).position - hw + hh;
-    corners[3] = (*light).position + hw + hh;
+    corners[0] = light.position + hw - hh;
+    corners[1] = light.position - hw - hh;
+    corners[2] = light.position - hw + hh;
+    corners[3] = light.position + hw + hh;
 
     // Backface test
     if dot(light_normal, P - corners[0]) <= 0.0 {
@@ -1093,9 +1111,9 @@ fn rect_light(
     let inv_Fc = 1.0 - Fc;
 
     return ((spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
-        + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb * range_falloff;
+        + spec_weight_cc * spec_cc * clearcoat_strength) * light.color.rgb * range_falloff;
 #else
-    return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
+    return (spec_weight * spec + diffuse_color * diff) * light.color.rgb * range_falloff;
 #endif
 }
 #endif
