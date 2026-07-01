@@ -2,6 +2,7 @@ use super::RaytracingMesh3d;
 use bevy_asset::{AssetId, Assets};
 use bevy_derive::Deref;
 use bevy_ecs::{
+    lifecycle::RemovedComponents,
     resource::Resource,
     system::{Commands, Query},
 };
@@ -20,8 +21,16 @@ pub fn extract_raytracing_scene(
             Option<&PreviousGlobalTransform>,
         )>,
     >,
+    mut removed_raytracing_meshes: Extract<RemovedComponents<RaytracingMesh3d>>,
+    render_entities: Extract<Query<RenderEntity>>,
     mut commands: Commands,
 ) {
+    for main_entity in removed_raytracing_meshes.read() {
+        if let Ok(render_entity) = render_entities.get(main_entity) {
+            commands.entity(render_entity).remove::<RaytracingMesh3d>();
+        }
+    }
+
     for (render_entity, mesh, material, transform, previous_frame_transform) in &instances {
         let mut commands = commands.entity(render_entity);
 
