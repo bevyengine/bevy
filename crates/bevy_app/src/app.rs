@@ -161,6 +161,33 @@ impl App {
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    ///
+    /// [`should_exit()`](App::should_exit) should be called after every [`update()`](App::update).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// let mut app = App::new();
+    /// loop {
+    ///     println!("Start updating");
+    ///     app.world_mut().write_message(AppExit::Success);
+    ///     app.update();
+    ///     if let Some(exit) = app.should_exit() {
+    ///         match exit {
+    ///             AppExit::Success => {
+    ///                 println!("Should exit with success");
+    ///             }
+    ///             AppExit::Error(error) => {
+    ///                 println!("Should exit with error: {:?}", error);
+    ///             }
+    ///         }
+    ///         break;
+    ///     }
+    ///     /* Sleep for some time. */
+    /// }
+    /// ```
     pub fn update(&mut self) {
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
