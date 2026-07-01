@@ -10,7 +10,7 @@ use bevy_asset::{Assets, Handle};
 
 use bevy_image::TextureAtlasLayout;
 use bevy_math::{primitives::Rectangle, vec2};
-use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshBuilder, Meshable};
+use bevy_mesh::{Mesh, Mesh2d, MeshBuilder, Meshable};
 
 use bevy_platform::collections::HashMap;
 use bevy_shader::load_shader_library;
@@ -49,17 +49,18 @@ fn add_mesh(
     mut commands: Commands,
 ) {
     let quad = quad.get_or_insert_with(|| {
-        meshes.add(
-            Rectangle::from_size(vec2(1.0, 1.0))
+        meshes.add({
+            let mut mesh = Rectangle::from_size(vec2(1.0, 1.0))
                 .mesh()
                 .build()
-                .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
-                .compressed_mesh(
-                    MeshAttributeCompressionFlags::COMPRESS_POSITION
-                        | MeshAttributeCompressionFlags::COMPRESS_UV0,
-                    true,
-                ),
-        )
+                .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL);
+            mesh.compress_indices()
+                .compress_positions()
+                .unwrap()
+                .compress_uv0()
+                .unwrap();
+            mesh
+        })
     });
     for entity in sprites {
         commands.entity(entity).insert(Mesh2d(quad.clone()));
