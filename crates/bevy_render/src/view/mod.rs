@@ -10,7 +10,9 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    camera::{
+        ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, SortedCameras, TemporalJitter,
+    },
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -28,7 +30,7 @@ use alloc::sync::{Arc, Weak};
 use bevy_app::{App, Plugin};
 use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, VariantDefaults};
+use bevy_ecs::{entity::EntityHashMap, prelude::*, VariantDefaults};
 use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -278,11 +280,14 @@ pub struct RetainedViewEntity {
 
     /// Another entity associated with the view entity.
     ///
-    /// This is currently used for shadow cascades. If there are multiple
+    /// This is used for shadow cascades. If there are multiple
     /// cameras, each camera needs to have its own set of shadow cascades. Thus
     /// the light and subview index aren't themselves enough to uniquely
     /// identify a shadow cascade: we need the camera that the cascade is
     /// associated with as well. This entity stores that camera.
+    ///
+    /// This is also used for point and spot shadow views that
+    /// are specific to a camera, configurable via `has_own_point_and_spot_light_shadow_maps` per camera.
     ///
     /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
     pub auxiliary_entity: MainEntity,
@@ -603,7 +608,7 @@ impl ColorGrading {
 }
 
 /// A resource, part of the render world, that stores the resolved origin for
-/// LOD selection for shadow maps of point and spot lights.
+/// LOD selection for view-agnostic shadow maps of point and spot lights.
 #[derive(Default, Resource, Debug)]
 pub struct RenderShadowLodOrigin(pub Vec3);
 
@@ -666,6 +671,15 @@ pub struct ViewUniform {
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
+    /// This represents the total number of shadow maps (not counting shadow maps of different face indices)
+    /// that have been generated to be utilized by all possible views.
+    /// This count is used to fetch the correct point or spot shadow map to use for this view.
+    /// This must be **multiplied** with the `light_id`.
+    pub point_spot_shadow_map_count: u32,
+    /// This index is used to fetch the correct point or spot shadow map to use for this view.
+    /// This is used to accommodate views that may be configured to have their own point or spot shadow maps.
+    /// This must be **added after** the `shadow_map_count` is multiplied with the `light_id`.
+    pub point_spot_shadow_map_index: u32,
 }
 
 #[derive(Resource)]
@@ -1011,9 +1025,32 @@ pub fn prepare_view_uniforms(
     )>,
     frame_count: Res<FrameCount>,
     shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
+    sorted_cameras: Res<SortedCameras>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
+    // The logic here (i.e. the usage of sorted cameras) must preserve the ordering used
+    // to generate the list of auxiliary entities for RetainedViewEntities in prepare_lights
+    // Note that the view-agnostic shadow map, if it exists, is created after all the view-specific shadow
+    // maps are created, and therefore exists at index own_shadow_map_view_to_index.len()
+    let own_shadow_map_view_to_index: EntityHashMap<usize> = sorted_cameras
+        .0
+        .iter()
+        .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
+        .filter(|(_, extracted_camera, _, _, _, _, _)| {
+            extracted_camera.is_some_and(|camera| camera.has_own_point_and_spot_light_shadow_maps)
+        })
+        .map(|(entity, _, _, _, _, _, _)| entity)
+        .enumerate()
+        .map(|(index, entity)| (entity, index))
+        .collect();
+    let num_view_agnostic_shadow_map = if views.iter().any(|(_, camera, _, _, _, _, _)| {
+        camera.is_some_and(|camera| !camera.has_own_point_and_spot_light_shadow_maps)
+    }) {
+        1
+    } else {
+        0
+    };
     let Some(mut writer) =
         view_uniforms
             .uniforms
@@ -1075,14 +1112,15 @@ pub fn prepare_view_uniforms(
                 if extracted_view.retained_view_entity.auxiliary_entity
                     == MainEntity::from(Entity::PLACEHOLDER) =>
             {
-                // If this is a shadow map not associated with a camera (a point
-                // light or spot light shadow map), use the shadow LOD origin.
+                // If this is a shadow map not associated with a camera (the view-agnostic
+                // point light or spot light shadow map), use the shadow LOD origin.
                 shadow_lod_origin.0
             }
             (None, Some(shadow_lod_origin)) => {
                 // Otherwise, if we're rendering a shadow map that is associated
-                // with a camera (i.e. a directional light shadow map, at
-                // present), we use the position of that camera as the LOD view
+                // with a camera (i.e. a directional light shadow map, or a point/spot
+                // light shadow map associated with an opted-in camera),
+                // we use the position of that camera as the LOD view
                 // position. This ensures that each rendered object has a shadow
                 // and that no invisible objects have shadows.
                 match views.get(
@@ -1119,6 +1157,15 @@ pub fn prepare_view_uniforms(
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
+                point_spot_shadow_map_count: (own_shadow_map_view_to_index.len()
+                    + num_view_agnostic_shadow_map)
+                    as u32,
+                point_spot_shadow_map_index: *own_shadow_map_view_to_index
+                    .get(&entity)
+                    // Refer to the view agnostic point/spot shadow map,
+                    // which is after all of the view-specific ones.
+                    .unwrap_or(&(own_shadow_map_view_to_index.len()))
+                    as u32,
             }),
         };
 

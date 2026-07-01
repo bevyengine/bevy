@@ -465,6 +465,8 @@ fn apply_pbr_lighting(
         view_bindings::view.view_from_world[2].z,
         view_bindings::view.view_from_world[3].z
     ), in.world_position);
+    let point_spot_shadow_map_count = view_bindings::view.point_spot_shadow_map_count;
+    let point_spot_shadow_map_index = view_bindings::view.point_spot_shadow_map_index;
     let cluster_index = clustering::view_fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
@@ -493,7 +495,14 @@ fn apply_pbr_lighting(
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal, in.frag_coord.xy);
+            shadow = shadows::fetch_point_shadow(
+                light_id,
+                point_spot_shadow_map_count,
+                point_spot_shadow_map_index,
+                in.world_position,
+                in.world_normal,
+                in.frag_coord.xy
+            );
         }
 
 #ifdef CONTACT_SHADOWS
@@ -523,7 +532,14 @@ fn apply_pbr_lighting(
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal, in.frag_coord.xy);
+            transmitted_shadow = shadows::fetch_point_shadow(
+                light_id,
+                point_spot_shadow_map_count,
+                point_spot_shadow_map_index,
+                diffuse_transmissive_lobe_world_position,
+                -in.world_normal,
+                in.frag_coord.xy
+            );
         }
 
         let transmitted_light_contrib =
@@ -554,6 +570,8 @@ fn apply_pbr_lighting(
                     mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(
                 light_id,
+                point_spot_shadow_map_count,
+                point_spot_shadow_map_index,
                 in.world_position,
                 in.world_normal,
                 view_bindings::clustered_lights.data[light_id].shadow_map_near_z,
@@ -590,6 +608,8 @@ fn apply_pbr_lighting(
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_spot_shadow(
                 light_id,
+                point_spot_shadow_map_count,
+                point_spot_shadow_map_index,
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,
                 view_bindings::clustered_lights.data[light_id].shadow_map_near_z,
