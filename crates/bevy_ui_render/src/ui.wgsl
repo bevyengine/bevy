@@ -25,11 +25,12 @@ struct VertexOutput {
 
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) flags: u32,
-    @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) border: vec4<f32>,    
+    @location(4) @interpolate(flat) radius_x: vec4<f32>,
+    @location(5) @interpolate(flat) radius_y: vec4<f32>,
+    @location(6) @interpolate(flat) border: vec4<f32>,
 
     // Position relative to the center of the rectangle.
-    @location(6) point: vec2<f32>,
+    @location(7) point: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -41,19 +42,21 @@ fn vertex(
     @location(3) flags: u32,
 
     // x: top left, y: top right, z: bottom right, w: bottom left.
-    @location(4) radius: vec4<f32>,
+    @location(4) radius_x: vec4<f32>,
+    @location(5) radius_y: vec4<f32>,
 
     // x: left, y: top, z: right, w: bottom.
-    @location(5) border: vec4<f32>,
-    @location(6) size: vec2<f32>,
-    @location(7) point: vec2<f32>,
+    @location(6) border: vec4<f32>,
+    @location(7) size: vec2<f32>,
+    @location(8) point: vec2<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.color = vertex_color;
     out.flags = flags;
-    out.radius = radius;
+    out.radius_x = radius_x;
+    out.radius_y = radius_y;
     out.size = size;
     out.border = border;
     out.point = point;
@@ -77,49 +80,74 @@ fn vertex(
 //  - `corner_radii` -> The radius of each rounded corner. Ordered counter clockwise starting 
 //                    top left:
 //                      x: top left, y: top right, z: bottom right, w: bottom left.
-fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) -> f32 {
+fn sd_rounded_box(
+    point: vec2<f32>,
+    size: vec2<f32>,
+    corner_radii_x: vec4<f32>,
+    corner_radii_y: vec4<f32>,
+) -> f32 {
     // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
     // Else select top left (x) and top right corner radius (y).
-    let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
+    let rs = select(corner_radii_x.xy, corner_radii_x.wz, 0.0 < point.y);
+    let rys = select(corner_radii_y.xy, corner_radii_y.wz, 0.0 < point.y);
     // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
     // select statement would return the incorrect value for the bottom pair.
-    let radius = select(rs.x, rs.y, 0.0 < point.x);
+    let radius = vec2(select(rs.x, rs.y, 0.0 < point.x), select(rys.x, rys.y, 0.0 < point.x));
     // Vector from the corner closest to the point, to the point.
     let corner_to_point = abs(point) - 0.5 * size;
+    let straight_distance = max(corner_to_point.x, corner_to_point.y);
+    if min(radius.x, radius.y) <= 0.0 {
+        return straight_distance;
+    }
     // Vector from the center of the radius circle to the point.
     let q = corner_to_point + radius;
-    // Length from center of the radius circle to the point, zeros a component if the point is not 
-    // within the quadrant of the radius circle that is part of the curved corner.
-    let l = length(max(q, vec2(0.0)));
-    let m = min(max(q.x, q.y), 0.0);
-    return l + m - radius;
+    let edge_distance = max(q.x - radius.x, q.y - radius.y);
+    let ellipse_point = q / radius;
+    let ellipse_point_length = length(ellipse_point);
+    let ellipse_surface = radius * ellipse_point / ellipse_point_length;
+    let corner_distance = length(q - ellipse_surface) * sign(ellipse_point_length - 1.0);
+    return select(edge_distance, corner_distance, q.x > 0.0 && q.y > 0.0);
 }
 
-fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
+fn sd_inset_rounded_box(
+    point: vec2<f32>,
+    size: vec2<f32>,
+    radius_x: vec4<f32>,
+    radius_y: vec4<f32>,
+    inset: vec4<f32>,
+) -> f32 {
     let inner_size = size - inset.xy - inset.zw;
     let inner_center = inset.xy + 0.5 * inner_size - 0.5 * size;
     let inner_point = point - inner_center;
 
-    var r = radius;
+    var rx = radius_x;
+    var ry = radius_y;
 
     // Top left corner.
-    r.x = r.x - max(inset.x, inset.y);
+    rx.x = rx.x - inset.x;
+    ry.x = ry.x - inset.y;
 
     // Top right corner.
-    r.y = r.y - max(inset.z, inset.y);
+    rx.y = rx.y - inset.z;
+    ry.y = ry.y - inset.y;
 
     // Bottom right corner.
-    r.z = r.z - max(inset.z, inset.w); 
+    rx.z = rx.z - inset.z;
+    ry.z = ry.z - inset.w;
 
     // Bottom left corner.
-    r.w = r.w - max(inset.x, inset.w);
+    rx.w = rx.w - inset.x;
+    ry.w = ry.w - inset.w;
 
     let half_size = inner_size * 0.5;
-    let min_size = min(half_size.x, half_size.y);
 
-    r = min(max(r, vec4(0.0)), vec4<f32>(min_size));
+    rx = min(max(rx, vec4(0.0)), vec4<f32>(half_size.x));
+    ry = min(max(ry, vec4(0.0)), vec4<f32>(half_size.y));
+    let is_zero_radius = min(rx, ry) <= vec4(0.0);
+    rx = select(rx, vec4(0.0), is_zero_radius);
+    ry = select(ry, vec4(0.0), is_zero_radius);
 
-    return sd_rounded_box(inner_point, inner_size, r);
+    return sd_rounded_box(inner_point, inner_size, rx, ry);
 }
 
 fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f32>, flags: u32) -> bool {
@@ -153,7 +181,8 @@ fn draw_uinode_border(
     color: vec4<f32>,
     point: vec2<f32>,
     size: vec2<f32>,
-    radius: vec4<f32>,
+    radius_x: vec4<f32>,
+    radius_y: vec4<f32>,
     border: vec4<f32>,
     flags: u32,
 ) -> vec4<f32> {
@@ -163,12 +192,12 @@ fn draw_uinode_border(
     // * Positive values indicate the point is outside the shape.
 
     // Signed distance from the exterior boundary.
-    let external_distance = sd_rounded_box(point, size, radius);
+    let external_distance = sd_rounded_box(point, size, radius_x, radius_y);
 
     // Signed distance from the border's internal edge (the signed distance is negative if the point 
     // is inside the rect but not on the border).
     // If the border size is set to zero, this is the same as the external distance.
-    let internal_distance = sd_inset_rounded_box(point, size, radius, border);
+    let internal_distance = sd_inset_rounded_box(point, size, radius_x, radius_y, border);
 
     // Signed distance from the border (the intersection of the rect with its border).
     // Points inside the border have negative signed distance. Any point outside the border, whether 
@@ -196,12 +225,13 @@ fn draw_uinode_background(
     color: vec4<f32>,
     point: vec2<f32>,
     size: vec2<f32>,
-    radius: vec4<f32>,
+    radius_x: vec4<f32>,
+    radius_y: vec4<f32>,
     border: vec4<f32>,
     flags: u32,
 ) -> vec4<f32> {
     // When drawing the background only draw the internal area and not the border.
-    let internal_distance = sd_inset_rounded_box(point, size, radius, border) * select(1., -1, enabled(flags, INVERT));
+    let internal_distance = sd_inset_rounded_box(point, size, radius_x, radius_y, border) * select(1., -1, enabled(flags, INVERT));
 
 #ifdef ANTI_ALIAS
     let t = antialias(internal_distance);
@@ -221,8 +251,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     if enabled(in.flags, BORDER_ANY) {
-        return draw_uinode_border(color, in.point, in.size, in.radius, in.border, in.flags);
+        return draw_uinode_border(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     } else {
-        return draw_uinode_background(color, in.point, in.size, in.radius, in.border, in.flags);
+        return draw_uinode_background(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
 }
