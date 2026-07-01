@@ -58,6 +58,7 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BorderColor::from(Color::from(SLATE_300)),
+            TextInput::default(),
             EditableText {
                 allow_newlines: true,
                 ..default()

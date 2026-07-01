@@ -21,6 +21,7 @@ use bevy_text::{
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect,
 };
+use bevy_ui_widgets::TextInput;
 
 use crate::{
     constants::{fonts, size},
@@ -106,6 +107,7 @@ impl FeathersTextInput {
                 } ,
             }
             FeathersTextInput
+            TextInput
             EditableText {
                 cursor_width: 0.3,
                 visible_width: {props.visible_width},

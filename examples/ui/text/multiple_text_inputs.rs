@@ -15,6 +15,7 @@ use bevy::input_focus::{
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
@@ -119,6 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: px(4.).all(),
                         ..default()
                     },
+                    TextInput::default(),
                     EditableText::new(format!("Initial text {row}")),
                     TextCursorStyle::default(),
                     font.clone(),

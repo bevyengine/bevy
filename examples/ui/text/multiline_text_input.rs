@@ -7,6 +7,7 @@ use bevy::input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin}
 use bevy::input_focus::{AutoFocus, FocusCause, FocusedInput, InputFocus};
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 use bevy::ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
     Activate, Button, MenuAction, MenuButton, MenuEvent, MenuFocusState, MenuItem, MenuPopup,
@@ -66,6 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 padding: px(8.).all(),
                                 ..default()
                             },
+                            TextInput::default(),
                             EditableText {
                                 visible_lines: Some(8.),
                                 allow_newlines: true,
@@ -148,6 +150,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
+                                    TextInput::default(),
                                     EditableText::new("8"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit() || c == '.'),
                                     TextCursorStyle {
@@ -232,6 +235,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
+                                    TextInput::default(),
                                     EditableText::new("30"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit()),
                                     TextCursorStyle {
@@ -313,6 +317,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
+                                    TextInput::default(),
                                     EditableText::new("0"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit() || c == '.'),
                                     TextCursorStyle {

@@ -2057,6 +2057,7 @@ mod editable_text {
     use bevy::text::EditableText;
     use bevy::text::TextEdit;
     use bevy::ui::widget::TextScroll;
+    use bevy::ui_widgets::TextInput;
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::EditableText)));
@@ -2073,6 +2074,7 @@ mod editable_text {
             DespawnOnExit(super::Scene::EditableText),
             children![
                 (
+                    TextInput::default(),
                     EditableText {
                         pending_edits: vec![TextEdit::Insert("Single line EditableText".into())],
                         ..default()
@@ -2085,6 +2087,7 @@ mod editable_text {
                     BorderColor::all(YELLOW),
                 ),
                 (
+                    TextInput::default(),
                     EditableText {
                         pending_edits: vec![
                             TextEdit::Insert(
@@ -2105,6 +2108,7 @@ mod editable_text {
                     BorderColor::all(YELLOW),
                 ),
                 (
+                    TextInput::default(),
                     EditableText {
                         pending_edits: vec![
                             TextEdit::Insert(

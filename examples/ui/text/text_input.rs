@@ -31,6 +31,7 @@ use bevy::input_focus::{
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
@@ -124,6 +125,7 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
             },
             BorderColor::from(Color::from(SLATE_300)),
             Name::new(if is_left { "Left" } else { "Right" }),
+            TextInput::default(),
             EditableText {
                 visible_width: Some(10.),
                 allow_newlines: false,
