@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.19.0-dev"
+version = "0.20.0-dev"
 edition = "2024"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevy.org"
@@ -8,7 +8,7 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.89.0"
+rust-version = "1.95.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor", "backtrace"]
@@ -76,7 +76,6 @@ std = [
   "arrayvec/std",
   "log/std",
   "bevy_platform/std",
-  "downcast-rs/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -89,15 +88,15 @@ critical-section = [
 hotpatching = ["dep:subsecond"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.19.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", features = [
+bevy_ptr = { path = "../bevy_ptr", version = "0.20.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", features = [
   "smallvec",
   "indexmap",
 ], default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", default-features = false }
-bevy_ecs_macros = { path = "macros", version = "0.19.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
+bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", default-features = false }
+bevy_ecs_macros = { path = "macros", version = "0.20.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
@@ -114,20 +113,19 @@ derive_more = { version = "2", default-features = false, features = [
   "into",
   "as_ref",
 ] }
-nonmax = { version = "0.5", default-features = false }
+nonmax = { version = "0.5.4", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false }
 smallvec = { version = "1", default-features = false, features = [
   "union",
   "const_generics",
 ] }
 indexmap = { version = "2.5.0", default-features = false }
-variadics_please = { version = "1.1", default-features = false }
+variadics_please = { version = "2.0", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
 subsecond = { version = "0.7.0-rc.0", optional = true }
 slotmap = { version = "1.0.7", default-features = false }
-downcast-rs = { version = "2", default-features = false }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]

@@ -10,7 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
     message::{message_update_system, MessageCursor},
     observer::IntoObserver,
@@ -23,7 +23,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -42,7 +42,6 @@ bevy_ecs::define_label!(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
     AppLabel,
-    APP_LABEL_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
@@ -93,7 +92,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
-    default_error_handler: Option<ErrorHandler>,
+    fallback_error_handler: Option<ErrorHandler>,
 }
 
 impl Debug for App {
@@ -130,6 +129,10 @@ impl Default for App {
                 .in_set(bevy_ecs::message::MessageUpdateSystems)
                 .run_if(bevy_ecs::message::message_update_condition),
         );
+        app.add_systems(
+            crate::Last,
+            bevy_ecs::system::despawn_unused_registered_systems,
+        );
         app.add_message::<AppExit>();
 
         app
@@ -153,7 +156,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
-            default_error_handler: None,
+            fallback_error_handler: None,
         }
     }
 
@@ -380,6 +383,24 @@ impl App {
         O: 'static,
     {
         self.main_mut().register_system(system)
+    }
+
+    /// Registers a system and returns a tracked [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`]. The system entity will be automatically
+    /// queued for despawn when the last clone of the returned handle is dropped.
+    ///
+    /// See [`World::register_tracked_system`] for more details.
+    ///
+    /// [`SystemHandle`]: bevy_ecs::system::SystemHandle
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> bevy_ecs::system::SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.main_mut().register_tracked_system(system)
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
@@ -687,10 +708,61 @@ impl App {
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(
-        &mut self,
-    ) -> &mut Self {
+    pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
+        self
+    }
+
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<i32>()
+    ///     .register_type::<String>()
+    ///     .register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        self.main_mut().register_type_conversion(function);
+        self
+    }
+
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<u8>()
+    ///     .register_type::<u32>()
+    ///     .register_into_type_conversion::<u8, u32>();
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        self.main_mut().register_into_type_conversion::<T, U>();
         self
     }
 
@@ -1181,10 +1253,10 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
-        if let Some(handler) = self.default_error_handler {
+        if let Some(handler) = self.fallback_error_handler {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
@@ -1413,10 +1485,10 @@ impl App {
     ///
     /// Note that the error handler of existing subapps may differ.
     pub fn get_error_handler(&self) -> Option<ErrorHandler> {
-        self.default_error_handler
+        self.fallback_error_handler
     }
 
-    /// Set the [default error handler] for the all subapps (including the main one and future ones)
+    /// Set the [fallback error handler] for the all subapps (including the main one and future ones)
     /// that do not have one.
     ///
     /// May only be called once and should be set by the application, not by libraries.
@@ -1437,17 +1509,17 @@ impl App {
     ///     .run();
     /// ```
     ///
-    /// [default error handler]: bevy_ecs::error::DefaultErrorHandler
+    /// [fallback error handler]: bevy_ecs::error::FallbackErrorHandler
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
         assert!(
-            self.default_error_handler.is_none(),
+            self.fallback_error_handler.is_none(),
             "`set_error_handler` called multiple times on same `App`"
         );
-        self.default_error_handler = Some(handler);
+        self.fallback_error_handler = Some(handler);
         for sub_app in self.sub_apps.iter_mut() {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self
     }
@@ -1473,6 +1545,11 @@ fn run_once(mut app: App) -> AppExit {
 
     app.should_exit().unwrap_or(AppExit::Success)
 }
+
+/// A [`SystemSet`] for systems that should run before app exit (but
+/// after an [`AppExit`] message has been sent).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnAppExitSystems;
 
 /// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
@@ -2032,5 +2109,22 @@ mod tests {
         let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_messages().count(), 0);
+    }
+
+    #[test]
+    fn auto_despawn_unused_registered_systems() {
+        let mut app = App::new();
+
+        fn my_system() {}
+
+        let handle = app.register_tracked_system(my_system);
+        let entity = handle.entity();
+
+        app.update();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        drop(handle);
+        app.update();
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

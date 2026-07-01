@@ -8,7 +8,7 @@ use crate::{
     archetype::Archetypes,
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
-    component::{ComponentId, Components},
+    component::{ComponentId, Components, Mutable},
     entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
@@ -32,6 +32,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use super::Populated;
@@ -262,7 +263,7 @@ pub unsafe trait SystemParam: Sized {
     /// an appropriate [`SystemParamValidationError`] should be returned.
     /// Systems will convert this to a [`RunSystemError`](super::RunSystemError),
     /// and the built-in executors will ignore any "skipped" validation results,
-    /// but pass any "invalid" results to the default error handler defined in [`bevy_ecs::error`].
+    /// but pass any "invalid" results to the fallback error handler defined in [`bevy_ecs::error`].
     ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
@@ -725,7 +726,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
+unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 
@@ -1952,6 +1953,57 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                     .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}")),
             );
         });
+    }
+}
+
+// SAFETY: Registers access for each element of `state`.
+// If any one conflicts, it will panic.
+unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
+    type State = SmallVec<[T::State; N]>;
+
+    type Item<'world, 'state> = SmallVec<[T::Item<'world, 'state>; N]>;
+
+    fn init_state(_world: &mut World) -> Self::State {
+        SmallVec::new()
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        for state in state {
+            T::init_access(state, system_meta, component_access_set, world);
+        }
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        state
+            .iter_mut()
+            // SAFETY:
+            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
+            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
+            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
+            .collect()
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        for state in state {
+            T::apply(state, system_meta, world);
+        }
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        for state in state {
+            T::queue(state, system_meta, world.reborrow());
+        }
     }
 }
 

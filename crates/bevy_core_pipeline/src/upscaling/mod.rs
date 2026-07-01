@@ -82,10 +82,15 @@ fn prepare_view_upscaling_pipelines(
             None
         };
 
+        let Some(target_format) = view_target.out_texture_view_format() else {
+            continue;
+        };
+
         let key = BlitPipelineKey {
-            texture_format: view_target.out_texture_view_format(),
+            target_format,
             blend_state,
             samples: 1,
+            source_space: view_target.compositing_space,
         };
 
         if maybe_pipeline.is_none_or(|ViewUpscalingPipeline(_, cached_key)| *cached_key != key) {

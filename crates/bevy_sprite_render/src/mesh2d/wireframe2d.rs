@@ -346,7 +346,9 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        if descriptor.primitive.topology.is_triangles() {
+            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        }
         Ok(descriptor)
     }
 }
@@ -439,7 +441,9 @@ pub struct RenderWireframeMaterial {
     pub color: [f32; 4],
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh2dWireframe(pub Handle<Wireframe2dMaterial>);
 

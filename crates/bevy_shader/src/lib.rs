@@ -34,6 +34,6 @@ macro_rules! load_shader_library {
                 $path
                 $(,$settings)?
             );
-        core::mem::forget(handle);
+        ::core::mem::forget(handle);
     }
 }

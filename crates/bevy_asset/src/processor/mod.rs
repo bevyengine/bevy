@@ -203,6 +203,7 @@ impl AssetProcessor {
         self.data.sources.get(id.into())
     }
 
+    /// Retrieves all the [`AssetSource`]s for this processor.
     #[inline]
     pub fn sources(&self) -> &AssetSources {
         &self.data.sources
@@ -984,13 +985,14 @@ impl AssetProcessor {
             .await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
+    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, mut path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
             return;
         }
         while let Some(parent) = path.parent() {
+            path = parent;
             if parent == Path::new("") {
                 break;
             }
@@ -1829,6 +1831,7 @@ pub enum InitializeError {
 /// An error when attempting to set the transaction log factory.
 #[derive(Error, Debug)]
 pub enum SetTransactionLogFactoryError {
+    /// The transaction log is already in use, so setting the factory does nothing.
     #[error("Transaction log is already in use so setting the factory does nothing")]
     AlreadyInUse,
 }
@@ -1836,11 +1839,15 @@ pub enum SetTransactionLogFactoryError {
 /// An error when retrieving an asset processor.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum GetProcessorError {
+    /// The processor of that name does not exist.
     #[error("The processor '{0}' does not exist")]
     Missing(String),
+    /// The given short name is ambiguous between several processors.
     #[error("The processor '{processor_short_name}' is ambiguous between several processors: {ambiguous_processor_names:?}")]
     Ambiguous {
+        /// The given string for the processor name.
         processor_short_name: String,
+        /// The list of processors that might match it.
         ambiguous_processor_names: Vec<&'static str>,
     },
 }

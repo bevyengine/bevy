@@ -17,62 +17,90 @@
 //! state (as well as any other related game state) in response to a change event emitted by the
 //! widget. The primary motivation for this is to avoid two-way data binding in scenarios where the
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
+//!
+//! ## Best practices for event propagation
+//!
+//! Generally, when a widget handles an event,
+//! propagation of that event to parent entities should be stopped.
+//! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
+//!
+//! For more guidance on this, see the documentation for [`EntityEvent`].
 
 mod button;
 mod checkbox;
-mod editable_text;
+mod dialog;
+mod list;
 mod menu;
+mod modal;
 mod observe;
 pub mod popover;
 mod radio;
+mod scrollarea;
 mod scrollbar;
 mod slider;
+mod text_input;
 
 pub use button::*;
 pub use checkbox::*;
-pub use editable_text::*;
+pub use dialog::*;
+pub use list::*;
 pub use menu::*;
+pub use modal::*;
 pub use observe::*;
 pub use radio::*;
+pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
+pub use text_input::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
-use bevy_ecs::{entity::Entity, event::EntityEvent};
+use bevy_ecs::{entity::Entity, event::EntityEvent, reflect::ReflectEvent};
+use bevy_reflect::Reflect;
 
 use crate::popover::PopoverPlugin;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
+#[derive(Default)]
 pub struct UiWidgetsPlugins;
 
 impl PluginGroup for UiWidgetsPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(PopoverPlugin)
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
+            .add(EditableTextInputPlugin)
+            .add(ListBoxPlugin)
             .add(MenuPlugin)
+            .add(DialogPlugin)
+            .add(ModalDialogPlugin)
+            .add(PopoverPlugin)
             .add(RadioGroupPlugin)
+            .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
-            .add(EditableTextInputPlugin)
     }
 }
 
 /// Notification sent by a button or menu item.
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct Activate {
     /// The activated entity.
     pub entity: Entity,
 }
 
 /// Notification sent by a widget that edits a scalar value.
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct ValueChange<T> {
     /// The id of the widget that produced this value.
     #[event_target]
     pub source: Entity,
     /// The new value.
     pub value: T,
+    /// If false, it means that we are in the middle of an interaction (slider being dragged,
+    /// user typing), while if true it means that the user's interaction is finished (mouse button
+    /// released, drag ended, input lost focus).
+    pub is_final: bool,
 }

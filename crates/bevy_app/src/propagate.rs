@@ -74,12 +74,12 @@ pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
@@ -161,6 +161,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
     mut removed: RemovedComponents<Propagate<C>>,
     relationship: Query<&R>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
+    sources: Query<(), With<Propagate<C>>>,
 ) {
     for (entity, source) in &changed {
         commands
@@ -170,7 +171,9 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
 
     // set `Inherited::<C>` based on ancestry when `Propagate::<C>` is removed
     for removed in removed.read() {
-        if let Ok(mut commands) = commands.get_entity(removed) {
+        if !sources.contains(removed)
+            && let Ok(mut commands) = commands.get_entity(removed)
+        {
             if let Some(inherited) = relationship
                 .get(removed)
                 .ok()
@@ -263,7 +266,7 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
 
     // and removed
     for entity in removed.read() {
-        if let Ok((Some(targets), _, _)) = recurse.get(entity) {
+        if let Ok((Some(targets), None, _)) = recurse.get(entity) {
             to_process.extend(targets.iter().map(|target| (target, None)));
         }
     }
@@ -393,6 +396,32 @@ mod tests {
     }
 
     #[test]
+    fn test_remove_and_reinsert_propagate() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let parent = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let child = app.world_mut().spawn_empty().insert(ChildOf(parent)).id();
+
+        app.update();
+
+        app.world_mut()
+            .entity_mut(parent)
+            .remove::<Propagate<TestValue>>()
+            .insert(Propagate(TestValue(2)));
+
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&TestValue>()
+                .get_many(app.world(), [parent, child]),
+            Ok([&TestValue(2), &TestValue(2)])
+        );
+    }
+
+    #[test]
     fn test_remove_orphan() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
@@ -477,6 +506,45 @@ mod tests {
         app.update();
 
         assert_eq!(query.get(app.world(), propagatee), Ok(&TestValue(2)));
+    }
+
+    #[test]
+    fn test_detach_and_reattach_propagates_to_descendants() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let mut query = app.world_mut().query::<&TestValue>();
+
+        let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let intermediate = app
+            .world_mut()
+            .spawn_empty()
+            .insert(ChildOf(propagator))
+            .id();
+        let propagatee = app
+            .world_mut()
+            .spawn_empty()
+            .insert(ChildOf(intermediate))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [intermediate, propagatee]),
+            Ok([&TestValue(1), &TestValue(1)])
+        );
+
+        app.world_mut()
+            .entity_mut(intermediate)
+            .remove::<ChildOf>()
+            .insert(ChildOf(propagator));
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [intermediate, propagatee]),
+            Ok([&TestValue(1), &TestValue(1)])
+        );
     }
 
     #[test]

@@ -1,7 +1,11 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+use bevy::{
+    color::palettes::basic::*,
+    input_focus::{FocusCause, InputFocus},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -39,7 +43,7 @@ fn button_system(
 
         match *interaction {
             Interaction::Pressed => {
-                input_focus.set(entity);
+                input_focus.set(entity, FocusCause::Pressed);
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 *border_color = BorderColor::all(RED);
@@ -48,7 +52,7 @@ fn button_system(
                 button.set_changed();
             }
             Interaction::Hovered => {
-                input_focus.set(entity);
+                input_focus.set(entity, FocusCause::Pressed);
                 **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 *border_color = BorderColor::all(Color::WHITE);

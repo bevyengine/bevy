@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{dev_tools::world_asset_helpers::merge_all_mesh_3d, prelude::*};
 use rand::RngExt;
 
 const BASE_URL: &str = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
@@ -12,9 +12,11 @@ pub fn strip_base_url(path: String) -> String {
 #[derive(Resource)]
 pub struct CityAssets {
     pub untyped_assets: Vec<UntypedHandle>,
-    pub cars: Vec<Handle<Scene>>,
-    pub crossroad: Handle<Scene>,
-    pub road_straight: Handle<Scene>,
+    pub cars: Vec<Handle<WorldAsset>>,
+    pub car_meshes: Vec<Handle<Mesh>>,
+    pub car_material: Handle<StandardMaterial>,
+    pub crossroad: Handle<WorldAsset>,
+    pub road_straight: Handle<WorldAsset>,
     pub high_density: Buildings,
     pub medium_density: Buildings,
     pub low_density: Buildings,
@@ -23,15 +25,19 @@ pub struct CityAssets {
         Handle<StandardMaterial>,
         Handle<StandardMaterial>,
     ),
-    pub tree_small: Handle<Scene>,
-    pub tree_large: Handle<Scene>,
-    pub path_stones_long: Handle<Scene>,
-    pub fence: Handle<Scene>,
+    pub tree_small: Handle<WorldAsset>,
+    pub tree_large: Handle<WorldAsset>,
+    pub path_stones_long: Handle<WorldAsset>,
+    pub fence: Handle<WorldAsset>,
 }
 
 impl CityAssets {
-    pub fn get_random_car<R: RngExt>(&self, rng: &mut R) -> Handle<Scene> {
-        self.cars[rng.random_range(0..self.cars.len())].clone()
+    pub fn get_random_car<R: RngExt>(
+        &self,
+        rng: &mut R,
+    ) -> (Mesh3d, MeshMaterial3d<StandardMaterial>) {
+        let mesh = self.car_meshes[rng.random_range(0..self.car_meshes.len())].clone();
+        (Mesh3d(mesh), MeshMaterial3d(self.car_material.clone()))
     }
 }
 
@@ -67,6 +73,13 @@ pub fn load_assets(
             handle
         }};
     }
+
+    let car_texture: Handle<Image> =
+        load_asset!(format!("{base_url}/car-kit/Textures/colormap.png"));
+    let car_material = materials.add(StandardMaterial {
+        base_color_texture: Some(car_texture),
+        ..Default::default()
+    });
 
     let cars = {
         // TODO generate color variations
@@ -205,23 +218,25 @@ pub fn load_assets(
         (mesh, default_material, grass_material)
     };
 
-    let tree_small: Handle<Scene> =
+    let tree_small: Handle<WorldAsset> =
         load_asset!(GltfAssetLabel::Scene(0)
             .from_asset(format!("{base_url}/city-kit-suburban/tree-small.glb")));
-    let tree_large: Handle<Scene> =
+    let tree_large: Handle<WorldAsset> =
         load_asset!(GltfAssetLabel::Scene(0)
             .from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")));
 
-    let path_stones_long: Handle<Scene> = load_asset!(GltfAssetLabel::Scene(0)
+    let path_stones_long: Handle<WorldAsset> = load_asset!(GltfAssetLabel::Scene(0)
         .from_asset(format!("{base_url}/city-kit-suburban/path-stones-long.glb")));
 
-    let fence: Handle<Scene> = load_asset!(
+    let fence: Handle<WorldAsset> = load_asset!(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
     commands.insert_resource(CityAssets {
         untyped_assets,
         cars,
+        car_meshes: vec![],
+        car_material,
         crossroad,
         road_straight,
         high_density,
@@ -233,4 +248,24 @@ pub fn load_assets(
         path_stones_long,
         fence,
     });
+}
+
+/// Merge the meshes of all the cars gltf into a single mesh per car.
+///
+/// The asset pack we are using uses a separate mesh for each tire of the car and some also have
+/// doors as separate meshes. This is useful if you want to animate these element individually but
+/// in this scene we don't need to do that. Having multiple meshes for a single car means we need
+/// to run transform propagation on all these meshes and it will also generate even more indirect
+/// commands for each of those meshes.
+pub fn merge_car_meshes(
+    city_assets: &mut CityAssets,
+    world_assets: &mut Assets<WorldAsset>,
+    meshes: &mut Assets<Mesh>,
+) {
+    for car_scene in &city_assets.cars {
+        let Some(merged) = merge_all_mesh_3d(world_assets, meshes, car_scene) else {
+            continue;
+        };
+        city_assets.car_meshes.push(meshes.add(merged));
+    }
 }

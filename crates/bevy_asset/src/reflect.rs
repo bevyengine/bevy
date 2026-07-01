@@ -8,7 +8,7 @@ use uuid::Uuid;
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
-    FromReflect, FromType, PartialReflect, Reflect, TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeRegistry,
 };
 
 use crate::{
@@ -156,8 +156,8 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
-    fn from_type() -> Self {
+impl<A: Asset + FromReflect> CreateTypeData<A> for ReflectAsset {
+    fn create_type_data(_input: ()) -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
@@ -253,8 +253,8 @@ impl ReflectHandle {
     }
 }
 
-impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
-    fn from_type() -> Self {
+impl<A: Asset> CreateTypeData<Handle<A>> for ReflectHandle {
+    fn create_type_data(_input: ()) -> Self {
         ReflectHandle {
             asset_type_id: TypeId::of::<A>(),
             downcast_handle_untyped: |handle: &dyn Any| {
@@ -398,7 +398,7 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
 pub trait LoadFromPath {
     /// Initiates the load for the given expected type ID, and the path.
     ///
-    /// See [`AssetServer::load_erased`] for more.
+    /// See [`LoadBuilder::load_erased`](crate::LoadBuilder::load_erased) for more.
     fn load_from_path_erased(&mut self, type_id: TypeId, path: AssetPath<'static>)
         -> UntypedHandle;
 }
@@ -409,7 +409,7 @@ impl LoadFromPath for LoadContext<'_> {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.loader().with_dynamic_type(type_id).load(path)
+        self.load_builder().load_erased(type_id, path)
     }
 }
 
@@ -419,7 +419,7 @@ impl LoadFromPath for AssetServer {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.load_erased(type_id, path)
+        self.load_builder().load_erased(type_id, path)
     }
 }
 
@@ -429,7 +429,7 @@ impl LoadFromPath for &AssetServer {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.load_erased(type_id, path)
+        self.load_builder().load_erased(type_id, path)
     }
 }
 
@@ -463,7 +463,7 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
             else {
                 return Err(D::Error::custom(format!(
                     "Could not find asset type by name \"{}\" for UntypedHandle",
-                    &typed_handle_reference.asset_type
+                    typed_handle_reference.asset_type
                 )));
             };
             let type_id = asset_type.type_id();
@@ -625,7 +625,7 @@ mod tests {
             let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
             let asset_server = app.world().resource::<AssetServer>().clone();
 
-            let untyped = asset_server.load_untyped("def.cool.ron");
+            let untyped = asset_server.load_builder().load_untyped("def.cool.ron");
             run_app_until(&mut app, |_| asset_server.is_loaded(&untyped).then_some(()));
             let untyped = app
                 .world()

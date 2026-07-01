@@ -23,7 +23,6 @@ use crate::{
     relationship::{
         MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
     },
-    resource::Resource,
     storage::SparseSetIndex,
 };
 
@@ -151,7 +150,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`](crate::resource::Resource) within a
 /// [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -170,7 +169,7 @@ impl ComponentInfo {
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 ///
-/// Given a type `T` which implements [`Component`] (including [`Resource`]), the `ComponentId` for `T` can be retrieved
+/// Given a type `T` which implements [`Component`] (including [`Resource`](crate::resource::Resource)), the `ComponentId` for `T` can be retrieved
 /// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
@@ -220,6 +219,8 @@ pub struct ComponentDescriptor {
     // actually Send + Sync
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
+    // SAFETY: This must always have `size()` that is a multiple of `align()`.
+    // `BlobArray` relies on that to calculate byte offsets as a multiple of `size()`.
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
@@ -264,6 +265,7 @@ impl ComponentDescriptor {
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
@@ -273,6 +275,10 @@ impl ComponentDescriptor {
     }
 
     /// Create a new `ComponentDescriptor`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `layout` does not have a `size()` that is a multiple of its `alignment()`.
     ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
@@ -287,6 +293,11 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
         relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
+        assert_eq!(
+            layout.pad_to_align(),
+            layout,
+            "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
+        );
         Self {
             name: name.into().into(),
             storage_type,
@@ -300,20 +311,13 @@ impl ComponentDescriptor {
         }
     }
 
-    /// Create a new `ComponentDescriptor` for a resource.
-    ///
-    /// The [`StorageType`] for resources is always [`StorageType::Table`].
-    #[deprecated(since = "0.19.0", note = "use ComponentDescriptor::new()")]
-    pub fn new_resource<T: Resource>() -> Self {
-        Self::new::<T>()
-    }
-
     pub(super) fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
             name: DebugName::type_name::<T>(),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
@@ -591,39 +595,6 @@ impl Components {
         self.get_valid_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::valid_resource_id()`].
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "use get_valid_id")]
-    pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
-    /// If you want to include queued registration, see [`Components::resource_id()`].
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Resource, Default)]
-    /// struct ResourceA;
-    ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
-    ///
-    /// assert_eq!(resource_a_id, world.components().valid_resource_id::<ResourceA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::valid_component_id()`]
-    /// * [`Components::get_resource_id()`]
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "use valid_component_id")]
-    pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_id(TypeId::of::<T>())
-    }
-
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
@@ -667,53 +638,6 @@ impl Components {
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_id(TypeId::of::<T>())
-    }
-
-    /// Type-erased equivalent of [`Components::resource_id()`].
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "use get_id")]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied().or_else(|| {
-            self.queued
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .components
-                .get(&type_id)
-                .map(|queued| queued.id)
-        })
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
-    /// instance.
-    ///
-    /// Returns [`None`] if the `Resource` type has not yet been initialized using
-    /// [`ComponentsRegistrator::register_resource()`](super::ComponentsRegistrator::register_resource) or
-    /// [`ComponentsQueuedRegistrator::queue_register_resource()`](super::ComponentsQueuedRegistrator::queue_register_resource).
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Resource, Default)]
-    /// struct ResourceA;
-    ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
-    ///
-    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::get_resource_id()`]
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "use component_id")]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
     }
 

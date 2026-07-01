@@ -27,7 +27,9 @@ use log::warn;
 
 /// A [`Component`] on a "source" [`Entity`] that references another target [`Entity`], creating a "relationship" between them. Every [`Relationship`]
 /// has a corresponding [`RelationshipTarget`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
-/// "source" entities that relate to the given "target"
+/// "source" entities that relate to the given "target".
+///
+/// A [`Relationship`] may only be one-to-many (or one-to-one): an [`Entity`] may point to at most one [`Entity`] through the [`Relationship`] component.
 ///
 /// The [`Relationship`] component is the "source of truth" and the [`RelationshipTarget`] component reflects that source of truth. When a [`Relationship`]
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
@@ -60,6 +62,21 @@ use log::warn;
 /// #[derive(Component)]
 /// #[relationship_target(relationship = ChildOf)]
 /// pub struct Children(Vec<Entity>);
+/// ```
+///
+/// A one-to-one relationship can be created by putting a single [`Entity`] in the [`RelationshipTarget`]'s field.
+/// In that case, if another entity is added to the relationship, the original entity is removed.
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = View)]
+/// pub struct ViewOf(pub Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = ViewOf)]
+/// pub struct View(Entity);
 /// ```
 ///
 /// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(linked_spawn)]` attribute to
@@ -778,10 +795,12 @@ impl<C> ComponentRelationshipAccessor<C> {
 #[cfg(test)]
 mod tests {
     use core::marker::PhantomData;
+    use core::sync::atomic::AtomicBool;
 
+    use crate::lifecycle::HookContext;
     use crate::prelude::{ChildOf, Children};
     use crate::relationship::{Relationship, RelationshipAccessor};
-    use crate::world::World;
+    use crate::world::{DeferredWorld, World};
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
 
@@ -1183,5 +1202,66 @@ mod tests {
             .unwrap();
         assert!(rel_target_accessor.linked_spawn());
         assert!(rel_target_accessor.allow_self_referential());
+    }
+
+    #[test]
+    pub fn component_hooks_compatibility() {
+        static ADD_CALLED: AtomicBool = AtomicBool::new(false);
+        static INSERT_CALLED: AtomicBool = AtomicBool::new(false);
+        static DISCARD_CALLED: AtomicBool = AtomicBool::new(false);
+        static REMOVE_CALLED: AtomicBool = AtomicBool::new(false);
+        static DESPAWN_CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        #[component(on_add, on_insert, on_discard, on_remove, on_despawn)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        impl Rel {
+            fn on_add(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(!world.entity(target).contains::<RelTarget>());
+                ADD_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_insert(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(!world.entity(target).contains::<RelTarget>());
+                INSERT_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_discard(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(world.entity(target).contains::<RelTarget>());
+                DISCARD_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_remove(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(world.entity(target).contains::<RelTarget>());
+                REMOVE_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_despawn(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(world.entity(target).contains::<RelTarget>());
+                DESPAWN_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        let source = world.spawn(Rel(target)).id();
+        assert!(world.entity(target).contains::<RelTarget>());
+        assert!(ADD_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(INSERT_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        world.despawn(source);
+        assert!(DISCARD_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(REMOVE_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(DESPAWN_CALLED.load(core::sync::atomic::Ordering::Relaxed));
     }
 }

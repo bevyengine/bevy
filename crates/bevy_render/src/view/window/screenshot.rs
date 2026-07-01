@@ -45,7 +45,7 @@ use std::{
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
-#[reflect(Debug)]
+#[reflect(Debug, Event)]
 pub struct ScreenshotCaptured {
     pub entity: Entity,
     #[deref]
@@ -410,7 +410,9 @@ impl Plugin for ScreenshotPlugin {
         embedded_asset!(app, "screenshot.wgsl");
 
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+        app.register_type::<Screenshot>()
+            .register_type::<ScreenshotCaptured>()
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
             .add_systems(
                 First,
                 clear_screenshots
@@ -688,7 +690,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
-                    RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetUsages::MAIN_WORLD,
                 ),
             )) {
                 error!("Failed to send screenshot: {}", e);

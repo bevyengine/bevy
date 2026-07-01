@@ -10,6 +10,7 @@ use bevy_ecs::{
         Local, Query, SystemParam,
     },
 };
+#[cfg(feature = "trace")]
 use bevy_log::info_span;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -99,7 +100,7 @@ pub struct RenderVisibleEntitiesClass {
 
     /// A sorted list of all entities that were invisible last frame (including
     /// ones that didn't exist at all last frame) and became visible this frame.
-    added_entities: Vec<(Entity, MainEntity)>,
+    pub added_entities: Vec<(Entity, MainEntity)>,
 
     /// A sorted list of all entities that were visible last frame and became
     /// invisible this frame, including those that were despawned this frame.
@@ -178,7 +179,7 @@ impl RenderVisibleEntities {
 impl RenderVisibleEntitiesClass {
     /// Clears out the lists of added and removed entities in preparation for a
     /// new frame.
-    fn prepare_for_new_frame(&mut self) {
+    pub fn prepare_for_new_frame(&mut self) {
         self.added_entities.clear();
         self.removed_entities.clear();
     }
@@ -190,10 +191,11 @@ impl RenderVisibleEntitiesClass {
     /// have `NoCpuCulling` components). Entities that use only GPU culling are
     /// instead fetched from the main world and added to the
     /// `RenderGpuCulledEntities` table.
-    fn update_cpu_culled_entities(
+    pub fn update_cpu_culled_entities(
         &mut self,
         visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)],
     ) {
+        #[cfg(feature = "trace")]
         let _update_from = info_span!("update_from", name = "update_from").entered();
 
         let old_entities_cpu_culling = mem::take(&mut self.entities_cpu_culling);
@@ -203,6 +205,7 @@ impl RenderVisibleEntitiesClass {
         // entities. The lists must be sorted.
         let mut old_entity_cpu_culling_iter = old_entities_cpu_culling.iter().peekable();
         {
+            #[cfg(feature = "trace")]
             let _old_entity_cpu_culling_span =
                 info_span!("old_entity_cpu_culling", name = "old_entity_cpu_culling").entered();
             for (render_entity, visible_main_entity) in visible_mesh_entities_cpu_culling {
@@ -236,6 +239,7 @@ impl RenderVisibleEntitiesClass {
         // Any entities that do CPU culling and that we didn't see yet are
         // removed, so drain them.
         {
+            #[cfg(feature = "trace")]
             let _old_entity_cpu_culling_removal_span = info_span!(
                 "old_entity_cpu_culling_removal",
                 name = "old_entity_cpu_culling_removal"

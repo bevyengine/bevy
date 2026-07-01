@@ -133,9 +133,9 @@ where
         ]
         .map(|vec3| config.isometry * vec3);
 
-        for chunk in vertices.chunks_exact(3) {
+        for &[a, b, c] in vertices.as_chunks().0 {
             self.gizmos
-                .short_arc_3d_between(chunk[1], chunk[0], chunk[2], config.color)
+                .short_arc_3d_between(b, a, c, config.color)
                 .resolution(config.arc_resolution);
         }
 

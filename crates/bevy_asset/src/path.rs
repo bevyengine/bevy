@@ -680,14 +680,10 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(AssetPath::parse(v).into_owned())
-    }
-
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(AssetPath::from(v))
+        match AssetPath::try_parse(v) {
+            Ok(path) => Ok(path.into_owned()),
+            Err(err) => Err(E::custom(err)),
+        }
     }
 }
 
@@ -770,6 +766,12 @@ mod tests {
 
         let result = AssetPath::parse_internal("a/b.test#");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingLabel));
+    }
+
+    #[test]
+    fn test_serialize() {
+        assert!(ron::de::from_str::<AssetPath>("\"a/b.test\"").is_ok());
+        assert!(ron::de::from_str::<AssetPath>("\"a/b.test#\"").is_err());
     }
 
     #[test]

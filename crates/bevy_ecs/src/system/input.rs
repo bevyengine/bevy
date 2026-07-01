@@ -13,6 +13,7 @@ use crate::{bundle::Bundle, event::Event, prelude::On, system::System};
 /// - [`InMut<T>`]: For mutable references to values
 /// - [`On<E, B>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
+/// - `Option<I>`: For optional inputs of some [`SystemInput`] `I`
 /// - Tuples of [`SystemInput`]s up to 8 elements
 ///
 /// For advanced usecases, you can implement this trait for your own types.
@@ -280,6 +281,15 @@ impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
     }
 }
 
+impl<I: SystemInput> SystemInput for Option<I> {
+    type Param<'i> = Option<I::Param<'i>>;
+    type Inner<'i> = Option<I::Inner<'i>>;
+
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
+        this.map(I::wrap)
+    }
+}
+
 macro_rules! impl_system_input_tuple {
     ($(#[$meta:meta])* $($name:ident),*) => {
         $(#[$meta])*
@@ -365,5 +375,21 @@ mod tests {
         assert_is_system::<In<usize>, usize, _>(takes_usize);
         // test if StaticSystemInput is compatible with its inner type
         assert_is_system::<In<usize>, usize, _>(takes_static_usize);
+    }
+
+    #[test]
+    fn option_input() {
+        fn takes_option_mut(a: Option<InMut<usize>>) -> usize {
+            a.map(|InMut(x)| *x).unwrap_or(0)
+        }
+
+        let mut world = World::new();
+
+        let mut system = IntoSystem::into_system(takes_option_mut);
+        system.initialize(&mut world);
+
+        let mut value = 12;
+        assert_eq!(system.run(Some(&mut value), &mut world).unwrap(), 12);
+        assert_eq!(system.run(None, &mut world).unwrap(), 0);
     }
 }

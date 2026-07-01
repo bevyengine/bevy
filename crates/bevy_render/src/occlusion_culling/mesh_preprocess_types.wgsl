@@ -10,6 +10,8 @@ struct MeshInput {
     lightmap_uv_rect: vec2<u32>,
     // Various flags.
     flags: u32,
+    // The index of the `PreviousMeshInput` uniform in the buffer, or `u32::MAX`
+    // if there's no such uniform.
     previous_input_index: u32,
     first_vertex_index: u32,
     first_index_index: u32,
@@ -26,7 +28,14 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
+    metadata_index: u32
 }
+
+// Per-mesh-instance data that we retain from the previous frame.
+struct PreviousMeshInput {
+    // The model transform.
+    world_from_local: mat3x4<f32>,
+};
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
 // For more information, see the corresponding comment in
@@ -70,4 +79,15 @@ struct IndirectParametersGpuMetadata {
 struct IndirectBatchSet {
     indirect_parameters_count: atomic<u32>,
     indirect_parameters_base: u32,
+}
+
+// One invocation of this compute shader: i.e. one mesh instance in a view.
+struct PreprocessWorkItem {
+    // The index of the `MeshInput` in the `current_input` buffer that we read
+    // from.
+    input_index: u32,
+    // In direct mode, the index of the `Mesh` in `output` that we write to. In
+    // indirect mode, the index of the `IndirectParameters` in
+    // `indirect_parameters` that we write to.
+    output_or_indirect_parameters_index: u32,
 }

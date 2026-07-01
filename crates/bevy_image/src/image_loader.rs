@@ -113,6 +113,20 @@ pub enum ImageArrayLayout {
         /// The height of a single image in the stack.
         pixels: u32,
     },
+    /// Interpret the image as a grid of images, with **n** columns and rows.
+    GridCount {
+        /// The number of columns in the grid.
+        columns: u32,
+        /// The number of rows in the grid.
+        rows: u32,
+    },
+    /// Interpret the image as a grid of images where each tile is **n** pixels wide/tall.
+    GridSize {
+        /// The width of a single tile in pixels.
+        tile_width_pixels: u32,
+        /// The height of a single tile in pixels.
+        tile_height_pixels: u32,
+    },
 }
 
 /// Settings for loading an [`Image`] using an [`ImageLoader`].
@@ -229,14 +243,28 @@ impl AssetLoader for ImageLoader {
         }
 
         if let Some(array_layout) = settings.array_layout {
-            let layers = match array_layout {
-                ImageArrayLayout::RowCount { rows } => rows,
-                ImageArrayLayout::RowHeight { pixels } => image.height() / pixels,
+            let image = match array_layout {
+                ImageArrayLayout::RowCount { rows } => {
+                    image.reinterpret_stacked_2d_as_array(rows)?;
+                    image
+                }
+                ImageArrayLayout::RowHeight { pixels } => {
+                    image.reinterpret_stacked_2d_as_array(image.height() / pixels)?;
+                    image
+                }
+                ImageArrayLayout::GridCount { columns, rows } => {
+                    image.create_stacked_array_from_2d_grid(rows, columns)?
+                }
+                ImageArrayLayout::GridSize {
+                    tile_width_pixels,
+                    tile_height_pixels,
+                } => image.create_stacked_array_from_2d_grid(
+                    image.height() / tile_height_pixels,
+                    image.width() / tile_width_pixels,
+                )?,
             };
-
-            image.reinterpret_stacked_2d_as_array(layers)?;
+            return Ok(image);
         }
-
         Ok(image)
     }
 

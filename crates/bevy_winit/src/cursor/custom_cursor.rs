@@ -90,9 +90,10 @@ pub(crate) fn extract_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
         | TextureFormat::Rgba8Uint
         | TextureFormat::Rgba8Sint => Some(image.data.clone()?),
         TextureFormat::Rgba32Float => image.data.as_ref().map(|data| {
-            data.chunks(4)
+            data.as_chunks()
+                .0
+                .iter()
                 .map(|chunk| {
-                    let chunk = chunk.try_into().unwrap();
                     let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
                     ops::round(num.clamp(0.0, 1.0) * 255.0) as u8
                 })

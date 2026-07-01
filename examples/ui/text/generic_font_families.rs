@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                     Text::new(description),
                     TextFont::from(source.clone()).with_font_size(FONT_SIZE),
                     TextColor(WHEAT.into()),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     outline,
                 ));
 
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                     Text::new(format!("FontSource::{source:?}")),
                     TextFont::from_font_size(FONT_SIZE),
                     TextColor(YELLOW.into()),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     outline,
                 ));
 
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                 builder.spawn((
                     Text::new(family_name),
                     TextFont::from_font_size(FONT_SIZE),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextLayout::justify(Justify::Center),
                     outline,
                 ));
             }

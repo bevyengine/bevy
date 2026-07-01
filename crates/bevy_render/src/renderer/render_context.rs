@@ -13,6 +13,7 @@ use bevy_ecs::system::{
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
+#[cfg(feature = "trace")]
 use bevy_log::info_span;
 use core::marker::PhantomData;
 use wgpu::CommandBuffer;
@@ -38,16 +39,20 @@ impl PendingCommandBuffers {
         self.0.buffers.extend(buffers);
     }
 
+    pub fn append(&mut self, buffers: &mut Vec<CommandBuffer>) {
+        self.0.buffers.append(buffers);
+    }
+
     pub fn push_encoder(&mut self, encoder: CommandEncoder) {
         self.0.encoders.push(encoder);
     }
 
-    pub fn take(&mut self) -> Vec<CommandBuffer> {
-        let encoders: Vec<_> = self.0.encoders.drain(..).collect();
-        for encoder in encoders {
-            self.0.buffers.push(encoder.finish());
-        }
-        core::mem::take(&mut self.0.buffers)
+    pub fn take(&mut self) -> impl Iterator<Item = CommandBuffer> {
+        let inner = &mut *self.0;
+        inner
+            .buffers
+            .drain(..)
+            .chain(inner.encoders.drain(..).map(CommandEncoder::finish))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -66,6 +71,14 @@ struct RenderContextStateInner {
     render_device: Option<RenderDevice>,
 }
 
+impl RenderContextStateInner {
+    fn flush_encoder(&mut self) {
+        if let Some(encoder) = self.command_encoder.take() {
+            self.command_buffers.push(encoder.finish());
+        }
+    }
+}
+
 /// A resource that holds the current render context state, including command encoder and command buffers.
 /// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to flush
 /// command buffers at the end of each render system in topological system order.
@@ -79,9 +92,7 @@ impl Default for RenderContextState {
 
 impl RenderContextState {
     fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.0.command_encoder.take() {
-            self.0.command_buffers.push(encoder.finish());
-        }
+        self.0.flush_encoder();
     }
 
     fn command_encoder(&mut self) -> &mut CommandEncoder {
@@ -96,26 +107,26 @@ impl RenderContextState {
         })
     }
 
-    pub fn finish(&mut self) -> Vec<CommandBuffer> {
+    pub fn finish(&mut self) -> impl Iterator<Item = CommandBuffer> {
         self.flush_encoder();
-        core::mem::take(&mut self.0.command_buffers)
+        self.0.command_buffers.drain(..)
     }
 }
 
 impl SystemBuffer for RenderContextState {
-    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
-        let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        #[cfg(feature = "trace")]
+        let _span =
+            info_span!("RenderContextState::apply", system = %_system_meta.name()).entered();
 
         let inner = &mut *self.0;
 
         // flush to ensure correct submission order
-        if let Some(encoder) = inner.command_encoder.take() {
-            inner.command_buffers.push(encoder.finish());
-        }
+        inner.flush_encoder();
 
         if !inner.command_buffers.is_empty() {
             let mut pending = world.resource_mut::<PendingCommandBuffers>();
-            pending.push(core::mem::take(&mut inner.command_buffers));
+            pending.append(&mut inner.command_buffers);
         }
 
         inner.render_device = None;
@@ -190,8 +201,8 @@ pub struct FlushCommands<'w> {
 impl<'w> FlushCommands<'w> {
     /// Flushes all pending command buffers to the render queue.
     pub fn flush(&mut self) {
-        let buffers = self.pending.take();
-        if !buffers.is_empty() {
+        let mut buffers = self.pending.take().peekable();
+        if buffers.peek().is_some() {
             self.queue.submit(buffers);
         }
     }

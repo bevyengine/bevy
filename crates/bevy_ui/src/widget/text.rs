@@ -23,7 +23,7 @@ use bevy_text::{
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
     TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
-use taffy::style::AvailableSpace;
+use taffy::{style::AvailableSpace, MaybeMath, ResolveOrZero};
 use tracing::error;
 
 /// UI text system flags.
@@ -85,7 +85,7 @@ impl Default for TextNodeFlags {
 /// // With text justification.
 /// world.spawn((
 ///     Text::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(Justify::Center)
+///     TextLayout::justify(Justify::Center)
 /// ));
 ///
 /// // With spans
@@ -180,48 +180,72 @@ impl TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+        let mut width = measure_args.resolve_width();
+        let height = measure_args.resolve_height();
+
         let MeasureArgs {
-            width,
-            height,
             available_width,
             buffer,
             font_system,
+            style,
             ..
         } = measure_args;
-        let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => {
-                // It is possible for the "min content width" to be larger than
-                // the "max content width" when soft-wrapping right-aligned text
-                // and possibly other situations.
 
-                x.max(self.info.min.x).min(self.info.max.x)
-            }
-            AvailableSpace::MinContent => self.info.min.x,
-            AvailableSpace::MaxContent => self.info.max.x,
-        });
+        // The text is wrapped inside the content box, so subtract horizontal padding and border.
+        if style.box_sizing == taffy::style::BoxSizing::BorderBox {
+            let context = taffy::Size {
+                width: width.effective,
+                height: height.effective,
+            };
+            let calc = |_, _| 0.;
+            let padding = style.padding.resolve_or_zero(context, calc);
+            let border = style.border.resolve_or_zero(context, calc);
+            let total_x_inset = padding.left + padding.right + border.left + border.right;
+            width.min = width.min.map(|min| (min - total_x_inset).max(0.));
+            width.max = width.max.map(|max| (max - total_x_inset).max(0.));
+            width.effective = width
+                .effective
+                .map(|effective| (effective - total_x_inset).max(0.));
+        }
 
-        height
-            .map_or_else(
-                || match available_width {
-                    AvailableSpace::Definite(_) => {
-                        if let Some(buffer) = buffer {
-                            self.info.compute_size(
-                                TextBounds::new_horizontal(x),
-                                buffer,
-                                font_system,
-                            )
-                        } else {
-                            error!("text measure failed, buffer is missing");
-                            Vec2::default()
-                        }
+        let x = width
+            .effective
+            .unwrap_or_else(|| match available_width {
+                AvailableSpace::Definite(x) => {
+                    // It is possible for the "min content width" to be larger than
+                    // the "max content width" when soft-wrapping right-aligned text
+                    // and possibly other situations.
+
+                    x.max(self.info.min.x).min(self.info.max.x)
+                }
+                AvailableSpace::MinContent => self.info.min.x,
+                AvailableSpace::MaxContent => self.info.max.x,
+            })
+            .maybe_clamp(width.min, width.max);
+
+        let size = height.effective.map_or_else(
+            || match available_width {
+                AvailableSpace::Definite(_) => {
+                    if let Some(buffer) = buffer {
+                        self.info
+                            .compute_size(TextBounds::new_horizontal(x), buffer, font_system)
+                    } else {
+                        error!("text measure failed, buffer is missing");
+                        Vec2::default()
                     }
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
-                },
-                |y| Vec2::new(x, y),
-            )
-            .ceil()
+                }
+                AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
+            },
+            |y| Vec2::new(x, y),
+        );
+
+        Vec2::new(
+            size.x.maybe_clamp(width.min, width.max),
+            size.y.maybe_clamp(height.min, height.max),
+        )
+        .ceil()
     }
 }
 
@@ -394,8 +418,6 @@ pub fn text_system(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.scale_factor = node.inverse_scale_factor().recip();
-                    text_layout_info.size *= node.inverse_scale_factor();
                     text_flags.needs_recompute = false;
                 }
             }

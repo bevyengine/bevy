@@ -35,10 +35,7 @@ pub fn init_pathtracer_pipelines(
             ShaderStages::COMPUTE,
             (
                 texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
-                texture_storage_2d(
-                    ViewTarget::TEXTURE_FORMAT_HDR,
-                    StorageTextureAccess::WriteOnly,
-                ),
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 uniform_buffer::<ViewUniform>(true),
             ),
         ),

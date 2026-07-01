@@ -3,11 +3,13 @@
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    gltf::GltfPlugin,
+    mesh::MeshAttributeCompressionFlags,
     post_process::motion_blur::MotionBlur,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 use chacha20::ChaCha8Rng;
 use core::{f32::consts::PI, str::FromStr};
@@ -129,6 +131,10 @@ struct Args {
     /// enable motion blur
     #[argh(switch)]
     motion_blur: bool,
+
+    /// whether to enable vertex compression.
+    #[argh(switch)]
+    vertex_compression: bool,
 }
 
 fn main() {
@@ -140,15 +146,26 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Many Morph Targets".to_string(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Many Morph Targets".to_string(),
+                        present_mode: PresentMode::AutoNoVsync,
+                        resolution: WindowResolution::new(1920, 1080)
+                            .with_scale_factor_override(1.0),
+                        ..Default::default()
+                    }),
                     ..Default::default()
+                })
+                .set(GltfPlugin {
+                    mesh_attribute_compression: if args.vertex_compression {
+                        MeshAttributeCompressionFlags::all()
+                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                    } else {
+                        MeshAttributeCompressionFlags::empty()
+                    },
+                    ..default()
                 }),
-                ..Default::default()
-            }),
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
@@ -168,7 +185,7 @@ fn main() {
 
 #[derive(Resource, Default)]
 struct MorphAssets {
-    scene: Handle<Scene>,
+    scene: Handle<WorldAsset>,
     animations: Vec<(Handle<AnimationGraph>, AnimationNodeIndex)>,
 }
 
@@ -353,7 +370,7 @@ fn update(
             .spawn((
                 animation,
                 Transform::from_xyz(x, y, 0.0),
-                SceneRoot(assets.scene.clone()),
+                WorldAssetRoot(assets.scene.clone()),
             ))
             .observe(play_animation)
             .observe(set_weights)
@@ -364,7 +381,7 @@ fn update(
 }
 
 fn play_animation(
-    trigger: On<SceneInstanceReady>,
+    trigger: On<WorldInstanceReady>,
     mut commands: Commands,
     args: Res<Args>,
     children: Query<&Children>,
@@ -390,7 +407,7 @@ fn play_animation(
 }
 
 fn set_weights(
-    trigger: On<SceneInstanceReady>,
+    trigger: On<WorldInstanceReady>,
     args: Res<Args>,
     children: Query<&Children>,
     mut weight_components: Query<&mut MorphWeights>,

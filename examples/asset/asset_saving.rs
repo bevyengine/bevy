@@ -104,10 +104,12 @@ F5 - Save image"
             .into(),
     ));
 
-    let handle =
-        asset_server.load_with_settings(ASSET_PATH, |settings: &mut ImageLoaderSettings| {
+    let handle = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| {
             settings.sampler = ImageSampler::nearest();
-        });
+        })
+        .load(ASSET_PATH);
     commands.spawn((
         Sprite {
             image: handle.clone(),
@@ -144,8 +146,8 @@ F5 - Save image"
     let container = commands
         .spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::End,
                 justify_content: JustifyContent::Center,
                 ..Default::default()
@@ -167,9 +169,9 @@ F5 - Save image"
     ] {
         let mut entity = commands.spawn((
             Node {
-                width: Val::Vw(5.0),
-                height: Val::Vh(5.0),
-                border: UiRect::all(Val::Px(5.0)),
+                width: vw(5),
+                height: vh(5),
+                border: px(5).all(),
                 ..Default::default()
             },
             SelectableColor,

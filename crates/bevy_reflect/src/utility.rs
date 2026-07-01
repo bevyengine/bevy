@@ -278,7 +278,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         write_lock
             .entry(type_id)
-            .insert({
+            .insert_entry({
                 // We leak here in order to obtain a `&'static` reference.
                 // Otherwise, we won't be able to return a reference due to the `RwLock`.
                 // This should be okay, though, since we expect it to remain statically

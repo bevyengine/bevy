@@ -22,10 +22,10 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_image::BevyDefault;
 use bevy_math::{Mat3, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     prelude::*,
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -40,10 +40,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, SyncToRenderWorld},
-    view::{
-        ExtractedView, RenderVisibleEntities, ViewTarget, ViewUniform, ViewUniformOffset,
-        ViewUniforms,
-    },
+    view::{ExtractedView, RenderVisibleEntities, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -89,7 +86,7 @@ impl Plugin for InfiniteGridPlugin {
 /// The component used to represent an infinite grid.
 ///
 /// This is intended for use as a ground plane in editor-like tools.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Copy, Clone)]
 #[reflect(Component, Default)]
 #[require(
     InfiniteGridSettings,
@@ -366,7 +363,7 @@ fn queue_infinite_grids(
     mut pipelines: ResMut<SpecializedRenderPipelines<InfiniteGridPipeline>>,
     infinite_grids: Query<&GlobalTransform, With<InfiniteGridSettings>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa), With<ExtractedCamera>>,
 ) {
     let Some(draw_function_id) = transparent_draw_functions
         .read()
@@ -385,7 +382,7 @@ fn queue_infinite_grids(
             &pipeline_cache,
             &pipeline,
             GridPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 sample_count: msaa.samples(),
             },
         );
@@ -393,6 +390,12 @@ fn queue_infinite_grids(
         let Some(render_visible_mesh_entities) = entities.get::<InfiniteGrid>() else {
             continue;
         };
+
+        // Remove meshes that have been despawned or removed due to Visibility settings
+        for (render_entity, main_entity) in &render_visible_mesh_entities.removed_entities {
+            phase.remove(*render_entity, *main_entity);
+        }
+
         for (render_entity, main_entity) in render_visible_mesh_entities.iter_visible() {
             let Ok(transform) = infinite_grids.get(*render_entity) else {
                 continue;
@@ -401,7 +404,7 @@ fn queue_infinite_grids(
             if !plane_check(transform, view.world_from_view.translation()) {
                 continue;
             }
-            phase.add(Transparent3d {
+            phase.add_retained(Transparent3d {
                 pipeline: pipeline_id,
                 entity: (*render_entity, *main_entity),
                 draw_function: draw_function_id,
@@ -418,7 +421,7 @@ fn queue_infinite_grids(
     }
 }
 
-/// Checks if the point is one the plane
+/// Checks if the point is on the plane
 fn plane_check(plane: &GlobalTransform, point: Vec3) -> bool {
     plane.up().dot(plane.translation() - point).abs() > f32::EPSILON
 }
@@ -464,7 +467,7 @@ impl FromWorld for InfiniteGridPipeline {
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 struct GridPipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
     sample_count: u32,
 }
 
@@ -472,12 +475,6 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
     type Key = GridPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
         RenderPipelineDescriptor {
             label: Some("infinite_grid_render_pipeline".into()),
             layout: vec![self.view_layout.clone(), self.infinite_grid_layout.clone()],
@@ -500,7 +497,7 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

@@ -143,7 +143,7 @@ impl<T> ThinArrayPtr<T> {
         // - We have a reference to self, so no other mutable accesses to the element can occur
         unsafe {
             ptr.as_ref()
-                // SAFETY: We can use `unwarp_unchecked` because the pointer isn't null)
+                // SAFETY: We can use `unwrap_unchecked` because the pointer isn't null)
                 .debug_checked_unwrap()
         }
     }

@@ -12,6 +12,7 @@ use bevy_camera::NormalizedRenderTarget;
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::touch::TouchPhase;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
@@ -89,7 +90,8 @@ impl Deref for PointerInteraction {
 }
 
 /// A resource that maps each [`PointerId`] to their [`Entity`] for easy lookups.
-#[derive(Debug, Clone, Default, Resource)]
+#[derive(Debug, Clone, Default, Resource, Reflect)]
+#[reflect(Debug, Clone, Default, Resource)]
 pub struct PointerMap {
     inner: HashMap<PointerId, Entity>,
 }
@@ -264,6 +266,10 @@ pub enum PointerAction {
         x: f32,
         /// The vertical scroll value.
         y: f32,
+        /// Touch phase of the input.
+        ///
+        /// When using a mouse, this will always be [`TouchPhase::Moved`].
+        phase: TouchPhase,
     },
     /// Cancel the pointer. Often used for touch events.
     Cancel,

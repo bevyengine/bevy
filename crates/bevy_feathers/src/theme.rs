@@ -19,7 +19,7 @@ use bevy_ui::{BackgroundColor, BorderColor};
 use smol_str::SmolStr;
 
 /// A design token for the theme. This serves as the lookup key for the theme properties.
-#[derive(Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Clone, PartialEq, Eq, Hash, Reflect, Default)]
 pub struct ThemeToken(SmolStr);
 
 impl ThemeToken {
@@ -84,7 +84,7 @@ impl UiTheme {
 }
 
 /// Component which causes the background color of an entity to be set based on a theme color.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default)]
 #[require(BackgroundColor)]
 #[component(immutable)]
 #[derive(Reflect)]
@@ -93,7 +93,7 @@ pub struct ThemeBackgroundColor(pub ThemeToken);
 
 /// Component which causes the border color of an entity to be set based on a theme color.
 /// Only supports setting all borders to the same color.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default)]
 #[require(BorderColor)]
 #[component(immutable)]
 #[derive(Reflect)]
@@ -101,22 +101,35 @@ pub struct ThemeBackgroundColor(pub ThemeToken);
 pub struct ThemeBorderColor(pub ThemeToken);
 
 /// Component which causes the inherited text color of an entity to be set based on a theme color.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default)]
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-#[require(ThemedText, PropagateOver::<TextColor>::default())]
-pub struct ThemeFontColor(pub ThemeToken);
+#[require(ThemedText, PropagateOver::<TextColor>)]
+pub struct InheritableThemeTextColor(pub ThemeToken);
+
+/// Component which causes the color of a text span to be set based on a theme color. Unlike
+/// [`InheritableThemeTextColor`], this can work when set directly on the text span entity, and is
+/// not inherited.
+// TODO: This is necessary because an entity with Propagate doesn't update itself, only its
+// descendants.
+#[derive(Component, Clone, Default)]
+#[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
+#[require(ThemedText, PropagateOver::<TextColor>)]
+pub struct ThemeTextColor(pub ThemeToken);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
-#[derive(Component, Reflect, Default)]
+#[derive(Component, Reflect, Default, Clone)]
 #[reflect(Component)]
 pub struct ThemedText;
 
 pub(crate) fn update_theme(
     mut q_background: Query<(&mut BackgroundColor, &ThemeBackgroundColor)>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor)>,
+    mut q_text_color: Query<(&mut TextColor, &ThemeTextColor)>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
@@ -128,6 +141,11 @@ pub(crate) fn update_theme(
         // Update all border colors
         for (mut border, theme_border) in q_border.iter_mut() {
             border.set_all(theme.color(&theme_border.0));
+        }
+
+        // Update all direct text span colors
+        for (mut text_color, theme_text_color) in q_text_color.iter_mut() {
+            text_color.0 = theme.color(&theme_text_color.0);
         }
     }
 }
@@ -157,11 +175,22 @@ pub(crate) fn on_changed_border(
     }
 }
 
-/// An observer which looks for changes to the [`ThemeFontColor`] component on an entity, and
-/// propagates downward the text color to all participating text entities.
+pub(crate) fn on_changed_text_color(
+    insert: On<Insert, ThemeTextColor>,
+    mut q_span: Query<(&mut TextColor, &ThemeTextColor), Changed<ThemeTextColor>>,
+    theme: Res<UiTheme>,
+) {
+    // Update background colors where the design token has changed.
+    if let Ok((mut text_color, theme_text_color)) = q_span.get_mut(insert.entity) {
+        text_color.0 = theme.color(&theme_text_color.0);
+    }
+}
+
+/// An observer which looks for changes to the [`InheritableThemeTextColor`] component on an entity,
+/// and propagates downward the text color to all participating text entities.
 pub(crate) fn on_changed_font_color(
-    insert: On<Insert, ThemeFontColor>,
-    font_color: Query<&ThemeFontColor>,
+    insert: On<Insert, InheritableThemeTextColor>,
+    font_color: Query<&InheritableThemeTextColor>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {

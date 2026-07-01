@@ -15,7 +15,7 @@ cargo run --features wayland --example hello_world
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
-If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
+If you are using a released version of Bevy, you need to make sure you are viewing the correct version of the examples!
 
 - Latest release: [https://github.com/bevyengine/bevy/tree/latest/examples](https://github.com/bevyengine/bevy/tree/latest/examples)
 - Specific version, such as `0.4`: [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
@@ -183,6 +183,7 @@ Example | Description
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+[Rectangular Area Light](../examples/3d/rect_light.rs) | Simple 3D scene demonstrating rectangular area lights.
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
@@ -244,9 +245,9 @@ Example | Description
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
-[Save Window Position](../examples/window/persisting_window_settings.rs) | Demonstrates saving window position in preferences
+[Save Window Position](../examples/window/persisting_window_settings.rs) | Demonstrates saving window position settings
+[Settings](../examples/app/settings.rs) | Demonstrates persistence of settings
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
-[User Preferences](../examples/app/persisting_preferences.rs) | Demonstrates persistence of user preferences
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ### Assets
@@ -310,6 +311,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 
@@ -412,7 +414,6 @@ Example | Description
 [Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 [Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 [Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
-[Text Input](../examples/input/text_input.rs) | Simple text input with IME support
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -437,6 +438,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
 [Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
@@ -461,6 +463,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[App Under Test](../examples/remote/app_under_test.rs) | A Bevy app that you can connect to with the BRP and control
+[Integration Test](../examples/remote/integration_test.rs) | Connects to a running Bevy app via BRP, finds a button, and clicks it
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
@@ -469,7 +473,7 @@ Example | Description
 Example | Description
 --- | ---
 [BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
-[Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+[World Serialization](../examples/scene/world_serialization.rs) | Demonstrates loading from and saving world to files
 
 ### Shaders
 
@@ -500,6 +504,7 @@ Example | Description
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
 [Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
+[Pipeline Constants](../examples/shader/pipeline_constants.rs) | Demonstrates pipeline-overridable constants (WGSL `override`) by compiling the same shader into multiple variants with different posterization levels
 [Post Processing - Custom Render Pass](../examples/shader_advanced/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
 [Render Depth to Texture](../examples/shader_advanced/render_depth_to_texture.rs) | Demonstrates how to use depth-only cameras
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
@@ -549,9 +554,11 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Meshlet Materials](../examples/stress_tests/many_meshlet_materials.rs) | Benchmark to test rendering many meshlet materials (experimental)
 [Many Morph Targets](../examples/stress_tests/many_morph_targets.rs) | Simple benchmark to test rendering many meshes with animated morph targets.
 [Many Sprite Meshes](../examples/stress_tests/many_sprite_meshes.rs) | Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
+[Many Text](../examples/stress_tests/many_text.rs) | Displays many UI Text nodes. Used for performance testing.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
@@ -594,18 +601,25 @@ Example | Description
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
-[Editable Text](../examples/ui/text/editable_text.rs) | Demonstrates a simple, unstyled text input widget
-[Feathers Widgets](../examples/ui/widgets/feathers.rs) | Gallery of Feathers Widgets
+[Editable Text Filter](../examples/ui/text/editable_text_filter.rs) | Demonstrates an 8-character hex input using EditableTextFilter
+[Feathers Counter](../examples/ui/widgets/feathers_counter.rs) | Simple counter using feathers
+[Feathers Number Input](../examples/ui/widgets/feathers_number_input.rs) | Feathers Number Input Options
+[Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
+[Fixed Node](../examples/ui/layout/fixed_node.rs) | Demonstrates how to use FixedNode to lay out a UI node as a root node
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
+[Font Variations](../examples/ui/text/font_variations.rs) | Demonstrates how to use OpenType font variations.
 [Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
+[IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
+[Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
+[Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
@@ -623,6 +637,7 @@ Example | Description
 [Text](../examples/ui/text/text.rs) | Illustrates creating and updating text
 [Text Background Colors](../examples/ui/text/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text/text_debug.rs) | An example for debugging text layout
+[Text Input](../examples/ui/text/text_input.rs) | Demonstrates a simple, unstyled text input widget
 [Text Wrap Debug](../examples/ui/text/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/styling/transparency_ui.rs) | Demonstrates transparency for UI
 [UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes
@@ -757,7 +772,7 @@ Keep in mind that if you are using `bevy_audio` the minimum supported Android AP
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", features = ["android-native-activity"] }
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.
@@ -774,7 +789,7 @@ Example | File | Description
 
 #### Setup
 
-You need to install the correct rust targets:
+You need to install the correct Rust targets:
 
 - `aarch64-apple-ios`: iOS devices
 - `x86_64-apple-ios`: iOS simulator on x86 processors
@@ -871,12 +886,12 @@ This helper will log the command used to build the examples.
 
 For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
 
-In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interacts with your game.
 
 #### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
-With rust, there are many ways to improve your executable sizes, starting with
+With Rust, there are many ways to improve your executable sizes, starting with
 the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:

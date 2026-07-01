@@ -203,9 +203,9 @@ pub struct AnimationSystems;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SceneSpawnerSystems {
     /// Bevy's original scene system.
-    SceneSpawn,
+    WorldInstanceSpawn,
     /// Bevy's next-generation scene system
-    Scene2Spawn,
+    SceneSpawn,
 }
 
 /// Defines the schedules to be run for the [`Main`] schedule, including

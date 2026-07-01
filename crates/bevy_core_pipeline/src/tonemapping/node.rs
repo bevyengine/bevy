@@ -2,6 +2,7 @@ use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPi
 
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
     render_resource::{
@@ -24,6 +25,7 @@ pub struct TonemappingBindGroupCache {
 
 pub fn tonemapping(
     view: ViewQuery<(
+        &ExtractedCamera,
         &ViewUniformOffset,
         &ViewTarget,
         &ViewTonemappingPipeline,
@@ -38,13 +40,14 @@ pub fn tonemapping(
     mut cache: Local<TonemappingBindGroupCache>,
     mut ctx: RenderContext,
 ) {
-    let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) = view.into_inner();
+    let (camera, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
+        view.into_inner();
 
     if *tonemapping == Tonemapping::None {
         return;
     }
 
-    if !target.is_hdr() {
+    if !camera.hdr {
         return;
     }
 

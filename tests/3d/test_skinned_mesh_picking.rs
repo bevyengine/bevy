@@ -6,8 +6,8 @@ use bevy::{
     color::palettes::css::{BLUE, RED, WHITE},
     picking::pointer::PointerLocation,
     prelude::*,
-    scene::SceneInstanceReady,
     window::PrimaryWindow,
+    world_serialization::WorldInstanceReady,
 };
 
 fn main() {
@@ -57,7 +57,7 @@ fn setup(
                 graph_handle,
                 index,
             },
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF))),
+            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF))),
             // Use a non-zero translation to make sure we're accounting for the
             // mesh's transform.
             Transform::from_xyz(0.0, 1.0, 0.0)
@@ -74,12 +74,13 @@ struct PendingAnimation {
 }
 
 fn on_scene_ready(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations: Query<&PendingAnimation>,
     mut players: Query<&mut AnimationPlayer>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    meshes: Query<&Mesh3d>,
+    mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
     if let Ok(animation) = animations.get(scene_ready.entity) {
         for child in children.iter_descendants(scene_ready.entity) {
@@ -93,9 +94,16 @@ fn on_scene_ready(
         }
     }
 
-    // "Fox.glb" lacks tangents by default, so add them here.
-    for (_, mesh) in meshes.iter_mut() {
-        mesh.generate_tangents().expect("Should always succeed.");
+    // "Fox.glb" lacks tangents by default. Add them here so that we can test
+    // if picking handles tangents.
+    for child in children.iter_descendants(scene_ready.entity) {
+        if let Ok(mesh) = meshes.get(child)
+            && let Some(mut mesh_asset) = mesh_assets.get_mut(mesh)
+        {
+            mesh_asset
+                .generate_tangents()
+                .expect("Should always succeed.");
+        }
     }
 }
 

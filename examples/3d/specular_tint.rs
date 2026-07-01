@@ -85,7 +85,7 @@ fn setup(
         Hdr,
         Camera3d::default(),
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 3000.0,
             ..default()
         },
