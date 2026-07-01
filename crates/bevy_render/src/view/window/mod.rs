@@ -454,10 +454,28 @@ pub fn create_surfaces(
             )]
             drop(window.swap_chain_texture_view.take());
 
+            let caps = data.surface.get_capabilities(&render_adapter);
+            let resolved_present_mode = present_mode(window, &caps);
+
+            // DXGI/wgpu swapchain can get stuck presenting a black frame after resize
+            // when using tearing-allowed present modes (like AutoNoVsync, Immediate, Mailbox).
+            // Temporarily configuring the surface with Fifo forces wgpu to recreate the
+            // swap chain instead of calling ResizeBuffers, which avoids the stuck black frame.
+            #[cfg(target_os = "windows")]
+            if window.size_changed
+                && (resolved_present_mode == wgpu::PresentMode::Immediate
+                    || resolved_present_mode == wgpu::PresentMode::Mailbox)
+            {
+                let mut temp_config = data.configuration.clone();
+                temp_config.width = window.physical_width;
+                temp_config.height = window.physical_height;
+                temp_config.present_mode = wgpu::PresentMode::Fifo;
+                render_device.configure_surface(&data.surface, &temp_config);
+            }
+
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;
-            let caps = data.surface.get_capabilities(&render_adapter);
-            data.configuration.present_mode = present_mode(window, &caps);
+            data.configuration.present_mode = resolved_present_mode;
             render_device.configure_surface(&data.surface, &data.configuration);
         }
 
