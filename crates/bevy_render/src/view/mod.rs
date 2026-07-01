@@ -19,7 +19,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
-        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
+        CachedTexture, ColorAttachment, DepthStencilAttachment, GpuImage, ManualTextureViews,
         OutputColorAttachment, TextureCache,
     },
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
@@ -973,25 +973,27 @@ impl ViewTarget {
 }
 
 #[derive(Component)]
-pub struct ViewDepthTexture {
-    pub texture: Texture,
-    attachment: DepthAttachment,
+pub struct ViewDepthStencilTexture {
+    pub attachment: DepthStencilAttachment,
 }
 
-impl ViewDepthTexture {
-    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
-        Self {
-            texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
-        }
+impl ViewDepthStencilTexture {
+    pub fn new(
+        texture: CachedTexture,
+        depth_clear_value: Option<f32>,
+        stencil_clear_value: Option<u32>,
+    ) -> Self {
+        let attachment =
+            DepthStencilAttachment::new(texture, None, depth_clear_value, stencil_clear_value);
+        Self { attachment }
+    }
+
+    pub fn texture(&self) -> &Texture {
+        &self.attachment.texture.texture
     }
 
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
-    }
-
-    pub fn view(&self) -> &TextureView {
-        &self.attachment.view
     }
 }
 
