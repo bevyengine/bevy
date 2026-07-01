@@ -54,6 +54,7 @@ pub use common_traits::*;
 pub use compass::{CompassOctant, CompassQuadrant};
 pub use direction::*;
 pub use float_ord::*;
+pub use glam::camera;
 pub use isometry::{Isometry2d, Isometry3d};
 pub use mat3::*;
 pub use ops::FloatPow;

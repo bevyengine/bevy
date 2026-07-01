@@ -4,6 +4,7 @@ use core::ops::{Deref, DerefMut};
 use crate::{primitives::Frustum, visibility::VisibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
+use bevy_math::camera;
 use bevy_math::{ops, primitives::ViewFrustum, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
@@ -335,8 +336,11 @@ pub struct PerspectiveProjection {
 
 impl CameraProjection for PerspectiveProjection {
     fn get_clip_from_view(&self) -> Mat4 {
-        let mut matrix =
-            Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near);
+        let mut matrix = camera::rh::proj::directx::perspective_infinite_reverse(
+            self.fov,
+            self.aspect_ratio,
+            self.near,
+        );
         self.adjust_perspective_matrix_for_clip_plane(&mut matrix);
         matrix
     }
@@ -635,7 +639,7 @@ pub struct OrthographicProjection {
 
 impl CameraProjection for OrthographicProjection {
     fn get_clip_from_view(&self) -> Mat4 {
-        Mat4::orthographic_rh(
+        camera::rh::proj::directx::orthographic(
             self.area.min.x,
             self.area.max.x,
             self.area.min.y,
@@ -678,7 +682,7 @@ impl CameraProjection for OrthographicProjection {
         let top_prime = top - scale_h * offset_y;
         let bottom_prime = top_prime - scale_h * sub_height;
 
-        Mat4::orthographic_rh(
+        camera::rh::proj::directx::orthographic(
             left_prime,
             right_prime,
             bottom_prime,
