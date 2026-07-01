@@ -323,7 +323,6 @@ where
         InstanceInputUniformBuffer {
             buffer: AtomicSparseBufferVec::new(
                 BufferUsages::STORAGE,
-                8,
                 Arc::from("instance input uniform buffer"),
             ),
             free_uniform_indices: vec![],
