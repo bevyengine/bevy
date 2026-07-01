@@ -4,8 +4,8 @@ use crate::{
     bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     ops,
     primitives::{
-        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Segment3d,
-        Sphere, Torus, Triangle2d, Triangle3d,
+        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Ellipsoid, InfinitePlane3d, Line3d,
+        Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
     },
     Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A,
 };
@@ -24,6 +24,18 @@ impl Bounded3d for Sphere {
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, self.radius)
+    }
+}
+
+impl Bounded3d for Ellipsoid {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
+        Aabb3d::new(isometry.translation, self.radii)
+    }
+
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
+        BoundingSphere::new(isometry.translation, self.radii.max_element())
     }
 }
 
@@ -372,8 +384,8 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
-            Segment3d, Sphere, Torus, Triangle3d,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Ellipsoid, InfinitePlane3d, Line3d,
+            Polyline3d, Segment3d, Sphere, Torus, Triangle3d,
         },
         Dir3,
     };
@@ -390,6 +402,22 @@ mod tests {
         let bounding_sphere = sphere.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 1.0);
+    }
+
+    #[test]
+    fn ellipsoid() {
+        let ellipsoid = Ellipsoid {
+            radii: Vec3::new(1.0, 2.0, 3.0),
+        };
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = ellipsoid.aabb_3d(translation);
+        assert_eq!(aabb.min, Vec3A::new(1.0, -1.0, -3.0));
+        assert_eq!(aabb.max, Vec3A::new(3.0, 3.0, 3.0));
+
+        let bounding_sphere = ellipsoid.bounding_sphere(translation);
+        assert_eq!(bounding_sphere.center, translation.into());
+        assert_eq!(bounding_sphere.radius(), 3.0);
     }
 
     #[test]

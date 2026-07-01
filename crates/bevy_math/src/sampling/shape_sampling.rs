@@ -222,6 +222,28 @@ impl ShapeSample for Sphere {
     }
 }
 
+// NOTE: This implementation is *cheap* and *not perfectly accurate*. This was a deliberate choice
+// since accurate sampling would require rejection based approaches. If this is re-evaluated to not
+// matter in the future, the implementation may change to something else.
+impl ShapeSample for Ellipsoid {
+    type Output = Vec3;
+
+    fn sample_interior<R: RngExt + ?Sized>(&self, rng: &mut R) -> Vec3 {
+        let r_cubed = rng.random_range(0.0..=1.0);
+        let r = ops::cbrt(r_cubed);
+
+        let p = r * sample_unit_sphere_boundary(rng);
+
+        Vec3::new(p.x * self.radii.x, p.y * self.radii.y, p.z * self.radii.z)
+    }
+
+    fn sample_boundary<R: RngExt + ?Sized>(&self, rng: &mut R) -> Vec3 {
+        let p = sample_unit_sphere_boundary(rng);
+
+        Vec3::new(p.x * self.radii.x, p.y * self.radii.y, p.z * self.radii.z)
+    }
+}
+
 impl ShapeSample for Annulus {
     type Output = Vec2;
 
