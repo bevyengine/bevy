@@ -11,7 +11,7 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::{icon, label, label_dim, label_small},
         font_styles::InheritableFont,
-        palette,
+        light_theme::create_light_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
@@ -113,6 +113,50 @@ fn demo_column_1() -> impl Scene {
             min_width: px(200),
         }
         Children [
+            (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
+                }
+                Children [
+                    label("Theme:"),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (
+                                @FeathersRadio {
+                                    @caption: bsn! { Text("Dark") ThemedText }
+                                }
+                                Checked
+                                on(|change: On<ValueChange<bool>>, mut commands: Commands| {
+                                    if change.value {
+                                        commands.insert_resource(UiTheme(create_dark_theme()));
+                                    }
+                                })
+                            ),
+                            (
+                                @FeathersRadio {
+                                    @caption: bsn! { Text("Light") ThemedText }
+                                }
+                                on(|change: On<ValueChange<bool>>, mut commands: Commands| {
+                                    if change.value {
+                                        commands.insert_resource(UiTheme(create_light_theme()));
+                                    }
+                                })
+                            )
+                        ]
+                    )
+                ]
+            ),
             (
                 Node {
                     display: Display::Flex,
@@ -673,7 +717,6 @@ fn demo_column_2() -> impl Scene {
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
-                                                    BorderColor::all(palette::X_AXIS)
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {

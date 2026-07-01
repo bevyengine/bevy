@@ -4,6 +4,7 @@ use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    entity::Entity,
     lifecycle::Insert,
     observer::On,
     query::Changed,
@@ -130,7 +131,9 @@ pub(crate) fn update_theme(
     mut q_background: Query<(&mut BackgroundColor, &ThemeBackgroundColor)>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor)>,
     mut q_text_color: Query<(&mut TextColor, &ThemeTextColor)>,
+    q_inherit: Query<(Entity, &InheritableThemeTextColor)>,
     theme: Res<UiTheme>,
+    mut commands: Commands,
 ) {
     if theme.is_changed() {
         // Update all background colors
@@ -146,6 +149,13 @@ pub(crate) fn update_theme(
         // Update all direct text span colors
         for (mut text_color, theme_text_color) in q_text_color.iter_mut() {
             text_color.0 = theme.color(&theme_text_color.0);
+        }
+
+        // Re-propagate inheritable text colors (buttons, menus, list rows, etc.)
+        for (entity, inherit) in &q_inherit {
+            commands
+                .entity(entity)
+                .insert(Propagate(TextColor(theme.color(&inherit.0))));
         }
     }
 }
