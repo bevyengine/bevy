@@ -123,6 +123,17 @@ impl InvertibleComponentIdSet {
         }
     }
 
+    /// If this is an unbounded set, returns the set of components
+    /// that are excluded from the set.
+    /// If this is a finite set, returns `None`.
+    #[inline]
+    pub fn as_exclusion_set(&self) -> Option<&ComponentIdSet> {
+        match self {
+            Self::Included(_) => None,
+            Self::Excluded(excluded) => Some(excluded),
+        }
+    }
+
     /// In-place union of two sets.
     pub fn union_with(&mut self, other: &Self) {
         match (&mut *self, other) {
