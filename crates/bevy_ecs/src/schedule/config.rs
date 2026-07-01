@@ -7,33 +7,10 @@ use crate::{
         condition::{BoxedCondition, SystemCondition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
-        Chain,
+        Chain, IntoBoxedCondition,
     },
-    system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
+    system::{BoxedSystem, IntoSystem, ScheduleSystem, System, SystemInput},
 };
-
-fn new_condition<M>(condition: impl SystemCondition<M>) -> BoxedCondition {
-    let condition_system = IntoSystem::into_system(condition);
-    assert!(
-        condition_system.is_send(),
-        "SystemCondition `{}` accesses `NonSend` resources. This is not currently supported.",
-        condition_system.name()
-    );
-
-    Box::new(condition_system)
-}
-
-fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
-    match &mut graph_info.ambiguous_with {
-        detection @ Ambiguity::Check => {
-            *detection = Ambiguity::IgnoreWithSet(vec![set]);
-        }
-        Ambiguity::IgnoreWithSet(ambiguous_with) => {
-            ambiguous_with.push(set);
-        }
-        Ambiguity::IgnoreAll => (),
-    }
-}
 
 /// Stores data to differentiate different schedulable structs.
 pub trait Schedulable {
@@ -112,127 +89,91 @@ pub enum ScheduleConfigs<T: Schedulable> {
 
 impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T> {
     /// Adds a new boxed system set to the systems.
+    #[deprecated(since = "0.18.0", note = "Use `add_to_set` instead.")]
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
+        self.add_to_set(set);
+    }
+
+    /// `&mut Self` version of [`in_set`](IntoScheduleConfigs::in_set).
+    pub fn add_to_set<M>(&mut self, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        assert!(
+            set.system_type().is_none(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
         match self {
             Self::ScheduleConfig(config) => {
                 config.metadata.hierarchy.push(set);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.in_set_inner(set);
+                    config.add_to_set(set);
                 }
             }
         }
     }
 
-    fn before_inner(&mut self, set: InternedSystemSet) {
+    fn add_dependency(&mut self, dependency: &mut impl FnMut() -> Dependency) {
         match self {
             Self::ScheduleConfig(config) => {
-                config
-                    .metadata
-                    .dependencies
-                    .push(Dependency::new(DependencyKind::Before, set));
+                config.metadata.dependencies.push(dependency());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.before_inner(set);
+                    config.add_dependency(dependency);
                 }
             }
         }
     }
 
-    fn after_inner(&mut self, set: InternedSystemSet) {
+    /// `&mut Self` version of [`before`](IntoScheduleConfigs::before).
+    pub fn add_before<M>(&mut self, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        self.add_dependency(&mut || Dependency::new(DependencyKind::Before, set));
+    }
+
+    /// `&mut Self` version of [`after`](IntoScheduleConfigs::after).
+    pub fn add_after<M>(&mut self, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        self.add_dependency(&mut || Dependency::new(DependencyKind::After, set));
+    }
+
+    /// `&mut Self` version of [`before_ignore_deferred`](IntoScheduleConfigs::before_ignore_deferred).
+    pub fn add_before_ignore_deferred<M>(&mut self, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        self.add_dependency(&mut || {
+            Dependency::new(DependencyKind::Before, set).add_config(IgnoreDeferred)
+        });
+    }
+
+    /// `&mut Self` version of [`after_ignore_deferred`](IntoScheduleConfigs::after_ignore_deferred).
+    pub fn add_after_ignore_deferred<M>(&mut self, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        self.add_dependency(&mut || {
+            Dependency::new(DependencyKind::After, set).add_config(IgnoreDeferred)
+        });
+    }
+
+    /// `&mut Self` version of [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if).
+    pub fn add_distributive_condition<M>(&mut self, condition: impl SystemCondition<M> + Clone) {
         match self {
             Self::ScheduleConfig(config) => {
-                config
-                    .metadata
-                    .dependencies
-                    .push(Dependency::new(DependencyKind::After, set));
+                let condition = Box::new(IntoSystem::into_system(condition));
+                check_send(&*condition);
+                config.conditions.push(condition);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.after_inner(set);
+                    config.add_distributive_condition(condition.clone());
                 }
             }
         }
     }
 
-    fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
-        match self {
-            Self::ScheduleConfig(config) => {
-                config
-                    .metadata
-                    .dependencies
-                    .push(Dependency::new(DependencyKind::Before, set).add_config(IgnoreDeferred));
-            }
-            Self::Configs { configs, .. } => {
-                for config in configs {
-                    config.before_ignore_deferred_inner(set.intern());
-                }
-            }
-        }
-    }
-
-    fn after_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
-        match self {
-            Self::ScheduleConfig(config) => {
-                config
-                    .metadata
-                    .dependencies
-                    .push(Dependency::new(DependencyKind::After, set).add_config(IgnoreDeferred));
-            }
-            Self::Configs { configs, .. } => {
-                for config in configs {
-                    config.after_ignore_deferred_inner(set.intern());
-                }
-            }
-        }
-    }
-
-    fn distributive_run_if_inner<M>(&mut self, condition: impl SystemCondition<M> + Clone) {
-        match self {
-            Self::ScheduleConfig(config) => {
-                config.conditions.push(new_condition(condition));
-            }
-            Self::Configs { configs, .. } => {
-                for config in configs {
-                    config.distributive_run_if_inner(condition.clone());
-                }
-            }
-        }
-    }
-
-    fn ambiguous_with_inner(&mut self, set: InternedSystemSet) {
-        match self {
-            Self::ScheduleConfig(config) => {
-                ambiguous_with(&mut config.metadata, set);
-            }
-            Self::Configs { configs, .. } => {
-                for config in configs {
-                    config.ambiguous_with_inner(set);
-                }
-            }
-        }
-    }
-
-    fn ambiguous_with_all_inner(&mut self) {
-        match self {
-            Self::ScheduleConfig(config) => {
-                config.metadata.ambiguous_with = Ambiguity::IgnoreAll;
-            }
-            Self::Configs { configs, .. } => {
-                for config in configs {
-                    config.ambiguous_with_all_inner();
-                }
-            }
-        }
-    }
-
-    /// Adds a new boxed run condition to the systems.
-    ///
-    /// This is useful if you have a run condition whose concrete type is unknown.
-    /// Prefer `run_if` for run conditions whose type is known at compile time.
-    pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
+    /// `&mut Self` version of [`run_if`](IntoScheduleConfigs::run_if).
+    pub fn add_condition<M>(&mut self, condition: impl IntoBoxedCondition<M>) {
+        let condition = IntoBoxedCondition::into_boxed_condition(condition);
+        check_send(&*condition);
         match self {
             Self::ScheduleConfig(config) => {
                 config.conditions.push(condition);
@@ -246,25 +187,80 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         }
     }
 
-    fn chain_inner(mut self) -> Self {
-        match &mut self {
+    /// `&mut Self` version of [`ambiguous_with`](IntoScheduleConfigs::ambiguous_with).
+    pub fn add_ambiguous_with<M>(&mut self, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        match self {
+            Self::ScheduleConfig(config) => match &mut config.metadata.ambiguous_with {
+                detection @ Ambiguity::Check => {
+                    *detection = Ambiguity::IgnoreWithSet(vec![set]);
+                }
+                Ambiguity::IgnoreWithSet(ambiguous_with) => {
+                    ambiguous_with.push(set);
+                }
+                Ambiguity::IgnoreAll => (),
+            },
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.add_ambiguous_with(set);
+                }
+            }
+        }
+    }
+
+    /// `&mut Self` version of [`ambiguous_with_all`](IntoScheduleConfigs::ambiguous_with_all).
+    pub fn set_ambiguous_with_all(&mut self) {
+        match self {
+            Self::ScheduleConfig(config) => {
+                config.metadata.ambiguous_with = Ambiguity::IgnoreAll;
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.set_ambiguous_with_all();
+                }
+            }
+        }
+    }
+
+    /// Adds a new boxed run condition to the systems.
+    ///
+    /// This is useful if you have a run condition whose concrete type is unknown.
+    /// Prefer `run_if` for run conditions whose type is known at compile time.
+    #[deprecated(
+        since = "0.18.0",
+        note = "`run_if` now accepts boxed conditions directly, and `add_condition` exists for `&mut config` usage."
+    )]
+    pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
+        self.add_condition(condition);
+    }
+
+    /// `&mut Self` version of [`chain`](IntoScheduleConfigs::chain).
+    pub fn set_chained(&mut self) {
+        match self {
             Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
                 metadata.set_chained();
             }
         };
-        self
     }
 
-    fn chain_ignore_deferred_inner(mut self) -> Self {
-        match &mut self {
+    /// `&mut Self` version of [`chain_ignore_deferred`](IntoScheduleConfigs::chain_ignore_deferred).
+    pub fn set_chained_ignore_deferred(&mut self) {
+        match self {
             Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
                 metadata.set_chained_with_config(IgnoreDeferred);
             }
         }
-        self
     }
+}
+
+fn check_send<I: SystemInput + 'static, O: 'static>(condition: &dyn System<In = I, Out = O>) {
+    assert!(
+        condition.is_send(),
+        "Run condition `{}` accesses `NonSend` resources. This is not currently supported.",
+        condition.name()
+    );
 }
 
 /// Types that can convert into a [`ScheduleConfigs`].
@@ -318,9 +314,13 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     fn into_configs(self) -> ScheduleConfigs<T>;
 
     /// Add these systems to the provided `set`.
+    ///
+    /// See [`add_to_set`](ScheduleConfigs::add_to_set) for the `&mut Self` version.
     #[track_caller]
     fn in_set(self, set: impl SystemSet) -> ScheduleConfigs<T> {
-        self.into_configs().in_set(set)
+        let mut configs = self.into_configs();
+        configs.add_to_set(set);
+        configs
     }
 
     /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
@@ -331,8 +331,12 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
     /// Please check the [caveats section of `.after`](Self::after) for details.
+    ///
+    /// See [`add_before`](ScheduleConfigs::add_before) for the `&mut Self` version.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
-        self.into_configs().before(set)
+        let mut configs = self.into_configs();
+        configs.add_before(set);
+        configs
     }
 
     /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
@@ -357,25 +361,39 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Another caveat is that if `GameSystem::B` is placed in a different schedule than `GameSystem::A`,
     /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
     ///
+    /// See [`add_after`](ScheduleConfigs::add_after) for the `&mut Self` version.
+    ///
     /// [`configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
     fn after<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
-        self.into_configs().after(set)
+        let mut configs = self.into_configs();
+        configs.add_after(set);
+        configs
     }
 
     /// Run before all systems in `set`.
     ///
     /// Unlike [`before`](Self::before), this will not cause the systems in
     /// `set` to wait for the deferred effects of `self` to be applied.
+    ///
+    /// See [`add_before_ignore_deferred`](ScheduleConfigs::add_before_ignore_deferred)
+    /// for the `&mut Self` version.
     fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
-        self.into_configs().before_ignore_deferred(set)
+        let mut configs = self.into_configs();
+        configs.add_before_ignore_deferred(set);
+        configs
     }
 
     /// Run after all systems in `set`.
     ///
     /// Unlike [`after`](Self::after), this will not wait for the deferred
     /// effects of systems in `set` to be applied.
+    ///
+    /// See [`add_after_ignore_deferred`](ScheduleConfigs::add_after_ignore_deferred)
+    /// for the `&mut Self` version.
     fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
-        self.into_configs().after_ignore_deferred(set)
+        let mut configs = self.into_configs();
+        configs.add_after_ignore_deferred(set);
+        configs
     }
 
     /// Add a run condition to each contained system.
@@ -408,11 +426,16 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Use [`run_if`](ScheduleConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
+    ///
+    /// See [`add_distributive_condition`](ScheduleConfigs::add_distributive_condition)
+    /// for the `&mut Self` version.
     fn distributive_run_if<M>(
         self,
         condition: impl SystemCondition<M> + Clone,
     ) -> ScheduleConfigs<T> {
-        self.into_configs().distributive_run_if(condition)
+        let mut configs = self.into_configs();
+        configs.add_distributive_condition(condition);
+        configs
     }
 
     /// Run the systems only if the [`SystemCondition`] is `true`.
@@ -445,20 +468,35 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Use [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
-    fn run_if<M>(self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
-        self.into_configs().run_if(condition)
+    ///
+    /// See [`add_condition`](ScheduleConfigs::add_condition) for the `&mut Self`
+    /// version.
+    fn run_if<M>(self, condition: impl IntoBoxedCondition<M>) -> ScheduleConfigs<T> {
+        let mut configs = self.into_configs();
+        configs.add_condition(condition);
+        configs
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
+    ///
+    /// See [`add_ambiguous_with`](ScheduleConfigs::add_ambiguous_with) for the
+    /// `&mut Self` version.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
-        self.into_configs().ambiguous_with(set)
+        let mut configs = self.into_configs();
+        configs.add_ambiguous_with(set);
+        configs
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
+    ///
+    /// See [`set_ambiguous_with_all`](ScheduleConfigs::set_ambiguous_with_all)
+    /// for the `&mut Self` version.
     fn ambiguous_with_all(self) -> ScheduleConfigs<T> {
-        self.into_configs().ambiguous_with_all()
+        let mut configs = self.into_configs();
+        configs.set_ambiguous_with_all();
+        configs
     }
 
     /// Treat this collection as a sequence of systems.
@@ -468,8 +506,13 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// If the preceding node on an edge has deferred parameters, an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
+    ///
+    /// See [`set_chained`](ScheduleConfigs::set_chained) for the `&mut Self`
+    /// version.
     fn chain(self) -> ScheduleConfigs<T> {
-        self.into_configs().chain()
+        let mut configs = self.into_configs();
+        configs.set_chained();
+        configs
     }
 
     /// Treat this collection as a sequence of systems.
@@ -477,8 +520,13 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Ordering constraints will be applied between the successive elements.
     ///
     /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
+    ///
+    /// See [`set_chained_ignore_deferred`](ScheduleConfigs::set_chained_ignore_deferred)
+    /// for the `&mut Self` version.
     fn chain_ignore_deferred(self) -> ScheduleConfigs<T> {
-        self.into_configs().chain_ignore_deferred()
+        let mut configs = self.into_configs();
+        configs.set_chained_ignore_deferred();
+        configs
     }
 }
 
@@ -487,74 +535,6 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
 {
     fn into_configs(self) -> Self {
         self
-    }
-
-    #[track_caller]
-    fn in_set(mut self, set: impl SystemSet) -> Self {
-        assert!(
-            set.system_type().is_none(),
-            "adding arbitrary systems to a system type set is not allowed"
-        );
-
-        self.in_set_inner(set.intern());
-
-        self
-    }
-
-    fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.before_inner(set.intern());
-        self
-    }
-
-    fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.after_inner(set.intern());
-        self
-    }
-
-    fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.before_ignore_deferred_inner(set.intern());
-        self
-    }
-
-    fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.after_ignore_deferred_inner(set.intern());
-        self
-    }
-
-    fn distributive_run_if<M>(
-        mut self,
-        condition: impl SystemCondition<M> + Clone,
-    ) -> ScheduleConfigs<T> {
-        self.distributive_run_if_inner(condition);
-        self
-    }
-
-    fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
-        self.run_if_dyn(new_condition(condition));
-        self
-    }
-
-    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        let set = set.into_system_set();
-        self.ambiguous_with_inner(set.intern());
-        self
-    }
-
-    fn ambiguous_with_all(mut self) -> Self {
-        self.ambiguous_with_all_inner();
-        self
-    }
-
-    fn chain(self) -> Self {
-        self.chain_inner()
-    }
-
-    fn chain_ignore_deferred(self) -> Self {
-        self.chain_ignore_deferred_inner()
     }
 }
 
