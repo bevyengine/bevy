@@ -8,7 +8,7 @@ use bevy::{
     image::Image,
     prelude::*,
     render::{
-        render_resource::{Extent3d, PollType, TextureDimension, TextureFormat, TextureUsages},
+        render_resource::{PollType, TextureFormat},
         renderer::RenderDevice,
         view::screenshot::{save_to_disk, Screenshot},
         RenderPlugin,
@@ -73,18 +73,9 @@ impl BevyWrapper {
     }
 
     fn new_render_target(&mut self, width: u32, height: u32) -> RenderTarget {
-        let mut target = Image::new_uninit(
-            Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        // We're going to render to this image, mark it as such
-        target.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
+        let mut target =
+            Image::new_target_texture(width, height, TextureFormat::Rgba8UnormSrgb, None);
+        target.asset_usage = RenderAssetUsages::RENDER_WORLD;
         self.0
             .main
             .world_mut()

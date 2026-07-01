@@ -58,6 +58,10 @@ struct Args {
     /// a layout with a separate camera for each button
     #[argh(switch)]
     many_cameras: bool,
+
+    /// set overflow clip for each button
+    #[argh(switch)]
+    overflow_clip: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -199,6 +203,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                             images.as_ref().map(|images| {
                                 images[((column + row) / args.image_freq) % images.len()].clone()
                             }),
+                            args.overflow_clip,
                         );
                     }
                 });
@@ -254,6 +259,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                         images.as_ref().map(|images| {
                             images[((column + row) / args.image_freq) % images.len()].clone()
                         }),
+                        args.overflow_clip,
                     );
                 }
             }
@@ -270,6 +276,7 @@ fn spawn_button(
     border: UiRect,
     border_color: BorderColor,
     image: Option<Handle<Image>>,
+    clip: bool,
 ) {
     let width = vw(90.0 / buttons);
     let height = vh(90.0 / buttons);
@@ -283,6 +290,11 @@ fn spawn_button(
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             border,
+            overflow: if clip {
+                Overflow::clip()
+            } else {
+                Overflow::visible()
+            },
             ..default()
         },
         BackgroundColor(background_color),
@@ -392,6 +404,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                                     images[((column + row) / args.image_freq) % images.len()]
                                         .clone()
                                 }),
+                                args.overflow_clip,
                             );
                         });
                 });

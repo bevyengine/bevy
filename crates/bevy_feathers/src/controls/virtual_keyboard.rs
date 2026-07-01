@@ -2,6 +2,7 @@ use core::marker::PhantomData;
 
 use bevy_ecs::prelude::*;
 use bevy_input_focus::tab_navigation::TabGroup;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{px, widget::Text, FlexDirection, Node};
 use bevy_ui_widgets::{observe, Activate};
@@ -18,6 +19,8 @@ use crate::controls::{button::ButtonBundleProps, button_bundle, FeathersButton};
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, FromTemplate)]
 #[scene(VirtualKeyboardProps<T>)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct VirtualKeyboard<T: AsRef<str> + Clone + Send + Sync + 'static>(PhantomData<fn() -> T>);
 
 /// Props used to construct the [`VirtualKeyboard`] scene.
@@ -40,7 +43,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
             let key_row = Vec::from_iter(row.into_iter().map(move |key| {
                 let key_clone = key.clone();
                 bsn! {
-                    :FeathersButton
+                    @FeathersButton
                     Node {
                         flex_grow: 1.0,
                     }
@@ -87,7 +90,8 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
 }
 
 /// Fired whenever a virtual key is pressed.
-#[derive(EntityEvent)]
+#[derive(EntityEvent, Reflect)]
+#[reflect(Event)]
 pub struct VirtualKeyPressed<T> {
     /// The virtual keyboard entity
     pub entity: Entity,

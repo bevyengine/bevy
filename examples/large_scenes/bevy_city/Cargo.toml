@@ -11,6 +11,7 @@ bevy = { path = "../../../", features = [
   "free_camera",
   "bevy_feathers",
   "web_asset_cache",
+  "bevy_dev_tools",
 ] }
 
 argh = "0.1"

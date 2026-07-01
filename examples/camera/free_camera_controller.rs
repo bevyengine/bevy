@@ -34,20 +34,23 @@
 //! This example also provides a few extra keybinds to change the camera sensitivity, friction (how fast the camera
 //! stops), scroll factor (how much scrolling changes speed) and enabling/disabling the controller.
 //!
-//! | Key Binding | Action                 |
-//! |:------------|:-----------------------|
-//! | Z           | Decrease sensitivity   |
-//! | X           | Increase sensitivity    |
-//! | C           | Decrease friction      |
-//! | V           | Increase friction      |
-//! | F           | Decrease scroll factor |
-//! | G           | Increase scroll factor |
-//! | B           | Enable/Disable         |
+//! | Key Binding | Action                        |
+//! |:------------|:------------------------------|
+//! | Z           | Decrease sensitivity          |
+//! | X           | Increase sensitivity          |
+//! | C           | Decrease friction             |
+//! | V           | Increase friction             |
+//! | F           | Decrease scroll factor        |
+//! | G           | Increase scroll factor        |
+//! | B           | Enable/Disable                |
+//! | T           | World/Local vertical movement |
 
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+    camera_controller::free_camera::{
+        FreeCamera, FreeCameraPlugin, FreeCameraState, VerticalMovementAxis,
+    },
     color::palettes::tailwind,
     prelude::*,
 };
@@ -123,7 +126,8 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
             "Z/X: decrease/increase sensitivity\n",
             "C/V: decrease/increase friction\n",
             "F/G: decrease/increase scroll factor\n",
-            "B: enable/disable controller",
+            "B: enable/disable controller\n",
+            "T: world/local vertical movement"
         ]),],
     ));
 
@@ -165,6 +169,12 @@ fn update_camera_settings(
     }
     if input.just_pressed(KeyCode::KeyB) {
         free_camera_state.enabled = !free_camera_state.enabled;
+    }
+    if input.just_pressed(KeyCode::KeyT) {
+        free_camera.vertical_movement_axis = match free_camera.vertical_movement_axis {
+            VerticalMovementAxis::World => VerticalMovementAxis::Local,
+            VerticalMovementAxis::Local => VerticalMovementAxis::World,
+        };
     }
 }
 

@@ -520,6 +520,7 @@ pub fn extract_cameras(
         NoIndirectDrawing,
         ViewUniformOffset,
     );
+
     for (
         main_entity,
         render_entity,

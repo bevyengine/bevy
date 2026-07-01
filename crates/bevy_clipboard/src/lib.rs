@@ -204,6 +204,13 @@ pub struct Clipboard {
     text: String,
 }
 
+#[cfg_attr(
+    not(all(any(unix, windows), feature = "system_clipboard")),
+    expect(
+        clippy::derivable_impls,
+        reason = "non-derivable on unix/windows with system_clipboard"
+    )
+)]
 impl Default for Clipboard {
     fn default() -> Self {
         Self {

@@ -1,3 +1,7 @@
+//! Adds the `http` and `https` asset sources to the app.
+//!
+//! See [`WebAssetPlugin`] for details.
+
 use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
@@ -56,6 +60,7 @@ use tracing::warn;
 /// ```
 #[derive(Default)]
 pub struct WebAssetPlugin {
+    /// Set this if you have seen the warning about URL safety enough times.
     pub silence_startup_warning: bool,
 }
 
@@ -85,7 +90,7 @@ impl Plugin for WebAssetPlugin {
     }
 }
 
-/// Asset reader that treats paths as urls to load assets from.
+/// Asset reader that treats paths as URLs to load assets from.
 pub enum WebAssetReader {
     /// Unencrypted connections.
     Http,

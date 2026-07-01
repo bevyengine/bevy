@@ -13,17 +13,19 @@ use bevy_camera::{
         NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
         VisibleEntities, VisibleEntityRanges, VisibleMeshEntities,
     },
-    Camera3d, CameraUpdateSystems,
+    Camera, Camera3d, CameraUpdateSystems, RenderTarget, ShadowLodOrigin,
 };
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::{entity::EntityHashSet, prelude::*, system::QueryLens};
 #[cfg(feature = "bevy_gizmos")]
 use bevy_gizmos::frustum::FrustumGizmoSystems;
+use bevy_log::warn_once;
 use bevy_math::Vec3A;
 use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
 use core::{any::TypeId, mem, ops::DerefMut};
+use smallvec::{smallvec, SmallVec};
 
 pub mod cluster;
 use cluster::assign::assign_objects_to_clusters;
@@ -398,6 +400,13 @@ pub fn check_dir_light_mesh_visibility(
         let view_mask = maybe_view_mask.unwrap_or_default();
 
         for (view, view_frusta) in &frusta.frusta {
+            // Resize any per-thread buffer left at a stale state from a prior frame.
+            // Threads receiving no work this frame won't run the `init` closure from `par_iter`, and without this
+            // their buffer might be indexed out-of-bounds during collection if the number of cascades has increased.
+            for thread_queue in view_visible_entities_queue.iter_mut() {
+                thread_queue.resize(view_frusta.len(), Vec::default());
+            }
+
             visible_entity_query.par_iter().for_each_init(
                 || {
                     let mut entities = view_visible_entities_queue.borrow_local_mut();
@@ -533,12 +542,21 @@ pub fn check_point_light_mesh_visibility(
             With<Mesh3d>,
         ),
     >,
+    mut camera_query: Query<(Entity, &RenderTarget), With<Camera>>,
+    mut shadow_lod_origin_query: Query<Entity, With<ShadowLodOrigin>>,
+    mut point_and_spot_light_query: Query<Entity, Or<(With<PointLight>, With<SpotLight>)>>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
 ) {
     checked_lights.clear();
+
+    let shadow_lod_origin = get_shadow_lod_origin(
+        camera_query.transmute_lens_filtered(),
+        shadow_lod_origin_query.transmute_lens_filtered(),
+        point_and_spot_light_query.transmute_lens_filtered(),
+    );
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
@@ -589,7 +607,10 @@ pub fn check_point_light_mesh_visibility(
                         }
                         if has_visibility_range
                             && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                                !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+                                shadow_lod_origin.is_none_or(|shadow_lod_origin| {
+                                    !visible_entity_ranges
+                                        .entity_is_in_range_of_view(entity, shadow_lod_origin)
+                                })
                             })
                         {
                             return;
@@ -679,7 +700,10 @@ pub fn check_point_light_mesh_visibility(
                         // Check visibility ranges.
                         if has_visibility_range
                             && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                                !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+                                shadow_lod_origin.is_none_or(|shadow_lod_origin| {
+                                    !visible_entity_ranges
+                                        .entity_is_in_range_of_view(entity, shadow_lod_origin)
+                                })
                             })
                         {
                             return;
@@ -716,4 +740,55 @@ pub fn check_point_light_mesh_visibility(
             }
         }
     }
+}
+
+/// Determines the LOD origin for spot and point light shadow maps.
+///
+/// The selection priority is, from highest to lowest:
+///
+/// 1. An entity explicitly marked with the [`ShadowLodOrigin`] component.
+///
+/// 2. A camera that renders to a window.
+///
+/// 3. Any camera.
+pub fn get_shadow_lod_origin(
+    mut camera_query: QueryLens<(Entity, &RenderTarget), With<Camera>>,
+    mut shadow_lod_origin_query: QueryLens<Entity, With<ShadowLodOrigin>>,
+    mut lights_query: QueryLens<Entity, Or<(With<PointLight>, With<SpotLight>)>>,
+) -> Option<Entity> {
+    let (camera_query, shadow_lod_origin_query) =
+        (camera_query.query(), shadow_lod_origin_query.query());
+
+    let mut entities: SmallVec<[Entity; 4]> = smallvec![];
+    entities.extend(shadow_lod_origin_query.iter());
+    if let Some(lod_origin) = entities.iter().min() {
+        return Some(*lod_origin);
+    }
+
+    entities.extend(
+        camera_query
+            .iter()
+            .filter_map(|(main_entity, render_target)| match *render_target {
+                RenderTarget::Window(_) => Some(main_entity),
+                _ => None,
+            }),
+    );
+    if let Some(lod_origin) = entities.iter().min() {
+        return Some(*lod_origin);
+    };
+
+    entities.extend(camera_query.iter().map(|(main_entity, _)| main_entity));
+    if let Some(lod_origin) = entities.iter().min() {
+        if !lights_query.query().is_empty() {
+            warn_once!(
+                "Point lights and/or spot lights are present, but no entity has \
+                 `ShadowLodOrigin`, and no camera that renders to the window has been found. \
+                 Consider using the `ShadowLodOrigin` component to set a LOD origin."
+            );
+        }
+
+        return Some(*lod_origin);
+    };
+
+    None
 }

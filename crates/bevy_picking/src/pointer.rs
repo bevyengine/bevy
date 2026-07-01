@@ -90,7 +90,8 @@ impl Deref for PointerInteraction {
 }
 
 /// A resource that maps each [`PointerId`] to their [`Entity`] for easy lookups.
-#[derive(Debug, Clone, Default, Resource)]
+#[derive(Debug, Clone, Default, Resource, Reflect)]
+#[reflect(Debug, Clone, Default, Resource)]
 pub struct PointerMap {
     inner: HashMap<PointerId, Entity>,
 }

@@ -210,7 +210,7 @@ impl Default for LightGizmoConfigGroup {
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct ShowLightGizmo {
-    /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
+    /// Default color strategy for this light gizmo. If [`None`], use the one provided by [`LightGizmoConfigGroup`].
     ///
     /// Defaults to [`None`].
     pub color: Option<LightGizmoColor>,

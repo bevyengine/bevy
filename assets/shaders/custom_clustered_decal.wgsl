@@ -19,7 +19,11 @@ fn fragment(
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // Alpha discard.
-    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+    pbr_input.material.base_color = alpha_discard(
+        pbr_input.material.flags,
+        pbr_input.material.alpha_cutoff,
+        pbr_input.material.base_color,
+    );
 
     // Apply the normal decals.
     clustered::apply_decals(&pbr_input);

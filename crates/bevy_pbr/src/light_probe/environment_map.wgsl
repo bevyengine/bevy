@@ -3,7 +3,6 @@
 #import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next}
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
-#import bevy_pbr::mesh_view_bindings::environment_map_uniform
 #import bevy_pbr::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 }
@@ -45,7 +44,8 @@ fn compute_cubemap_sample_dir(
     world_ray_direction: vec3<f32>,
     light_from_world: mat4x4<f32>,
     parallax_correction_bounds: vec3<f32>,
-    parallax_correct: bool
+    parallax_correct: bool,
+    view_rotation: vec4<f32>,
 ) -> vec3<f32> {
     var sample_dir: vec3<f32>;
 
@@ -84,6 +84,10 @@ fn compute_cubemap_sample_dir(
         // case, so the ray origin is irrelevant.
         sample_dir = (light_from_world * vec4(world_ray_direction, 0.0)).xyz;
     }
+
+    // Rotating the world space ray direction by the environment map light view rotation,
+    // it is equivalent to rotating the environment cubemap itself.
+    sample_dir = quat_rotate(view_rotation, sample_dir);
 
     // Cubemaps are left-handed, so we negate the Z coordinate.
     sample_dir.z = -sample_dir.z;
@@ -124,6 +128,7 @@ fn compute_radiances(
 
     while (true) {
         var query_result = light_probe_iterator_next(&iterator);
+        var view_rotation = vec4<f32>(0.0, 0.0, 0.0, 1.0);
 
         // If we reached the end of the light probe list, and we didn't find
         // enough reflection probes to reach a weight of 1.0, use the view
@@ -132,6 +137,7 @@ fn compute_radiances(
         if (query_result.texture_index < 0 && total_weight < 0.9999) {
             query_result.texture_index = light_probes.view_cubemap_index;
             query_result.intensity = light_probes.intensity_for_view;
+            view_rotation = light_probes.view_rotation;
             query_result.light_from_world = mat4x4(
                 vec4(1.0, 0.0, 0.0, 0.0),
                 vec4(0.0, 1.0, 0.0, 0.0),
@@ -172,7 +178,8 @@ fn compute_radiances(
                 N,
                 query_result.light_from_world,
                 query_result.parallax_correction_bounds,
-                parallax_correct
+                parallax_correct,
+                view_rotation,
             );
             radiances.irradiance = textureSampleLevel(
                 bindings::diffuse_environment_maps[query_result.texture_index],
@@ -187,7 +194,8 @@ fn compute_radiances(
             radiance_sample_dir,
             query_result.light_from_world,
             query_result.parallax_correction_bounds,
-            parallax_correct
+            parallax_correct,
+            view_rotation,
         );
         radiances.radiance +=
             textureSampleLevel(
@@ -247,9 +255,9 @@ fn compute_radiances(
 
     if (enable_diffuse) {
         var irradiance_sample_dir = N;
-        // Rotating the world space ray direction by the environment light map transform matrix, it is
-        // equivalent to rotating the diffuse environment cubemap itself.
-        irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
+        // Rotating the world space ray direction by the environment map light view rotation,
+        // it is equivalent to rotating the environment cubemap itself.
+        irradiance_sample_dir = quat_rotate(light_probes.view_rotation, irradiance_sample_dir);
         // Cube maps are left-handed so we negate the z coordinate.
         irradiance_sample_dir.z = -irradiance_sample_dir.z;
         radiances.irradiance = textureSampleLevel(
@@ -260,9 +268,9 @@ fn compute_radiances(
     }
 
     var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
-    // Rotating the world space ray direction by the environment light map transform matrix, it is
-    // equivalent to rotating the specular environment cubemap itself.
-    radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
+    // Rotating the world space ray direction by the environment map light view rotation,
+    // it is equivalent to rotating the environment cubemap itself.
+    radiance_sample_dir = quat_rotate(light_probes.view_rotation, radiance_sample_dir);
     // Cube maps are left-handed so we negate the z coordinate.
     radiance_sample_dir.z = -radiance_sample_dir.z;
     radiances.radiance = textureSampleLevel(
@@ -367,7 +375,7 @@ fn environment_map_light(
     let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
     let specular_occlusion = saturate(dot(F0_surface, vec3(50.0 * 0.33)));
 
-    // Compute per-material (dielectric and metallic separately) then mix the results. 
+    // Compute per-material (dielectric and metallic separately) then mix the results.
     // We can't use F0 directly as the multiscattering term is nonlinear.
     let Ems = 1.0 - (F_ab.x + F_ab.y);
 
@@ -404,4 +412,9 @@ fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3
     let smoothness = saturate(1.0 - roughness);
     let lerp_factor = smoothness * (sqrt(smoothness) + roughness);
     return mix(N, R, lerp_factor);
+}
+
+fn quat_rotate(q: vec4<f32>, dir: vec3<f32>) -> vec3<f32> {
+    let t = 2.0 * cross(q.xyz, dir);
+    return dir + q.w * t + cross(q.xyz, t);
 }

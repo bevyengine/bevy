@@ -81,10 +81,12 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-    ambient_light_affects_lightmapped_meshes: u32,
+    ambient_light_flags: u32,
     n_rect_lights: u32,
     rect_lights: array<RectLight, #{MAX_RECT_LIGHTS}u>,
 };
+
+const AMBIENT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT: u32           = 1u << 0u;
 
 struct Fog {
     base_color: vec4<f32>,
@@ -160,7 +162,7 @@ struct LightProbe {
 };
 
 struct LightProbes {
-    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    // This must match `MAX_VIEW_LIGHT_PROBES` on the Rust side.
     reflection_probes: array<LightProbe, 8u>,
     irradiance_volumes: array<LightProbe, 8u>,
     reflection_probe_count: i32,
@@ -171,6 +173,7 @@ struct LightProbes {
     // The smallest valid mipmap level for the specular environment cubemap
     // associated with the view.
     smallest_specular_mip_level_for_view: u32,
+    view_rotation: vec4<f32>,
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
     // Whether the environment map attached to the view affects the diffuse

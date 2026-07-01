@@ -9,8 +9,8 @@ macro_rules! define_atomic_id {
         ///
         /// Note that this means the id space is process-wide, as such it may potentially be exhausted
         /// by a combination of long-running processes and multiple bevy `World`s, at which point we panic.
-        #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
-        pub struct $atomic_id_type(core::num::NonZero<u32>);
+        #[derive(::core::marker::Copy, ::core::clone::Clone, ::core::hash::Hash, ::core::cmp::Eq, ::core::cmp::PartialEq, ::core::cmp::PartialOrd, ::core::cmp::Ord, ::core::fmt::Debug)]
+        pub struct $atomic_id_type(::core::num::NonZero<u32>);
 
         impl $atomic_id_type {
             /// Creates a new id via fetch_add atomic on a static global.
@@ -19,28 +19,28 @@ macro_rules! define_atomic_id {
                 reason = "Implementing the `Default` trait on atomic IDs would imply that two `<AtomicIdType>::default()` equal each other. By only implementing `new()`, we indicate that each atomic ID created will be unique."
             )]
             pub fn new() -> Self {
-                use core::sync::atomic::{AtomicU32, Ordering};
+                use ::core::sync::atomic::{AtomicU32, Ordering};
 
                 static COUNTER: AtomicU32 = AtomicU32::new(1);
 
                 let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-                Self(core::num::NonZero::<u32>::new(counter).unwrap_or_else(|| {
-                    panic!(
+                Self(::core::num::NonZero::<u32>::new(counter).unwrap_or_else(|| {
+                    ::core::panic!(
                         "The system ran out of unique `{}`s.",
-                        stringify!($atomic_id_type)
+                        ::core::stringify!($atomic_id_type)
                     );
                 }))
             }
         }
 
-        impl From<$atomic_id_type> for core::num::NonZero<u32> {
+        impl ::core::convert::From<$atomic_id_type> for ::core::num::NonZero<u32> {
             fn from(value: $atomic_id_type) -> Self {
                 value.0
             }
         }
 
-        impl From<core::num::NonZero<u32>> for $atomic_id_type {
-            fn from(value: core::num::NonZero<u32>) -> Self {
+        impl ::core::convert::From<::core::num::NonZero<u32>> for $atomic_id_type {
+            fn from(value: ::core::num::NonZero<u32>) -> Self {
                 Self(value)
             }
         }

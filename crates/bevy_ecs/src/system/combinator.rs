@@ -237,7 +237,7 @@ where
 
         // We might need to read the fallback error handler after the component
         // systems have run to report failures.
-        let error_resource = world.register_resource::<crate::error::FallbackErrorHandler>();
+        let error_resource = world.register_component::<crate::error::FallbackErrorHandler>();
         a_access.add_resource_read(error_resource);
         a_access
     }

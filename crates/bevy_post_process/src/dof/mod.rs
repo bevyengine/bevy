@@ -643,6 +643,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                     DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
+                constants: vec![],
             }),
             ..default()
         }
