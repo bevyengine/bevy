@@ -1115,6 +1115,18 @@ mod tests {
     }
 
     #[test]
+    fn supports_fully_qualified_component_paths() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        assert!(world
+            .spawn_scene(bsn! {
+              ::bevy_ecs::prelude::Children[]
+            })
+            .is_ok());
+    }
+
+    #[test]
     fn cached_patching() {
         let mut app = test_app();
         let world = app.world_mut();
