@@ -198,7 +198,7 @@ impl Plugin for EasyScreenRecordPlugin {
             enum RecordCommand {
                 Start(std::path::PathBuf, Preset, Tune),
                 Stop,
-                Frame(Image),
+                Frame(Box<Image>),
             }
 
             let (tx, rx) = channel::<RecordCommand>();
@@ -328,7 +328,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                 move |screenshot_captured: On<ScreenshotCaptured>,
                                       mut virtual_time: ResMut<Time<bevy_time::Virtual>>,
                                       mut time: ResMut<Time<()>>| {
-                                    let img = screenshot_captured.image.clone();
+                                    let img = Box::new(screenshot_captured.image.clone());
                                     tx.send(RecordCommand::Frame(img)).unwrap();
                                     virtual_time.advance_by(frame_time);
                                     *time = virtual_time.as_generic();

@@ -322,7 +322,7 @@ impl FromWorld for DemoDepthTexture {
         // Create a sampler. Note that this needs to specify a `compare`
         // function in order to be compatible with depth textures.
         depth_image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-            label: Some("custom depth image sampler".to_owned()),
+            label: Some("custom depth image sampler".into()),
             compare: Some(ImageCompareFunction::Always),
             ..ImageSamplerDescriptor::default()
         });

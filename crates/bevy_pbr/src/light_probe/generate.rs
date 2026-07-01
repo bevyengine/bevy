@@ -22,7 +22,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::{Image, ImageTextureViewDescriptor};
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -1063,7 +1063,7 @@ pub fn generate_environment_map_light(
         diffuse.texture_descriptor.usage =
             TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
 
-        diffuse.texture_view_descriptor = Some(TextureViewDescriptor {
+        diffuse.texture_view_descriptor = Some(ImageTextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
             ..Default::default()
         });
@@ -1092,7 +1092,7 @@ pub fn generate_environment_map_light(
         // For GPU-generated mipmaps, we can set data to None since the GPU will generate the data
         specular.data = None;
 
-        specular.texture_view_descriptor = Some(TextureViewDescriptor {
+        specular.texture_view_descriptor = Some(ImageTextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
             mip_level_count: Some(mip_count),
             ..Default::default()
