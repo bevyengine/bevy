@@ -3,7 +3,7 @@ use super::{
     resource_manager::ResourceManager,
 };
 use crate::*;
-use bevy_camera::{Camera3d, Projection};
+use bevy_camera::{Camera3d, Projection, SpectralModel};
 use bevy_core_pipeline::{
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
@@ -141,9 +141,14 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
+        if let Some(SpectralModel::MonochromaticLights) = camera.spectral_model {
+            view_key |= MeshPipelineKey::MONOCHROMATIC_LIGHTS;
+        }
+
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
+
         if distance_fog {
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }

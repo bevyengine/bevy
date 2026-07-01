@@ -93,6 +93,7 @@ pub struct ExtractedPointLight {
     pub soft_shadows_enabled: bool,
     /// whether this point light contributes diffuse light to lightmapped meshes
     pub affects_lightmapped_mesh_diffuse: bool,
+    pub monochromatic: bool,
 }
 
 #[derive(Component, Debug)]
@@ -127,6 +128,7 @@ pub struct ExtractedDirectionalLight {
     pub occlusion_culling: bool,
     pub sun_disk_angular_size: f32,
     pub sun_disk_intensity: f32,
+    pub monochromatic: bool,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -139,6 +141,7 @@ bitflags::bitflags! {
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
         const SPOT_LIGHT                        = 1 << 5;
+        const MONOCHROMATIC                     = 1 << 6;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -176,6 +179,7 @@ bitflags::bitflags! {
         const VOLUMETRIC                        = 1 << 1;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
         const CONTACT_SHADOWS_ENABLED           = 1 << 3;
+        const MONOCHROMATIC                     = 1 << 4;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -556,6 +560,7 @@ pub fn extract_lights(
             soft_shadows_enabled: point_light.soft_shadows_enabled,
             #[cfg(not(feature = "experimental_pbr_pcss"))]
             soft_shadows_enabled: false,
+            monochromatic: point_light.monochromatic,
         };
         entity_commands.insert((
             extracted_point_light,
@@ -669,6 +674,7 @@ pub fn extract_lights(
             soft_shadows_enabled: spot_light.soft_shadows_enabled,
             #[cfg(not(feature = "experimental_pbr_pcss"))]
             soft_shadows_enabled: false,
+            monochromatic: spot_light.monochromatic,
         };
         entity_commands.insert((
             extracted_spot_light,
@@ -826,6 +832,7 @@ pub fn extract_lights(
             occlusion_culling,
             sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
             sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
+            monochromatic: directional_light.monochromatic,
         };
 
         let mut entity_commands = commands
@@ -1258,6 +1265,10 @@ pub fn prepare_lights(
             flags |= PointLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
         }
 
+        if light.monochromatic {
+            flags |= PointLightFlags::MONOCHROMATIC;
+        }
+
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
                 flags |= PointLightFlags::SPOT_LIGHT;
@@ -1674,6 +1685,10 @@ pub fn prepare_lights(
                 && (index < directional_volumetric_enabled_count)
             {
                 flags |= DirectionalLightFlags::VOLUMETRIC;
+            }
+
+            if light.monochromatic {
+                flags |= DirectionalLightFlags::MONOCHROMATIC;
             }
 
             // Shadow enabled lights are second
