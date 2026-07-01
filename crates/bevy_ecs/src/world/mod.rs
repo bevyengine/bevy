@@ -3322,9 +3322,9 @@ impl World {
         let ids: Vec<ComponentId> = self.components().iter_registered_ids().collect();
         for component_id in ids {
             let entity = component_id.entity();
-            if self.entities().contains_spawned(entity) {
+            if let Ok(entity) = self.get_entity_mut(entity) {
                 // only resource entities with a matching component_id should have a component.
-                self.entity_mut(entity).remove_by_id(component_id);
+                entity.remove_by_id(component_id);
             }
         }
     }
