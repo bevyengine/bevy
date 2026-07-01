@@ -3415,6 +3415,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
+        if layout
+            .0
+            .get_attribute_compression()
+            .contains(MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN)
+        {
+            shader_defs.push("VERTEX_TANGENTS".into());
+            shader_defs.push("VERTEX_PACKED_AXIS_ANGLE_TBN".into());
+        }
+
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
         }

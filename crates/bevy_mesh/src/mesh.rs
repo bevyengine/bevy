@@ -8,11 +8,13 @@ use super::{
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
     VertexAttributeValues, VertexBufferLayout,
 };
-use crate::arr_f32_to_unorm8;
 #[cfg(feature = "morph")]
 use crate::morph::MorphAttributes;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
+use crate::{
+    arr_f32_to_snorm16, arr_f32_to_unorm8, normal_tangent_to_axis_angle, octahedral_encode_signed,
+};
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_math::{
@@ -272,17 +274,27 @@ pub struct Mesh {
 
 bitflags::bitflags! {
     /// If the corresponding attribute compression is enabled:
-    /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
-    /// - Normal and tangent will be Snorm16x2 with octahedral encoding, using [`octahedral_encode_signed`](crate::vertex::octahedral_encode_signed) and [`octahedral_encode_tangent`](crate::vertex::octahedral_encode_tangent).
+    /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused unless [`PACKED_AXIS_ANGLE_TBN`] is enabled.
+    /// - Normal and tangent will be Snorm16x2 with octahedral encoding, using [`octahedral_encode_signed`] and [`octahedral_encode_tangent`].
     /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so them can go beyond [0, 1], though a larger range will reduce precision.
-    /// - Joint weight will be Unorm16x4.
-    /// - Color will be Float16x4 or Unorm8x4.
+    /// - Joint weight will be quantized to Unorm16x4. No change is needed in shaders.
+    /// - Color will be quantized to Float16x4/Unorm8x4. No change is needed in shaders.
+    ///
+    /// In addition, if [`PACKED_AXIS_ANGLE_TBN`] is enabled:
+    /// - Position, normal and tangent compression flags must be enabled, otherwise it won't be applied.
+    /// - Normal and tangent will be compressed to axis-angle representation. Axis is octahedral encoded Snorm16x2 in normal location (Note the axis isn't equal to normal). Angle is a Snorm16 in the w component of position. See also [`normal_tangent_to_axis_angle`] and [`normal_tangent_to_axis_angle`]. The tangent attribute will be removed with its location in shaders left empty.
+    ///
+    /// [`octahedral_encode_signed`]: crate::vertex::octahedral_encode_signed
+    /// [`octahedral_encode_tangent`]: crate::vertex::octahedral_encode_tangent
+    /// [`PACKED_AXIS_ANGLE_TBN`]: MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN
+    /// [`normal_tangent_to_axis_angle`]: crate::vertex::normal_tangent_to_axis_angle
+    /// [`axis_angle_to_normal_tangent`]: crate::vertex::axis_angle_to_normal_tangent
     #[repr(transparent)]
     #[derive(Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
     #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
     #[reflect(opaque)]
     #[reflect(Hash, Clone, PartialEq, Debug)]
-    pub struct MeshAttributeCompressionFlags: u8 {
+    pub struct MeshAttributeCompressionFlags: u16 {
         const COMPRESS_POSITION = 1 << 0;
         const COMPRESS_NORMAL = 1 << 1;
         const COMPRESS_TANGENT = 1 << 2;
@@ -293,16 +305,31 @@ bitflags::bitflags! {
         const COMPRESS_COLOR_RESERVED_BIT = Self::COMPRESS_COLOR_MASK_BIT << Self::COMPRESS_COLOR_SHIFT_BIT;
         const COMPRESS_COLOR_UNORM8 = 1 << Self::COMPRESS_COLOR_SHIFT_BIT;
         const COMPRESS_COLOR_FLOAT16 = 2 << Self::COMPRESS_COLOR_SHIFT_BIT;
+
+        const PACKED_AXIS_ANGLE_TBN = 1 << Self::PACKED_AXIS_ANGLE_TBN_SHIFT_BIT;
     }
 }
 impl MeshAttributeCompressionFlags {
-    const COMPRESS_COLOR_MASK_BIT: u8 = 0b11;
-    const COMPRESS_COLOR_SHIFT_BIT: u8 =
-        Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u8 + 1;
+    const COMPRESS_COLOR_MASK_BIT: u16 = 0b11;
+    const COMPRESS_COLOR_SHIFT_BIT: u16 =
+        Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u16 + 1;
+
+    const PACKED_AXIS_ANGLE_TBN_SHIFT_BIT: u16 =
+        Self::COMPRESS_COLOR_MASK_BIT.count_ones() as u16 + Self::COMPRESS_COLOR_SHIFT_BIT;
 
     /// Helper function to set color flag.
     pub fn with_color(self, color_flag: Self) -> Self {
         self & !Self::COMPRESS_COLOR_RESERVED_BIT | color_flag
+    }
+
+    /// All compression with color quantized to unorm8
+    pub fn all_with_color_unorm8() -> Self {
+        Self::all().with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+    }
+
+    /// All compression with color quantized to float16
+    pub fn all_with_color_float16() -> Self {
+        Self::all().with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16)
     }
 }
 
@@ -1100,7 +1127,7 @@ impl Mesh {
     ///
     /// Panics when compressing positions but `aabb` is `None`, or when compressing UVs but corresponding `uv_ranges` is `None`.
     fn create_compressed_attribute_values(
-        &self,
+        attribute_compression: MeshAttributeCompressionFlags,
         attribute_id: MeshVertexAttributeId,
         attribute_values: &VertexAttributeValues,
         aabb: Option<Aabb3d>,
@@ -1108,52 +1135,42 @@ impl Mesh {
     ) -> Option<VertexAttributeValues> {
         match attribute_id {
             ATTRIBUTE_POSITION_ID
-                if self
-                    .attribute_compression
+                if attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
             {
                 attribute_values.create_compressed_positions(aabb.unwrap())
             }
             ATTRIBUTE_NORMAL_ID
-                if self
-                    .attribute_compression
+                if attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
             {
                 attribute_values.create_octahedral_encode_normals()
             }
             ATTRIBUTE_UV_0_ID
-                if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
+                if attribute_compression.contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
                 attribute_values.create_compressed_uvs(uv_ranges[0].unwrap())
             }
             ATTRIBUTE_UV_1_ID
-                if self
-                    .attribute_compression
-                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
+                if attribute_compression.contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
                 attribute_values.create_compressed_uvs(uv_ranges[1].unwrap())
             }
             ATTRIBUTE_TANGENT_ID
-                if self
-                    .attribute_compression
+                if attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
             {
                 attribute_values.create_octahedral_encode_tangents()
             }
             ATTRIBUTE_COLOR_ID
-                if self
-                    .attribute_compression
+                if attribute_compression
                     .intersects(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT) =>
             {
-                if self
-                    .attribute_compression
+                if attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16)
                 {
                     attribute_values.create_f16_values()
-                } else if self
-                    .attribute_compression
+                } else if attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
                 {
                     // Create Unorm8x4 color
@@ -1171,8 +1188,7 @@ impl Mesh {
                 }
             }
             ATTRIBUTE_JOINT_WEIGHT_ID
-                if self
-                    .attribute_compression
+                if attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_JOINT_WEIGHT) =>
             {
                 attribute_values.create_unorm16_values()
@@ -1181,35 +1197,71 @@ impl Mesh {
         }
     }
 
+    fn create_compressed_axis_angle_attribute_values(
+        vertex_count: usize,
+        normals: &VertexAttributeValues,
+        tangents: &VertexAttributeValues,
+        out_angles: &mut [[i16; 4]],
+    ) -> Option<VertexAttributeValues> {
+        let (VertexAttributeValues::Float32x3(normals), VertexAttributeValues::Float32x4(tangents)) =
+            (normals, tangents)
+        else {
+            return None;
+        };
+
+        let mut compressed_axis = Vec::new();
+        for i in 0..vertex_count {
+            let normal = Vec3::from_array(normals[i]).normalize();
+            let tangent_signed = Vec3::new(tangents[i][0], tangents[i][1], tangents[i][2])
+                .normalize()
+                .extend(tangents[i][3]);
+            let (axis, angle) = normal_tangent_to_axis_angle(normal, tangent_signed);
+            let oct_axis = octahedral_encode_signed(axis);
+
+            compressed_axis.push(arr_f32_to_snorm16(oct_axis.to_array()));
+            out_angles[i][3] = arr_f32_to_snorm16([angle / 2.0 / core::f32::consts::PI])[0];
+        }
+        Some(VertexAttributeValues::Snorm16x2(compressed_axis))
+    }
+
     /// Create a [`Mesh`] with the given compression flags to reduce memory bandwidth on GPU, with the tradeoff of reduced precision of vertex attributes.
     ///
     /// See [`MeshAttributeCompressionFlags`] for more context.
-    /// if vertex attributes are already compressed, they are unchanged and won't decompress.
-    ///
-    /// If `index_compression` is true and indices are u32 and vertex count <= 65535, indices will be converted to u16, otherwise it does nothing.
+    /// if vertex attributes are already compressed, they are unchanged and won't be decompressed.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compressed_mesh(
-        mut self,
-        mut attribute_compression: MeshAttributeCompressionFlags,
-        index_compression: bool,
-    ) -> Mesh {
+    pub fn compress_vertex(&mut self, mut new_compression: MeshAttributeCompressionFlags) {
         if self
             .attribute_compression
             .intersects(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT)
         {
             // Don't change color flag if it's already compressed.
-            attribute_compression
-                .remove(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT);
+            new_compression.remove(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT);
         }
-        self.attribute_compression |= attribute_compression;
+        let normal_tangent_already_compressed = self.attribute_compression.intersects(
+            MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                | MeshAttributeCompressionFlags::COMPRESS_TANGENT,
+        );
+        let tbn_in_axis_angle = !normal_tangent_already_compressed
+            && (self.attribute_compression | new_compression).contains(
+                MeshAttributeCompressionFlags::COMPRESS_POSITION
+                    | MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                    | MeshAttributeCompressionFlags::COMPRESS_TANGENT
+                    | MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN,
+            )
+            && self.contains_attribute(ATTRIBUTE_POSITION_ID)
+            && self.contains_attribute(ATTRIBUTE_NORMAL_ID)
+            && self.contains_attribute(ATTRIBUTE_TANGENT_ID);
+        if !tbn_in_axis_angle {
+            new_compression.remove(MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN);
+        }
+        self.attribute_compression |= new_compression;
+
         for mut attr in [
             Mesh::ATTRIBUTE_POSITION,
-            Mesh::ATTRIBUTE_NORMAL,
             Mesh::ATTRIBUTE_UV_0,
             Mesh::ATTRIBUTE_UV_1,
-            Mesh::ATTRIBUTE_TANGENT,
             Mesh::ATTRIBUTE_COLOR,
             Mesh::ATTRIBUTE_JOINT_WEIGHT,
         ] {
@@ -1218,51 +1270,135 @@ impl Mesh {
             {
                 // Must compute aabb, uv0, uv1 before we insert the compressed attributes. After compressing them can't be computed.
                 // If computing fails, which means the format isn't expected uncompressed format or the values is empty, we skip this attribute.
+                let (mut final_aabb, mut final_uv_ranges) = (None, [None; 2]);
                 match attr.id {
                     ATTRIBUTE_POSITION_ID => {
                         let Some(aabb) = Self::compute_aabb(values) else {
                             continue;
                         };
-                        self.final_aabb = Some(aabb);
+                        final_aabb = Some(aabb);
                     }
                     ATTRIBUTE_UV_0_ID => {
                         let Some(uv_range) = Self::compute_uv_range(values) else {
                             continue;
                         };
-                        self.final_uv_ranges[0] = Some(uv_range);
+                        final_uv_ranges[0] = Some(uv_range);
                     }
                     ATTRIBUTE_UV_1_ID => {
                         let Some(uv_range) = Self::compute_uv_range(values) else {
                             continue;
                         };
-                        self.final_uv_ranges[1] = Some(uv_range);
+                        final_uv_ranges[1] = Some(uv_range);
                     }
                     _ => {}
                 }
-                let values = self.create_compressed_attribute_values(
+                let compressed_values = Self::create_compressed_attribute_values(
+                    self.attribute_compression,
                     attr.id,
-                    self.attribute(attr.id).unwrap(),
-                    self.final_aabb,
-                    self.final_uv_ranges,
+                    values,
+                    final_aabb,
+                    final_uv_ranges,
                 );
-                if let Some(values) = values {
+                match attr.id {
+                    ATTRIBUTE_POSITION_ID => {
+                        self.final_aabb = final_aabb;
+                    }
+                    ATTRIBUTE_UV_0_ID => {
+                        self.final_uv_ranges[0] = final_uv_ranges[0];
+                    }
+                    ATTRIBUTE_UV_1_ID => {
+                        self.final_uv_ranges[1] = final_uv_ranges[1];
+                    }
+                    _ => {}
+                }
+                if let Some(values) = compressed_values {
                     attr.format = compressed_format;
                     self.insert_attribute(attr, values);
                 }
             }
         }
+        if tbn_in_axis_angle {
+            'b: {
+                let vertex_count = self.count_vertices();
 
-        if index_compression {
-            // Vertex count should be <= 65535 (max index <= 65534), not 65536 because of primitive restart value.
-            if let Some(Indices::U32(indices)) = self.indices()
-                && self.count_vertices() <= 65535
-            {
-                self.insert_indices(Indices::U16(
-                    indices.iter().map(|idx| *idx as u16).collect(),
-                ));
+                let Some(positions) = self.attribute_mut(ATTRIBUTE_POSITION_ID) else {
+                    unreachable!()
+                };
+                let VertexAttributeValues::Snorm16x4(positions) = positions else {
+                    break 'b;
+                };
+                let mut compressed_positions = core::mem::take(positions);
+
+                let compressed_axis = Self::create_compressed_axis_angle_attribute_values(
+                    vertex_count,
+                    self.attribute(ATTRIBUTE_NORMAL_ID).unwrap(),
+                    self.attribute(ATTRIBUTE_TANGENT_ID).unwrap(),
+                    &mut compressed_positions,
+                );
+                // Re-insert the positions.
+                let mut pos_attr = Self::ATTRIBUTE_POSITION;
+                pos_attr.format = VertexFormat::Snorm16x4;
+                self.insert_attribute(
+                    pos_attr,
+                    VertexAttributeValues::Snorm16x4(compressed_positions),
+                );
+                if let Some(compressed_axis) = compressed_axis {
+                    let mut normal_attr = Mesh::ATTRIBUTE_NORMAL;
+                    normal_attr.format = VertexFormat::Snorm16x2;
+                    self.insert_attribute(normal_attr, compressed_axis);
+                    self.remove_attribute(ATTRIBUTE_TANGENT_ID);
+                }
+            }
+        } else {
+            for mut attr in [Mesh::ATTRIBUTE_NORMAL, Mesh::ATTRIBUTE_TANGENT] {
+                if let Some(compressed_format) = self.get_compressed_vertex_format(attr.id) {
+                    let Some(values) = self.attribute(attr.id) else {
+                        continue;
+                    };
+                    let compressed_values = Self::create_compressed_attribute_values(
+                        self.attribute_compression,
+                        attr.id,
+                        values,
+                        self.final_aabb,
+                        self.final_uv_ranges,
+                    );
+                    if let Some(values) = compressed_values {
+                        attr.format = compressed_format;
+                        self.insert_attribute(attr, values);
+                    }
+                }
             }
         }
+    }
 
+    /// If indices are u32 and vertex count <= 65535, indices will be converted to u16, otherwise this does nothing.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn compress_index(&mut self) {
+        // Vertex count should be <= 65535 (max index <= 65534), not 65536 because of primitive restart value.
+        if let Some(Indices::U32(indices)) = self.indices()
+            && self.count_vertices() <= 65535
+        {
+            self.insert_indices(Indices::U16(
+                indices.iter().map(|idx| *idx as u16).collect(),
+            ));
+        }
+    }
+
+    /// Consumes the mesh and returns a mesh that is compressed by [`Self::compress_vertex`] and [`Self::compress_index`].
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn compressed_mesh(
+        mut self,
+        compress_vertex: MeshAttributeCompressionFlags,
+        compress_index: bool,
+    ) -> Mesh {
+        self.compress_vertex(compress_vertex);
+        if compress_index {
+            self.compress_index();
+        }
         self
     }
 
@@ -3048,9 +3184,9 @@ mod tests {
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::{MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology};
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::bounding::Aabb3d;
+    use bevy_math::bounding::{Aabb2d, Aabb3d};
     use bevy_math::primitives::Triangle3d;
-    use bevy_math::{Vec3, Vec3A};
+    use bevy_math::{Vec2, Vec3, Vec3A};
     use bevy_transform::components::Transform;
 
     #[test]
@@ -3542,7 +3678,7 @@ mod tests {
             Mesh::ATTRIBUTE_TANGENT,
             vec![
                 Vec3::new(0.0, 1.0, 1.0).normalize().extend(1.0).to_array(),
-                Vec3::new(1.0, 0.0, 1.0).normalize().extend(1.0).to_array(),
+                Vec3::new(1.0, 0.0, 1.0).normalize().extend(-1.0).to_array(),
                 Vec3::new(-1.0, 0.0, 1.0).normalize().extend(1.0).to_array(),
                 [1.0, 0.0, 0.0, 1.0],
             ],
@@ -3550,6 +3686,10 @@ mod tests {
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_UV_0,
             vec![[0.126, 0.497], [0.126, 1.0], [0.05, 0.0], [0.0, 0.5]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_UV_1,
+            vec![[12.6, 0.497], [0.126, 1.0], [-4.05, 0.0], [1.0, -0.5]],
         )
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_COLOR,
@@ -3581,20 +3721,35 @@ mod tests {
         .with_inserted_attribute(custom_attr, VertexAttributeValues::Uint32(vec![0, 1, 2, 3]))
         .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2]));
 
-        let mesh_compressed_all = mesh.clone().compressed_mesh(
-            MeshAttributeCompressionFlags::all()
-                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
-            true,
-        );
+        let mut mesh_compressed = mesh
+            .clone()
+            .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8, true);
+        // Test compressing with flag progressively. `MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN` isn't applied.
+        for flag in MeshAttributeCompressionFlags::all().iter() {
+            mesh_compressed = mesh_compressed.compressed_mesh(flag, true);
+        }
         assert_eq!(
-            mesh_compressed_all.final_aabb,
+            mesh_compressed.final_aabb,
             Some(Aabb3d::from_min_max(
                 Vec3A::new(-1.0, -0.5, -1.0),
                 Vec3A::new(1.0, 1.0, 1.0)
             ))
         );
         assert_eq!(
-            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_POSITION),
+            mesh_compressed.final_uv_ranges,
+            [
+                Some(Aabb2d {
+                    min: Vec2::new(0.0, 0.0),
+                    max: Vec2::new(0.126, 1.0)
+                }),
+                Some(Aabb2d {
+                    min: Vec2::new(-4.05, -0.5),
+                    max: Vec2::new(12.6, 1.0)
+                })
+            ]
+        );
+        assert_eq!(
+            mesh_compressed.attribute(Mesh::ATTRIBUTE_POSITION),
             Some(&VertexAttributeValues::Snorm16x4(vec![
                 [0, 32767, -32767, 0],
                 [32767, -32767, -32767, 0],
@@ -3603,7 +3758,7 @@ mod tests {
             ]))
         );
         assert_eq!(
-            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_NORMAL),
+            mesh_compressed.attribute(Mesh::ATTRIBUTE_NORMAL),
             Some(&VertexAttributeValues::Snorm16x2(vec![
                 [-16384, 32767],
                 [32767, -16384],
@@ -3612,16 +3767,16 @@ mod tests {
             ]))
         );
         assert_eq!(
-            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_TANGENT),
+            mesh_compressed.attribute(Mesh::ATTRIBUTE_TANGENT),
             Some(&VertexAttributeValues::Snorm16x2(vec![
                 [0, 24575],
-                [16384, 16384],
+                [16384, -16384],
                 [-16384, 16384],
                 [32767, 16384],
             ]))
         );
         assert_eq!(
-            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_UV_0),
+            mesh_compressed.attribute(Mesh::ATTRIBUTE_UV_0),
             Some(&VertexAttributeValues::Unorm16x2(vec![
                 [65535, 32571],
                 [65535, 65535],
@@ -3630,7 +3785,16 @@ mod tests {
             ]))
         );
         assert_eq!(
-            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_COLOR),
+            mesh_compressed.attribute(Mesh::ATTRIBUTE_UV_1),
+            Some(&VertexAttributeValues::Unorm16x2(vec![
+                [65535, 43559],
+                [16437, 65535],
+                [0, 21845],
+                [19877, 0]
+            ]))
+        );
+        assert_eq!(
+            mesh_compressed.attribute(Mesh::ATTRIBUTE_COLOR),
             Some(&VertexAttributeValues::Unorm8x4(vec![
                 [13, 255, 38, 255],
                 [191, 18, 255, 255],
@@ -3639,16 +3803,17 @@ mod tests {
             ]))
         );
         assert_eq!(
-            mesh_compressed_all.indices(),
+            mesh_compressed.indices(),
             Some(&Indices::U16(vec![0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2]))
         );
         assert_eq!(
-            mesh_compressed_all.attribute(custom_attr),
+            mesh_compressed.attribute(custom_attr),
             Some(&VertexAttributeValues::Uint32(vec![0, 1, 2, 3]))
         );
         let mesh_compressed_color_f16 = mesh
             .clone()
             .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16, false);
+        // Uncompressed attributes should be equal to mesh's.
         assert!(mesh
             .attributes()
             .filter(|(attr, _values)| attr.id != Mesh::ATTRIBUTE_COLOR.id)
@@ -3676,5 +3841,44 @@ mod tests {
                 .flatten()
             )
             .all(|(a, b)| approx::relative_eq!(a.to_f32(), b.to_f32())));
+
+        // Test `MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN`
+        let mesh_compressed_axis_angle_tbn = mesh.clone().compressed_mesh(
+            MeshAttributeCompressionFlags::COMPRESS_POSITION
+                | MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                | MeshAttributeCompressionFlags::COMPRESS_TANGENT
+                | MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN,
+            false,
+        );
+        // Uncompressed attributes should be equal to mesh's.
+        assert!(mesh
+            .attributes()
+            .filter(|(attr, _values)| ![
+                Mesh::ATTRIBUTE_POSITION.id,
+                Mesh::ATTRIBUTE_NORMAL.id,
+                Mesh::ATTRIBUTE_TANGENT.id
+            ]
+            .contains(&attr.id))
+            .eq(mesh_compressed_axis_angle_tbn
+                .attributes()
+                .filter(|(attr, _values)| ![
+                    Mesh::ATTRIBUTE_POSITION.id,
+                    Mesh::ATTRIBUTE_NORMAL.id,
+                    Mesh::ATTRIBUTE_TANGENT.id
+                ]
+                .contains(&attr.id))));
+        assert_eq!(
+            mesh_compressed.final_aabb,
+            mesh_compressed_axis_angle_tbn.final_aabb
+        );
+        assert_eq!(
+            mesh_compressed_axis_angle_tbn.attribute(Mesh::ATTRIBUTE_POSITION),
+            Some(&VertexAttributeValues::Snorm16x4(vec![
+                [0, 32767, -32767, 19241],
+                [32767, -32767, -32767, -16384],
+                [-32767, -32767, -32767, 20479],
+                [0, -32767, 32767, 1],
+            ]))
+        );
     }
 }
