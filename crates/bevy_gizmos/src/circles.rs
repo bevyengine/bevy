@@ -218,6 +218,46 @@ where
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
+
+    /// Draw a wireframe ellipsoid in 3D made out of 3 ellipses around the axes with the given
+    /// `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the 3 ellipses are in the XY, YZ and XZ planes.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::Color;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.ellipsoid(Isometry3d::IDENTITY, Vec3::new(1., 2., 3.), Color::BLACK);
+    ///
+    ///     // Each circle has 32 line-segments by default.
+    ///     // You may want to increase this for larger spheres.
+    ///     gizmos
+    ///         .ellipsoid(Isometry3d::IDENTITY, Vec3::new(1., 2., 3.), Color::BLACK)
+    ///         .resolution(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn ellipsoid(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        radii: Vec3,
+        color: impl Into<Color>,
+    ) -> EllipsoidBuilder<'_, Config, Clear> {
+        EllipsoidBuilder {
+            gizmos: self,
+            radii,
+            isometry: isometry.into(),
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
 }
 
 /// A builder returned by [`GizmoBuffer::ellipse`].
@@ -349,6 +389,63 @@ where
             let axis_rotation = Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, axis));
             self.gizmos
                 .circle(self.isometry * axis_rotation, self.radius, self.color)
+                .resolution(self.resolution);
+        });
+    }
+}
+
+/// A builder returned by [`GizmoBuffer::ellipsoid`].
+pub struct EllipsoidBuilder<'a, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
+
+    // Radii of the ellipsoid
+    radii: Vec3,
+
+    isometry: Isometry3d,
+    // Color of the ellipsoid
+    color: Color,
+
+    // Number of line-segments used to approximate the ellipsoid geometry
+    resolution: u32,
+}
+
+impl<Config, Clear> EllipsoidBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments used to approximate the ellipsoid geometry.
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution = resolution;
+        self
+    }
+}
+
+impl<Config, Clear> Drop for EllipsoidBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+
+        // draws one great circle around each of the local axes
+        [
+            (Vec3::X, Vec2::new(self.radii.z, self.radii.y)),
+            (Vec3::Y, Vec2::new(self.radii.x, self.radii.z)),
+            (Vec3::Z, Vec2::new(self.radii.x, self.radii.y)),
+        ]
+        .into_iter()
+        .for_each(|(axis, half_size)| {
+            let axis_rotation = Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, axis));
+            self.gizmos
+                .ellipse(self.isometry * axis_rotation, half_size, self.color)
                 .resolution(self.resolution);
         });
     }
