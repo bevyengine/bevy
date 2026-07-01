@@ -337,6 +337,16 @@ pub struct StandardMaterial {
     #[doc(alias = "refractive_index")]
     pub ior: f32,
 
+    /// The strength of chromatic dispersion, which causes different wavelengths of light to
+    /// refract at slightly different angles when passing through the material.
+    ///
+    /// - When set to `0.0` (the default) there is no dispersion (all wavelengths refract equally).
+    /// - Higher values produce a stronger rainbow/prism effect.
+    ///
+    /// **Note:** Requires [`StandardMaterial::specular_transmission`] to be greater than `0.0` to
+    /// have any visible effect. Corresponds to the `KHR_materials_dispersion` glTF extension.
+    pub dispersion: f32,
+
     /// How far, on average, light travels through the volume beneath the material's
     /// surface before being absorbed.
     ///
@@ -886,6 +896,7 @@ impl Default for StandardMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
+            dispersion: 0.0,
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_channel: UvChannel::Uv0,
@@ -1036,6 +1047,8 @@ pub struct StandardMaterialUniform {
     pub thickness: f32,
     /// Index of Refraction
     pub ior: f32,
+    /// Dispersion strength
+    pub dispersion: f32,
     /// How far light travels through the volume underneath the material surface before being absorbed
     pub attenuation_distance: f32,
     pub clearcoat: f32,
@@ -1196,6 +1209,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             specular_transmission: self.specular_transmission,
             thickness: self.thickness,
             ior: self.ior,
+            dispersion: self.dispersion,
             attenuation_distance: self.attenuation_distance,
             attenuation_color: LinearRgba::from(self.attenuation_color)
                 .to_f32_array()

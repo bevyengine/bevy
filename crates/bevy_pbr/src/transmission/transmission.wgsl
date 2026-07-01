@@ -23,7 +23,13 @@ fn ior_corrected_roughness(roughness: f32, ior: f32) -> f32 {
     return roughness * clamp(ior * 2.0 - 2.0, 0.0, 1.0);
 }
 
-fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+struct RefractedRay {
+    direction: vec3<f32>,
+    offset_position: vec2<f32>,
+}
+
+// Compute the refracted direction and matching screen-space UV offset for a given IOR.
+fn refracted_ray(world_position: vec4<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32) -> RefractedRay {
     // Calculate the ratio between refraction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
@@ -43,12 +49,39 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
 
     // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
+    return RefractedRay(T, offset_position);
+}
+
+fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, dispersion: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+    let refracted = refracted_ray(world_position, N, V, ior, thickness);
+    let T = refracted.direction;
+    let offset_position = refracted.offset_position;
 
     // Fetch background color
     var background_color: vec4<f32>;
     let transmission_roughness = ior_corrected_roughness(perceptual_roughness, ior);
-    if transmission_roughness == 0.0 {
-        // If transmission roughness is zero, we can use a faster approach without the blur.
+    if dispersion > 0.0 {
+        // Dispersion will spread out the ior values for each r,g,b channel
+        let half_spread = (ior - 1.0) * 0.025 * dispersion;
+        let offset_r = refracted_ray(world_position, N, V, ior - half_spread, thickness).offset_position;
+        let offset_b = refracted_ray(world_position, N, V, ior + half_spread, thickness).offset_position;
+
+        var r: vec4<f32>;
+        var g: vec4<f32>;
+        var b: vec4<f32>;
+        if transmission_roughness == 0.0 {
+             // If transmission roughness is zero, we can use a faster approach without the blur.
+            r = fetch_transmissive_background_non_rough(offset_r, frag_coord);
+            g = fetch_transmissive_background_non_rough(offset_position, frag_coord);
+            b = fetch_transmissive_background_non_rough(offset_b, frag_coord);
+        } else {
+            r = fetch_transmissive_background(offset_r, frag_coord, view_z, transmission_roughness);
+            g = fetch_transmissive_background(offset_position, frag_coord, view_z, transmission_roughness);
+            b = fetch_transmissive_background(offset_b, frag_coord, view_z, transmission_roughness);
+        }
+        background_color = vec4<f32>(r.r, g.g, b.b, g.a);
+    } else if transmission_roughness == 0.0 {
+         // If transmission roughness is zero, we can use a faster approach without the blur.
         background_color = fetch_transmissive_background_non_rough(offset_position, frag_coord);
     } else {
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, transmission_roughness);

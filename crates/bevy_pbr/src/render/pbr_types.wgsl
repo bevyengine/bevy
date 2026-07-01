@@ -14,6 +14,7 @@ struct StandardMaterial {
     specular_transmission: f32,
     thickness: f32,
     ior: f32,
+    dispersion: f32,
     attenuation_distance: f32,
     clearcoat: f32,
     clearcoat_perceptual_roughness: f32,
@@ -78,6 +79,7 @@ fn standard_material_new() -> StandardMaterial {
     material.specular_transmission = 0.0;
     material.thickness = 0.0;
     material.ior = 1.5;
+    material.dispersion = 0.0;
     material.attenuation_distance = 1.0;
     material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     material.clearcoat = 0.0;
