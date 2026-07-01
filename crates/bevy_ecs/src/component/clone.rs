@@ -140,7 +140,7 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         use crate::{entity::EntityMapper, world::World};
 
         let reflect_from_world = reflect_from_world.clone();
-        let source_component_cloned = source_component_reflect.to_dynamic();
+        let source_component_cloned = source_component_reflect.to_dynamic().unwrap();
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();

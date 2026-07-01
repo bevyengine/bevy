@@ -66,6 +66,11 @@ pub enum ApplyError {
         /// Name of the missing variant.
         variant_name: Box<str>,
     },
+
+    #[error(transparent)]
+    /// A value could not be converted to its dynamic representation via
+    /// [`PartialReflect::to_dynamic`] while applying it.
+    CloneError(#[from] ReflectCloneError),
 }
 
 impl From<ReflectKindMismatchError> for ApplyError {
@@ -251,17 +256,22 @@ where
     ///
     /// To attempt to clone the value directly such that it returns a concrete instance of this type,
     /// use [`reflect_clone`].
+    /// If you want to attempt to clone a value but are willing to accept a dynamic representation if cloning fails,
+    /// use [`reflect_clone_incomplete`].
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This method will panic if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
+    /// This method returns an error whenever any value it must convert is [opaque] and the call to
+    /// [`reflect_clone`] on it fails. This includes opaque values nested anywhere inside the type:
+    /// the conversion is all-or-nothing, so a single non-cloneable opaque field fails the whole call
+    /// rather than producing a partial result.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_reflect::{PartialReflect};
     /// let value = (1, true, 3.14);
-    /// let dynamic_value = value.to_dynamic();
+    /// let dynamic_value = value.to_dynamic().unwrap();
     /// assert!(dynamic_value.is_dynamic())
     /// ```
     ///
@@ -274,21 +284,22 @@ where
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [opaque]: crate::ReflectKind::Opaque
     /// [`reflect_clone`]: PartialReflect::reflect_clone
-    fn to_dynamic(&self) -> Box<dyn PartialReflect> {
+    /// [`reflect_clone_incomplete`]: PartialReflect::reflect_clone_incomplete
+    fn to_dynamic(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
         match self.reflect_ref() {
-            ReflectRef::Struct(dyn_struct) => Box::new(dyn_struct.to_dynamic_struct()),
+            ReflectRef::Struct(dyn_struct) => Ok(Box::new(dyn_struct.to_dynamic_struct()?)),
             ReflectRef::TupleStruct(dyn_tuple_struct) => {
-                Box::new(dyn_tuple_struct.to_dynamic_tuple_struct())
+                Ok(Box::new(dyn_tuple_struct.to_dynamic_tuple_struct()?))
             }
-            ReflectRef::Tuple(dyn_tuple) => Box::new(dyn_tuple.to_dynamic_tuple()),
-            ReflectRef::List(dyn_list) => Box::new(dyn_list.to_dynamic_list()),
-            ReflectRef::Array(dyn_array) => Box::new(dyn_array.to_dynamic_array()),
-            ReflectRef::Map(dyn_map) => Box::new(dyn_map.to_dynamic_map()),
-            ReflectRef::Set(dyn_set) => Box::new(dyn_set.to_dynamic_set()),
-            ReflectRef::Enum(dyn_enum) => Box::new(dyn_enum.to_dynamic_enum()),
+            ReflectRef::Tuple(dyn_tuple) => Ok(Box::new(dyn_tuple.to_dynamic_tuple()?)),
+            ReflectRef::List(dyn_list) => Ok(Box::new(dyn_list.to_dynamic_list()?)),
+            ReflectRef::Array(dyn_array) => Ok(Box::new(dyn_array.to_dynamic_array()?)),
+            ReflectRef::Map(dyn_map) => Ok(Box::new(dyn_map.to_dynamic_map()?)),
+            ReflectRef::Set(dyn_set) => Ok(Box::new(dyn_set.to_dynamic_set()?)),
+            ReflectRef::Enum(dyn_enum) => Ok(Box::new(dyn_enum.to_dynamic_enum()?)),
             #[cfg(feature = "functions")]
-            ReflectRef::Function(dyn_function) => Box::new(dyn_function.to_dynamic_function()),
-            ReflectRef::Opaque(value) => value.reflect_clone().unwrap().into_partial_reflect(),
+            ReflectRef::Function(dyn_function) => Ok(Box::new(dyn_function.to_dynamic_function())),
+            ReflectRef::Opaque(value) => Ok(value.reflect_clone()?.into_partial_reflect()),
         }
     }
 
@@ -296,6 +307,9 @@ where
     ///
     /// Unlike [`to_dynamic`], which generally returns a dynamic representation of `Self`,
     /// this method attempts create a clone of `Self` directly, if possible.
+    ///
+    /// If you want to attempt to clone a value but are willing to accept a dynamic representation if cloning fails,
+    /// use [`reflect_clone_incomplete`].
     ///
     /// If the clone cannot be performed, an appropriate [`ReflectCloneError`] is returned.
     ///
@@ -309,10 +323,49 @@ where
     /// ```
     ///
     /// [`to_dynamic`]: PartialReflect::to_dynamic
+    /// [`reflect_clone_incomplete`]: PartialReflect::reflect_clone_incomplete
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Err(ReflectCloneError::NotImplemented {
             type_path: Cow::Owned(self.reflect_type_path().to_string()),
         })
+    }
+
+    /// Clones a reflected value, recovering from errors where possible to produce a partially usable clone.
+    ///
+    /// This is useful for working with reflected values that may contain non-cloneable fields.
+    /// The result may be incomplete: `#[reflect(ignore)]` fields are dropped.
+    /// Complete failures will yield a [`ReflectCloneError`].
+    ///
+    /// # Comparison with other reflection-cloning methods
+    ///
+    /// Bevy offers two other ways to copy a reflected value, and *neither* is a good
+    /// general-purpose choice for the kind of reporting / debugging workflows that you might
+    /// use to make an entity inspector.
+    ///
+    /// [`PartialReflect::reflect_clone`] generates a direct, concrete clone of the value.
+    /// It keeps the real type but fails when any field is non-cloneable.
+    /// This is common when the type contains any `#[reflect(ignore)]` fields.
+    ///
+    /// [`PartialReflect::to_dynamic`] instead builds a dynamic representation that simply omits
+    /// non-cloneable fields, so it succeeds for more types.
+    /// But it can panic on opaque values when cloning fails,
+    /// and sacrifices information about the type and its fields.
+    ///
+    /// This method prefers the more faithful `reflect_clone` path, falling back to `to_dynamic` when necessary.
+    /// Opaque values have no dynamic form, so they will always return an error when `reflect_clone` fails.
+    fn reflect_clone_incomplete(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
+        match self.reflect_clone() {
+            // Prefer a concrete clone to preserve data.
+            Ok(cloned) => Ok(cloned.into_partial_reflect()),
+            // A concrete clone failed, almost always because of a field that is excluded from
+            // reflection, such as `#[reflect(ignore)]`. Fall back to a dynamic copy, which drops
+            // those fields. Reflected non-cloneable opaque fields still propagate as an error.
+            Err(err) => match self.reflect_ref() {
+                // Opaque values have no dynamic form, so just return the error.
+                ReflectRef::Opaque(_) => Err(err),
+                _ => self.to_dynamic(),
+            },
+        }
     }
 
     /// For a type implementing [`PartialReflect`], combines `reflect_clone` and

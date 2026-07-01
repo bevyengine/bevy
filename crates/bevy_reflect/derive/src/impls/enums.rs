@@ -177,7 +177,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
 
-            fn to_dynamic_enum(&self) -> #bevy_reflect_path::enums::DynamicEnum {
+            fn to_dynamic_enum(&self) -> #FQResult<#bevy_reflect_path::enums::DynamicEnum, #bevy_reflect_path::ReflectCloneError> {
                 #bevy_reflect_path::enums::DynamicEnum::from_ref::<Self>(self)
             }
         }
