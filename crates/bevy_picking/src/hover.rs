@@ -65,6 +65,43 @@ pub struct HoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
 #[reflect(Debug, Default, Resource)]
 pub struct PreviousHoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
 
+/// Overrides the [`HoverMap`] for captured pointers, forcing a single entity to be reported as
+/// hovered regardless of where the pointer physically is.
+///
+/// When a pointer is captured by an entity, that entity is reported as the sole hover target for
+/// that pointer. This keeps interactions (like dragging a slider) working correctly even when the
+/// pointer drifts outside the entity's bounding box while a button is held.
+///
+/// Use [`PointerCaptureMap::capture`] to lock a pointer to an entity, and
+/// [`PointerCaptureMap::release`] to remove the lock. Captures are automatically cleaned up when
+/// the associated pointer entity is removed.
+#[derive(Debug, Default, Resource)]
+pub struct PointerCaptureMap(pub HashMap<PointerId, (Entity, HitData)>);
+
+impl PointerCaptureMap {
+    /// Lock `pointer` to `entity`. The provided `hit` is injected into the [`HoverMap`] for the
+    /// duration of the capture so downstream systems see consistent hit data.
+    pub fn capture(&mut self, pointer: PointerId, entity: Entity, hit: HitData) {
+        self.0.insert(pointer, (entity, hit));
+    }
+
+    /// Remove the capture for `pointer`, returning the previously captured entity and hit data if
+    /// one existed.
+    pub fn release(&mut self, pointer: PointerId) -> Option<(Entity, HitData)> {
+        self.0.remove(&pointer)
+    }
+
+    /// Return the captured `(Entity, &HitData)` for `pointer`, or `None` if not captured.
+    pub fn get(&self, pointer: &PointerId) -> Option<(Entity, &HitData)> {
+        self.0.get(pointer).map(|(e, h)| (*e, h))
+    }
+
+    /// Returns `true` if `pointer` is currently captured.
+    pub fn is_captured(&self, pointer: &PointerId) -> bool {
+        self.0.contains_key(pointer)
+    }
+}
+
 /// Gets the hovered entities for a `pointer_id` from a provided `HoverMap` inner map
 pub(crate) fn get_hovered_entities(
     hover_map: &HashMap<PointerId, EntityHashMap<HitData>>,
@@ -101,6 +138,7 @@ pub fn generate_hovermap(
     pointers: Query<&PointerId>,
     mut pointer_hits_reader: MessageReader<backend::PointerHits>,
     mut pointer_input_reader: MessageReader<PointerInput>,
+    capture_map: Res<PointerCaptureMap>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -119,6 +157,17 @@ pub fn generate_hovermap(
         &mut pointer_input_reader,
     );
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
+    apply_pointer_captures(&capture_map, &mut hover_map);
+}
+
+/// For each captured pointer, replaces its hover set with a single entry pointing to the captured
+/// entity. Pointers not present in `capture_map` are left unchanged.
+fn apply_pointer_captures(capture_map: &PointerCaptureMap, hover_map: &mut HoverMap) {
+    for (pointer_id, (entity, hit_data)) in &capture_map.0 {
+        let entry = hover_map.entry(*pointer_id).or_default();
+        entry.clear();
+        entry.insert(*entity, hit_data.clone());
+    }
 }
 
 /// Clear non-empty local maps, reusing allocated memory.
@@ -599,5 +648,120 @@ mod tests {
             .unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
+    }
+
+    fn make_hit(camera: Entity) -> HitData {
+        HitData {
+            depth: 0.0,
+            camera,
+            position: None,
+            normal: None,
+            extra: None,
+        }
+    }
+
+    #[test]
+    fn capture_overrides_hover_map() {
+        let camera = Entity::from_bits(1);
+        let entity_a = Entity::from_bits(2);
+        let entity_b = Entity::from_bits(3);
+        let hit = make_hit(camera);
+
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = EntityHashMap::new();
+        entity_map.insert(entity_a, hit.clone());
+        hover_map.insert(PointerId::Mouse, entity_map);
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(PointerId::Mouse, entity_b, hit.clone());
+
+        apply_pointer_captures(&capture_map, &mut hover_map);
+
+        let mouse_hovered = hover_map.get(&PointerId::Mouse).unwrap();
+        assert!(
+            !mouse_hovered.contains_key(&entity_a),
+            "original hover should be evicted"
+        );
+        assert!(
+            mouse_hovered.contains_key(&entity_b),
+            "captured entity should be sole entry"
+        );
+        assert_eq!(mouse_hovered.len(), 1);
+    }
+
+    #[test]
+    fn capture_does_not_affect_uncaptured_pointers() {
+        let camera = Entity::from_bits(1);
+        let entity_a = Entity::from_bits(2);
+        let entity_b = Entity::from_bits(3);
+        let hit = make_hit(camera);
+
+        let touch_id = PointerId::Touch(0);
+
+        let mut hover_map = HoverMap::default();
+        let mut mouse_map = EntityHashMap::new();
+        mouse_map.insert(entity_a, hit.clone());
+        hover_map.insert(PointerId::Mouse, mouse_map);
+
+        let mut touch_map = EntityHashMap::new();
+        touch_map.insert(entity_b, hit.clone());
+        hover_map.insert(touch_id, touch_map);
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(touch_id, entity_a, hit.clone());
+
+        apply_pointer_captures(&capture_map, &mut hover_map);
+
+        let mouse_hovered = hover_map.get(&PointerId::Mouse).unwrap();
+        assert!(mouse_hovered.contains_key(&entity_a));
+        assert_eq!(mouse_hovered.len(), 1);
+
+        let touch_hovered = hover_map.get(&touch_id).unwrap();
+        assert!(touch_hovered.contains_key(&entity_a));
+        assert!(!touch_hovered.contains_key(&entity_b));
+        assert_eq!(touch_hovered.len(), 1);
+    }
+
+    #[test]
+    fn capture_creates_entry_for_pointer_absent_from_hover_map() {
+        let camera = Entity::from_bits(1);
+        let entity = Entity::from_bits(2);
+        let hit = make_hit(camera);
+
+        let mut hover_map = HoverMap::default();
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(PointerId::Mouse, entity, hit.clone());
+
+        apply_pointer_captures(&capture_map, &mut hover_map);
+
+        let mouse_hovered = hover_map.get(&PointerId::Mouse).unwrap();
+        assert!(mouse_hovered.contains_key(&entity));
+        assert_eq!(mouse_hovered.len(), 1);
+    }
+
+    #[test]
+    fn pointer_capture_map_api() {
+        let camera = Entity::from_bits(1);
+        let entity = Entity::from_bits(2);
+        let hit = make_hit(camera);
+
+        let mut map = PointerCaptureMap::default();
+
+        assert!(!map.is_captured(&PointerId::Mouse));
+        assert!(map.get(&PointerId::Mouse).is_none());
+
+        map.capture(PointerId::Mouse, entity, hit);
+        assert!(map.is_captured(&PointerId::Mouse));
+        let (captured_entity, _) = map.get(&PointerId::Mouse).unwrap();
+        assert_eq!(captured_entity, entity);
+
+        let released = map.release(PointerId::Mouse);
+        assert_eq!(released.unwrap().0, entity);
+        assert!(!map.is_captured(&PointerId::Mouse));
+        assert!(map.get(&PointerId::Mouse).is_none());
+
+        // Double release is a no-op.
+        assert!(map.release(PointerId::Mouse).is_none());
     }
 }

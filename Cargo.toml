@@ -5119,6 +5119,17 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "draggable_slider"
+path = "examples/picking/draggable_slider.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.draggable_slider]
+name = "Draggable Slider"
+description = "Demonstrates pointer capture using a draggable slider"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true

@@ -440,6 +440,7 @@ Example | Description
 --- | ---
 [Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
 [Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
+[Draggable Slider](../examples/picking/draggable_slider.rs) | Demonstrates pointer capture using a draggable slider
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
