@@ -7,7 +7,9 @@ use bevy_ecs::{
 };
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
-use bevy_render::{extract_resource::ExtractResource, sync_world::RenderEntity, Extract};
+use bevy_render::{
+    extract_resource::ExtractResource, sync_world::RenderEntity, Extract, RenderApp,
+};
 use bevy_transform::components::GlobalTransform;
 
 pub fn extract_raytracing_scene(
@@ -40,7 +42,7 @@ pub fn extract_raytracing_scene(
 #[derive(Resource, Deref, Default)]
 pub struct StandardMaterialAssets(HashMap<AssetId<StandardMaterial>, StandardMaterial>);
 
-impl ExtractResource for StandardMaterialAssets {
+impl ExtractResource<RenderApp> for StandardMaterialAssets {
     type Source = Assets<StandardMaterial>;
 
     fn extract_resource(source: &Self::Source) -> Self {

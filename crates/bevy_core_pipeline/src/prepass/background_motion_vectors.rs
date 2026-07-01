@@ -56,11 +56,11 @@ use crate::{
 #[reflect(Component, Default, Clone)]
 pub struct NoBackgroundMotionVectors;
 
-impl SyncComponent for NoBackgroundMotionVectors {
+impl SyncComponent<RenderApp> for NoBackgroundMotionVectors {
     type Target = Self;
 }
 
-impl ExtractComponent for NoBackgroundMotionVectors {
+impl ExtractComponent<RenderApp> for NoBackgroundMotionVectors {
     type QueryData = Read<NoBackgroundMotionVectors>;
     type QueryFilter = ();
     type Out = Self;
