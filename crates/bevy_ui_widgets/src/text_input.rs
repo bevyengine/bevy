@@ -179,7 +179,13 @@ fn on_pointer_press(
         text_input_query.get_mut(press.entity)
     else {
         // The press landed on something that isn't an `EditableText`.
-        // If a text input currently holds focus, clear it so clicking away unfocuses.
+        // If a text input currently holds focus, clicking away should blur it.
+        //
+        // Rather than clearing `InputFocus` directly, we re-trigger `AcquireFocus` so the
+        // `acquire_focus` observer in `bevy_input_focus` remains the single source of truth for
+        // focus changes — this keeps "click outside to unfocus" consistent with tab navigation and
+        // any other focus consumer. The `original_event_target` guard ensures we only act on the
+        // entity that was actually pressed, not on presses that bubbled here from a child.
         if input_focus
             .get()
             .is_some_and(|focused| text_input_query.contains(focused))

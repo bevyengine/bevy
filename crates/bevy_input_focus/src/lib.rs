@@ -260,6 +260,25 @@ impl Traversal<AcquireFocus> for WindowTraversal {
 }
 
 /// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
+///
+/// This is the single, shared handler for resolving an [`AcquireFocus`] request into a change
+/// to [`InputFocus`]. Multiple widgets route through it (e.g. keyboard tab navigation, and clicking
+/// away from a text input to blur it), so its behavior has engine-wide focus consequences.
+///
+/// Be deliberate when changing it: the three branches below are load-bearing and each is relied on by
+/// a different feature —
+/// - **target has [`TabIndex`](tab_navigation::TabIndex)** → focus it and stop bubbling,
+/// - **target is a [`Window`]** → clear focus and stop bubbling (this is what makes "click outside to
+///   unfocus" work, since the request bubbles up to the window when it hits nothing focusable),
+/// - **neither** → keep bubbling toward the window.
+///
+/// Clearing focus relies on the request actually *reaching* the window via [`WindowTraversal`], so the
+/// request target must be connected to the window through [`ChildOf`] relationships (or be the window
+/// itself). A request triggered on an entity with no path to the window will simply stop at that entity
+/// and leave focus unchanged.
+///
+/// The `focus.get()` guards avoid spurious mutations so change detection only fires on real changes.
+/// Verify against the `acquire_focus_*` tests in this module before altering any of this.
 pub fn acquire_focus(
     mut acquire_focus: On<AcquireFocus>,
     focusable: Query<(), With<tab_navigation::TabIndex>>,
@@ -772,6 +791,77 @@ mod tests {
         app.world_mut().write_message(key_a_message());
         app.update();
 
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
+    }
+
+    /// Sets up an app with a primary window and the input-focus plugins, with initial focus resolved.
+    fn acquire_focus_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputFocusPlugin));
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        // Resolve initial focus (focus goes to the primary window).
+        app.update();
+        (app, window)
+    }
+
+    #[test]
+    fn acquire_focus_focuses_entity_with_tab_index() {
+        let (mut app, window) = acquire_focus_app();
+
+        let focusable = app.world_mut().spawn(tab_navigation::TabIndex(0)).id();
+
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: focusable,
+            window,
+        });
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(focusable));
+    }
+
+    #[test]
+    fn acquire_focus_clears_focus_when_reaching_window() {
+        let (mut app, window) = acquire_focus_app();
+
+        // Start with a focusable entity focused.
+        let focusable = app.world_mut().spawn(tab_navigation::TabIndex(0)).id();
+        app.world_mut()
+            .insert_resource(InputFocus::from_entity(focusable));
+
+        // Click away onto a non-focusable child of the window: the request bubbles up through
+        // `WindowTraversal` to the window, which clears focus. This is the behavior that
+        // "click outside to unfocus" depends on.
+        let non_focusable = app.world_mut().spawn(ChildOf(window)).id();
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: non_focusable,
+            window,
+        });
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
+    }
+
+    #[test]
+    fn acquire_focus_does_not_focus_entity_without_tab_index() {
+        let (mut app, window) = acquire_focus_app();
+
+        // A non-focusable entity must never become focused just because it was the request target:
+        // only `TabIndex` entities are valid focus targets. The request instead bubbles up to the
+        // window, which clears focus.
+        let non_focusable = app.world_mut().spawn(ChildOf(window)).id();
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: non_focusable,
+            window,
+        });
+        app.update();
+
+        assert_ne!(
+            app.world().resource::<InputFocus>().get(),
+            Some(non_focusable)
+        );
         assert_eq!(app.world().resource::<InputFocus>().get(), None);
     }
 }
