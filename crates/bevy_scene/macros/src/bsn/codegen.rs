@@ -1,5 +1,5 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnName,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
     BsnType, BsnValue,
 };
@@ -286,11 +286,20 @@ impl BsnEntry {
             }
             BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::Name(ident) => {
-                let (name, index) = ctx.fixed_entity_ref(ident);
+            BsnEntry::Name(bsn_name) => {
+                let (name_expr, index) = match bsn_name {
+                    BsnName::Ident(ident) => {
+                        let (name, index) = ctx.fixed_entity_ref(ident);
+                        (quote! { #name }, index)
+                    }
+                    BsnName::Expr(expr) => {
+                        let index = ctx.entity_refs.get(expr.to_string());
+                        (quote! { #expr }, index)
+                    }
+                };
                 let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
+                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name_expr.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
                 })
             }
         })
@@ -572,8 +581,12 @@ impl BsnType {
                 let value = value.unwrap();
                 assignments.push(quote! { #(#base_path.)*#member = #value; });
             }
-            Some(BsnValue::Name(ident)) => {
-                let index = ctx.entity_refs.get(ident.to_string());
+            Some(BsnValue::Name(name)) => {
+                let name_str = match name {
+                    BsnName::Ident(ident) => ident.to_string(),
+                    BsnName::Expr(expr) => expr.to_string(),
+                };
+                let index = ctx.entity_refs.get(name_str);
                 let bevy_ecs = ctx.bevy_ecs;
                 let invocation = ctx.invocation_index.clone();
                 assignments.push(quote! {
@@ -699,8 +712,12 @@ impl BsnTokenStream for BsnFnArg {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_ecs = ctx.bevy_ecs;
         match self {
-            BsnFnArg::EntityName(ident) => {
-                let index = ctx.entity_refs.get(ident.to_string());
+            BsnFnArg::EntityName(name) => {
+                let name_str = match name {
+                    BsnName::Ident(ident) => ident.to_string(),
+                    BsnName::Expr(expr) => expr.to_string(),
+                };
+                let index = ctx.entity_refs.get(name_str);
                 let invocation = ctx.invocation_index.clone();
                 quote! {
                     #bevy_ecs::template::EntityTemplate::SceneEntityReference(
