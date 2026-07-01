@@ -1,0 +1,20 @@
+Button
+Node {
+    width: px(150),
+    height: px(65),
+    border: px(5),
+    border_radius: BorderRadius::MAX,
+    justify_content: JustifyContent::Center,
+    align_items: AlignItems::Center,
+}
+BorderColor::from(Color::BLACK)
+BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
+Children [(
+    Text(label)
+    TextFont {
+        font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
+        font_size: px(33.0),
+    }
+    TextColor(Color::srgb(0.9, 0.9, 0.9))
+    TextShadow
+)]

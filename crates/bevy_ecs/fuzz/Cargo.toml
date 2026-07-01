@@ -1,0 +1,44 @@
+[package]
+name = "bevy_ecs_fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+bevy_ecs = { path = "..", default-features = false, features = ["std"] }
+
+[profile.release]
+debug = true
+
+[[bin]]
+name = "world_lifecycle"
+path = "fuzz_targets/world_lifecycle.rs"
+
+[[bin]]
+name = "query_system"
+path = "fuzz_targets/query_system.rs"
+
+[[bin]]
+name = "command_queue"
+path = "fuzz_targets/command_queue.rs"
+
+[[bin]]
+name = "observers"
+path = "fuzz_targets/observers.rs"
+
+[[bin]]
+name = "hierarchy"
+path = "fuzz_targets/hierarchy.rs"
+
+[[bin]]
+name = "schedule"
+path = "fuzz_targets/schedule.rs"
+
+[[bin]]
+name = "messages"
+path = "fuzz_targets/messages.rs"

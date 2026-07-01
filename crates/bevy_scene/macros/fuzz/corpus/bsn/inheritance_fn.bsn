@@ -1,0 +1,3 @@
+:base_enemy
+Health { max: 500 }
+Power(50)

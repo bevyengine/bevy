@@ -1,0 +1,5 @@
+#Hub
+Children [
+    Link(#Hub),
+    Link(#Hub),
+]

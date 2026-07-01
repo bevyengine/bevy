@@ -1,0 +1,36 @@
+[package]
+name = "bevy_scene_macros_fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+bevy_macro_utils = { path = "../../../bevy_macro_utils" }
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+proc-macro2 = "1.0"
+quote = "1.0"
+
+[lib]
+path = "src/lib.rs"
+
+[profile.release]
+debug = true
+
+[[bin]]
+name = "bsn"
+path = "fuzz_targets/bsn.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bsn_list"
+path = "fuzz_targets/bsn_list.rs"
+test = false
+doc = false
+bench = false

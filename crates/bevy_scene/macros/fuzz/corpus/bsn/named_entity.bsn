@@ -1,0 +1,3 @@
+#Player
+Score(0)
+Health { current: 100, max: 100 }

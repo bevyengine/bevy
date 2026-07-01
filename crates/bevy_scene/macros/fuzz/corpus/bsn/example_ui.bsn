@@ -1,0 +1,18 @@
+Node {
+    width: percent(100),
+    height: percent(100),
+    align_items: AlignItems::Center,
+    justify_content: JustifyContent::Center,
+    column_gap: px(5),
+}
+Children [
+    (
+        button("Ok")
+        on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
+    ),
+    (
+        button("Cancel")
+        on(|_event: On<Pointer<Press>>| println!("Cancel pressed!"))
+        BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
+    ),
+]
