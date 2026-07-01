@@ -41,6 +41,7 @@ bytemuck = { version = "1.5", features = ["derive"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 indexmap = { version = "2" }
+smallvec = { version = "1", default-features = false }
 
 [features]
 default = ["bevy_ui_debug"]

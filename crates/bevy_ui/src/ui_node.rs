@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
+use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -2398,12 +2398,92 @@ impl Default for Outline {
     }
 }
 
-/// The calculated clip of the node
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct CalculatedClip {
-    /// The rect of the clip
-    pub clip: Rect,
+/// A single local-space clipping rect.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, Debug, PartialEq, Clone)]
+pub struct CalculatedClipRect {
+    /// The clip rect in the clipping node's local space.
+    pub rect: Rect,
+    /// Transform from world space into the clipping node's local space.
+    pub world_to_clip_local: Affine2,
+}
+
+impl Default for CalculatedClipRect {
+    fn default() -> Self {
+        Self {
+            rect: Rect::default(),
+            world_to_clip_local: Affine2::IDENTITY,
+        }
+    }
+}
+
+/// The calculated clipping inherited by the node.
+#[derive(Component, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub enum CalculatedClip {
+    /// Clip rects inherited from ancestors.
+    Rects(SmallVec<[CalculatedClipRect; 2]>),
+    /// The node and descendants are fully clipped.
+    FullyClipped,
+}
+
+impl Default for CalculatedClip {
+    fn default() -> Self {
+        Self::Rects(SmallVec::new())
+    }
+}
+
+impl CalculatedClip {
+    pub fn with_rect(&self, rect: Rect, transform: &UiGlobalTransform) -> Self {
+        if !self.is_fully_clipped()
+            && let Some(world_to_local_clip) = transform.try_inverse()
+        {
+            let mut clip = self.clone();
+            clip.push_rect(rect, world_to_local_clip);
+            clip
+        } else {
+            CalculatedClip::FullyClipped
+        }
+    }
+
+    /// Returns true if the node and descendants are fully clipped.
+    #[inline]
+    pub const fn is_fully_clipped(&self) -> bool {
+        matches!(self, Self::FullyClipped)
+    }
+
+    /// Returns the inherited clipping rects, if this node is not fully clipped.
+    #[inline]
+    pub fn rects(&self) -> Option<&[CalculatedClipRect]> {
+        match self {
+            Self::Rects(rects) => Some(rects),
+            Self::FullyClipped => None,
+        }
+    }
+
+    /// Returns true if the point is contained by all inherited clipping rects.
+    #[inline]
+    pub fn contains_point(&self, point: Vec2) -> bool {
+        match self {
+            Self::Rects(rects) => rects.iter().all(|clip_rect| {
+                clip_rect
+                    .rect
+                    .contains(clip_rect.world_to_clip_local.transform_point2(point))
+            }),
+            Self::FullyClipped => false,
+        }
+    }
+
+    /// Adds a clipping rect if this node is not fully clipped.
+    #[inline]
+    pub fn push_rect(&mut self, rect: Rect, world_to_clip_local: Affine2) {
+        if let Self::Rects(rects) = self {
+            rects.push(CalculatedClipRect {
+                rect,
+                world_to_clip_local,
+            });
+        }
+    }
 }
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
