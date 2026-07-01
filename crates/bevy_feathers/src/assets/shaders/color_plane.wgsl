@@ -3,6 +3,7 @@
 #import bevy_render::color_operations::{
     srgb_to_linear_rgb,
     hsl_to_linear_rgb,
+    okhsl_to_linear_rgb,
 }
 
 struct ColorPlaneUniform {
@@ -27,6 +28,10 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     return vec4(hsl_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel)), 1.0);
 #else ifdef PLANE_HL
     return vec4(hsl_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y)), 1.0);
+#else ifdef PLANE_OKHS
+    return vec4(okhsl_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel)), 1.0);
+#else ifdef PLANE_OKHL
+    return vec4(okhsl_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y)), 1.0);
 #else
     // Error color
     return vec4(1.0, 0.0, 1.0, 1.0);

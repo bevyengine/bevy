@@ -258,6 +258,12 @@ fn setup(mut commands: Commands) {
                                             InterpolationColorSpace::HsvaLong
                                         }
                                         InterpolationColorSpace::HsvaLong => {
+                                            InterpolationColorSpace::Okhsla
+                                        }
+                                        InterpolationColorSpace::Okhsla => {
+                                            InterpolationColorSpace::OkhslaLong
+                                        }
+                                        InterpolationColorSpace::OkhslaLong => {
                                             InterpolationColorSpace::Oklaba
                                         }
                                     };

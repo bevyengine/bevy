@@ -657,6 +657,10 @@ pub enum InterpolationColorSpace {
     Hsva,
     /// Interpolates in HSVA space, taking the longest hue path.
     HsvaLong,
+    /// Interpolates in OKHSLA space, taking the shortest hue path.
+    Okhsla,
+    /// Interpolates in OKHSLA space, taking the longest hue path.
+    OkhslaLong,
 }
 
 /// Set the color space used for interpolation.
@@ -677,6 +681,16 @@ pub trait InColorSpace: Sized {
     /// Interpolate in OKLCH space (long hue path).
     fn in_oklch_long(self) -> Self {
         self.in_color_space(InterpolationColorSpace::OklchaLong)
+    }
+
+    /// Interpolates in OKHSLA space (short hue path)
+    fn in_okhsla(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::Okhsla)
+    }
+
+    /// Interpolates in OKHSLA space (long hue path)
+    fn in_okhsla_long(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::OkhslaLong)
     }
 
     /// Interpolate in sRGB space.

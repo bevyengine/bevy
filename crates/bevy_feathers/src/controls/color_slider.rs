@@ -2,7 +2,7 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
-use bevy_color::{Alpha, Color, Hsla};
+use bevy_color::{Alpha, Color, Hsla, Okhsla};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -62,6 +62,12 @@ pub enum ColorChannel {
     HslLightness,
     /// Editing the alpha channel (0..=1)
     Alpha,
+    /// Editing the Okhsl Hue channel (0..=360)
+    OkhslHue,
+    /// Editing the Okhsl Saturation channel (0..=1)
+    OkhslSaturation,
+    /// Editing the Okhsl Lightness channel (0..=1)
+    OkhslLightness,
 }
 
 impl ColorChannel {
@@ -73,8 +79,10 @@ impl ColorChannel {
             | ColorChannel::Blue
             | ColorChannel::Alpha
             | ColorChannel::HslSaturation
-            | ColorChannel::HslLightness => SliderRange::new(0., 1.),
-            ColorChannel::HslHue => SliderRange::new(0., 360.),
+            | ColorChannel::HslLightness
+            | ColorChannel::OkhslSaturation
+            | ColorChannel::OkhslLightness => SliderRange::new(0., 1.),
+            ColorChannel::HslHue | ColorChannel::OkhslHue => SliderRange::new(0., 360.),
         }
     }
 
@@ -133,6 +141,29 @@ impl ColorChannel {
                 )
             }
 
+            ColorChannel::OkhslHue => (
+                Color::okhsl(0.0 + 0.0001, 1.0, 0.5),
+                Color::okhsl(180.0, 1.0, 0.5),
+                Color::okhsl(360.0 - 0.0001, 1.0, 0.5),
+            ),
+
+            ColorChannel::OkhslSaturation => {
+                let base_okhsla: Okhsla = base_color.into();
+                (
+                    Color::okhsl(base_okhsla.hue, 0.0, base_okhsla.lightness),
+                    Color::okhsl(base_okhsla.hue, 0.5, base_okhsla.lightness),
+                    Color::okhsl(base_okhsla.hue, 1.0, base_okhsla.lightness),
+                )
+            }
+
+            ColorChannel::OkhslLightness => {
+                let base_okhsla: Okhsla = base_color.into();
+                (
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 0.0),
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 0.5),
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 1.0),
+                )
+            }
             ColorChannel::Alpha => (
                 base_color.with_alpha(0.),
                 base_color.with_alpha(0.5),
@@ -468,12 +499,16 @@ fn update_track_color(
                     ColorChannel::HslHue
                     | ColorChannel::HslLightness
                     | ColorChannel::HslSaturation => InterpolationColorSpace::Hsla,
+                    ColorChannel::OkhslHue
+                    | ColorChannel::OkhslLightness
+                    | ColorChannel::OkhslSaturation => InterpolationColorSpace::Okhsla,
                     ColorChannel::Alpha => match base_color {
                         Color::Srgba(_) => InterpolationColorSpace::Srgba,
                         Color::LinearRgba(_) => InterpolationColorSpace::LinearRgba,
                         Color::Oklaba(_) => InterpolationColorSpace::Oklaba,
                         Color::Oklcha(_) => InterpolationColorSpace::OklchaLong,
                         Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsla,
+                        Color::Okhsla(_) => InterpolationColorSpace::Okhsla,
                         _ => {
                             warn_once!("Unsupported color space for ColorSlider: {:?}", base_color);
                             InterpolationColorSpace::Srgba
