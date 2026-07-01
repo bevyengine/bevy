@@ -214,7 +214,7 @@ fn extract_gizmo_data(
             // The immediate mode API does not have a main world entity to refer to,
             // but we do need MainEntity on this render entity for the systems to find it.
             MainEntity::from(Entity::PLACEHOLDER),
-            TemporaryRenderEntity,
+            TemporaryRenderEntity::default(),
         ));
     }
 }

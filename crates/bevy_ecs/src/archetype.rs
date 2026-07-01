@@ -589,8 +589,8 @@ impl Archetype {
     /// Allocates an entity to the archetype.
     ///
     /// # Safety
-    /// valid component values must be immediately written to the relevant storages
-    /// `table_row` must be valid
+    /// - valid component values must have been or be immediately written to the relevant storages
+    /// - `table_row` must be valid
     #[inline]
     pub(crate) unsafe fn allocate(
         &mut self,

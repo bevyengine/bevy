@@ -490,6 +490,12 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
             .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
+        // SAFETY: Resource is present, so its component info exists
+        let mutable = unsafe { self.world.components().get_info_unchecked(component_id) }.mutable();
+        if !mutable {
+            return Err(ResourceFetchError::Immutable(component_id));
+        }
+
         Ok(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { value.assert_unique() },

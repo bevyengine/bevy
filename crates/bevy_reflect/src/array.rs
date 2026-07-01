@@ -3,7 +3,7 @@
 //! [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
+    ty::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
     PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
     TypePath,
 };

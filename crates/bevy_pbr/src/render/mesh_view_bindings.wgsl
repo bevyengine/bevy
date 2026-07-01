@@ -64,74 +64,70 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 #endif
 
-#ifdef ENVIRONMENT_MAP
-@group(0) @binding(18) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
-#endif
-
 #ifdef TONEMAP_IN_SHADER
 // NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
-@group(0) @binding(19) var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(20) var dt_lut_sampler: sampler;
+@group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(19) var dt_lut_sampler: sampler;
 #endif
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
-@group(0) @binding(21) var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(20) var depth_prepass_texture: texture_depth_multisampled_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(22) var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(21) var normal_prepass_texture: texture_multisampled_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(23) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(22) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
-@group(0) @binding(21) var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(20) var depth_prepass_texture: texture_depth_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(22) var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(21) var normal_prepass_texture: texture_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(23) var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(22) var motion_vector_prepass_texture: texture_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
-@group(0) @binding(24) var deferred_prepass_texture: texture_2d<u32>;
+@group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-@group(0) @binding(25) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(26) var view_transmission_sampler: sampler;
+@group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(25) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
-@group(0) @binding(27) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
-@group(0) @binding(28) var<uniform> oit_nodes_capacity: u32;
-@group(0) @binding(29) var<storage, read_write> oit_nodes: array<types::OitFragmentNode>;
-@group(0) @binding(30) var<storage, read_write> oit_heads: array<atomic<u32>>;
-@group(0) @binding(31) var<storage, read_write> oit_atomic_counter: atomic<u32>;
+@group(0) @binding(26) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(27) var<uniform> oit_nodes_capacity: u32;
+@group(0) @binding(28) var<storage, read_write> oit_nodes: array<types::OitFragmentNode>;
+@group(0) @binding(29) var<storage, read_write> oit_heads: array<atomic<u32>>;
+@group(0) @binding(30) var<storage, read_write> oit_atomic_counter: atomic<u32>;
 #endif // OIT_ENABLED
 
 #ifdef ATMOSPHERE
-@group(0) @binding(32) var atmosphere_transmittance_texture: texture_2d<f32>;
-@group(0) @binding(33) var atmosphere_transmittance_sampler: sampler;
-@group(0) @binding(34) var<storage> atmosphere: atmosphere_types::Atmosphere;
+@group(0) @binding(31) var atmosphere_transmittance_texture: texture_2d<f32>;
+@group(0) @binding(32) var atmosphere_transmittance_sampler: sampler;
+@group(0) @binding(33) var<storage> atmosphere: atmosphere_types::Atmosphere;
 #endif // ATMOSPHERE
 
 #ifdef BLUE_NOISE_TEXTURE
-@group(0) @binding(35) var blue_noise_texture: texture_2d_array<f32>;
+@group(0) @binding(34) var blue_noise_texture: texture_2d_array<f32>;
 #endif // BLUE_NOISE_TEXTURE
 
 #ifdef AREA_LIGHT_LUTS
-@group(0) @binding(36) var area_light_luts: texture_2d_array<f32>;
-@group(0) @binding(37) var area_light_luts_sampler: sampler;
+@group(0) @binding(35) var area_light_luts: texture_2d_array<f32>;
+@group(0) @binding(36) var area_light_luts_sampler: sampler;
 #endif
 
 #ifdef DFG_LUT
-@group(0) @binding(38) var dfg_lut: texture_2d<f32>;
-@group(0) @binding(39) var dfg_lut_sampler: sampler;
+@group(0) @binding(37) var dfg_lut: texture_2d<f32>;
+@group(0) @binding(38) var dfg_lut_sampler: sampler;
 #endif // DFG_LUT
 
 #ifdef ENVIRONMENT_MAP

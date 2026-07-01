@@ -9,7 +9,7 @@ use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
 use parley::setting::Tag;
-use parley::{FontFeature, Layout};
+use parley::{FontFeature, FontVariation, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
@@ -404,6 +404,8 @@ pub struct TextFont {
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
     pub font_features: FontFeatures,
+    /// OpenType variations for variable fonts that support them.
+    pub font_variations: FontVariations,
 }
 
 impl TextFont {
@@ -466,6 +468,7 @@ impl Default for TextFont {
             weight: FontWeight::NORMAL,
             width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
+            font_variations: FontVariations::default(),
             font_smoothing: Default::default(),
         }
     }
@@ -651,37 +654,38 @@ impl From<FontWeight> for parley::style::FontWeight {
     }
 }
 
+/// The visual width of a font as a ratio of its normal width, typically 0.5 to 2.0.
 /// `<https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>`
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
-pub struct FontWidth(u16);
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Reflect)]
+pub struct FontWidth(pub f32);
 
 impl FontWidth {
     /// 50% of normal width.
-    pub const ULTRA_CONDENSED: Self = Self(1);
+    pub const ULTRA_CONDENSED: Self = Self(0.5);
 
     /// 62.5% of normal width.
-    pub const EXTRA_CONDENSED: Self = Self(2);
+    pub const EXTRA_CONDENSED: Self = Self(0.625);
 
     /// 75% of normal width.
-    pub const CONDENSED: Self = Self(3);
+    pub const CONDENSED: Self = Self(0.75);
 
     /// 87.5% of normal width.
-    pub const SEMI_CONDENSED: Self = Self(4);
+    pub const SEMI_CONDENSED: Self = Self(0.875);
 
     /// 100% of normal width. This is the default.
-    pub const NORMAL: Self = Self(5);
+    pub const NORMAL: Self = Self(1.0);
 
     /// 112.5% of normal width.
-    pub const SEMI_EXPANDED: Self = Self(6);
+    pub const SEMI_EXPANDED: Self = Self(1.125);
 
     /// 125% of normal width.
-    pub const EXPANDED: Self = Self(7);
+    pub const EXPANDED: Self = Self(1.25);
 
     /// 150% of normal width.
-    pub const EXTRA_EXPANDED: Self = Self(8);
+    pub const EXTRA_EXPANDED: Self = Self(1.5);
 
     /// 200% of normal width.
-    pub const ULTRA_EXPANDED: Self = Self(9);
+    pub const ULTRA_EXPANDED: Self = Self(2.0);
 }
 
 impl Default for FontWidth {
@@ -692,17 +696,7 @@ impl Default for FontWidth {
 
 impl From<FontWidth> for parley::FontWidth {
     fn from(value: FontWidth) -> Self {
-        match value.0 {
-            1 => parley::FontWidth::ULTRA_CONDENSED,
-            2 => parley::FontWidth::EXTRA_CONDENSED,
-            3 => parley::FontWidth::CONDENSED,
-            4 => parley::FontWidth::SEMI_CONDENSED,
-            6 => parley::FontWidth::SEMI_EXPANDED,
-            7 => parley::FontWidth::EXPANDED,
-            8 => parley::FontWidth::EXTRA_EXPANDED,
-            9 => parley::FontWidth::ULTRA_EXPANDED,
-            _ => parley::FontWidth::NORMAL,
-        }
+        parley::FontWidth::from_ratio(value.0)
     }
 }
 
@@ -716,7 +710,7 @@ pub enum FontStyle {
     Italic,
     /// A typically sloped version of the regular face.
     ///
-    /// The contained f32 is the slant angle of the text, in degrees.
+    /// The contained `f32` is the slant angle of the text, in degrees.
     Oblique(Option<f32>),
 }
 
@@ -909,6 +903,102 @@ impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
                 .map(|(tag, value)| FontFeature {
                     tag: Tag::new(&tag.0),
                     value: *value as u16,
+                })
+                .collect(),
+        )
+    }
+}
+
+/// An OpenType font variation tag.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub struct FontVariationTag([u8; 4]);
+
+impl FontVariationTag {
+    /// Varies the stroke thickness. The range is typically 1 to 1000.
+    pub const WEIGHT: FontVariationTag = FontVariationTag::new(b"wght");
+
+    /// Varies the width of glyphs from narrower to wider. The range is typically 50 to 200 with
+    /// 100 being standard width.
+    pub const WIDTH: FontVariationTag = FontVariationTag::new(b"wdth");
+
+    /// Varies between upright and slanted glyphs. The range is typically between -90 and +90 degrees,
+    /// where 0 is upright.
+    pub const SLANT: FontVariationTag = FontVariationTag::new(b"slnt");
+
+    /// Varies the design of glyphs for different optical sizes (physical font size).
+    /// The range is typically 6 to 72.
+    pub const OPTICAL_SIZE: FontVariationTag = FontVariationTag::new(b"opsz");
+
+    /// Create a new [`FontVariationTag`] from raw bytes.
+    pub const fn new(src: &[u8; 4]) -> Self {
+        Self(*src)
+    }
+}
+
+impl Debug for FontVariationTag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match from_utf8(&self.0) {
+            Ok(s) => write!(f, "FontVariationTag(\"{}\")", s),
+            Err(_) => write!(f, "FontVariationTag({:?})", self.0),
+        }
+    }
+}
+
+/// OpenType font variations for variable fonts that support them.
+///
+/// Variable fonts expose named axes (e.g. `wght`, `FILL`) that accept continuous `f32` values.
+/// This is distinct from [`FontFeatures`], which mainly controls on/off OpenType layout features.
+///
+/// # Usage
+/// ```
+/// use bevy_text::{FontVariationTag, FontVariations};
+///
+/// let variations = FontVariations::builder()
+///     .set(FontVariationTag::WEIGHT, 400.0)
+///     .build();
+/// ```
+#[derive(Clone, Debug, Default, Reflect, PartialEq)]
+pub struct FontVariations {
+    variations: Vec<(FontVariationTag, f32)>,
+}
+
+impl FontVariations {
+    /// Create a new [`FontVariationsBuilder`].
+    pub fn builder() -> FontVariationsBuilder {
+        FontVariationsBuilder::default()
+    }
+}
+
+/// A builder for [`FontVariations`].
+#[derive(Clone, Default)]
+pub struct FontVariationsBuilder {
+    variations: Vec<(FontVariationTag, f32)>,
+}
+
+impl FontVariationsBuilder {
+    /// Set a font variation to a specific value.
+    pub fn set(mut self, tag: FontVariationTag, value: f32) -> Self {
+        self.variations.push((tag, value));
+        self
+    }
+
+    /// Build a [`FontVariations`] from the values set within this builder.
+    pub fn build(self) -> FontVariations {
+        FontVariations {
+            variations: self.variations,
+        }
+    }
+}
+
+impl From<&FontVariations> for parley::style::FontVariations<'static> {
+    fn from(font_variations: &FontVariations) -> Self {
+        parley::style::FontVariations::List(
+            font_variations
+                .variations
+                .iter()
+                .map(|(tag, value)| FontVariation {
+                    tag: Tag::new(&tag.0),
+                    value: *value,
                 })
                 .collect(),
         )

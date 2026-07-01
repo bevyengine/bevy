@@ -8,6 +8,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
+    reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::Ref,
 };
@@ -15,6 +16,8 @@ use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
@@ -26,7 +29,8 @@ use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 use taffy::MaybeMath;
 
-#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Component, Clone, Copy, PartialEq, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
@@ -78,7 +82,6 @@ pub fn update_editable_text_content_size(
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
-            || fonts.is_changed()
             || rem_size.is_changed())
         {
             continue;
@@ -87,11 +90,12 @@ pub fn update_editable_text_content_size(
         let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
-            let font_context = &mut font_cx.0;
+            let resolved_font = resolve_font_source(&text_font, fonts.as_ref()).ok()?;
+            let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
+            match resolved_font {
                 parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
                     query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
                 }
@@ -170,10 +174,8 @@ pub fn update_editable_text_styles(
     for (mut editable_text, text_font, line_height, target, text_layout) in
         editable_text_query.iter_mut()
     {
-        let editor = editable_text.editor_mut();
-
-        if f32::EPSILON < (target.scale_factor() - editor.get_scale()).abs() {
-            editor.set_scale(target.scale_factor());
+        if f32::EPSILON < (target.scale_factor() - editable_text.editor.get_scale()).abs() {
+            editable_text.editor.set_scale(target.scale_factor());
         }
 
         if text_font.is_changed()
@@ -183,19 +185,31 @@ pub fn update_editable_text_styles(
                 FontSize::Vw(_) | FontSize::Vh(_) | FontSize::VMin(_) | FontSize::VMax(_)
             ) && target.is_changed()
         {
-            editor.edit_styles().insert(StyleProperty::FontSize(
-                text_font.font_size.eval(target.logical_size(), rem_size.0),
-            ));
+            editable_text
+                .editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(
+                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                ));
         }
 
         if text_font.is_changed() {
-            let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
+            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
                 continue;
             };
 
-            let family = font_family.into_owned();
+            let family = resolved_font.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
+            style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
+            style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
+            style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
+            style_set.insert(StyleProperty::FontFeatures(
+                (&text_font.font_features).into(),
+            ));
+            style_set.insert(StyleProperty::FontVariations(
+                (&text_font.font_variations).into(),
+            ));
             style_set.insert(StyleProperty::Brush(TextBrush::new(
                 0,
                 text_font.font_smoothing,
@@ -287,7 +301,7 @@ pub fn update_editable_text_layout(
 
         let mut driver = editable_text
             .editor
-            .driver(&mut font_cx.0, &mut layout_cx.0);
+            .driver(font_cx.as_mut(), layout_cx.as_mut());
 
         driver.refresh_layout();
 
@@ -345,8 +359,10 @@ pub fn update_editable_text_layout(
                                         font_data.index as usize,
                                     )
                                     .unwrap();
+                                    let font_id = [font_data.data.id(), font_data.index.into()];
+
                                     let mut scaler = scale_cx
-                                        .builder(font_ref)
+                                        .builder_with_id(font_ref, font_id)
                                         .size(font_size)
                                         .hint(matches!(*hinting, FontHinting::Enabled))
                                         .normalized_coords(coords)
@@ -367,8 +383,8 @@ pub fn update_editable_text_layout(
                                         + atlas_info.rect.size() / 2.
                                         + atlas_info.offset,
                                     atlas_info,
-                                    section_index: brush.section_index as usize,
-                                    line_index,
+                                    section_index: brush.section_index,
+                                    line_index: line_index as u32,
                                 });
                             }
 
@@ -406,16 +422,14 @@ pub fn update_editable_text_layout(
                             }
 
                             info.run_geometry.push(RunGeometry {
-                                section_index: brush.section_index as usize,
+                                section_index: brush.section_index,
                                 bounds: Rect {
                                     min: Vec2::new(
-                                        line.metrics().inline_min_coord + glyph_run.offset(),
+                                        glyph_run.offset(),
                                         line.metrics().block_min_coord,
                                     ),
                                     max: Vec2::new(
-                                        line.metrics().inline_min_coord
-                                            + glyph_run.offset()
-                                            + glyph_run.advance(),
+                                        glyph_run.offset() + glyph_run.advance(),
                                         line.metrics().block_max_coord,
                                     ),
                                 },
@@ -439,6 +453,15 @@ pub fn update_editable_text_layout(
                 .iter()
                 .map(|&b| bounding_box_to_rect(b.0))
                 .collect();
+
+            for i in 0..info.selection_rects.len().saturating_sub(1) {
+                let [a, b] = &mut info.selection_rects[i..i + 2] else {
+                    unreachable!();
+                };
+                if a.max.y < b.min.y {
+                    a.max.y = b.min.y;
+                }
+            }
         }
 
         if let Some(input_focus) = input_focus.as_ref()

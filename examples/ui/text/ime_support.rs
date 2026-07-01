@@ -37,10 +37,6 @@ fn setup(mut commands: Commands) {
                 font_size: FontSize::Px(20.0),
                 ..default()
             },
-            Node {
-                margin: UiRect::bottom(px(16.0)),
-                ..default()
-            },
         ))
         .id();
 
@@ -48,6 +44,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             Node {
                 width: px(400),
+                height: px(250),
                 border: px(3).all(),
                 padding: px(8).all(),
                 ..default()
@@ -61,7 +58,11 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BorderColor::from(Color::from(SLATE_300)),
-            EditableText::default(),
+            EditableText {
+                allow_newlines: true,
+                ..default()
+            },
+            TextLayout::no_wrap(),
             TextCursorStyle::default(),
             TabIndex(0),
             BackgroundColor(DARK_GREY.into()),
@@ -77,10 +78,6 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             TextOutput,
-            Node {
-                margin: UiRect::top(px(16.0)),
-                ..default()
-            },
         ))
         .id();
 
@@ -89,6 +86,7 @@ fn setup(mut commands: Commands) {
             Node {
                 flex_direction: FlexDirection::Column,
                 padding: px(24.0).all(),
+                row_gap: px(16),
                 ..default()
             },
             TabGroup::new(0),

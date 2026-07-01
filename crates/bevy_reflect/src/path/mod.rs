@@ -9,6 +9,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::fmt;
 use derive_more::derive::From;
@@ -301,6 +302,8 @@ pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
     /// A character offset in the string the path was parsed from.
+    ///
+    /// Generally, this is `None` when the access wasn't parsed from a string.
     pub offset: Option<usize>,
 }
 
@@ -372,6 +375,26 @@ pub struct ParsedPath(
 );
 
 impl ParsedPath {
+    /// Create a new, empty [`ParsedPath`]. This path won't perform any accesses, returning a
+    /// top-level value unchanged.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
+    ///
+    /// #[derive(Debug, PartialEq, Reflect)]
+    /// struct Player(f64, u32);
+    ///
+    /// let player = Player(0.0, 1);
+    ///
+    /// let empty_path = ParsedPath::empty();
+    /// assert_eq!(empty_path.element::<bool>(&true).unwrap(), &true);
+    /// assert_eq!(empty_path.element::<Player>(&player).unwrap(), &player);
+    /// ```
+    pub const fn empty() -> Self {
+        Self(Vec::new())
+    }
+
     /// Parses a [`ParsedPath`] from a string.
     ///
     /// Returns an error if the string does not represent a valid path to an element.
@@ -384,37 +407,39 @@ impl ParsedPath {
     /// - Field index access (`#0`)
     /// - Sequence access (`[2]`)
     ///
+    /// [`OffsetAccess::offset`] will be `Some` for paths parsed by this method.
+    ///
     /// # Example
     /// ```
     /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     /// #[derive(Reflect)]
-    /// struct Foo {
-    ///   bar: Bar,
+    /// struct Player {
+    ///   inventory: Inventory,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Bar {
-    ///   baz: Baz,
+    /// struct Inventory {
+    ///   item: Item,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Baz(f32, Vec<Option<u32>>);
+    /// struct Item(f32, Vec<Option<u32>>);
     ///
-    /// let foo = Foo {
-    ///   bar: Bar {
-    ///     baz: Baz(3.14, vec![None, None, Some(123)])
+    /// let player = Player {
+    ///   inventory: Inventory {
+    ///     item: Item(3.14, vec![None, None, Some(123)])
     ///   },
     /// };
     ///
-    /// let parsed_path = ParsedPath::parse("bar#0.1[2].0").unwrap();
+    /// let parsed_path = ParsedPath::parse("inventory#0.1[2].0").unwrap();
     /// // Breakdown:
-    /// //   "bar" - Access struct field named "bar"
+    /// //   "inventory" - Access struct field named "inventory"
     /// //   "#0" - Access struct field at index 0
     /// //   ".1" - Access tuple struct field at index 1
     /// //   "[2]" - Access list element at index 2
     /// //   ".0" - Access tuple variant field at index 0
     ///
-    /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
+    /// assert_eq!(parsed_path.element::<u32>(&player).unwrap(), &123);
     /// ```
     pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
@@ -429,6 +454,8 @@ impl ParsedPath {
 
     /// Similar to [`Self::parse`] but only works on `&'static str`
     /// and does not allocate per named field.
+    ///
+    /// [`OffsetAccess::offset`] will be `Some` for paths parsed by this method.
     pub fn parse_static(string: &'static str) -> PathResult<'static, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
@@ -438,6 +465,102 @@ impl ParsedPath {
             });
         }
         Ok(Self(parts))
+    }
+
+    /// Append a field access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_field(&mut self, field: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::Field(field.into()),
+            offset: None,
+        });
+        self
+    }
+
+    /// Similar to [`Self::push_field`] but only works on `&'static str`
+    /// and does not allocate.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_field_static(&mut self, field: &'static str) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::Field(Cow::Borrowed(field)),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a field index access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_field_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::FieldIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a list access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_list_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::ListIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a tuple index access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_tuple_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::TupleIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Join two paths, chaining their accesses. This will produce a new [`ParsedPath`] that
+    /// performs the accesses of this path and then the other path in order.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
+    /// #[derive(Reflect)]
+    /// struct Player {
+    ///   inventory: Inventory,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Inventory {
+    ///   item: Item,
+    /// }
+    ///
+    /// #[derive(Clone, Debug, PartialEq, Reflect)]
+    /// struct Item(f32, Vec<Option<u32>>);
+    ///
+    /// let item = Item(3.14, vec![None, None, Some(123)]);
+    ///
+    /// let player = Player {
+    ///   inventory: Inventory {
+    ///     item: item.clone(),
+    ///   },
+    /// };
+    ///
+    /// let first_path = ParsedPath::parse(".inventory#0").unwrap();
+    /// let second_path = ParsedPath::parse(".1[2].0").unwrap();
+    ///
+    /// let joined_path = first_path.join(&second_path);
+    ///
+    /// assert_eq!(first_path.element::<Item>(&player).unwrap(), &item);
+    /// assert_eq!(second_path.element::<u32>(&item).unwrap(), &123);
+    /// assert_eq!(joined_path.element::<u32>(&player).unwrap(), &123);
+    /// ```
+    pub fn join(&self, other: &Self) -> ParsedPath {
+        ParsedPath(self.0.iter().chain(other.0.iter()).cloned().collect())
     }
 }
 

@@ -45,6 +45,8 @@ use crate::{
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, FromTemplate)]
 #[scene(FeathersCheckboxProps)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct FeathersCheckbox;
 
 /// Props used to construct a [`FeathersCheckbox`] scene.

@@ -18,7 +18,14 @@ use crate::cluster::ClusterVisibilityClass;
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 ///
-/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`](`crate::DirectionalLightShadowMap`)  resource.
+/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`](`crate::DirectionalLightShadowMap`) resource.
+///
+/// **Warning:**
+/// If this component is used on an entity that also has the [`Camera`](`bevy_camera::Camera`)
+/// component, the [`Frustum`](`bevy_camera::primitives::Frustum`) of the
+/// spotlight will override the frustum of the camera, causing possible
+/// rendering artifacts. To fix this, add either the spotlight or the camera
+/// component on a child entity instead.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]

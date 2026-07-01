@@ -15,7 +15,8 @@ use bevy_core_pipeline::{
     mip_generation::experimental::depth::{early_downsample_depth, ViewDepthPyramid},
     prepass::{
         node::{early_prepass, late_prepass},
-        DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms,
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, PreviousViewData,
+        PreviousViewUniformOffset, PreviousViewUniforms,
     },
     schedule::{Core3d, Core3dSystems},
 };
@@ -71,7 +72,10 @@ use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
+use crate::{
+    LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
+    PreviousMeshInputUniform,
+};
 
 use super::{ShadowView, ViewLightEntities};
 
@@ -383,6 +387,13 @@ pub struct ViewPhaseBinUnpackingBindGroup {
 #[derive(Component, Default)]
 pub struct SkipGpuPreprocess;
 
+type WithAnyPrepass = Or<(
+    With<DepthPrepass>,
+    With<NormalPrepass>,
+    With<MotionVectorPrepass>,
+    With<DeferredPrepass>,
+)>;
+
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "mesh_preprocess.wgsl");
@@ -436,7 +447,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
                             Without<NoIndirectDrawing>,
-                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                            Or<(WithAnyPrepass, With<ShadowView>)>,
                         )>),
                     )
                         .chain()
@@ -447,7 +458,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
                             Without<NoIndirectDrawing>,
-                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                            Or<(WithAnyPrepass, With<ShadowView>)>,
                             With<OcclusionCulling>,
                         )>),
                     )
@@ -1410,7 +1421,10 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
             // `current_input`
             (3, storage_buffer_read_only::<MeshInputUniform>(false)),
             // `previous_input`
-            (4, storage_buffer_read_only::<MeshInputUniform>(false)),
+            (
+                4,
+                storage_buffer_read_only::<PreviousMeshInputUniform>(false),
+            ),
             // `indices`
             (5, storage_buffer_read_only::<PreprocessWorkItem>(false)),
             // `output`

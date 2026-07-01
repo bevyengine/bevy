@@ -2,7 +2,7 @@
 
 #import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
-#import bevy_pbr::utils::octahedral_decode
+#import bevy_render::utils::octahedral_decode
 #import bevy_render::view::{View, depth_ndc_to_view_z}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 
@@ -22,7 +22,7 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
     let roughness = perceptual_roughness * perceptual_roughness;
     let props = unpack4x8unorm(gpixel.b);
     let reflectance = props.r;
-    let metallic = saturate(props.g); // TODO: Not sure why saturate is needed here to prevent NaNs
+    let metallic = props.g;
     let emissive = rgb9e5_to_vec3_(gpixel.g);
     let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic);
 

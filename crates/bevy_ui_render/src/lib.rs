@@ -26,11 +26,13 @@ use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    ImageNode, ImageNodeSize, NodeImageMode, TextScroll, TextShadow, ViewportNode,
+};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
     ComputedUiTargetCamera, Display, Node, OuterColor, Outline, ResolvedBorderRadius,
-    UiGlobalTransform,
+    UiGlobalTransform, VisualBox,
 };
 
 use bevy_app::prelude::*;
@@ -431,7 +433,7 @@ pub fn extract_uinode_background_colors(
 
         if !background_color.is_fully_transparent() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
@@ -458,7 +460,7 @@ pub fn extract_uinode_background_colors(
             && !outer_color.0.is_fully_transparent()
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
@@ -497,27 +499,52 @@ pub fn extract_uinode_images(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
+            &ImageNodeSize,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        stack_index,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        image,
+        image_size,
+    ) in &uinode_query
     {
-        let content_box = uinode.content_box();
+        let visual_box = match image.visual_box {
+            VisualBox::ContentBox => uinode.content_box(),
+            VisualBox::PaddingBox => uinode.padding_box(),
+            VisualBox::BorderBox => uinode.border_box(),
+        };
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
             || image.image_mode.uses_slices()
-            || content_box.size().cmple(Vec2::ZERO).any()
+            || visual_box.size().cmple(Vec2::ZERO).any()
         {
             continue;
         }
 
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
+        };
+
+        let size = if matches!(image.image_mode, NodeImageMode::Auto) {
+            let source = image_size.size().as_vec2();
+            if source.cmple(Vec2::ZERO).any() {
+                visual_box.size()
+            } else {
+                source * (visual_box.size() / source).min_element()
+            }
+        } else {
+            visual_box.size()
         };
 
         let atlas_rect = image
@@ -529,7 +556,7 @@ pub fn extract_uinode_images(
         let mut rect = match (atlas_rect, image.rect) {
             (None, None) => Rect {
                 min: Vec2::ZERO,
-                max: content_box.size(),
+                max: size,
             },
             (None, Some(image_rect)) => image_rect,
             (Some(atlas_rect), None) => atlas_rect,
@@ -541,7 +568,7 @@ pub fn extract_uinode_images(
         };
 
         let atlas_scaling = if atlas_rect.is_some() || image.rect.is_some() {
-            let atlas_scaling = content_box.size() / rect.size();
+            let atlas_scaling = size / rect.size();
             rect.min *= atlas_scaling;
             rect.max *= atlas_scaling;
             Some(atlas_scaling)
@@ -551,11 +578,11 @@ pub fn extract_uinode_images(
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
-            transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
+            transform: Affine2::from(*transform) * Affine2::from_translation(visual_box.center()),
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
                 rect,
@@ -670,7 +697,7 @@ pub fn extract_uinode_borders(
                         node_type: NodeType::Border(border_flags),
                     },
                     main_entity: entity.into(),
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 });
             }
         }
@@ -684,7 +711,7 @@ pub fn extract_uinode_borders(
             let outline_size = computed_node.outlined_node_size();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 image,
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
@@ -710,7 +737,7 @@ pub fn extract_uinode_borders(
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
 /// distance of this many units. This ensures that with a left-handed projection,
-/// as ui elements are "stacked on top of each other", they are within the camera's view
+/// as UI elements are "stacked on top of each other", they are within the camera's view
 /// and have room to grow.
 // TODO: Consider computing this value at runtime based on the maximum z-value.
 const UI_CAMERA_FAR: f32 = 1000.0;
@@ -826,7 +853,7 @@ pub fn extract_ui_camera_view(
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),
-                    TemporaryRenderEntity,
+                    TemporaryRenderEntity::default(),
                 ))
                 .id();
 
@@ -902,7 +929,7 @@ pub fn extract_viewport_nodes(
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
             extracted_camera_entity,
@@ -1012,7 +1039,7 @@ pub fn extract_text_sections(
             if current_section_index != *section_index
                 && let Some(section_entity) = computed_block
                     .entities()
-                    .get(*section_index)
+                    .get(*section_index as usize)
                     .map(|t| t.entity)
             {
                 color = text_styles
@@ -1052,7 +1079,7 @@ pub fn extract_text_sections(
             {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     image: atlas_info.texture,
                     clip,
                     extracted_camera_entity,
@@ -1156,7 +1183,7 @@ pub fn extract_text_shadows(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     image: atlas_info.texture,
                     clip,
                     extracted_camera_entity,
@@ -1172,7 +1199,7 @@ pub fn extract_text_shadows(
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
                 .entities()
-                .get(run.section_index)
+                .get(run.section_index as usize)
                 .map(|t| t.entity)
             else {
                 continue;
@@ -1185,7 +1212,7 @@ pub fn extract_text_shadows(
             if has_strikethrough {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1211,7 +1238,7 @@ pub fn extract_text_shadows(
             if has_underline {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1305,7 +1332,7 @@ pub fn extract_text_decorations(
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
                 .entities()
-                .get(run.section_index)
+                .get(run.section_index as usize)
                 .map(|t| t.entity)
             else {
                 continue;
@@ -1323,7 +1350,7 @@ pub fn extract_text_decorations(
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1353,7 +1380,7 @@ pub fn extract_text_decorations(
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1383,7 +1410,7 @@ pub fn extract_text_decorations(
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     clip,
                     image: AssetId::default(),
                     extracted_camera_entity,

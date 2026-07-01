@@ -138,6 +138,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             ..default()
         }
