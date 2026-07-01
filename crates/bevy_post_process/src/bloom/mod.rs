@@ -100,6 +100,7 @@ pub fn bloom(
     pipeline_cache: Res<PipelineCache>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
     mut ctx: RenderContext,
+    mut blend_factors: Local<Vec<(u32, f32)>>,
 ) {
     let (
         camera,
@@ -135,6 +136,24 @@ pub fn bloom(
 
     let view_texture = view_target.main_texture_view();
     let view_texture_unsampled = view_target.get_unsampled_color_attachment();
+
+    blend_factors.clear();
+    blend_factors.extend(
+        (1..bloom_texture.mip_count)
+            .map(|mip| {
+                (
+                    mip,
+                    compute_blend_factor(
+                        bloom_settings,
+                        mip as f32,
+                        (bloom_texture.mip_count - 1) as f32,
+                    ),
+                )
+            })
+            .rev()
+            .skip_while(|(_, blend_factor)| *blend_factor == 0.0),
+    );
+    blend_factors.reverse();
 
     // Create the first downsampling bind group (reads from main texture)
     let downsampling_first_bind_group = ctx.render_device().create_bind_group(
@@ -181,7 +200,7 @@ pub fn bloom(
     }
 
     // Other downsample passes
-    for mip in 1..bloom_texture.mip_count {
+    for &(mip, _) in blend_factors.iter() {
         let view = &bloom_texture.view(mip);
         let mut downsampling_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("bloom_downsampling_pass"),
@@ -206,7 +225,7 @@ pub fn bloom(
     }
 
     // Upsample passes except the final one
-    for mip in (1..bloom_texture.mip_count).rev() {
+    for &(mip, blend_factor) in blend_factors.iter().rev() {
         let view = &bloom_texture.view(mip - 1);
         let mut upsampling_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("bloom_upsampling_pass"),
@@ -230,12 +249,7 @@ pub fn bloom(
             &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
             &[uniform_index.index()],
         );
-        let blend = compute_blend_factor(
-            bloom_settings,
-            mip as f32,
-            (bloom_texture.mip_count - 1) as f32,
-        );
-        upsampling_pass.set_blend_constant(LinearRgba::gray(blend).into());
+        upsampling_pass.set_blend_constant(LinearRgba::gray(blend_factor).into());
         upsampling_pass.draw(0..3, 0..1);
     }
 
@@ -322,21 +336,27 @@ fn prepare_bloom_textures(
 ) {
     for (entity, camera, bloom) in &views {
         if let Some(viewport) = camera.physical_viewport_size {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if viewport.y != 0 {
-                bloom.max_mip_dimension as f32 / viewport.y as f32
+            let mip_ratio = if viewport.y > 0 && viewport.x > 0 {
+                bloom.max_mip_dimension as f32 / viewport.y.max(viewport.x) as f32
             } else {
                 0.
-            };
+            }
+            // Not larger than target size
+            .min(1.0);
+
+            let size = (viewport.as_vec2() * mip_ratio)
+                .round()
+                .as_uvec2()
+                .max(UVec2::ONE)
+                .to_extents();
+
+            // How many times we can halve the resolution minus one so we don't go unnecessarily low
+            // We remove the last 2 levels.
+            let mip_count = size.width.min(size.height).ilog2().max(2) - 1;
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
-                size: (viewport.as_vec2() * mip_height_ratio)
-                    .round()
-                    .as_uvec2()
-                    .max(UVec2::ONE)
-                    .to_extents(),
+                size,
                 mip_level_count: mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
