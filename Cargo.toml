@@ -1758,6 +1758,21 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "root_motion"
+path = "examples/animation/root_motion.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.root_motion]
+name = "Root Motion"
+description = """
+Plays an animation and use root motion to move the entity.
+
+When root motion is disabled only the mesh is moved so the position resets each time the animation resets.
+When root motion is enabled, the mesh stays in place and the movement is transferred to the main entity."""
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
 doc-scrape-examples = true
