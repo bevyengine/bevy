@@ -27,7 +27,7 @@ use wgpu_types::{BlendState, TextureUsages};
 ///
 /// <div class="warning">
 ///
-/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.
 /// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
 /// Please see the example code (which assumes a single camera and window)
 ///
@@ -879,7 +879,7 @@ pub enum CameraOutputMode {
 impl Default for CameraOutputMode {
     fn default() -> Self {
         CameraOutputMode::Write {
-            blend_state: None,
+            blend_state: Some(BlendState::ALPHA_BLENDING),
             clear_color: ClearColorConfig::Default,
         }
     }
