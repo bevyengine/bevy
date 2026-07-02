@@ -533,7 +533,7 @@ impl FrameData {
             }
 
             for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
-                let buffer = buffer.get_mapped_range(..);
+                let buffer = buffer.get_mapped_range(..).unwrap();
                 diagnostics.push(RenderDiagnostic {
                     path: DiagnosticPath::from_components(
                         core::iter::once("render")
@@ -578,7 +578,7 @@ impl FrameData {
             return true;
         };
 
-        let data = read_buffer.slice(..).get_mapped_range();
+        let data = read_buffer.slice(..).get_mapped_range().unwrap();
 
         let timestamps = data[..(self.num_timestamps * 8) as usize]
             .as_chunks()
@@ -675,7 +675,7 @@ impl FrameData {
         }
 
         for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
-            let buffer = buffer.get_mapped_range(..);
+            let buffer = buffer.get_mapped_range(..).unwrap();
             diagnostics.push(RenderDiagnostic {
                 path: DiagnosticPath::from_components(
                     core::iter::once("render").chain(core::iter::once(diagnostic_path.as_ref())),
