@@ -12,7 +12,7 @@ use bevy_ecs::{
     },
     system::SystemStateFlags,
 };
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -73,13 +73,15 @@ pub struct ScheduleData {
 
 /// A newtype for the index of a component.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord, Hash)]
-pub struct ComponentIndex(pub u32);
+pub struct ComponentIndex(pub usize);
 
 /// Data about a component type.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct ComponentData {
     /// The name of the component.
     pub name: String,
+    /// Direct required component indexes
+    pub required: Vec<usize>,
 }
 
 /// Data about a particular system.
@@ -108,10 +110,10 @@ pub struct SystemData {
 pub struct AccessData {
     /// All accessed components, or forbidden components if
     /// `Self::read_and_writes_inverted` is set.
-    pub read_and_writes: Vec<u32>,
+    pub read_and_writes: Vec<usize>,
     /// All exclusively-accessed components, or components that may not be
     /// exclusively accessed if `Self::writes_inverted` is set.
-    pub writes: Vec<u32>,
+    pub writes: Vec<usize>,
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::read_and_writes`.
     pub read_and_writes_inverted: bool,
@@ -119,7 +121,7 @@ pub struct AccessData {
     /// present in `Self::writes`.
     pub writes_inverted: bool,
     /// Components that are not accessed, but whose presence in an archetype affect query results.
-    pub archetypal: Vec<u32>,
+    pub archetypal: Vec<usize>,
 }
 
 impl AccessData {
@@ -150,9 +152,9 @@ impl AccessData {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct AccessFiltersData {
     /// The set of components that must all be present for this [`AccessFiltersData`] to match.
-    pub with: Vec<u32>,
+    pub with: Vec<usize>,
     /// The set of components that must all be absent for this [`AccessFiltersData`] to match.
-    pub without: Vec<u32>,
+    pub without: Vec<usize>,
 }
 
 /// A serializable version of [`bevy_ecs::query::FilteredAccess`] (docs copied from there).
@@ -164,7 +166,7 @@ pub struct FilteredAccessData {
     /// The access of the Query (components that have read/writes)
     pub access: AccessData,
     /// Required components (summary of read/writes from `Self::access` ).
-    pub required: Vec<u32>,
+    pub required: Vec<usize>,
     /// An array of filter sets to express `With` or `Without` clauses.
     /// Each filter set is `Or`-d together
     pub filter_sets: Vec<AccessFiltersData>,
@@ -212,18 +214,18 @@ pub struct ConditionData {
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ScheduleIndex {
     /// The index of a system.
-    System(u32),
+    System(usize),
     /// The index of a system set.
-    SystemSet(u32),
+    SystemSet(usize),
 }
 
 /// Data about an access conflict between two systems.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct SystemConflict {
     /// The first system index.
-    pub system_1: u32,
+    pub system_1: usize,
     /// The second system index.
-    pub system_2: u32,
+    pub system_2: usize,
     /// The kind of conflict between these systems.
     pub conflicting_access: AccessConflict,
 }
@@ -235,7 +237,7 @@ pub enum AccessConflict {
     /// and the other needs mutable access to (some of) the world.
     World,
     /// There is incompatible accesses to the listed components.
-    Components(Vec<u32>),
+    Components(Vec<usize>),
 }
 
 /// A newtype for the index of a system set.
@@ -243,7 +245,7 @@ pub enum AccessConflict {
 /// This is the same kind of index as [`ScheduleIndex::SystemSet`], but for cases where we know we
 /// can't have a system.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
-pub struct SystemSetIndex(pub u32);
+pub struct SystemSetIndex(pub usize);
 
 /// Helper to build the components used by systems in this schedule
 struct ComponentTrace<'a> {
@@ -261,25 +263,36 @@ impl<'a> ComponentTrace<'a> {
         }
     }
 
-    fn get_index(&mut self, id: ComponentId) -> u32 {
-        match self.component_id_to_index.entry(id) {
-            Entry::Occupied(entry) => *entry.get() as _,
-            Entry::Vacant(entry) => {
-                let component = self
-                    .world_components
-                    .get_info(id)
-                    .expect("the component has already been registered by the system");
-
-                self.components.push(ComponentData {
-                    name: format!("{}", component.name()),
-                });
-
-                *entry.insert(self.components.len() - 1) as _
-            }
+    fn get_index(&mut self, id: ComponentId) -> usize {
+        let result1 = self.component_id_to_index.get(&id);
+        if let Some(r) = result1 {
+            return *r;
         }
+
+        let component = self
+            .world_components
+            .get_info(id)
+            .expect("the component has already been registered by the system");
+
+        let required = component
+            .required_components()
+            .iter_direct_ids()
+            .map(|rid| self.get_index(rid))
+            .collect();
+
+        let res = ComponentData {
+            name: format!("{}", component.name()),
+            required,
+        };
+
+        self.components.push(res);
+        let result = self.components.len() - 1;
+
+        self.component_id_to_index.insert(id, result);
+        result
     }
 
-    fn get_indexes(&mut self, ids: impl Iterator<Item = ComponentId>) -> Vec<u32> {
+    fn get_indexes(&mut self, ids: impl Iterator<Item = ComponentId>) -> Vec<usize> {
         ids.map(|id| self.get_index(id)).collect()
     }
 }
@@ -585,33 +598,31 @@ pub mod tests {
             let component_old_index_to_new_index =
                 reorder_slice(&mut schedule.components, |component| component.name.clone());
 
-            let reindex_system = |index: &mut u32| {
-                *index = *system_old_index_to_new_index
-                    .get(&(*index as usize))
-                    .unwrap() as u32;
+            let reindex_system = |index: &mut usize| {
+                *index = *system_old_index_to_new_index.get(&(*index)).unwrap();
             };
-            let reindex_system_set = |index: &mut u32| {
-                *index = *system_set_old_index_to_new_index
-                    .get(&(*index as usize))
-                    .unwrap() as u32;
+            let reindex_system_set = |index: &mut usize| {
+                *index = *system_set_old_index_to_new_index.get(&(*index)).unwrap();
             };
             let reindex_schedule_index = |index: &mut ScheduleIndex| match index {
                 ScheduleIndex::System(system) => reindex_system(system),
                 ScheduleIndex::SystemSet(set) => reindex_system_set(set),
             };
 
-            let reindex_component = |index: &mut u32| {
-                *index = *component_old_index_to_new_index
-                    .get(&(*index as usize))
-                    .unwrap() as u32;
+            let reindex_component = |index: &mut usize| {
+                *index = *component_old_index_to_new_index.get(&(*index)).unwrap();
             };
 
-            let reindex_component_vec = |components: &mut Vec<u32>| {
+            let reindex_component_vec = |components: &mut Vec<usize>| {
                 for component in components.iter_mut() {
                     reindex_component(component);
                 }
                 components.sort();
             };
+
+            for component in schedule.components.iter_mut() {
+                reindex_component_vec(&mut component.required);
+            }
 
             let reindex_access = |access: &mut AccessData| {
                 reindex_component_vec(&mut access.archetypal);
@@ -694,20 +705,20 @@ pub mod tests {
     /// Convenience to create a [`SystemData`] for more detailed case.
     pub fn full_system(
         name: &str,
-        needs: Vec<u32>,
-        writes: Vec<u32>,
-        filter: Option<Vec<u32>>,
-        reject: Option<Vec<u32>>,
+        needs: Vec<usize>,
+        writes: Vec<usize>,
+        filter: Option<Vec<usize>>,
+        reject: Option<Vec<usize>>,
     ) -> SystemData {
         // +1 on inputted components as 0 = Disabled
-        let offset_needs: Vec<u32> = needs.iter().map(|n| n + 1).collect();
-        let offset_writes: Vec<u32> = writes.iter().map(|n| n + 1).collect();
+        let offset_needs: Vec<usize> = needs.iter().map(|n| n + 1).collect();
+        let offset_writes: Vec<usize> = writes.iter().map(|n| n + 1).collect();
 
-        let offset_filter: Vec<u32> = filter
+        let offset_filter: Vec<usize> = filter
             .map(|f| f.iter().map(|n| n + 1).collect())
             .unwrap_or(offset_needs.clone());
 
-        let mut reject_filter: Vec<u32> = reject
+        let mut reject_filter: Vec<usize> = reject
             .map(|f| f.iter().map(|n| n + 1).collect())
             .unwrap_or(vec![]);
         reject_filter.insert(0, 0);
@@ -751,13 +762,16 @@ pub mod tests {
 
     /// Convenience to create a [`ComponentData`] to make test cases shorter.
     pub fn simple_component(name: &str) -> ComponentData {
-        ComponentData { name: name.into() }
+        ComponentData {
+            name: name.into(),
+            required: vec![],
+        }
     }
 
     /// Convenience to create a [`SystemConflict`] to make test cases shorter.
     pub fn conflict(
-        system_1: u32,
-        system_2: u32,
+        system_1: usize,
+        system_2: usize,
         conflicting_access: AccessConflict,
     ) -> SystemConflict {
         SystemConflict {
