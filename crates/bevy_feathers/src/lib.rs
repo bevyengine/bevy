@@ -54,6 +54,7 @@ pub mod dark_theme;
 pub mod display;
 pub mod focus;
 pub mod font_styles;
+pub mod light_theme;
 pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
