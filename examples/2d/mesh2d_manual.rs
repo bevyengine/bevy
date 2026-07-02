@@ -10,9 +10,10 @@ use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
-    mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
+    mesh::{BaseMeshPipelineKey, Indices, MeshVertexAttribute, VertexBufferLayout},
     prelude::*,
     render::{
+        material_bind_groups::RenderMaterialBindings,
         mesh::RenderMesh,
         render_asset::RenderAssets,
         render_phase::{
@@ -27,14 +28,14 @@ use bevy::{
             VertexStepMode,
         },
         sync_component::{SyncComponent, SyncComponentPlugin},
-        sync_world::{MainEntityHashMap, RenderEntity},
+        sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities},
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
-        extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
-        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup,
+        extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
+        Mesh2dTransforms, MeshFlags, RenderMaterial2dInstances, RenderMesh2dInstance,
+        SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
 };
 use std::f32::consts::PI;
@@ -196,8 +197,9 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             ],
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
-                topology: key.primitive_topology(),
-                strip_index_format: key.strip_index_format(),
+                topology: BaseMeshPipelineKey::from_bits_retain(key.bits()).primitive_topology(),
+                strip_index_format: BaseMeshPipelineKey::from_bits_retain(key.bits())
+                    .strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
@@ -347,6 +349,8 @@ pub fn extract_colored_mesh2d(
         >,
     >,
     mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
+    render_material_instances: Res<RenderMaterial2dInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, render_entity, view_visibility, transform, handle) in &query {
@@ -359,13 +363,24 @@ pub fn extract_colored_mesh2d(
             flags: MeshFlags::empty().bits(),
         };
 
+        // Look up the material index. If we couldn't fetch the material index,
+        // then the material hasn't been prepared yet, perhaps because it hasn't
+        // yet loaded.
+        let Some(mesh_material) = render_material_instances.get(&MainEntity::from(entity)) else {
+            continue;
+        };
+        let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+        else {
+            continue;
+        };
+
         values.push((render_entity, ColoredMesh2d));
         render_mesh_instances.insert(
             entity.into(),
             RenderMesh2dInstance {
                 mesh_asset_id: handle.0.id(),
                 transforms,
-                material_bind_group_id: Material2dBindGroupId::default(),
+                material_bindings_index: mesh_material_binding_id,
                 automatic_batching: false,
                 tag: 0,
             },
@@ -414,9 +429,12 @@ pub fn queue_colored_mesh2d(
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
                     continue;
                 };
-                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
-                    mesh.primitive_topology(),
-                    mesh.index_format(),
+                mesh2d_key |= Mesh2dPipelineKey::from(
+                    BaseMeshPipelineKey::from_primitive_topology_and_strip_index(
+                        mesh.primitive_topology(),
+                        mesh.index_format(),
+                    )
+                    .bits(),
                 );
 
                 let pipeline_id =
