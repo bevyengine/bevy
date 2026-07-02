@@ -2448,6 +2448,10 @@ pub(crate) fn specialize_shadows(
                     _ => MeshPipelineKey::NONE,
                 };
 
+                if material.properties.prepass_reads_material() {
+                    mesh_key |= MeshPipelineKey::PREPASS_READS_MATERIAL;
+                }
+
                 work_items.push(ShadowSpecializationWorkItem {
                     visible_entity: *visible_entity,
                     retained_view_entity: extracted_view_light.retained_view_entity,

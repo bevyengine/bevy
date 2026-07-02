@@ -1876,3 +1876,19 @@ pub fn get_mesh_instance_world_from_local(
         }
     }
 }
+
+pub(crate) trait MaterialPropertiesExt {
+    fn prepass_reads_material(&self) -> bool;
+}
+
+impl MaterialPropertiesExt for MaterialProperties {
+    fn prepass_reads_material(&self) -> bool {
+        // The default prepass shaders doesn't need material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to known this
+        // because material's bind group is used for both prepass and the other passes.
+        //
+        // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
+        self.get_shader(PrepassVertexShader).is_some()
+            || self.get_shader(PrepassFragmentShader).is_some()
+    }
+}
