@@ -192,7 +192,7 @@ impl FeathersNumberInput {
                             ColorStop::new(Color::NONE, percent(50)),
                             ColorStop::new(Color::NONE, percent(100)),
                         ],
-                        color_space: InterpolationColorSpace::Srgba,
+                        color_space: InterpolationColorSpace::LinearRgba,
                     })])
                     EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
                     on(number_input_init)

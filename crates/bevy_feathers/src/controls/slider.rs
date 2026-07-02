@@ -105,7 +105,7 @@ impl FeathersSlider {
                     ColorStop::new(Color::NONE, percent(50)),
                     ColorStop::new(Color::NONE, percent(100)),
                 ],
-                color_space: InterpolationColorSpace::Srgba,
+                color_space: InterpolationColorSpace::LinearRgba,
             })])
             Children [(
                 // Text container
@@ -177,7 +177,7 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
                 ColorStop::new(Color::NONE, percent(50)),
                 ColorStop::new(Color::NONE, percent(100)),
             ],
-            color_space: InterpolationColorSpace::Srgba,
+            color_space: InterpolationColorSpace::LinearRgba,
         })]),
         overrides,
         children![(
