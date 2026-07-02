@@ -433,6 +433,7 @@ pub fn create_surfaces(
                         Some(format) => vec![format],
                         None => vec![],
                     },
+                    color_space: wgpu::SurfaceColorSpace::Auto,
                 };
 
                 render_device.configure_surface(&surface, &configuration);
