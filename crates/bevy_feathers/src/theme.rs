@@ -218,7 +218,7 @@ pub enum Slot {
     Neutral0,
     /// Surface bodies & menus: `PANE_BODY_BG`, `SUBPANE_BODY_BG`, `DIALOG_BG`, `MENU_BG`, `COLOR_PLANE_BG`.
     Neutral1,
-    /// Weak fills & chrome: `SLIDER_BG*`, `SCROLLBAR_BG`, `TEXT_INPUT_BG`, `MENUITEM_BG_HOVER`, 
+    /// Weak fills & chrome: `SLIDER_BG*`, `SCROLLBAR_BG`, `TEXT_INPUT_BG`, `MENUITEM_BG_HOVER`,
     /// `LISTROW_BG_HOVER`, `BUTTON_BG_DISABLED`, `BUTTON_PRIMARY_BG_DISABLED`,
     Neutral2,
     /// Raised container headers & borders: `SUBPANE_HEADER_BG`, `GROUP_HEADER_BG`/`_BORDER`,
@@ -229,10 +229,10 @@ pub enum Slot {
     /// `LISTROW_BG_SELECTED`, `SLIDER_BAR_DISABLED`, `SUBPANE_HEADER_BORDER`, `SUBPANE_BODY_BORDER`.
     /// `PANE_HEADER_BORDER`/`_DIVIDER`, `DIALOG_BORDER`, `MENU_BORDER`.
     Neutral4,
-    /// Control hover: `BUTTON_BG_HOVER`, `BUTTON_PLAIN_BG_HOVER`, `CHECKBOX_BG`/`_BORDER_HOVER`, 
+    /// Control hover: `BUTTON_BG_HOVER`, `BUTTON_PLAIN_BG_HOVER`, `CHECKBOX_BG`/`_BORDER_HOVER`,
     /// `RADIO_BORDER_HOVER`, `SWITCH_BG`/`_BORDER_HOVER`.
     Neutral5,
-    /// Control pressed: `BUTTON_BG_PRESSED`, `BUTTON_PLAIN_BG_PRESSED`, `CHECKBOX_BG`/`_BORDER_PRESSED`, 
+    /// Control pressed: `BUTTON_BG_PRESSED`, `BUTTON_PLAIN_BG_PRESSED`, `CHECKBOX_BG`/`_BORDER_PRESSED`,
     /// `RADIO_BORDER_PRESSED`, `SWITCH_BG`/`_BORDER_PRESSED`.
     Neutral6,
     /// Bright on-surface labels: `BUTTON_TEXT`, `MENUITEM_TEXT`, `TEXT_INPUT_TEXT`, `LISTROW_TEXT`,
