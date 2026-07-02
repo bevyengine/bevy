@@ -14,6 +14,7 @@
 //! * Events for when entities gain or lose focus: [`FocusGained`] and [`FocusLost`].
 //! * A generic [`FocusedInput`] event to send input events which bubble up from the focused entity.
 //! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
+//! * [`pointer_focus`], which focuses (or blurs) entities in response to pointer clicks, independently of any navigation framework.
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
 //! which should depend on [`bevy_input_focus`](crate).
@@ -25,6 +26,7 @@ extern crate alloc;
 
 pub mod directional_navigation;
 pub mod navigator;
+pub mod pointer_focus;
 pub mod tab_navigation;
 
 // These modules are too small / specific to be exported by the crate,
@@ -259,41 +261,31 @@ impl Traversal<AcquireFocus> for WindowTraversal {
     }
 }
 
-/// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
+/// Observer which clears input focus when an [`AcquireFocus`] request bubbles all the way up
+/// to a [`Window`] without finding a focusable target.
 ///
-/// This is the single, shared handler for resolving an [`AcquireFocus`] request into a change
-/// to [`InputFocus`]. Multiple widgets route through it (e.g. keyboard tab navigation, and clicking
-/// away from a text input to blur it), so its behavior has engine-wide focus consequences.
+/// This is the generalized half of focus acquisition: it has no knowledge of any specific
+/// focus-navigation scheme. It is what makes "click outside to unfocus" work even when no
+/// navigation framework (e.g. [`tab_navigation`]) is installed — an [`AcquireFocus`] triggered
+/// on a non-focusable entity bubbles via [`WindowTraversal`] until it reaches the window, where
+/// this observer clears focus. Actually *focusing* a target is the responsibility of a
+/// navigation module: for tab navigation, that is
+/// [`acquire_focus_tab_index`](tab_navigation::acquire_focus_tab_index), which stops the request
+/// (and focuses the target) before it can reach the window.
 ///
-/// Be deliberate when changing it: the three branches below are load-bearing and each is relied on by
-/// a different feature —
-/// - **target has [`TabIndex`](tab_navigation::TabIndex)** → focus it and stop bubbling,
-/// - **target is a [`Window`]** → clear focus and stop bubbling (this is what makes "click outside to
-///   unfocus" work, since the request bubbles up to the window when it hits nothing focusable),
-/// - **neither** → keep bubbling toward the window.
+/// Clearing focus relies on the request actually *reaching* the window via [`WindowTraversal`], so
+/// the request target must be connected to the window through [`ChildOf`] relationships (or be the
+/// window itself). A request triggered on an entity with no path to the window will simply stop at
+/// that entity and leave focus unchanged.
 ///
-/// Clearing focus relies on the request actually *reaching* the window via [`WindowTraversal`], so the
-/// request target must be connected to the window through [`ChildOf`] relationships (or be the window
-/// itself). A request triggered on an entity with no path to the window will simply stop at that entity
-/// and leave focus unchanged.
-///
-/// The `focus.get()` guards avoid spurious mutations so change detection only fires on real changes.
-/// Verify against the `acquire_focus_*` tests in this module before altering any of this.
+/// The `focus.get()` guard avoids spurious mutations so change detection only fires on real changes.
+/// Verify against the `acquire_focus_*` tests before altering any of this.
 pub fn acquire_focus(
     mut acquire_focus: On<AcquireFocus>,
-    focusable: Query<(), With<tab_navigation::TabIndex>>,
     windows: Query<(), With<Window>>,
     mut focus: ResMut<InputFocus>,
 ) {
-    // If the entity has a TabIndex
-    if focusable.contains(acquire_focus.focused_entity) {
-        // Stop and focus it
-        acquire_focus.propagate(false);
-        // Don't mutate unless we need to, for change detection
-        if focus.get() != Some(acquire_focus.focused_entity) {
-            focus.set(acquire_focus.focused_entity, FocusCause::Navigated);
-        }
-    } else if windows.contains(acquire_focus.focused_entity) {
+    if windows.contains(acquire_focus.focused_entity) {
         // Stop and clear focus
         acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
@@ -808,32 +800,18 @@ mod tests {
     }
 
     #[test]
-    fn acquire_focus_focuses_entity_with_tab_index() {
-        let (mut app, window) = acquire_focus_app();
-
-        let focusable = app.world_mut().spawn(tab_navigation::TabIndex(0)).id();
-
-        app.world_mut().trigger(AcquireFocus {
-            focused_entity: focusable,
-            window,
-        });
-        app.update();
-
-        assert_eq!(app.world().resource::<InputFocus>().get(), Some(focusable));
-    }
-
-    #[test]
     fn acquire_focus_clears_focus_when_reaching_window() {
         let (mut app, window) = acquire_focus_app();
 
-        // Start with a focusable entity focused.
-        let focusable = app.world_mut().spawn(tab_navigation::TabIndex(0)).id();
+        // Start with some entity focused.
+        let previously_focused = app.world_mut().spawn_empty().id();
         app.world_mut()
-            .insert_resource(InputFocus::from_entity(focusable));
+            .insert_resource(InputFocus::from_entity(previously_focused));
 
         // Click away onto a non-focusable child of the window: the request bubbles up through
         // `WindowTraversal` to the window, which clears focus. This is the behavior that
-        // "click outside to unfocus" depends on.
+        // "click outside to unfocus" depends on, and it works without any navigation framework
+        // (e.g. `tab_navigation`) installed.
         let non_focusable = app.world_mut().spawn(ChildOf(window)).id();
         app.world_mut().trigger(AcquireFocus {
             focused_entity: non_focusable,
@@ -841,27 +819,6 @@ mod tests {
         });
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().get(), None);
-    }
-
-    #[test]
-    fn acquire_focus_does_not_focus_entity_without_tab_index() {
-        let (mut app, window) = acquire_focus_app();
-
-        // A non-focusable entity must never become focused just because it was the request target:
-        // only `TabIndex` entities are valid focus targets. The request instead bubbles up to the
-        // window, which clears focus.
-        let non_focusable = app.world_mut().spawn(ChildOf(window)).id();
-        app.world_mut().trigger(AcquireFocus {
-            focused_entity: non_focusable,
-            window,
-        });
-        app.update();
-
-        assert_ne!(
-            app.world().resource::<InputFocus>().get(),
-            Some(non_focusable)
-        );
         assert_eq!(app.world().resource::<InputFocus>().get(), None);
     }
 }

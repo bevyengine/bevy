@@ -33,7 +33,7 @@ use bevy_app::{
 };
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
-use bevy_input_focus::tab_navigation::TabNavigationPlugin;
+use bevy_input_focus::{pointer_focus::PointerFocusPlugin, tab_navigation::TabNavigationPlugin};
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
@@ -126,6 +126,7 @@ impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(TabNavigationPlugin)
+            .add(PointerFocusPlugin)
             .add(FeathersCorePlugin)
     }
 }
