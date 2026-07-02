@@ -147,7 +147,7 @@ impl Plugin for PipelinedRenderingPlugin {
         ));
 
         std::thread::Builder::new()
-            .name("render thread".into())
+            .name("Render thread".into())
             .spawn(move || {
                 #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("render thread").entered();
