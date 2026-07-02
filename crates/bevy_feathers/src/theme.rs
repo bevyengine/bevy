@@ -218,22 +218,22 @@ pub enum Slot {
     Neutral0,
     /// Surface bodies & menus: `PANE_BODY_BG`, `SUBPANE_BODY_BG`, `DIALOG_BG`, `MENU_BG`, `COLOR_PLANE_BG`.
     Neutral1,
-    /// Recessed fills & chrome: `SLIDER_BG*`, `SCROLLBAR_BG`, `TEXT_INPUT_BG`, `MENU_BORDER`,
-    /// `MENUITEM_BG_HOVER`, `LISTROW_BG_HOVER`, `BUTTON_PLAIN_BG_HOVER`/`_PRESSED`,
-    /// `BUTTON_BG_DISABLED`, `BUTTON_PRIMARY_BG_DISABLED`, `PANE_HEADER_BORDER`/`_DIVIDER`.
+    /// Weak fills & chrome: `SLIDER_BG*`, `SCROLLBAR_BG`, `TEXT_INPUT_BG`, `MENUITEM_BG_HOVER`, 
+    /// `LISTROW_BG_HOVER`, `BUTTON_BG_DISABLED`, `BUTTON_PRIMARY_BG_DISABLED`,
     Neutral2,
     /// Raised container headers & borders: `SUBPANE_HEADER_BG`, `GROUP_HEADER_BG`/`_BORDER`,
-    /// `GROUP_BODY_BG`/`_BORDER`, `DIALOG_BORDER`, `DIALOG_HEADER_BG`.
+    /// `GROUP_BODY_BG`/`_BORDER`, `DIALOG_HEADER_BG`.
     Neutral3,
     /// Control rest bg & borders + selected row: `BUTTON_BG`, `CHECKBOX_BG`/`_BORDER`, `RADIO_BORDER`,
     /// `SWITCH_BG`/`_BORDER`, `TEXT_INPUT_LABEL_BG`, `MENUITEM_BG_PRESSED`/`_FOCUSED`,
     /// `LISTROW_BG_SELECTED`, `SLIDER_BAR_DISABLED`, `SUBPANE_HEADER_BORDER`, `SUBPANE_BODY_BORDER`.
+    /// `PANE_HEADER_BORDER`/`_DIVIDER`, `DIALOG_BORDER`, `MENU_BORDER`.
     Neutral4,
-    /// Control hover: `BUTTON_BG_HOVER`, `CHECKBOX_BG`/`_BORDER_HOVER`, `RADIO_BORDER_HOVER`,
-    /// `SWITCH_BG`/`_BORDER_HOVER`.
+    /// Control hover: `BUTTON_BG_HOVER`, `BUTTON_PLAIN_BG_HOVER`, `CHECKBOX_BG`/`_BORDER_HOVER`, 
+    /// `RADIO_BORDER_HOVER`, `SWITCH_BG`/`_BORDER_HOVER`.
     Neutral5,
-    /// Control pressed: `BUTTON_BG_PRESSED`, `CHECKBOX_BG`/`_BORDER_PRESSED`, `RADIO_BORDER_PRESSED`,
-    /// `SWITCH_BG`/`_BORDER_PRESSED`.
+    /// Control pressed: `BUTTON_BG_PRESSED`, `BUTTON_PLAIN_BG_PRESSED`, `CHECKBOX_BG`/`_BORDER_PRESSED`, 
+    /// `RADIO_BORDER_PRESSED`, `SWITCH_BG`/`_BORDER_PRESSED`.
     Neutral6,
     /// Bright on-surface labels: `BUTTON_TEXT`, `MENUITEM_TEXT`, `TEXT_INPUT_TEXT`, `LISTROW_TEXT`,
     /// `PANE_HEADER_TEXT`, `SUBPANE_HEADER_TEXT`, `GROUP_HEADER_TEXT`.
@@ -453,8 +453,8 @@ static DEFAULT_TOKEN_SLOTS: [(ThemeToken, Slot); 149] = [
     (tokens::BUTTON_PRIMARY_BG_PRESSED, Slot::Accent2),
     (tokens::BUTTON_PRIMARY_BG_DISABLED, Slot::Neutral2),
     (tokens::BUTTON_PLAIN_BG, Slot::Transparent),
-    (tokens::BUTTON_PLAIN_BG_HOVER, Slot::Neutral2),
-    (tokens::BUTTON_PLAIN_BG_PRESSED, Slot::Neutral2),
+    (tokens::BUTTON_PLAIN_BG_HOVER, Slot::Neutral5),
+    (tokens::BUTTON_PLAIN_BG_PRESSED, Slot::Neutral6),
     (tokens::BUTTON_PLAIN_BG_DISABLED, Slot::Transparent),
     (tokens::BUTTON_TEXT, Slot::Text0),
     (tokens::BUTTON_TEXT_DISABLED, Slot::TextDim0),
@@ -549,7 +549,7 @@ static DEFAULT_TOKEN_SLOTS: [(ThemeToken, Slot); 149] = [
     (tokens::SWITCH_SLIDE_BORDER_CHECKED_DISABLED, Slot::TextDim1),
     (tokens::COLOR_PLANE_BG, Slot::Neutral1),
     (tokens::MENU_BG, Slot::Neutral1),
-    (tokens::MENU_BORDER, Slot::Neutral2),
+    (tokens::MENU_BORDER, Slot::Neutral4),
     (tokens::MENUITEM_BG_HOVER, Slot::Neutral2),
     (tokens::MENUITEM_BG_PRESSED, Slot::Neutral4),
     (tokens::MENUITEM_BG_FOCUSED, Slot::Neutral4),
@@ -566,9 +566,9 @@ static DEFAULT_TOKEN_SLOTS: [(ThemeToken, Slot); 149] = [
     (tokens::TEXT_INPUT_Y_AXIS, Slot::YAxis),
     (tokens::TEXT_INPUT_Z_AXIS, Slot::ZAxis),
     (tokens::PANE_HEADER_BG, Slot::Neutral0),
-    (tokens::PANE_HEADER_BORDER, Slot::Neutral2),
+    (tokens::PANE_HEADER_BORDER, Slot::Neutral4),
     (tokens::PANE_HEADER_TEXT, Slot::Text0),
-    (tokens::PANE_HEADER_DIVIDER, Slot::Neutral2),
+    (tokens::PANE_HEADER_DIVIDER, Slot::Neutral4),
     (tokens::PANE_BODY_BG, Slot::Neutral1),
     (tokens::SUBPANE_HEADER_BG, Slot::Neutral3),
     (tokens::SUBPANE_HEADER_BORDER, Slot::Neutral4),
@@ -586,7 +586,7 @@ static DEFAULT_TOKEN_SLOTS: [(ThemeToken, Slot); 149] = [
     (tokens::LISTROW_TEXT, Slot::Text0),
     (tokens::LISTROW_TEXT_DISABLED, Slot::TextDim0),
     (tokens::DIALOG_BG, Slot::Neutral1),
-    (tokens::DIALOG_BORDER, Slot::Neutral3),
+    (tokens::DIALOG_BORDER, Slot::Neutral4),
     (tokens::DIALOG_HEADER_BG, Slot::Neutral3),
     (tokens::DIALOG_TEXT, Slot::Text1),
     //(tokens::DIALOG_HEADER_TEXT, Slot::Text0),
