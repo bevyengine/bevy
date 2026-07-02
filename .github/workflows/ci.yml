@@ -599,3 +599,41 @@ jobs:
           if [ -d release-content ]; then
             exit 1
           fi
+
+  bevy_ecs-fuzz-prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: List fuzz targets
+        id: list
+        run: |
+          targets=$(ls crates/bevy_ecs/fuzz/fuzz_targets/*.rs | xargs -n1 basename -s .rs | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "targets=$targets" >> $GITHUB_OUTPUT
+
+  bevy_ecs-fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: bevy_ecs-fuzz-prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.bevy_ecs-fuzz-prepare.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      - name: Run fuzz target
+        working-directory: crates/bevy_ecs/fuzz
+        env:
+          FUZZ_TARGET: ${{ matrix.target }}
+        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=200000

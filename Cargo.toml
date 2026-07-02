@@ -46,6 +46,8 @@ members = [
 exclude = [
   # Integration tests are not part of the workspace
   "tests-integration",
+  # Fuzz testing crates
+  "crates/bevy_ecs/fuzz",
 ]
 
 [workspace.lints.clippy]
