@@ -28,3 +28,4 @@ impl Resource for R {}
 ```
 
 has become less viable, as now `Res` and `ResMut` panic when `IsResource` has not been made a required component for a resource.
+Use `#[derive(Resource)]` instead.

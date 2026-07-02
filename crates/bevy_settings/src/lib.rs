@@ -461,11 +461,11 @@ fn apply_settings_to_world(
         let settings_key = reflect_settings_group.settings_key_name;
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
-        let component_id = world.components().get_id(*tid);
+        let component_id = reflect_component.register_component(world);
+        let res_entity = component_id.entity();
 
-        if let Some(component_id) = component_id {
+        if world.entities().contains_spawned(res_entity) {
             // Resource already exists, so apply toml properties to it.
-            let res_entity = component_id.entity();
             let res_entity_mut = world.entity_mut(res_entity);
             let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
                 continue;
@@ -487,7 +487,6 @@ fn apply_settings_to_world(
             }
         } else {
             // The resource does not exist, so create a default.
-            let component_id = reflect_component.register_component(world);
             let mut res_entity = world
                 .spawn_empty_at(component_id.entity())
                 .expect("entity was just allocated");
