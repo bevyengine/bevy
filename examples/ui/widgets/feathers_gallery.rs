@@ -9,7 +9,7 @@ use bevy::{
         controls::*,
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
-        display::{icon, label, label_dim, label_small},
+        display::{caption, icon, label, label_dim, label_small},
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
@@ -124,7 +124,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Normal") ThemedText }
+                            @caption: bsn! { caption("Normal") }
                         }
                         Node {
                             flex_grow: 1.0,
@@ -137,7 +137,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Disabled") ThemedText },
+                            @caption: bsn! { caption("Disabled") },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -151,7 +151,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Primary") ThemedText },
+                            @caption: bsn! { caption("Primary") },
                             @variant: ButtonVariant::Primary,
                         }
                         AccessibleLabel("Primary")
@@ -167,7 +167,7 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersMenuButton {
-                                    @caption: bsn! { Text("Menu") ThemedText }
+                                    @caption: bsn! { caption("Menu") }
                                 }
                                 AccessibleLabel("Menu Example")
                                 Node {
@@ -179,7 +179,7 @@ fn demo_column_1() -> impl Scene {
                                 Children [
                                     (
                                         @FeathersMenuItem {
-                                            @caption: bsn! { Text("MenuItem 1") ThemedText }
+                                            @caption: bsn! { caption("MenuItem 1") }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 1 clicked!");
@@ -187,7 +187,7 @@ fn demo_column_1() -> impl Scene {
                                     ),
                                     (
                                         @FeathersMenuItem {
-                                            @caption: bsn! { Text("MenuItem 2") ThemedText }
+                                            @caption: bsn! { caption("MenuItem 2") }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 2 clicked!");
@@ -196,7 +196,7 @@ fn demo_column_1() -> impl Scene {
                                     @FeathersMenuDivider,
                                     (
                                         @FeathersMenuItem {
-                                            @caption: bsn! { Text("MenuItem 3") ThemedText }
+                                            @caption: bsn! { caption("MenuItem 3") }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 3 clicked!");
@@ -209,6 +209,32 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
+                @FeathersSelect {
+                    @options: {vec![
+                        "January".to_string(),
+                        "February".to_string(),
+                        "March".to_string(),
+                        "April".to_string(),
+                        "May".to_string(),
+                        "June".to_string(),
+                        "July".to_string(),
+                        "August".to_string(),
+                        "September".to_string(),
+                        "October".to_string(),
+                        "November".to_string(),
+                        "December".to_string(),
+                    ]},
+                    @selected: {2usize},
+                    @max_visible: {6usize},
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(|change: On<ValueChange<usize>>| {
+                    info!("Select changed to index {}", change.value);
+                })
+            ),
+            (
                 Node {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
@@ -219,7 +245,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Left") ThemedText },
+                            @caption: bsn! { caption("Left") },
                             @corners: RoundedCorners::Left,
                         }
                         Node {
@@ -232,7 +258,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Center") ThemedText },
+                            @caption: bsn! { caption("Center") },
                             @corners: RoundedCorners::None,
                         }
                         Node {
@@ -245,7 +271,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Right") ThemedText },
+                            @caption: bsn! { caption("Right") },
                             @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
@@ -270,7 +296,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Toggle override") ThemedText },
+                            @caption: bsn! { caption("Toggle override") },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -286,7 +312,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Quit\u{2026}") ThemedText },
+                            @caption: bsn! { caption("Quit\u{2026}") },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -297,7 +323,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Checkbox") ThemedText }
+                    @caption: bsn! { caption("Checkbox") }
                 }
                 Checked
                 AccessibleLabel("Checkbox Example")
@@ -323,7 +349,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Fast Click Checkbox") ThemedText }
+                    @caption: bsn! { caption("Fast Click Checkbox") }
                 }
                 ActivateOnPress
                 AccessibleLabel("Fast Click Checkbox Example")
@@ -342,7 +368,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Disabled") ThemedText },
+                    @caption: bsn! { caption("Disabled") },
                 }
                 InteractionDisabled
                 AccessibleLabel("Disabled Checkbox Example")
@@ -352,7 +378,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Checked+Disabled") ThemedText }
+                    @caption: bsn! { caption("Checked+Disabled") }
                 }
                 InteractionDisabled
                 Checked
@@ -381,22 +407,22 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersRadio {
-                                    @caption: bsn! { Text("One") ThemedText }
+                                    @caption: bsn! { caption("One") }
                                 }
                                 Checked
                             ),
                             @FeathersRadio {
-                                @caption: bsn! { Text("Two") ThemedText }
+                                @caption: bsn! { caption("Two") }
                             },
                             (
                                 @FeathersRadio {
-                                    @caption: bsn! { Text("Fast Click") ThemedText }
+                                    @caption: bsn! { caption("Fast Click") }
                                 }
                                 ActivateOnPress
                             ),
                             (
                                 @FeathersRadio {
-                                    @caption: bsn! { Text("Disabled") ThemedText }
+                                    @caption: bsn! { caption("Disabled") }
                                 }
                                 InteractionDisabled
                             ),
@@ -578,20 +604,20 @@ fn demo_column_2() -> impl Scene {
                     pane_header() Children [
                         @FeathersToolButton {
                             @variant: ButtonVariant::Primary,
-                            @caption: bsn! { Text("\u{0398}") ThemedText }
+                            @caption: bsn! { caption("\u{0398}") }
                         },
                         pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { Text("\u{00BC}") ThemedText }
+                            @caption: bsn! { caption("\u{00BC}") }
                         },
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { Text("\u{00BD}") ThemedText }
+                            @caption: bsn! { caption("\u{00BD}") }
                         },
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { Text("\u{00BE}") ThemedText }
+                            @caption: bsn! { caption("\u{00BE}") }
                         },
                         pane_header_divider(),
                         @FeathersToolButton {
@@ -609,16 +635,16 @@ fn demo_column_2() -> impl Scene {
                             label_dim("A standard editor pane"),
                             subpane() Children [
                                 subpane_header() Children [
-                                    (Text("Left") ThemedText),
-                                    (Text("Center") ThemedText),
-                                    (Text("Right") ThemedText)
+                                    caption("Left"),
+                                    caption("Center"),
+                                    caption("Right")
                                 ],
                                 subpane_body() Children [
                                     label_dim("A standard sub-pane"),
                                     group()
                                     Children [
                                         group_header() Children [
-                                            (Text("Group") ThemedText),
+                                            caption("Group"),
                                         ],
                                         group_body()
                                         Children [
@@ -723,23 +749,23 @@ fn demo_column_2() -> impl Scene {
             ),
             subpane() Children [
                 subpane_header() Children [
-                    (Text("List") ThemedText),
+                    caption("List"),
                 ],
                 subpane_body() Children [
                     @FeathersListView {
                         @rows: {bsn_list![
-                            @FeathersListRow Children [(Text("First World") ThemedText)],
-                            @FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
-                            @FeathersListRow Children [(Text("Third Degree") ThemedText)],
-                            @FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
-                            @FeathersListRow Children [(Text("Fifth Column") ThemedText)],
-                            @FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
-                            @FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
-                            @FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
-                            @FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
-                            @FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
-                            @FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
-                            @FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
+                            @FeathersListRow Children [caption("First World")],
+                            @FeathersListRow Selected Children [caption("Second Nature")],
+                            @FeathersListRow Children [caption("Third Degree")],
+                            @FeathersListRow InteractionDisabled Children [caption("Fourth Wall")],
+                            @FeathersListRow Children [caption("Fifth Column")],
+                            @FeathersListRow Children [caption("Sixth Sense")],
+                            @FeathersListRow Children [caption("Seventh Heaven")],
+                            @FeathersListRow Children [caption("Eighth Wonder")],
+                            @FeathersListRow Children [caption("Ninth Inning")],
+                            @FeathersListRow Children [caption("Tenth Amendment")],
+                            @FeathersListRow Children [caption("Eleventh Hour")],
+                            @FeathersListRow Children [caption("Twelfth Night")],
                         ]}
                     }
                     Node {
@@ -873,7 +899,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                 @width: px(320),
                 @contents: bsn_list! {
                     @FeathersDialogHeader Children [
-                        Text("Quit Feathers Gallery") ThemedText,
+                        caption("Quit Feathers Gallery"),
                         @FeathersDialogClose
                     ],
                     @FeathersDialogBody Children [
@@ -883,7 +909,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                     @FeathersDialogFooter Children [
                         (
                             @FeathersButton {
-                                @caption: bsn! { Text("Cancel") ThemedText },
+                                @caption: bsn! { caption("Cancel") },
                             }
                             AccessibleLabel("Cancel")
                             on(|activate: On<Activate>, mut commands: Commands| {
@@ -892,7 +918,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                         ),
                         (
                             @FeathersButton {
-                                @caption: bsn! { Text("Exit Application") ThemedText },
+                                @caption: bsn! { caption("Exit Application") },
                                 @variant: ButtonVariant::Primary,
                             }
                             AccessibleLabel("Exit Application")
