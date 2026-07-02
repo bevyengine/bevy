@@ -299,6 +299,19 @@ pub fn prepare_solari_lighting_resources(
             let specular_motion_vectors_view =
                 specular_motion_vectors.create_view(&TextureViewDescriptor::default());
 
+            let responsivity_mask = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_responsivity_mask"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rg16Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let responsivity_mask_view =
+                responsivity_mask.create_view(&TextureViewDescriptor::default());
+
             commands
                 .entity(entity)
                 .insert(ViewDlssRayReconstructionTextures {
@@ -317,6 +330,10 @@ pub fn prepare_solari_lighting_resources(
                     specular_motion_vectors: CachedTexture {
                         texture: specular_motion_vectors,
                         default_view: specular_motion_vectors_view,
+                    },
+                    responsivity_mask: CachedTexture {
+                        texture: responsivity_mask,
+                        default_view: responsivity_mask_view,
                     },
                 });
         }
