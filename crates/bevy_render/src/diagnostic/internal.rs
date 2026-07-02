@@ -151,7 +151,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
     {
         assert_eq!(
             buffer.size(),
-            BufferSize::new(4).unwrap(),
+            BufferSize::new(4).unwrap().get(),
             "DiagnosticsRecorder::record_f32 buffer slice must be 4 bytes long"
         );
         assert!(
@@ -169,7 +169,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
     {
         assert_eq!(
             buffer.size(),
-            BufferSize::new(4).unwrap(),
+            BufferSize::new(4).unwrap().get(),
             "DiagnosticsRecorder::record_u32 buffer slice must be 4 bytes long"
         );
         assert!(
