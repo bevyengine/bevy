@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_dev_tools::schedule_data::serde::ScheduleData;
 use bevy_ecs::{
     component::ComponentId,
-    entity::Entity,
+    entity::{ContainsEntity, Entity},
     hierarchy::ChildOf,
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
@@ -2014,10 +2014,7 @@ fn get_resource_entity_pair(
         .components()
         .get_id(type_id)
         .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
-    let entity = world
-        .resource_entities()
-        .get(component_id)
-        .ok_or(anyhow!("Resource entity does not exist."))?;
+    let entity = component_id.entity();
     Ok((entity, component_id))
 }
 

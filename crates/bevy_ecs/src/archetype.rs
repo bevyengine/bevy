@@ -22,7 +22,7 @@
 use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
-    entity::{Entity, EntityLocation},
+    entity::{Entity, EntityEquivalentHashMap, EntityLocation},
     event::Event,
     observer::Observers,
     query::DebugCheckedUnwrap,
@@ -762,7 +762,8 @@ struct ArchetypeComponents {
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
-pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
+pub type ComponentIndex =
+    EntityEquivalentHashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
 
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///

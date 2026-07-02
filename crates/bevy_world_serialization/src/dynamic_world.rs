@@ -2,7 +2,7 @@ use crate::{DynamicWorldBuilder, WorldAsset, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap, SceneEntityMapper},
+    entity::{ContainsEntity, Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
@@ -181,13 +181,12 @@ impl DynamicWorld {
                 .expect("ReflectComponent is depended on ReflectResource");
 
             let resource_id = reflect_component.register_component(world);
+            let entity = resource_id.entity();
 
-            // check if the resource already exists, if not spawn it, otherwise override the value
-            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
-                entity
-            } else {
-                world.spawn_empty().id()
-            };
+            // check if the resource already exists, if not spawn it
+            if !world.entities().contains_spawned(entity) {
+                let _ = world.spawn_empty_at(entity);
+            }
 
             SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                 reflect_component.apply_or_insert_mapped(

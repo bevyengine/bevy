@@ -674,7 +674,14 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_component::<T>()
+        let component_id = world.components_registrator().register_component::<T>();
+        assert!(
+            world
+                .get_required_components_by_id(component_id)
+                .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE)),
+            "resource does not have IsResource as a required component"
+        );
+        component_id
     }
 
     fn init_access(
@@ -731,7 +738,14 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_component::<T>()
+        let component_id = world.components_registrator().register_component::<T>();
+        assert!(
+            world
+                .get_required_components_by_id(component_id)
+                .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE)),
+            "resource does not have IsResource as a required component"
+        );
+        component_id
     }
 
     fn init_access(
@@ -2744,6 +2758,7 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::component::Component;
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::system::assert_is_system;
@@ -3060,5 +3075,24 @@ mod tests {
         schedule.run(&mut world);
 
         fn message_system(_: MessageReader<MissingEvent>) {}
+    }
+
+    #[test]
+    #[should_panic]
+    fn missing_resource_marker() {
+        #[derive(Component, Default)]
+        struct R;
+        // In order to prevent UB, one should always have `IsResource` by a required component
+        // for every type `R` that implements Resource, else using `Res` and `ResMut` panics.
+        impl Resource for R {}
+
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        world
+            .run_system_cached(
+                |_: Option<Res<R>>, _: Option<Single<&mut R, Without<IsResource>>>| {},
+            )
+            .unwrap();
     }
 }

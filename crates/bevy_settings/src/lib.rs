@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     change_detection::Tick,
+    entity::ContainsEntity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Command, Commands, Res, ResMut},
@@ -331,14 +332,15 @@ fn resources_to_toml(
             continue;
         };
 
-        let Some(res_entity) = world.resource_entities().get(component_id) else {
+        let res_entity = component_id.entity();
+        if !world.entities().contains_spawned(res_entity) {
             continue;
-        };
+        }
+
         let res_entity_ref = world.entity(res_entity);
         let Some(reflect) = cmp.reflect(res_entity_ref) else {
             continue;
         };
-
         let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
 
         let toml_value = if let Some(settings_key) = settings_key {
@@ -459,10 +461,10 @@ fn apply_settings_to_world(
         let settings_key = reflect_settings_group.settings_key_name;
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
-        let component_id = world.components().get_id(*tid);
-        let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
+        let component_id = reflect_component.register_component(world);
+        let res_entity = component_id.entity();
 
-        if let Some(res_entity) = res_entity {
+        if world.entities().contains_spawned(res_entity) {
             // Resource already exists, so apply toml properties to it.
             let res_entity_mut = world.entity_mut(res_entity);
             let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
@@ -485,9 +487,12 @@ fn apply_settings_to_world(
             }
         } else {
             // The resource does not exist, so create a default.
+            let mut res_entity = world
+                .spawn_empty_at(component_id.entity())
+                .expect("entity was just allocated");
+
             let reflect_default = ty.data::<ReflectDefault>().unwrap();
             let mut default_value = reflect_default.default();
-            let mut res_entity = world.spawn_empty();
 
             if let Some(toml) = toml
                 && let Some(value) = toml.get(settings_group)

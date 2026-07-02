@@ -560,7 +560,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
         D::update_archetypes(&mut self.fetch_state, world);
         F::update_archetypes(&mut self.filter_state, world);
-        if self.component_access.required.is_clear() {
+        if self.component_access.required.is_empty() {
             let archetypes = world.archetypes();
             let old_generation =
                 core::mem::replace(&mut self.archetype_generation, archetypes.generation());
@@ -587,7 +587,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     world
                         .archetypes()
                         .component_index()
-                        .get(&component_id)
+                        .get(component_id)
                         .map(|index| index.keys())
                 })
                 // select the component with the fewest archetypes
@@ -666,8 +666,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.component_access.filter_sets.iter().any(|set| {
-            set.with.iter().all(set_contains_id)
-                && set.without.iter().all(|index| !set_contains_id(index))
+            set.with.iter().copied().all(set_contains_id)
+                && set.without.iter().all(|index| !set_contains_id(*index))
         })
     }
 

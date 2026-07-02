@@ -5,7 +5,9 @@ use crate::{
     },
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
-    entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
+    entity::{
+        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut,
+    },
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
@@ -14,7 +16,7 @@ use crate::{
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
-    resource::{Resource, ResourceEntities},
+    resource::Resource,
     storage::{SparseSets, Table},
     system::EntityCommands,
     template::{SceneEntityReferences, Template, TemplateContext},
@@ -735,19 +737,12 @@ impl<'w> EntityWorldMut<'w> {
         })
     }
 
-    /// Retrieves this world's [`ResourceEntities`].
-    #[inline]
-    #[track_caller]
-    pub fn resource_entities(&self) -> &ResourceEntities {
-        self.world.resource_entities()
-    }
-
     /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
     #[inline]
     #[track_caller]
     pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
         let component_id = self.world.component_id::<R>()?;
-        self.world.resource_entities().get(component_id)
+        Some(component_id.entity())
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change

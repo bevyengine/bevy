@@ -126,7 +126,7 @@ fn main() {
                     };
                     component_names.insert(name.to_string(), id);
                     component_info.insert(id, info.clone());
-                    println!("Component {} created with id: {}", name, id.index());
+                    println!("Component {} created with id: {}", name, id.entity());
                 });
             }
             "s" => {
@@ -251,7 +251,7 @@ fn main() {
 
                     println!(
                         "Event '{name}' registered (key: {}) with a dynamic observer",
-                        event_component_id.index()
+                        event_component_id.entity()
                     );
                 });
 
