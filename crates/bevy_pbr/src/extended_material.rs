@@ -61,11 +61,6 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         true
     }
 
-    #[inline]
-    fn prepass_reads_material() -> bool {
-        false
-    }
-
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
     /// will be used.
     fn prepass_vertex_shader() -> ShaderRef {
@@ -358,10 +353,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
 
     fn enable_shadows() -> bool {
         E::enable_shadows()
-    }
-
-    fn prepass_reads_material() -> bool {
-        E::prepass_reads_material()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {

@@ -2448,7 +2448,7 @@ pub(crate) fn specialize_shadows(
                     _ => MeshPipelineKey::NONE,
                 };
 
-                if material.properties.prepass_reads_material {
+                if material.properties.prepass_reads_material() {
                     mesh_key |= MeshPipelineKey::PREPASS_READS_MATERIAL;
                 }
 

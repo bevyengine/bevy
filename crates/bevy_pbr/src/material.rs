@@ -200,11 +200,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         true
     }
 
-    #[inline]
-    fn prepass_reads_material() -> bool {
-        false
-    }
-
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
     ///
@@ -1695,7 +1690,6 @@ where
 
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
-        let prepass_reads_material = M::prepass_reads_material();
 
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
@@ -1796,7 +1790,6 @@ where
                 material_key,
                 shadows_enabled,
                 prepass_enabled,
-                prepass_reads_material,
             }),
         })
     }
@@ -1881,5 +1874,21 @@ pub fn get_mesh_instance_world_from_local(
             };
             Affine3::from_transpose(mesh_input_uniform.world_from_local)
         }
+    }
+}
+
+pub(crate) trait MaterialPropertiesExt {
+    fn prepass_reads_material(&self) -> bool;
+}
+
+impl MaterialPropertiesExt for MaterialProperties {
+    fn prepass_reads_material(&self) -> bool {
+        // The default prepass shaders doesn't need material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to known this
+        // because material's bind group is used for both prepass and the other passes.
+        //
+        // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
+        self.get_shader(PrepassVertexShader).is_some()
+            || self.get_shader(PrepassFragmentShader).is_some()
     }
 }
