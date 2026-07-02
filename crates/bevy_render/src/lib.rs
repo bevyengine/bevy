@@ -86,7 +86,7 @@ use crate::{
     error_handler::{RenderErrorHandler, RenderState},
     extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
-    material_bind_groups::MaterialBindGroupsPlugin,
+    material_bind_groups::MaterialBindGroupPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, SparseBufferPlugin},
@@ -379,7 +379,7 @@ impl Plugin for RenderPlugin {
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
             SparseBufferPlugin,
-            MaterialBindGroupsPlugin,
+            MaterialBindGroupPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));

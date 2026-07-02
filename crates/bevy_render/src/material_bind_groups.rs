@@ -46,7 +46,7 @@ use crate::{
 /// The material bind group allocator is infrastructure for bindless resources.
 /// It packs multiple materials into a small number of bind groups, allowing
 /// Bevy to render large parts of the scene with a small number of drawcalls.
-pub struct MaterialBindGroupsPlugin;
+pub struct MaterialBindGroupPlugin;
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
@@ -481,7 +481,7 @@ impl GetBindingResourceId for TextureView {
     }
 }
 
-impl Plugin for MaterialBindGroupsPlugin {
+impl Plugin for MaterialBindGroupPlugin {
     fn build(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
