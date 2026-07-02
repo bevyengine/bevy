@@ -129,7 +129,7 @@ uuid = { version = "1.21.0", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "2.0"
-wgpu-types = { version = "29.0.3", features = [
+wgpu-types = { version = "30", features = [
   "serde",
 ], optional = true, default-features = false }
 
