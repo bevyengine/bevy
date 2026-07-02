@@ -31,7 +31,7 @@ pub enum RenderErrorPolicy {
     /// every frame until some other policy is returned.
     StopRendering,
     /// Attempt renderer recovery with the given [`RenderCreation`].
-    Recover(RenderCreation),
+    Recover(Box<RenderCreation>),
 }
 
 /// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].

@@ -427,7 +427,7 @@ impl FrameData {
             buffer.offset(),
             &dest_buffer,
             0,
-            Some(buffer.size().into()),
+            Some(buffer.size()),
         );
 
         command_encoder.map_buffer_on_submit(&dest_buffer, MapMode::Read, .., |_| {});
