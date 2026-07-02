@@ -126,6 +126,51 @@ impl<T> ThinArrayPtr<T> {
         unsafe { ptr::write(ptr, value) };
     }
 
+    /// Initializes the value at `dst_index` by swap-removing an element from `src`.
+    /// Thus the previous last element of `src` is now at `src_index` (if still in bounds).
+    ///
+    /// # Safety
+    /// - `src_index` & `dst_index` must be in bounds of their [`ThinArrayPtr`]
+    /// - `src_last_element_index` must be the last element in `src`
+    /// - The value [`Layout`] and drop function of `src` and `self` must match
+    #[inline]
+    pub unsafe fn initialize_from_swap_remove_unchecked(
+        &mut self,
+        src: &mut Self,
+        src_last_element_index: usize,
+        src_index: usize,
+        dst_index: usize,
+    ) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(src.capacity > src_last_element_index);
+            debug_assert!(src.capacity > src_index);
+            debug_assert!(self.capacity > dst_index);
+        }
+        // SAFETY:
+        // - exclusive references guarantee disjointness
+        // - in bounds per precondition
+        unsafe {
+            ptr::copy_nonoverlapping(
+                src.data.as_ptr().add(src_index),
+                self.data.as_ptr().add(dst_index),
+                1,
+            );
+        }
+        if src_index != src_last_element_index {
+            // SAFETY:
+            // - indices disjoint
+            // - in bounds per precondition
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    src.data.as_ptr().add(src_last_element_index),
+                    src.data.as_ptr().add(src_index),
+                    1,
+                );
+            }
+        }
+    }
+
     /// Get a reference to the element at `index`. This method doesn't do any bounds checking.
     ///
     /// # Safety
