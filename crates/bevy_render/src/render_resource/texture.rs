@@ -74,7 +74,7 @@ pub struct SurfaceTexture {
 }
 
 impl SurfaceTexture {
-    pub fn present(self, render_queue: RenderQueue) {
+    pub fn present(self, render_queue: &RenderQueue) {
         render_queue.present(self.value.into_inner());
     }
 }

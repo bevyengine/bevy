@@ -103,7 +103,7 @@ pub fn render_system(
                 });
 
                 if view_needs_present || window.needs_initial_present {
-                    window.present(world.resource::<RenderQueue>().clone());
+                    window.present(&world.resource::<RenderQueue>());
                     window.needs_initial_present = false;
                 }
             }
