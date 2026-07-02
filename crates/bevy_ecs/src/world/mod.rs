@@ -2516,6 +2516,7 @@ impl World {
                                 first_location.archetype_id,
                                 bundle_id,
                                 change_tick,
+                                insert_mode,
                             )
                         },
                         archetype_id: first_location.archetype_id,
@@ -2545,6 +2546,7 @@ impl World {
                                                 location.archetype_id,
                                                 bundle_id,
                                                 change_tick,
+                                                insert_mode,
                                             )
                                         },
                                         archetype_id: location.archetype_id,
@@ -2664,6 +2666,7 @@ impl World {
                                 first_location.archetype_id,
                                 bundle_id,
                                 change_tick,
+                                insert_mode,
                             )
                         },
                         archetype_id: first_location.archetype_id,
@@ -2705,6 +2708,7 @@ impl World {
                                     location.archetype_id,
                                     bundle_id,
                                     change_tick,
+                                    insert_mode,
                                 )
                             },
                             archetype_id: location.archetype_id,
@@ -2879,8 +2883,14 @@ impl World {
                     let tick = world.change_tick();
                     // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
-                    let mut bundle_inserter =
-                        unsafe { BundleInserter::new::<R>(world, location.archetype_id, tick) };
+                    let mut bundle_inserter = unsafe {
+                        BundleInserter::new::<R>(
+                            world,
+                            location.archetype_id,
+                            tick,
+                            InsertMode::Replace,
+                        )
+                    };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
