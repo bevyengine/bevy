@@ -5,13 +5,17 @@ use super::helpers::*;
 use bevy_color::Color;
 use bevy_math::{
     primitives::{
-        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d,
+        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Ellipsoid, Line3d, Plane3d, Polyline3d,
         Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
     },
     Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
 };
 
-use crate::{circles::SphereBuilder, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
+use crate::{
+    circles::{EllipsoidBuilder, SphereBuilder},
+    gizmos::GizmoBuffer,
+    prelude::GizmoConfigGroup,
+};
 
 const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
@@ -77,6 +81,28 @@ where
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         self.sphere(isometry, primitive.radius, color)
+    }
+}
+
+// ellipsoid
+
+impl<Config, Clear> GizmoPrimitive3d<Ellipsoid> for GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a>
+        = EllipsoidBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: &Ellipsoid,
+        isometry: impl Into<Isometry3d>,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        self.ellipsoid(isometry, primitive.radii, color)
     }
 }
 
