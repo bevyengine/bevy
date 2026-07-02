@@ -100,6 +100,57 @@ fn demo_root() -> impl Scene {
     }
 }
 
+#[derive(Component, Debug, Clone, Default, PartialEq)]
+enum Months {
+    #[default]
+    Jan,
+    Feb,
+    Mar,
+    Apr,
+    May,
+    Jun,
+    Jul,
+    Aug,
+    Sep,
+    Oct,
+    Nov,
+    Dec,
+}
+
+impl Months {
+    const ALL: [Months; 12] = [
+        Months::Jan,
+        Months::Feb,
+        Months::Mar,
+        Months::Apr,
+        Months::May,
+        Months::Jun,
+        Months::Jul,
+        Months::Aug,
+        Months::Sep,
+        Months::Oct,
+        Months::Nov,
+        Months::Dec,
+    ];
+
+    fn to_str(&self) -> &'static str {
+        match self {
+            Months::Jan => "January",
+            Months::Feb => "February",
+            Months::Mar => "March",
+            Months::Apr => "April",
+            Months::May => "May",
+            Months::Jun => "June",
+            Months::Jul => "July",
+            Months::Aug => "August",
+            Months::Sep => "September",
+            Months::Oct => "October",
+            Months::Nov => "November",
+            Months::Dec => "December",
+        }
+    }
+}
+
 fn demo_column_1() -> impl Scene {
     bsn! {
         Node {
@@ -210,28 +261,60 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersSelect {
-                    @options: {vec![
-                        "January".to_string(),
-                        "February".to_string(),
-                        "March".to_string(),
-                        "April".to_string(),
-                        "May".to_string(),
-                        "June".to_string(),
-                        "July".to_string(),
-                        "August".to_string(),
-                        "September".to_string(),
-                        "October".to_string(),
-                        "November".to_string(),
-                        "December".to_string(),
-                    ]},
-                    @selected: {2usize},
-                    @max_visible: {6usize},
+                    @options: {list_rows_from_strings([
+                        "January",
+                        "February",
+                        "March",
+                        "April",
+                        "May",
+                        "June",
+                        "July",
+                        "August",
+                        "September",
+                        "October",
+                        "November",
+                        "December",
+                    ], Some(2))},
+                    @max_visible: 6,
                 }
                 Node {
                     flex_grow: 1.0,
                 }
-                on(|change: On<ValueChange<usize>>| {
-                    info!("Select changed to index {}", change.value);
+                on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
+                    let Ok(option) = q_options.get(change.value) else {
+                        info!("Select changed, not sure");
+                        return;
+                    };
+                    info!("Select changed to index {}", option.0);
+                })
+            ),
+            (
+                @FeathersSelect {
+                    @options: {
+                        Box::new(
+                            Months::ALL
+                                .into_iter()
+                                .map(|m| -> Box<dyn SceneList> {
+                                    let label = m.to_str();
+                                    if m == Months::default() {
+                                        bsn! { @FeathersListRow Selected template_value(m) Children [ caption(label) ] }.into()
+                                    } else {
+                                        bsn! { @FeathersListRow template_value(m) Children [ caption(label) ] }.into()
+                                    }
+                                })
+                                .collect::<Vec<_>>(),
+                        ) as Box<dyn SceneList>
+                    },
+                    @max_visible: 6,
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
+                    let Ok(month) = q_months.get(change.value) else {
+                        return;
+                    };
+                    info!("Select changed to {:?}", month);
                 })
             ),
             (
