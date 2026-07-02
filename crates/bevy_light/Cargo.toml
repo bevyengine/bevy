@@ -29,7 +29,7 @@ bevy_log = { path = "../bevy_log", version = "0.20.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false }
-wgpu-types = { version = "29.0.3", default-features = false }
+wgpu-types = { version = "30", default-features = false }
 half = "2.7.1"
 smallvec = { version = "1", default-features = false }
 
