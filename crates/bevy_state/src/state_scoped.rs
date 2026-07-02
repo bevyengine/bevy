@@ -817,11 +817,11 @@ pub fn enable_entities_on_enter_state<S: States>(
 /// ```
 ///
 /// See also [`EnabledIn`], [`DisabledIn`], [`EnabledIf`], and [`DisabledIf`].
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Component, Debug, Default, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Clone, Debug, Default, PartialEq)
+    reflect(Component, Debug, Default, PartialEq)
 )]
 pub enum DisabledControl {
     /// Parent-driven disable and enable propagation both stop at this entity.
@@ -1286,9 +1286,7 @@ fn propagate_enable(commands: &mut Commands, entity: Entity) {
                 .map(|c| c.iter().copied().collect())
                 .unwrap_or_default();
             for child in children {
-                if world.get::<DisabledControl>(child) != Some(&DisabledControl::Independent)
-                    && world.get::<DisabledControl>(child) != Some(&DisabledControl::InheritDisable)
-                {
+                if world.get::<DisabledControl>(child).is_none() {
                     stack.push(child);
                 }
             }
@@ -1607,7 +1605,7 @@ mod tests {
                 DisabledIn(State::On),
                 bevy_ecs::children![(
                     Entity3,
-                    DisabledControl::Independent,
+                    DisabledControl::default(),
                     bevy_ecs::children![(Entity4, DisabledIn(State::Limbo))]
                 )]
             )],
