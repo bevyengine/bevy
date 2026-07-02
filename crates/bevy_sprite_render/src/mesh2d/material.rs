@@ -300,6 +300,7 @@ impl Plugin for Materials2dPlugin {
             .add_render_command::<AlphaMask2d, DrawMaterial2d>()
             .add_render_command::<Transparent2d, DrawMaterial2d>()
             .init_resource::<RenderMaterial2dInstances>()
+            .allow_ambiguous_resource::<RenderMaterial2dInstances>()
             .add_systems(
                 RenderStartup,
                 init_material_2d_pipeline.after(init_mesh_2d_pipeline),
