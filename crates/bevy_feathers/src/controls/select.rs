@@ -31,7 +31,7 @@ const SELECT_ROW_PX: f32 = 28.0;
 #[reflect(Component, Default, Clone)]
 pub struct FeathersSelect;
 
-/// Entirely optional component to store a usize on a select opion
+/// Entirely optional component to store a usize on a `FeathersListRow`
 /// Added by [`list_rows_from_strings`] so there's a value
 /// on a string based select you can use to work out which of the array
 /// of strings was selected
