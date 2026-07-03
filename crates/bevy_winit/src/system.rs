@@ -122,6 +122,14 @@ pub fn create_windows(
                     }
                 }
 
+                #[cfg(target_os = "macos")]
+                {
+                    // Request app activation via `focus_window()` if the window should start focused.
+                    if window.focused {
+                        winit_window.focus_window();
+                    }
+                }
+
                 window_created_events.write(WindowCreated { window: entity });
             }
         });
