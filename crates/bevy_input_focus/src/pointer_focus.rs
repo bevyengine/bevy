@@ -3,7 +3,7 @@
 //! This module is intentionally independent of any focus-navigation scheme (such as
 //! [`tab_navigation`](crate::tab_navigation) or
 //! [`directional_navigation`](crate::directional_navigation)). It only *requests* a focus change
-//! by triggering a bubbling [`AcquireFocus`](crate::AcquireFocus) event on the clicked entity;
+//! by triggering a bubbling [`AcquireFocus`] event on the clicked entity;
 //! how that request is resolved depends on which focus observers are installed.
 //!
 //! Add [`PointerFocusPlugin`] to enable it. Requires the `bevy_picking` feature.
@@ -58,7 +58,7 @@ fn click_to_focus(
 /// Plugin which focuses (or blurs) entities in response to pointer clicks.
 ///
 /// On a pointer press this hides the focus indicator ([`InputFocusVisible`]) and triggers a
-/// bubbling [`AcquireFocus`](crate::AcquireFocus) on the clicked entity. That request is then
+/// bubbling [`AcquireFocus`] on the clicked entity. That request is then
 /// resolved by whatever focus observers are installed:
 /// - a focus-target observer such as
 ///   [`acquire_focus_tab_index`](crate::tab_navigation::acquire_focus_tab_index) focuses the
@@ -66,7 +66,7 @@ fn click_to_focus(
 /// - the generalized [`acquire_focus`](crate::acquire_focus) observer clears focus once the
 ///   request bubbles up to the window (this is "click outside to unfocus").
 ///
-/// Because that [`AcquireFocus`](crate::AcquireFocus) event is shared across widgets and focus
+/// Because that [`AcquireFocus`] event is shared across widgets and focus
 /// schemes, be deliberate when changing anything in this pathway — a change here can have
 /// engine-wide focus consequences. Individual widgets may also intercept the event and stop its
 /// propagation to implement custom behavior (e.g. the number-input scrubber focuses on pointer
