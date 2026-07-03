@@ -3,7 +3,7 @@
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::prepass::DepthPrepass,
+    core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
 };
@@ -14,6 +14,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .add_systems(Startup, setup)
+        .add_systems(Update, toggle_oit)
         .run();
 }
 
@@ -26,18 +27,57 @@ fn setup(
 ) {
     // Spawn the forward decal
     commands.spawn((
-        Name::new("Decal"),
+        Name::new("Decal Blue"),
         ForwardDecal,
         MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgb(0.3, 0.5, 0.8),
+                alpha_mode: AlphaMode::Opaque,
+                depth_bias: 0.0,
                 ..default()
             },
             extension: ForwardDecalMaterialExt {
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(4.0)),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(-1.0, 0.0, -1.0)),
+    ));
+
+    commands.spawn((
+        Name::new("Decal Green"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(0.0, 1.0, 0.0, 0.5),
+                alpha_mode: AlphaMode::Blend,
+                depth_bias: 2.0,
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 1.0,
+            },
+        })),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(1.0, 0.0, -1.0)),
+    ));
+
+    commands.spawn((
+        Name::new("Decal Red"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(1.0, 0.0, 0.0, 0.5),
+                alpha_mode: AlphaMode::Add,
+                depth_bias: 4.0,
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 1.0,
+            },
+        })),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(0.0, 0.0, 1.0)),
     ));
 
     commands.spawn((
@@ -92,4 +132,39 @@ fn setup(
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
+
+    commands.spawn((
+        Text::new("(T) Order independent transparency: Disabled"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+    ));
+}
+
+fn toggle_oit(
+    mut text: Single<&mut Text>,
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera>>,
+) {
+    if keys.just_pressed(KeyCode::KeyT) {
+        let (entity, has_oit) = *camera;
+        if has_oit {
+            commands
+                .entity(entity)
+                .remove::<OrderIndependentTransparencySettings>()
+                .insert(Msaa::default());
+            text.clear();
+            text.push_str("(T) Order independent transparency: Disabled");
+        } else {
+            commands
+                .entity(entity)
+                .insert((OrderIndependentTransparencySettings::default(), Msaa::Off));
+            text.clear();
+            text.push_str("(T) Order independent transparency: Enabled");
+        }
+    }
 }

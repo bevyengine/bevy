@@ -6,9 +6,9 @@
 #import bevy_pbr::forward_io::{VertexOutput, FragmentOutput}
 #import bevy_pbr::utils
 
-#ifdef OIT_ENABLED
+#ifdef MATERIAL_OIT_ENABLED
 #import bevy_core_pipeline::oit::oit_draw
-#endif // OIT_ENABLED
+#endif // MATERIAL_OIT_ENABLED
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material_color: vec4<f32>;
 
@@ -21,19 +21,21 @@ fn fragment(
     // Using world coordinates for simplicity, but local mesh coordinates
     // would be required if the mesh moved.
     let alpha = gradient_noise(in.world_position.xyz, 5.0);
-    let color = vec4f(material_color.rgb, alpha);
 
-#ifdef OIT_ENABLED
+    // OIT assumes color is alpha-premultiplied.
+    let color = vec4f(material_color.rgb * alpha, alpha);
+
+#ifdef MATERIAL_OIT_ENABLED
     oit_draw(in.position, color);
     discard;
-#endif // OIT_ENABLED
+#endif // MATERIAL_OIT_ENABLED
 
     return color;
 }
 
 fn gradient_noise(coord: vec3f, scale: f32) -> f32 {
     let grid_coord = vec3u(scale * abs(coord));
-    let f = fract(scale * abs(coord)); 
+    let f = fract(scale * abs(coord));
 
     let g0 = rand3(grid_coord + vec3u(0, 0, 0));
     let g1 = rand3(grid_coord + vec3u(1, 0, 0));

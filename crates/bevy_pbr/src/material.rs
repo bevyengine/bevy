@@ -200,6 +200,13 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         true
     }
 
+    /// Controls if order independent transparency is enabled for the Material.
+    /// This doesn't have effect if the [`AlphaMode`] isn't supported by OIT.
+    #[inline]
+    fn enable_oit() -> bool {
+        true
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
     ///
@@ -552,8 +559,28 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .layout
             .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
-        if let Some(specialize) = self.properties.user_specialize {
-            specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
+        if key
+            .mesh_key
+            .downcast::<MeshPipelineKey>()
+            .contains(MeshPipelineKey::OIT_ENABLED)
+            && self.properties.oit_enabled
+            && matches!(
+                self.properties.alpha_mode,
+                AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add
+            )
+        {
+            descriptor.label = Some("oit_mesh_pipeline".into());
+            let frag = descriptor.fragment.as_mut().unwrap();
+            // TODO tail blending would need alpha blending
+            frag.targets[0].as_mut().unwrap().blend = None;
+            frag.shader_defs.push("MATERIAL_OIT_ENABLED".into());
+            // TODO it should be possible to use this to combine MSAA and OIT
+            // alpha_to_coverage_enabled = true;
+            descriptor
+                .depth_stencil
+                .as_mut()
+                .unwrap()
+                .depth_write_enabled = Some(false);
         }
 
         // If bindless mode is on, add a `BINDLESS` define.
@@ -562,6 +589,10 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             if let Some(ref mut fragment) = descriptor.fragment {
                 fragment.shader_defs.push("BINDLESS".into());
             }
+        }
+
+        if let Some(specialize) = self.properties.user_specialize {
+            specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
         }
 
         Ok(descriptor)
@@ -1790,6 +1821,7 @@ where
                 material_key,
                 shadows_enabled,
                 prepass_enabled,
+                oit_enabled: M::enable_oit(),
             }),
         })
     }
