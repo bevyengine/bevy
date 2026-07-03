@@ -90,7 +90,10 @@ impl Plugin for PointerFocusPlugin {
 #[cfg(all(test, feature = "bevy_picking"))]
 mod tests {
     use super::*;
-    use crate::{AcquireFocus, InputFocus, InputFocusPlugin};
+    use crate::{
+        tab_navigation::{TabIndex, TabNavigationPlugin},
+        AcquireFocus, InputFocus, InputFocusPlugin,
+    };
     use bevy_app::App;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_input::InputPlugin;
@@ -102,6 +105,26 @@ mod tests {
     fn pointer_focus_app() -> (App, Entity) {
         let mut app = App::new();
         app.add_plugins((InputPlugin, InputFocusPlugin, PointerFocusPlugin));
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        // Resolve initial focus (focus goes to the primary window).
+        app.update();
+        (app, window)
+    }
+
+    /// Like [`pointer_focus_app`], but *with* [`TabNavigationPlugin`], so `acquire_focus_tab_index`
+    /// is installed alongside the window-clearing `acquire_focus`. This is the full configuration
+    /// used by the `standard_widgets` example.
+    fn pointer_focus_app_with_tab_navigation() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((
+            InputPlugin,
+            InputFocusPlugin,
+            PointerFocusPlugin,
+            TabNavigationPlugin,
+        ));
         let window = app
             .world_mut()
             .spawn((Window::default(), PrimaryWindow))
@@ -132,5 +155,47 @@ mod tests {
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().get(), None);
+    }
+
+    /// Control: an `AcquireFocus` triggered *directly* on an entity that carries `TabIndex` focuses
+    /// it. This mirrors the existing `acquire_focus_focuses_entity_with_tab_index` test and anchors
+    /// the child-vs-direct distinction in the test below.
+    #[test]
+    fn acquire_focus_focuses_directly_targeted_tab_index_entity() {
+        let (mut app, window) = pointer_focus_app_with_tab_navigation();
+
+        let focusable = app.world_mut().spawn((TabIndex(0), ChildOf(window))).id();
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: focusable,
+            window,
+        });
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(focusable));
+    }
+
+    /// The `standard_widgets` checkbox case: the pointer picks a non-focusable *child* node, and
+    /// `click_to_focus` triggers `AcquireFocus` on that child. The request must bubble up to the
+    /// child's parent — which carries `TabIndex` (like the `Checkbox` root) — and focus the parent,
+    /// rather than bubbling past it to the window and clearing focus.
+    ///
+    /// This is the previously-untested path: existing tests only trigger `AcquireFocus` directly on
+    /// a `TabIndex` entity, or on a non-focusable child of the *window*.
+    #[test]
+    fn acquire_focus_on_child_focuses_tab_index_parent() {
+        let (mut app, window) = pointer_focus_app_with_tab_navigation();
+
+        // Parent stands in for the `Checkbox` root (has `TabIndex`); child stands in for a
+        // non-focusable inner node (the box/label) that is the actual pick target.
+        let parent = app.world_mut().spawn((TabIndex(0), ChildOf(window))).id();
+        let child = app.world_mut().spawn(ChildOf(parent)).id();
+
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: child,
+            window,
+        });
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(parent));
     }
 }
