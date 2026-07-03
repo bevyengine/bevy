@@ -811,7 +811,7 @@ mod tests {
         app.world().entity(slider).get::<SliderValue>().unwrap().0
     }
 
-    /// D2b: arrow keys change a focused slider's value by its step, clamped to the range.
+    /// Arrow keys change a focused slider's value by its step, clamped to the range.
     #[test]
     fn arrow_keys_change_focused_slider_value() {
         let (mut app, window) = slider_app();

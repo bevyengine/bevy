@@ -374,7 +374,7 @@ mod tests {
         app.update();
     }
 
-    /// D1a: clicking a checkbox toggles it and gives it focus.
+    /// Clicking a checkbox toggles it and gives it focus.
     #[test]
     fn click_toggles_and_focuses_checkbox() {
         let (mut app, window) = checkbox_app();
@@ -403,9 +403,8 @@ mod tests {
         assert!(!app.world().entity(checkbox).contains::<Checked>());
     }
 
-    /// D1a (composite widget): clicking a non-focusable child of the checkbox still toggles and
-    /// focuses the checkbox root, because both the pointer events and the resulting `AcquireFocus`
-    /// bubble up to it. This is the `standard_widgets` layout (checkbox root → box → inner box).
+    /// Clicking on a non-focusable child of the checkbox still toggles and
+    /// focuses the checkbox root, because both the pointer events and the resulting `AcquireFocus` bubble up to it.
     #[test]
     fn click_on_child_toggles_and_focuses_checkbox_root() {
         let (mut app, window) = checkbox_app();
@@ -430,7 +429,7 @@ mod tests {
         );
     }
 
-    /// D1b: with a checkbox focused, pressing Space toggles it.
+    /// With a checkbox focused, pressing Space toggles it.
     #[test]
     fn space_key_toggles_focused_checkbox() {
         let (mut app, window) = checkbox_app();

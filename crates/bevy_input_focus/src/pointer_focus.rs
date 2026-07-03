@@ -100,8 +100,7 @@ mod tests {
     use bevy_window::{PrimaryWindow, Window};
 
     /// Sets up an app with a primary window and the input-focus + pointer-focus plugins, but
-    /// deliberately *without* any navigation plugin (no tab navigation), with initial focus
-    /// resolved.
+    /// deliberately *without* any navigation plugin (no tab navigation), with initial focus resolved.
     fn pointer_focus_app() -> (App, Entity) {
         let mut app = App::new();
         app.add_plugins((InputPlugin, InputFocusPlugin, PointerFocusPlugin));
@@ -135,8 +134,7 @@ mod tests {
     }
 
     /// With no tab navigation installed, an `AcquireFocus` on a non-focusable entity must still
-    /// bubble up to the window and clear focus. This is the "click outside to unfocus" behavior
-    /// that #24695 requires to work independently of `TabNavigationPlugin`.
+    /// bubble up to the window and clear focus. This results in "click outside to unfocus" behavior.
     #[test]
     fn acquire_focus_without_tab_navigation_clears_focus_at_window() {
         let (mut app, window) = pointer_focus_app();
@@ -178,9 +176,6 @@ mod tests {
     /// `click_to_focus` triggers `AcquireFocus` on that child. The request must bubble up to the
     /// child's parent — which carries `TabIndex` (like the `Checkbox` root) — and focus the parent,
     /// rather than bubbling past it to the window and clearing focus.
-    ///
-    /// This is the previously-untested path: existing tests only trigger `AcquireFocus` directly on
-    /// a `TabIndex` entity, or on a non-focusable child of the *window*.
     #[test]
     fn acquire_focus_on_child_focuses_tab_index_parent() {
         let (mut app, window) = pointer_focus_app_with_tab_navigation();

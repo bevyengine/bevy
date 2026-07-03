@@ -536,7 +536,7 @@ mod tests {
         (popup, item)
     }
 
-    /// D4d: while a menu item holds focus, the menu stays open.
+    /// While a menu item holds focus, the menu stays open.
     #[test]
     fn menu_stays_open_while_item_focused() {
         let (mut app, window) = menu_app();
@@ -552,7 +552,7 @@ mod tests {
         assert_eq!(app.world().resource::<CloseAllCount>().0, 0);
     }
 
-    /// D4b/D4d: when focus leaves the popup subtree (e.g. clicking the trigger or outside), the menu
+    /// When focus leaves the popup subtree (e.g. clicking the trigger or outside), the menu
     /// transitions to `Closed` and requests `CloseAll` — exactly once, no reopen flicker.
     #[test]
     fn menu_closes_when_focus_leaves() {

@@ -417,7 +417,7 @@ mod tests {
         app.update();
     }
 
-    /// D3: clicking a radio option moves the selection to it. Clicking a different option moves it
+    /// Clicking a radio option moves the selection to it. Clicking a different option moves it
     /// again, and the previously-selected option is unchecked (mutual exclusion within the group).
     #[test]
     fn click_moves_radio_selection_within_group() {
