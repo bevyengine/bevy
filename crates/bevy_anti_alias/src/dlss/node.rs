@@ -120,7 +120,6 @@ pub fn dlss_ray_reconstruction(
         jitter_offset: (-temporal_jitter.offset).to_array(),
         partial_texture_size: Some(render_resolution.to_array()),
         motion_vector_scale: Some((-render_resolution.as_vec2()).to_array()),
-        responsivity_mask: &ray_reconstruction_textures.responsivity_mask.default_view,
     };
 
     let diagnostics = ctx.diagnostic_recorder();
