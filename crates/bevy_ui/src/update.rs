@@ -118,11 +118,17 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes,
+    ui_root_nodes: Query<(
+        Entity,
+        Option<&Propagate<ComputedUiTargetCamera>>,
+        Option<&Propagate<ComputedUiRenderTargetInfo>>,
+    )>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
-    for root_entity in ui_root_nodes.iter() {
+    for (root_entity, maybe_computed_ui_target_camera, maybe_computed_ui_render_target_info) in
+        ui_root_nodes.iter()
+    {
         let camera = target_camera_query
             .get(root_entity)
             .ok()
@@ -130,9 +136,15 @@ pub fn propagate_ui_target_cameras(
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
-        commands
-            .entity(root_entity)
-            .try_insert(Propagate(ComputedUiTargetCamera { camera }));
+        // Only update `ComputedUiTargetCamera` if it actually changed.
+        match maybe_computed_ui_target_camera {
+            Some(computed_ui_target_camera) if computed_ui_target_camera.0.camera == camera => {}
+            _ => {
+                commands
+                    .entity(root_entity)
+                    .try_insert(Propagate(ComputedUiTargetCamera { camera }));
+            }
+        }
 
         let (scale_factor, physical_size) = camera_query
             .get(camera)
@@ -145,12 +157,21 @@ pub fn propagate_ui_target_cameras(
             })
             .unwrap_or((1., UVec2::ZERO));
 
-        commands
-            .entity(root_entity)
-            .try_insert(Propagate(ComputedUiRenderTargetInfo {
-                scale_factor,
-                physical_size,
-            }));
+        let new_computed_ui_render_target_info = ComputedUiRenderTargetInfo {
+            scale_factor,
+            physical_size,
+        };
+
+        // Only update `ComputedUiRenderTargetInfo` if it actually changed.
+        match maybe_computed_ui_render_target_info {
+            Some(computed_ui_render_target_info)
+                if computed_ui_render_target_info.0 == new_computed_ui_render_target_info => {}
+            _ => {
+                commands
+                    .entity(root_entity)
+                    .try_insert(Propagate(new_computed_ui_render_target_info));
+            }
+        }
     }
 }
 

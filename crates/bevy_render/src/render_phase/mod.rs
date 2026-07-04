@@ -1929,7 +1929,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The corresponding entity that will be drawn.
     ///
     /// This is used to fetch the render data of the entity, required by the draw function,
-    /// from the render world .
+    /// from the render world.
     fn entity(&self) -> Entity;
 
     /// The main world entity represented by this `PhaseItem`.

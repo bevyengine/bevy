@@ -2,8 +2,9 @@ use crate::{
     ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ResolvedAxis,
     VisualBox,
 };
-use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
+use bevy_asset::{asset_changed::AssetChanged, AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
@@ -256,6 +257,34 @@ impl ImageNodeSize {
     }
 }
 
+// This component is more or less a workaround for the fact that `AsAssetId`
+// only allows each component to expose one asset. `ImageNode` exposes two types
+// of assets: an `Image` and a `TextureAtlasLayout`. We have to mark the image
+// node as changed if either one of those assets changes. The only way to detect
+// asset changes is to use the `AssetChanged` query filter. Unfortunately, the
+// `AssetChanged` query filter relies on `AsAssetId`, which we can only
+// implement once per component. Thus we need this second component, which
+// essentially serves to provide a second implementation of `AsAssetId` on
+// `ImageNode`.
+
+/// The texture atlas layout, if the image has one.
+///
+/// The [`update_texture_atlas_layout_component`] system automatically keeps
+/// this component up to date based on [`ImageNode::texture_atlas`]. Don't
+/// update this component yourself; [`ImageNode::texture_atlas`] is the source
+/// of truth.
+#[derive(Component, Debug, Clone, Reflect, Deref, DerefMut)]
+#[reflect(Component, Debug, Clone)]
+pub struct ImageNodeTextureAtlasLayout(pub Handle<TextureAtlasLayout>);
+
+impl AsAssetId for ImageNodeTextureAtlasLayout {
+    type Asset = TextureAtlasLayout;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
+    }
+}
+
 #[derive(Clone)]
 /// Used to calculate the size of UI image nodes
 pub struct ImageMeasure {
@@ -411,6 +440,45 @@ pub fn update_image_content_size_system(
                     size: size.as_vec2() * computed_target.scale_factor(),
                     visual_box: image.visual_box,
                 }));
+            }
+        }
+    }
+}
+
+/// A system that marks [`ImageNode`]s as changed if either their [`Image`] or
+/// [`TextureAtlasLayout`] changed.
+pub fn mark_images_as_changed_if_their_assets_changed(
+    mut images_query: Query<&mut ImageNode, AssetChanged<ImageNode>>,
+    mut texture_atlas_layouts_query: Query<
+        &mut ImageNodeTextureAtlasLayout,
+        AssetChanged<ImageNodeTextureAtlasLayout>,
+    >,
+) {
+    for mut image in &mut images_query {
+        image.set_changed();
+    }
+    for mut texture_atlas_layout in &mut texture_atlas_layouts_query {
+        texture_atlas_layout.set_changed();
+    }
+}
+
+/// A system that copies the [`TextureAtlasLayout`] stored within an
+/// [`ImageNode`] to the [`TextureAtlasLayout`] component.
+pub fn update_texture_atlas_layout_components(
+    mut commands: Commands,
+    images_query: Query<(Entity, &ImageNode), Changed<ImageNode>>,
+) {
+    for (entity, image_node) in &images_query {
+        match image_node.texture_atlas {
+            Some(ref texture_atlas) => {
+                commands
+                    .entity(entity)
+                    .insert(ImageNodeTextureAtlasLayout(texture_atlas.layout.clone()));
+            }
+            None => {
+                commands
+                    .entity(entity)
+                    .remove::<ImageNodeTextureAtlasLayout>();
             }
         }
     }
