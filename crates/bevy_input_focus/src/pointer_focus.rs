@@ -21,7 +21,7 @@ use bevy_ecs::{
 use bevy_window::PrimaryWindow;
 
 #[cfg(feature = "bevy_picking")]
-use crate::{AcquireFocus, InputFocusVisible};
+use crate::{tab_navigation::acquire_focus_tab_index, AcquireFocus, InputFocusVisible};
 
 /// Observer which requests focus for a clicked entity.
 ///
@@ -58,13 +58,26 @@ fn click_to_focus(
 /// Plugin which focuses (or blurs) entities in response to pointer clicks.
 ///
 /// On a pointer press this hides the focus indicator ([`InputFocusVisible`]) and triggers a
-/// bubbling [`AcquireFocus`] on the clicked entity. That request is then
-/// resolved by whatever focus observers are installed:
-/// - a focus-target observer such as
-///   [`acquire_focus_tab_index`](crate::tab_navigation::acquire_focus_tab_index) focuses the
-///   target if it is focusable, or
-/// - the generalized [`acquire_focus`](crate::acquire_focus) observer clears focus once the
-///   request bubbles up to the window (this is "click outside to unfocus").
+/// bubbling [`AcquireFocus`] on the clicked entity. That request is then resolved by the focus
+/// observers this plugin installs:
+/// - [`acquire_focus_tab_index`](crate::tab_navigation::acquire_focus_tab_index) focuses the target
+///   if it carries a [`TabIndex`](crate::tab_navigation::TabIndex), stopping the request, or
+/// - the generalized [`acquire_focus`](crate::acquire_focus) observer (installed by
+///   [`InputFocusPlugin`](crate::InputFocusPlugin)) clears focus once the request bubbles up to the
+///   window (this is "click outside to unfocus").
+///
+/// Registering `acquire_focus_tab_index` here is a **temporary bridge**: it lets pointer clicks
+/// actually *acquire* focus on focusable targets even when [`TabNavigationPlugin`] is not installed
+/// (previously that observer only existed inside `TabNavigationPlugin`, so clicking back into a
+/// focusable element without tab navigation could only ever clear focus, never grant it). This
+/// re-uses the [`TabIndex`](crate::tab_navigation::TabIndex) infrastructure until a dedicated,
+/// navigation-agnostic pointer-focus target component (a `PointerFocusable` analog to `TabIndex`)
+/// is designed in a future PR. See <https://github.com/bevyengine/bevy/pull/24757>.
+///
+/// It is safe to register `acquire_focus_tab_index` here even when [`TabNavigationPlugin`] also
+/// registers it: `App::add_observer` does not deduplicate, so the observer runs twice per request,
+/// but it is idempotent — it stops propagation and only mutates [`InputFocus`](crate::InputFocus)
+/// when the focus target actually changes, so the second run is a no-op.
 ///
 /// Because that [`AcquireFocus`] event is shared across widgets and focus
 /// schemes, be deliberate when changing anything in this pathway — a change here can have
@@ -76,12 +89,20 @@ fn click_to_focus(
 /// This is intentionally independent of any navigation scheme: it works with tab navigation,
 /// directional navigation, or on its own (e.g. an app with only text input). Requires the
 /// `bevy_picking` feature; without it this plugin is a no-op.
+///
+/// [`TabNavigationPlugin`]: crate::tab_navigation::TabNavigationPlugin
 pub struct PointerFocusPlugin;
 
 impl Plugin for PointerFocusPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "bevy_picking")]
-        app.add_observer(click_to_focus);
+        {
+            app.add_observer(click_to_focus);
+            // Temporary bridge: re-use the tab-navigation focus resolver so pointer clicks can
+            // acquire focus on `TabIndex` targets even without `TabNavigationPlugin`. Idempotent, so
+            // it is safe when `TabNavigationPlugin` registers it too. See the plugin docs above.
+            app.add_observer(acquire_focus_tab_index);
+        }
         #[cfg(not(feature = "bevy_picking"))]
         let _ = app;
     }
@@ -153,6 +174,26 @@ mod tests {
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().get(), None);
+    }
+
+    /// Regression test for the "click back in" case: with only [`PointerFocusPlugin`] installed (no
+    /// tab navigation), an `AcquireFocus` on a `TabIndex` target must now *focus* it rather than
+    /// bubbling past to the window and clearing focus. This is what makes clicking back into a
+    /// focusable element (e.g. an `EditableText` with a `TabIndex`) work without `TabNavigationPlugin`,
+    /// and it is the behavior the temporary `acquire_focus_tab_index` bridge in `PointerFocusPlugin`
+    /// provides.
+    #[test]
+    fn acquire_focus_focuses_tab_index_target_without_tab_navigation() {
+        let (mut app, window) = pointer_focus_app();
+
+        let focusable = app.world_mut().spawn((TabIndex(0), ChildOf(window))).id();
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: focusable,
+            window,
+        });
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(focusable));
     }
 
     /// Control: an `AcquireFocus` triggered *directly* on an entity that carries `TabIndex` focuses

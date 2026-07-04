@@ -375,6 +375,12 @@ impl TabNavigation<'_, '_> {
 /// separate from the window-clearing fallback in [`acquire_focus`](crate::acquire_focus).
 ///
 /// The `focus.get()` guard avoids spurious mutations so change detection only fires on real changes.
+///
+/// This observer is also registered by
+/// [`PointerFocusPlugin`](crate::pointer_focus::PointerFocusPlugin) as a temporary bridge so pointer
+/// clicks can acquire focus without [`TabNavigationPlugin`]. Because `add_observer` does not
+/// deduplicate, it may therefore run twice per request when both plugins are present; keep it
+/// idempotent (stop propagation, only mutate focus on a real change) so the second run is a no-op.
 pub fn acquire_focus_tab_index(
     mut acquire_focus: On<AcquireFocus>,
     focusable: Query<(), (With<TabIndex>, Without<Window>)>,
