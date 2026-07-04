@@ -32,9 +32,16 @@ fn main() {
         )
         .init_resource::<CursorRay>()
         .add_systems(Startup, setup)
+        .add_systems(PostStartup, setup_text)
         .add_systems(
             Update,
-            (draw_shapes, ray_follow_cursor, rotate_ray, ray_cast).chain(),
+            (
+                draw_shapes,
+                ray_follow_cursor,
+                rotate_ray,
+                ray_cast.pipe(mark_closest_hit),
+            )
+                .chain(),
         )
         .run();
 }
@@ -76,6 +83,10 @@ pub enum Shape2d {
     Triangle(Triangle2d),
     Capsule(Capsule2d),
 }
+
+/// A marker to differentiate which shape is currently being hit
+#[derive(Component, Clone, Copy, Debug)]
+struct IsHit;
 
 fn setup(mut commands: Commands) {
     let shapes = [
@@ -132,20 +143,30 @@ fn setup(mut commands: Commands) {
 
     // Spawn camera
     commands.spawn(Camera2d);
+}
+
+fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
+    let active_camera = cameras
+        .iter()
+        .find_map(|(entity, camera)| camera.is_active.then_some(entity))
+        .expect("run condition ensures existence");
 
     // Spawn instructions
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Node {
+            justify_self: JustifySelf::Center,
+            top: px(5),
+            ..Default::default()
+        },
+        UiTargetCamera(active_camera),
+        children![
+            Text::default(),
+            TextLayout::justify(Justify::Center),
+            children![TextSpan::new(
             "Move the cursor to move the ray.\nLeft mouse button to rotate the ray counterclockwise.\nRight mouse button to rotate the ray clockwise.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+            )],
+        ],
+    ));
 }
 
 /// Spawns a shape at a given column and row.
@@ -178,25 +199,31 @@ fn ray_follow_cursor(
 
 /// Rotates the ray when the left or right mouse button is pressed.
 fn rotate_ray(button: ResMut<ButtonInput<MouseButton>>, mut ray: ResMut<CursorRay>) {
+    const ROTATION_SPEED: f32 = 0.05;
     if button.pressed(MouseButton::Left) {
-        ray.direction = Rot2::radians(0.015) * ray.direction;
+        ray.direction = Rot2::radians(ROTATION_SPEED) * ray.direction;
     }
     if button.pressed(MouseButton::Right) {
-        ray.direction = Rot2::radians(-0.015) * ray.direction;
+        ray.direction = Rot2::radians(-ROTATION_SPEED) * ray.direction;
     }
 }
 
 /// Performs ray casts against all shapes in the scene.
-fn ray_cast(query: Query<(&Shape2d, &Transform)>, mut gizmos: Gizmos, ray: Res<CursorRay>) {
+fn ray_cast(
+    query: Query<(Entity, &Shape2d, &Transform)>,
+    mut gizmos: Gizmos,
+    ray: Res<CursorRay>,
+) -> Option<Entity> {
     let max_distance = 10_000.0;
 
+    let mut closest_hit_entity = None;
     let mut closest_hit = None;
     let mut closest_hit_distance = f32::MAX;
 
     // Iterate over all shapes.
     // NOTE: A more efficient implementation would use an acceleration structure such as
     //       a Bounding Volume Hierarchy (BVH), and test the ray against bounding boxes first.
-    for (shape, transform) in &query {
+    for (entity, shape, transform) in &query {
         let rotation = Rot2::radians(transform.rotation.to_euler(EulerRot::XYZ).2);
         let iso = Isometry2d::new(transform.translation.truncate(), rotation);
 
@@ -208,6 +235,7 @@ fn ray_cast(query: Query<(&Shape2d, &Transform)>, mut gizmos: Gizmos, ray: Res<C
         };
 
         if hit.distance < closest_hit_distance {
+            closest_hit_entity.replace(entity);
             closest_hit = Some((ray.get_point(hit.distance), hit.normal));
             closest_hit_distance = hit.distance;
         }
@@ -226,23 +254,41 @@ fn ray_cast(query: Query<(&Shape2d, &Transform)>, mut gizmos: Gizmos, ray: Res<C
         // Hit point
         let iso = Isometry2d::from_translation(point);
         gizmos.circle_2d(iso, 3.0, ORANGE);
-        gizmos.circle_2d(iso, 2.5, ORANGE);
-        gizmos.circle_2d(iso, 2.0, ORANGE);
-        gizmos.circle_2d(iso, 1.0, ORANGE);
-        gizmos.circle_2d(iso, 1.0, ORANGE);
-        gizmos.circle_2d(iso, 0.5, ORANGE);
     } else {
         gizmos.line_2d(ray.origin, ray.get_point(max_distance), CYAN_600);
+    }
+
+    closest_hit_entity
+}
+
+/// mark the hit entity with marker component to render with color
+fn mark_closest_hit(
+    In(opt_entity): In<Option<Entity>>,
+    mut cmds: Commands,
+    previous_hit: Query<Entity, With<IsHit>>,
+) {
+    // add marker if we hit anything
+    for e in &previous_hit {
+        cmds.entity(e).remove::<IsHit>();
+    }
+    // remove the marker from old hits from last frame
+    if let Some(e) = opt_entity {
+        cmds.entity(e).insert(IsHit);
     }
 }
 
 /// Draws all shapes in the scene.
-fn draw_shapes(query: Query<(&Shape2d, &GlobalTransform)>, mut gizmos: Gizmos) {
-    for (shape, global_transform) in &query {
+fn draw_shapes(query: Query<(&Shape2d, &GlobalTransform, Has<IsHit>)>, mut gizmos: Gizmos) {
+    for (shape, global_transform, is_hit) in &query {
         let transform = global_transform.compute_transform();
         let pos = transform.translation.truncate();
         let rot = Rot2::radians(transform.rotation.to_euler(EulerRot::XYZ).2);
-        gizmos.primitive_2d(shape, Isometry2d::new(pos, rot), Color::WHITE);
+        let color = if is_hit {
+            Color::Srgba(Srgba::RED)
+        } else {
+            Color::WHITE
+        };
+        gizmos.primitive_2d(shape, Isometry2d::new(pos, rot), color);
     }
 }
 
