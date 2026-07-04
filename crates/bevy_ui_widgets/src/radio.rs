@@ -401,7 +401,7 @@ mod tests {
         }
     }
 
-    /// Triggers the `Pointer<Click>` a real click ends with, on `target`.
+    /// Triggers the `Pointer<Click>` event, the last event a real click ends with, on `target`.
     fn click_entity(app: &mut App, target: Entity, window: Entity) {
         app.world_mut().trigger(Pointer::new(
             PointerId::Mouse,
@@ -462,7 +462,7 @@ mod tests {
 
     /// A disabled radio option does not become selected on click.
     #[test]
-    fn disabled_radio_does_not_select() {
+    fn disabled_radio_button_does_not_select() {
         let (mut app, window) = radio_app();
         let group = app.world_mut().spawn((RadioGroup, ChildOf(window))).id();
         let option = app

@@ -12,8 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
-    AcquireFocus, FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
-    InputFocusVisible,
+    FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press, Release};
@@ -166,9 +165,6 @@ fn on_pointer_press(
     )>,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
-    mut focus_visible: ResMut<InputFocusVisible>,
-    windows: Query<Entity, With<PrimaryWindow>>,
-    mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
     if press.button != PointerButton::Primary {
@@ -178,27 +174,10 @@ fn on_pointer_press(
     let Ok((mut editable_text, node, target, transform, text_scroll)) =
         text_input_query.get_mut(press.entity)
     else {
-        // The press landed on something that isn't an `EditableText`.
-        // If a text input currently holds focus, clicking away should blur it.
-        //
-        // Rather than clearing `InputFocus` directly, we re-trigger `AcquireFocus` so the
-        // `acquire_focus` observer in `bevy_input_focus` remains the single source of truth for
-        // focus changes — this keeps "click outside to unfocus" consistent with tab navigation and
-        // any other focus consumer. The `original_event_target` guard ensures we only act on the
-        // entity that was actually pressed, not on presses that bubbled here from a child.
-        if input_focus
-            .get()
-            .is_some_and(|focused| text_input_query.contains(focused))
-            && press.entity == press.original_event_target()
-        {
-            focus_visible.0 = false;
-            if let Ok(window) = windows.single() {
-                commands.trigger(AcquireFocus {
-                    focused_entity: press.entity,
-                    window,
-                });
-            }
-        }
+        // The press landed on something that isn't an `EditableText`. Clicking away to blur a
+        // focused text input is handled by `PointerFocusPlugin` (in `bevy_input_focus`), which
+        // triggers a bubbling `AcquireFocus` that clears focus at the window, so there is nothing
+        // to do here.
         return;
     };
 

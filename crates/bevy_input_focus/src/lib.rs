@@ -14,7 +14,10 @@
 //! * Events for when entities gain or lose focus: [`FocusGained`] and [`FocusLost`].
 //! * A generic [`FocusedInput`] event to send input events which bubble up from the focused entity.
 //! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
-//! * [`pointer_focus`], which focuses (or blurs) entities in response to pointer clicks, independently of any navigation framework.
+#![cfg_attr(
+    feature = "bevy_picking",
+    doc = "* [`pointer_focus`], which focuses (or blurs) entities in response to pointer clicks, independently of any navigation framework (requires the `bevy_picking` feature)."
+)]
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
 //! which should depend on [`bevy_input_focus`](crate).
@@ -26,6 +29,7 @@ extern crate alloc;
 
 pub mod directional_navigation;
 pub mod navigator;
+#[cfg(feature = "bevy_picking")]
 pub mod pointer_focus;
 pub mod tab_navigation;
 
@@ -280,7 +284,7 @@ impl Traversal<AcquireFocus> for WindowTraversal {
 ///
 /// The `focus.get()` guard avoids spurious mutations so change detection only fires on real changes.
 /// Verify against the `acquire_focus_*` tests before altering any of this.
-pub fn acquire_focus(
+pub fn on_window_acquire_focus_clear(
     mut acquire_focus: On<AcquireFocus>,
     windows: Query<(), With<Window>>,
     mut focus: ResMut<InputFocus>,
@@ -308,7 +312,7 @@ impl Plugin for InputFocusPlugin {
         app.add_systems(PostStartup, set_initial_focus)
             .init_resource::<InputFocus>()
             .init_resource::<InputFocusVisible>()
-            .add_observer(acquire_focus)
+            .add_observer(on_window_acquire_focus_clear)
             .add_systems(
                 PostUpdate,
                 process_recorded_focus_changes.in_set(InputFocusSystems::FocusChangeEvents),

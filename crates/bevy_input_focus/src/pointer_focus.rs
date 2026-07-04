@@ -9,18 +9,15 @@
 //! Add [`PointerFocusPlugin`] to enable it. Requires the `bevy_picking` feature.
 
 use bevy_app::{App, Plugin};
-
-#[cfg(feature = "bevy_picking")]
 use bevy_ecs::{
     entity::Entity,
     observer::On,
     query::With,
     system::{Commands, Query, ResMut},
 };
-#[cfg(feature = "bevy_picking")]
+use bevy_picking::events::{Pointer, Press};
 use bevy_window::PrimaryWindow;
 
-#[cfg(feature = "bevy_picking")]
 use crate::{tab_navigation::acquire_focus_tab_index, AcquireFocus, InputFocusVisible};
 
 /// Observer which requests focus for a clicked entity.
@@ -29,9 +26,8 @@ use crate::{tab_navigation::acquire_focus_tab_index, AcquireFocus, InputFocusVis
 /// bubbling [`AcquireFocus`] on the clicked entity. It does not itself decide *what* becomes
 /// focused — that is the job of whatever [`AcquireFocus`] resolver observers are installed (see
 /// [`PointerFocusPlugin`]).
-#[cfg(feature = "bevy_picking")]
 fn click_to_focus(
-    press: On<bevy_picking::events::Pointer<bevy_picking::events::Press>>,
+    press: On<Pointer<Press>>,
     mut focus_visible: ResMut<InputFocusVisible>,
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
@@ -60,9 +56,9 @@ fn click_to_focus(
 /// On a pointer press this hides the focus indicator ([`InputFocusVisible`]) and triggers a
 /// bubbling [`AcquireFocus`] on the clicked entity. That request is then resolved by the focus
 /// observers this plugin installs:
-/// - [`acquire_focus_tab_index`](crate::tab_navigation::acquire_focus_tab_index) focuses the target
+/// - [`acquire_focus_tab_index`] focuses the target
 ///   if it carries a [`TabIndex`](crate::tab_navigation::TabIndex), stopping the request, or
-/// - the generalized [`acquire_focus`](crate::acquire_focus) observer (installed by
+/// - the generalized [`on_window_acquire_focus_clear`](crate::on_window_acquire_focus_clear) observer (installed by
 ///   [`InputFocusPlugin`](crate::InputFocusPlugin)) clears focus once the request bubbles up to the
 ///   window (this is "click outside to unfocus").
 ///
@@ -83,32 +79,27 @@ fn click_to_focus(
 /// schemes, be deliberate when changing anything in this pathway — a change here can have
 /// engine-wide focus consequences. Individual widgets may also intercept the event and stop its
 /// propagation to implement custom behavior (e.g. the number-input scrubber focuses on pointer
-/// *release* rather than press). See the docs on [`acquire_focus`](crate::acquire_focus) and
-/// [`acquire_focus_tab_index`](crate::tab_navigation::acquire_focus_tab_index).
+/// *release* rather than press). See the docs on [`on_window_acquire_focus_clear`](crate::on_window_acquire_focus_clear) and
+/// [`acquire_focus_tab_index`].
 ///
 /// This is intentionally independent of any navigation scheme: it works with tab navigation,
-/// directional navigation, or on its own (e.g. an app with only text input). Requires the
-/// `bevy_picking` feature; without it this plugin is a no-op.
+/// directional navigation, or on its own (e.g. an app with only text input). This whole module is
+/// gated behind the `bevy_picking` feature.
 ///
 /// [`TabNavigationPlugin`]: crate::tab_navigation::TabNavigationPlugin
 pub struct PointerFocusPlugin;
 
 impl Plugin for PointerFocusPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "bevy_picking")]
-        {
-            app.add_observer(click_to_focus);
-            // Temporary bridge: re-use the tab-navigation focus resolver so pointer clicks can
-            // acquire focus on `TabIndex` targets even without `TabNavigationPlugin`. Idempotent, so
-            // it is safe when `TabNavigationPlugin` registers it too. See the plugin docs above.
-            app.add_observer(acquire_focus_tab_index);
-        }
-        #[cfg(not(feature = "bevy_picking"))]
-        let _ = app;
+        app.add_observer(click_to_focus);
+        // Temporary bridge: re-use the tab-navigation focus resolver so pointer clicks can
+        // acquire focus on `TabIndex` targets even without `TabNavigationPlugin`. Idempotent, so
+        // it is safe when `TabNavigationPlugin` registers it too. See the plugin docs above.
+        app.add_observer(acquire_focus_tab_index);
     }
 }
 
-#[cfg(all(test, feature = "bevy_picking"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
@@ -135,7 +126,7 @@ mod tests {
     }
 
     /// Like [`pointer_focus_app`], but *with* [`TabNavigationPlugin`], so `acquire_focus_tab_index`
-    /// is installed alongside the window-clearing `acquire_focus`. This is the full configuration
+    /// is installed alongside the window-clearing `on_window_acquire_focus_clear`. This is the full configuration
     /// used by the `standard_widgets` example.
     fn pointer_focus_app_with_tab_navigation() -> (App, Entity) {
         let mut app = App::new();

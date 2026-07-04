@@ -368,19 +368,22 @@ impl TabNavigation<'_, '_> {
 /// navigation via [`TabIndex`] are treated as focus targets here. When the target is focusable, this
 /// stops the request (so it never reaches the window) and focuses it; otherwise the request keeps
 /// bubbling and is eventually handled by the generalized
-/// [`acquire_focus`](crate::acquire_focus) observer at the window.
+/// [`on_window_acquire_focus_clear`](crate::on_window_acquire_focus_clear) observer at the window.
 ///
 /// The [`Without<Window>`] bound is a defensive guard — a window would never carry a [`TabIndex`] in
 /// practice, but excluding it keeps this observer's responsibility (focus a focusable child) cleanly
-/// separate from the window-clearing fallback in [`acquire_focus`](crate::acquire_focus).
+/// separate from the window-clearing fallback in [`on_window_acquire_focus_clear`](crate::on_window_acquire_focus_clear).
 ///
 /// The `focus.get()` guard avoids spurious mutations so change detection only fires on real changes.
 ///
-/// This observer is also registered by
-/// [`PointerFocusPlugin`](crate::pointer_focus::PointerFocusPlugin) as a temporary bridge so pointer
-/// clicks can acquire focus without [`TabNavigationPlugin`]. Because `add_observer` does not
-/// deduplicate, it may therefore run twice per request when both plugins are present; keep it
-/// idempotent (stop propagation, only mutate focus on a real change) so the second run is a no-op.
+#[cfg_attr(
+    feature = "bevy_picking",
+    doc = "This observer is also registered by
+[`PointerFocusPlugin`](crate::pointer_focus::PointerFocusPlugin) as a temporary bridge so pointer
+clicks can acquire focus without [`TabNavigationPlugin`]. Because `add_observer` does not
+deduplicate, it may therefore run twice per request when both plugins are present; keep it
+idempotent (stop propagation, only mutate focus on a real change) so the second run is a no-op."
+)]
 pub fn acquire_focus_tab_index(
     mut acquire_focus: On<AcquireFocus>,
     focusable: Query<(), (With<TabIndex>, Without<Window>)>,
@@ -575,8 +578,8 @@ mod tests {
 
         // A non-focusable entity must never become focused just because it was the request target:
         // only `TabIndex` entities are valid focus targets for `acquire_focus_tab_index`. The
-        // request instead bubbles up to the window, where the generalized `acquire_focus` observer
-        // clears focus.
+        // request instead bubbles up to the window, where the generalized
+        // `on_window_acquire_focus_clear` observer clears focus.
         let non_focusable = app.world_mut().spawn(ChildOf(window)).id();
         app.world_mut().trigger(AcquireFocus {
             focused_entity: non_focusable,
