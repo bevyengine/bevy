@@ -104,73 +104,14 @@ sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 
 ### flake.nix
 
-Add a `flake.nix` file to the root of your GitHub repository containing:
+There is a `flake.nix` file to the root of this repository. So you can just do
 
-```nix
-{
-  description = "bevy flake";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
-
-  outputs =
-    {
-      nixpkgs,
-      rust-overlay,
-      flake-utils,
-      ...
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
-        };
-      in
-      {
-        devShells.default =
-          with pkgs;
-          mkShell {
-            buildInputs =
-              [
-                # Rust dependencies
-                (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
-                pkg-config
-              ]
-              ++ lib.optionals (lib.strings.hasInfix "linux" system) [
-                # for Linux
-                # Audio (Linux only)
-                alsa-lib
-                # Cross Platform 3D Graphics API
-                vulkan-loader
-                # For debugging around vulkan
-                vulkan-tools
-                # Other dependencies
-                libudev-zero
-                libx11
-                libxcursor
-                libxi
-                libxrandr
-                libxkbcommon
-                wayland
-              ];
-            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-            LD_LIBRARY_PATH = lib.makeLibraryPath [
-              vulkan-loader
-              libx11
-              libxi
-              libxcursor
-              libxkbcommon
-              wayland
-            ];
-          };
-      }
-    );
-}
+```bash
+nix develop
+```
+If you have `direnv` installed as well you just need to allow it for this repo.
+```bash
+direnv allow
 ```
 
 > [!TIP]
