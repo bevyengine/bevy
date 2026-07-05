@@ -113,7 +113,7 @@ derive_more = { version = "2", default-features = false, features = [
   "into",
   "as_ref",
 ] }
-nonmax = { version = "0.5", default-features = false }
+nonmax = { version = "0.5.4", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false }
 smallvec = { version = "1", default-features = false, features = [
   "union",
