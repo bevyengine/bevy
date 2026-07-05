@@ -22,6 +22,8 @@ const RECONNECTION_FOOTPRINT_KAPPA = 0.02;
 const RECONNECTION_ROUGHNESS_MIN = 0.6;
 const RECONNECTION_RELAX_DISTANCE = 1.0;
 
+const CACHE_TERMINATION_MIN_SOLID_ANGLE = PI;
+
 struct InitialSamplingResult {
     reservoir: Reservoir,
     non_resampled_radiance: vec3<f32>,
@@ -135,7 +137,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         }
 
         // Try terminating into the world cache
-        if terminate_into_cache(&reservoir, &weight_sum, &selected_target_function, &non_resampled_radiance, path, ray_hit, ray.t, bounce, rng) {
+        if terminate_into_cache(&reservoir, &weight_sum, &selected_target_function, &non_resampled_radiance, path, ray_hit, ray.t, p_brdf, bounce, rng) {
             break;
         }
 
@@ -167,8 +169,13 @@ fn generate_nee_candidate(
     weight_sum: ptr<function, f32>,
     selected_target_function: ptr<function, f32>,
     non_resampled_radiance: ptr<function, vec3<f32>>,
-    path: PathState, F_ab: vec2<f32>, p_nee: f32, di_samples: u32,
-    workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>,
+    path: PathState,
+    F_ab: vec2<f32>,
+    p_nee: f32,
+    di_samples: u32,
+    workgroup_id: vec2<u32>,
+    bounce: u32,
+    rng: ptr<function, u32>,
 ) {
     if rand_f(rng) >= p_nee { return; }
 
@@ -336,15 +343,20 @@ fn terminate_into_cache(
     weight_sum: ptr<function, f32>,
     selected_target_function: ptr<function, f32>,
     non_resampled_radiance: ptr<function, vec3<f32>>,
-    path: PathState, ray_hit: ResolvedRayHitFull, ray_t: f32, bounce: u32,
+    path: PathState,
+    ray_hit: ResolvedRayHitFull,
+    ray_t: f32,
+    p_brdf: f32,
+    bounce: u32,
     rng: ptr<function, u32>,
 ) -> bool {
-    // Same probability as NEE: 1.0 for pure dielectrics, perceptual roughness for pure metals. Uses
-    // the current vertex's material, not the hit's.
-    let p_term = mix(1.0, path.material.perceptual_roughness, path.material.metallic);
-    let stochastic_terminate = rand_f(rng) < p_term;
+    // Only terminate into the world cache when the bounce was from a wide-enough BRDF sample
+    // because the cache is less noist than continuing the path for rough surfaces,
+    // but less accurate for smooth surfaces
+    let lobe_solid_angle = 1.0 / p_brdf;
+    let broad_enough_to_terminate = lobe_solid_angle >= CACHE_TERMINATION_MIN_SOLID_ANGLE;
     let forced_terminate = bounce == constants.max_bounces - 1u;
-    if !(stochastic_terminate || forced_terminate) { return false; }
+    if !(broad_enough_to_terminate || forced_terminate) { return false; }
 
     // Only use the cache when the ray cleared the cache cell (diagonal = sqrt(3) * cell_size). Short
     // rays land in a cell that may straddle occluders and leak light through corners.
