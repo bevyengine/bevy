@@ -38,14 +38,13 @@ struct PathState {
     material: ResolvedMaterial,
     // Throughput past x1, excluding brdf*cos at x1
     throughput_past_x1: vec3<f32>,
-    // Reconnection vertex x2, the first BRDF-sampled hit shared by every length >= 2 candidate.
-    // Unused until bounce >= 1
+    // Reconnection vertex x2, the first BRDF-sampled hit shared by every length >= 2 candidate
     x2_position: vec3<f32>,
     x2_normal: vec3<f32>,
     // If false, candidates built on x2 are shaded directly into non_resampled_radiance instead of
     // published to the reservoir
     x2_reusable: bool,
-    // brdf at x1 for the direction toward x2
+    // brdf*cos at x1 for the direction toward x2
     x1_brdf: vec3<f32>,
 }
 

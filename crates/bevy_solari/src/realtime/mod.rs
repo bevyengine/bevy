@@ -147,8 +147,11 @@ pub struct SolariLighting {
     /// cost of more work per frame. Lower values are cheaper but make the cache
     /// slower to update.
     ///
-    /// This is a stochastic target. On average it will update this many cells,
-    /// but individual frames may update more or less cells.
+    /// This is a stochastic target that only takes effect when the number of
+    /// active cells exceeds it: each active cell is then updated with
+    /// probability `target / active_cells`, so on average this many cells
+    /// update, though individual frames may update more or fewer. When there
+    /// are fewer active cells than the target, all of them update every frame.
     pub world_cache_cell_updates_soft_target: u32,
 
     /// Size of a world cache cell at the lowest LOD, in meters.

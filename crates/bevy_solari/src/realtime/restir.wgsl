@@ -355,7 +355,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
 
         // MIS weight against the bounce-0 BRDF-emissive strategy, recomputed from this surface's
         // brdf and material rather than baked into the unbiased contribution weight at generation. Mirrors the bounce-0
-        // nee_mis_weight in generate_initial_reservoir, which puts the same factor in the target.
+        // nee_mis_weight in generate_nee_candidate and generate_emissive_candidate, which puts the same factor in the target.
         var nee_mis_weight = 1.0;
         if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
             let light_count = arrayLength(&light_sources);
