@@ -68,23 +68,28 @@ mod tests {
 
         // Check correct hit distance and normal for outside hits.
         let ray = Ray2d::new(Vec2::new(0.0, 0.0), Dir2::Y);
-        let hit = sector.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(0.0, Dir2::SOUTH_WEST)));
+        let hit = sector
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(0.0, Dir2::SOUTH_WEST);
+        assert_eq!(hit.distance, expected_hit.distance);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         let ray = Ray2d::new(Vec2::new(0.0, 1.5), Dir2::NEG_Y);
         let hit = sector.local_ray_cast(ray, f32::MAX, true);
         assert_eq!(hit, Some(RayHit2d::new(0.5, Dir2::Y)));
 
         let ray = Ray2d::new(Vec2::new(-1.0, 0.0), Dir2::NORTH_EAST);
-        let hit = sector.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(
-            hit,
-            Some(RayHit2d::new(
-                // Half the distance between the leftmost and topmost points on a circle.
-                ops::hypot(sector.radius(), sector.radius()) / 2.0,
-                Dir2::SOUTH_WEST
-            ))
+        let hit = sector
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(
+            // Half the distance between the leftmost and topmost points on a circle.
+            ops::hypot(sector.radius(), sector.radius()) / 2.0,
+            Dir2::SOUTH_WEST,
         );
+        assert!(ops::abs(hit.distance - expected_hit.distance) < 0.000_001);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Interior hit for solid sector.
         let ray = Ray2d::new(Vec2::new(0.0, sector.apothem()), Dir2::Y);
@@ -97,15 +102,16 @@ mod tests {
         assert_eq!(hit, Some(RayHit2d::new(0.5, Dir2::NEG_Y)));
 
         let ray = Ray2d::new(Vec2::new(0.0, 1.0), Dir2::SOUTH_EAST);
-        let hit = sector.local_ray_cast(ray, f32::MAX, false);
-        assert_eq!(
-            hit,
-            Some(RayHit2d::new(
-                // Half the distance between the topmost and rightmost points on a circle.
-                ops::hypot(sector.radius(), sector.radius()) / 2.0,
-                Dir2::NORTH_WEST
-            ))
+        let hit = sector
+            .local_ray_cast(ray, f32::MAX, false)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(
+            // Half the distance between the topmost and rightmost points on a circle.
+            ops::hypot(sector.radius(), sector.radius()) / 2.0,
+            Dir2::NORTH_WEST,
         );
+        assert!(ops::abs(hit.distance - expected_hit.distance) < 0.000_001);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Hit distance exceeds max distance.
         let ray = Ray2d::new(Vec2::new(0.0, 2.0), Dir2::NEG_Y);

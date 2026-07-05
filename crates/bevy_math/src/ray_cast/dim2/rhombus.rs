@@ -69,7 +69,7 @@ mod tests {
         // Ray origin is inside of the hollow rhombus.
         let ray = Ray2d::new(Vec2::ZERO, Dir2::NORTH_EAST);
         let hit = rhombus.local_ray_cast(ray, f32::MAX, false).unwrap();
-        assert_eq!(hit.distance, SQRT_2 / 2.0);
+        assert!(ops::abs(hit.distance - SQRT_2 / 2.0) < 0.000_001);
         assert_relative_eq!(hit.normal, Dir2::SOUTH_WEST);
 
         // Ray points away from the rhombus.

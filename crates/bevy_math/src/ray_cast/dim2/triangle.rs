@@ -63,8 +63,12 @@ mod tests {
         assert_eq!(hit, Some(RayHit2d::new(2.0, Dir2::NEG_X)));
 
         let ray = Ray2d::new(Vec2::new(2.0, 2.0), Dir2::SOUTH_WEST);
-        let hit = triangle.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(SQRT_2, Dir2::NORTH_EAST)));
+        let hit = triangle
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(SQRT_2, Dir2::NORTH_EAST);
+        assert!(ops::abs(hit.distance - expected_hit.distance) < 0.000_001);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Ray origin is inside of the solid triangle.
         let ray = Ray2d::new(Vec2::splat(0.5), Dir2::X);

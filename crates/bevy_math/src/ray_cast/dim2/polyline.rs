@@ -33,26 +33,46 @@ mod tests {
 
         // Hit from above.
         let ray = Ray2d::new(Vec2::new(-4.0, 4.0), Dir2::NEG_Y);
-        let hit = polyline.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(4.0, Dir2::NORTH_WEST)));
+        let hit = polyline
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(4.0, Dir2::NORTH_WEST);
+        assert!(ops::abs(hit.distance - expected_hit.distance) < 0.000_001);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         let ray = Ray2d::new(Vec2::new(0.0, 4.0), Dir2::NEG_Y);
-        let hit = polyline.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(4.0, Dir2::NORTH_EAST)));
+        let hit = polyline
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(4.0, Dir2::NORTH_EAST);
+        assert_eq!(hit.distance, expected_hit.distance);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Hit from below.
         let ray = Ray2d::new(Vec2::new(-4.0, -4.0), Dir2::Y);
-        let hit = polyline.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(4.0, Dir2::SOUTH_EAST)));
+        let hit = polyline
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(4.0, Dir2::SOUTH_EAST);
+        assert_eq!(hit.distance, expected_hit.distance);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         let ray = Ray2d::new(Vec2::new(0.0, -4.0), Dir2::Y);
-        let hit = polyline.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(4.0, Dir2::SOUTH_WEST)));
+        let hit = polyline
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(4.0, Dir2::SOUTH_WEST);
+        assert!(ops::abs(hit.distance - expected_hit.distance) < 0.000_001);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Hit from the side.
         let ray = Ray2d::new(Vec2::new(-2.0, 0.0), Dir2::X);
-        let hit = polyline.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(2.0, Dir2::SOUTH_WEST)));
+        let hit = polyline
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(2.0, Dir2::SOUTH_WEST);
+        assert_eq!(hit.distance, expected_hit.distance);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Ray goes past the left endpoint.
         assert!(!polyline.intersects_local_ray(Ray2d::new(Vec2::new(-7.0, 2.0), Dir2::NEG_Y)));

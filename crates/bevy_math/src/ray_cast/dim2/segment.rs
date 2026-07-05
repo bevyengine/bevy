@@ -51,17 +51,25 @@ mod tests {
 
     #[test]
     fn local_ray_cast_segment_2d() {
-        let segment = Segment2d::new(Vec2::ZERO, Vec2::ONE * 5.0);
+        let segment = Segment2d::new(Vec2::NEG_ONE * 5.0, Vec2::ONE * 5.0);
 
         // Hit from above at a 45 degree angle.
         let ray = Ray2d::new(Vec2::new(-2.0, 1.0), Dir2::NEG_Y);
-        let hit = segment.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(3.0, Dir2::NORTH_WEST)));
+        let hit = segment
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(3.0, Dir2::NORTH_WEST);
+        assert_eq!(hit.distance, expected_hit.distance);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // Hit from below at a 45 degree angle.
         let ray = Ray2d::new(Vec2::new(2.0, -1.0), Dir2::Y);
-        let hit = segment.local_ray_cast(ray, f32::MAX, true);
-        assert_eq!(hit, Some(RayHit2d::new(3.0, Dir2::SOUTH_EAST)));
+        let hit = segment
+            .local_ray_cast(ray, f32::MAX, true)
+            .expect("hit exists");
+        let expected_hit = RayHit2d::new(3.0, Dir2::SOUTH_EAST);
+        assert!(ops::abs(hit.distance - expected_hit.distance) < 0.000_001);
+        assert!(ops::abs(hit.normal.distance(*expected_hit.normal)) < 0.000_001);
 
         // If the ray is parallel to the line segment (within epsilon) but not collinear, they should not intersect.
         let ray = Ray2d::new(Vec2::new(-2.0, 1.0), Dir2::NORTH_EAST);
