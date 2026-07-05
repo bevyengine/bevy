@@ -115,7 +115,7 @@ impl core::fmt::Debug for StrongHandle {
 }
 
 /// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
-/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// assets, whose data are stored in the [`Assets<A>`] resource,
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
@@ -123,7 +123,7 @@ impl core::fmt::Debug for StrongHandle {
 /// nor will it keep assets alive.
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
-/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
+/// (by mutating the [`Assets`] resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
