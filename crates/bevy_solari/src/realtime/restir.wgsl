@@ -381,11 +381,15 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         if reservoir.light_sample.seed != 0u {
             let area_pdf = bitcast<f32>(reservoir.light_sample.seed);
             let light_normal = octahedral_decode(reservoir.sample_point_world_normal);
-            let cos_theta_light = max(dot(-wi, light_normal), 0.0001);
-            let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
-            let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
-            let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
-            brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
+            let cos_theta_light = dot(-wi, light_normal);
+            if cos_theta_light <= 0.0 {
+                brdf_radiance = vec3(0.0);
+            } else {
+                let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
+                let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
+                let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
+                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
+            }
         }
 
         return ReservoirContribution(brdf_radiance, luminance(brdf_radiance), vec4(reservoir.sample_point_world_position, 1.0));

@@ -52,7 +52,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let p_light = random_emissive_light_pdf(ray_hit, ray.t, NdotV);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
-            radiance += mis_weight * throughput * ray_hit.material.emissive;
+            if dot(ray_hit.world_normal, wo) > 0.0 {
+                radiance += mis_weight * throughput * ray_hit.material.emissive;
+            }
 
             // Sample direct lighting, but only if the surface is not mirror-like
             // TODO: randomly choose to use NEE or not with probability proportional to roughness and metallicness
