@@ -407,8 +407,7 @@ impl App {
         self
     }
 
-    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
-    /// and scheduling an [`message_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`]).
     ///
     /// See [`Messages`] for information on how to define messages.
     ///

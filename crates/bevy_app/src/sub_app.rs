@@ -91,6 +91,12 @@ impl Default for SubApp {
     fn default() -> Self {
         let mut world = World::new();
         world.init_resource::<Schedules>();
+        world.resource_mut::<Schedules>().add_systems(
+            First,
+            message_update_system
+                .in_set(bevy_ecs::message::MessageUpdateSystems)
+                .run_if(bevy_ecs::message::message_update_condition),
+        );
         Self {
             world,
             plugin_registry: Vec::default(),
@@ -384,14 +390,6 @@ impl SubApp {
     where
         T: Message,
     {
-        if !self.world.contains_resource::<MessageRegistry>() {
-            self.add_systems(
-                First,
-                message_update_system
-                    .in_set(bevy_ecs::message::MessageUpdateSystems)
-                    .run_if(bevy_ecs::message::message_update_condition),
-            );
-        }
         if !self.world.contains_resource::<Messages<T>>() {
             MessageRegistry::register_message::<T>(self.world_mut());
         }
@@ -616,20 +614,17 @@ mod tests {
         use crate::{First, SubApp};
         use bevy_ecs::message::Messages;
         use bevy_ecs::prelude::Message;
-        use bevy_ecs::schedule::{Schedule, ScheduleLabel, Schedules};
+        use bevy_ecs::schedule::ScheduleLabel;
 
         #[derive(Message, Clone, Copy)]
         struct TestMsg;
 
-        let mut sub_app = SubApp::new();
-
         // Wire the sub-app to actually run `First` each update so the test
         // does not silently pass simply because nothing in the schedule runs.
-        sub_app.update_schedule = Some(First.intern());
-        sub_app
-            .world_mut()
-            .resource_mut::<Schedules>()
-            .insert(Schedule::new(First));
+        let mut sub_app = SubApp {
+            update_schedule: Some(First.intern()),
+            ..Default::default()
+        };
 
         sub_app.add_message::<TestMsg>();
 
