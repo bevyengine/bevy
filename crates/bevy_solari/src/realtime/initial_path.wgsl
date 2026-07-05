@@ -19,7 +19,7 @@ enable wgpu_ray_query;
 #endif
 
 const RECONNECTION_FOOTPRINT_KAPPA = 0.02;
-const RECONNECTION_ROUGHNESS_MIN = 0.3;
+const RECONNECTION_ROUGHNESS_MIN = 0.6;
 const RECONNECTION_RELAX_DISTANCE = 1.0;
 
 struct InitialSamplingResult {
