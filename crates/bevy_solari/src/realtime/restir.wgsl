@@ -45,13 +45,13 @@ fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 { return; }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
-    let initial_reservoir = reservoirs_b[pixel_index];
 
     // Performance improvement: Skip resampling for low-roughness metallic surfaces
     if mix(1.0, surface.material.perceptual_roughness, surface.material.metallic) < SPECULAR_DOMINANCE_SKIP_RESAMPLING_THRESHOLD {
         return;
     }
 
+    let initial_reservoir = reservoirs_b[pixel_index];
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
     let previous_camera_world_position = previous_camera_homogeneous.xyz / previous_camera_homogeneous.w;
