@@ -2882,6 +2882,50 @@ mod tests {
     }
 
     #[test]
+    fn enum_variant_subexpressions_are_hoisted() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug, Clone)]
+        enum FontSource {
+            #[default]
+            Handle {
+                value: String,
+            },
+        }
+
+        struct Config {
+            value: String,
+        }
+
+        fn make_scene(config: &Config) -> impl Scene {
+            bsn! {
+                Children [
+                    (FontSource::Handle { value: { config.value.clone() } }),
+                    (FontSource::Handle { value: { config.value.clone() } }),
+                ]
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let config = Config {
+            value: "test".to_string(),
+        };
+        let entity = world.spawn_scene(make_scene(&config)).unwrap().id();
+        let children = world.entity(entity).get::<Children>().unwrap();
+        assert_eq!(
+            world.entity(children[0]).get::<FontSource>().unwrap(),
+            &FontSource::Handle {
+                value: "test".to_string()
+            }
+        );
+        assert_eq!(
+            world.entity(children[1]).get::<FontSource>().unwrap(),
+            &FontSource::Handle {
+                value: "test".to_string()
+            }
+        );
+    }
+
+    #[test]
     fn field_name_shorthand() {
         let mut app = test_app();
         let world = app.world_mut();
