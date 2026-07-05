@@ -20,7 +20,7 @@ impl PrimitiveRayCast2d for Capsule2d {
         // Note: We use `f32::EPSILON` to avoid division by zero later for rays parallel to the capsule's axis.
         let a = (baba - bard * bard).max(f32::EPSILON);
         let b = baba * rdoa - baoa * bard;
-        let c = baba * oaoa - baoa * baoa - radius_squared * baba;
+        let c = baba * (oaoa - radius_squared) - baoa * baoa;
         let d = b * b - a * c;
 
         if d >= 0.0 {
