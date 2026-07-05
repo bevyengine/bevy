@@ -4,7 +4,7 @@ impl PrimitiveRayCast2d for Line2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
         // Direction perpendicular to the line.
-        let normal = Dir2::new_unchecked(-self.direction.perp());
+        let normal = Dir2::new(-self.direction.perp()).ok()?;
 
         let normal_dot_origin = normal.dot(-ray.origin);
         let normal_dot_dir = normal.dot(*ray.direction);
@@ -26,7 +26,7 @@ impl PrimitiveRayCast2d for Line2d {
 
         Some(RayHit2d::new(
             distance,
-            Dir2::new_unchecked(-normal_dot_dir.signum() * normal),
+            Dir2::new(-normal_dot_dir.signum() * normal).ok()?,
         ))
     }
 }

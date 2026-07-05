@@ -46,15 +46,17 @@ impl PrimitiveRayCast2d for Ellipse {
             // The ray origin is outside of the ellipse and a hit was found.
             // The distance corresponding to the boundary hit is the second root.
             let hit_point = ray.get_point(t2);
-            let normal = Dir2::new_unchecked(hit_point * inv_half_size);
-            Some(RayHit2d::new(t2, normal))
+            // [`None`] if dir length zero which shouldn't happen
+            Dir2::new(hit_point * inv_half_size)
+                .ok()
+                .map(|normal| RayHit2d::new(t2, normal))
         } else {
             // The ray origin is inside of the hollow ellipse.
             // The distance corresponding to the boundary hit is the first root.
             let t1 = (-b + d_sqrt) / a;
             if t1 > 0.0 && t1 < max_distance {
                 let hit_point = ray.get_point(t1);
-                let normal = Dir2::new_unchecked(-hit_point * inv_half_size);
+                let normal = Dir2::new(-hit_point * inv_half_size).ok()?;
                 Some(RayHit2d::new(t1, normal))
             } else {
                 None

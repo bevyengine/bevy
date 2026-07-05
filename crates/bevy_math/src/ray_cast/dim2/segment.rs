@@ -3,36 +3,44 @@ use crate::prelude::*;
 impl PrimitiveRayCast2d for Segment2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
-        // Direction perpendicular to the line segment.
+        // Unit normal to the supporting line of the segment.
         let normal = -self.direction().perp();
 
-        let normal_dot_origin = normal.dot(-ray.origin);
-        let normal_dot_dir = normal.dot(*ray.direction);
+        let denominator = normal.dot(*ray.direction);
 
-        // Check if the ray is parallel to the line, within `f32::EPSILON`.
-        if ops::abs(normal_dot_dir) < f32::EPSILON {
-            // Check if the ray is collinear with the line, within `f32::EPSILON`.
-            if ops::abs(normal_dot_origin) < f32::EPSILON {
+        // Parallel?
+        if ops::abs(denominator) < f32::EPSILON {
+            // Collinear?
+            let numerator = normal.dot(self.point1() - ray.origin);
+            if ops::abs(numerator) < f32::EPSILON {
                 return Some(RayHit2d::new(0.0, -ray.direction));
             }
+
             return None;
         }
 
-        let distance = normal_dot_origin / normal_dot_dir;
+        // Distance along the ray to the supporting line.
+        let numerator = normal.dot(self.point1() - ray.origin);
+        let distance = numerator / denominator;
 
         if distance < 0.0 || distance > max_distance {
             return None;
         }
 
-        // Check if we are within `self.half_length`.
+        // Compute the intersection point.
         let intersection = ray.origin + *ray.direction * distance;
-        if intersection.length_squared() > self.length_squared() {
+
+        // Check whether the intersection lies on the finite segment.
+        let segment = self.point2() - self.point1();
+        let t = (intersection - self.point1()).dot(segment) / segment.length_squared();
+
+        if !(0.0..=1.0).contains(&t) {
             return None;
         }
 
         Some(RayHit2d::new(
             distance,
-            Dir2::new_unchecked(-normal_dot_dir.signum() * normal),
+            Dir2::new(-denominator.signum() * normal).ok()?,
         ))
     }
 }

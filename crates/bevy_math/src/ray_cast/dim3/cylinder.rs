@@ -46,7 +46,7 @@ impl PrimitiveRayCast3d for Cylinder {
                         (ob + ray.direction * distance).length_squared();
                     if distance_at_bottom_squared < radius_squared {
                         // The ray hit the bottom of the cylinder.
-                        let normal = -Dir3::new_unchecked(ba / (2.0 * self.half_height));
+                        let normal = -Dir3::new(ba / (2.0 * self.half_height)).ok()?;
                         return Some(RayHit3d::new(distance, normal));
                     }
                 }
@@ -58,7 +58,7 @@ impl PrimitiveRayCast3d for Cylinder {
                 {
                     // The ray hit the top of the cylinder.
                     let distance = -oa_dot_ba / dir_dot_ba;
-                    let normal = -Dir3::new_unchecked(-ba / (2.0 * self.half_height));
+                    let normal = -Dir3::new(-ba / (2.0 * self.half_height)).ok()?;
                     return (distance <= max_distance).then_some(RayHit3d::new(distance, normal));
                 }
             }
@@ -112,7 +112,7 @@ impl PrimitiveRayCast3d for Cylinder {
                 {
                     // The ray hit the top of the cylinder.
                     let distance = -oa_dot_ba / dir_dot_ba;
-                    let normal = Dir3::new_unchecked(-ba / ops::sqrt(height_squared));
+                    let normal = Dir3::new(-ba / ops::sqrt(height_squared)).ok()?;
                     return (distance <= max_distance).then_some(RayHit3d::new(distance, normal));
                 }
             } else if ob_dot_ba > 0.0 && dir_dot_ba < 0.0 {
@@ -124,7 +124,7 @@ impl PrimitiveRayCast3d for Cylinder {
                         (ob + ray.direction * distance).length_squared();
                     if distance_at_bottom_squared < radius_squared {
                         // The ray hit the bottom of the cylinder.
-                        let normal = Dir3::new_unchecked(ba / ops::sqrt(height_squared));
+                        let normal = Dir3::new(ba / ops::sqrt(height_squared)).ok()?;
                         return Some(RayHit3d::new(distance, normal));
                     }
                 }

@@ -11,34 +11,11 @@ impl PrimitiveRayCast2d for Polyline2d {
 
 #[inline]
 fn local_ray_cast_polyline(vertices: &[Vec2], ray: Ray2d, max_distance: f32) -> Option<RayHit2d> {
-    let mut closest_intersection: Option<RayHit2d> = None;
-
-    // Iterate through vertices to create edges
-    for i in 0..(vertices.len() - 1) {
-        let start = vertices[i];
-        let end = vertices[i + 1];
-
-        // Create the edge
-        let segment = Segment2d::new(start, end);
-
-        // Cast the ray against the edge
-        if let Some(intersection) = segment.ray_cast(
-            Isometry2d::from_translation(start.midpoint(end)),
-            ray,
-            max_distance,
-            true,
-        ) {
-            if let Some(ref closest) = closest_intersection {
-                if intersection.distance < closest.distance {
-                    closest_intersection = Some(intersection);
-                }
-            } else {
-                closest_intersection = Some(intersection);
-            }
-        }
-    }
-
-    closest_intersection
+    vertices
+        .array_windows::<2>()
+        .map(|[start, end]| Segment2d::new(*start, *end))
+        .filter_map(|segment| segment.local_ray_cast(ray, max_distance, true))
+        .min_by_key(|hit| crate::FloatOrd(hit.distance))
 }
 
 #[cfg(test)]

@@ -29,12 +29,7 @@ impl PrimitiveRayCast2d for Triangle2d {
         for (start, end) in [(a, b), (b, c), (c, a)] {
             let segment = Segment2d::new(start, end);
 
-            if let Some(intersection) = segment.ray_cast(
-                Isometry2d::from_translation(start.midpoint(end)),
-                ray,
-                max_distance,
-                true,
-            ) {
+            if let Some(intersection) = segment.local_ray_cast(ray, max_distance, true) {
                 if let Some(ref closest) = closest_intersection {
                     if intersection.distance < closest.distance {
                         closest_intersection = Some(intersection);

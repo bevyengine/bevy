@@ -29,12 +29,8 @@ impl PrimitiveRayCast2d for CircularSegment {
             return closest;
         }
 
-        if let Some(intersection) = segment.ray_cast(
-            Isometry2d::from_translation(start.midpoint(end)),
-            ray,
-            max_distance,
-            true,
-        ) && (closest.is_none() || intersection.distance < closest.unwrap().distance)
+        if let Some(intersection) = segment.local_ray_cast(ray, max_distance, true)
+            && (closest.is_none() || intersection.distance < closest.unwrap().distance)
         {
             closest = Some(intersection);
         }

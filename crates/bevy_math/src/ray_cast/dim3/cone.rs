@@ -65,7 +65,7 @@ impl PrimitiveRayCast3d for Cone {
                         (ob + ray.direction * distance).length_squared();
                     if distance_at_bottom_squared < radius_squared {
                         // The ray hit the bottom of the cone.
-                        let normal = -Dir3::new_unchecked(ba / self.height);
+                        let normal = -Dir3::new(ba / self.height).ok()?;
                         return Some(RayHit3d::new(distance, normal));
                     }
                 }
@@ -119,7 +119,7 @@ impl PrimitiveRayCast3d for Cone {
                         (ob + ray.direction * distance).length_squared();
                     if distance_at_bottom_squared < radius_squared {
                         // The ray hit the bottom of the cone.
-                        let normal = Dir3::new_unchecked(ba / self.height);
+                        let normal = Dir3::new(ba / self.height).ok()?;
                         return Some(RayHit3d::new(distance, normal));
                     }
                 }

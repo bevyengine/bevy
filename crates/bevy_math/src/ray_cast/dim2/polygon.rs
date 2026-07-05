@@ -23,12 +23,7 @@ impl PrimitiveRayCast2d for RegularPolygon {
         for _ in 0..self.sides {
             vertex2 = rot * vertex1;
             let segment = Segment2d::new(vertex1, vertex2);
-            if let Some(hit) = segment.ray_cast(
-                Isometry2d::from_translation(vertex1.midpoint(vertex2)),
-                ray,
-                max_distance,
-                solid,
-            ) {
+            if let Some(hit) = segment.local_ray_cast(ray, max_distance, solid) {
                 if closest_hit.is_none() || hit.distance < closest_hit.unwrap().distance {
                     closest_hit = Some(hit);
                 }
@@ -60,39 +55,20 @@ fn local_ray_cast_polygon(
     max_distance: f32,
     solid: bool,
 ) -> Option<RayHit2d> {
-    let mut closest_intersection: Option<RayHit2d> = None;
-    let mut intersection_count = 0;
-
-    // Iterate through vertices to create edges
-    for i in 0..vertices.len() {
-        let start = vertices[i];
-        let end = if i == vertices.len() - 1 {
-            // Connect the last vertex to the first vertex to close the polygon
-            vertices[0]
-        } else {
-            vertices[i + 1]
-        };
-
-        // Create the edge
-        let segment = Segment2d::new(start, end);
-
-        // Cast the ray against the edge
-        if let Some(intersection) = segment.ray_cast(
-            Isometry2d::from_translation(start.midpoint(end)),
-            ray,
-            max_distance,
-            true,
-        ) {
-            intersection_count += 1;
-            if let Some(ref closest) = closest_intersection {
-                if intersection.distance < closest.distance {
-                    closest_intersection = Some(intersection);
-                }
+    let (closest_intersection, intersection_count) = vertices
+        .array_windows::<2>()
+        .copied()
+        .chain(vertices.last().zip(vertices.first()).map(|(a, b)| [*a, *b]))
+        .map(|[start, end]| Segment2d::new(start, end))
+        .filter_map(|segment| segment.local_ray_cast(ray, max_distance, true))
+        .fold((None::<RayHit2d>, 0), |(closest, hit_count), hit| {
+            let closest_hit = if closest.is_some_and(|h| h.distance < hit.distance) {
+                closest
             } else {
-                closest_intersection = Some(intersection);
-            }
-        }
-    }
+                Some(hit)
+            };
+            (closest_hit, hit_count + 1)
+        });
 
     // check if the ray is inside the polygon
     if solid && intersection_count % 2 == 1 {

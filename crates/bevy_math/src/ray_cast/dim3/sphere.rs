@@ -17,11 +17,8 @@ impl PrimitiveRayCast3d for Sphere {
                 Some(RayHit3d::new(0.0, -ray.direction))
             } else if distance <= max_distance {
                 let point = ray.get_point(distance);
-                let normal = if is_inside {
-                    Dir3::new_unchecked(-point / self.radius)
-                } else {
-                    Dir3::new_unchecked(point / self.radius)
-                };
+                let normal =
+                    Dir3::new(if is_inside { -1.0 } else { 1.0 } * point / self.radius).ok()?;
                 Some(RayHit3d::new(distance, normal))
             } else {
                 None

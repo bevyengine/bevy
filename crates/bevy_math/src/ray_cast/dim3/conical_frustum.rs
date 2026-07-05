@@ -65,7 +65,7 @@ impl PrimitiveRayCast3d for ConicalFrustum {
                         (ob + ray.direction * distance).length_squared();
                     if distance_at_bottom_squared < radius_bottom_squared {
                         // The ray hit the bottom of the frustum.
-                        let normal = -Dir3::new_unchecked(ba / self.height);
+                        let normal = -Dir3::new(ba / self.height).ok()?;
                         return Some(RayHit3d::new(distance, normal));
                     }
                 }
@@ -77,7 +77,7 @@ impl PrimitiveRayCast3d for ConicalFrustum {
                 {
                     // The ray hit the top of the frustum.
                     let distance = -oa_dot_ba / dir_dot_ba;
-                    let normal = -Dir3::new_unchecked(-ba / self.height);
+                    let normal = -Dir3::new(-ba / self.height).ok()?;
                     return (distance <= max_distance).then_some(RayHit3d::new(distance, normal));
                 }
             }
@@ -137,7 +137,7 @@ impl PrimitiveRayCast3d for ConicalFrustum {
                 {
                     // The ray hit the top of the frustum.
                     let distance = -oa_dot_ba / dir_dot_ba;
-                    let normal = Dir3::new_unchecked(-ba / self.height);
+                    let normal = Dir3::new(-ba / self.height).ok()?;
                     return (distance <= max_distance).then_some(RayHit3d::new(distance, normal));
                 }
             } else if ob_dot_ba > 0.0 && dir_dot_ba < 0.0 {
@@ -149,7 +149,7 @@ impl PrimitiveRayCast3d for ConicalFrustum {
                         (ob + ray.direction * distance).length_squared();
                     if distance_at_bottom_squared < radius_bottom_squared {
                         // The ray hit the bottom of the frustum.
-                        let normal = Dir3::new_unchecked(ba / self.height);
+                        let normal = Dir3::new(ba / self.height).ok()?;
                         return Some(RayHit3d::new(distance, normal));
                     }
                 }

@@ -60,7 +60,7 @@ impl PrimitiveRayCast3d for Cuboid {
             // The ray hit the outside of the rectangle.
             // Note: We could also just have an if-else here, but it was measured to be ~15% slower.
             let normal_abs = Vec3::from(Vec3::splat(distance_near).cmple(t1));
-            let normal = Dir3::new_unchecked(-ray.direction.signum() * normal_abs);
+            let normal = Dir3::new(-ray.direction.signum() * normal_abs).ok()?;
             Some(RayHit3d::new(distance_near, normal))
         } else if solid {
             // The ray origin is inside of the solid rectangle.
@@ -69,7 +69,7 @@ impl PrimitiveRayCast3d for Cuboid {
             // The ray hit the inside of the hollow rectangle.
             // Note: We could also just have an if-else here, but it was measured to be ~15% slower.
             let normal_abs = Vec3::from(t2.cmple(Vec3::splat(distance_far)));
-            let normal = Dir3::new_unchecked(-ray.direction.signum() * normal_abs);
+            let normal = Dir3::new(-ray.direction.signum() * normal_abs).ok()?;
             Some(RayHit3d::new(distance_far, normal))
         } else {
             None

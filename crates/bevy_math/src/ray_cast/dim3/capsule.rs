@@ -56,11 +56,12 @@ impl PrimitiveRayCast3d for Capsule3d {
                 // The ray hit the side of the rectangle.
                 let point = ray.get_point(cylinder_distance);
                 let radius_recip = self.radius.recip();
-                let normal = Dir3::new_unchecked(Vec3::new(
+                let normal = Dir3::new(Vec3::new(
                     ops::copysign(point.x, -ray.direction.x) * radius_recip,
                     0.0,
                     ops::copysign(point.z, -ray.direction.z) * radius_recip,
-                ));
+                ))
+                .ok()?;
                 return Some(RayHit3d::new(cylinder_distance, normal));
             }
 
@@ -104,11 +105,11 @@ impl PrimitiveRayCast3d for Capsule3d {
 
             if t2 > 0.0 && t2 <= max_distance {
                 // The ray origin is outside of the hemisphere that was hit.
-                let dir = if is_origin_inside {
-                    Dir3::new_unchecked(-offset_ray.get_point(t2) / self.radius)
-                } else {
-                    Dir3::new_unchecked(offset_ray.get_point(t2) / self.radius)
-                };
+                let dir = Dir3::new(
+                    if is_origin_inside { -1.0 } else { 1.0 } * offset_ray.get_point(t2)
+                        / self.radius,
+                )
+                .ok()?;
                 return Some(RayHit3d::new(t2, dir));
             }
 
@@ -120,7 +121,7 @@ impl PrimitiveRayCast3d for Capsule3d {
                 return None;
             }
 
-            let dir = Dir3::new_unchecked(-offset_ray.get_point(t1) / self.radius);
+            let dir = Dir3::new(-offset_ray.get_point(t1) / self.radius).ok()?;
             return Some(RayHit3d::new(t1, dir));
         }
         None

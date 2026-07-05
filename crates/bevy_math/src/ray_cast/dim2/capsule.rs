@@ -55,7 +55,7 @@ impl PrimitiveRayCast2d for Capsule2d {
                 }
 
                 // The ray hit the side of the rectangle.
-                let normal = Dir2::new_unchecked(Vec2::new(-ray.direction.x.signum(), 0.0));
+                let normal = Dir2::new(Vec2::new(-ray.direction.x.signum(), 0.0)).ok()?;
                 return Some(RayHit2d::new(t, normal));
             }
 
@@ -99,11 +99,11 @@ impl PrimitiveRayCast2d for Capsule2d {
 
             if t2 > 0.0 && t2 <= max_distance {
                 // The ray origin is outside of the hemisphere that was hit.
-                let dir = if is_origin_inside {
-                    Dir2::new_unchecked(-offset_ray.get_point(t2) / self.radius)
-                } else {
-                    Dir2::new_unchecked(offset_ray.get_point(t2) / self.radius)
-                };
+                let dir = Dir2::new(
+                    if is_origin_inside { -1.0 } else { 1.0 } * offset_ray.get_point(t2)
+                        / self.radius,
+                )
+                .ok()?;
                 return Some(RayHit2d::new(t2, dir));
             }
 
@@ -115,7 +115,7 @@ impl PrimitiveRayCast2d for Capsule2d {
                 return None;
             }
 
-            let dir = Dir2::new_unchecked(-offset_ray.get_point(t1) / self.radius);
+            let dir = Dir2::new(-offset_ray.get_point(t1) / self.radius).ok()?;
             return Some(RayHit2d::new(t1, dir));
         }
         None

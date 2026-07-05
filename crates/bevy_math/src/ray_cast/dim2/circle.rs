@@ -16,11 +16,8 @@ impl PrimitiveRayCast2d for Circle {
                 Some(RayHit2d::new(0.0, -ray.direction))
             } else if distance <= max_distance {
                 let point = ray.get_point(distance);
-                let normal = if is_inside {
-                    Dir2::new_unchecked(-point / self.radius)
-                } else {
-                    Dir2::new_unchecked(point / self.radius)
-                };
+                let normal =
+                    Dir2::new(if is_inside { -1.0 } else { 1.0 } * point / self.radius).ok()?;
                 Some(RayHit2d::new(distance, normal))
             } else {
                 None

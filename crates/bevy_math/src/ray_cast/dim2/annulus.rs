@@ -23,7 +23,7 @@ impl PrimitiveRayCast2d for Annulus {
 
             if t < max_distance {
                 let intersection = ray.get_point(t);
-                let direction = Dir2::new_unchecked(-intersection / self.inner_circle.radius);
+                let direction = Dir2::new(-intersection / self.inner_circle.radius).ok()?;
                 return Some(RayHit2d::new(t, direction));
             }
         } else if length_squared < self.outer_circle.radius.squared() {
