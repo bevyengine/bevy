@@ -1,6 +1,6 @@
 use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
-    ErasedAssetIndex, ReflectHandle, UntypedAssetId,
+    Assets, ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
@@ -350,7 +350,9 @@ impl<T: Asset> Template for HandleTemplate<T> {
                     AssetOrHandle::Value(value) => {
                         // This unwrap is ok because AssetOrHandle::Value will always either contain a Some Value
                         // when it is in this state (AssetOrHandle is private).
-                        let handle = context.resource::<AssetServer>().add(value.take().unwrap());
+                        let handle = context
+                            .resource_mut::<Assets<T>>()
+                            .add(value.take().unwrap());
                         *value_or_handle = AssetOrHandle::Handle(handle.clone());
                         handle
                     }
