@@ -27,8 +27,8 @@ impl PrimitiveRayCast2d for Capsule2d {
             let is_inside_rect_horizontal = c < 0.0;
             let is_inside_rect_vertical = ops::abs(ray.origin.y) < self.half_length;
             let intersects_hemisphere = is_inside_rect_horizontal && {
-                // The ray origin intersects one of the hemicircles if the distance
-                // between the ray origin and hemicircle center is negative.
+                // The ray origin intersects one of the semicircles if the distance
+                // between the ray origin and semicircle center is negative.
                 Vec2::new(ray.origin.x, self.half_length - ops::abs(ray.origin.y)).length_squared()
                     < radius_squared
             };
@@ -59,10 +59,10 @@ impl PrimitiveRayCast2d for Capsule2d {
                 return Some(RayHit2d::new(t, normal));
             }
 
-            // Next, we check the hemicircles for intersections.
-            // It's enough to only check one hemicircle and just take the side into account.
+            // Next, we check the semicircles for intersections.
+            // It's enough to only check one semicircle and just take the side into account.
 
-            // Offset between the ray origin and the center of the hit hemicircle.
+            // Offset between the ray origin and the center of the hit semicircle.
             let offset_ray = Ray2d {
                 origin: if y <= 0.0 {
                     oa
@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(hit, Some(RayHit2d::new(0.0, Dir2::NEG_X)));
 
         // Ray origin is inside of the hollow capsule.
-        // Test three cases: inside the rectangle, inside the top hemicircle, and inside the bottom hemicircle.
+        // Test three cases: inside the rectangle, inside the top semicircle, and inside the bottom semicircle.
 
         // Inside the rectangle.
         let ray = Ray2d::new(Vec2::ZERO, Dir2::X);
@@ -162,7 +162,7 @@ mod tests {
         let hit = capsule.local_ray_cast(ray, f32::MAX, false);
         assert_eq!(hit, Some(RayHit2d::new(2.0, Dir2::NEG_Y)));
 
-        // Inside the top hemicircle.
+        // Inside the top semicircle.
         let ray = Ray2d::new(Vec2::new(0.0, 1.0), Dir2::NORTH_EAST);
         let hit = capsule.local_ray_cast(ray, f32::MAX, false).unwrap();
         assert_eq!(hit.distance, 1.0);
@@ -172,7 +172,7 @@ mod tests {
         let hit = capsule.local_ray_cast(ray, f32::MAX, false);
         assert_eq!(hit, Some(RayHit2d::new(3.0, Dir2::Y)));
 
-        // Inside the bottom hemicircle.
+        // Inside the bottom semicircle.
         let ray = Ray2d::new(Vec2::new(0.0, -1.0), Dir2::SOUTH_WEST);
         let hit = capsule.local_ray_cast(ray, f32::MAX, false).unwrap();
         assert_eq!(hit.distance, 1.0);
