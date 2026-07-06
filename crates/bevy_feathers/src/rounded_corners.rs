@@ -1,6 +1,6 @@
 //! Mechanism for specifying which corners of a widget are rounded, used for segmented buttons
 //! and control groups.
-use bevy_ui::{px, BorderRadius, Val, Val2};
+use bevy_ui::{px, BorderRadius, Val2};
 
 /// Allows specifying which corners are rounded and which are sharp. All rounded corners
 /// have the same radius. Not all combinations are supported, only the ones that make
