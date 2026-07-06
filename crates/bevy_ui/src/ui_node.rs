@@ -229,8 +229,9 @@ impl ComputedNode {
         };
         let r = if local_point.y < 0. { top } else { bottom };
         let corner_to_point = local_point.abs() - 0.5 * self.size;
-        if !(corner_to_point.max_element() < 0.) || r.cmple(Vec2::ZERO).any() {
-            return corner_to_point.max_element() < 0.;
+        let inside_straight_edge = corner_to_point.max_element() < 0.;
+        if !inside_straight_edge || r.cmple(Vec2::ZERO).any() {
+            return inside_straight_edge;
         }
         let q = corner_to_point + r;
         q.cmple(Vec2::ZERO).any() || (q / r).length_squared() < 1.
