@@ -1161,7 +1161,7 @@ pub fn extract_ui_camera_view(
             cached_ui_view_data.insert(
                 main_entity,
                 CachedUiViewData {
-                    extracted_view_entity: entity_commands.id(),
+                    extracted_view_entity: ui_camera_view,
                     retained_view_entity,
                 },
             );
