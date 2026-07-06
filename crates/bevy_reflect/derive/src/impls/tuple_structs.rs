@@ -106,7 +106,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
             #[inline]
             fn runtime_type(&self) -> #FQOption<#bevy_reflect_path::ty::Type> {
-                Some(#bevy_reflect_path::ty::Type::of::<Self>())
+                #FQOption::Some(#bevy_reflect_path::ty::Type::of::<Self>())
             }
 
             #[inline]

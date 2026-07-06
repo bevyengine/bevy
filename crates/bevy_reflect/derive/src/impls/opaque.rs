@@ -94,7 +94,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
             #[inline]
             fn runtime_type(&self) -> #FQOption<#bevy_reflect_path::ty::Type> {
-                Some(#bevy_reflect_path::ty::Type::of::<Self>())
+                #FQOption::Some(#bevy_reflect_path::ty::Type::of::<Self>())
             }
 
             #[inline]
