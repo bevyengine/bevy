@@ -23,3 +23,6 @@ BorderRadius {
     pub bottom_right: Val2::all(zero()),
     pub bottom_left: Val2::all(vh(5.)),
 }
+```
+
+The arguments of the corner specific (`BorderRadius::top_left`, ..) and edge specific (`BorderRadius::left`, ..) constructor functions are now `Val2`s. As are the arguments for the corresponding update methods (`with_top_left`, `with_top`, ..). 
