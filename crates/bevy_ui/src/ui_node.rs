@@ -2550,6 +2550,17 @@ impl BorderRadius {
     }
 
     #[inline]
+    /// Set all four corners to the same elliptical radii.
+    pub const fn all_elliptical(radii: Val2) -> Self {
+        Self {
+            top_left: radii,
+            top_right: radii,
+            bottom_left: radii,
+            bottom_right: radii,
+        }
+    }
+
+    #[inline]
     pub const fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
         Self {
             top_left: Val2::all(top_left),
@@ -2602,41 +2613,41 @@ impl BorderRadius {
     }
 
     #[inline]
-    /// Sets the radius for the top left corner.
+    /// Sets the radii for the top left corner.
     /// Remaining corners will be right-angled.
-    pub const fn top_left(radius: Val2) -> Self {
+    pub const fn top_left(radii: Val2) -> Self {
         Self {
-            top_left: radius,
+            top_left: radii,
             ..Self::DEFAULT
         }
     }
 
     #[inline]
-    /// Sets the radius for the top right corner.
+    /// Sets the radii for the top right corner.
     /// Remaining corners will be right-angled.
-    pub const fn top_right(radius: Val2) -> Self {
+    pub const fn top_right(radii: Val2) -> Self {
         Self {
-            top_right: radius,
+            top_right: radii,
             ..Self::DEFAULT
         }
     }
 
     #[inline]
-    /// Sets the radius for the bottom right corner.
+    /// Sets the radii for the bottom right corner.
     /// Remaining corners will be right-angled.
-    pub const fn bottom_right(radius: Val2) -> Self {
+    pub const fn bottom_right(radii: Val2) -> Self {
         Self {
-            bottom_right: radius,
+            bottom_right: radii,
             ..Self::DEFAULT
         }
     }
 
     #[inline]
-    /// Sets the radius for the bottom left corner.
+    /// Sets the radii for the bottom left corner.
     /// Remaining corners will be right-angled.
-    pub const fn bottom_left(radius: Val2) -> Self {
+    pub const fn bottom_left(radii: Val2) -> Self {
         Self {
-            bottom_left: radius,
+            bottom_left: radii,
             ..Self::DEFAULT
         }
     }
@@ -2644,10 +2655,10 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top left and bottom left corners.
     /// Remaining corners will be right-angled.
-    pub const fn left(radius: Val2) -> Self {
+    pub const fn left(radii: Val2) -> Self {
         Self {
-            top_left: radius,
-            bottom_left: radius,
+            top_left: radii,
+            bottom_left: radii,
             ..Self::DEFAULT
         }
     }
@@ -2655,10 +2666,10 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top right and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub const fn right(radius: Val2) -> Self {
+    pub const fn right(radii: Val2) -> Self {
         Self {
-            top_right: radius,
-            bottom_right: radius,
+            top_right: radii,
+            bottom_right: radii,
             ..Self::DEFAULT
         }
     }
