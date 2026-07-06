@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_ui::{percent, px, BackgroundColor, BorderRadius, Node, PositionType, Val2, ZIndex};
+use bevy_ui::{percent, px, BackgroundColor, BorderRadius, Node, PositionType, ZIndex};
 use bevy_ui_render::ui_material::MaterialNode;
 
 use crate::{
@@ -61,7 +61,7 @@ impl FeathersColorSwatch {
                     top: px(0),
                     bottom: px(0),
                     right: px(0),
-                    border_radius: BorderRadius::right(Val2::all(px(5))),
+                    border_radius: BorderRadius::right(px(5)),
                 }
                 ColorSwatchFg
                 BackgroundColor({palette::ACCENT})
