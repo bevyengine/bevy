@@ -67,6 +67,23 @@ fn vertex(
 @group(1) @binding(0) var sprite_texture: texture_2d<f32>;
 @group(1) @binding(1) var sprite_sampler: sampler;
 
+
+// Returns the radius of the corner closest to the given point.
+// corner_radii_x/y are ordered: x: top left, y: top right, z: bottom right, w: bottom left.
+fn select_corner_radius(
+    point: vec2<f32>,
+    corner_radii_x: vec4<f32>,
+    corner_radii_y: vec4<f32>,
+) -> vec2<f32> {
+    // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
+    // Else select top left (x) and top right corner radius (y).
+    let rxs = select(corner_radii_x.xy, corner_radii_x.wz, 0.0 < point.y);
+    let rys = select(corner_radii_y.xy, corner_radii_y.wz, 0.0 < point.y);
+    // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
+    // select statement would return the incorrect value for the bottom pair.
+    return vec2(select(rxs.x, rxs.y, 0.0 < point.x), select(rys.x, rys.y, 0.0 < point.x));
+}
+
 // The returned value is the shortest distance from the given point to the boundary of the rounded 
 // box.
 // 
@@ -86,13 +103,7 @@ fn sd_rounded_box(
     corner_radii_x: vec4<f32>,
     corner_radii_y: vec4<f32>,
 ) -> f32 {
-    // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
-    // Else select top left (x) and top right corner radius (y).
-    let rxs = select(corner_radii_x.xy, corner_radii_x.wz, 0.0 < point.y);
-    let rys = select(corner_radii_y.xy, corner_radii_y.wz, 0.0 < point.y);
-    // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
-    // select statement would return the incorrect value for the bottom pair.
-    let radius = vec2(select(rxs.x, rxs.y, 0.0 < point.x), select(rys.x, rys.y, 0.0 < point.x));
+    let radius = select_corner_radius(point, corner_radii_x, corner_radii_y);
     // Vector from the corner closest to the point, to the point.
     let corner_to_point = abs(point) - 0.5 * size;
     let straight_distance = max(corner_to_point.x, corner_to_point.y);

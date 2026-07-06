@@ -1,5 +1,8 @@
 #import bevy_render::view::View;
 #import bevy_render::globals::Globals;
+#import bevy_ui::ui_node::{
+    select_corner_radius
+}
 
 const PI: f32 = 3.14159265358979323846;
 const SAMPLES: i32 = #SHADOW_SAMPLES;
@@ -30,14 +33,6 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
     return s - s / (result * result);
 }
 
-// returns the closest corner radius based on the signs of the components of p
-fn selectCorner(p: vec2<f32>, ch: vec4<f32>, cv: vec4<f32>) -> vec2<f32> {
-    return vec2(
-        mix(mix(ch.x, ch.y, step(0., p.x)), mix(ch.w, ch.z, step(0., p.x)), step(0., p.y)),
-        mix(mix(cv.x, cv.y, step(0., p.x)), mix(cv.w, cv.z, step(0., p.x)), step(0., p.y)),
-    );
-}
-
 fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {    
     let d = min(half_size.y - radius.y - abs(y), 0.);
     let c = half_size.x - radius.x + radius.x * sqrt(max(0., 1. - d * d / (radius.y * radius.y)));
@@ -64,7 +59,7 @@ fn roundedBoxShadow(
     var y = start + step * 0.5;
     var value: f32 = 0.0;
     for (var i = 0; i < SAMPLES; i++) {
-        let corner = selectCorner(p, corners_x, corners_y);
+        let corner = select_corner_radius(p, corners_x, corners_y);
         value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;
     }
