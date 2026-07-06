@@ -28,7 +28,7 @@ mod atmosphere;
 mod cluster;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
-mod gltf;
+pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
 use bevy_render::{
     sync_component::SyncComponent,
