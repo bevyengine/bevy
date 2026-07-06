@@ -25,4 +25,4 @@ BorderRadius {
 }
 ```
 
-The arguments of the corner specific (`BorderRadius::top_left`, ..) and edge specific (`BorderRadius::left`, ..) constructor functions are now `Val2`s. As are the arguments for the corresponding update methods (`with_top_left`, `with_top`, ..). 
+The arguments of the corner specific (`BorderRadius::top_left`, ..) and edge specific (`BorderRadius::left`, ..) constructor functions are now `Val2`s. As are the arguments for the corresponding update methods (`with_top_left`, `with_top`, ..).
