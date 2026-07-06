@@ -857,7 +857,7 @@ mod elliptical_border_radius {
                     padding: px(30).all(),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.12, 0.12, 0.14)),
+                BackgroundColor(DARK_GRAY.into()),
                 DespawnOnExit(super::Scene::EllipticalBorderRadius),
             ))
             .with_children(|builder| {
@@ -891,6 +891,10 @@ mod elliptical_border_radius {
                         offset: px(8),
                         color: WHITE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -918,6 +922,10 @@ mod elliptical_border_radius {
                         offset: px(10),
                         color: LIME.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -940,6 +948,10 @@ mod elliptical_border_radius {
                         offset: px(6),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
                 builder.spawn((
                     Node {
@@ -961,6 +973,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -978,6 +994,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1001,6 +1021,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1023,6 +1047,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1046,6 +1074,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1069,6 +1101,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1092,6 +1128,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1114,6 +1154,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
 
                 builder.spawn((
@@ -1137,6 +1181,10 @@ mod elliptical_border_radius {
                         offset: px(5),
                         color: SKY_BLUE.into(),
                     },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
                 ));
             });
     }
