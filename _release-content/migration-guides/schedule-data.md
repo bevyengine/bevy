@@ -3,7 +3,7 @@ title: "Expose system accesses and filters in BRP `schedule.graph`"
 pull_requests: [24743]
 ---
 
-`bevy_dev_tools::SystemData` added fields `combined_access` and `filtered_accesses`
+`bevy_dev_tools::SystemData` added fields `filtered_accesses`
 
 For example,
 
@@ -17,7 +17,7 @@ pub fn prepare_atmosphere_probe_components(
 
 Generates the below from `schedule.graph` in BRP.
 
-Note the values in `read_and_writes`, etc., are indexes into `components` array.
+Note the values in `reads`, etc., are indexes into `components` array.
 
 ```json
 {
@@ -32,26 +32,14 @@ Note the values in `read_and_writes`, etc., are indexes into `components` array.
           "apply_deferred": false,
           "deferred": true,
           "exclusive": false,
-          "combined_access": {
-            "archetypal": [],
-            "read_and_writes": [
-              2, // Assets<Image>
-              3 // AtmosphereEnvironmentMapLight
-            ],
-            "read_and_writes_inverted": false,
-            "writes": [
-              2 // Assets<Image>
-            ],
-            "writes_inverted": false
-          },
           "filtered_accesses": [
             {
               "access": {
                 "archetypal": [],
-                "read_and_writes": [
+                "reads": [
                   3 // AtmosphereEnvironmentMapLight
                 ],
-                "read_and_writes_inverted": false,
+                "reads_inverted": false,
                 "writes": [],
                 "writes_inverted": false
               },
@@ -65,18 +53,15 @@ Note the values in `read_and_writes`, etc., are indexes into `components` array.
                     6 // AtmosphereEnvironmentMap
                   ]
                 }
-              ],
-              "required": [
-                3 // AtmosphereEnvironmentMapLight
               ]
             },
             {
               "access": {
                 "archetypal": [],
-                "read_and_writes": [
+                "reads": [
                   2 // Assets<Image>
                 ],
-                "read_and_writes_inverted": false,
+                "reads_inverted": false,
                 "writes": [
                   2 // Assets<Image>
                 ],
@@ -90,9 +75,6 @@ Note the values in `read_and_writes`, etc., are indexes into `components` array.
                   ],
                   "without": []
                 }
-              ],
-              "required": [
-                2 // Assets<Image>
               ]
             }
           ]
