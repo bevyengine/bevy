@@ -45,6 +45,7 @@ pub enum EntityCursor {
 /// This is meant for cases like loading where you don't want the cursor to imply you
 /// can interact with something.
 #[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
+#[reflect(Resource, Default, Clone, Debug)]
 pub struct OverrideCursor(pub Option<EntityCursor>);
 
 impl EntityCursor {

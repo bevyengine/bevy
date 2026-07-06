@@ -9,7 +9,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// Rotation is measured counter-clockwise as elsewhere in Bevy.
 ///
-/// The representation is a u8 value where the bits (from most significant to least
+/// The representation is a `u8` value where the bits (from most significant to least
 /// significant), represent:
 ///
 /// - Bit 2: Mirroring the tile horizontally (left and right sides are swapped)

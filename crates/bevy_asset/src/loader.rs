@@ -342,22 +342,31 @@ impl<A: Asset> AssetContainer for A {
 /// An error that occurs when attempting an async load using [`NestedLoadBuilder`].
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
+    /// The asset path was empty.
     #[error("Attempted to load an asset with an empty path \"{0}\"")]
     EmptyPath(AssetPath<'static>),
+    /// Loading an asset path with a subasset at the end is unsupported. See issue [#18291].
+    ///
+    /// [#18291]: https://github.com/bevyengine/bevy/issues/18291
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
+    /// A general [`AssetLoadError`] for an asset dependency.
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
+        /// Which dependency failed.
         dependency: AssetPath<'static>,
-        error: AssetLoadError,
+        /// The original error for that dependency.
+        error: Box<AssetLoadError>,
     },
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
+    /// Failed to deserialize the asset metadata.
     #[error("Failed to deserialize asset meta: {0:?}")]
     DeserializeSettings(#[from] SpannedError),
+    /// Failed to deserialize the minimal asset metadata.
     #[error("Failed to deserialize minimal asset meta: {0:?}")]
     DeserializeMinimal(SpannedError),
 }
@@ -660,7 +669,7 @@ impl<'a> LoadContext<'a> {
             .await
             .map_err(|error| LoadDirectError::LoadError {
                 dependency: path.clone(),
-                error,
+                error: Box::new(error),
             })?;
         let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);

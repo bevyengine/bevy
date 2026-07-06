@@ -91,7 +91,7 @@ use core::{
 /// ```
 /// [`Event`]: crate::event::Event
 /// [`Observer`]: crate::observer::Observer
-/// [`local<MessageCursor>`]: crate::system::Local
+/// [`Local<MessageCursor>`]: crate::system::Local
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Message`",
     label = "invalid `Message`",

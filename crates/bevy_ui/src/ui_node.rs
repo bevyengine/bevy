@@ -17,66 +17,60 @@ use smallvec::SmallVec;
 use thiserror::Error;
 use tracing::warn;
 
-/// Provides the computed size and layout properties of the node.
+/// Provides the computed size and layout properties of a UI [`Node`].
 ///
-/// Fields in this struct are public but should not be modified under most circumstances.
+/// All of the fields are automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`)
+/// during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
+///
+/// The fields are measured in physical pixels.
+/// You can multiply by the `inverse_scale_factor` field to convert back to logical pixels.
+///
+/// Fields in this struct are public but should only rarely be directly modified.
 /// For example, in a scrollbar you may want to derive the handle's size from the proportion of
 /// scrollable content in-view. You can directly modify `ComputedNode` after layout to set the
-/// handle size without any delays.
+/// handle size without a frame delay.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedStackIndex)]
 pub struct ComputedNode {
     /// The size of the node as width and height in physical pixels.
-    ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub size: Vec2,
-    /// Size of this node's content.
-    ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Size of this node's content in physical pixels.
     pub content_size: Vec2,
     /// Space allocated for scrollbars.
-    ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub scrollbar_size: Vec2,
     /// Resolved offset of scrolled content
-    ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub scroll_position: Vec2,
-    /// The width of this node's outline.
-    /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
-    /// Outline updates bypass change detection.
+    /// The width of this node's outline in physical pixels.
+    /// If this value is negative or zero then no outline will be rendered.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
-    /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
-    ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
-    /// Border updates bypass change detection.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
-    /// Border radius updates bypass change detection.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
-    /// Padding updates bypass change detection.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
-    ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub inverse_scale_factor: f32,
 }
 
@@ -113,7 +107,7 @@ impl ComputedNode {
     }
 
     /// Returns the thickness of the UI node's outline in physical pixels.
-    /// If this value is negative or `0.` then no outline will be rendered.
+    /// If this value is negative or zero then no outline will be rendered.
     ///
     /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
@@ -487,7 +481,8 @@ impl From<BVec2> for IgnoreScroll {
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
+    reflect(Serialize, Deserialize),
+    serde(default)
 )]
 pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
@@ -2322,7 +2317,7 @@ impl Default for BorderColor {
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
-/// To add an [`Outline`] to a ui node you can spawn a `(Node, Outline)` tuple bundle:
+/// To add an [`Outline`] to a UI node you can spawn a `(Node, Outline)` tuple bundle:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
@@ -2413,7 +2408,8 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct OverrideClip;
 
 #[expect(
@@ -2974,7 +2970,8 @@ impl UiTargetCamera {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
@@ -3064,6 +3061,15 @@ impl ComputedUiRenderTargetInfo {
         self.physical_size.as_vec2() / self.scale_factor
     }
 }
+
+/// A UI entity with a `FixedNode` component is treated as a root node, even when it has a UI node parent.
+/// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
+///
+/// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+#[require(Node, OverrideClip)]
+pub struct FixedNode;
 
 #[cfg(test)]
 mod tests {

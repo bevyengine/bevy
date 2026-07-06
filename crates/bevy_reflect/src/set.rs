@@ -1,16 +1,16 @@
 //! A trait used to power [set-like] operations via reflection.
 //!
 //! [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, hash_error, type_info::impl_type_methods, ApplyError,
-    Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    generics::impl_generic_info_methods, hash_error, ty::impl_type_methods, ApplyError, Generics,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].

@@ -116,6 +116,14 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 pub struct ScreenSpaceAmbientOcclusion {
     /// Quality of the SSAO effect.
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
+    /// Maximum sample distance, in view-space units.
+    ///
+    /// Use larger values for broader occlusion. This can increase haloing and noise.
+    /// This value must be greater than `0.0`.
+    /// Defaults to `0.7285`.
+    ///
+    /// To disable SSAO, remove [`ScreenSpaceAmbientOcclusion`] from the camera instead.
+    pub radius: f32,
     /// A constant estimated thickness of objects.
     ///
     /// This value is used to decide how far behind an object a ray of light needs to be in order
@@ -123,13 +131,22 @@ pub struct ScreenSpaceAmbientOcclusion {
     pub constant_object_thickness: f32,
 }
 
+const DEFAULT_SSAO_RADIUS: f32 = 0.5 * 1.457;
+
 impl Default for ScreenSpaceAmbientOcclusion {
     fn default() -> Self {
         Self {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::default(),
+            radius: DEFAULT_SSAO_RADIUS,
             constant_object_thickness: 0.25,
         }
     }
+}
+
+#[derive(Clone, Copy, ShaderType)]
+struct SsaoSettingsUniform {
+    radius: f32,
+    constant_object_thickness: f32,
 }
 
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
@@ -369,7 +386,7 @@ impl FromWorld for SsaoPipelines {
                     texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                     uniform_buffer::<GlobalsUniform>(false),
-                    uniform_buffer::<f32>(false),
+                    uniform_buffer::<SsaoSettingsUniform>(false),
                 ),
             ),
         );
@@ -447,9 +464,9 @@ impl SpecializedComputePipeline for SsaoPipelines {
         let (slice_count, samples_per_slice_side) = key.quality_level.sample_counts();
 
         let mut shader_defs = vec![
-            ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
+            ShaderDefVal::Int("SLICE_COUNT".into(), slice_count as i32),
             ShaderDefVal::Int(
-                "SAMPLES_PER_SLICE_SIDE".to_string(),
+                "SAMPLES_PER_SLICE_SIDE".into(),
                 samples_per_slice_side as i32,
             ),
         ];
@@ -509,7 +526,7 @@ pub struct ScreenSpaceAmbientOcclusionResources {
     ssao_noisy_texture: CachedTexture, // Pre-spatially denoised texture
     pub screen_space_ambient_occlusion_texture: CachedTexture, // Spatially denoised texture
     depth_differences_texture: CachedTexture,
-    thickness_buffer: Buffer,
+    settings_buffer: Buffer,
 }
 
 fn prepare_ssao_textures(
@@ -581,9 +598,17 @@ fn prepare_ssao_textures(
             },
         );
 
-        let thickness_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("thickness_buffer"),
-            contents: &ssao_settings.constant_object_thickness.to_le_bytes(),
+        let mut settings_uniform_buffer = encase::UniformBuffer::new(Vec::new());
+        settings_uniform_buffer
+            .write(&SsaoSettingsUniform {
+                radius: ssao_settings.radius,
+                constant_object_thickness: ssao_settings.constant_object_thickness,
+            })
+            .unwrap();
+
+        let settings_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("ssao_settings_buffer"),
+            contents: settings_uniform_buffer.as_ref(),
             usage: BufferUsages::UNIFORM,
         });
 
@@ -594,7 +619,7 @@ fn prepare_ssao_textures(
                 ssao_noisy_texture,
                 screen_space_ambient_occlusion_texture: ssao_texture,
                 depth_differences_texture,
-                thickness_buffer,
+                settings_buffer,
             });
     }
 }
@@ -704,7 +729,7 @@ fn prepare_ssao_bind_groups(
                 &ssao_resources.ssao_noisy_texture.default_view,
                 &ssao_resources.depth_differences_texture.default_view,
                 globals_uniforms.clone(),
-                ssao_resources.thickness_buffer.as_entire_binding(),
+                ssao_resources.settings_buffer.as_entire_binding(),
             )),
         );
 

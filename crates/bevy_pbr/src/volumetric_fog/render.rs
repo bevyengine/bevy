@@ -138,7 +138,7 @@ pub struct VolumetricFogUniform {
     /// The vector takes the form V = (N, -N⋅Q), where N is the normal of the
     /// plane and Q is any point in it, in view space. The equation of the plane
     /// for homogeneous point P = (Px, Py, Pz, Pw) is V⋅P = 0.
-    far_planes: [Vec4; 3],
+    far_planes: [Vec4; 6],
 
     fog_color: Vec3,
     light_tint: Vec3,
@@ -695,8 +695,8 @@ pub fn prepare_view_depth_textures_for_volumetric_fog(
     }
 }
 
-fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
-    let (mut far_planes, mut next_index) = ([Vec4::ZERO; 3], 0);
+fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 6] {
+    let (mut far_planes, mut next_index) = ([Vec4::ZERO; 6], 0);
 
     for &local_normal in &[
         Vec3A::X,
@@ -709,18 +709,20 @@ fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
         let view_normal = view_from_local
             .transform_vector3a(local_normal)
             .normalize_or_zero();
-        if view_normal.z <= 0.0 {
-            continue;
-        }
 
         let view_position = view_from_local.transform_point3a(-local_normal * 0.5);
         let plane_coords = view_normal.extend(-view_normal.dot(view_position));
 
-        far_planes[next_index] = plane_coords;
-        next_index += 1;
-        if next_index == far_planes.len() {
+        // Filter planes that are facing away from the camera.
+        if plane_coords.w <= 0.0 {
+            // When planes are filtered here, the `far_planes` array will be padded with
+            // one or more "zero" planes: (0.0, 0.0, 0.0, 0.0), these planes will be
+            // correctly ignored by the shader in the plane sorting step.
             continue;
         }
+
+        far_planes[next_index] = plane_coords;
+        next_index += 1;
     }
 
     far_planes

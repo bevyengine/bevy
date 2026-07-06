@@ -15,7 +15,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
     let mut families: Vec<String> = font_system
-        .0
+        .context
         .collection
         .family_names()
         .map(ToOwned::to_owned)

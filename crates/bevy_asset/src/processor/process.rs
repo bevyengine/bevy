@@ -121,20 +121,26 @@ pub enum ProcessError {
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
     #[error(transparent)]
     MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
+    /// No processor with that name is registered..
     #[error("The processor '{0}' does not exist")]
     #[from(ignore)]
     MissingProcessor(String),
+    /// The given short name is ambiguous between several processors.
     #[error("The processor '{processor_short_name}' is ambiguous between several processors: {ambiguous_processor_names:?}")]
     AmbiguousProcessor {
+        /// The given string for the processor name.
         processor_short_name: String,
+        /// The list of processors that might match it.
         ambiguous_processor_names: Vec<&'static str>,
     },
+    /// Encountered an [`AssetReaderError`] for this path.
     #[error("Encountered an AssetReader error for '{path}': {err}")]
     #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
+    /// Encountered an [`AssetWriterError`] for this path.
     #[error("Encountered an AssetWriter error for '{path}': {err}")]
     #[from(ignore)]
     AssetWriterError {
@@ -147,6 +153,7 @@ pub enum ProcessError {
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     #[error(transparent)]
     MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
+    /// Encountered an [`AssetReaderError`] when reading the asset metadata for this path.
     #[error("Failed to read asset metadata for {path}: {err}")]
     #[from(ignore)]
     ReadAssetMetaError {
@@ -157,14 +164,19 @@ pub enum ProcessError {
     DeserializeMetaError(#[from] DeserializeMetaError),
     #[error(transparent)]
     AssetLoadError(#[from] AssetLoadError),
+    /// The wrong meta type was passed into a processor.
+    /// This is probably an internal implementation error.
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
+    /// Encountered an error while saving the asset.
     #[error("Encountered an error while saving the asset: {0}")]
     #[from(ignore)]
     AssetSaveError(BevyError),
+    /// Encountered an error while transforming the asset.
     #[error("Encountered an error while transforming the asset: {0}")]
     #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    /// Assets without extensions are not supported.
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }

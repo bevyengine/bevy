@@ -648,6 +648,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
         Option<&AtmosphereTextures>,
+        Option<&AtmosphereBuffer>,
         &Tonemapping,
         (
             Option<&RenderViewLightProbes<EnvironmentMapLight>>,
@@ -678,18 +679,9 @@ pub fn prepare_mesh_view_bind_groups(
         Res<ContactShadowsBuffer>,
         Res<OitBuffers>,
     ),
-    (
-        decals_buffer,
-        render_decals,
-        atmosphere_buffer,
-        atmosphere_sampler,
-        blue_noise,
-        area_light_luts,
-        dfg_lut,
-    ): (
+    (decals_buffer, render_decals, atmosphere_sampler, blue_noise, area_light_luts, dfg_lut): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
-        Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
         Res<AreaLightLuts>,
@@ -729,6 +721,7 @@ pub fn prepare_mesh_view_bind_groups(
             prepass_textures,
             transmission_texture,
             atmosphere_textures,
+            atmosphere_buffer,
             tonemapping,
             (render_view_environment_maps, render_view_irradiance_volumes),
             has_atmosphere,
@@ -826,7 +819,7 @@ pub fn prepare_mesh_view_bind_groups(
 
             if has_atmosphere
                 && let Some(atmosphere_textures) = atmosphere_textures
-                && let Some(atmosphere_buffer) = atmosphere_buffer.as_ref()
+                && let Some(atmosphere_buffer) = atmosphere_buffer
                 && let Some(atmosphere_sampler) = atmosphere_sampler.as_ref()
                 && let Some(atmosphere_buffer_binding) = atmosphere_buffer.buffer.binding()
             {

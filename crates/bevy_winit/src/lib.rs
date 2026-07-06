@@ -21,7 +21,7 @@ use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
-use bevy_app::{App, Last, Plugin};
+use bevy_app::{App, Last, OnAppExitSystems, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::{CursorOptions, Window, WindowCreated};
 use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
@@ -62,12 +62,6 @@ thread_local! {
 /// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
-///
-/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
-/// in systems.
-///
-/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
@@ -138,7 +132,7 @@ impl Plugin for WinitPlugin {
                 (
                     changed_windows,
                     changed_cursor_options,
-                    despawn_windows.after(ExitSystems),
+                    despawn_windows.after(ExitSystems).after(OnAppExitSystems),
                     check_keyboard_focus_lost,
                 )
                     .chain(),

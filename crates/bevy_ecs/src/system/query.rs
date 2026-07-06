@@ -2822,16 +2822,31 @@ impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
+/// struct Hiding;
+///
+/// #[derive(Component)]
 /// struct Boss {
 ///    health: f32
 /// };
 ///
-/// fn hurt_boss(mut boss: Single<&mut Boss>) {
+/// #[derive(Component)]
+/// struct EnemySize {
+///    height: f32
+/// };
+///
+/// fn hurt_boss(mut boss: Single<&mut Boss, Without<Hiding>>) {
 ///    boss.health -= 4.0;
+/// }
+///
+/// fn hurt_and_shrink_boss(mut boss_and_size: Single<(&mut Boss, &mut EnemySize)>) {
+///    let (mut boss, mut size) = boss_and_size.into_inner();
+///    boss.health -= 4.0;
+///    size.height *= 0.5;
 /// }
 /// ```
 /// Note that because [`Single`] implements [`Deref`] and [`DerefMut`], methods and fields like `health` can be accessed directly.
 /// You can also access the underlying data manually, by calling `.deref`/`.deref_mut`, or by using the `*` operator.
+/// When mutable elements appear in [`Single`], use `.into_inner` to extract the tuple elements to mutate them.
 pub struct Single<'w, 's, D: IterQueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w, 's>,
     pub(crate) _filter: PhantomData<F>,

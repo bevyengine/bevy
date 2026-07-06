@@ -28,11 +28,14 @@ mod atmosphere;
 mod cluster;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
-mod gltf;
+pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
 use bevy_render::{
     sync_component::SyncComponent,
-    view::{RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities},
+    view::{
+        RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin,
+        RenderShadowMapVisibleEntities,
+    },
 };
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
@@ -386,6 +389,7 @@ impl Plugin for PbrPlugin {
                     extract_ambient_light_resource,
                     extract_ambient_light,
                     extract_shadow_filtering_method,
+                    extract_shadow_lod_origin,
                     late_sweep_material_instances,
                 ),
             )
@@ -406,6 +410,7 @@ impl Plugin for PbrPlugin {
             )
             .init_gpu_resource::<LightMeta>()
             .init_gpu_resource::<RenderMaterialBindings>()
+            .init_resource::<RenderShadowLodOrigin>()
             .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);

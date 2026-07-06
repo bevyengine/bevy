@@ -8,7 +8,7 @@
 #import bevy_pbr::pbr_deferred_types::unpack_unorm4x8_
 #import bevy_pbr::pbr_deferred_types::unpack_unorm3x4_plus_unorm_20_
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
-#import bevy_pbr::utils::octahedral_decode
+#import bevy_render::utils::octahedral_decode
 
 struct DebugBufferConfig {
     opacity: f32,

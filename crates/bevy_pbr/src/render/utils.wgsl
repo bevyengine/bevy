@@ -43,31 +43,6 @@ fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> 
     return (position - viewport.xy) / viewport.zw;
 }
 
-// https://jcgt.org/published/0003/02/01/paper.pdf
-
-// For encoding normals or unit direction vectors as octahedral coordinates.
-fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
-    var n = v / (abs(v.x) + abs(v.y) + abs(v.z));
-    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy > vec2f(0.0));
-    let n_xy = select(octahedral_wrap, n.xy, n.z >= 0.0);
-    return n_xy * 0.5 + 0.5;
-}
-
-// For decoding normals or unit direction vectors from octahedral coordinates.
-fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
-    let f = v * 2.0 - 1.0;
-    return octahedral_decode_signed(f);
-}
-
-// Like octahedral_decode, but for input in [-1, 1] instead of [0, 1].
-fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
-    var n = vec3(v.xy, 1.0 - abs(v.x) - abs(v.y));
-    let t = saturate(-n.z);
-    let w = select(vec2(t), vec2(-t), n.xy >= vec2(0.0));
-    n = vec3(n.xy + w, n.z);
-    return normalize(n);
-}
-
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
     let xy = pixel_coordinates + 5.588238 * f32(frame % 64u);

@@ -7,7 +7,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
+#import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf, F_AB}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
@@ -67,7 +67,9 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
-    let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material);
+    let NdotV = max(dot(surface.world_normal, wo), 0.0001);
+    let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
+    let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material, F_ab);
     radiance *= brdf * view.exposure;
 
     var pixel_color = textureLoad(view_output, global_id.xy);
@@ -107,9 +109,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 
         let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
+        let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
+        let F_ab = F_AB(ray_hit.material.perceptual_roughness, NdotV);
 
         // Add emissive contribution
-        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit);
+        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit, ray.t, NdotV);
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
@@ -140,8 +144,8 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         } else if !surface_perfect_mirror {
             // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
-            let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material);
-            let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
+            let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
+            let mis_weight = nee_mis_weight(direct_lighting.inverse_solid_angle_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
             radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
         }
 
@@ -153,7 +157,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-        throughput *= evaluate_brdf(wo, wi, N, ray_hit.material);
+        throughput *= evaluate_brdf(wo, wi, N, ray_hit.material, F_ab);
         if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
             throughput /= p_bounce;
         }
@@ -168,9 +172,9 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     return radiance;
 }
 
-fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull) -> f32 {
+fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, ray_distance: f32, NdotV: f32) -> f32 {
     if i != 0u {
-        let p_light = random_emissive_light_pdf(ray_hit);
+        let p_light = random_emissive_light_pdf(ray_hit, ray_distance, NdotV);
         return power_heuristic(p_bounce, p_light);
     } else {
         // The first bounce gets MIS weight 0.0 or 1.0 depending on if ReSTIR DI shaded using the specular lobe or not
@@ -229,7 +233,7 @@ fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mir
 fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
     let clip_position_t = view.unjittered_clip_from_world * vec4(world_position, 1.0);
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view.clip_from_world * vec4(previous_world_position, 1.0);
+    let previous_clip_position_t = previous_view.unjittered_clip_from_world * vec4(previous_world_position, 1.0);
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

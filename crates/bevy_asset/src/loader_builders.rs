@@ -4,8 +4,8 @@
 use crate::{
     io::Reader,
     meta::{loader_settings_meta_transform, MetaTransform, Settings},
-    Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
-    LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
+    Asset, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext, LoadDirectError,
+    LoadedAsset, LoadedUntypedAsset, RequestedHandleTypeMismatchError, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::{type_name, TypeId};
@@ -284,7 +284,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: error.into(),
+                        error: Box::new(error.into()),
                     })?
             } else {
                 self.load_context
@@ -293,7 +293,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: error.into(),
+                        error: Box::new(error.into()),
                     })?
             };
             let meta = loader.default_meta();
@@ -306,7 +306,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                 .await
                 .map_err(|error| LoadDirectError::LoadError {
                     dependency: path.clone(),
-                    error,
+                    error: Box::new(error),
                 })?;
             (meta, loader, ReaderRef::Boxed(reader))
         };
@@ -330,13 +330,6 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
 
     /// Same as [`Self::load_value_internal`], but with a generic to ensure the returned handle type
     /// is correct.
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        expect(
-            clippy::result_large_err,
-            reason = "we need to give the user the correct error type"
-        )
-    )]
     async fn load_typed_value_internal<A: Asset>(
         self,
         path: AssetPath<'static>,
@@ -349,12 +342,15 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .downcast::<A>()
                     .map_err(|_| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: AssetLoadError::RequestedHandleTypeMismatch {
-                            path,
-                            requested: TypeId::of::<A>(),
-                            actual_asset_name: loader.asset_type_name(),
-                            loader_name: loader.type_path(),
-                        },
+                        error: Box::new(
+                            Box::new(RequestedHandleTypeMismatchError {
+                                path,
+                                requested: TypeId::of::<A>(),
+                                actual_asset_name: loader.asset_type_name(),
+                                loader_name: loader.type_path(),
+                            })
+                            .into(),
+                        ),
                     })
             })
     }

@@ -1,3 +1,10 @@
+//! Support for embedded assets, which are assets that are included inside the application executable
+//! instead of being deployed alongside it.
+//!
+//! See the [`embedded_asset!`] macro for details.
+//!
+//! [`embedded_asset!`]: crate::embedded_asset
+
 #[cfg(feature = "embedded_watcher")]
 mod embedded_watcher;
 
@@ -25,9 +32,9 @@ pub const EMBEDDED: &str = "embedded";
 
 /// A [`Resource`] that manages "rust source files" in a virtual in memory [`Dir`], which is intended
 /// to be shared with a [`MemoryAssetReader`].
-/// Generally this should not be interacted with directly. The [`embedded_asset`] will populate this.
+/// Generally this should not be interacted with directly. The [`embedded_asset!`] macro will populate this.
 ///
-/// [`embedded_asset`]: crate::embedded_asset
+/// [`embedded_asset!`]: crate::embedded_asset
 #[derive(Resource, Default)]
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
@@ -147,6 +154,7 @@ impl EmbeddedAssetRegistry {
 ///
 /// [`load_embedded_asset!`]: crate::load_embedded_asset
 pub trait GetAssetServer {
+    /// Return a reference to the relevant [`AssetServer`].
     fn get_asset_server(&self) -> &AssetServer;
 }
 
@@ -212,10 +220,10 @@ macro_rules! load_embedded_asset {
 }
 
 /// Returns the [`Path`] for a given `embedded` asset.
-/// This is used internally by [`embedded_asset`] and can be used to get a [`Path`]
+/// This is used internally by [`embedded_asset!`] and can be used to get a [`Path`]
 /// that matches the [`AssetPath`](crate::AssetPath) used by that asset.
 ///
-/// [`embedded_asset`]: crate::embedded_asset
+/// [`embedded_asset!`]: crate::embedded_asset
 #[macro_export]
 macro_rules! embedded_path {
     ($path_str: expr) => {{
@@ -223,11 +231,11 @@ macro_rules! embedded_path {
     }};
 
     ($source_path: expr, $path_str: expr) => {{
-        let crate_name = module_path!().split(':').next().unwrap();
+        let crate_name = ::core::module_path!().split(':').next().unwrap();
         $crate::io::embedded::_embedded_asset_path(
             crate_name,
             $source_path.as_ref(),
-            file!().as_ref(),
+            ::core::file!().as_ref(),
             $path_str.as_ref(),
         )
     }};
@@ -317,11 +325,11 @@ pub fn _embedded_asset_path(
 /// 2. `src` is trimmed from the path
 ///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in
-/// `$SOME_WORKSPACE/crates/bevy_rock`. The asset path would remain the same, because [`embedded_asset`] searches for the
+/// `$SOME_WORKSPACE/crates/bevy_rock`. The asset path would remain the same, because [`embedded_asset!`] searches for the
 /// _first instance_ of `bevy_rock/src` in the path.
 ///
 /// For most "standard crate structures" the default works just fine. But for some niche cases (such as cargo examples),
-/// the `src` path will not be present. You can override this behavior by adding it as the second argument to [`embedded_asset`]:
+/// the `src` path will not be present. You can override this behavior by adding it as the second argument to [`embedded_asset!`]:
 ///
 /// `embedded_asset!(app, "/examples/rock_stuff/", "rock.wgsl")`
 ///
@@ -333,13 +341,13 @@ pub fn _embedded_asset_path(
 ///
 /// This macro uses the [`include_bytes`] macro internally and _will not_ reallocate the bytes.
 /// Generally the [`AssetPath`] generated will be predictable, but if your asset isn't
-/// available for some reason, you can use the [`embedded_path`] macro to debug.
+/// available for some reason, you can use the [`embedded_path!`] macro to debug.
 ///
 /// Hot-reloading `embedded` assets is supported. Just enable the `embedded_watcher` cargo feature.
 ///
 /// [`AssetPath`]: crate::AssetPath
-/// [`embedded_asset`]: crate::embedded_asset
-/// [`embedded_path`]: crate::embedded_path
+/// [`embedded_asset!`]: crate::embedded_asset
+/// [`embedded_path!`]: crate::embedded_path
 #[macro_export]
 macro_rules! embedded_asset {
     ($app: expr, $path: expr) => {{
@@ -351,8 +359,8 @@ macro_rules! embedded_asset {
             .world_mut()
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
-        let watched_path = $crate::io::embedded::watched_path(file!(), $path);
-        embedded.insert_asset(watched_path, &path, include_bytes!($path));
+        let watched_path = $crate::io::embedded::watched_path(::core::file!(), $path);
+        embedded.insert_asset(watched_path, &path, ::core::include_bytes!($path));
     }};
 }
 
@@ -379,8 +387,8 @@ macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
-            include_str!($path_str),
-            std::path::Path::new(file!())
+            ::core::include_str!($path_str),
+            ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
@@ -391,8 +399,8 @@ macro_rules! load_internal_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
-            include_str!($path_str),
-            std::path::Path::new(file!())
+            ::core::include_str!($path_str),
+            ::std::path::Path::new(::core::file!())
                 .parent()
                 .unwrap()
                 .join($path_str)
@@ -411,8 +419,8 @@ macro_rules! load_internal_binary_asset {
             .insert(
                 $handle.id(),
                 ($loader)(
-                    include_bytes!($path_str).as_ref(),
-                    std::path::Path::new(file!())
+                    ::core::include_bytes!($path_str).as_ref(),
+                    ::std::path::Path::new(::core::file!())
                         .parent()
                         .unwrap()
                         .join($path_str)

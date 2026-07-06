@@ -48,7 +48,7 @@ impl AspectRatio {
         Self::try_new(x as f32, y as f32)
     }
 
-    /// Returns the aspect ratio as a f32 value.
+    /// Returns the aspect ratio as an `f32` value.
     #[inline]
     pub const fn ratio(&self) -> f32 {
         self.0

@@ -35,7 +35,7 @@ pub(crate) fn derive_scene_component(ast: &mut DeriveInput) -> TokenStream {
     let (scene_impl, props_type) = match scene {
         Scene::Function(path) => (quote! {#path()}, quote! {()}),
         Scene::Asset(lit_str) => (
-            quote! {#bevy_scene::InheritSceneAsset::from(#lit_str)},
+            quote! {#bevy_scene::CachedSceneAsset::from(#lit_str)},
             quote! {()},
         ),
         Scene::FunctionProps { function, props } => (quote! {#function(props)}, quote! {#props}),

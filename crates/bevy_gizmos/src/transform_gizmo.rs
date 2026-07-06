@@ -253,27 +253,29 @@ impl Plugin for TransformGizmoPlugin {
 macro_rules! resolve_gizmo_camera {
     ($marked:expr, $all:expr) => {{
         let mut marked_iter = $marked.iter();
-        if let Some(first) = marked_iter.next() {
+        if let ::core::option::Option::Some(first) = marked_iter.next() {
             if marked_iter.next().is_some() {
                 bevy_log::warn_once!(
                     "Multiple cameras have the TransformGizmoCamera component; \
                      using the first one found."
                 );
             }
-            Some(first)
+            ::core::option::Option::Some(first)
         } else {
             let mut all_iter = $all.iter();
             match (all_iter.next(), all_iter.next()) {
-                (Some(cam), None) => Some(cam),
-                (Some(_), Some(_)) => {
+                (::core::option::Option::Some(cam), ::core::option::Option::None) => {
+                    ::core::option::Option::Some(cam)
+                }
+                (::core::option::Option::Some(_), ::core::option::Option::Some(_)) => {
                     bevy_log::warn_once!(
                         "Multiple cameras exist but none has the TransformGizmoCamera \
                          component. Add TransformGizmoCamera to the camera the gizmo \
                          should use."
                     );
-                    None
+                    ::core::option::Option::None
                 }
-                _ => None,
+                _ => ::core::option::Option::None,
             }
         }
     }};
@@ -533,12 +535,12 @@ fn transform_gizmo_drag(
                     let new_projected = cursor_vec.dot(axis_norm) * axis_norm + gizmo_origin;
                     let delta = new_projected - state.drag_start_world;
 
-                    let new_pos = state.start_transform.translation + delta;
                     transform.translation = match settings.snap_translate {
                         Some(inc) => {
-                            snap_axis(new_pos, state.start_transform.translation, axis, inc)
+                            state.start_transform.translation
+                                + axis_norm * snap_value(delta.dot(axis_norm), inc)
                         }
-                        None => new_pos,
+                        None => state.start_transform.translation + delta,
                     };
                 }
             }
@@ -600,11 +602,18 @@ fn transform_gizmo_drag(
                     Some(inc) => {
                         let mut snapped = state.start_transform.scale;
                         match axis {
-                            TransformGizmoAxis::X => snapped.x = snap_value(new_scale.x, inc),
-                            TransformGizmoAxis::Y => snapped.y = snap_value(new_scale.y, inc),
-                            TransformGizmoAxis::Z => snapped.z = snap_value(new_scale.z, inc),
+                            TransformGizmoAxis::X => {
+                                snapped.x = snap_value(new_scale.x, inc).max(inc);
+                            }
+                            TransformGizmoAxis::Y => {
+                                snapped.y = snap_value(new_scale.y, inc).max(inc);
+                            }
+                            TransformGizmoAxis::Z => {
+                                snapped.z = snap_value(new_scale.z, inc).max(inc);
+                            }
                             TransformGizmoAxis::View => {
                                 snapped = Vec3::splat(snap_value(new_scale.x, inc));
+                                snapped = snapped.max(Vec3::splat(inc));
                             }
                         }
                         snapped
@@ -742,27 +751,4 @@ pub fn gizmo_rotation(global_tf: &GlobalTransform, space: &TransformGizmoSpace) 
 
 fn snap_value(value: f32, increment: f32) -> f32 {
     (value / increment).round() * increment
-}
-
-/// Snap only the component along the dragged axis, leaving others unchanged.
-fn snap_axis(position: Vec3, original: Vec3, axis: TransformGizmoAxis, increment: f32) -> Vec3 {
-    match axis {
-        TransformGizmoAxis::X => {
-            Vec3::new(snap_value(position.x, increment), original.y, original.z)
-        }
-        TransformGizmoAxis::Y => {
-            Vec3::new(original.x, snap_value(position.y, increment), original.z)
-        }
-        TransformGizmoAxis::Z => {
-            Vec3::new(original.x, original.y, snap_value(position.z, increment))
-        }
-        TransformGizmoAxis::View => {
-            // Snap all axes uniformly
-            Vec3::new(
-                snap_value(position.x, increment),
-                snap_value(position.y, increment),
-                snap_value(position.z, increment),
-            )
-        }
-    }
 }

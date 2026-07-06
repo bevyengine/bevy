@@ -7,7 +7,7 @@ use bevy_math::{
     ops::log2,
     IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
 };
-use bevy_mesh::{Indices, Mesh};
+use bevy_mesh::{Indices, Mesh, MeshVertexAttribute};
 use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::PrimitiveTopology;
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
@@ -251,16 +251,24 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
 
-    if mesh.attributes().map(|(attribute, _)| attribute.id).ne([
-        Mesh::ATTRIBUTE_POSITION.id,
-        Mesh::ATTRIBUTE_NORMAL.id,
-        Mesh::ATTRIBUTE_UV_0.id,
-    ]) {
-        return Err(MeshToMeshletMeshConversionError::WrongMeshVertexAttributes(
-            mesh.attributes()
-                .map(|(attribute, _)| format!("{attribute:?}"))
-                .collect(),
-        ));
+    let required_attributes = [
+        Mesh::ATTRIBUTE_POSITION,
+        Mesh::ATTRIBUTE_NORMAL,
+        Mesh::ATTRIBUTE_UV_0,
+    ];
+    if mesh
+        .attributes()
+        .map(|(attribute, _)| (attribute.id, attribute.format))
+        .ne(required_attributes
+            .iter()
+            .map(|attribute| (attribute.id, attribute.format)))
+    {
+        return Err(
+            MeshToMeshletMeshConversionError::WrongMeshVertexAttributes {
+                required: required_attributes,
+                provided: mesh.attributes().map(|(attribute, _)| *attribute).collect(),
+            },
+        );
     }
 
     match mesh.indices() {
@@ -1084,8 +1092,11 @@ fn pack2x16snorm(v: Vec2) -> u32 {
 pub enum MeshToMeshletMeshConversionError {
     #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh vertex attributes are not {{POSITION, NORMAL, UV_0}}: {0:?}")]
-    WrongMeshVertexAttributes(Vec<String>),
+    #[error("Mesh vertex attributes must be {required:?}, but got {provided:?}")]
+    WrongMeshVertexAttributes {
+        required: [MeshVertexAttribute; 3],
+        provided: Vec<MeshVertexAttribute>,
+    },
     #[error("Mesh has no indices")]
     MeshMissingIndices,
 }
