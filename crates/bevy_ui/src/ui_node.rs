@@ -2494,13 +2494,13 @@ impl<T: Into<Color>> From<T> for OuterColor {
 ///             border: UiRect::all(Val::Px(2.)),
 ///             border_radius: BorderRadius::new(
 ///                 // top left
-///                 Val::Px(10.),
+///                 Val2::all(px(10.)),
 ///                 // top right
-///                 Val::Px(20.),
+///                 Val2::all(percent(20.)),
 ///                 // bottom right
-///                 Val::Px(30.),
-///                 // bottom left
-///                 Val::Px(40.),
+///                 Val2::all(px(30.)),
+///                 // bottom left, elliptical radius
+///                 Val2::px(10., 40.),
 ///             ),
 ///             ..Default::default()
 ///         },
