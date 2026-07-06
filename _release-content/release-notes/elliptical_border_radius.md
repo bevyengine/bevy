@@ -10,7 +10,6 @@ The fields of `BorderRadius` are now `Val2`s to enable different radii to be set
 
 The `BorderRadius` constructor and update functions are no longer `const`, and their parameters take `Into<Val2>`s instead of `Val`s. `Val2` now implements `From<Val>` so existing code using border radius shouldn't require any changes:
 
-
 ```rust
 let a = BorderRadius::all(Val2::all(vh(10.)));
 let b = BorderRadius::all(vh(10.)); // a == b
