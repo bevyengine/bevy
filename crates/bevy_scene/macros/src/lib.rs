@@ -41,6 +41,19 @@ use syn::{parse_macro_input, DeriveInput};
 ///             }
 ///         }
 ///     ]
+///     if condition {
+///         // conditional patching
+///         ComponentB(1.0)
+///     } else { // else block optional
+///         ComponentB(2.0)
+///     }
+///     if condition {
+///         // conditional scene inclusion (works with any relation type)
+///         Children [
+///             #ConditionalChild ComponentA
+///         ],
+///         #ConditionalScene other_scene()
+///     }
 /// }
 /// ```
 #[doc(hidden)]

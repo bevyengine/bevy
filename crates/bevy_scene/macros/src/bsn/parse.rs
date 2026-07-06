@@ -1,7 +1,8 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
-    BsnPatchEntry, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneEntry, BsnSceneFn, BsnSceneList,
-    BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnIf, BsnListRoot,
+    BsnNamedField, BsnPatchEntry, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneEntry,
+    BsnSceneFn, BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType,
+    BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -12,8 +13,8 @@ use syn::{
     parenthesized,
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
-    token::{At, Brace, Bracket, Colon, Comma, Paren, Tilde},
-    Block, Ident, Lit, LitStr, Path, Result, Token,
+    token::{At, Brace, Bracket, Colon, Comma, Else, If, Paren, Tilde},
+    Block, Expr, Ident, Lit, LitStr, Path, Result, Token,
 };
 
 /// Functionally identical to [`Punctuated`](syn::punctuated::Punctuated), but fills the given `$list` Vec instead
@@ -107,6 +108,8 @@ impl Parse for BsnEntry {
             BsnEntry::Patch(BsnPatchEntry::Name(input.parse::<Ident>()?))
         } else if input.peek(Brace) || input.peek(At) {
             BsnEntry::Scene(BsnSceneEntry::Uncached(BsnScene::parse(input)?))
+        } else if input.peek(If) {
+            BsnEntry::If(BsnIf::parse(input)?)
         } else {
             let is_template = input.peek(Tilde);
             if is_template {
@@ -290,6 +293,35 @@ impl Parse for BsnScene {
                     ))
                 }
             }
+        })
+    }
+}
+
+impl Parse for BsnIf {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<If>()?;
+
+        // parsing Expr normally would greedily consume the following `{ }` block,
+        // so we use `parse_without_eager_brace` to avoid that.
+        let condition = Expr::parse_without_eager_brace(input)?;
+
+        let success_content;
+        braced!(success_content in input);
+        let success = success_content.parse::<Bsn<true>>()?;
+
+        let failure = if input.peek(Else) {
+            input.parse::<Else>()?;
+            let failure_content;
+            braced!(failure_content in input);
+            Some(failure_content.parse::<Bsn<true>>()?)
+        } else {
+            None
+        };
+
+        Ok(BsnIf {
+            condition,
+            success,
+            failure,
         })
     }
 }

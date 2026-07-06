@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{Ident, Lit, LitStr, Path, Stmt};
+use syn::{Expr, Ident, Lit, LitStr, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -16,6 +16,7 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 pub enum BsnEntry {
     Patch(BsnPatchEntry),
     Scene(BsnSceneEntry),
+    If(BsnIf),
 }
 
 /// Entries that patch scenes.
@@ -81,6 +82,22 @@ pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
     pub args: BsnFnArgs,
+}
+
+/// ```rust,ignore
+/// bsn! {
+///     if condition {
+///         Success
+///     } else {
+///         Failure
+///     }
+/// }
+/// ```
+#[derive(Debug)]
+pub struct BsnIf {
+    pub condition: Expr,
+    pub success: Bsn<true>,
+    pub failure: Option<Bsn<true>>,
 }
 
 #[derive(Debug)]
