@@ -925,7 +925,8 @@ color *= (*light).color.rgb * texture_sample;
     let P_clamped = clamp_to_surface(atmosphere, P_as);
     let r = length(P_clamped);
 
-    // Sample atmosphere
+    // The transmittance LUT is only valid within the atmosphere. Do not change directional light
+    // for surfaces sampled outside the currently rendered atmosphere.
     if r < atmosphere.outer_radius {
         let local_up = normalize(P_clamped);
         let mu_light = dot(L, local_up);
