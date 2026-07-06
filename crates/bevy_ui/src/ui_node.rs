@@ -2517,9 +2517,13 @@ impl<T: Into<Color>> From<T> for OuterColor {
     reflect(Serialize, Deserialize)
 )]
 pub struct BorderRadius {
+    /// Border radii for top left corner
     pub top_left: Val2,
+    /// Border radii for top right corner
     pub top_right: Val2,
+    /// Border radii for bottom right corner
     pub bottom_right: Val2,
+    /// Border radii for bottom left corner
     pub bottom_left: Val2,
 }
 
@@ -2811,7 +2815,7 @@ impl From<Val> for BorderRadius {
     }
 }
 
-/// Represents the resolved border radius values for a UI node.
+/// Represents the resolved border radii values for a UI node.
 ///
 /// The values are in physical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
