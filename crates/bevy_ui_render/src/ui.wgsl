@@ -69,7 +69,12 @@ fn vertex(
 
 
 // Returns the radius of the corner closest to the given point.
-// corner_radii_x/y are ordered: x: top left, y: top right, z: bottom right, w: bottom left.
+//
+// Arguments:
+//  - `point`          -> The point used to choose the closest corner.
+//  - `corner_radii_x` -> The horizontal radius of each rounded corner.
+//  - `corner_radii_y` -> The vertical radius of each rounded corner.
+//                        Both ordered x: top left, y: top right, z: bottom right, w: bottom left.
 fn select_corner_radius(
     point: vec2<f32>,
     corner_radii_x: vec4<f32>,
