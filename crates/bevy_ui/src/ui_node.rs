@@ -2474,12 +2474,11 @@ impl<T: Into<Color>> From<T> for OuterColor {
 }
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
-/// rounded corners or specify different radii for each corner. If a given radius exceeds half
-/// the length of the smallest dimension between the node's height or width, the radius will
-/// calculated as half the smallest dimension.
+/// rounded corners, elliptical corners, or specify a different radius for each corner. If a given
+/// radius exceeds half the length of the node's height or width, the radius will be calculated
+/// as half the height or width.
 ///
-/// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
-/// dimension, either width or height.
+/// Percentage horizontal and vertical values are based on the node's width and height, respectively.
 ///
 /// # Example
 /// ```rust
