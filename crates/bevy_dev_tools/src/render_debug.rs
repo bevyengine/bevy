@@ -47,17 +47,9 @@ use bevy_pbr::{
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 #[derive(Default)]
-pub struct RenderDebugOverlayPlugin{
-    ///Whether to enable the automatic keybindings (F1, F2)
+pub struct RenderDebugOverlayPlugin {
+    ///Whether to enable the automatic keybindings (F1, F2), Defaults to false
     pub enable_keybindings: bool,
-}
-
-impl Default for RenderDebugOverlayPlugin {
-    fn default() -> Self {
-        Self {
-            enable_keybindings: false,
-        }
-    }
 }
 
 impl Plugin for RenderDebugOverlayPlugin {
