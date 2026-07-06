@@ -96,10 +96,6 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentSlice<T> {
     /// # Safety
     ///
     /// The returned slice must only ever contain unique elements.
-    #[expect(
-        clippy::borrowed_box,
-        reason = "We wish to access the Box API of the inner type, without consuming it."
-    )]
     const unsafe fn as_mut_boxed_inner(self: &mut Box<Self>) -> &mut Box<[T]> {
         // SAFETY: UniqueEntityEquivalentSlice is a transparent wrapper around [T].
         unsafe { &mut *(ptr::from_mut(self).cast::<Box<[T]>>()) }
