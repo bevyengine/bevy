@@ -2499,7 +2499,7 @@ impl<T: Into<Color>> From<T> for OuterColor {
 ///                 bottom_right: Val2::all(px(30.)),
 ///                 // elliptical corner
 ///                 bottom_left: Val2::px(10., 40.),
-///             ),
+///             },
 ///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
