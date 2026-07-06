@@ -47,7 +47,18 @@ use bevy_pbr::{
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 #[derive(Default)]
-pub struct RenderDebugOverlayPlugin;
+pub struct RenderDebugOverlayPlugin{
+    ///Whether to enable the automatic keybindings (F1, F2)
+    pub enable_keybindings: bool,
+}
+
+impl Default for RenderDebugOverlayPlugin {
+    fn default() -> Self {
+        Self {
+            enable_keybindings: false,
+        }
+    }
+}
 
 impl Plugin for RenderDebugOverlayPlugin {
     fn build(&self, app: &mut App) {
@@ -60,8 +71,13 @@ impl Plugin for RenderDebugOverlayPlugin {
             .add_plugins((
                 ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
-            ))
-            .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
+            ));
+
+        if self.enable_keybindings {
+            app.add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
+        } else {
+            app.add_systems(bevy_app::Update, update_overlay);
+        }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
