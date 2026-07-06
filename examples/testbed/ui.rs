@@ -840,7 +840,7 @@ mod borders {
 mod elliptical_border_radius {
     use bevy::{color::palettes::css::*, prelude::*};
 
-    pub fn setup(mut commands: Commands) {
+    pub fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         commands.spawn((
             Camera2d,
             DespawnOnExit(super::Scene::EllipticalBorderRadius),
@@ -875,6 +875,16 @@ mod elliptical_border_radius {
                         ..default()
                     },
                     BackgroundColor(ORANGE.into()),
+                    BackgroundGradient::from(LinearGradient {
+                        stops: vec![
+                            RED.into(),
+                            Color::BLACK.into(),
+                            BLUE.into(),
+                            WHEAT.into(),
+                            GREEN.into(),
+                        ],
+                        ..default()
+                    }),
                     BorderColor::all(RED),
                     Outline {
                         width: px(4),
@@ -984,6 +994,7 @@ mod elliptical_border_radius {
                         ..default()
                     },
                     BackgroundColor(RED.into()),
+                    ImageNode::from(assets.load("branding/icon.png")),
                     BorderColor::all(WHITE),
                     Outline {
                         width: px(3),
@@ -1029,6 +1040,7 @@ mod elliptical_border_radius {
                     },
                     BackgroundColor(RED.into()),
                     BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
                     Outline {
                         width: px(3),
                         offset: px(5),
@@ -1051,6 +1063,7 @@ mod elliptical_border_radius {
                     },
                     BackgroundColor(RED.into()),
                     BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
                     Outline {
                         width: px(3),
                         offset: px(5),
@@ -1073,6 +1086,7 @@ mod elliptical_border_radius {
                     },
                     BackgroundColor(RED.into()),
                     BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
                     Outline {
                         width: px(3),
                         offset: px(5),
@@ -1117,6 +1131,7 @@ mod elliptical_border_radius {
                     },
                     BackgroundColor(RED.into()),
                     BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
                     Outline {
                         width: px(3),
                         offset: px(5),
