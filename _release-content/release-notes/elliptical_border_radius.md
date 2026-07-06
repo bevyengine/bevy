@@ -8,7 +8,11 @@ Bevy UI now supports Nodes with elliptical border geometry.
 
 The fields of `BorderRadius` are now `Val2`s to enable different radii to be set for each axis.
 
-`BorderRadius` has new elliptical constructor functions:
+The `BorderRadius` constructor and update functions are no longer `const`, and their parameters take `Into<Val2>`s instead of `Val`s. `Val2` now implements `From<Val>` so existing code using border radius shouldn't require any changes:
 
-- `elliptical`: set individual elliptical radii for each corner.
-- `all_elliptical`: set all four corners to the same elliptical radii.
+
+```rust
+let a = BorderRadius::all(Val2::all(vh(10.)));
+let b = BorderRadius::all(vh(10.)); // a == b
+let c = BorderRadius::top_right(Val2::all(px(10.), px(20.)));
+```

@@ -25,4 +25,9 @@ BorderRadius {
 }
 ```
 
-The arguments of the corner specific (`BorderRadius::top_left`, ..) and edge specific (`BorderRadius::left`, ..) constructor functions are now `Val2`s. As are the arguments for the corresponding update methods (`with_top_left`, `with_top`, ..).
+The `BorderRadius` constructor and update functions are no longer `const`. This is so the params can take an `Into<Val2>`:
+
+```rust
+let n = BorderRadius::top_right(vh(10.));
+let m = BorderRadius::top_right(Val2::all(px(10.), px(20.)));
+```
