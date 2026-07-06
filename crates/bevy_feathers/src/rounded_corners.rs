@@ -38,58 +38,58 @@ pub enum RoundedCorners {
 impl RoundedCorners {
     /// Convert the `RoundedCorners` to a `BorderRadius` for use in a `Node`.
     pub fn to_border_radius(&self, radius: f32) -> BorderRadius {
-        let radii = Val2::all(px(radius));
+        let radius = Val2::all(px(radius));
         let zero = Val2::ZERO;
         match self {
-            RoundedCorners::None => BorderRadius::all_elliptical(zero),
-            RoundedCorners::All => BorderRadius::all_elliptical(radii),
+            RoundedCorners::None => BorderRadius::all(zero),
+            RoundedCorners::All => BorderRadius::all(radius),
             RoundedCorners::TopLeft => BorderRadius {
-                top_left: radii,
+                top_left: radius,
                 top_right: zero,
                 bottom_right: zero,
                 bottom_left: zero,
             },
             RoundedCorners::TopRight => BorderRadius {
                 top_left: zero,
-                top_right: radii,
+                top_right: radius,
                 bottom_right: zero,
                 bottom_left: zero,
             },
             RoundedCorners::BottomRight => BorderRadius {
                 top_left: zero,
                 top_right: zero,
-                bottom_right: radii,
+                bottom_right: radius,
                 bottom_left: zero,
             },
             RoundedCorners::BottomLeft => BorderRadius {
                 top_left: zero,
                 top_right: zero,
                 bottom_right: zero,
-                bottom_left: radii,
+                bottom_left: radius,
             },
             RoundedCorners::Top => BorderRadius {
-                top_left: radii,
-                top_right: radii,
+                top_left: radius,
+                top_right: radius,
                 bottom_right: zero,
                 bottom_left: zero,
             },
             RoundedCorners::Right => BorderRadius {
                 top_left: zero,
-                top_right: radii,
-                bottom_right: radii,
+                top_right: radius,
+                bottom_right: radius,
                 bottom_left: zero,
             },
             RoundedCorners::Bottom => BorderRadius {
                 top_left: zero,
                 top_right: zero,
-                bottom_right: radii,
-                bottom_left: radii,
+                bottom_right: radius,
+                bottom_left: radius,
             },
             RoundedCorners::Left => BorderRadius {
-                top_left: radii,
+                top_left: radius,
                 top_right: zero,
                 bottom_right: zero,
-                bottom_left: radii,
+                bottom_left: radius,
             },
         }
     }
