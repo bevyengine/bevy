@@ -65,6 +65,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use nonmax::NonMaxU32;
+use static_assertions::const_assert_eq;
 use tracing::error;
 
 #[derive(Default)]
@@ -512,9 +513,6 @@ bitflags::bitflags! {
         const MAY_DISCARD                       = 1 << 3;
         const SRGB_COMPOSITING                  = 1 << 4;
         const OKLAB_COMPOSITING                 = 1 << 5;
-        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
-        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -527,6 +525,13 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
+
+// Ensure that the bits of `BaseMeshPipelineKey` don't overlap with the bits of `MeshPipelineKey`
+// except the inherited bits.
+const_assert_eq!(
+    BaseMeshPipelineKey::all().bits() & Mesh2dPipelineKey::all().bits(),
+    0
+);
 
 impl Mesh2dPipelineKey {
     const COLOR_TARGET_FORMAT_MASK_BITS: u64 =
