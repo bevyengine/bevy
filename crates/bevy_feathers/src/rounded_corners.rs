@@ -1,6 +1,6 @@
 //! Mechanism for specifying which corners of a widget are rounded, used for segmented buttons
 //! and control groups.
-use bevy_ui::{px, BorderRadius, Val};
+use bevy_ui::{px, BorderRadius, Val, Val2};
 
 /// Allows specifying which corners are rounded and which are sharp. All rounded corners
 /// have the same radius. Not all combinations are supported, only the ones that make
@@ -38,58 +38,58 @@ pub enum RoundedCorners {
 impl RoundedCorners {
     /// Convert the `RoundedCorners` to a `BorderRadius` for use in a `Node`.
     pub fn to_border_radius(&self, radius: f32) -> BorderRadius {
-        let radius = px(radius);
-        let zero = Val::ZERO;
+        let radii = Val2::all(px(radius));
+        let zero = Val2::ZERO;
         match self {
-            RoundedCorners::None => BorderRadius::all(zero),
-            RoundedCorners::All => BorderRadius::all(radius),
+            RoundedCorners::None => BorderRadius::all_elliptical(zero),
+            RoundedCorners::All => BorderRadius::all_elliptical(radii),
             RoundedCorners::TopLeft => BorderRadius {
-                top_left: radius,
+                top_left: radii,
                 top_right: zero,
                 bottom_right: zero,
                 bottom_left: zero,
             },
             RoundedCorners::TopRight => BorderRadius {
                 top_left: zero,
-                top_right: radius,
+                top_right: radii,
                 bottom_right: zero,
                 bottom_left: zero,
             },
             RoundedCorners::BottomRight => BorderRadius {
                 top_left: zero,
                 top_right: zero,
-                bottom_right: radius,
+                bottom_right: radii,
                 bottom_left: zero,
             },
             RoundedCorners::BottomLeft => BorderRadius {
                 top_left: zero,
                 top_right: zero,
                 bottom_right: zero,
-                bottom_left: radius,
+                bottom_left: radii,
             },
             RoundedCorners::Top => BorderRadius {
-                top_left: radius,
-                top_right: radius,
+                top_left: radii,
+                top_right: radii,
                 bottom_right: zero,
                 bottom_left: zero,
             },
             RoundedCorners::Right => BorderRadius {
                 top_left: zero,
-                top_right: radius,
-                bottom_right: radius,
+                top_right: radii,
+                bottom_right: radii,
                 bottom_left: zero,
             },
             RoundedCorners::Bottom => BorderRadius {
                 top_left: zero,
                 top_right: zero,
-                bottom_right: radius,
-                bottom_left: radius,
+                bottom_right: radii,
+                bottom_left: radii,
             },
             RoundedCorners::Left => BorderRadius {
-                top_left: radius,
+                top_left: radii,
                 top_right: zero,
                 bottom_right: zero,
-                bottom_left: radius,
+                bottom_left: radii,
             },
         }
     }
