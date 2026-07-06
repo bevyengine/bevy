@@ -277,10 +277,11 @@ impl Traversal<AcquireFocus> for WindowTraversal {
 /// [`acquire_focus_tab_index`](tab_navigation::acquire_focus_tab_index), which stops the request
 /// (and focuses the target) before it can reach the window.
 ///
-/// Clearing focus relies on the request actually *reaching* the window via [`WindowTraversal`], so
-/// the request target must be connected to the window through [`ChildOf`] relationships (or be the
-/// window itself). A request triggered on an entity with no path to the window will simply stop at
-/// that entity and leave focus unchanged.
+/// Clearing focus relies on the request actually *reaching* the window via [`WindowTraversal`].
+/// That traversal walks up [`ChildOf`] relationships, and — as a fallback — routes to
+/// [`AcquireFocus::window`] once it runs off the end of the ancestor chain. Because of this
+/// window fallback, the request target does *not* need to be a descendant of the window entity:
+/// any non-window entity eventually reaches the window, where focus is cleared.
 ///
 /// The `focus.get()` guard avoids spurious mutations so change detection only fires on real changes.
 /// Verify against the `acquire_focus_*` tests before altering any of this.
