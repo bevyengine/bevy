@@ -13,6 +13,7 @@ use bevy_math::{primitives::Rectangle, vec2};
 use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshBuilder, Meshable};
 
 use bevy_platform::collections::HashMap;
+use bevy_shader::load_shader_library;
 use bevy_sprite::{prelude::SpriteMesh, Anchor};
 
 mod sprite_material;
@@ -24,6 +25,10 @@ pub struct SpriteMeshPlugin;
 
 impl Plugin for SpriteMeshPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_shader_library!(app, "sprite_bindings.wgsl");
+        load_shader_library!(app, "sprite_functions.wgsl");
+        load_shader_library!(app, "sprite_types.wgsl");
+
         app.add_plugins(SpriteMaterialPlugin);
 
         app.add_systems(

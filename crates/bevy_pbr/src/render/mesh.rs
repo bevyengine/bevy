@@ -40,7 +40,9 @@ use bevy_mesh::{
     MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
-use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
+use bevy_render::batching::gpu_preprocessing::{
+    BufferDataInput, PreviousInstanceInputUniformBuffer,
+};
 use bevy_render::impl_atomic_pod;
 use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
@@ -632,7 +634,21 @@ pub struct MeshInputUniform {
     pub pad3: u32,
 }
 
+/// Per-mesh-instance data that we retain from the previous frame.
+#[derive(ShaderType, Pod, Zeroable, Clone, Copy, Default, Debug)]
+#[repr(C)]
+pub struct PreviousMeshInputUniform {
+    /// The model transform, an affine 4×3 matrix transposed to 3×4.
+    pub world_from_local: [Vec4; 3],
+}
+
+impl BufferDataInput for MeshInputUniform {
+    type Previous = PreviousMeshInputUniform;
+}
+
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
+
+impl_atomic_pod!(PreviousMeshInputUniform, PreviousMeshInputUniformBlob);
 
 /// Information about each mesh instance needed to cull it on GPU.
 ///
@@ -1550,7 +1566,7 @@ impl RenderMeshInstanceGpuPrepared {
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &PreviousInstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &PreviousInstanceInputUniformBuffer<PreviousMeshInputUniform>,
     ) -> u32 {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
@@ -1564,11 +1580,14 @@ impl RenderMeshInstanceGpuPrepared {
                     .gpu_specific
                     .current_uniform_index();
 
-                // Save the old mesh input uniform. The mesh preprocessing
-                // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform =
-                    current_input_buffer.get_unchecked(current_uniform_index);
-                let previous_input_index = previous_input_buffer.push(previous_mesh_input_uniform);
+                // Save the old mesh transform. The mesh preprocessing shader
+                // will need it to compute motion vectors.
+                let previous_world_from_local = current_input_buffer
+                    .get_unchecked(current_uniform_index)
+                    .world_from_local;
+                let previous_input_index = previous_input_buffer.push(PreviousMeshInputUniform {
+                    world_from_local: previous_world_from_local,
+                });
                 self.mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
@@ -2606,10 +2625,13 @@ pub fn collect_meshes_for_gpu_building(
                                 let current_uniform_index =
                                     render_mesh_instance.gpu_specific.current_uniform_index();
 
-                                let previous_mesh_input_uniform =
-                                    current_input_buffer.get_unchecked(current_uniform_index);
+                                let previous_world_from_local = current_input_buffer
+                                    .get_unchecked(current_uniform_index)
+                                    .world_from_local;
                                 let previous_input_index =
-                                    previous_input_buffer.push(previous_mesh_input_uniform);
+                                    previous_input_buffer.push(PreviousMeshInputUniform {
+                                        world_from_local: previous_world_from_local,
+                                    });
                                 prepared.mesh_input_uniform.previous_input_index =
                                     previous_input_index;
 

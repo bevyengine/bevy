@@ -10,6 +10,8 @@ struct MeshInput {
     lightmap_uv_rect: vec2<u32>,
     // Various flags.
     flags: u32,
+    // The index of the `PreviousMeshInput` uniform in the buffer, or `u32::MAX`
+    // if there's no such uniform.
     previous_input_index: u32,
     first_vertex_index: u32,
     first_index_index: u32,
@@ -28,6 +30,12 @@ struct MeshInput {
     morph_descriptor_index: u32,
     metadata_index: u32
 }
+
+// Per-mesh-instance data that we retain from the previous frame.
+struct PreviousMeshInput {
+    // The model transform.
+    world_from_local: mat3x4<f32>,
+};
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
 // For more information, see the corresponding comment in
