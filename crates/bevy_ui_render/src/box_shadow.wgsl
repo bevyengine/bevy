@@ -34,8 +34,11 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
 }
 
 fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {    
-    let d = min(half_size.y - radius.y - abs(y), 0.);
-    let c = half_size.x - radius.x + radius.x * sqrt(max(0., 1. - d * d / (radius.y * radius.y)));
+    var c = half_size.x;
+    if 0.0 < min(radius.x, radius.y) {
+        let d = min(half_size.y - radius.y - abs(y), 0.);
+        c = half_size.x - radius.x + radius.x * sqrt(max(0., 1. - d * d / (radius.y * radius.y)));
+    }
     let integral = 0.5 + 0.5 * erf((x + vec2(-c, c)) * (sqrt(0.5) / blur));
     return integral.y - integral.x;
 }
@@ -95,6 +98,5 @@ fn fragment(
     let g = in.color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, in.point, max(in.blur, 0.01), in.radius_x, in.radius_y);
     return vec4(in.color.rgb, g);
 }
-
 
 
