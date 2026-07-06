@@ -239,7 +239,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
 
     var weight_sum = 0.0;
     var selected_target_function = 0.0;
-    var selected_light_sample = LightSample(NULL_LIGHT_ID, 0u);
+    var selected_tile_sample = 0u;
     var selected_world_position = vec4(0.0);
     var selected_wi = vec3(0.0);
     var selected_brdf_radiance = vec3(0.0);
@@ -260,7 +260,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
 
         if weight_sum > 0.0 && rand_f(rng) * weight_sum < resampling_weight {
             selected_target_function = target_function;
-            selected_light_sample = light_tile_samples[tile_sample];
+            selected_tile_sample = tile_sample;
             selected_world_position = resolved_light_sample.world_position;
             selected_wi = light_contribution.wi;
             selected_inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf;
@@ -275,7 +275,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
         unbiased_contribution_weight *= trace_light_visibility(ray_origin, selected_world_position);
     }
 
-    return DiSample(unbiased_contribution_weight, selected_light_sample, selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
+    return DiSample(unbiased_contribution_weight, light_tile_samples[selected_tile_sample], selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
 }
 
 fn generate_emissive_candidate(
