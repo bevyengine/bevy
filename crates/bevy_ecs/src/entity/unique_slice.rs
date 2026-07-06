@@ -1031,7 +1031,7 @@ impl<T: EntityEquivalent + Clone> Clone for Box<UniqueEntityEquivalentSlice<T>> 
         // SAFETY: This is a clone of a valid slice.
         unsafe {
             self.as_mut_boxed_inner()
-                .clone_from(source.as_boxed_inner())
+                .clone_from(source.as_boxed_inner());
         };
     }
 }
