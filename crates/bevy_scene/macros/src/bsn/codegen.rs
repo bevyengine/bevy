@@ -1,7 +1,7 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
-    BsnType, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnPatchEntry,
+    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneEntry, BsnSceneFn, BsnSceneListItem,
+    BsnSceneListItems, BsnType, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
@@ -201,7 +201,14 @@ impl BsnEntry {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
 
         Ok(match self {
-            BsnEntry::TemplatePatch(ty) => {
+            BsnEntry::Patch(BsnPatchEntry::Name(ident)) => {
+                let (name, index) = ctx.fixed_entity_ref(ident);
+                let invocation = ctx.invocation_index.clone();
+                EntryResult::CombinedSceneFunction(quote! {
+                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
+                })
+            }
+            BsnEntry::Patch(BsnPatchEntry::Template(ty)) => {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
@@ -223,7 +230,7 @@ impl BsnEntry {
                     }
                 })
             }
-            BsnEntry::FromTemplatePatch(ty) => {
+            BsnEntry::Patch(BsnPatchEntry::FromTemplate(ty)) => {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
@@ -245,53 +252,50 @@ impl BsnEntry {
                     }
                 })
             }
-            BsnEntry::TemplateConst {
+            BsnEntry::Patch(BsnPatchEntry::TemplateConst {
                 type_path,
                 const_ident,
-            } => EntryResult::CombinedSceneFunction(quote! {
+            }) => EntryResult::CombinedSceneFunction(quote! {
                 let __value = _scene.get_or_insert_template::<#type_path>(_context);
                 *__value = #type_path::#const_ident;
             }),
-            BsnEntry::TemplateConstructor(BsnConstructor {
+            BsnEntry::Patch(BsnPatchEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => EntryResult::CombinedSceneFunction({
+            })) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
                 quote! {
                     let __value = _scene.get_or_insert_template::<#type_path>(_context);
                     *__value = #type_path::#function #args;
                 }
             }),
-            BsnEntry::FromTemplateConstructor(BsnConstructor {
+            BsnEntry::Patch(BsnPatchEntry::FromTemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => EntryResult::CombinedSceneFunction({
+            })) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
                 quote! {
                     let __value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
                     *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
                 }
             }),
-            BsnEntry::RelatedSceneList(BsnRelatedSceneList {
+            BsnEntry::Scene(BsnSceneEntry::RelatedList(BsnRelatedSceneList {
                 scene_list,
                 relationship_path,
-            }) => {
+            })) => {
                 let scenes = scene_list.0.to_tokens(ctx);
                 EntryResult::NewSceneImpl(quote! {
                     #bevy_scene::RelatedScenes::<<#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
                     ::Relationship, _>::new(#scenes)
                 })
             }
-            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::Name(ident) => {
-                let (name, index) = ctx.fixed_entity_ref(ident);
-                let invocation = ctx.invocation_index.clone();
-                EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
-                })
+            BsnEntry::Scene(BsnSceneEntry::Uncached(s)) => {
+                EntryResult::NewSceneImpl(s.to_tokens(ctx)?)
+            }
+            BsnEntry::Scene(BsnSceneEntry::Cached(s)) => {
+                EntryResult::NewSceneImpl(s.to_tokens(ctx)?)
             }
         })
     }

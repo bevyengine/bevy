@@ -14,15 +14,27 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 
 #[derive(Debug)]
 pub enum BsnEntry {
+    Patch(BsnPatchEntry),
+    Scene(BsnSceneEntry),
+}
+
+/// Entries that patch scenes.
+#[derive(Debug)]
+pub enum BsnPatchEntry {
     Name(Ident),
-    FromTemplatePatch(BsnType),
-    TemplatePatch(BsnType),
+    FromTemplate(BsnType),
+    Template(BsnType),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     TemplateConst { type_path: Path, const_ident: Ident },
-    UncachedScene(BsnScene),
-    CachedScene(BsnScene),
-    RelatedSceneList(BsnRelatedSceneList),
+}
+
+/// Entries that create scenes.
+#[derive(Debug)]
+pub enum BsnSceneEntry {
+    Uncached(BsnScene),
+    Cached(BsnScene),
+    RelatedList(BsnRelatedSceneList),
 }
 
 #[derive(Debug)]

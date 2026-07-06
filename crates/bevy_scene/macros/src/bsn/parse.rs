@@ -1,7 +1,7 @@
 use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
-    BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
+    BsnPatchEntry, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneEntry, BsnSceneFn, BsnSceneList,
+    BsnSceneListItem, BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -64,7 +64,8 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
             parenthesized![content in input];
             while !content.is_empty() {
                 let entry = BsnEntry::parse(&content)?;
-                if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
+                if matches!(entry, BsnEntry::Scene(BsnSceneEntry::Cached(_))) && !entries.is_empty()
+                {
                     return Err(syn::Error::new(
                         content.span(),
                         "Caching entries after the first is not supported, remove the ':' prefix or make this the first entry.",
@@ -75,7 +76,8 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
         } else if ALLOW_FLAT {
             while !input.is_empty() {
                 let entry = BsnEntry::parse(input)?;
-                if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
+                if matches!(entry, BsnEntry::Scene(BsnSceneEntry::Cached(_))) && !entries.is_empty()
+                {
                     return Err(syn::Error::new(
                         input.span(),
                         "Caching entries after the first is not supported, remove the ':' prefix or make this the first entry.",
@@ -96,15 +98,15 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
     }
 }
 
-impl BsnEntry {
+impl Parse for BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Token![:]) {
-            BsnEntry::CachedScene(BsnScene::parse(input)?)
+            BsnEntry::Scene(BsnSceneEntry::Cached(BsnScene::parse(input)?))
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            BsnEntry::Name(input.parse::<Ident>()?)
+            BsnEntry::Patch(BsnPatchEntry::Name(input.parse::<Ident>()?))
         } else if input.peek(Brace) || input.peek(At) {
-            BsnEntry::UncachedScene(BsnScene::parse(input)?)
+            BsnEntry::Scene(BsnSceneEntry::Uncached(BsnScene::parse(input)?))
         } else {
             let is_template = input.peek(Tilde);
             if is_template {
@@ -121,10 +123,10 @@ impl BsnEntry {
                     };
                     if input.peek(Bracket) {
                         // TODO: fail if this is an enum variant
-                        BsnEntry::RelatedSceneList(BsnRelatedSceneList {
+                        BsnEntry::Scene(BsnSceneEntry::RelatedList(BsnRelatedSceneList {
                             relationship_path: path,
                             scene_list: input.parse::<BsnSceneList>()?,
-                        })
+                        }))
                     } else {
                         let fields = input.parse::<BsnFields>()?;
                         let bsn_type = BsnType {
@@ -133,18 +135,18 @@ impl BsnEntry {
                             fields,
                         };
                         if is_template {
-                            BsnEntry::TemplatePatch(bsn_type)
+                            BsnEntry::Patch(BsnPatchEntry::Template(bsn_type))
                         } else {
-                            BsnEntry::FromTemplatePatch(bsn_type)
+                            BsnEntry::Patch(BsnPatchEntry::FromTemplate(bsn_type))
                         }
                     }
                 }
                 PathType::TypeConst => {
                     let const_ident = take_last_path_ident(&mut path).unwrap();
-                    BsnEntry::TemplateConst {
+                    BsnEntry::Patch(BsnPatchEntry::TemplateConst {
                         type_path: path,
                         const_ident,
-                    }
+                    })
                 }
                 PathType::Const => {
                     return Err(syn::Error::new(
@@ -161,17 +163,22 @@ impl BsnEntry {
                         args,
                     };
                     if is_template {
-                        BsnEntry::TemplateConstructor(bsn_constructor)
+                        BsnEntry::Patch(BsnPatchEntry::TemplateConstructor(bsn_constructor))
                     } else {
-                        BsnEntry::FromTemplateConstructor(bsn_constructor)
+                        BsnEntry::Patch(BsnPatchEntry::FromTemplateConstructor(bsn_constructor))
                     }
                 }
                 PathType::Function => {
                     if input.peek(Paren) {
                         let args = input.parse::<BsnFnArgs>()?;
-                        BsnEntry::UncachedScene(BsnScene::Fn(BsnSceneFn { path, args }))
+                        BsnEntry::Scene(BsnSceneEntry::Uncached(BsnScene::Fn(BsnSceneFn {
+                            path,
+                            args,
+                        })))
                     } else {
-                        BsnEntry::UncachedScene(BsnScene::Expression(quote! {#path}))
+                        BsnEntry::Scene(BsnSceneEntry::Uncached(BsnScene::Expression(
+                            quote! {#path},
+                        )))
                     }
                 }
             }
@@ -205,7 +212,7 @@ impl Parse for BsnSceneListItem {
     }
 }
 
-impl BsnScene {
+impl Parse for BsnScene {
     fn parse(input: ParseStream) -> Result<Self> {
         let cached = if input.peek(Token![:]) {
             Some(input.parse::<Token![:]>()?)
