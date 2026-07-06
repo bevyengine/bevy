@@ -72,16 +72,16 @@ fn vertex(
     @location(4) radius_y: vec4<f32>,
 
     // x: left, y: top, z: right, w: bottom.
-    @location(4) border: vec4<f32>,
-    @location(5) size: vec2<f32>,
-    @location(6) point: vec2<f32>,
-    @location(7) @interpolate(flat) g_start: vec2<f32>,
-    @location(8) @interpolate(flat) dir: vec2<f32>,
-    @location(9) @interpolate(flat) start_color: vec4<f32>,
-    @location(10) @interpolate(flat) start_len: f32,
-    @location(11) @interpolate(flat) end_len: f32,
-    @location(12) @interpolate(flat) end_color: vec4<f32>,
-    @location(13) @interpolate(flat) hint: f32
+    @location(5) border: vec4<f32>,
+    @location(6) size: vec2<f32>,
+    @location(7) point: vec2<f32>,
+    @location(8) @interpolate(flat) g_start: vec2<f32>,
+    @location(9) @interpolate(flat) dir: vec2<f32>,
+    @location(10) @interpolate(flat) start_color: vec4<f32>,
+    @location(11) @interpolate(flat) start_len: f32,
+    @location(12) @interpolate(flat) end_len: f32,
+    @location(13) @interpolate(flat) end_color: vec4<f32>,
+    @location(14) @interpolate(flat) hint: f32
 ) -> GradientVertexOutput {
     var out: GradientVertexOutput;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
