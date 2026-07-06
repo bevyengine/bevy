@@ -88,6 +88,8 @@ impl Debug for SubApp {
 }
 
 impl Default for SubApp {
+    /// As part of default initialization, we schedule a [`message_update_system`] in [`First`].
+    /// We expect all [`SubApp`] implementations to schedule [`First`] regularly.
     fn default() -> Self {
         let mut world = World::new();
         world.init_resource::<Schedules>();

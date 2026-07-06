@@ -258,7 +258,7 @@ pub struct RenderScheduleOrder {
 impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![Render.intern()],
+            labels: vec![First.intern(), Render.intern()],
         }
     }
 }
@@ -392,11 +392,6 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderScheduleOrder>();
-            render_app
-                .init_schedule(First)
-                .world_mut()
-                .resource_mut::<RenderScheduleOrder>()
-                .insert_before(Render, First);
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
