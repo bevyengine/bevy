@@ -269,7 +269,7 @@ impl ImageNodeSize {
 
 /// The texture atlas layout, if the image has one.
 ///
-/// The [`update_texture_atlas_layout_component`] system automatically keeps
+/// The [`update_texture_atlas_layout_components`] system automatically keeps
 /// this component up to date based on [`ImageNode::texture_atlas`]. Don't
 /// update this component yourself; [`ImageNode::texture_atlas`] is the source
 /// of truth.
