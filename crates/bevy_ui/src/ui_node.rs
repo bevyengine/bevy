@@ -2536,14 +2536,26 @@ impl BorderRadius {
     pub const DEFAULT: Self = Self::ZERO;
 
     /// Zero curvature. All the corners will be right-angled.
-    pub const ZERO: Self = Self::all(Val::Px(0.));
+    pub const ZERO: Self = Self::all_circular(Val::Px(0.));
 
     /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
-    pub const MAX: Self = Self::all(Val::Px(f32::MAX));
+    pub const MAX: Self = Self::all_circular(Val::Px(f32::MAX));
 
     #[inline]
     /// Set all four corners to the same curvature.
-    pub const fn all(radius: Val) -> Self {
+    pub fn all(radii: impl Into<Val2>) -> Self {
+        let radii = radii.into();
+        Self {
+            top_left: radii,
+            top_right: radii,
+            bottom_left: radii,
+            bottom_right: radii,
+        }
+    }
+
+    #[inline]
+    /// Set all four circular corners to the same round corner radius.
+    pub const fn all_circular(radius: Val) -> Self {
         Self {
             top_left: Val2::all(radius),
             top_right: Val2::all(radius),
@@ -2564,12 +2576,17 @@ impl BorderRadius {
     }
 
     #[inline]
-    pub const fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
+    pub fn new(
+        top_left: impl Into<Val2>,
+        top_right: impl Into<Val2>,
+        bottom_right: impl Into<Val2>,
+        bottom_left: impl Into<Val2>,
+    ) -> Self {
         Self {
-            top_left: Val2::all(top_left),
-            top_right: Val2::all(top_right),
-            bottom_right: Val2::all(bottom_right),
-            bottom_left: Val2::all(bottom_left),
+            top_left: top_left.into(),
+            top_right: top_right.into(),
+            bottom_right: bottom_right.into(),
+            bottom_left: bottom_left.into(),
         }
     }
 
@@ -2618,9 +2635,9 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top left corner.
     /// Remaining corners will be right-angled.
-    pub const fn top_left(radii: Val2) -> Self {
+    pub fn top_left(radii: impl Into<Val2>) -> Self {
         Self {
-            top_left: radii,
+            top_left: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2628,9 +2645,9 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top right corner.
     /// Remaining corners will be right-angled.
-    pub const fn top_right(radii: Val2) -> Self {
+    pub fn top_right(radii: impl Into<Val2>) -> Self {
         Self {
-            top_right: radii,
+            top_right: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2638,9 +2655,9 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the bottom right corner.
     /// Remaining corners will be right-angled.
-    pub const fn bottom_right(radii: Val2) -> Self {
+    pub fn bottom_right(radii: impl Into<Val2>) -> Self {
         Self {
-            bottom_right: radii,
+            bottom_right: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2648,9 +2665,9 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the bottom left corner.
     /// Remaining corners will be right-angled.
-    pub const fn bottom_left(radii: Val2) -> Self {
+    pub fn bottom_left(radii: impl Into<Val2>) -> Self {
         Self {
-            bottom_left: radii,
+            bottom_left: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2658,10 +2675,10 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top left and bottom left corners.
     /// Remaining corners will be right-angled.
-    pub const fn left(radii: Val2) -> Self {
+    pub fn left<V: Copy + Into<Val2>>(radii: V) -> Self {
         Self {
-            top_left: radii,
-            bottom_left: radii,
+            top_left: radii.into(),
+            bottom_left: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2669,10 +2686,10 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top right and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub const fn right(radii: Val2) -> Self {
+    pub fn right<V: Copy + Into<Val2>>(radii: V) -> Self {
         Self {
-            top_right: radii,
-            bottom_right: radii,
+            top_right: radii.into(),
+            bottom_right: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2680,10 +2697,10 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the top left and top right corners.
     /// Remaining corners will be right-angled.
-    pub const fn top(radii: Val2) -> Self {
+    pub fn top<V: Copy + Into<Val2>>(radii: V) -> Self {
         Self {
-            top_left: radii,
-            top_right: radii,
+            top_left: radii.into(),
+            top_right: radii.into(),
             ..Self::DEFAULT
         }
     }
@@ -2691,71 +2708,71 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the bottom left and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub const fn bottom(radii: Val2) -> Self {
+    pub fn bottom<V: Copy + Into<Val2>>(radii: V) -> Self {
         Self {
-            bottom_left: radii,
-            bottom_right: radii,
+            bottom_left: radii.into(),
+            bottom_right: radii.into(),
             ..Self::DEFAULT
         }
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
     #[inline]
-    pub const fn with_top_left(mut self, radii: Val2) -> Self {
-        self.top_left = radii;
+    pub fn with_top_left(mut self, radii: impl Into<Val2>) -> Self {
+        self.top_left = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
     #[inline]
-    pub const fn with_top_right(mut self, radii: Val2) -> Self {
-        self.top_right = radii;
+    pub fn with_top_right(mut self, radii: impl Into<Val2>) -> Self {
+        self.top_right = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
     #[inline]
-    pub const fn with_bottom_right(mut self, radii: Val2) -> Self {
-        self.bottom_right = radii;
+    pub fn with_bottom_right(mut self, radii: impl Into<Val2>) -> Self {
+        self.bottom_right = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
     #[inline]
-    pub const fn with_bottom_left(mut self, radii: Val2) -> Self {
-        self.bottom_left = radii;
+    pub fn with_bottom_left(mut self, radii: impl Into<Val2>) -> Self {
+        self.bottom_left = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
     #[inline]
-    pub const fn with_left(mut self, radii: Val2) -> Self {
-        self.top_left = radii;
-        self.bottom_left = radii;
+    pub fn with_left<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
+        self.top_left = radii.into();
+        self.bottom_left = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
     #[inline]
-    pub const fn with_right(mut self, radii: Val2) -> Self {
-        self.top_right = radii;
-        self.bottom_right = radii;
+    pub fn with_right<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
+        self.top_right = radii.into();
+        self.bottom_right = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
     #[inline]
-    pub const fn with_top(mut self, radii: Val2) -> Self {
-        self.top_left = radii;
-        self.top_right = radii;
+    pub fn with_top<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
+        self.top_left = radii.into();
+        self.top_right = radii.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
     #[inline]
-    pub const fn with_bottom(mut self, radii: Val2) -> Self {
-        self.bottom_left = radii;
-        self.bottom_right = radii;
+    pub fn with_bottom<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
+        self.bottom_left = radii.into();
+        self.bottom_right = radii.into();
         self
     }
 
@@ -2808,8 +2825,11 @@ impl BorderRadius {
     }
 }
 
-impl From<Val> for BorderRadius {
-    fn from(value: Val) -> Self {
+impl<T> From<T> for BorderRadius
+where
+    T: Into<Val2>,
+{
+    fn from(value: T) -> Self {
         Self::all(value)
     }
 }
