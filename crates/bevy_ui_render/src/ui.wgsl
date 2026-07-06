@@ -88,11 +88,11 @@ fn sd_rounded_box(
 ) -> f32 {
     // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
     // Else select top left (x) and top right corner radius (y).
-    let rs = select(corner_radii_x.xy, corner_radii_x.wz, 0.0 < point.y);
+    let rxs = select(corner_radii_x.xy, corner_radii_x.wz, 0.0 < point.y);
     let rys = select(corner_radii_y.xy, corner_radii_y.wz, 0.0 < point.y);
     // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
     // select statement would return the incorrect value for the bottom pair.
-    let radius = vec2(select(rs.x, rs.y, 0.0 < point.x), select(rys.x, rys.y, 0.0 < point.x));
+    let radius = vec2(select(rxs.x, rxs.y, 0.0 < point.x), select(rys.x, rys.y, 0.0 < point.x));
     // Vector from the corner closest to the point, to the point.
     let corner_to_point = abs(point) - 0.5 * size;
     let straight_distance = max(corner_to_point.x, corner_to_point.y);
