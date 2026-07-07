@@ -452,7 +452,23 @@ pub fn extract_uinode_changes(
             ),
         >,
     >,
-    text_span_query: Extract<Query<&ChildOf, With<TextSpan>>>,
+    text_span_query: Extract<
+        Query<
+            Entity,
+            (
+                With<TextSpan>,
+                Or<(
+                    Changed<TextColor>,
+                    Changed<TextBackgroundColor>,
+                    Changed<Underline>,
+                    Changed<Strikethrough>,
+                    Changed<StrikethroughColor>,
+                    Changed<UnderlineColor>,
+                )>,
+            ),
+        >,
+    >,
+    text_span_parent_query: Extract<Query<&ChildOf, With<TextSpan>>>,
     text_query: Extract<Query<Entity, With<Text>>>,
     (
         mut removed_computed_node_query,
@@ -517,6 +533,7 @@ pub fn extract_uinode_changes(
     // data associated with them.
     for main_entity in uinode_query
         .iter()
+        .chain(text_span_query.iter())
         .chain(removed_computed_node_query.read())
         .chain(removed_computed_stack_index_query.read())
         .chain(removed_ui_global_transform_query.read())
@@ -544,7 +561,7 @@ pub fn extract_uinode_changes(
         process_changed_entity(
             main_entity.into(),
             &mut commands,
-            &text_span_query,
+            &text_span_parent_query,
             &text_query,
             &mut extracted_uinodes,
             Some(&mut extra_nodes_to_invalidate),
@@ -555,7 +572,7 @@ pub fn extract_uinode_changes(
         process_changed_entity(
             main_entity,
             &mut commands,
-            &text_span_query,
+            &text_span_parent_query,
             &text_query,
             &mut extracted_uinodes,
             None,
@@ -565,7 +582,7 @@ pub fn extract_uinode_changes(
     fn process_changed_entity(
         mut main_entity: MainEntity,
         commands: &mut Commands,
-        text_span_query: &Query<&ChildOf, With<TextSpan>>,
+        text_span_parent_query: &Query<&ChildOf, With<TextSpan>>,
         text_query: &Query<Entity, With<Text>>,
         extracted_uinodes: &mut ExtractedUiNodes,
         maybe_extra_nodes_to_invalidate: Option<&mut MainEntityHashSet>,
@@ -586,7 +603,7 @@ pub fn extract_uinode_changes(
         // `uinode_query` that it's iterating over matched the ancestor `Text`
         // node.
         if let Some(extra_nodes_to_invalidate) = maybe_extra_nodes_to_invalidate
-            && let Ok(parent) = text_span_query.get(main_entity.entity())
+            && let Ok(parent) = text_span_parent_query.get(main_entity.entity())
         {
             main_entity = parent.parent().into();
             loop {
@@ -594,7 +611,7 @@ pub fn extract_uinode_changes(
                     extra_nodes_to_invalidate.insert(main_entity);
                     break;
                 }
-                match text_span_query.get(main_entity.entity()) {
+                match text_span_parent_query.get(main_entity.entity()) {
                     Ok(parent) => main_entity = parent.parent().into(),
                     Err(_) => break,
                 }
