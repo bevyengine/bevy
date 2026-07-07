@@ -12,7 +12,8 @@ use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
-    query::Has,
+    hierarchy::ChildOf,
+    query::{Has, With, Without},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -118,11 +119,14 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: Query<(
-        Entity,
-        Option<&Propagate<ComputedUiTargetCamera>>,
-        Option<&Propagate<ComputedUiRenderTargetInfo>>,
-    )>,
+    ui_root_nodes: Query<
+        (
+            Entity,
+            Option<&Propagate<ComputedUiTargetCamera>>,
+            Option<&Propagate<ComputedUiRenderTargetInfo>>,
+        ),
+        (With<Node>, Without<ChildOf>),
+    >,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
