@@ -454,6 +454,8 @@ pub trait EntityWorldMutSceneExt {
     /// Applies the given [`Scene`] to the current entity immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
+    /// When a scene is resolved, it will replace and orphan the current entity's children.
+    ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
     /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::spawn_scene`].
@@ -466,6 +468,8 @@ pub trait EntityWorldMutSceneExt {
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
     /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    ///
+    /// See [EntityWorldMutSceneExt::apply_scene] for more information on what happens when a scene is resolved.
     ///
     /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
     /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::queue_spawn_scene`].
