@@ -21,7 +21,7 @@ use bevy::{
         batching::{no_gpu_preprocessing::batch_and_prepare_sorted_render_phase, GetBatchData},
         camera::ExtractedCamera,
         diagnostic::RecordDiagnostics as _,
-        material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+        material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId},
         mesh::{
             allocator::MeshAllocator, MeshMetadataFallbackBuffer, RenderMesh, RenderMeshBufferInfo,
         },
@@ -51,7 +51,6 @@ use bevy::{
         Mesh2dTransforms, Mesh2dUniform, MeshFlags, RenderMesh2dInstance, SetMesh2dViewBindGroup,
     },
 };
-use bevy_render::material_bind_groups::MaterialBindingId;
 use indexmap::IndexMap;
 use std::{f32::consts::PI, ops::Range};
 
