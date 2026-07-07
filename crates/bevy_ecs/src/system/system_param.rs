@@ -723,17 +723,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>("Resource does not exist")
-        })?;
-        if !world
-            .get_entity(component_id.entity())
-            .is_ok_and(|entity| entity.contains_id(IS_RESOURCE))
-        {
+        let entity = component_id.entity();
+        let entity_cell = world
+            .get_entity(entity)
+            .map_err(|_| SystemParamValidationError::invalid::<Self>("Resource does not exist"))?;
+        if !entity_cell.contains_id(IS_RESOURCE) {
             return Err(SystemParamValidationError::invalid::<Self>(
                 "Resource does not have IsResource",
             ));
         }
+        // SAFETY: Through the scheduler we have unique access to this resource
+        let (ptr, ticks) =
+            unsafe { entity_cell.get_by_id_with_ticks(component_id) }.ok_or_else(|| {
+                SystemParamValidationError::invalid::<Self>("Resource does not exist")
+            })?;
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
@@ -2795,7 +2798,7 @@ mod tests {
     use crate::component::Component;
     use crate::query::Without;
     use crate::resource::IsResource;
-    use crate::system::assert_is_system;
+    use crate::system::{assert_is_system, RegisteredSystemError};
     use crate::world::EntityMut;
     use core::cell::RefCell;
 
@@ -3112,21 +3115,19 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn missing_resource_marker() {
         #[derive(Component, Default)]
         struct R;
-        // In order to prevent UB, one should always have `IsResource` by a required component
-        // for every type `R` that implements Resource, else using `Res` and `ResMut` panics.
+        // In order for Res and ResMut queries to work, there should always be `IsResource`
+        // on the resource entity for every type `R` that implements Resource.
         impl Resource for R {}
 
         let mut world = World::new();
         world.init_resource::<R>();
 
-        world
-            .run_system_cached(
-                |_: Option<Res<R>>, _: Option<Single<&mut R, Without<IsResource>>>| {},
-            )
-            .unwrap();
+        assert!(matches!(
+            world.run_system_cached(|_: Res<R>, _: Option<Single<&mut R, Without<IsResource>>>| {}),
+            Err(RegisteredSystemError::Failed(_))
+        ),);
     }
 }

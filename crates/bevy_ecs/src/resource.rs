@@ -131,12 +131,24 @@ pub trait Resource: Component {}
 pub struct IsResource;
 
 impl IsResource {
-    pub(crate) fn on_discard(_world: DeferredWorld, _context: HookContext) {
-        warn!("IsResource components should not be removed from a resource entity")
+    pub(crate) fn on_discard(world: DeferredWorld, context: HookContext) {
+        let maybe_resource_id = ComponentId::new(context.entity);
+
+        // If IsResource exists on a resource entity then maybe_resource_id is
+        // a valid component id and we should not remove it.
+        if world.components().is_id_valid(maybe_resource_id) {
+            warn!("IsResource components should not be removed from a resource entity")
+        }
     }
 
-    pub(crate) fn on_despawn(_world: DeferredWorld, _context: HookContext) {
-        warn!("Resource entities are not supposed to be despawned.");
+    pub(crate) fn on_despawn(world: DeferredWorld, context: HookContext) {
+        let maybe_resource_id = ComponentId::new(context.entity);
+
+        // If IsResource exists on a resource entity then maybe_resource_id is
+        // a valid component id and we should not despawn the entity.
+        if world.components().is_id_valid(maybe_resource_id) {
+            warn!("Resource entities are not supposed to be despawned.");
+        }
     }
 }
 
