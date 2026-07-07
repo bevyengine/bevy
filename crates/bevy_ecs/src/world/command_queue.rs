@@ -6,6 +6,7 @@ use crate::{
 
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
+use bevy_utils::DebugName;
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
@@ -20,9 +21,12 @@ struct CommandMeta {
     ///
     /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
     ///
-    /// Advances `cursor` by the size of `T` in bytes.
-    consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
+    /// Advances `runner.local_cursor` by the size of `T` in bytes.
+    consume_command_and_get_size: unsafe fn(
+        value: OwningPtr<Unaligned>,
+        world: Option<NonNull<World>>,
+        runner: &mut CommandQueueRunner,
+    ),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -190,8 +194,9 @@ impl RawCommandQueue {
         }
 
         let meta = CommandMeta {
-            consume_command_and_get_size: |command, world, cursor| {
-                *cursor += size_of::<C>();
+            consume_command_and_get_size: |command, world, runner| {
+                runner.local_cursor += size_of::<C>();
+                runner.current_command_name = DebugName::type_name::<C>();
 
                 // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
                 // but also because applying the command may cause the command queue to reallocate.
@@ -293,8 +298,14 @@ impl SystemBuffer for CommandQueue {
 /// A RAII guard used while running commands to ensure
 /// that unapplied commands are dropped during unwind.
 struct CommandQueueRunner<'a> {
-    command_queue: &'a mut RawCommandQueue,
     local_cursor: usize,
+    /// The type name of the last command to be applied.
+    ///
+    /// This is assigned by [`CommandMeta::consume_command_and_get_size`]
+    /// before running a command so that it is available
+    /// in the error handler if the command panics.
+    current_command_name: DebugName,
+    command_queue: &'a mut RawCommandQueue,
     start: usize,
     stop: usize,
 }
@@ -313,8 +324,9 @@ impl<'a> CommandQueueRunner<'a> {
         unsafe { command_queue.cursor.write(stop) };
 
         Self {
-            command_queue,
             local_cursor: start,
+            current_command_name: DebugName::borrowed("Unknown command"),
+            command_queue,
             start,
             stop,
         }
@@ -365,7 +377,7 @@ impl<'a> CommandQueueRunner<'a> {
                 // This also advances the cursor past the command. For ZSTs, the cursor will not move.
                 // At this point, it will either point to the next `CommandMeta`,
                 // or the cursor will be out of bounds and the loop will end.
-                unsafe { (meta.consume_command_and_get_size)(cmd, world, &mut self.local_cursor) };
+                unsafe { (meta.consume_command_and_get_size)(cmd, world, self) };
             });
 
             #[cfg(feature = "std")]
@@ -373,7 +385,6 @@ impl<'a> CommandQueueRunner<'a> {
                 use crate::error::{
                     BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
                 };
-                use bevy_utils::DebugName;
                 use std::{
                     backtrace::Backtrace,
                     panic::{catch_unwind, resume_unwind},
@@ -399,7 +410,7 @@ impl<'a> CommandQueueRunner<'a> {
                     world.fallback_error_handler()(
                         error,
                         ErrorContext::Command {
-                            name: DebugName::type_name::<CommandQueue>(),
+                            name: self.current_command_name.clone(),
                         },
                     );
                 }
