@@ -125,7 +125,7 @@ fn star(
 #[derive(Component, Default)]
 pub struct ColoredMesh2d;
 
-impl SyncComponent for ColoredMesh2d {
+impl SyncComponent<RenderApp> for ColoredMesh2d {
     type Target = Self;
 }
 
