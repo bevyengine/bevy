@@ -183,4 +183,10 @@ impl<'w, 's, M: Message> MessageMutator<'w, 's, M> {
     {
         self.messages.write_default()
     }
+
+    /// Retain messages for which the predicate returns 'true', removing all others so that
+    /// downstream readers never see them.
+    pub fn retain(&mut self, f: impl FnMut(&M) -> bool) {
+        self.messages.retain(f);
+    }
 }
