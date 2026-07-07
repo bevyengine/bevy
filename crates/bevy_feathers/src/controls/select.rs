@@ -3,6 +3,7 @@ use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{Added, Changed, With, Without},
@@ -13,7 +14,7 @@ use bevy_input_focus::{FocusCause, InputFocus, InputFocusVisible};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{px, widget::Text, ComputedNode, Node, Selected};
-use bevy_ui_widgets::{ListBox, ValueChange};
+use bevy_ui_widgets::{listbox_update_selection, ListBox, SetSelected, ValueChange};
 
 use super::{
     FeathersListRow, FeathersListView, FeathersMenu, FeathersMenuButton, FeathersMenuPopup,
@@ -113,6 +114,8 @@ impl FeathersSelect {
                             @FeathersListView {
                                 @rows: {props.options}
                             }
+                            on(listbox_update_selection)
+                            on(re_emit_listbox_value)
                             Node {
                                 max_height: {max_height},
                             }
@@ -124,52 +127,57 @@ impl FeathersSelect {
     }
 }
 
-fn on_select(
+fn re_emit_listbox_value(
     ev: On<ValueChange<Entity>>,
-    q_listbox: Query<(), With<ListBox>>,
     q_select: Query<(), With<FeathersSelect>>,
     q_parents: Query<&ChildOf>,
-    q_children: Query<&Children>,
-    q_rows: Query<(), With<FeathersListRow>>,
     q_popup: Query<(), With<FeathersMenuPopup>>,
     mut commands: Commands,
 ) {
-    if !q_listbox.contains(ev.source) {
-        return;
-    } // ignore our own re-emit
-
-    let row = ev.event().value;
-
     let mut select_ent = None;
-    for ancestor in q_parents.iter_ancestors(row) {
+    let mut popup_ent = None;
+    for ancestor in q_parents.iter_ancestors(ev.event_target()) {
         if q_select.contains(ancestor) {
             select_ent = Some(ancestor);
             break;
         }
-    }
-    let Some(select_ent) = select_ent else {
-        return;
-    };
-
-    // Close popup and mark the correct row option selected
-    // and others as not
-    for descendant in q_children.iter_descendants(select_ent) {
-        if q_rows.contains(descendant) {
-            if descendant == row {
-                commands.entity(descendant).insert(Selected);
-            } else {
-                commands.entity(descendant).remove::<Selected>();
-            }
-        } else if q_popup.contains(descendant) {
-            commands.entity(descendant).insert(Visibility::Hidden);
+        if q_popup.contains(ancestor) {
+            popup_ent = Some(ancestor);
         }
     }
 
-    commands.trigger(ValueChange {
-        source: select_ent,
-        value: row,
-        is_final: true,
-    });
+    if let Some(select_ent) = select_ent {
+        commands.trigger(ValueChange {
+            source: select_ent,
+            value: ev.value,
+            is_final: true,
+        });
+    };
+
+    if let Some(popup_ent) = popup_ent {
+        commands.entity(popup_ent).insert(Visibility::Hidden);
+    }
+}
+
+fn select_on_set_selected(
+    ev: On<SetSelected>,
+    q_select: Query<(), With<FeathersSelect>>,
+    q_listbox: Query<(), With<ListBox>>,
+    q_children: Query<&Children>,
+    mut commands: Commands,
+) {
+    if !q_select.contains(ev.entity) {
+        return;
+    }
+    if let Some(listbox) = q_children
+        .iter_descendants(ev.entity)
+        .find(|descendant| q_listbox.contains(*descendant))
+    {
+        commands.trigger(SetSelected {
+            entity: listbox,
+            row: ev.row,
+        });
+    }
 }
 
 fn sync_caption(
@@ -286,7 +294,7 @@ impl Plugin for SelectPlugin {
         app.add_systems(
             Update,
             (sync_caption, focus_select_popup, sync_select_width),
-        );
-        app.add_observer(on_select);
+        )
+        .add_observer(select_on_set_selected);
     }
 }
