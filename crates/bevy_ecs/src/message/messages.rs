@@ -286,8 +286,7 @@ impl<M: Message> Messages<M> {
         self.messages_b
             .messages
             .retain(|instance| f(&instance.message));
-        self.message_count =
-            self.messages_b.start_message_count + self.messages_b.len();
+        self.message_count = self.messages_b.start_message_count + self.messages_b.len();
     }
 
     /// Which message buffer is this message id a part of.
