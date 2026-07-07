@@ -112,6 +112,7 @@ fn setup(
 }
 
 #[derive(Component, ExtractComponent, Clone, Copy, Default)]
+#[extract_app(RenderApp)]
 struct DrawStencil;
 
 struct MeshStencilPhasePlugin;

@@ -262,6 +262,7 @@ Example | Description
 [Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset
 [Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
+[Compressed Image Saver](../examples/asset/compressed_image_saver.rs) | Demonstrates compressing textures and generating mipmaps using CompressedImageSaver
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it

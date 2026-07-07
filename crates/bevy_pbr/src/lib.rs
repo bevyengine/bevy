@@ -507,7 +507,7 @@ pub fn area_light_luts_placeholder() -> Image {
     }
 }
 
-impl SyncComponent<PbrPlugin> for DirectionalLight {
+impl SyncComponent<RenderApp, PbrPlugin> for DirectionalLight {
     type Target = (
         Self,
         ExtractedDirectionalLight,
@@ -516,7 +516,7 @@ impl SyncComponent<PbrPlugin> for DirectionalLight {
         DirectionalLightViewEntities,
     );
 }
-impl SyncComponent<PbrPlugin> for PointLight {
+impl SyncComponent<RenderApp, PbrPlugin> for PointLight {
     type Target = (
         Self,
         ExtractedPointLight,
@@ -525,7 +525,7 @@ impl SyncComponent<PbrPlugin> for PointLight {
         PointAndSpotLightViewEntities,
     );
 }
-impl SyncComponent<PbrPlugin> for SpotLight {
+impl SyncComponent<RenderApp, PbrPlugin> for SpotLight {
     type Target = (
         Self,
         ExtractedPointLight,
@@ -534,12 +534,12 @@ impl SyncComponent<PbrPlugin> for SpotLight {
         PointAndSpotLightViewEntities,
     );
 }
-impl SyncComponent<PbrPlugin> for RectLight {
+impl SyncComponent<RenderApp, PbrPlugin> for RectLight {
     type Target = (Self, ExtractedRectLight);
 }
-impl SyncComponent<PbrPlugin> for AmbientLight {
+impl SyncComponent<RenderApp, PbrPlugin> for AmbientLight {
     type Target = Self;
 }
-impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+impl SyncComponent<RenderApp, PbrPlugin> for ShadowFilteringMethod {
     type Target = Self;
 }

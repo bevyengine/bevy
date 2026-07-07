@@ -89,6 +89,7 @@ pub struct SmaaPlugin;
     ViewSmaaPipelines,
 ))]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
+#[extract_app(RenderApp)]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
     ///
