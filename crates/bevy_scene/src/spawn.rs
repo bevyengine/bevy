@@ -901,7 +901,7 @@ mod tests {
         let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
 
         assert_eq!(
-            world.entity(root).get::<Children>().map(|c| c.len()),
+            world.entity(root).get::<Children>().map(Children::len),
             Some(1)
         );
 
