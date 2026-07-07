@@ -18,3 +18,14 @@ bevy = { version = "0.20", features = ["compressed_image_saver_universal"] }
 Alternatively, keep using `compressed_image_saver` to get the new BCn/ASTC compression backend. This produces higher-quality output and supports a wider range of input formats, but does not support all platforms in a single file like UASTC does. We recommend sticking to `compressed_image_saver_universal` when targeting the web.
 
 `CompressedImageSaverError` has a new variant `CompressionFailed`. If you were matching exhaustively on this enum, add a branch for it.
+
+In Bevy 0.19, `ImagePlugin` registered a default compressed image processor for PNG files. This meant PNG files were automatically compressed if asset processing was enabled, and the processor wasn't overridden by a `.meta` file. In Bevy 0.20, JPEG files have been added to the default processor. The extensions that the default processor uses can also be overridden by `ImagePlugin::default_compressed_image_processor_extensions` -  to revert back to the Bevy 0.19 PNG-only behavior:
+
+```rust
+App::new().add_plugins(
+	DefaultPlugins.set(ImagePlugin {
+		default_compressed_image_processor_extensions: ["png".into()].into(),
+		..Default::default()
+	}),
+)
+```
