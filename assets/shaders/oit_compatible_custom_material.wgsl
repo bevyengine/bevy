@@ -21,12 +21,11 @@ fn fragment(
     // Using world coordinates for simplicity, but local mesh coordinates
     // would be required if the mesh moved.
     let alpha = gradient_noise(in.world_position.xyz, 5.0);
-
-    // OIT assumes color is alpha-premultiplied.
-    let color = vec4f(material_color.rgb * alpha, alpha);
+    let color = vec4f(material_color.rgb, alpha);
 
 #ifdef MATERIAL_OIT_ENABLED
-    oit_draw(in.position, color);
+    // OIT assumes color is alpha-premultiplied.
+    oit_draw(in.position, vec4f(color.rgb * color.a, color.a));
     discard;
 #endif // MATERIAL_OIT_ENABLED
 
