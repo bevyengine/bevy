@@ -6,8 +6,6 @@ use crate::{
 
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
-#[cfg(feature = "std")]
-use bevy_utils::DebugName;
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
@@ -16,7 +14,6 @@ use core::{
 };
 use log::warn;
 
-/// Metadata about a type-erased command.
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
@@ -26,45 +23,6 @@ struct CommandMeta {
     /// Advances `cursor` by the size of `T` in bytes.
     consume_command_and_get_size:
         unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
-    /// Returns the name of the command, for use in [`ErrorContext`].
-    #[cfg(feature = "std")]
-    name: fn() -> DebugName,
-}
-
-/// A trait that provides a `const` [`CommandMeta`]
-/// in order to provide a `&'static CommandMeta` for a type.
-trait CommandMetaProvider {
-    const META: CommandMeta;
-}
-
-impl<C: Command> CommandMetaProvider for C {
-    const META: CommandMeta = CommandMeta {
-        consume_command_and_get_size: |command, world, cursor| {
-            *cursor += size_of::<C>();
-
-            // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
-            // but also because applying the command may cause the command queue to reallocate.
-            // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
-            // `command` must point to a value of type `C`.
-            let command: C = unsafe { command.read_unaligned() };
-            match world {
-                // Apply command to the provided world...
-                Some(mut world) => {
-                    // SAFETY: Caller ensures pointer is not null
-                    let world = unsafe { world.as_mut() };
-                    command.apply(world);
-                    // The command may have queued up world commands, which we flush here to ensure they are also picked up.
-                    // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
-                    // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
-                    world.flush();
-                }
-                // ...or discard it.
-                None => drop(command),
-            }
-        },
-        #[cfg(feature = "std")]
-        name: DebugName::type_name::<C>,
-    };
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -227,11 +185,35 @@ impl RawCommandQueue {
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
         struct Packed<C: Command<Out = ()>> {
-            meta: &'static CommandMeta,
+            meta: CommandMeta,
             command: C,
         }
 
-        let meta = const { &C::META };
+        let meta = CommandMeta {
+            consume_command_and_get_size: |command, world, cursor| {
+                *cursor += size_of::<C>();
+
+                // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
+                // but also because applying the command may cause the command queue to reallocate.
+                // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
+                // `command` must point to a value of type `C`.
+                let command: C = unsafe { command.read_unaligned() };
+                match world {
+                    // Apply command to the provided world...
+                    Some(mut world) => {
+                        // SAFETY: Caller ensures pointer is not null
+                        let world = unsafe { world.as_mut() };
+                        command.apply(world);
+                        // The command may have queued up world commands, which we flush here to ensure they are also picked up.
+                        // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
+                        // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
+                        world.flush();
+                    }
+                    // ...or discard it.
+                    None => drop(command),
+                }
+            },
+        };
 
         // SAFETY: There are no outstanding references to self.bytes
         let bytes = unsafe { self.bytes.as_mut() };
@@ -356,12 +338,12 @@ impl<'a> CommandQueueRunner<'a> {
                     .as_mut()
                     .as_mut_ptr()
                     .add(self.local_cursor)
-                    .cast::<&'static CommandMeta>()
+                    .cast::<CommandMeta>()
                     .read_unaligned()
             };
 
             // Advance to the bytes just after `meta`, which represent a type-erased command.
-            self.local_cursor += size_of::<&'static CommandMeta>();
+            self.local_cursor += size_of::<CommandMeta>();
             // Construct an owned pointer to the command.
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the increment of `cursor` above
             // guarantees that nothing stored in the buffer will get observed after this function ends.
@@ -391,6 +373,7 @@ impl<'a> CommandQueueRunner<'a> {
                 use crate::error::{
                     BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
                 };
+                use bevy_utils::DebugName;
                 use std::{
                     backtrace::Backtrace,
                     panic::{catch_unwind, resume_unwind},
@@ -416,7 +399,7 @@ impl<'a> CommandQueueRunner<'a> {
                     world.fallback_error_handler()(
                         error,
                         ErrorContext::Command {
-                            name: (meta.name)(),
+                            name: DebugName::type_name::<CommandQueue>(),
                         },
                     );
                 }
