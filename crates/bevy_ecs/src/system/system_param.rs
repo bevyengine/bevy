@@ -9,7 +9,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
     component::{ComponentId, Components, Mutable},
-    entity::{Entities, EntityAllocator},
+    entity::{ContainsEntity, Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
         QuerySingleError, QueryState, ReadOnlyQueryData,
@@ -32,6 +32,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use log::warn;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -675,12 +676,19 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     fn init_state(world: &mut World) -> Self::State {
         let component_id = world.components_registrator().register_component::<T>();
-        assert!(
-            world
-                .get_required_components_by_id(component_id)
-                .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE)),
-            "resource does not have IsResource as a required component"
-        );
+        if world
+            .get_required_components_by_id(component_id)
+            .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE))
+        {
+            let name = world
+                .components()
+                .get_name(component_id)
+                .expect("resource is registered");
+            warn!(
+                "Resource {} does not have IsResource as a required component, hence it cannot be queried through Res.",
+                name
+            );
+        }
         component_id
     }
 
@@ -718,6 +726,14 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Resource does not exist")
         })?;
+        if !world
+            .get_entity(component_id.entity())
+            .is_ok_and(|entity| entity.contains_id(IS_RESOURCE))
+        {
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not have IsResource",
+            ));
+        }
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
@@ -739,12 +755,19 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
 
     fn init_state(world: &mut World) -> Self::State {
         let component_id = world.components_registrator().register_component::<T>();
-        assert!(
-            world
-                .get_required_components_by_id(component_id)
-                .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE)),
-            "resource does not have IsResource as a required component"
-        );
+        if world
+            .get_required_components_by_id(component_id)
+            .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE))
+        {
+            let name = world
+                .components()
+                .get_name(component_id)
+                .expect("resource is registered");
+            warn!(
+                "Resource {} does not have IsResource as a required component, hence it cannot be queried through ResMut.",
+                name
+            );
+        }
         component_id
     }
 
@@ -779,9 +802,20 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let value = world.get_resource_mut_by_id(component_id).ok_or_else(|| {
+        let entity = component_id.entity();
+        let entity_cell = world
+            .get_entity(entity)
+            .map_err(|_| SystemParamValidationError::invalid::<Self>("Resource does not exist"))?;
+        if !entity_cell.contains_id(IS_RESOURCE) {
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not have IsResource",
+            ));
+        }
+        // SAFETY: Through the scheduler we have unique access to this resource
+        let value = unsafe { entity_cell.get_mut_by_id(component_id).ok() }.ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Resource does not exist")
         })?;
+
         Ok(ResMut {
             value: value.value.deref_mut::<T>(),
             ticks: ComponentTicksMut {

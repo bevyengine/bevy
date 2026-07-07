@@ -13,6 +13,46 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
 
+/// The main hook that checks that a resource is inserted on the right entity, thereby guaranteeing uniqueness.
+/// It's still possible to define your own insert hooks on resources, which will exist alongside this one.
+pub fn on_resource_insert(mut world: DeferredWorld, context: HookContext) {
+    let resource_id = context.component_id;
+    let resource_entity = resource_id.entity();
+
+    if !world.entities().contains(resource_entity) {
+        let name = world
+            .components()
+            .get_name(resource_id)
+            .expect("resource is registered");
+        warn!(
+            "Resource entity {} of {} has been despawned, when it's not supposed to be.",
+            resource_entity, name
+        );
+    }
+
+    if resource_entity != context.entity {
+        // the resource already exists and the new one should be removed
+        world
+            .commands()
+            .entity(context.entity)
+            .remove_by_id(resource_id);
+        world
+            .commands()
+            .entity(context.entity)
+            .remove_by_id(IS_RESOURCE);
+        let name = world
+            .components()
+            .get_name(resource_id)
+            .expect("resource is registered");
+        warn!(
+            "Tried inserting the resource {} on the wrong entity. \
+        Resources are unique components stored on the entity matching their `component_id`. \
+        Inserting on a different entity causes the new value to be removed.",
+            name
+        );
+    }
+}
+
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
 /// You can access resource data in systems using the [`Res`] and [`ResMut`] system parameters
@@ -87,79 +127,16 @@ pub trait Resource: Component {}
 /// A marker component for entities that have a Resource component.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
-#[component(on_insert, on_discard, on_despawn)]
-pub struct IsResource(ComponentId);
+#[component(on_discard, on_despawn)]
+pub struct IsResource;
 
 impl IsResource {
-    /// Creates a new instance with the given `component_id`
-    pub fn new(component_id: ComponentId) -> Self {
-        Self(component_id)
-    }
-
-    /// The [`ComponentId`] of the resource component (the _actual_ resource value component, not the [`IsResource`] component).
-    pub fn resource_component_id(&self) -> ComponentId {
-        self.0
-    }
-
-    pub(crate) fn on_insert(mut world: DeferredWorld, context: HookContext) {
-        let resource_component_id = world
-            .entity(context.entity)
-            .get::<Self>()
-            .unwrap()
-            .resource_component_id();
-
-        let original_entity = resource_component_id.entity();
-
-        if !world.entities().contains(original_entity) {
-            let name = world
-                .components()
-                .get_name(resource_component_id)
-                .expect("resource is registered");
-            panic!(
-                "Resource entity {} of {} has been despawned, when it's not supposed to be.",
-                original_entity, name
-            );
-        }
-
-        if original_entity != context.entity {
-            // the resource already exists and the new one should be removed
-            world
-                .commands()
-                .entity(context.entity)
-                .remove_by_id(resource_component_id);
-            world
-                .commands()
-                .entity(context.entity)
-                .remove_by_id(context.component_id);
-            let name = world
-                .components()
-                .get_name(resource_component_id)
-                .expect("resource is registered");
-            warn!(
-                "Tried inserting the resource {} on the wrong entity. \
-            Resources are unique components stored on the entity matching their `component_id`. \
-            Inserting on a different entity causes the new value to be removed.",
-                name
-            );
-        }
-    }
-
-    pub(crate) fn on_discard(world: DeferredWorld, context: HookContext) {
-        let resource_component_id = world
-            .entity(context.entity)
-            .get::<Self>()
-            .unwrap()
-            .resource_component_id();
-
-        let original_entity = resource_component_id.entity();
-
-        if original_entity == context.entity {
-            panic!("IsResource components should never be removed from their resource entity.")
-        }
+    pub(crate) fn on_discard(_world: DeferredWorld, _context: HookContext) {
+        warn!("IsResource components should not be removed from a resource entity")
     }
 
     pub(crate) fn on_despawn(_world: DeferredWorld, _context: HookContext) {
-        panic!("Resource entities are not supposed to be despawned.");
+        warn!("Resource entities are not supposed to be despawned.");
     }
 }
 
@@ -248,8 +225,8 @@ mod tests {
         let first_entity = {
             let resources = query.iter(&world).collect::<Vec<_>>();
             assert_eq!(resources.len(), 1);
-            let (entity, _test_resource, is_resource) = resources[0];
-            assert_eq!(is_resource.resource_component_id(), id);
+            let (entity, _test_resource, _is_resource) = resources[0];
+            assert_eq!(entity, id.entity());
             entity
         };
 
@@ -259,8 +236,8 @@ mod tests {
         let second_entity = {
             let resources = query.iter(&world).collect::<Vec<_>>();
             assert_eq!(resources.len(), 1);
-            let (entity, _test_resource, is_resource) = resources[0];
-            assert_eq!(is_resource.resource_component_id(), id);
+            let (entity, _test_resource, _is_resource) = resources[0];
+            assert_eq!(entity, id.entity());
             entity
         };
 
@@ -316,30 +293,5 @@ mod tests {
                 .count(),
             1
         );
-    }
-
-    #[test]
-    #[should_panic]
-    fn remove_resource_marker_should_panic() {
-        #[derive(Resource, Default)]
-        struct R;
-
-        let mut world = World::new();
-        world.init_resource::<R>();
-        let entity = world.register_component::<R>().entity();
-        let mut entity = world.entity_mut(entity);
-        entity.remove::<IsResource>();
-    }
-
-    #[test]
-    #[should_panic]
-    fn despawn_resource_should_panic() {
-        #[derive(Resource, Default)]
-        struct R;
-
-        let mut world = World::new();
-        world.init_resource::<R>();
-        let entity = world.register_component::<R>().entity();
-        world.despawn(entity);
     }
 }
