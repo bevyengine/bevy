@@ -55,7 +55,7 @@ pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
 ///
 /// This duplicates information in `RenderAssets<M>`, but it doesn't have the
 /// `M` type parameter, so it can be used in untyped contexts like
-/// [`crate::render::mesh::collect_meshes_for_gpu_building`].
+/// `collect_meshes_for_gpu_building`.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
 
