@@ -873,11 +873,7 @@ mod tests {
     use crate::{bsn, ScenePlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::AssetPlugin;
-    use bevy_ecs::{
-        name::Name,
-        prelude::*,
-        template::FromTemplate,
-    };
+    use bevy_ecs::{name::Name, prelude::*, template::FromTemplate};
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -895,6 +891,7 @@ mod tests {
     #[derive(Component)]
     struct PreExistingChild;
 
+    /// Tests that documented behaviour of [`EntityWorldMutSceneExt::apply_scene`] is correct.
     #[test]
     fn apply_scene_replaces_and_orphans_children() {
         let mut app = test_app();
@@ -903,7 +900,10 @@ mod tests {
         let pre_existing = world.spawn(PreExistingChild).id();
         let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
 
-        assert_eq!(world.entity(root).get::<Children>().map(|c| c.len()), Some(1));
+        assert_eq!(
+            world.entity(root).get::<Children>().map(|c| c.len()),
+            Some(1)
+        );
 
         let scene = bsn! {
             Children [ #SceneChild SceneChild ]
