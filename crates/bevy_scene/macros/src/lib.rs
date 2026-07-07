@@ -30,8 +30,8 @@ use syn::{parse_macro_input, DeriveInput};
 ///         },
 ///         Node {
 ///             width: some_var      // variables can be assigned to field values
-///         }
-///         ComponentB({some_variable + 3.})  // values can be expressions, when wrapped in {}
+///         },
+///         ComponentB({some_variable + 3.}),  // values can be expressions, when wrapped in {}
 ///         @Container {
 ///             @items: {
 ///                 bsn_list![                // sometimes you may need to nest macro calls
