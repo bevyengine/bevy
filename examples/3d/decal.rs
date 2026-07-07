@@ -134,7 +134,7 @@ fn setup(
     ));
 
     commands.spawn((
-        Text::new("(T) Order independent transparency: Disabled"),
+        Text::new("(T) Order independent transparency: Off"),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -158,13 +158,13 @@ fn toggle_oit(
                 .remove::<OrderIndependentTransparencySettings>()
                 .insert(Msaa::default());
             text.clear();
-            text.push_str("(T) Order independent transparency: Disabled");
+            text.push_str("(T) Order independent transparency: Off");
         } else {
             commands
                 .entity(entity)
                 .insert((OrderIndependentTransparencySettings::default(), Msaa::Off));
             text.clear();
-            text.push_str("(T) Order independent transparency: Enabled");
+            text.push_str("(T) Order independent transparency: On");
         }
     }
 }
