@@ -423,8 +423,8 @@ fn demo_column_1() -> impl Scene {
             (
                 @FeathersSlider {
                     @max: 100.0,
-                    @value: 20.0,
                 }
+                SliderValue(20.0)
                 SliderStep(10.)
                 SliderPrecision(2)
                 on(slider_self_update)

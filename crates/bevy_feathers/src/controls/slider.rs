@@ -56,8 +56,6 @@ pub struct FeathersSlider;
 
 /// Props used to construct the [`FeathersSlider`] scene.
 pub struct FeathersSliderProps {
-    /// Slider current value
-    pub value: f32,
     /// Slider minimum value
     pub min: f32,
     /// Slider maximum value
@@ -67,7 +65,6 @@ pub struct FeathersSliderProps {
 impl Default for FeathersSliderProps {
     fn default() -> Self {
         Self {
-            value: 0.0,
             min: 0.0,
             max: 1.0,
         }
@@ -91,7 +88,7 @@ impl FeathersSlider {
                 orientation: SliderOrientation::Horizontal,
             }
             FeathersSlider
-            SliderValue({props.value})
+            SliderValue({props.min})
             SliderRange::new(props.min, props.max)
             EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
             TabIndex(0)
@@ -163,7 +160,7 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
             orientation: SliderOrientation::Horizontal,
         },
         FeathersSlider,
-        SliderValue(props.value),
+        SliderValue(props.min),
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
@@ -356,7 +353,7 @@ fn update_slider_pos(
             Entity,
             &SliderValue,
             &SliderRange,
-            &SliderPrecision,
+            Option<&SliderPrecision>,
             &mut BackgroundGradient,
         ),
         (
@@ -379,17 +376,19 @@ fn update_slider_pos(
         }
 
         // Find slider text child entity and update its text with the formatted value
+        let precision = precision.cloned().unwrap_or_default().0;
+
         q_children.iter_descendants(slider_ent).for_each(|child| {
             if let Ok(mut text) = q_slider_text.get_mut(child) {
                 let label = format!("{}", value.0);
                 let decimals_len = label
                     .split_once('.')
                     .map(|(_, decimals)| decimals.len() as i32)
-                    .unwrap_or(precision.0);
+                    .unwrap_or(precision);
 
                 // Don't format with precision if the value has more decimals than the precision
-                text.0 = if precision.0 >= 0 && decimals_len <= precision.0 {
-                    format!("{:.precision$}", value.0, precision = precision.0 as usize)
+                text.0 = if precision >= 0 && decimals_len <= precision {
+                    format!("{:.precision$}", value.0, precision = precision as usize)
                 } else {
                     label
                 };
