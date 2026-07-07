@@ -870,7 +870,7 @@ impl QueuedScenes {
 #[cfg(test)]
 mod tests {
     use super::EntityWorldMutSceneExt;
-    use crate::{bsn, ScenePlugin};
+    use crate::{self as bevy_scene, bsn, ScenePlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::AssetPlugin;
     use bevy_ecs::{name::Name, prelude::*, template::FromTemplate};
