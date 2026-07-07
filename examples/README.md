@@ -511,6 +511,7 @@ Example | Description
 [Specialized Mesh Pipeline](../examples/shader_advanced/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
+[Texture Space Shading](../examples/shader_advanced/texture_space_shading.rs) | Uses a shader to generate textures at runtime
 
 ### Shaders Advanced
 

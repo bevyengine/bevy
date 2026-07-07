@@ -5600,3 +5600,14 @@ name = "Light Probe Blending"
 description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "texture_space_shading"
+path = "examples/shader_advanced/texture_space_shading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.texture_space_shading]
+name = "Texture Space Shading"
+description = "Uses a shader to generate textures at runtime"
+category = "Shaders"
+wasm = true
