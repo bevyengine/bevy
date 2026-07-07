@@ -64,10 +64,7 @@ pub struct FeathersSliderProps {
 
 impl Default for FeathersSliderProps {
     fn default() -> Self {
-        Self {
-            min: 0.0,
-            max: 1.0,
-        }
+        Self { min: 0.0, max: 1.0 }
     }
 }
 
