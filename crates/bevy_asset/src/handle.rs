@@ -1,6 +1,6 @@
 use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
-    ErasedAssetIndex, ReflectHandle, UntypedAssetId,
+    Assets, ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
@@ -115,7 +115,7 @@ impl core::fmt::Debug for StrongHandle {
 }
 
 /// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
-/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// assets, whose data are stored in the [`Assets<A>`] resource,
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
@@ -123,7 +123,7 @@ impl core::fmt::Debug for StrongHandle {
 /// nor will it keep assets alive.
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
-/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
+/// (by mutating the [`Assets`] resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
@@ -350,7 +350,9 @@ impl<T: Asset> Template for HandleTemplate<T> {
                     AssetOrHandle::Value(value) => {
                         // This unwrap is ok because AssetOrHandle::Value will always either contain a Some Value
                         // when it is in this state (AssetOrHandle is private).
-                        let handle = context.resource::<AssetServer>().add(value.take().unwrap());
+                        let handle = context
+                            .resource_mut::<Assets<T>>()
+                            .add(value.take().unwrap());
                         *value_or_handle = AssetOrHandle::Handle(handle.clone());
                         handle
                     }
