@@ -866,3 +866,62 @@ impl QueuedScenes {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EntityWorldMutSceneExt;
+    use crate::{bsn, ScenePlugin};
+    use bevy_app::{App, TaskPoolPlugin};
+    use bevy_asset::AssetPlugin;
+    use bevy_ecs::{
+        name::Name,
+        prelude::*,
+        template::FromTemplate,
+    };
+
+    fn test_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+        ));
+        app
+    }
+
+    #[derive(Component, Default, FromTemplate)]
+    struct SceneChild;
+
+    #[derive(Component)]
+    struct PreExistingChild;
+
+    #[test]
+    fn apply_scene_replaces_and_orphans_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let pre_existing = world.spawn(PreExistingChild).id();
+        let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
+
+        assert_eq!(world.entity(root).get::<Children>().map(|c| c.len()), Some(1));
+
+        let scene = bsn! {
+            Children [ #SceneChild SceneChild ]
+        };
+        world.entity_mut(root).apply_scene(scene).unwrap();
+
+        let children: Vec<Entity> = world
+            .entity(root)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+
+        // Scene child is spawned and linked.
+        assert_eq!(children.len(), 1);
+        assert!(world.entity(children[0]).contains::<SceneChild>());
+
+        // Pre-existing child entity still exists, but is no longer listed under root.
+        assert!(world.get_entity(pre_existing).is_ok());
+        assert!(!children.contains(&pre_existing));
+    }
+}
