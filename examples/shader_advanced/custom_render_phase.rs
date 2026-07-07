@@ -35,7 +35,7 @@ use bevy::{
         batching::{
             gpu_preprocessing::{
                 batch_and_prepare_sorted_render_phase, BatchedInstanceBuffers,
-                IndirectParametersCpuMetadata, UntypedPhaseIndirectParametersBuffers,
+                IndirectParametersMetadata, UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
         },
@@ -474,12 +474,16 @@ impl GetFullBatchData for StencilPipeline {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
+            // These fields are filled in by the GPU:
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
