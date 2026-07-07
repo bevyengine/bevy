@@ -40,6 +40,7 @@ pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 ///
 /// Will be automatically added to entities with the [`DeferredPrepass`] component that don't already have a [`PbrDeferredLightingDepthId`].
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
+#[extract_app(RenderApp)]
 pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
 
