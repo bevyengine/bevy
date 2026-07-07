@@ -112,6 +112,21 @@ pub fn on_resource_insert(mut world: DeferredWorld, context: HookContext) {
 /// }
 /// ```
 ///
+/// # Resources entities
+///
+/// Under the hood, resource data is stored as a component on a resource entity. This resource
+/// is first [allocated](crate::entity::EntityAllocator) upon registration, through
+/// `world.register_component::<Res1>()` or its alias `world.register_resource::<Res1>()`.
+/// When initializing or inserting a resource, we spawn the actual entity on the world.
+/// Additionally, we add both the resource as a component *and* the [`IsResource`] marker to
+/// the entity. Because [`IsResource`] is a required component for every resource this is done
+/// automatically.
+///
+/// From this point forward, hooks on [`IsResource`] warn against despawning the resource entity,
+/// while a hook on the resource type ensures that it is unique. While one shouldn't despawn the
+/// resource entity, you can still remove resources. This simply removes the resource component
+/// from the resource entity.
+///
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 /// [`World`]: crate::world::World
 /// [`Res`]: crate::system::Res
@@ -137,7 +152,7 @@ impl IsResource {
         // If IsResource exists on a resource entity then maybe_resource_id is
         // a valid component id and we should not remove it.
         if world.components().is_id_valid(maybe_resource_id) {
-            warn!("IsResource components should not be removed from a resource entity")
+            warn!("IsResource components should not be removed from a resource entity");
         }
     }
 
