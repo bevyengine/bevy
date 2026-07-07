@@ -282,29 +282,6 @@ impl<M: Message> Messages<M> {
 
     /// Retains messages for which the predicate returns `true`, removing all others from both
     /// internal buffers.
-    ///
-    /// In order for this functionality to be useful, users need to order their systems so that
-    /// systems which produce messages come before systems that filter them, which come before
-    /// systems that consume them.
-    /// 
-    /// # Example
-    /// 
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::message::{Message, Messages};
-    /// #
-    /// #[derive(Message, Clone, Debug)]
-    /// struct DealDamage { amount: i32 }
-    /// 
-    /// fn block_zero_damage(mut mutator: MessageMutator<DealDamage>) {
-    ///     mutator.retain(|msg| msg.amount > 0);
-    /// }
-    /// # bevy_ecs::system::assert_is_system(block_zero_damage);
-    /// ```
-    /// 
-    /// [`MessageMutator`]: super::MessageMutator
-    /// [`MessageReader`]: super::MessageReader
-    /// [`MessageCursor`]: super::MessageCursor
     pub fn retain(&mut self, mut f: impl FnMut(&M) -> bool) {
         self.messages_b
             .messages
