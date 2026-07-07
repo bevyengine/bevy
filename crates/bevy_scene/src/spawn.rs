@@ -891,7 +891,7 @@ mod tests {
     #[derive(Component)]
     struct PreExistingChild;
 
-    /// Tests that documented behaviour of [`EntityWorldMutSceneExt::apply_scene`] is correct.
+    /// Tests that documented behavior of [`EntityWorldMutSceneExt::apply_scene`] is correct.
     #[test]
     fn apply_scene_replaces_and_orphans_children() {
         let mut app = test_app();
