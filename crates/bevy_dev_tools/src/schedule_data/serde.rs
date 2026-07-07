@@ -189,7 +189,7 @@ impl FilteredAccessData {
         let filter_sets = value
             .filter_sets()
             .iter()
-            .map(|f| AccessFiltersData::new(&f, trace))
+            .map(|f| AccessFiltersData::new(f, trace))
             .collect();
 
         Self {
