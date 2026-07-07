@@ -40,9 +40,6 @@ pub struct CommandQueue {
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
     /// Index into `bytes` at which unapplied commands start.
     pub(crate) cursor: usize,
-    /// Commands that have not yet been applied because a previous command has panicked.
-    /// Only contains data during a panic.
-    pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
     /// Always emit a warning if a command is dropped before it is applied.
     /// Defaults to `true`.
@@ -58,7 +55,6 @@ impl Default for CommandQueue {
         Self {
             bytes: Default::default(),
             cursor: Default::default(),
-            panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: true,
         }
@@ -71,7 +67,6 @@ impl Default for CommandQueue {
 pub(crate) struct RawCommandQueue {
     pub(crate) bytes: NonNull<Vec<MaybeUninit<u8>>>,
     pub(crate) cursor: NonNull<usize>,
-    pub(crate) panic_recovery: NonNull<Vec<MaybeUninit<u8>>>,
 }
 
 // CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
@@ -101,7 +96,6 @@ impl CommandQueue {
         CommandQueue {
             bytes: Default::default(),
             cursor: Default::default(),
-            panic_recovery: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: false,
         }
@@ -147,7 +141,6 @@ impl CommandQueue {
             RawCommandQueue {
                 bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
                 cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
-                panic_recovery: NonNull::new_unchecked(addr_of_mut!(self.panic_recovery)),
             }
         }
     }
@@ -166,7 +159,6 @@ impl RawCommandQueue {
             Self {
                 bytes: NonNull::new_unchecked(Box::into_raw(Box::default())),
                 cursor: NonNull::new_unchecked(Box::into_raw(Box::new(0usize))),
-                panic_recovery: NonNull::new_unchecked(Box::into_raw(Box::default())),
             }
         }
     }
@@ -271,6 +263,11 @@ impl RawCommandQueue {
             self.cursor.write(stop);
         }
 
+        #[cfg(feature = "std")]
+        {
+            crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+        }
+
         while local_cursor < stop {
             // We must re-read the pointer to the allocation before each command
             // as the previous might have cause a reallocation.
@@ -308,35 +305,38 @@ impl RawCommandQueue {
 
             #[cfg(feature = "std")]
             {
-                let result = std::panic::catch_unwind(f);
+                use crate::error::{
+                    BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
+                };
+                use bevy_utils::DebugName;
+                use std::{
+                    backtrace::Backtrace,
+                    panic::{catch_unwind, resume_unwind},
+                };
 
+                let result = catch_unwind(f);
+                let panic_originates_from_error_handler =
+                    PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
                 if let Err(payload) = result {
-                    // SAFETY: Queue is life & there is no other unsynchronized access
-                    unsafe {
-                        // local_cursor now points to the location _after_ the panicked command.
-                        // Add the remaining commands that _would have_ been applied to the
-                        // panic_recovery queue.
-                        //
-                        // This uses `current_stop` instead of `stop` to account for any commands
-                        // that were queued _during_ this panic.
-                        //
-                        // This is implemented in such a way that if apply_or_drop_queued() are nested recursively in,
-                        // an applied Command, the correct command order will be retained.
-                        let panic_recovery = self.panic_recovery.as_mut();
-                        let bytes = self.bytes.as_mut();
-                        let current_stop = bytes.len();
-                        panic_recovery.extend_from_slice(&bytes[local_cursor..current_stop]);
-                        bytes.set_len(start);
-                        self.cursor.write(start);
-
-                        // This was the "top of the apply stack". If we are _not_ at the top of the apply stack,
-                        // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
-                        // until we reach the top.
-                        if start == 0 {
-                            bytes.append(panic_recovery);
-                        }
+                    if panic_originates_from_error_handler {
+                        resume_unwind(payload)
                     }
-                    std::panic::resume_unwind(payload);
+                    let Some(mut world) = world else {
+                        resume_unwind(payload)
+                    };
+                    // SAFETY: Caller ensures pointer is not null
+                    let world = unsafe { world.as_mut() };
+                    let error = BevyError::new_with_backtrace(
+                        Severity::Panic,
+                        "Command panicked",
+                        Backtrace::disabled(),
+                    );
+                    world.fallback_error_handler()(
+                        error,
+                        ErrorContext::Command {
+                            name: DebugName::type_name::<CommandQueue>(),
+                        },
+                    );
                 }
             }
 
@@ -385,7 +385,11 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{component::Component, resource::Resource};
+    use crate::{
+        component::Component,
+        error::{warn, FallbackErrorHandler},
+        resource::Resource,
+    };
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -502,12 +506,11 @@ mod test {
     }
 
     #[test]
-    fn test_command_queue_inner_panic_safe() {
-        std::panic::set_hook(Box::new(|_| {}));
-
+    fn test_command_queue_inner_panic_safe_panic() {
         let mut queue = CommandQueue::default();
 
         queue.push(PanicCommand("I panic!".to_owned()));
+        // This will get skipped due to the panic
         queue.push(SpawnCommand);
 
         let mut world = World::new();
@@ -521,13 +524,33 @@ mod test {
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
+        assert_eq!(world.query::<&A>().query(&world).count(), 2);
+    }
+
+    #[test]
+    fn test_command_queue_inner_panic_safe_warn() {
+        let mut queue = CommandQueue::default();
+
+        queue.push(PanicCommand("I panic!".to_owned()));
+        // This will get run because the fallback error handler
+        // handles the panicking command.
+        queue.push(SpawnCommand);
+
+        let mut world = World::new();
+        world.insert_resource(FallbackErrorHandler(warn));
+
+        queue.apply(&mut world);
+
+        // Even though the first command panicked, it's still ok to push
+        // more commands.
+        queue.push(SpawnCommand);
+        queue.push(SpawnCommand);
+        queue.apply(&mut world);
         assert_eq!(world.query::<&A>().query(&world).count(), 3);
     }
 
     #[test]
-    fn test_command_queue_inner_nested_panic_safe() {
-        std::panic::set_hook(Box::new(|_| {}));
-
+    fn test_command_queue_inner_nested_panic_safe_panic() {
         #[derive(Resource, Default)]
         struct Order(Vec<usize>);
 
@@ -541,6 +564,7 @@ mod test {
         world.commands().queue(|world: &mut World| {
             world.commands().queue(add_index(2));
             world.commands().queue(PanicCommand("I panic!".to_owned()));
+            // Everything after here will get skipped due to the panic
             world.commands().queue(add_index(3));
             world.flush_commands();
         });
@@ -549,6 +573,36 @@ mod test {
         let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             world.flush_commands();
         }));
+
+        world.commands().queue(add_index(5));
+        world.flush_commands();
+        assert_eq!(&world.resource::<Order>().0, &[1, 2, 5]);
+    }
+
+    #[test]
+    fn test_command_queue_inner_nested_panic_safe_warn() {
+        #[derive(Resource, Default)]
+        struct Order(Vec<usize>);
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        world.insert_resource(FallbackErrorHandler(warn));
+
+        fn add_index(index: usize) -> impl Command {
+            move |world: &mut World| world.resource_mut::<Order>().0.push(index)
+        }
+        world.commands().queue(add_index(1));
+        world.commands().queue(|world: &mut World| {
+            world.commands().queue(add_index(2));
+            world.commands().queue(PanicCommand("I panic!".to_owned()));
+            // Everything after here will get run because the
+            // fallback error handler handles the panicking command.
+            world.commands().queue(add_index(3));
+            world.flush_commands();
+        });
+        world.commands().queue(add_index(4));
+
+        world.flush_commands();
 
         world.commands().queue(add_index(5));
         world.flush_commands();
