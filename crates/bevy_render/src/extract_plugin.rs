@@ -148,7 +148,7 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 
 #[cfg(test)]
 mod test {
-    use bevy_app::{App, Startup};
+    use bevy_app::{App, AppLabel, Startup};
     use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
     use crate::{
@@ -407,23 +407,27 @@ mod test {
         ));
 
         app.add_plugins(ExtractComponentPlugin::<
-            ExtractAppA,
             RenderComponentSeparateA,
-        >::default());
-        app.add_plugins(ExtractComponentPlugin::<
-            ExtractAppB,
-            RenderComponentSeparateB,
-        >::default());
-        app.add_plugins(ExtractComponentPlugin::<
+            (),
             ExtractAppA,
-            RenderComponentSeparateBoth,
         >::default());
         app.add_plugins(ExtractComponentPlugin::<
+            RenderComponentSeparateB,
+            (),
             ExtractAppB,
-            RenderComponentSeparateBoth,
         >::default());
-        app.add_plugins(ExtractComponentPlugin::<ExtractAppA, RenderComponentDual>::default());
-        app.add_plugins(ExtractComponentPlugin::<ExtractAppB, RenderComponentDual>::default());
+        app.add_plugins(ExtractComponentPlugin::<
+            RenderComponentSeparateBoth,
+            (),
+            ExtractAppA,
+        >::default());
+        app.add_plugins(ExtractComponentPlugin::<
+            RenderComponentSeparateBoth,
+            (),
+            ExtractAppB,
+        >::default());
+        app.add_plugins(ExtractComponentPlugin::<RenderComponentDual, (), ExtractAppA>::default());
+        app.add_plugins(ExtractComponentPlugin::<RenderComponentDual, (), ExtractAppB>::default());
 
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((

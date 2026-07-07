@@ -28,7 +28,6 @@ impl SyncComponent<RenderApp> for TemporalAntiAliasing { ... }
 pub struct Foo { ... }
 ```
 
-
 You can also extract a component from the main subapp to the render subapp, and to the audio subapp
 
 ```rust,ignore
