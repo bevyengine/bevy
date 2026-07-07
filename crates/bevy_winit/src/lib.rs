@@ -62,12 +62,6 @@ thread_local! {
 /// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
-///
-/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
-/// in systems.
-///
-/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
