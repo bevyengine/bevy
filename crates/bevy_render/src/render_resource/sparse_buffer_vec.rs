@@ -1081,11 +1081,24 @@ mod tests {
             // Initialize the dirty bits.
             let new_len = old_len + new_element_count;
             let mut dirty_bits: Vec<_> = iter::repeat_with(|| {
-                AtomicU64::new(if start_dirty { u64::MAX } else { 0 })
+                AtomicU64::new(0)
             }).take(old_len.div_ceil(BITS_PER_WORD) as usize).collect();
+            if start_dirty {
+                for bit_index in 0..old_len {
+                    let word_index = bit_index as usize / 64;
+                    dirty_bits[word_index].fetch_or(1 << (bit_index % 64), Ordering::Relaxed);
+                }
+            }
+
+            // Initialize the summary.
             let mut summary: Vec<_> = iter::repeat_with(|| {
-                AtomicU64::new(if start_dirty { u64::MAX } else { 0 })
+                AtomicU64::new(0)
             }).take(dirty_bits.len().div_ceil(BITS_PER_WORD as usize)).collect();
+            for (word_index, word) in dirty_bits.iter().enumerate() {
+                if word.load(Ordering::Relaxed) != 0 {
+                    summary[word_index / 64].fetch_or(1 << (word_index % 64), Ordering::Relaxed);
+                }
+            }
 
             super::set_dirty_bits_for_vector_growth(
                 old_len,
