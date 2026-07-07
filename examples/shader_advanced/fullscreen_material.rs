@@ -19,7 +19,7 @@ fn main() {
             FullscreenMaterialPlugin::<FullscreenEffect>::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, update_intensity)
+        .add_systems(Update, (update_intensity, toggle_effect))
         .run();
 }
 
@@ -44,10 +44,20 @@ fn setup(
         illuminance: 1_000.,
         ..default()
     });
+
+    commands.spawn((
+        Text::new("(T) FullscreenEffect: On"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+    ));
 }
 
-fn update_intensity(effects: Query<&mut FullscreenEffect>, time: Res<Time>) {
-    for mut effect in effects {
+fn update_intensity(mut effects: Query<&mut FullscreenEffect>, time: Res<Time>) {
+    for mut effect in &mut effects {
         let phase = time.elapsed_secs() * FullscreenEffect::FREQUENCY;
         // Make it loop periodically
         let mut intensity = ops::sin(phase);
@@ -55,6 +65,29 @@ fn update_intensity(effects: Query<&mut FullscreenEffect>, time: Res<Time>) {
         // We need to remap the intensity to be between 0 and 1 instead of -1 and 1
         intensity = (intensity + 1.0) / 2.0;
         effect.intensity = intensity * FullscreenEffect::MAX_INTENSITY;
+    }
+}
+
+fn toggle_effect(
+    mut text: Single<&mut Text>,
+    keys: Res<ButtonInput<KeyCode>>,
+    camera: Single<(Entity, Option<&FullscreenEffect>), With<Camera3d>>,
+    mut commands: Commands,
+) {
+    if keys.just_pressed(KeyCode::KeyT) {
+        let (entity, effect) = *camera;
+
+        if effect.is_some() {
+            commands.entity(entity).remove::<FullscreenEffect>();
+            text.clear();
+            text.push_str("(T) FullscreenEffect: Off");
+        } else {
+            commands
+                .entity(entity)
+                .insert(FullscreenEffect::new(FullscreenEffect::MAX_INTENSITY));
+            text.clear();
+            text.push_str("(T) FullscreenEffect: On");
+        }
     }
 }
 
