@@ -2,9 +2,7 @@ use core::any::{type_name, Any, TypeId};
 use std::{boxed::Box, vec::Vec};
 
 use bevy_ecs::{
-    observer::IntoObserver,
-    schedule::{IntoScheduleConfigs, ScheduleLabel},
-    system::ScheduleSystem,
+    message::Message, observer::{IntoObserver, Observer}, resource::Resource, schedule::{IntoScheduleConfigs, ScheduleLabel, Schedules}, system::ScheduleSystem, world::FromWorld,
 };
 
 use crate::App;
@@ -14,6 +12,8 @@ pub struct PluginOutput {
     working_plugin: PluginTypeId,
     // Hold onto the App for now. This should be moved in future.
     app: App,
+    observers: Vec<Observer>,
+    schedules: Schedules,
     dependencies: Vec<(PluginTypeId, Box<dyn Fn(&dyn DeclarativePlugin) -> bool>)>,
 }
 
@@ -25,20 +25,36 @@ impl PluginOutput {
         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         // TODO
-        self.app.main_mut().add_systems(schedule, systems);
+        self.schedules.add_systems(schedule, systems);
         self
     }
 
     pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
-        self.app.world_mut().add_observer(observer);
+        self.observers.push(observer.into_observer());
         self
+    }
+
+    pub fn add_dependency_no_worries<P: DeclarativePlugin + Default,>(
+        &mut self,
+    ) -> &mut Self {
+        self.add_dependency::<P, _>(|_| true)
     }
 
     pub fn add_dependency<P: DeclarativePlugin + Default, F: Fn(&P) -> bool + 'static>(
         &mut self,
-        evaluate_config: Option<F>,
+        evaluate_config: F,
     ) -> &mut Self {
         self.add_dependency_with_plugin_config(P::default(), evaluate_config);
+        self
+    }
+
+    pub fn add_message<M: Message>(&mut self) -> &mut Self {
+        self.app.main_mut().add_message::<M>();
+        self
+    }
+
+    pub fn insert_resource<R: Resource>(&mut self, resource: R, ) -> &mut Self {
+        self.app.main_mut().insert_resource(resource);
         self
     }
 
@@ -46,19 +62,25 @@ impl PluginOutput {
     pub fn add_dependency_with_plugin_config<P: DeclarativePlugin, F: Fn(&P) -> bool + 'static>(
         &mut self,
         plugin: P,
-        evaluate_config: Option<F>,
+        evaluate_config: F,
     ) -> &mut Self {
         let plugin_type_id = PluginTypeId(plugin.type_id());
-        let current_plugin_name = &self.working_plugin;
-        let evaluate_config = move |a: &dyn DeclarativePlugin| match &evaluate_config {
-            Some(f) => match <dyn Any>::downcast_ref::<P>(a) {
-                Some(a) => f(a),
-                _ => true,
-            },
-            None => true,
+        let evaluate_config = move |a: &dyn DeclarativePlugin| {
+            match <dyn Any>::downcast_ref::<P>(a) {
+                Some(a) => evaluate_config(a),
+                None => true,
+            }
         };
         self.dependencies
             .push((plugin_type_id, Box::new(evaluate_config)));
+        self
+    }
+
+    pub fn add_dependency_with_plugin_config_no_worries<P: DeclarativePlugin>(
+        &mut self,
+        plugin: P,
+    ) -> &mut Self {
+        self.add_dependency_with_plugin_config::<P, _>(plugin, |_| true); 
         self
     }
 }
