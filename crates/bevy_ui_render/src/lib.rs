@@ -1121,29 +1121,32 @@ pub fn extract_ui_camera_view(
             // We use `UI_CAMERA_SUBVIEW` here so as not to conflict with the
             // main 3D or 2D camera, which will have subview index 0.
             // Creates the UI view.
-            let ui_camera_view = commands
-                .spawn((
-                    ExtractedView {
-                        retained_view_entity,
-                        clip_from_view: projection_matrix,
-                        world_from_view: GlobalTransform::from_xyz(
-                            0.0,
-                            0.0,
-                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                        ),
-                        clip_from_world: None,
-                        target_format,
-                        viewport: UVec4::from((
-                            physical_viewport_rect.min,
-                            physical_viewport_rect.size(),
-                        )),
-                        color_grading: Default::default(),
-                        invert_culling: false,
-                    },
-                    // Link to the main camera view.
-                    UiViewTarget(render_entity),
-                ))
-                .id();
+            let extracted_view = ExtractedView {
+                retained_view_entity,
+                clip_from_view: projection_matrix,
+                world_from_view: GlobalTransform::from_xyz(
+                    0.0,
+                    0.0,
+                    UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                ),
+                clip_from_world: None,
+                target_format,
+                viewport: UVec4::from((physical_viewport_rect.min, physical_viewport_rect.size())),
+                color_grading: Default::default(),
+                invert_culling: false,
+            };
+            // Link to the main camera view.
+            let ui_view_target_component = UiViewTarget(render_entity);
+
+            let ui_camera_view = match cached_ui_view_data.get(&main_entity) {
+                Some(cached_ui_view_data) => commands
+                    .entity(cached_ui_view_data.extracted_view_entity)
+                    .insert((extracted_view, ui_view_target_component))
+                    .id(),
+                None => commands
+                    .spawn((extracted_view, ui_view_target_component))
+                    .id(),
+            };
 
             let mut entity_commands = commands
                 .get_entity(render_entity)
