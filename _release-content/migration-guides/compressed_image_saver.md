@@ -23,9 +23,9 @@ In Bevy 0.19, `ImagePlugin` registered a default compressed image processor for 
 
 ```rust
 App::new().add_plugins(
-	DefaultPlugins.set(ImagePlugin {
-		default_compressed_image_processor_extensions: ["png".into()].into(),
-		..Default::default()
-	}),
+    DefaultPlugins.set(ImagePlugin {
+        default_compressed_image_processor_extensions: ["png".into()].into(),
+        ..Default::default()
+    }),
 )
 ```
