@@ -243,7 +243,9 @@ pub struct Mesh2dUniform {
 }
 
 impl Mesh2dUniform {
-    fn from_components(
+    /// Creates a new [`Mesh2dUniform`] from the given transform, bind group
+    /// slot, tag, and optional metadata index.
+    pub fn from_components(
         mesh_transforms: &Mesh2dTransforms,
         material_bind_group_slot: MaterialBindGroupSlot,
         tag: u32,
