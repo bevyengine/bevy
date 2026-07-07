@@ -31,7 +31,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
-        FullscreenEffect::new(FullscreenEffect::MAX_INTENSITY),
+        FullscreenEffect::new(0.0),
     ));
 
     commands.spawn((
@@ -56,15 +56,37 @@ fn setup(
     ));
 }
 
-fn update_intensity(mut effects: Query<&mut FullscreenEffect>, time: Res<Time>) {
+fn update_intensity(
+    mut effects: Query<&mut FullscreenEffect>,
+    time: Res<Time>,
+    mut last_intensity: Local<f32>,
+    mut phase_offset: Local<f32>,
+) {
+    let t = time.elapsed_secs();
+    let freq = FullscreenEffect::FREQUENCY;
+    let max = FullscreenEffect::MAX_INTENSITY;
+
     for mut effect in &mut effects {
-        let phase = time.elapsed_secs() * FullscreenEffect::FREQUENCY;
+        // Check if the intensity was modified externally since last frame.
+        // This ensures that when intensity is modified, this system recalculates
+        // the phase offset to avoid intensity jumps.
+        if effect.intensity != *last_intensity {
+            // Map the target intensity back to sine range [-1, 1]
+            let target_sine = (effect.intensity / max) * 2.0 - 1.0;
+            // Compute a phase offset so that `ops::sin(t * freq + offset) == target_sine`
+            *phase_offset = ops::asin(target_sine) - t * freq;
+        }
+
+        // Compute the new intensity from the (possibly adjusted) phase offset
+        let phase = t * freq + *phase_offset;
         // Make it loop periodically
         let mut intensity = ops::sin(phase);
 
         // We need to remap the intensity to be between 0 and 1 instead of -1 and 1
         intensity = (intensity + 1.0) / 2.0;
-        effect.intensity = intensity * FullscreenEffect::MAX_INTENSITY;
+        *last_intensity = intensity * max;
+
+        effect.intensity = *last_intensity;
     }
 }
 
@@ -82,9 +104,7 @@ fn toggle_effect(
             text.clear();
             text.push_str("(T) FullscreenEffect: Off");
         } else {
-            commands
-                .entity(entity)
-                .insert(FullscreenEffect::new(FullscreenEffect::MAX_INTENSITY));
+            commands.entity(entity).insert(FullscreenEffect::new(0.0));
             text.clear();
             text.push_str("(T) FullscreenEffect: On");
         }
