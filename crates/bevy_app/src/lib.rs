@@ -25,6 +25,7 @@ extern crate alloc;
 extern crate self as bevy_app;
 
 mod app;
+mod declr_plugin;
 mod hierarchy;
 mod main_schedule;
 mod panic_handler;
@@ -41,6 +42,7 @@ mod terminal_ctrl_c_handler;
 pub mod hotpatch;
 
 pub use app::*;
+pub use declr_plugin::*;
 pub use hierarchy::*;
 pub use main_schedule::*;
 pub use panic_handler::*;
