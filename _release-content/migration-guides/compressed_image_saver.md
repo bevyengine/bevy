@@ -1,6 +1,6 @@
 ---
 title: "`CompressedImageSaver` improvements"
-pull_requests: [24223]
+pull_requests: [24223, 24904]
 ---
 
 The `compressed_image_saver` Cargo feature has been reworked. The old behavior (Basis Universal UASTC compression) has been moved to a new feature called `compressed_image_saver_universal`, and the `compressed_image_saver` feature now uses the `ctt` library to compress textures into BCn (desktop) or ASTC (mobile) formats instead.
