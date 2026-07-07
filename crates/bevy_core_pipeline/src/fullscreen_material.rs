@@ -198,6 +198,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
             commands
                 .entity(entity)
                 .remove::<FullscreenMaterialPipelineId>();
+            continue;
         }
 
         let pipeline_key = FullscreenMaterialPipelineKey {
