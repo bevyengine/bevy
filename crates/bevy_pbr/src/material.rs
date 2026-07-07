@@ -1707,7 +1707,7 @@ where
         let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
         let draw_shadows_depth_only = shadow_draw_functions.read().id::<DrawDepthOnlyPrepass>();
 
-        let draw_functions = SmallVec::from_iter([
+        let draw_functions = SmallVec::from_const([
             (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
             (MainPassAlphaMaskDrawFunction.intern(), draw_alpha_mask_pbr),
             (
