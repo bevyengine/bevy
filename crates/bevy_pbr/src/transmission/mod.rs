@@ -64,6 +64,7 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
 /// Configures transmission behavior, offering a trade-off between performance and visual fidelity.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
+#[extract_app(RenderApp)]
 pub struct ScreenSpaceTransmission {
     /// How many individual steps should be performed in the `Transmissive3d` pass.
     ///

@@ -1,12 +1,15 @@
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
 };
 
-use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
+use crate::{
+    sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld},
+    RenderApp,
+};
 
 /// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
 ///
@@ -25,7 +28,7 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
 pub struct SyncComponentPlugin<C, F = ()>(PhantomData<(C, F)>);
 
-impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
+impl<C: SyncComponent<RenderApp, F>, F> Default for SyncComponentPlugin<C, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -37,7 +40,7 @@ impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`SyncComponentPlugin`].
-pub trait SyncComponent<F = ()>: Component {
+pub trait SyncComponent<L: AppLabel, F = ()>: Component {
     /// Describes what components should be removed from the render world if the
     /// implementing component is removed.
     type Target: Bundle<Effect: NoBundleEffect>;
@@ -45,7 +48,9 @@ pub trait SyncComponent<F = ()>: Component {
     // type Target: Bundle<Effect: NoBundleEffect> = Self;
 }
 
-impl<C: SyncComponent<F>, F: Send + Sync + 'static> Plugin for SyncComponentPlugin<C, F> {
+impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
+    for SyncComponentPlugin<C, F>
+{
     fn build(&self, app: &mut App) {
         app.register_required_components::<C, SyncToRenderWorld>();
 
