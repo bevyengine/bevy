@@ -24,7 +24,7 @@ struct CommandMeta {
     /// Advances `runner.local_cursor` by the size of `T` in bytes.
     consume_command_and_get_size: unsafe fn(
         value: OwningPtr<Unaligned>,
-        world: Option<NonNull<World>>,
+        world: Option<&mut World>,
         runner: &mut CommandQueueRunner,
     ),
 }
@@ -123,7 +123,7 @@ impl CommandQueue {
 
         // SAFETY: A reference is always a valid pointer
         unsafe {
-            self.get_raw().apply_or_drop_queued(Some(world.into()));
+            self.get_raw().apply_or_drop_queued(Some(world));
         }
     }
 
@@ -205,9 +205,7 @@ impl RawCommandQueue {
                 let command: C = unsafe { command.read_unaligned() };
                 match world {
                     // Apply command to the provided world...
-                    Some(mut world) => {
-                        // SAFETY: Caller ensures pointer is not null
-                        let world = unsafe { world.as_mut() };
+                    Some(world) => {
                         command.apply(world);
                         // The command may have queued up world commands, which we flush here to ensure they are also picked up.
                         // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
@@ -257,12 +255,10 @@ impl RawCommandQueue {
     /// # Safety
     /// - `self` has not outlived the underlying queue
     /// - there is no other unsynchonized access to the same underlying queue
-    /// - If `world` is `Some`, then it must be valid to use as `&mut World`.
     #[inline]
-    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
+    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<&mut World>) {
         // SAFETY: Caller ensures `self` has not outlived the queue.
-        // that there is no other unsynchronized access,
-        // and that `world` is valid.
+        // and that there is no other unsynchronized access.
         unsafe { CommandQueueRunner::new(self).run(world) };
     }
 }
@@ -332,8 +328,7 @@ impl<'a> CommandQueueRunner<'a> {
         }
     }
 
-    /// SAFETY: If `world` is `Some`, then it must be valid to use as `&mut World`.
-    unsafe fn run(&mut self, world: Option<NonNull<World>>) {
+    fn run(&mut self, mut world: Option<&mut World>) {
         #[cfg(feature = "std")]
         {
             crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
@@ -377,7 +372,7 @@ impl<'a> CommandQueueRunner<'a> {
                 // This also advances the cursor past the command. For ZSTs, the cursor will not move.
                 // At this point, it will either point to the next `CommandMeta`,
                 // or the cursor will be out of bounds and the loop will end.
-                unsafe { (meta.consume_command_and_get_size)(cmd, world, self) };
+                unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut(), self) };
             });
 
             #[cfg(feature = "std")]
@@ -397,11 +392,9 @@ impl<'a> CommandQueueRunner<'a> {
                     if panic_originates_from_error_handler {
                         resume_unwind(payload)
                     }
-                    let Some(mut world) = world else {
+                    let Some(world) = world.as_deref_mut() else {
                         resume_unwind(payload)
                     };
-                    // SAFETY: Caller ensures pointer is not null
-                    let world = unsafe { world.as_mut() };
                     let error = BevyError::new_with_backtrace(
                         Severity::Panic,
                         "Command panicked",
@@ -426,8 +419,7 @@ impl Drop for CommandQueueRunner<'_> {
     fn drop(&mut self) {
         // Drop any unapplied commands before resetting the length.
         // If `run` completed successfully then this will do nothing.
-        // SAFETY: `world` is `None`
-        unsafe { self.run(None) };
+        self.run(None);
 
         // Reset the buffer: all commands past the original `start` cursor have been applied.
         // SAFETY: we are setting the length of bytes to the original length, minus the length of the original

@@ -3056,9 +3056,7 @@ impl World {
         if !unsafe { self.command_queue.is_empty() } {
             // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
             unsafe {
-                self.command_queue
-                    .clone()
-                    .apply_or_drop_queued(Some(self.into()));
+                self.command_queue.clone().apply_or_drop_queued(Some(self));
             };
         }
     }
