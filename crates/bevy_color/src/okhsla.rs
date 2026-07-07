@@ -408,6 +408,51 @@ mod tests {
     };
 
     #[test]
+    fn test_from_to_oklaba() {
+        // Test `oklab_l == 0.0`
+        let oklaba = Oklaba::new(0.0, 0.5, 0.5, 1.0);
+        let okhsla: Okhsla = oklaba.into();
+        let oklaba2: Oklaba = okhsla.into();
+        assert_approx_eq!(okhsla.hue, 0.0, 0.001);
+        assert_approx_eq!(okhsla.saturation, 0.0, 0.001);
+        assert_approx_eq!(okhsla.lightness, 0.0, 0.001);
+        assert_approx_eq!(okhsla.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
+        assert_approx_eq!(0.0, oklaba2.a, 0.001);
+        assert_approx_eq!(0.0, oklaba2.b, 0.001);
+        assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+
+        // Test `oklab_l == 1.0`
+        let oklaba = Oklaba::new(1.0, 0.5, 0.5, 1.0);
+        let okhsla: Okhsla = oklaba.into();
+        let oklaba2: Oklaba = okhsla.into();
+        assert_approx_eq!(okhsla.hue, 0.0, 0.001);
+        assert_approx_eq!(okhsla.saturation, 0.0, 0.001);
+        assert_approx_eq!(okhsla.lightness, 1.0, 0.001);
+        assert_approx_eq!(okhsla.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
+        assert_approx_eq!(0.0, oklaba2.a, 0.001);
+        assert_approx_eq!(0.0, oklaba2.b, 0.001);
+        assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+
+        // Test `oklab_a == 0.0 && oklab_b ==0.0` (C == 0.0)
+        let oklaba = Oklaba::new(0.5, 0.0, 0.0, 1.0);
+        let okhsla: Okhsla = oklaba.into();
+        let oklaba2: Oklaba = okhsla.into();
+        assert_approx_eq!(okhsla.hue, 0.0, 0.001);
+        assert_approx_eq!(okhsla.saturation, 0.0, 0.001);
+        assert_approx_eq!(okhsla.lightness, 0.42114055, 0.001);
+        assert_approx_eq!(okhsla.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
+        assert_approx_eq!(0.0, oklaba2.a, 0.001);
+        assert_approx_eq!(0.0, oklaba2.b, 0.001);
+        assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+    }
+
+    #[test]
     fn test_to_from_srgba() {
         let okhsla = Okhsla::new(180.0, 0.5, 0.5, 1.0);
         let srgba: Srgba = okhsla.into();
