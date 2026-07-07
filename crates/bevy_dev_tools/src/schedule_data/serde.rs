@@ -71,10 +71,6 @@ pub struct ScheduleData {
     pub conflicts: Vec<SystemConflict>,
 }
 
-/// A newtype for the index of a component.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord, Hash)]
-pub struct ComponentIndex(pub usize);
-
 /// Data about a component type.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct ComponentData {
@@ -95,8 +91,6 @@ pub struct SystemData {
     pub exclusive: bool,
     /// Whether this system has deferred buffers to apply.
     pub deferred: bool,
-    /// Combined access for the system, summarizes `Self::filtered_accesses`
-    pub combined_access: AccessData,
     /// Filtered accesses for the system, generally 1x per system query
     pub filtered_accesses: Vec<FilteredAccessData>,
     // TODO: Store run conditions specific to this system.
@@ -109,14 +103,14 @@ pub struct SystemData {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct AccessData {
     /// All accessed components, or forbidden components if
-    /// `Self::read_and_writes_inverted` is set.
-    pub read_and_writes: Vec<usize>,
+    /// `Self::reads_inverted` is set.
+    pub reads: Vec<usize>,
     /// All exclusively-accessed components, or components that may not be
     /// exclusively accessed if `Self::writes_inverted` is set.
     pub writes: Vec<usize>,
     /// Is `true` if this component can read all components *except* those
-    /// present in `Self::read_and_writes`.
-    pub read_and_writes_inverted: bool,
+    /// present in `Self::reads`.
+    pub reads_inverted: bool,
     /// Is `true` if this component can write to all components *except* those
     /// present in `Self::writes`.
     pub writes_inverted: bool,
@@ -125,21 +119,31 @@ pub struct AccessData {
 }
 
 impl AccessData {
-    fn try_new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Option<Self> {
-        // NOTE: `try_reads_and_writes` returns error if `read_and_writes_inverted=true`,
-        // thus `AccessData` always has `read_and_writes_inverted=false`
+    fn new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Self {
+        // NOTE: `try_reads_and_writes` returns error if `reads_inverted=true`,
+        // thus `AccessData` always has `reads_inverted=false`
         // Similarly for `try_writes` and `writes_inverted=false`
+        // We return empty vectors when inverted=true, however this should not be used by consumers.
 
-        let read_and_writes = value.try_reads_and_writes().ok()?;
-        let writes = value.try_writes().ok()?;
+        let reads = value.try_reads_and_writes();
+        let writes = value.try_writes();
 
-        Some(Self {
-            read_and_writes: trace.get_indexes(read_and_writes.iter()),
-            writes: trace.get_indexes(writes.iter()),
-            read_and_writes_inverted: false,
-            writes_inverted: false,
+        let (reads_inverted, reads) = match reads {
+            Ok(reads) => (false, trace.get_indexes(reads.iter())),
+            Err(_) => (true, vec![]),
+        };
+        let (writes_inverted, writes) = match writes {
+            Ok(writes) => (false, trace.get_indexes(writes.iter())),
+            Err(_) => (true, vec![]),
+        };
+
+        Self {
+            reads,
+            writes,
+            reads_inverted,
+            writes_inverted,
             archetypal: trace.get_indexes(value.archetypal().iter()),
-        })
+        }
     }
 }
 
@@ -157,6 +161,15 @@ pub struct AccessFiltersData {
     pub without: Vec<usize>,
 }
 
+impl AccessFiltersData {
+    fn new(value: &bevy_ecs::query::AccessFilters, trace: &mut ComponentTrace) -> Self {
+        Self {
+            with: trace.get_indexes(value.with().iter()),
+            without: trace.get_indexes(value.without().iter()),
+        }
+    }
+}
+
 /// A serializable version of [`bevy_ecs::query::FilteredAccess`] (docs copied from there).
 /// Corresponds to a query in the system signature.
 ///
@@ -165,32 +178,24 @@ pub struct AccessFiltersData {
 pub struct FilteredAccessData {
     /// The access of the Query (components that have read/writes)
     pub access: AccessData,
-    /// Required components (summary of read/writes from `Self::access` ).
-    pub required: Vec<usize>,
     /// An array of filter sets to express `With` or `Without` clauses.
     /// Each filter set is `Or`-d together
     pub filter_sets: Vec<AccessFiltersData>,
 }
 
 impl FilteredAccessData {
-    fn try_new(
-        value: &bevy_ecs::query::FilteredAccess,
-        trace: &mut ComponentTrace,
-    ) -> Option<Self> {
-        let access = AccessData::try_new(value.access(), trace)?;
+    fn new(value: &bevy_ecs::query::FilteredAccess, trace: &mut ComponentTrace) -> Self {
+        let access = AccessData::new(value.access(), trace);
+        let filter_sets = value
+            .filter_sets()
+            .iter()
+            .map(|f| AccessFiltersData::new(&f, trace))
+            .collect();
 
-        Some(Self {
+        Self {
             access,
-            required: trace.get_indexes(value.required().iter()),
-            filter_sets: value
-                .filter_sets()
-                .iter()
-                .map(|f| AccessFiltersData {
-                    with: trace.get_indexes(f.with().iter()),
-                    without: trace.get_indexes(f.without().iter()),
-                })
-                .collect(),
-        })
+            filter_sets,
+        }
     }
 }
 
@@ -333,8 +338,6 @@ impl ScheduleData {
 
                 let system = system_with_access.system();
                 let access = system_with_access.access();
-
-                let combined_access = access.combined_access();
                 let filtered_accesses = access.filtered_accesses();
 
                 let flags = system.flags();
@@ -345,14 +348,9 @@ impl ScheduleData {
                         == core::any::TypeId::of::<ApplyDeferred>(),
                     exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
-                    combined_access: AccessData::try_new(combined_access, &mut component_trace)
-                        .unwrap_or_default(),
                     filtered_accesses: filtered_accesses
                         .iter()
-                        .map(|fa| {
-                            FilteredAccessData::try_new(fa, &mut component_trace)
-                                .unwrap_or_default()
-                        })
+                        .map(|fa| FilteredAccessData::new(fa, &mut component_trace))
                         .collect(),
                 }
             })
@@ -626,7 +624,7 @@ pub mod tests {
 
             let reindex_access = |access: &mut AccessData| {
                 reindex_component_vec(&mut access.archetypal);
-                reindex_component_vec(&mut access.read_and_writes);
+                reindex_component_vec(&mut access.reads);
                 reindex_component_vec(&mut access.writes);
             };
 
@@ -652,12 +650,9 @@ pub mod tests {
 
             // Reindex access in systems
             for system in schedule.systems.iter_mut() {
-                reindex_access(&mut system.combined_access);
-
                 for filtered_access in system.filtered_accesses.iter_mut() {
                     reindex_access(&mut filtered_access.access);
 
-                    reindex_component_vec(&mut filtered_access.required);
                     for filter_set in filtered_access.filter_sets.iter_mut() {
                         reindex_component_vec(&mut filter_set.with);
                         reindex_component_vec(&mut filter_set.without);
@@ -697,7 +692,6 @@ pub mod tests {
             apply_deferred: false,
             exclusive: false,
             deferred: false,
-            combined_access: AccessData::default(),
             filtered_accesses: vec![],
         }
     }
@@ -705,48 +699,41 @@ pub mod tests {
     /// Convenience to create a [`SystemData`] for more detailed case.
     pub fn full_system(
         name: &str,
-        needs: Vec<usize>,
+        reads: Vec<usize>,
         writes: Vec<usize>,
-        filter: Option<Vec<usize>>,
-        reject: Option<Vec<usize>>,
+        with: Option<Vec<usize>>,
+        without: Option<Vec<usize>>,
     ) -> SystemData {
         // +1 on inputted components as 0 = Disabled
-        let offset_needs: Vec<usize> = needs.iter().map(|n| n + 1).collect();
+
+        let offset_reads: Vec<usize> = reads.iter().map(|n| n + 1).collect();
         let offset_writes: Vec<usize> = writes.iter().map(|n| n + 1).collect();
 
-        let offset_filter: Vec<usize> = filter
+        let offset_with: Vec<usize> = with
             .map(|f| f.iter().map(|n| n + 1).collect())
-            .unwrap_or(offset_needs.clone());
+            .unwrap_or(offset_reads.clone());
 
-        let mut reject_filter: Vec<usize> = reject
+        let mut offset_without: Vec<usize> = without
             .map(|f| f.iter().map(|n| n + 1).collect())
             .unwrap_or(vec![]);
-        reject_filter.insert(0, 0);
+        offset_without.insert(0, 0);
 
         SystemData {
             name: name.into(),
             apply_deferred: false,
             exclusive: false,
             deferred: false,
-            combined_access: AccessData {
-                read_and_writes: offset_needs.clone(),
-                writes: offset_writes.clone(),
-                read_and_writes_inverted: false,
-                writes_inverted: false,
-                archetypal: vec![],
-            },
             filtered_accesses: vec![FilteredAccessData {
                 access: AccessData {
-                    read_and_writes: offset_needs.clone(),
+                    reads: offset_reads.clone(),
                     writes: offset_writes.clone(),
-                    read_and_writes_inverted: false,
+                    reads_inverted: false,
                     writes_inverted: false,
                     archetypal: vec![],
                 },
-                required: offset_needs.clone(),
                 filter_sets: vec![AccessFiltersData {
-                    with: offset_filter.clone(),
-                    without: reject_filter.clone(),
+                    with: offset_with.clone(),
+                    without: offset_without.clone(),
                 }],
             }],
         }
@@ -939,7 +926,6 @@ pub mod tests {
                     apply_deferred: false,
                     exclusive: false,
                     deferred: true,
-                    combined_access: AccessData::default(),
                     filtered_accesses: vec![],
                 },
                 SystemData {
@@ -947,7 +933,6 @@ pub mod tests {
                     apply_deferred: false,
                     exclusive: false,
                     deferred: true,
-                    combined_access: AccessData::default(),
                     filtered_accesses: vec![],
                 },
                 SystemData {
@@ -955,7 +940,6 @@ pub mod tests {
                     apply_deferred: true,
                     exclusive: true,
                     deferred: false,
-                    combined_access: AccessData::default(),
                     filtered_accesses: vec![],
                 },
                 simple_system("b0"),
