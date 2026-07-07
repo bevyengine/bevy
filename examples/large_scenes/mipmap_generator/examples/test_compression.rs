@@ -2,10 +2,9 @@ use std::{f32::consts::PI, path::PathBuf};
 
 use argh::FromArgs;
 use bevy::{
+    image::{ImageTextureDescriptor, ImageTextureViewFormats},
     prelude::*,
-    render::render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
 };
 use mipmap_generator::{
     generate_mipmaps, MipmapGeneratorDebugTextPlugin, MipmapGeneratorPlugin,
@@ -116,7 +115,7 @@ fn create_test_image(size: u32, cx: f32, cy: f32, channels: u32) -> Image {
         .collect();
 
     Image {
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             label: None,
             size: Extent3d {
                 width: size,
@@ -134,7 +133,7 @@ fn create_test_image(size: u32, cx: f32, cy: f32, channels: u32) -> Image {
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         data: Some(data),
         ..Default::default()

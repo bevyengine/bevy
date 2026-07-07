@@ -110,14 +110,17 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
-use bevy_image::{Image, ImageSampler};
+use bevy_image::{
+    Image, ImageSampler, ImageTextureDescriptor, ImageTextureViewDescriptor,
+    ImageTextureViewFormats,
+};
 use bevy_material::AlphaMode;
 use bevy_render::{
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
     render_resource::{
-        Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, TextureViewDescriptor, TextureViewDimension,
+        Extent3d, TextureDataOrder, TextureDimension, TextureFormat, TextureUsages,
+        TextureViewDimension,
     },
     sync_component::SyncComponentPlugin,
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
@@ -291,7 +294,7 @@ impl Plugin for PbrPlugin {
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .expect("Failed to decode embedded blue-noise texture");
-                image.texture_descriptor.label = Some("bluenoise");
+                image.texture_descriptor.label = Some("bluenoise".into());
                 images.add(image)
             };
 
@@ -322,7 +325,7 @@ impl Plugin for PbrPlugin {
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .expect("Failed to decode embedded LTC LUTs");
-                image.texture_descriptor.label = Some("area_light_luts");
+                image.texture_descriptor.label = Some("area_light_luts".into());
                 images.add(image)
             };
             #[cfg(not(feature = "area_light_luts"))]
@@ -460,15 +463,15 @@ pub fn stbn_placeholder() -> Image {
     Image {
         data: Some(data),
         data_order: TextureDataOrder::default(),
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             size: Extent3d::default(),
             format,
             dimension: TextureDimension::D2,
-            label: Some("bluenoise_placeholder"),
+            label: Some("bluenoise_placeholder".into()),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
@@ -483,7 +486,7 @@ pub fn area_light_luts_placeholder() -> Image {
     Image {
         data: Some(data),
         data_order: TextureDataOrder::default(),
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             size: Extent3d {
                 width: 1,
                 height: 1,
@@ -491,14 +494,14 @@ pub fn area_light_luts_placeholder() -> Image {
             },
             format,
             dimension: TextureDimension::D2,
-            label: Some("area_light_luts_placeholder"),
+            label: Some("area_light_luts_placeholder".into()),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         sampler: ImageSampler::Default,
-        texture_view_descriptor: Some(TextureViewDescriptor {
+        texture_view_descriptor: Some(ImageTextureViewDescriptor {
             dimension: Some(TextureViewDimension::D2Array),
             ..Default::default()
         }),

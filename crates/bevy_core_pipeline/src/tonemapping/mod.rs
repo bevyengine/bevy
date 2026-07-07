@@ -4,7 +4,10 @@ use bevy_asset::{
 };
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageSampler, ImageTextureDescriptor, ImageTextureViewFormats,
+    ImageType,
+};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_log::error;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -422,7 +425,7 @@ pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
 )]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let image_sampler = ImageSampler::Descriptor(bevy_image::ImageSamplerDescriptor {
-        label: Some("Tonemapping LUT sampler".to_string()),
+        label: Some("Tonemapping LUT sampler".into()),
         address_mode_u: bevy_image::ImageAddressMode::ClampToEdge,
         address_mode_v: bevy_image::ImageAddressMode::ClampToEdge,
         address_mode_w: bevy_image::ImageAddressMode::ClampToEdge,
@@ -449,7 +452,7 @@ pub fn lut_placeholder() -> Image {
     Image {
         data: Some(data),
         data_order: TextureDataOrder::default(),
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             size: Extent3d::default(),
             format,
             dimension: TextureDimension::D3,
@@ -457,7 +460,7 @@ pub fn lut_placeholder() -> Image {
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,

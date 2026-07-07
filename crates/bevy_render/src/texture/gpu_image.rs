@@ -5,11 +5,13 @@ use crate::{
 };
 use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_image::{Image, ImageSampler};
+use bevy_image::{
+    Image, ImageDescriptorAsWgpu, ImageSampler, ImageTextureDescriptor, ImageTextureViewDescriptor,
+};
 use bevy_log::warn;
 use bevy_math::{AspectRatio, UVec2};
 use wgpu::{Extent3d, TexelCopyBufferLayout, TextureFormat, TextureUsages};
-use wgpu_types::{TextureDescriptor, TextureViewDescriptor};
+use wgpu_types::TextureViewDescriptor;
 
 /// The GPU-representation of an [`Image`].
 /// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.
@@ -18,8 +20,8 @@ pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub sampler: Sampler,
-    pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
-    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
+    pub texture_descriptor: ImageTextureDescriptor,
+    pub texture_view_descriptor: Option<ImageTextureViewDescriptor>,
     pub had_data: bool,
 }
 
@@ -67,6 +69,7 @@ impl RenderAsset for GpuImage {
         previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let had_data = image.data.is_some();
+        let texture_desc_ref = image.texture_descriptor.as_wgpu();
         let texture = if let Some(prev) = previous_asset
             && prev.texture_descriptor == image.texture_descriptor
             && (!had_data
@@ -103,12 +106,12 @@ impl RenderAsset for GpuImage {
         } else if let Some(ref data) = image.data {
             render_device.create_texture_with_data(
                 render_queue,
-                &image.texture_descriptor,
+                &texture_desc_ref,
                 image.data_order,
                 data,
             )
         } else {
-            let new_texture = render_device.create_texture(&image.texture_descriptor);
+            let new_texture = render_device.create_texture(&texture_desc_ref);
             if image.copy_on_resize {
                 if let Some(previous) = previous_asset {
                     let mut command_encoder =
@@ -159,7 +162,7 @@ impl RenderAsset for GpuImage {
             image
                 .texture_view_descriptor
                 .as_ref()
-                .map(|desc| texture.create_view(desc))
+                .map(|desc| texture.create_view(&desc.as_wgpu()))
                 .unwrap_or_else(|| texture.create_view(&TextureViewDescriptor::default()))
         };
         let sampler = match image.sampler {

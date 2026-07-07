@@ -29,7 +29,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{ImageDescriptorAsWgpu, ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -2786,7 +2786,7 @@ pub fn build_dummy_white_gpu_image(
     render_queue: Res<RenderQueue>,
 ) -> GpuImage {
     let image = Image::default();
-    let texture = render_device.create_texture(&image.texture_descriptor);
+    let texture = render_device.create_texture(&image.texture_descriptor.as_wgpu());
     let sampler = match image.sampler {
         ImageSampler::Default => (**default_sampler).clone(),
         ImageSampler::Descriptor(ref descriptor) => {

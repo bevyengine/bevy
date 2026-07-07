@@ -10,7 +10,7 @@ use bevy_ecs::{
     resource::Resource,
     system::SystemParam,
 };
-use bevy_image::{Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{Image, ImageDescriptorAsWgpu, ImageSampler, TextureFormatPixelInfo};
 use bevy_platform::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
@@ -112,12 +112,12 @@ fn fallback_image_new(
     let texture = if create_texture_with_data {
         render_device.create_texture_with_data(
             render_queue,
-            &image.texture_descriptor,
+            &image.texture_descriptor.as_wgpu(),
             TextureDataOrder::default(),
             &image.data.expect("Image has no data"),
         )
     } else {
-        render_device.create_texture(&image.texture_descriptor)
+        render_device.create_texture(&image.texture_descriptor.as_wgpu())
     };
 
     let texture_view = texture.create_view(&TextureViewDescriptor {
