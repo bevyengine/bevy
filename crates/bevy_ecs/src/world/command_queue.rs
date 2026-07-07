@@ -6,6 +6,7 @@ use crate::{
 
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
+#[cfg(feature = "std")]
 use bevy_utils::DebugName;
 use core::{
     fmt::Debug,
@@ -26,6 +27,7 @@ struct CommandMeta {
     consume_command_and_get_size:
         unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
     /// Returns the name of the command, for use in [`ErrorContext`].
+    #[cfg(feature = "std")]
     name: fn() -> DebugName,
 }
 
@@ -60,6 +62,7 @@ impl<C: Command> CommandMetaProvider for C {
                 None => drop(command),
             }
         },
+        #[cfg(feature = "std")]
         name: DebugName::type_name::<C>,
     };
 }
