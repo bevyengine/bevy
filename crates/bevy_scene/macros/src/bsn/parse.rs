@@ -98,7 +98,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 
 impl BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Token![:]) {
+        Ok(if input.peek(Token![:]) && !input.peek(Token![::]) {
             BsnEntry::CachedScene(BsnScene::parse(input)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
