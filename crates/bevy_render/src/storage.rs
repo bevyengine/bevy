@@ -56,9 +56,9 @@ impl Default for ShaderBuffer {
 
 impl ShaderBuffer {
     /// Creates a new storage buffer with the given data and asset usage.
-    pub fn new(data: &[u8], asset_usage: RenderAssetUsages) -> Self {
+    pub fn new(data: Vec<u8>, asset_usage: RenderAssetUsages) -> Self {
         let mut storage = ShaderBuffer {
-            data: Some(data.to_vec()),
+            data: Some(data),
             ..default()
         };
         storage.asset_usage = asset_usage;
@@ -170,7 +170,7 @@ where
         let size = value.size().get() as usize;
         let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
         wrapper.write(&value).unwrap();
-        Self::new(wrapper.as_ref(), RenderAssetUsages::default())
+        Self::new(wrapper.into_inner(), RenderAssetUsages::default())
     }
 }
 
