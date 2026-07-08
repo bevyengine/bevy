@@ -732,15 +732,11 @@ pub fn extract_lights(
             for (e, v) in cascades.cascades.iter() {
                 if let Ok(entity) = mapper.get(*e) {
                     extracted_cascades.insert(**entity, v.clone());
-                } else {
-                    break;
                 }
             }
             for (e, v) in frusta.frusta.iter() {
                 if let Ok(entity) = mapper.get(*e) {
                     extracted_frusta.insert(**entity, v.clone());
-                } else {
-                    break;
                 }
             }
             // Calculate the added and removed entities for each cascade.
