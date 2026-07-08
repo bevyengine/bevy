@@ -114,13 +114,11 @@ fn sd_rounded_box(
     if min(radius.x, radius.y) <= 0.0 {
         return straight_distance;
     }
-    // Vector from the center of the radius circle to the point.
+    // Vector from the center of the corner ellipse to the point.
     let q = corner_to_point + radius;
     let edge_distance = max(q.x - radius.x, q.y - radius.y);
-    let ellipse_point = q / radius;
-    let ellipse_point_length = length(ellipse_point);
-    let ellipse_surface = radius * ellipse_point / ellipse_point_length;
-    let corner_distance = length(q - ellipse_surface) * sign(ellipse_point_length - 1.0);
+    let inv_radii_sq = 1.0 / (radius * radius);
+    let corner_distance = distance_to_ellipse_approx(q, inv_radii_sq, 1.0); 
     return select(edge_distance, corner_distance, q.x > 0.0 && q.y > 0.0);
 }
 
