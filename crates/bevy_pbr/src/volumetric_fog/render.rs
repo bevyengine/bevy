@@ -3,7 +3,7 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::Camera3d;
+use bevy_camera::{visibility::InheritedVisibility, Camera3d};
 use bevy_color::ColorToComponents as _;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -237,10 +237,20 @@ pub fn init_volumetric_fog_pipeline(
 
 /// Extracts [`VolumetricFog`], [`FogVolume`], and [`VolumetricLight`]s
 /// from the main world to the render world.
+///
+/// Fog volumes respect the [`Visibility`] component: volumes with
+/// [`Visibility::Hidden`] are not extracted.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
     view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
+    fog_volumes: Extract<
+        Query<(
+            RenderEntity,
+            &FogVolume,
+            &GlobalTransform,
+            Option<&InheritedVisibility>,
+        )>,
+    >,
     volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
@@ -251,7 +261,9 @@ pub fn extract_volumetric_fog(
                 .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
         }
         for (entity, ..) in fog_volumes.iter() {
-            commands.entity(entity).remove::<FogVolume>();
+            commands
+                .entity(entity)
+                .remove::<(FogVolume, GlobalTransform)>();
         }
         return;
     }
@@ -263,12 +275,18 @@ pub fn extract_volumetric_fog(
             .insert(*volumetric_fog);
     }
 
-    for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
-        commands
-            .get_entity(entity)
-            .expect("Fog volume entity wasn't synced.")
-            .insert((*fog_volume).clone())
-            .insert(*fog_transform);
+    for (entity, fog_volume, fog_transform, inherited_visibility) in fog_volumes.iter() {
+        if inherited_visibility.map_or(true, |v| v.get()) {
+            commands
+                .get_entity(entity)
+                .expect("Fog volume entity wasn't synced.")
+                .insert((*fog_volume).clone())
+                .insert(*fog_transform);
+        } else {
+            commands
+                .entity(entity)
+                .remove::<(FogVolume, GlobalTransform)>();
+        }
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {

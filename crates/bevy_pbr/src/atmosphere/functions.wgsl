@@ -13,6 +13,7 @@
         transmittance_lut_r_mu_to_uv, ray_intersects_ground,
         distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
     },
+    shadows::fetch_directional_shadow,
 }
 
 // NOTE FOR CONVENTIONS: 
@@ -165,18 +166,24 @@ fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
 fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     let t_max = settings.aerial_view_lut_max_distance;
     let num_slices = f32(settings.aerial_view_lut_size.z);
+    let num_samples = f32(settings.aerial_view_lut_samples);
+    // LUT depth is squared in normalized slice parameter u
+    let u = sqrt(saturate(t / t_max));
     // Each texel stores the value of the scattering integral over the whole slice,
     // which requires us to offset the w coordinate by half a slice. For
     // example, if we wanted the value of the integral at the boundary between slices,
     // we'd need to sample at the center of the previous slice, and vice-versa for
     // sampling in the center of a slice.
-    let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
+    let uvw = vec3(uv, saturate(u - 0.5 / num_slices));
     let sample = textureSampleLevel(aerial_view_lut, atmosphere_lut_sampler, uvw, 0.0);
     // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
     // we need to do a linear step over the first slice towards zero at the camera's
     // position to recover the correct integral value.
     let t_slice = t_max / num_slices;
-    let fade = saturate(t / t_slice);
+    let u_end_first_slice =
+        ((num_samples - 1.0 + MIDPOINT_RATIO) / num_samples) / num_slices;
+    let t_first_slice = t_max * u_end_first_slice * u_end_first_slice;
+    let fade = saturate(t / t_first_slice);
     // Recover the values from log space
     return exp(sample.rgb) * fade;
 }
@@ -226,8 +233,17 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
         let scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
 
+        // Sample directional light shadow map for volumetric shadow shafts.
+        // Use zero normal bias: unlike mesh shading there is no surface normal, and using
+        // `-ray_dir` (toward the camera) pushes samples along the view ray away from nearby
+        // occluders, which causes light leaks next to buildings and other low geometry.
+        var shadow_map_factor: f32 = 1.0;
+        if (settings.shadows_enabled != 0u) {
+            shadow_map_factor = fetch_directional_shadow(light_i, vec4(world_pos, 1.0), vec3(0.0));
+        }
+
         // Transmittance from scattering event to light source
-        let scattering_factor = shadow_factor * scattering_coeff;
+        let scattering_factor = shadow_factor * shadow_map_factor * scattering_coeff;
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
@@ -488,14 +504,14 @@ fn raymarch_atmosphere(
 
     // include reflected luminance from planet ground 
     if ground && ray_intersects_ground(r, mu) {
+        // position on the sphere and get the sphere normal (up)
+        let sphere_point = pos + ray_dir * t_end;
+        let sphere_normal = normalize(sphere_point);
         for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
             let light = &lights.directional_lights[light_i];
             let light_dir = (*light).direction_to_light;
             let light_color = (*light).color.rgb;
             let transmittance_to_ground = exp(-optical_depth);
-            // position on the sphere and get the sphere normal (up)
-            let sphere_point = pos + ray_dir * t_end;
-            let sphere_normal = normalize(sphere_point);
             let mu_light = dot(light_dir, sphere_normal);
             let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
             let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;

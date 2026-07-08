@@ -117,6 +117,8 @@ fn camera() -> impl Scene {
         template_value(Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y))
         FreeCamera
         AtmosphereSettings {
+            // LUT resolution matching the screen's aspect ratio
+            aerial_view_lut_size: UVec3::new(160, 88, 64),
             // Reduce the default max distance in the aerial view LUT
             // to 16km to approximately fit the size of the city. This way the aerial perspective
             // gets more detail and has less banding artifacts compared to the 32km default.
@@ -223,7 +225,7 @@ fn spawn_atmosphere(
     let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium));
 
     // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
-    let scale = 1.0 / 20.0;
+    let scale = 1.0 / 200.0;
     commands.spawn((
         earth_atmosphere.clone(),
         Transform::from_scale(Vec3::splat(scale))

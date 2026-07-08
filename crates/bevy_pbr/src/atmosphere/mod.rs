@@ -102,6 +102,7 @@ impl Plugin for AtmospherePlugin {
         load_shader_library!(app, "functions.wgsl");
         load_shader_library!(app, "bruneton_functions.wgsl");
         load_shader_library!(app, "bindings.wgsl");
+        load_shader_library!(app, "shadows.wgsl");
 
         embedded_asset!(app, "transmittance_lut.wgsl");
         embedded_asset!(app, "multiscattering_lut.wgsl");
@@ -240,12 +241,14 @@ pub fn extract_atmosphere(
         let atmo = selected.1;
         let gt = selected.2;
 
+        let atmosphere_to_world = gt.to_matrix();
         let extracted = ExtractedAtmosphere {
             inner_radius: atmo.inner_radius,
             outer_radius: atmo.outer_radius,
             ground_albedo: atmo.ground_albedo,
             medium: atmo.medium.id(),
-            world_to_atmosphere: gt.to_matrix().inverse(),
+            world_to_atmosphere: atmosphere_to_world.inverse(),
+            atmosphere_to_world,
         };
         commands.entity(render_entity).insert(extracted);
         commands
@@ -263,6 +266,7 @@ pub struct ExtractedAtmosphere {
     pub ground_albedo: Vec3,
     pub medium: AssetId<ScatteringMedium>,
     pub world_to_atmosphere: Mat4,
+    pub atmosphere_to_world: Mat4,
 }
 
 /// This component controls the resolution of the atmosphere LUTs, and
@@ -333,6 +337,9 @@ pub struct AtmosphereSettings {
 
     /// The rendering method to use for the atmosphere.
     pub rendering_method: AtmosphereMode,
+
+    /// Whether to sample shadow maps for volumetric shadow shafts.
+    pub shadows_enabled: bool,
 }
 
 impl Default for AtmosphereSettings {
@@ -350,6 +357,7 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_max_distance: 3.2e4,
             sky_max_samples: 16,
             rendering_method: AtmosphereMode::LookupTexture,
+            shadows_enabled: true,
         }
     }
 }
@@ -369,6 +377,7 @@ pub struct GpuAtmosphereSettings {
     pub aerial_view_lut_max_distance: f32,
     pub sky_max_samples: u32,
     pub rendering_method: u32,
+    pub shadows_enabled: u32,
 }
 
 impl Default for GpuAtmosphereSettings {
@@ -392,6 +401,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             aerial_view_lut_max_distance: s.aerial_view_lut_max_distance,
             sky_max_samples: s.sky_max_samples,
             rendering_method: s.rendering_method as u32,
+            shadows_enabled: s.shadows_enabled as u32,
         }
     }
 }
