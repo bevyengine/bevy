@@ -107,7 +107,7 @@ impl ShaderBuffer {
     where
         T: ShaderType + WriteInto,
     {
-        let mut data = self.data.take().unwrap_or(Vec::new());
+        let mut data = self.data.take().unwrap_or_default();
         let (min_size, _) = values.size_hint();
         let min_size = min_size * T::METADATA.min_size().get() as usize;
         if min_size > data.capacity() {
@@ -125,7 +125,7 @@ impl ShaderBuffer {
     where
         T: bytemuck::NoUninit,
     {
-        let mut data = self.data.take().unwrap_or(Vec::new());
+        let mut data = self.data.take().unwrap_or_default();
         let (min_size, _) = values.size_hint();
         let min_size = min_size * size_of::<T>();
         if min_size > data.capacity() {
