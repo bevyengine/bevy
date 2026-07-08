@@ -86,7 +86,7 @@ Example | Description
 
 ## Platform-Specific Examples
 
-bevy_mobile_example sets `strip = true` in the workspace `Cargo.toml` to keep app bundles reasonable. Remove the `strip` override if you need native debug symbols.
+`bevy_mobile_example` sets `strip = true` in the workspace `Cargo.toml` to keep app bundles reasonable. Remove the `strip` override if you need native debug symbols.
 
 ### Android
 
