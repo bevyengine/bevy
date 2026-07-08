@@ -138,6 +138,7 @@ impl<M: Message> Messages<M> {
         let message_instance = MessageInstance {
             message_id,
             message,
+            deleted: false,
         };
 
         self.messages_b.push(message_instance);
@@ -214,7 +215,7 @@ impl<M: Message> Messages<M> {
             self.messages_b.start_message_count
         );
 
-        iter.map(|e| e.message)
+        iter.filter(|e| !e.deleted).map(|e| e.message)
     }
 
     #[inline]
@@ -251,6 +252,7 @@ impl<M: Message> Messages<M> {
         self.messages_a
             .drain(..)
             .chain(self.messages_b.drain(..))
+            .filter(|i| !i.deleted)
             .map(|i| i.message)
     }
 
@@ -277,16 +279,26 @@ impl<M: Message> Messages<M> {
 
         sequence
             .get(index)
+            .filter(|instance| !instance.deleted)
             .map(|instance| (&instance.message, instance.message_id))
     }
 
-    /// Retains messages for which the predicate returns `true`, removing all others from both
-    /// internal buffers.
-    pub fn retain(&mut self, mut f: impl FnMut(&M) -> bool) {
-        self.messages_b
+    /// Filters every message for which `f` returns `false`, so that [`MessageReader`]s and
+    /// [`MessageMutator`]s never observe them. 
+    ///
+    /// [`MessageReader`]: super::MessageReader
+    /// [`MessageMutator`]: super::MessageMutator
+    pub fn filter(&mut self, mut f: impl FnMut(&M) -> bool) {
+        for instance in self
+            .messages_a
             .messages
-            .retain(|instance| f(&instance.message));
-        self.message_count = self.messages_b.start_message_count + self.messages_b.len();
+            .iter_mut()
+            .chain(self.messages_b.messages.iter_mut())
+        {
+            if !instance.deleted && !f(&instance.message) {
+                instance.deleted = true;
+            }
+        }
     }
 
     /// Which message buffer is this message id a part of.
@@ -317,6 +329,7 @@ impl<M: Message> Extend<M> for Messages<M> {
             MessageInstance {
                 message_id,
                 message,
+                deleted: false,
             }
         });
 
