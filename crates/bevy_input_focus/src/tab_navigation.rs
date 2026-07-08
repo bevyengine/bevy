@@ -26,6 +26,7 @@
 
 use alloc::vec::Vec;
 use bevy_app::{App, Plugin, Startup};
+use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -163,7 +164,12 @@ pub struct TabNavigation<'w, 's> {
     tabindex_query: Query<
         'w,
         's,
-        (Entity, Option<&'static TabIndex>, Option<&'static Children>),
+        (
+            Entity,
+            Option<&'static TabIndex>,
+            Option<&'static Children>,
+            Option<&'static InheritedVisibility>,
+        ),
         Without<TabGroup>,
     >,
     // Query for parents.
@@ -327,8 +333,13 @@ impl TabNavigation<'_, '_> {
         parent: Entity,
         tab_group_idx: usize,
     ) {
-        if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
-            if let Some(tabindex) = tabindex
+        if let Ok((entity, tabindex, children, inherited_visibility)) =
+            self.tabindex_query.get(parent)
+        {
+            // Skip entities that are not visible in the hierarchy. An entity without an
+            // `InheritedVisibility` component (e.g. a non-UI entity) is treated as visible.
+            if inherited_visibility.is_none_or(|v| v.get())
+                && let Some(tabindex) = tabindex
                 && tabindex.0 >= 0
             {
                 out.push((entity, *tabindex, tab_group_idx));

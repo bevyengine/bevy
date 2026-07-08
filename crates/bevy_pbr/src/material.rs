@@ -1423,6 +1423,7 @@ pub fn queue_material_meshes(
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
+#[extract_app(RenderApp)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -1707,7 +1708,7 @@ where
         let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
         let draw_shadows_depth_only = shadow_draw_functions.read().id::<DrawDepthOnlyPrepass>();
 
-        let draw_functions = SmallVec::from_iter([
+        let draw_functions = SmallVec::from_const([
             (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
             (MainPassAlphaMaskDrawFunction.intern(), draw_alpha_mask_pbr),
             (
