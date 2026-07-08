@@ -40,6 +40,7 @@ mod scrollbar;
 mod slider;
 mod text_input;
 
+use bevy_input_focus::pointer_focus::PointerFocusPlugin;
 pub use button::*;
 pub use checkbox::*;
 pub use dialog::*;
@@ -79,6 +80,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(PointerFocusPlugin)
     }
 }
 

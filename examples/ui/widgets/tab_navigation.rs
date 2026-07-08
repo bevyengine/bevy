@@ -3,6 +3,7 @@
 use bevy::{
     color::palettes::basic::*,
     input_focus::{
+        pointer_focus::PointerFocusPlugin,
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         FocusCause, InputFocus,
     },
@@ -11,7 +12,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin, PointerFocusPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (button_system, focus_system))
         .run();
