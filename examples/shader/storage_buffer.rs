@@ -25,7 +25,7 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Example data for the storage buffer
-    let color_data: Vec<[f32; 4]> = vec![
+    let color_data = [
         [1.0, 0.0, 0.0, 1.0],
         [0.0, 1.0, 0.0, 1.0],
         [0.0, 0.0, 1.0, 1.0],
@@ -33,7 +33,7 @@ fn setup(
         [0.0, 1.0, 1.0, 1.0],
     ];
 
-    let colors = buffers.add(ShaderBuffer::from(color_data));
+    let colors = buffers.add(ShaderBuffer::from_values_raw(color_data.iter().copied()));
 
     let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
     // Create the custom material with the storage buffer

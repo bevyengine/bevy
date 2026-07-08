@@ -86,8 +86,7 @@ fn setup(
     mut buffers: ResMut<Assets<ShaderBuffer>>,
 ) {
     // Create a storage buffer with some data
-    let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
-    let mut buffer = ShaderBuffer::from(buffer);
+    let mut buffer = ShaderBuffer::from_values_raw(0..BUFFER_LEN as u32);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);

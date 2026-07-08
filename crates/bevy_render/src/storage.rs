@@ -23,7 +23,7 @@ impl Plugin for StoragePlugin {
     }
 }
 
-/// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
+/// A shader buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(opaque)]
 #[reflect(Default, Debug, Clone)]
@@ -32,7 +32,7 @@ pub struct ShaderBuffer {
     pub data: Option<Vec<u8>>,
     /// The buffer description used to create the buffer.
     pub buffer_description: wgpu::BufferDescriptor<'static>,
-    /// The asset usage of the storage buffer.
+    /// The asset usage of the shader buffer.
     pub asset_usage: RenderAssetUsages,
     /// Whether this buffer should be copied on the GPU when resized.
     pub copy_on_resize: bool,
@@ -55,24 +55,39 @@ impl Default for ShaderBuffer {
 }
 
 impl ShaderBuffer {
-    /// Creates a new storage buffer with the given data and asset usage.
-    pub fn new<T: bytemuck::NoUninit>(data: Vec<T>, asset_usage: RenderAssetUsages) -> Self {
+    /// Creates a new shader buffer with the given data and asset usage.
+    pub fn new(data: Vec<u8>, asset_usage: RenderAssetUsages) -> Self {
         let mut storage = ShaderBuffer {
-            data: Some(bytemuck::cast_vec(data)),
+            data: Some(data),
             ..default()
         };
         storage.asset_usage = asset_usage;
         storage
     }
 
-    pub fn from_value<T: ShaderType + WriteInto>(value: T, asset_usage: RenderAssetUsages) -> Self {
+    /// Creates a new shader buffer with the given [`ShaderType`].
+    pub fn from_value<T: ShaderType + WriteInto>(value: T) -> Self {
         let size = value.size().get() as usize;
         let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
         wrapper.write(&value).unwrap();
-        Self::new(wrapper.into_inner(), asset_usage)
+        Self::new(wrapper.into_inner(), Default::default())
     }
 
-    /// Creates a new storage buffer with the given size and asset usage.
+    /// Creates a new shader buffer with the given iterator of [`ShaderType`].
+    pub fn from_values<T: ShaderType + WriteInto>(values: impl Iterator<Item = T>) -> Self {
+        let mut storage = Self::default();
+        storage.extend(values);
+        storage
+    }
+
+    /// Creates a new shader buffer with the given iterator of [`bytemuck::NoUninit`].
+    pub fn from_values_raw<T: bytemuck::NoUninit>(values: impl Iterator<Item = T>) -> Self {
+        let mut storage = Self::default();
+        storage.extend_raw(values);
+        storage
+    }
+
+    /// Creates a new shader buffer with the given size and asset usage.
     pub fn with_size(size: usize, asset_usage: RenderAssetUsages) -> Self {
         let mut storage = ShaderBuffer {
             data: None,
@@ -91,7 +106,7 @@ impl ShaderBuffer {
         }
     }
 
-    /// Sets the data of the storage buffer to the given [`ShaderType`].
+    /// Sets the data of the shader buffer to the given iterator of [`ShaderType`].
     /// If the iterator is empty, this will set the data to one zeroed `T` element.
     pub fn set_data<T>(&mut self, values: impl Iterator<Item = T>)
     where
@@ -108,7 +123,7 @@ impl ShaderBuffer {
         }
     }
 
-    /// Sets the data of the storage buffer to the given [`bytemuck::NoUninit`].
+    /// Sets the data of the shader buffer to the given iterator of [`bytemuck::NoUninit`].
     /// If the iterator is empty, this will set the data to one zeroed `T` element.
     pub fn set_data_raw<T>(&mut self, values: impl Iterator<Item = T>)
     where
@@ -187,11 +202,14 @@ impl ShaderBuffer {
 
 impl<T: bytemuck::NoUninit> From<Vec<T>> for ShaderBuffer {
     fn from(value: Vec<T>) -> Self {
-        Self::new(value, Default::default())
+        const {
+            assert!(align_of::<T>() == align_of::<u8>());
+        }
+        Self::new(bytemuck::cast_vec(value), Default::default())
     }
 }
 
-/// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
+/// A shader buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 pub struct GpuShaderBuffer {
     pub buffer: Buffer,
     pub buffer_descriptor: wgpu::BufferDescriptor<'static>,
