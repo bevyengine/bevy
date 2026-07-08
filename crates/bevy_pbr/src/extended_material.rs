@@ -61,8 +61,9 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         true
     }
 
-    /// Controls if order independent transparency is enabled for the Material.
-    /// This doesn't have effect if the [`AlphaMode`] isn't supported by OIT.
+    /// Controls whether order independent transparency is enabled for the Material.
+    /// This is ignored if the camera does not have [`bevy_core_pipeline::oit::OrderIndependentTransparencySettings`]
+    /// or if [`Self::alpha_mode`] is not supported by OIT.
     #[inline]
     fn enable_oit() -> bool {
         true
