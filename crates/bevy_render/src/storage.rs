@@ -92,21 +92,37 @@ impl ShaderBuffer {
     }
 
     /// Sets the data of the storage buffer to the given [`ShaderType`].
+    /// If the iterator is empty, this will set the data to one zeroed `T` element.
     pub fn set_data<T>(&mut self, values: impl Iterator<Item = T>)
     where
         T: ShaderType + WriteInto,
     {
         self.clear();
-        self.extend(values);
+
+        let mut values = values.peekable();
+        if values.peek().is_none() {
+            let size = T::min_size().get() as usize;
+            self.extend_raw(core::iter::repeat_n(0u8, size));
+        } else {
+            self.extend(values);
+        }
     }
 
     /// Sets the data of the storage buffer to the given [`bytemuck::NoUninit`].
+    /// If the iterator is empty, this will set the data to one zeroed `T` element.
     pub fn set_data_raw<T>(&mut self, values: impl Iterator<Item = T>)
     where
         T: bytemuck::NoUninit,
     {
         self.clear();
-        self.extend_raw(values);
+
+        let mut values = values.peekable();
+        if values.peek().is_none() {
+            let size = size_of::<T>();
+            self.extend_raw(core::iter::repeat_n(0u8, size));
+        } else {
+            self.extend_raw(values);
+        }
     }
 
     /// Extends the data with an iterator of [`ShaderType`].
@@ -116,7 +132,7 @@ impl ShaderBuffer {
     {
         let mut data = self.data.take().unwrap_or_default();
         let (min_size, _) = values.size_hint();
-        let min_size = min_size * T::METADATA.min_size().get() as usize;
+        let min_size = min_size * T::min_size().get() as usize;
         if min_size > data.capacity() {
             data.reserve(min_size - data.capacity());
         }

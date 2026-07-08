@@ -112,13 +112,10 @@ fn update_frame_time_values(
     for (_, material) in frame_time_graph_materials.iter_mut() {
         let mut buffer = buffers.get_mut(&material.values).unwrap();
 
-        let mut frame_times = frame_time
+        let frame_times = frame_time
             .values()
             // convert to millis
             .map(|x| *x as f32 / 1000.0);
-
-        // Add a value so that buffer binding size isn't zero.
-        buffer.set_data_raw(core::iter::once(frame_times.next().unwrap_or(0.0)));
-        buffer.extend_raw(frame_times);
+        buffer.set_data_raw(frame_times);
     }
 }
