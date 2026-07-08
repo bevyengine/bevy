@@ -534,7 +534,7 @@ fn apply_pbr_lighting(
 
     // Spot lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i < clusterable_object_index_ranges.first_rect_light_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
 
@@ -669,15 +669,28 @@ fn apply_pbr_lighting(
 
 #ifdef AREA_LIGHT_LUTS
     // Rect lights
-    let n_rect_lights = view_bindings::lights.n_rect_lights;
-    for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
+    // This combines a clustered path if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    // and a non-clustered fallback for WebGL2.
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    let rect_light_start = clusterable_object_index_ranges.first_rect_light_index_offset;
+    let rect_light_end = clusterable_object_index_ranges.first_reflection_probe_index_offset;
+#else
+    let rect_light_start = 0u;
+    let rect_light_end = view_bindings::lights.n_rect_lights;
+#endif
+    for (var i: u32 = rect_light_start; i < rect_light_end; i = i + 1u) {
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        let light = lighting::unpack_clustered_rect_light(clustering::get_clusterable_object_id(i));
+#else
+        let light = view_bindings::lights.rect_lights[i];
+#endif
         let enable_diffuse = true;
-        let light_contrib = lighting::rect_light(i, &lighting_input, enable_diffuse);
+        let light_contrib = lighting::rect_light(light, &lighting_input, enable_diffuse);
         direct_light += light_contrib;
 
     #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
         let transmitted_light_contrib =
-            lighting::rect_light(i, &transmissive_lighting_input, enable_diffuse);
+            lighting::rect_light(light, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib;
     #endif
     }

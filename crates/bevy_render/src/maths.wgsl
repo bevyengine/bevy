@@ -86,6 +86,12 @@ fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
     return mat3x3(x_basis, y_basis, z_basis);
 }
 
+// Rotates a direction by a rotation quaternion q.
+fn quat_rotate(q: vec4<f32>, dir: vec3<f32>) -> vec3<f32> {
+    let t = 2.0 * cross(q.xyz, dir);
+    return dir + q.w * t + cross(q.xyz, t);
+}
+
 // Returns true if any part of a sphere is on the positive side of a plane.
 //
 // `sphere_center.w` should be 1.0.

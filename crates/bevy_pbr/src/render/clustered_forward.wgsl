@@ -13,16 +13,19 @@
 // Offsets within the `cluster_offsets_and_counts` buffer for a single cluster.
 //
 // These offsets must be monotonically nondecreasing. That is, indices are
-// always sorted into the following order: point lights, spot lights, reflection
-// probes, irradiance volumes.
+// always sorted into the following order: point lights, spot lights, rect
+// lights, reflection probes, irradiance volumes.
 struct ClusterableObjectIndexRanges {
     // The offset of the index of the first point light.
     first_point_light_index_offset: u32,
     // The offset of the index of the first spot light, which also terminates
     // the list of point lights.
     first_spot_light_index_offset: u32,
+    // The offset of the index of the first rect light, which also terminates
+    // the list of spot lights.
+    first_rect_light_index_offset: u32,
     // The offset of the index of the first reflection probe, which also
-    // terminates the list of spot lights.
+    // terminates the list of rect lights.
     first_reflection_probe_index_offset: u32,
     // The offset of the index of the first irradiance volumes, which also
     // terminates the list of reflection probes.
@@ -95,13 +98,15 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
     // consistent with the WebGL 2 path below.
     let point_light_offset = offset_and_counts_a.x;
     let spot_light_offset = point_light_offset + offset_and_counts_a.y;
-    let reflection_probe_offset = spot_light_offset + offset_and_counts_a.z;
-    let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_a.w;
-    let decal_offset = irradiance_volume_offset + offset_and_counts_b.x;
-    let last_clusterable_offset = decal_offset + offset_and_counts_b.y;
+    let rect_light_offset = spot_light_offset + offset_and_counts_a.z;
+    let reflection_probe_offset = rect_light_offset + offset_and_counts_a.w;
+    let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_b.x;
+    let decal_offset = irradiance_volume_offset + offset_and_counts_b.y;
+    let last_clusterable_offset = decal_offset + offset_and_counts_b.z;
     return ClusterableObjectIndexRanges(
         point_light_offset,
         spot_light_offset,
+        rect_light_offset,
         reflection_probe_offset,
         irradiance_volume_offset,
         decal_offset,
@@ -128,7 +133,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
     let offset_b = offset_a + offset_and_counts.y;
     let offset_c = offset_b + offset_and_counts.z;
 
-    return ClusterableObjectIndexRanges(offset_a, offset_b, offset_c, offset_c, offset_c, offset_c);
+    return ClusterableObjectIndexRanges(offset_a, offset_b, offset_c, offset_c, offset_c, offset_c, offset_c);
 
 #endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 }
