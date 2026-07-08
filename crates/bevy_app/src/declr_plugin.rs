@@ -1,7 +1,7 @@
 use core::{
     alloc::Layout,
     any::{type_name, Any, TypeId},
-    mem::transmute,
+    mem::{transmute, ManuallyDrop},
     ptr::NonNull,
 };
 use std::{
@@ -33,12 +33,12 @@ struct WideErased {
 
 #[allow(unsafe_code)]
 impl WideErased {
-    pub fn new<T: Sized + Drop + 'static>(data: T) -> Option<Self> {
+    pub fn new<T: Sized + 'static>(data: T) -> Option<Self> {
         let layout = Layout::for_value(&data);
         // SAFETY: we're allocating baybe. We initialize after the nonnull cast.
         let ptr = unsafe { alloc(layout) };
         let ptr = NonNull::new(ptr)?.cast();
-        // SAFETY:
+        // SAFETY: initializing lol
         unsafe { ptr.write(data) };
 
         Some(WideErased {
@@ -57,11 +57,24 @@ impl WideErased {
         let layout = Layout::new::<T>();
         let type_id = TypeId::of::<T>();
         if layout == self.layout && type_id == self.type_id {
-            // SAFETY: we at least know if the data is the right shape.
+            // SAFETY: we at least know if the data is the right shape and the type IDs are the same
             let data: NonNull<T> = self.ptr.cast();
             Ok(Self::nonnull_ptr_shuffle(data, layout))
         } else {
             Err(self)
+        }
+    }
+
+    pub fn peek_reverse_erased<'a, T: Sized + 'static, Y>(
+        &'a self,
+        peek: impl Fn(&T) -> Y,
+    ) -> Option<Y> {
+        let layout = Layout::new::<T>();
+        let type_id = TypeId::of::<T>();
+        if layout == self.layout && type_id == self.type_id {
+            Some(peek(unsafe { self.ptr.cast().as_ref() }))
+        } else {
+            None
         }
     }
 
@@ -80,6 +93,40 @@ impl Drop for WideErased {
     }
 }
 
+pub struct StagedResource {
+    type_id: TypeId,
+    erased_resource: ErasedResource,
+    unerase_and_insert: Box<dyn Fn(&mut World, ErasedResource)>,
+    /// Function that un-erases the resource and check if it meets the plugin's requirements.
+    check_ok: Box<dyn Fn(&ErasedResource) -> bool>,
+    /// If the staged resource is a default, we care about it less than any given
+    is_default: bool,
+}
+
+impl StagedResource {
+    fn new<R: Resource>(
+        resource: R,
+        is_default: bool,
+        check_ok: impl Fn(&R) -> bool + 'static,
+    ) -> Option<Self> {
+        Some(StagedResource {
+            type_id: resource.type_id(),
+            erased_resource: ErasedResource(WideErased::new(resource)?),
+            unerase_and_insert: Box::new(|world, erased| match erased.0.try_reverse_erase::<R>() {
+                Ok(resource) => world.insert_resource(resource),
+                Err(_) => {}
+            }),
+            check_ok: Box::new(move |erased| {
+                erased
+                    .0
+                    .peek_reverse_erased::<R, _>(|data| check_ok(data))
+                    .unwrap_or(true)
+            }),
+            is_default,
+        })
+    }
+}
+
 /// Plugin output, opaque to end user.
 pub struct PluginOutput {
     working_plugin: PluginTypeId,
@@ -87,11 +134,7 @@ pub struct PluginOutput {
     app: App,
     observers: Vec<Observer>,
     schedules: Schedules,
-    resource_staging: Vec<(
-        TypeId,
-        ErasedResource,
-        Box<dyn Fn(&mut World, ErasedResource)>,
-    )>,
+    resource_staging: Vec<StagedResource>,
     dependencies: Vec<(PluginTypeId, Box<dyn Fn(&dyn DeclarativePlugin) -> bool>)>,
 }
 
@@ -102,7 +145,7 @@ impl PluginOutput {
         schedule: impl ScheduleLabel,
         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
-        // TODO
+        // TODO: non-schedule data structure?
         self.schedules.add_systems(schedule, systems);
         self
     }
@@ -129,15 +172,47 @@ impl PluginOutput {
         self
     }
 
-    pub fn insert_resource<R: Resource + Drop>(&mut self, resource: R) -> &mut Self {
-        self.resource_staging.push((
-            resource.type_id(),
-            ErasedResource(WideErased::new(resource).unwrap()),
-            Box::new(|world, erased| match erased.0.try_reverse_erase::<R>() {
-                Ok(resource) => world.insert_resource(resource),
-                Err(_) => todo!(),
-            }),
-        ));
+    pub fn require_resource<R: Resource + Default>(&mut self) -> &mut Self {
+        self.require_resource_with_clash(|_: &R| true)
+    }
+
+    pub fn require_resource_with_clash<R: Resource + Default>(
+        &mut self,
+        clash: impl Fn(&R) -> bool + 'static,
+    ) -> &mut Self {
+        let Some(resource) = StagedResource::new(R::default(), true, |_| true) else {
+            return self;
+        };
+        self.resource_staging.push(resource);
+        self
+    }
+
+    pub fn require_resource_with_value<R: Resource>(&mut self, resource: R) -> &mut Self {
+        let Some(resource) = StagedResource::new(resource, false, |_| true) else {
+            return self;
+        };
+        self.resource_staging.push(resource);
+        self
+    }
+
+    pub fn require_resource_with_value_and_clash<R: Resource>(
+        &mut self,
+        resource: R,
+        clash: impl Fn(&R) -> bool + 'static,
+    ) -> &mut Self {
+        let Some(resource) = StagedResource::new(resource, false, clash) else {
+            return self;
+        };
+        self.resource_staging.push(resource);
+        self
+    }
+
+    #[deprecated]
+    pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
+        let Some(resource) = StagedResource::new(resource, false, |_| true) else {
+            return self;
+        };
+        self.resource_staging.push(resource);
         self
     }
 
