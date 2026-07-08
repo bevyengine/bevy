@@ -703,11 +703,13 @@ fn slider_on_set_value(
                 range.clamp(value.0 + delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        commands.trigger(ValueChange {
-            source: set_slider_value.entity,
-            value: new_value,
-            is_final: true,
-        });
+        if new_value != value.0 {
+            commands.trigger(ValueChange {
+                source: set_slider_value.entity,
+                value: new_value,
+                is_final: true,
+            });
+        }
     }
 }
 
