@@ -126,7 +126,6 @@ impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(TabNavigationPlugin)
-            .add(PointerFocusPlugin)
             .add(FeathersCorePlugin)
     }
 }
