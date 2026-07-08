@@ -32,11 +32,6 @@ impl_reflect_opaque!(::std::path::PathBuf(
 
 impl PartialReflect for &'static Path {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()
     }
@@ -181,11 +176,6 @@ impl FromReflect for &'static Path {
 }
 
 impl PartialReflect for Cow<'static, Path> {
-    #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()

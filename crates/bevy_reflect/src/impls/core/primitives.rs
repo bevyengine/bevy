@@ -320,11 +320,6 @@ impl_type_path!(str);
 
 impl PartialReflect for &'static str {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()
     }
@@ -501,11 +496,6 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> PartialReflect
     for [T; N]
 {
-    #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()

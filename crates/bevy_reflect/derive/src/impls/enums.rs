@@ -184,11 +184,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         impl #impl_generics #bevy_reflect_path::PartialReflect for #enum_path #ty_generics #where_reflect_clause {
             #[inline]
-            fn comptime_type(&self) -> #bevy_reflect_path::ty::Type {
-                #bevy_reflect_path::ty::Type::of::<Self>()
-            }
-
-            #[inline]
             fn runtime_type(&self) -> #FQOption<#bevy_reflect_path::ty::Type> {
                 #FQOption::Some(#bevy_reflect_path::ty::Type::of::<Self>())
             }

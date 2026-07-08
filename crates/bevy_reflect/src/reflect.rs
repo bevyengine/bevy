@@ -116,7 +116,9 @@ where
     /// regardless of proxy status.
     ///
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
-    fn comptime_type(&self) -> Type;
+    fn comptime_type(&self) -> Type {
+        Type::of_value(self)
+    }
 
     /// Returns the [`TypeInfo`] of this reflected value as known at runtime.
     ///

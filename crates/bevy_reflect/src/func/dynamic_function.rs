@@ -366,11 +366,6 @@ impl Function for DynamicFunction<'static> {
 
 impl PartialReflect for DynamicFunction<'static> {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         None
     }

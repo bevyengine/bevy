@@ -99,11 +99,6 @@ where
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()
     }

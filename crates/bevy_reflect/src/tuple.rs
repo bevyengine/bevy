@@ -294,11 +294,6 @@ impl Tuple for DynamicTuple {
 
 impl PartialReflect for DynamicTuple {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
@@ -568,11 +563,6 @@ macro_rules! impl_reflect_tuple {
             #[inline]
             fn runtime_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
                 <Self as $crate::info::MaybeTyped>::maybe_type_info()
-            }
-
-            #[inline]
-            fn comptime_type(&self) -> $crate::ty::Type {
-                $crate::ty::Type::of::<Self>()
             }
 
             #[inline]

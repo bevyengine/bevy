@@ -257,11 +257,6 @@ impl List for DynamicList {
 
 impl PartialReflect for DynamicList {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }

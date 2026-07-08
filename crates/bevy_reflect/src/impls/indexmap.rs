@@ -113,11 +113,6 @@ where
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()
     }
@@ -359,11 +354,6 @@ where
     T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
-    #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()

@@ -78,7 +78,6 @@ mod sealed {
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// # impl PartialReflect for Foo {
-/// #     fn comptime_type(&self) -> Type { todo!() }
 /// #     fn runtime_type(&self) -> Option<Type> { todo!() }
 /// #     fn runtime_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
@@ -167,7 +166,6 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// # impl<T: PartialReflect + TypePath> PartialReflect for Foo<T> {
-/// #     fn comptime_type(&self) -> Type { todo!() }
 /// #     fn runtime_type(&self) -> Option<Type> { todo!() }
 /// #     fn runtime_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }

@@ -303,11 +303,6 @@ impl TupleStruct for DynamicTupleStruct {
 
 impl PartialReflect for DynamicTupleStruct {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }

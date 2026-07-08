@@ -55,7 +55,6 @@ use crate::{
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// # impl PartialReflect for MyStruct {
-/// #     fn comptime_type(&self) -> Type { todo!() }
 /// #     fn runtime_type(&self) -> Option<Type> { todo!() }
 /// #     fn runtime_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }

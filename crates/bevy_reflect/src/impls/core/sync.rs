@@ -55,11 +55,6 @@ macro_rules! impl_reflect_for_atomic {
                 }
 
                 #[inline]
-                fn comptime_type(&self) -> $crate::ty::Type {
-                    $crate::ty::Type::of::<Self>()
-                }
-
-                #[inline]
                 fn runtime_type(&self) -> Option<$crate::ty::Type> {
                     Some($crate::ty::Type::of::<Self>())
                 }

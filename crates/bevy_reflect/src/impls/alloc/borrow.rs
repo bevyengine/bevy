@@ -24,11 +24,6 @@ impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
 impl PartialReflect for Cow<'static, str> {
     #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
-    #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()
     }
@@ -215,11 +210,6 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
 impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> PartialReflect
     for Cow<'static, [T]>
 {
-    #[inline]
-    fn comptime_type(&self) -> Type {
-        Type::of::<Self>()
-    }
-
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         <Self as MaybeTyped>::maybe_type_info()
