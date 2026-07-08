@@ -56,13 +56,20 @@ impl Default for ShaderBuffer {
 
 impl ShaderBuffer {
     /// Creates a new storage buffer with the given data and asset usage.
-    pub fn new(data: Vec<u8>, asset_usage: RenderAssetUsages) -> Self {
+    pub fn new<T: bytemuck::NoUninit>(data: Vec<T>, asset_usage: RenderAssetUsages) -> Self {
         let mut storage = ShaderBuffer {
-            data: Some(data),
+            data: Some(bytemuck::cast_vec(data)),
             ..default()
         };
         storage.asset_usage = asset_usage;
         storage
+    }
+
+    pub fn from_value<T: ShaderType + WriteInto>(value: T, asset_usage: RenderAssetUsages) -> Self {
+        let size = value.size().get() as usize;
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
+        wrapper.write(&value).unwrap();
+        Self::new(wrapper.into_inner(), asset_usage)
     }
 
     /// Creates a new storage buffer with the given size and asset usage.
@@ -162,15 +169,9 @@ impl ShaderBuffer {
     }
 }
 
-impl<T> From<T> for ShaderBuffer
-where
-    T: ShaderType + WriteInto,
-{
-    fn from(value: T) -> Self {
-        let size = value.size().get() as usize;
-        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
-        wrapper.write(&value).unwrap();
-        Self::new(wrapper.into_inner(), RenderAssetUsages::default())
+impl<T: bytemuck::NoUninit> From<Vec<T>> for ShaderBuffer {
+    fn from(value: Vec<T>) -> Self {
+        Self::new(value, Default::default())
     }
 }
 
