@@ -597,10 +597,10 @@ pub mod tests {
                 reorder_slice(&mut schedule.components, |component| component.name.clone());
 
             let reindex_system = |index: &mut usize| {
-                *index = *system_old_index_to_new_index.get(&(*index)).unwrap();
+                *index = system_old_index_to_new_index[index];
             };
             let reindex_system_set = |index: &mut usize| {
-                *index = *system_set_old_index_to_new_index.get(&(*index)).unwrap();
+                *index = system_set_old_index_to_new_index[index];
             };
             let reindex_schedule_index = |index: &mut ScheduleIndex| match index {
                 ScheduleIndex::System(system) => reindex_system(system),
@@ -608,7 +608,7 @@ pub mod tests {
             };
 
             let reindex_component = |index: &mut usize| {
-                *index = *component_old_index_to_new_index.get(&(*index)).unwrap();
+                *index = component_old_index_to_new_index[index];
             };
 
             let reindex_component_vec = |components: &mut Vec<usize>| {
