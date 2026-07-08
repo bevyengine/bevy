@@ -8,36 +8,51 @@
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
-    core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
+    core_pipeline::{core_2d::CORE_2D_DEPTH_FORMAT, Core2d, Core2dSystems},
+    ecs::{
+        entity::EntityHash,
+        system::{lifetimeless::SRes, SystemParamItem},
+    },
     math::{ops, FloatOrd},
-    mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
+    mesh::{BaseMeshPipelineKey, Indices, MeshVertexAttribute, VertexBufferLayout},
+    platform::collections::HashSet,
     prelude::*,
     render::{
-        mesh::RenderMesh,
+        batching::{no_gpu_preprocessing::batch_and_prepare_sorted_render_phase, GetBatchData},
+        camera::ExtractedCamera,
+        diagnostic::RecordDiagnostics as _,
+        material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId},
+        mesh::{
+            allocator::MeshAllocator, MeshMetadataFallbackBuffer, RenderMesh, RenderMeshBufferInfo,
+        },
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
-            ViewSortedRenderPhases,
+            sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
+            DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+            SetItemPipeline, SortedPhaseItem, TrackedRenderPass, ViewSortedRenderPhases,
         },
         render_resource::{
-            BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-            DepthStencilState, Face, FragmentState, MultisampleState, PipelineCache,
-            PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, StencilFaceState, StencilState, VertexFormat, VertexState,
-            VertexStepMode,
+            BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction,
+            DepthBiasState, DepthStencilState, Face, FragmentState, MultisampleState,
+            PipelineCache, PrimitiveState, PrimitiveTopology, RenderPassDescriptor,
+            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
+            StencilFaceState, StencilState, StoreOp, VertexFormat, VertexState, VertexStepMode,
         },
+        renderer::{RenderContext, ViewQuery},
         sync_component::{SyncComponent, SyncComponentPlugin},
-        sync_world::{MainEntityHashMap, RenderEntity},
-        view::{ExtractedView, RenderVisibleEntities},
+        sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
+        view::{
+            ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
+        },
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
-        extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
-        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup,
+        extract_mesh2d, init_mesh_2d_pipeline, Mesh2dBindGroup, Mesh2dPipeline, Mesh2dPipelineKey,
+        Mesh2dTransforms, Mesh2dUniform, MeshFlags, RenderMesh2dInstance, SetMesh2dViewBindGroup,
     },
 };
-use std::f32::consts::PI;
+use indexmap::IndexMap;
+use std::{f32::consts::PI, ops::Range};
 
 fn main() {
     App::new()
@@ -196,8 +211,9 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             ],
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
-                topology: key.primitive_topology(),
-                strip_index_format: key.strip_index_format(),
+                topology: BaseMeshPipelineKey::from_bits_retain(key.bits()).primitive_topology(),
+                strip_index_format: BaseMeshPipelineKey::from_bits_retain(key.bits())
+                    .strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
@@ -228,15 +244,15 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
 }
 
 // This specifies how to render a colored 2d mesh
-type DrawColoredMesh2d = (
+type DrawTransparentColoredMesh2d = (
     // Set the pipeline
     SetItemPipeline,
     // Set the view uniform as bind group 0
     SetMesh2dViewBindGroup<0>,
     // Set the mesh uniform as bind group 1
-    SetMesh2dBindGroup<1>,
+    SetColoredMesh2dBindGroup<1>,
     // Draw the mesh
-    DrawMesh2d,
+    DrawColoredMesh2d,
 );
 
 // The custom shader can be inline like here, included from another file at build time
@@ -309,23 +325,190 @@ impl Plugin for ColoredMesh2dPlugin {
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
-            .insert_resource(ColoredMesh2dShader(shader))
-            .add_render_command::<Transparent2d, DrawColoredMesh2d>()
+            .init_resource::<DrawFunctions<TransparentColoredMesh2d>>()
+            // Declare a render phase, `TransparentColoredMesh2d`, to go with
+            // our pipeline.
+            .init_resource::<ViewSortedRenderPhases<TransparentColoredMesh2d>>()
+            // Declare the pipeline itself.
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
+            // Declare the render-world resource that will hold the instances.
             .init_resource::<RenderColoredMesh2dInstances>()
+            .insert_resource(ColoredMesh2dShader(shader))
+            // Declare a new render command.
+            .add_render_command::<TransparentColoredMesh2d, DrawTransparentColoredMesh2d>()
             .add_systems(
                 RenderStartup,
                 init_colored_mesh_2d_pipeline.after(init_mesh_2d_pipeline),
             )
             .add_systems(
                 ExtractSchedule,
-                extract_colored_mesh2d.after(extract_mesh2d),
+                (
+                    extract_colored_mesh2d.after(extract_mesh2d),
+                    extract_colored_mesh2d_camera_phases,
+                ),
             )
             .add_systems(
                 Render,
-                queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
+                (
+                    sort_phase_system::<TransparentColoredMesh2d>.in_set(RenderSystems::PhaseSort),
+                    queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
+                    // Make sure to prepare the render phase.
+                    batch_and_prepare_sorted_render_phase::<
+                        TransparentColoredMesh2d,
+                        ColoredMesh2dPipeline,
+                    >
+                        .in_set(RenderSystems::PrepareResources),
+                ),
+            )
+            .add_systems(
+                Core2d,
+                // Add the draw command to draw the items in our custom phase.
+                main_colored_transparent_pass_2d.in_set(Core2dSystems::MainPass),
             );
     }
+}
+
+/// Our own [`PhaseItem`].
+///
+/// Every render phase must be in 1:1 correspondence with a pipeline. Since we
+/// have our own custom pipeline, we must also declare a custom render phase to
+/// go with it.
+struct TransparentColoredMesh2d {
+    sort_key: FloatOrd,
+    entity: (Entity, MainEntity),
+    pipeline: CachedRenderPipelineId,
+    draw_function: DrawFunctionId,
+    batch_range: Range<u32>,
+    extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    indexed: bool,
+}
+
+impl PhaseItem for TransparentColoredMesh2d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index.clone()
+    }
+
+    #[inline]
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl SortedPhaseItem for TransparentColoredMesh2d {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), TransparentColoredMesh2d, EntityHash>) {
+        items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        _: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        _: &ExtractedView,
+    ) {
+        // Sort keys are precalculated for 2D phase items.
+    }
+
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for TransparentColoredMesh2d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
+}
+
+impl GetBatchData for ColoredMesh2dPipeline {
+    type Param = (SRes<RenderColoredMesh2dInstances>, SRes<MeshAllocator>);
+    type BatchSetCompareData = AssetId<Mesh>;
+    type BatchCompareData = Option<MaterialBindGroupIndex>;
+    type BufferData = Mesh2dUniform;
+
+    fn get_batch_data(
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
+        (_entity, main_entity): (Entity, MainEntity),
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+
+        Some((
+            Mesh2dUniform::from_components(
+                &mesh_instance.transforms,
+                MaterialBindGroupSlot(0),
+                mesh_instance.tag,
+                metadata_index,
+            ),
+            mesh_instance
+                .automatic_batching
+                .then_some((mesh_instance.mesh_asset_id, None)),
+        ))
+    }
+}
+
+/// Prepares our custom render phase for a new frame.
+fn extract_colored_mesh2d_camera_phases(
+    mut colored_mesh2d_render_phases: ResMut<ViewSortedRenderPhases<TransparentColoredMesh2d>>,
+    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
+) {
+    live_entities.clear();
+
+    for (main_entity, camera) in &cameras_2d {
+        if !camera.is_active {
+            continue;
+        }
+
+        // This is the main 2D camera, so we use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+
+        colored_mesh2d_render_phases.prepare_for_new_frame(retained_view_entity);
+
+        live_entities.insert(retained_view_entity);
+    }
+
+    // Clear out all dead views.
+    colored_mesh2d_render_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 /// Extract the [`ColoredMesh2d`] marker component into the render app
@@ -365,7 +548,8 @@ pub fn extract_colored_mesh2d(
             RenderMesh2dInstance {
                 mesh_asset_id: handle.0.id(),
                 transforms,
-                material_bind_group_id: Material2dBindGroupId::default(),
+                // This is unused here.
+                material_bindings_index: MaterialBindingId::default(),
                 automatic_batching: false,
                 tag: 0,
             },
@@ -376,19 +560,20 @@ pub fn extract_colored_mesh2d(
 }
 
 /// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
-pub fn queue_colored_mesh2d(
-    transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
+fn queue_colored_mesh2d(
+    transparent_draw_functions: Res<DrawFunctions<TransparentColoredMesh2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentColoredMesh2d>>,
     views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
+
     // Iterate each view (a camera is a view)
     for (visible_entities, view, msaa) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -396,7 +581,9 @@ pub fn queue_colored_mesh2d(
             continue;
         };
 
-        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
+        let draw_colored_mesh2d = transparent_draw_functions
+            .read()
+            .id::<DrawTransparentColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_target_format(view.target_format);
@@ -414,16 +601,19 @@ pub fn queue_colored_mesh2d(
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
                     continue;
                 };
-                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
-                    mesh.primitive_topology(),
-                    mesh.index_format(),
+                mesh2d_key |= Mesh2dPipelineKey::from(
+                    BaseMeshPipelineKey::from_primitive_topology_and_strip_index(
+                        mesh.primitive_topology(),
+                        mesh.index_format(),
+                    )
+                    .bits(),
                 );
 
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
                 let mesh_z = mesh2d_transforms.world_from_local.translation.z;
-                transparent_phase.add_retained(Transparent2d {
+                transparent_phase.add_retained(TransparentColoredMesh2d {
                     entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,
@@ -433,10 +623,204 @@ pub fn queue_colored_mesh2d(
                     // This material is not batched
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
-                    extracted_index: usize::MAX,
                     indexed: mesh.indexed(),
                 });
             }
         }
+    }
+}
+
+/// The render node system that draws all items in the
+/// [`TransparentColoredMesh2d`] phase.
+fn main_colored_transparent_pass_2d(
+    world: &World,
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &ViewTarget,
+        &ViewDepthTexture,
+    )>,
+    transparent_phases: Res<ViewSortedRenderPhases<TransparentColoredMesh2d>>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
+    let (camera, extracted_view, target, depth) = view.into_inner();
+
+    let Some(transparent_phase) = transparent_phases.get(&extracted_view.retained_view_entity)
+    else {
+        return;
+    };
+
+    #[cfg(feature = "trace")]
+    let _span = info_span!("main_colored_transparent_pass_2d").entered();
+
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    let color_attachments = [Some(target.get_color_attachment())];
+    // NOTE: For the transparent pass we load the depth buffer. There should be no
+    // need to write to it, but store is set to `true` as a workaround for issue #3776,
+    // https://github.com/bevyengine/bevy/issues/3776
+    // so that wgpu does not clear the depth buffer.
+    // As the opaque and alpha mask passes run first, opaque meshes can occlude
+    // transparent ones.
+    let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
+
+    {
+        let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("main_colored_transparent_pass_2d"),
+            color_attachments: &color_attachments,
+            depth_stencil_attachment,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "main_colored_transparent_pass_2d");
+
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
+
+        if !transparent_phase.items.is_empty() {
+            #[cfg(feature = "trace")]
+            let _transparent_span = info_span!("colored_transparent_main_pass_2d").entered();
+            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+                error!(
+                    "Error encountered while rendering the colored transparent 2D phase {err:?}"
+                );
+            }
+        }
+
+        pass_span.end(&mut render_pass);
+    }
+}
+
+/// The render command that sets the right bind group.
+///
+/// Since the normal `SetMesh2dBindGroup` render command is hardwired to use
+/// `RenderMesh2dInstances`, we need to replace it with our own render command.
+struct SetColoredMesh2dBindGroup<const I: usize>;
+
+impl<P, const I: usize> RenderCommand<P> for SetColoredMesh2dBindGroup<I>
+where
+    P: PhaseItem,
+{
+    type Param = (
+        SRes<Mesh2dBindGroup>,
+        SRes<RenderColoredMesh2dInstances>,
+        SRes<MeshAllocator>,
+        SRes<MeshMetadataFallbackBuffer>,
+    );
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        _view: (),
+        _item_query: Option<()>,
+        (mesh2d_bind_group, render_mesh2d_instances, mesh_allocator,metadata_fallback_buffer): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
+        let mesh2d_bind_group = mesh2d_bind_group.into_inner();
+
+        let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
+            render_mesh2d_instances.get(&item.main_entity())
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let metadata_slab_id = mesh_allocator
+            .key_to_slab
+            .get(&bevy_render::mesh::allocator::MeshAllocationKey::new(
+                *mesh_asset_id,
+                bevy_render::mesh::allocator::ElementClass::Metadata,
+            ))
+            .cloned()
+            .unwrap_or(metadata_fallback_buffer.slab_id);
+        let Some(bind_group) = &mesh2d_bind_group.value.get(&metadata_slab_id) else {
+            return RenderCommandResult::Failure(
+                "The mesh2d bind group wasn't set in the render phase.",
+            );
+        };
+
+        let mut dynamic_offsets: [u32; 1] = Default::default();
+        let mut offset_count = 0;
+        if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
+            dynamic_offsets[offset_count] = dynamic_offset;
+            offset_count += 1;
+        }
+        pass.set_bind_group(I, bind_group, &dynamic_offsets[..offset_count]);
+        RenderCommandResult::Success
+    }
+}
+
+/// The render command that draws all the meshes in our custom render phase.
+struct DrawColoredMesh2d;
+
+impl<P: PhaseItem> RenderCommand<P> for DrawColoredMesh2d {
+    type Param = (
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<RenderColoredMesh2dInstances>,
+        SRes<MeshAllocator>,
+    );
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        _view: (),
+        _item_query: Option<()>,
+        (meshes, render_mesh2d_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let meshes = meshes.into_inner();
+        let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
+
+        let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
+            render_mesh2d_instances.get(&item.main_entity())
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id) else {
+            return RenderCommandResult::Skip;
+        };
+
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
+
+        let batch_range = item.batch_range();
+        match &gpu_mesh.buffer_info {
+            RenderMeshBufferInfo::Indexed {
+                index_format,
+                count,
+            } => {
+                let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(mesh_asset_id)
+                else {
+                    return RenderCommandResult::Skip;
+                };
+
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), *index_format);
+
+                pass.draw_indexed(
+                    index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                    vertex_buffer_slice.range.start as i32,
+                    batch_range.clone(),
+                );
+            }
+            RenderMeshBufferInfo::NonIndexed => {
+                pass.draw(vertex_buffer_slice.range, batch_range.clone());
+            }
+        }
+        RenderCommandResult::Success
     }
 }
