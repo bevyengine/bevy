@@ -35,6 +35,7 @@ fn main() {
     }))
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
+    .add_systems(OnEnter(Scene::TextMeasurement), text_measurement::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
     .add_systems(OnEnter(Scene::Borders), borders::setup)
     .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
@@ -74,6 +75,7 @@ enum Scene {
     #[default]
     Image,
     Text,
+    TextMeasurement,
     Grid,
     Borders,
     BoxShadow,
@@ -111,7 +113,8 @@ impl Next for Scene {
     fn next(&self) -> Self {
         match self {
             Scene::Image => Scene::Text,
-            Scene::Text => Scene::Grid,
+            Scene::Text => Scene::TextMeasurement,
+            Scene::TextMeasurement => Scene::Grid,
             Scene::Grid => Scene::Borders,
             Scene::Borders => Scene::BoxShadow,
             Scene::BoxShadow => Scene::TextWrap,
@@ -675,6 +678,127 @@ mod text {
                 }
             });
         });
+    }
+}
+
+mod text_measurement {
+    use bevy::prelude::*;
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::TextMeasurement)));
+
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(8),
+                    padding: px(8).horizontal(),
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::TextMeasurement),
+            ))
+            .with_children(|parent| {
+                let width = px(102);
+                for (flex_direction, boxed) in [
+                    (FlexDirection::Row, true),
+                    (FlexDirection::Row, false),
+                    (FlexDirection::Column, true),
+                    (FlexDirection::Column, false),
+                ] {
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            for align_items in [
+                                AlignItems::Baseline,
+                                AlignItems::Center,
+                                AlignItems::Stretch,
+                                AlignItems::FlexStart,
+                                AlignItems::FlexEnd,
+                            ] {
+                                parent.spawn((
+                                    Node {
+                                        margin: px(8).top(),
+                                        ..default()
+                                    },
+                                    Text::new(format!("AlignItems::{align_items:?}")),
+                                    TextFont::from_font_size(10.),
+                                ));
+                                if boxed {
+                                    parent.spawn((
+                                        Node {
+                                            align_items,
+                                            border: px(2).all(),
+                                            padding: px(2).all(),
+                                            flex_direction,
+                                            ..default()
+                                        },
+                                        BorderColor::all(Color::WHITE),
+                                        children![
+                                            (
+                                                Node {
+                                                    width: px(32),
+                                                    height: px(32),
+                                                    ..default()
+                                                },
+                                                BackgroundColor(Color::WHITE),
+                                            ),
+                                            (
+                                                Node { width, ..default() },
+                                                children![(
+                                                    Text::new("+300 Some Long Item Title"),
+                                                    TextFont {
+                                                        font_size: FontSize::Px(10.),
+                                                        ..default()
+                                                    },
+                                                    BackgroundColor(Color::srgba(
+                                                        0.95, 0.85, 0.2, 0.35
+                                                    )),
+                                                )]
+                                            )
+                                        ],
+                                    ));
+                                } else {
+                                    parent.spawn((
+                                        Node {
+                                            align_items,
+                                            border: px(2).all(),
+                                            padding: px(2).all(),
+                                            flex_direction,
+                                            ..default()
+                                        },
+                                        BorderColor::all(Color::WHITE),
+                                        children![
+                                            (
+                                                Node {
+                                                    width: px(32),
+                                                    height: px(32),
+                                                    ..default()
+                                                },
+                                                BackgroundColor(Color::WHITE),
+                                            ),
+                                            (
+                                                Node { width, ..default() },
+                                                Text::new("+300 Some Long Item Title"),
+                                                TextFont {
+                                                    font_size: FontSize::Px(10.),
+                                                    ..default()
+                                                },
+                                                BackgroundColor(Color::srgba(
+                                                    0.95, 0.85, 0.2, 0.35
+                                                )),
+                                            )
+                                        ],
+                                    ));
+                                }
+                            }
+                        });
+                }
+            });
     }
 }
 

@@ -113,6 +113,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 #[require(DepthPrepass, NormalPrepass)]
 #[extract_component_sync_target((Self, ScreenSpaceAmbientOcclusionResources, SsaoPipelineId, SsaoBindGroups))]
 #[doc(alias = "Ssao")]
+#[extract_app(RenderApp)]
 pub struct ScreenSpaceAmbientOcclusion {
     /// Quality of the SSAO effect.
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
