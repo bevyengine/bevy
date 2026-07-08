@@ -96,12 +96,11 @@ fn select_corner_radius(
 // is outside, and zero is exactly on the boundary.
 //
 // Arguments: 
-//  - `point`        -> The function will return the distance from this point to the closest point on 
-//                    the boundary.
-//  - `size`         -> The maximum width and height of the box.
-//  - `corner_radii` -> The radius of each rounded corner. Ordered counter clockwise starting 
-//                    top left:
-//                      x: top left, y: top right, z: bottom right, w: bottom left.
+//  - `point`           -> The function will return the distance from this point to the closest point on 
+//                          the boundary.
+//  - `size`            -> The maximum width and height of the box.
+//  - `corner_radii_x`   -> The horizontal semi-axis of each rounded corner. Ordered counter clockwise starting top left.
+//  - `corner_radii_y`   -> The vertical semi-axis of each rounded corner. Ordered counter clockwise starting top left.
 fn sd_rounded_box(
     point: vec2<f32>,
     size: vec2<f32>,
@@ -271,4 +270,29 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else {
         return draw_uinode_background(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
+}
+
+// One iteration of Newton's method on the 2D equation of an ellipse:  
+//  
+//     E(x, y) = x^2/a^2 + y^2/b^2 - 1  
+//  
+// The Jacobian of this equation is:  
+//  
+//     J(E(x, y)) = [ 2*x/a^2 2*y/b^2 ]  
+//  
+// We approximate the distance with:  
+//  
+//     E(x, y) / ||J(E(x, y))||  
+//  
+// See G. Taubin, "Distance Approximations for Rasterizing Implicit  
+// Curves", section 3.  
+//  
+// A scale relative to the unit scale of the ellipse may be passed in to cause  
+// the math to degenerate to length(p) when scale is 0, or otherwise give the  
+// normal distance approximation if scale is 1.
+fn distance_to_ellipse_approx(p: vec2<f32>, inv_radii_sq: vec2<f32>, scale: f32) -> f32 {
+    let p_r = p * inv_radii_sq;
+    let g = dot(p, p_r) - scale;
+    let dG = (1.0 + scale) * p_r;
+    return g * inverseSqrt(dot(dG, dG));
 }
