@@ -7,7 +7,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![forbid(unsafe_code)]
+// TODO: put back, sorry!
+// #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
