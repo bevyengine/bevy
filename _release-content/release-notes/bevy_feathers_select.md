@@ -16,7 +16,7 @@ when opened.
 
 Inside a `bsn!` macro use FeathersSelect scene entity and give it a number of options which contain the `FeathersListRow` component
 
-```
+```rust
 (
   @FeathersSelect {
       @options: ... a Box<dyn SceneList> set of rows, see feathers_gallery for an example
@@ -24,4 +24,3 @@ Inside a `bsn!` macro use FeathersSelect scene entity and give it a number of op
   }
 ),
 ```
-
