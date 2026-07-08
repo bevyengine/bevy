@@ -527,6 +527,14 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
+                @FeathersColorWheel::Hsl
+                on(|change: On<ValueChange<ColorWheelValue>>,
+                   mut color: ResMut<DemoWidgetStates>| {
+                    color.hsl_color.hue = change.value.hue;
+                    color.hsl_color.saturation = change.value.saturation;
+                })
+            ),
+            (
                 @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::HslHue
@@ -757,6 +765,7 @@ fn update_colors(
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<FeathersColorPlane>>,
+    mut color_wheels: Query<&mut ColorWheelValue, With<FeathersColorWheel>>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
@@ -822,6 +831,12 @@ fn update_colors(
             plane_value.0.x = states.rgb_color.red;
             plane_value.0.y = states.rgb_color.blue;
             plane_value.0.z = states.rgb_color.green;
+        }
+
+        for mut wheel_value in color_wheels.iter_mut() {
+            wheel_value.hue = states.hsl_color.hue;
+            wheel_value.saturation = states.hsl_color.saturation;
+            wheel_value.z = states.hsl_color.lightness;
         }
 
         // Only update the hex input field when it's not focused, otherwise it interferes
