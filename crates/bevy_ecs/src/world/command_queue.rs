@@ -6,7 +6,6 @@ use crate::{
 
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
-use bevy_utils::DebugName;
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
@@ -196,7 +195,10 @@ impl RawCommandQueue {
         let meta = CommandMeta {
             consume_command_and_get_size: |command, world, runner| {
                 runner.local_cursor += size_of::<C>();
-                runner.current_command_name = DebugName::type_name::<C>();
+                #[cfg(all(feature = "debug", feature = "std"))]
+                {
+                    runner.current_command_name = core::any::type_name::<C>();
+                }
 
                 // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
                 // but also because applying the command may cause the command queue to reallocate.
@@ -300,7 +302,13 @@ struct CommandQueueRunner<'a> {
     /// This is assigned by [`CommandMeta::consume_command_and_get_size`]
     /// before running a command so that it is available
     /// in the error handler if the command panics.
-    current_command_name: DebugName,
+    ///
+    /// This is not stored as [`DebugName`](bevy_utils::DebugName)
+    /// because that uses [`Cow`](alloc::borrow::Cow) internally,
+    /// so assignments would have to emit code to check the
+    /// variant and deallocate a [`String`](alloc::string::String).
+    #[cfg(all(feature = "debug", feature = "std"))]
+    current_command_name: &'static str,
     command_queue: &'a mut RawCommandQueue,
     start: usize,
     stop: usize,
@@ -321,7 +329,8 @@ impl<'a> CommandQueueRunner<'a> {
 
         Self {
             local_cursor: start,
-            current_command_name: DebugName::borrowed("Unknown command"),
+            #[cfg(all(feature = "debug", feature = "std"))]
+            current_command_name: "Unknown command",
             command_queue,
             start,
             stop,
@@ -380,6 +389,7 @@ impl<'a> CommandQueueRunner<'a> {
                 use crate::error::{
                     BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
                 };
+                use bevy_utils::DebugName;
                 use std::{
                     backtrace::Backtrace,
                     panic::{catch_unwind, resume_unwind},
@@ -403,7 +413,12 @@ impl<'a> CommandQueueRunner<'a> {
                     world.fallback_error_handler()(
                         error,
                         ErrorContext::Command {
-                            name: self.current_command_name.clone(),
+                            #[cfg(feature = "debug")]
+                            name: DebugName::borrowed(self.current_command_name),
+                            // `DebugName` is empty when the feature is disabled,
+                            // so it does not matter what string we pass here.
+                            #[cfg(not(feature = "debug"))]
+                            name: DebugName::borrowed(""),
                         },
                     );
                 }
