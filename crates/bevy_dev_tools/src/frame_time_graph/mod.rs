@@ -111,11 +111,10 @@ fn update_frame_time_values(
     let frame_times = frame_time
         .values()
         // convert to millis
-        .map(|x| *x as f32 / 1000.0)
-        .collect::<Vec<_>>();
+        .map(|x| *x as f32 / 1000.0);
     for (_, material) in frame_time_graph_materials.iter_mut() {
         let mut buffer = buffers.get_mut(&material.values).unwrap();
 
-        buffer.set_data(frame_times.clone());
+        buffer.set_data_raw(frame_times.clone());
     }
 }

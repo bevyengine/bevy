@@ -77,15 +77,64 @@ impl ShaderBuffer {
         storage
     }
 
+    /// Clear [`Self::data`] with its capacity reserved.
+    pub fn clear(&mut self) {
+        if let Some(data) = &mut self.data {
+            data.clear();
+        }
+    }
+
     /// Sets the data of the storage buffer to the given [`ShaderType`].
-    pub fn set_data<T>(&mut self, value: T)
+    pub fn set_data<T>(&mut self, values: impl Iterator<Item = T>)
     where
         T: ShaderType + WriteInto,
     {
-        let size = value.size().get() as usize;
-        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
-        wrapper.write(&value).unwrap();
+        self.clear();
+        self.extend(values);
+    }
+
+    /// Sets the data of the storage buffer to the given [`bytemuck::NoUninit`].
+    pub fn set_data_raw<T>(&mut self, values: impl Iterator<Item = T>)
+    where
+        T: bytemuck::NoUninit,
+    {
+        self.clear();
+        self.extend_raw(values);
+    }
+
+    /// Extends the data with an iterator of [`ShaderType`].
+    pub fn extend<T>(&mut self, values: impl Iterator<Item = T>)
+    where
+        T: ShaderType + WriteInto,
+    {
+        let mut data = self.data.take().unwrap_or(Vec::new());
+        let (min_size, _) = values.size_hint();
+        let min_size = min_size * T::METADATA.min_size().get() as usize;
+        if min_size > data.capacity() {
+            data.reserve(min_size - data.capacity());
+        }
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(data);
+        for value in values {
+            wrapper.write(&value).unwrap();
+        }
         self.data = Some(wrapper.into_inner());
+    }
+
+    /// Extends the data with an iterator of [`bytemuck::NoUninit`].
+    pub fn extend_raw<T>(&mut self, values: impl Iterator<Item = T>)
+    where
+        T: bytemuck::NoUninit,
+    {
+        let mut data = self.data.take().unwrap_or(Vec::new());
+        let (min_size, _) = values.size_hint();
+        let min_size = min_size * size_of::<T>();
+        if min_size > data.capacity() {
+            data.reserve(min_size - data.capacity());
+        }
+        for value in values {
+            data.extend(bytemuck::bytes_of(&value));
+        }
+        self.data = Some(data);
     }
 
     /// Resizes the buffer to the new size.
