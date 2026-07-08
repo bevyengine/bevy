@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{Ident, Lit, LitStr, Path, Stmt};
+use syn::{Expr, Ident, Lit, LitStr, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -14,15 +14,28 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 
 #[derive(Debug)]
 pub enum BsnEntry {
+    Patch(BsnPatchEntry),
+    Scene(BsnSceneEntry),
+    If(BsnIf),
+}
+
+/// Entries that patch scenes.
+#[derive(Debug)]
+pub enum BsnPatchEntry {
     Name(Ident),
-    FromTemplatePatch(BsnType),
-    TemplatePatch(BsnType),
+    FromTemplate(BsnType),
+    Template(BsnType),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     TemplateConst { type_path: Path, const_ident: Ident },
-    UncachedScene(BsnScene),
-    CachedScene(BsnScene),
-    RelatedSceneList(BsnRelatedSceneList),
+}
+
+/// Entries that create scenes.
+#[derive(Debug)]
+pub enum BsnSceneEntry {
+    Uncached(BsnScene),
+    Cached(BsnScene),
+    RelatedList(BsnRelatedSceneList),
 }
 
 #[derive(Debug)]
@@ -69,6 +82,22 @@ pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
     pub args: BsnFnArgs,
+}
+
+/// ```rust,ignore
+/// bsn! {
+///     if condition {
+///         Success
+///     } else {
+///         Failure
+///     }
+/// }
+/// ```
+#[derive(Debug)]
+pub struct BsnIf {
+    pub condition: Expr,
+    pub success: Bsn<true>,
+    pub failure: Option<Bsn<true>>,
 }
 
 #[derive(Debug)]

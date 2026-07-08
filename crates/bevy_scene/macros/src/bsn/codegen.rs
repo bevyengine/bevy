@@ -1,9 +1,12 @@
 use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
-    BsnType, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnIf, BsnListRoot,
+    BsnPatchEntry, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneEntry, BsnSceneFn,
+    BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
 };
-use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
+use bevy_macro_utils::{
+    fq_std::{FQBox, FQDefault},
+    path_to_string,
+};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
@@ -159,8 +162,8 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
         let mut scene_impls = Vec::new();
         for entry in &self.entries {
             match entry.try_to_tokens(ctx) {
-                Ok(EntryResult::CombinedSceneFunction(patch)) => combined_patches.push(patch),
-                Ok(EntryResult::NewSceneImpl(scene_impl)) => {
+                Ok(Some(EntryResult::CombinedSceneFunction(patch))) => combined_patches.push(patch),
+                Ok(Some(EntryResult::NewSceneImpl(scene_impl))) => {
                     if !combined_patches.is_empty() {
                         let patches = combined_patches.drain(..);
                         scene_impls.push(quote! {
@@ -171,6 +174,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     }
                     scene_impls.push(scene_impl)
                 }
+                Ok(None) => {}
                 Err(err) => scene_impls.push(err.to_compile_error()),
             }
         }
@@ -197,11 +201,30 @@ enum EntryResult {
 }
 
 impl BsnEntry {
-    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<EntryResult> {
+    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<Option<EntryResult>> {
+        Ok(match self {
+            BsnEntry::Patch(patch) => Some(EntryResult::CombinedSceneFunction(
+                patch.try_to_tokens(ctx)?,
+            )),
+            BsnEntry::Scene(scene) => Some(EntryResult::NewSceneImpl(scene.try_to_tokens(ctx)?)),
+            BsnEntry::If(conditional) => conditional.try_to_tokens(ctx)?,
+        })
+    }
+}
+
+impl BsnPatchEntry {
+    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
 
         Ok(match self {
-            BsnEntry::TemplatePatch(ty) => {
+            BsnPatchEntry::Name(ident) => {
+                let (name, index) = ctx.fixed_entity_ref(ident);
+                let invocation = ctx.invocation_index.clone();
+                quote! {
+                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
+                }
+            }
+            BsnPatchEntry::Template(ty) => {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
@@ -212,7 +235,7 @@ impl BsnEntry {
                 };
                 ty.to_patch_tokens(ctx, &mut assigns, true, false, true, target)?;
                 let path = &ty.path;
-                EntryResult::CombinedSceneFunction(if assigns.is_empty() {
+                if assigns.is_empty() {
                     quote! {
                         let _ = _scene.get_or_insert_template::<#path>(_context);
                     }
@@ -221,9 +244,9 @@ impl BsnEntry {
                         let __value = _scene.get_or_insert_template::<#path>(_context);
                         #(#assigns)*
                     }
-                })
+                }
             }
-            BsnEntry::FromTemplatePatch(ty) => {
+            BsnPatchEntry::FromTemplate(ty) => {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
@@ -234,7 +257,7 @@ impl BsnEntry {
                 };
                 ty.to_patch_tokens(ctx, &mut assigns, true, false, false, target)?;
                 let path = &ty.path;
-                EntryResult::CombinedSceneFunction(if assigns.is_empty() {
+                if assigns.is_empty() {
                     quote! {
                         let _ = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
                     }
@@ -243,57 +266,194 @@ impl BsnEntry {
                         let __value = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
                         #(#assigns)*
                     }
-                })
+                }
             }
-            BsnEntry::TemplateConst {
+            BsnPatchEntry::TemplateConst {
                 type_path,
                 const_ident,
-            } => EntryResult::CombinedSceneFunction(quote! {
+            } => quote! {
                 let __value = _scene.get_or_insert_template::<#type_path>(_context);
                 *__value = #type_path::#const_ident;
-            }),
-            BsnEntry::TemplateConstructor(BsnConstructor {
+            },
+            BsnPatchEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => EntryResult::CombinedSceneFunction({
+            }) => {
                 let args = args.to_tokens(ctx);
                 quote! {
                     let __value = _scene.get_or_insert_template::<#type_path>(_context);
                     *__value = #type_path::#function #args;
                 }
-            }),
-            BsnEntry::FromTemplateConstructor(BsnConstructor {
+            }
+            BsnPatchEntry::FromTemplateConstructor(BsnConstructor {
                 type_path,
                 function,
                 args,
-            }) => EntryResult::CombinedSceneFunction({
+            }) => {
                 let args = args.to_tokens(ctx);
                 quote! {
                     let __value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
                     *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
                 }
-            }),
-            BsnEntry::RelatedSceneList(BsnRelatedSceneList {
+            }
+        })
+    }
+}
+
+impl BsnSceneEntry {
+    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
+
+        match self {
+            BsnSceneEntry::RelatedList(BsnRelatedSceneList {
                 scene_list,
                 relationship_path,
             }) => {
                 let scenes = scene_list.0.to_tokens(ctx);
-                EntryResult::NewSceneImpl(quote! {
+                Ok(quote! {
                     #bevy_scene::RelatedScenes::<<#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
                     ::Relationship, _>::new(#scenes)
                 })
             }
-            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::Name(ident) => {
-                let (name, index) = ctx.fixed_entity_ref(ident);
-                let invocation = ctx.invocation_index.clone();
-                EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
-                })
-            }
-        })
+            BsnSceneEntry::Uncached(scene) => Ok(scene.to_tokens(ctx)?),
+            BsnSceneEntry::Cached(scene) => Ok(scene.to_tokens(ctx)?),
+        }
+    }
+}
+
+impl BsnIf {
+    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<Option<EntryResult>> {
+        let Self {
+            condition,
+            success,
+            failure,
+        } = self;
+        let bevy_scene: &Path = ctx.bevy_scene;
+
+        let success_empty = success.entries.is_empty();
+        let failure_empty = failure.as_ref().is_none_or(|f| f.entries.is_empty());
+
+        if success_empty && failure_empty {
+            // If both branches are empty, we don't generate any if/else blocks at all.
+            return Ok(None);
+        }
+
+        // We need to check that both branches produce either only template patches, or only new scene entries.
+        // This is because if/else blocks for either need to be placed in different contexts
+        // (e.g. inside a `SceneFunction` for patches, or wrapping whole scene declarations for new scene entries).
+        let (success_is_patch_compatible, success_is_scene_compatible) = success
+            .entries
+            .iter()
+            .fold((true, true), |(is_patch, is_scene), e| match e {
+                BsnEntry::Scene(_) => (false, is_scene),
+                BsnEntry::Patch(_) => (is_patch, false),
+                BsnEntry::If(_) => (is_patch, is_scene),
+            });
+        let (failure_is_patch_compatible, failure_is_scene_compatible) = failure
+            .as_ref()
+            .map(|f| {
+                f.entries
+                    .iter()
+                    .fold((true, true), |(is_patch, is_scene), e| match e {
+                        BsnEntry::Scene(_) => (false, is_scene),
+                        BsnEntry::Patch(_) => (is_patch, false),
+                        BsnEntry::If(_) => (is_patch, is_scene),
+                    })
+            })
+            .unwrap_or((true, true));
+
+        if success_is_patch_compatible && failure_is_patch_compatible {
+            // Both branches can be placed inside a `SceneFunction` (one may optionally be entirely empty).
+
+            let mut entry_to_tokens = |e: &BsnEntry| match e.try_to_tokens(ctx)? {
+                Some(EntryResult::CombinedSceneFunction(tokens)) => Ok(tokens),
+                Some(EntryResult::NewSceneImpl(_)) => {
+                    // Nested conditionals whose parent branch is a patch cannot produce new scene entries,
+                    // because the parent branch will already produce a patch inside a `SceneFunction`.
+                    ctx.errors.push(syn::Error::new_spanned(
+                        condition,
+                        "A single `if`/`else` block must use only one of: \
+                        conditional patching or conditional scene inclusion. They cannot \
+                        be mixed, even if they are in different branches.",
+                    ));
+                    Ok(quote! {})
+                }
+                None => {
+                    // Branch is empty, so we will generate an empty block for it.
+                    Ok(quote! {})
+                }
+            };
+
+            let success_tokens = success
+                .entries
+                .iter()
+                .map(&mut entry_to_tokens)
+                .collect::<syn::Result<Vec<_>>>()?;
+            let failure_tokens = failure
+                .as_ref()
+                .into_iter()
+                .flat_map(|f| &f.entries)
+                .map(&mut entry_to_tokens)
+                .collect::<syn::Result<Vec<_>>>()?;
+
+            Ok(Some(EntryResult::CombinedSceneFunction(quote! {
+                if #condition {
+                    #(#success_tokens)*
+                } else {
+                    #(#failure_tokens)*
+                }
+            })))
+        } else if success_is_scene_compatible && failure_is_scene_compatible {
+            // Both branches can wrap scene declarations (one may optionally be entirely empty).
+
+            let mut entry_to_tokens = |e: &BsnEntry| match e.try_to_tokens(ctx)? {
+                Some(EntryResult::NewSceneImpl(tokens)) => Ok(tokens),
+                Some(EntryResult::CombinedSceneFunction(patch)) => {
+                    // Conditional patches can be nested inside conditional scene inclusion,
+                    // so we need to wrap them in a `SceneFunction` so they can
+                    // be combined with sibling scene entries at a higher level.
+                    Ok(quote! {
+                        #bevy_scene::SceneFunction(move |_context, _scene| { #patch })
+                    })
+                }
+                None => {
+                    // Branch is empty, so we will generate an empty scene to satisfy the type checker.
+                    Ok(quote! {})
+                }
+            };
+
+            let success_tokens = success
+                .entries
+                .iter()
+                .map(&mut entry_to_tokens)
+                .collect::<syn::Result<Vec<_>>>()?;
+            let failure_tokens = failure
+                .as_ref()
+                .into_iter()
+                .flat_map(|f| &f.entries)
+                .map(&mut entry_to_tokens)
+                .collect::<syn::Result<Vec<_>>>()?;
+
+            let success_scene = quote! { #bevy_scene::auto_nest_tuple!(#(#success_tokens),*) };
+            let failure_scene = quote! { #bevy_scene::auto_nest_tuple!(#(#failure_tokens),*) };
+            Ok(Some(EntryResult::NewSceneImpl(quote! {
+                if #condition {
+                    #FQBox::new(#success_scene) as #FQBox<dyn #bevy_scene::Scene>
+                } else {
+                    #FQBox::new(#failure_scene) as #FQBox<dyn #bevy_scene::Scene>
+                }
+            })))
+        } else {
+            // The branches are mixed: one is a patch and the other is a scene.
+            ctx.errors.push(syn::Error::new_spanned(
+                condition,
+                "A single `if`/`else` block must use only one of: \
+                conditional patching or conditional scene inclusion. They cannot \
+                be mixed, even if they are in different branches.",
+            ));
+            Ok(None)
+        }
     }
 }
 
@@ -1016,6 +1176,211 @@ mod tests {
 
         // Assert
         assert_eq!(res, expected,);
+    }
+
+    #[test]
+    fn empty_conditional_is_ignored() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let entry = BsnEntry::If(BsnIf {
+            condition: parse_quote!(condition),
+            success: Bsn::<true> { entries: vec![] },
+            failure: Some(Bsn::<true> { entries: vec![] }),
+        });
+
+        // Act
+        let result = entry.try_to_tokens(&mut ctx).unwrap();
+
+        // Assert
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn conditional_patch_is_never_boxed() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let entry = BsnEntry::If(BsnIf {
+            condition: parse_quote!(condition),
+            success: Bsn::<true> {
+                entries: vec![BsnEntry::Patch(BsnPatchEntry::TemplateConst {
+                    type_path: parse_quote!(Foo),
+                    const_ident: parse_quote!(BAR),
+                })],
+            },
+            failure: Some(Bsn::<true> {
+                entries: vec![BsnEntry::Patch(BsnPatchEntry::TemplateConst {
+                    type_path: parse_quote!(Foo),
+                    const_ident: parse_quote!(BAZ),
+                })],
+            }),
+        });
+
+        // Act
+        let result = entry.try_to_tokens(&mut ctx).unwrap().unwrap();
+
+        // Assert
+        let EntryResult::CombinedSceneFunction(tokens) = &result else {
+            panic!("expected a `CombinedSceneFunction`, not a boxed `NewSceneImpl`");
+        };
+        let tokens = tokens.to_string();
+        assert!(
+            !tokens.contains("Box"),
+            "conditional patches should not be boxed"
+        );
+        assert!(tokens.contains("if condition"));
+        assert!(tokens.contains("else"));
+    }
+
+    #[test]
+    fn conditional_scene_is_boxed() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let entry = BsnEntry::If(BsnIf {
+            condition: parse_quote!(condition),
+            success: Bsn::<true> {
+                entries: vec![BsnEntry::Scene(BsnSceneEntry::Uncached(
+                    BsnScene::Expression(quote!(some_scene())),
+                ))],
+            },
+            failure: Some(Bsn::<true> {
+                entries: vec![BsnEntry::Scene(BsnSceneEntry::Uncached(
+                    BsnScene::Expression(quote!(some_other_scene())),
+                ))],
+            }),
+        });
+
+        // Act
+        let result = entry.try_to_tokens(&mut ctx).unwrap().unwrap();
+
+        // Assert
+        let EntryResult::NewSceneImpl(tokens) = &result else {
+            panic!("expected a `NewSceneImpl`, not a `CombinedSceneFunction`");
+        };
+        let tokens = tokens.to_string();
+        assert!(tokens.contains("Box"), "conditional scenes should be boxed");
+        assert!(tokens.contains("if condition"));
+        assert!(tokens.contains("else"));
+    }
+
+    #[test]
+    fn conditional_patch_nested_in_conditional_scene_works() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let entry = BsnEntry::If(BsnIf {
+            condition: parse_quote!(condition),
+            success: Bsn::<true> {
+                entries: vec![BsnEntry::Scene(BsnSceneEntry::Uncached(
+                    BsnScene::Expression(quote!(some_scene())),
+                ))],
+            },
+            failure: Some(Bsn::<true> {
+                entries: vec![BsnEntry::If(BsnIf {
+                    condition: parse_quote!(nested_condition),
+                    success: Bsn::<true> {
+                        entries: vec![BsnEntry::Patch(BsnPatchEntry::TemplateConst {
+                            type_path: parse_quote!(Foo),
+                            const_ident: parse_quote!(BAR),
+                        })],
+                    },
+                    failure: Some(Bsn::<true> {
+                        entries: vec![BsnEntry::Patch(BsnPatchEntry::TemplateConst {
+                            type_path: parse_quote!(Foo),
+                            const_ident: parse_quote!(BAZ),
+                        })],
+                    }),
+                })],
+            }),
+        });
+
+        // Act
+        let result = entry.try_to_tokens(&mut ctx).unwrap().unwrap();
+
+        // Assert
+        let EntryResult::NewSceneImpl(tokens) = &result else {
+            panic!("expected a `NewSceneImpl`, not a `CombinedSceneFunction`");
+        };
+        let tokens = tokens.to_string();
+        assert!(tokens.contains("Box"), "conditional scenes should be boxed");
+        assert!(tokens.contains("if condition"));
+        assert!(tokens.contains("if nested_condition"));
+        assert!(tokens.contains("else"));
+    }
+
+    #[test]
+    fn conditional_mixed_if_branch_errors() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let entry = BsnEntry::If(BsnIf {
+            condition: parse_quote!(condition),
+            success: Bsn::<true> {
+                entries: vec![
+                    BsnEntry::Patch(BsnPatchEntry::TemplateConst {
+                        type_path: parse_quote!(Foo),
+                        const_ident: parse_quote!(BAR),
+                    }),
+                    BsnEntry::Scene(BsnSceneEntry::Uncached(BsnScene::Expression(quote!(
+                        some_scene()
+                    )))),
+                ],
+            },
+            failure: None,
+        });
+
+        // Act
+        let res = entry.try_to_tokens(&mut ctx);
+
+        // Assert
+        assert!(res.is_ok());
+        assert_eq!(ctx.errors.len(), 1);
+        assert_eq!(ctx.errors[0].to_string(),
+            "A single `if`/`else` block must use only one of: conditional patching or conditional scene inclusion. They cannot be mixed, even if they are in different branches.");
+    }
+
+    #[test]
+    fn conditional_mixed_across_branches_errors() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let entry = BsnEntry::If(BsnIf {
+            condition: parse_quote!(condition),
+            success: Bsn::<true> {
+                entries: vec![BsnEntry::Scene(BsnSceneEntry::Uncached(
+                    BsnScene::Expression(quote!(some_scene())),
+                ))],
+            },
+            failure: Some(Bsn::<true> {
+                entries: vec![BsnEntry::Patch(BsnPatchEntry::TemplateConst {
+                    type_path: parse_quote!(Foo),
+                    const_ident: parse_quote!(BAR),
+                })],
+            }),
+        });
+
+        // Act
+        let res = entry.try_to_tokens(&mut ctx);
+
+        // Assert
+        assert!(res.is_ok());
+        assert_eq!(ctx.errors.len(), 1);
+        assert_eq!(ctx.errors[0].to_string(),
+            "A single `if`/`else` block must use only one of: conditional patching or conditional scene inclusion. They cannot be mixed, even if they are in different branches.");
     }
 
     #[test]

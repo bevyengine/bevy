@@ -555,39 +555,77 @@
 //! commands.spawn_scene(container(items));
 //! ```
 //!
-//! ### Conditional values
+//! ### Conditional patching
 //!
-//! There is no `if`/`match` syntax inside the [`bsn!`] grammar (yet!), but you can embed
-//! conditionals via `{...}` blocks or handle them outside the macro:
+//! You can use `if`/`else` blocks to conditionally patch a scene:
 //!
 //! ```ignore
 //! fn unit(is_boss: bool) -> impl Scene {
-//!     let hp = if is_boss { 500 } else { 100 };
-//!     bsn! { Health { current: hp, max: hp } }
-//! }
-//! ```
-//! One way to achieve conditional scenes is using a [`Box<dyn Scene>`] to store different scenes in one variable.
-//! ```ignore
-//! fn unit(is_boss: bool, level: u32) -> impl Scene {
-//!     let scene: Box<dyn Scene> = if is_boss {
-//!         Box::new(bsn! {
-//!             Boss
-//!             Followers [ // the boss is followed by some grunts
-//!                 :unit(false, level - 1) #Grunt1,
-//!                 :unit(false, level - 2) #Grunt2
-//!             ]
-//!         })
-//!     } else {
-//!         Box::new(bsn! { Grunt })
-//!     };
 //!     bsn! {
-//!         Level(level)
-//!         {scene}
+//!         if is_boss {
+//!             Health { current: 500, max: 500 }
+//!         } else {
+//!             Health { current: 100, max: 100 }
+//!         }
 //!     }
 //! }
 //! ```
 //!
-//! We plan on making "conditional scenes" easier to define in future releases.
+//! ### Conditional scene inclusion
+//!
+//! Additionally, you can use `if`/`else` blocks to conditionally include a
+//! scene in another scene, or optional children (and other relation types):
+//!
+//! ```ignore
+//! fn dungeon(is_boss: bool, is_dragon: bool) -> impl Scene {
+//!     bsn! {
+//!         #Dungeon
+//!         Room { size: 100 }
+//!         if is_boss {
+//!             Children [
+//!                 if is_dragon {
+//!                     #Dragon
+//!                 } else {
+//!                     #GoblinKing
+//!                 }
+//!                 Health { current: 1000, max: 1000 }
+//!             ]
+//!         } else {
+//!             random_dungeon_enemies()
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! You can't combine conditional patching and conditional scene inclusion at
+//! the same level of depth in an `if`/`else` block:
+//!
+//! ```ignore
+//! bsn! {
+//!     // ❌ ERROR: cannot mix conditional patching and conditional scene inclusion in the same block
+//!     if is_boss {
+//!         #Dragon                           // conditional patching
+//!         Health { current: 500, max: 500 } // ^^^^^
+//!         Children [ Rider ] // conditional scene inclusion
+//!     }
+//! }
+//! ```
+//!
+//! This may be supported in a future release, but for now you can work around
+//! it by splitting the conditional into two separate `if` blocks:
+//!
+//! ```ignore
+//! bsn! {
+//!     // ✅ OK: separate conditional blocks
+//!     if is_boss {
+//!         #Dragon
+//!         Health { current: 500, max: 500 } // conditional patching
+//!     }
+//!     if is_boss {
+//!         Children [ Rider ] // conditional scene inclusion
+//!     }
+//! }
+//! ```
 //!
 //! ## Scene Components
 //!
@@ -1447,6 +1485,122 @@ mod tests {
 
         let entity = world.spawn_scene(xaxis()).unwrap();
         assert_eq!(entity.get::<Value>().unwrap().0, 2);
+    }
+
+    #[test]
+    fn bsn_conditional_patches() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Value(usize);
+
+        fn value(condition: bool) -> impl Scene {
+            bsn! {
+                if condition {
+                    Value(1)
+                } else {
+                    Value(2)
+                }
+            }
+        }
+
+        let entity = world.spawn_scene(value(true)).unwrap();
+        assert_eq!(entity.get::<Value>().unwrap().0, 1);
+
+        let entity = world.spawn_scene(value(false)).unwrap();
+        assert_eq!(entity.get::<Value>().unwrap().0, 2);
+    }
+
+    #[test]
+    fn bsn_conditional_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Value(usize);
+
+        fn value(condition: bool) -> impl Scene {
+            bsn! {
+                if condition {
+                    Children [Value(1)]
+                } else {
+                    Children [Value(2), Value(3)]
+                }
+            }
+        }
+
+        let id = world.spawn_scene(value(true)).unwrap().id();
+        let children = world.entity(id).get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+        assert_eq!(world.entity(children[0]).get::<Value>().unwrap().0, 1);
+
+        let id = world.spawn_scene(value(false)).unwrap().id();
+        let children = world.entity(id).get::<Children>().unwrap();
+        assert_eq!(children.len(), 2);
+        assert_eq!(world.entity(children[0]).get::<Value>().unwrap().0, 2);
+        assert_eq!(world.entity(children[1]).get::<Value>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn bsn_conditional_complex() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Foo(usize);
+
+        #[derive(Component, FromTemplate)]
+        struct Bar(usize);
+
+        #[derive(Component, FromTemplate)]
+        struct Baz(usize);
+
+        fn value(condition: bool, condition2: bool) -> impl Scene {
+            bsn! {
+                if condition {
+                    Children [
+                        Foo(1) Bar(2) Baz(3)
+                    ]
+                } else {
+                    Children [
+                        Foo(2) Bar(3) Baz(4),
+
+                        if condition2 {
+                            Foo(3) Baz(5)
+                        } else {
+                            Foo(4) Baz(6)
+                        }
+                        if condition2 {
+                            Children [
+                                Foo(5) Bar(7) Baz(8)
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+
+        let id = world.spawn_scene(value(true, false)).unwrap().id();
+        let children = world.entity(id).get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+        assert_eq!(world.entity(children[0]).get::<Foo>().unwrap().0, 1);
+        assert_eq!(world.entity(children[0]).get::<Bar>().unwrap().0, 2);
+        assert_eq!(world.entity(children[0]).get::<Baz>().unwrap().0, 3);
+
+        let id = world.spawn_scene(value(false, true)).unwrap().id();
+        let children = world.entity(id).get::<Children>().unwrap();
+        assert_eq!(children.len(), 2);
+        assert_eq!(world.entity(children[0]).get::<Foo>().unwrap().0, 2);
+        assert_eq!(world.entity(children[0]).get::<Bar>().unwrap().0, 3);
+        assert_eq!(world.entity(children[0]).get::<Baz>().unwrap().0, 4);
+        assert_eq!(world.entity(children[1]).get::<Foo>().unwrap().0, 3);
+        assert_eq!(world.entity(children[1]).get::<Baz>().unwrap().0, 5);
+        let children2 = world.entity(children[1]).get::<Children>().unwrap();
+        assert_eq!(children2.len(), 1);
+        assert_eq!(world.entity(children2[0]).get::<Foo>().unwrap().0, 5);
+        assert_eq!(world.entity(children2[0]).get::<Bar>().unwrap().0, 7);
+        assert_eq!(world.entity(children2[0]).get::<Baz>().unwrap().0, 8);
     }
 
     #[derive(Component, FromTemplate)]
