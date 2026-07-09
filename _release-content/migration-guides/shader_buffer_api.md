@@ -26,7 +26,7 @@ buffer.set_data(my_iterator);
 let mut my_peekable_iterator = my_iterator.peekable();
 if my_peekable_iterator.peek().is_none() {
     // Ensure the buffer is not zero-sized
-    buffer.set_data_raw(core::iter::once(zeroed_values));
+    buffer.set_data_raw(core::iter::once(zeroed_element));
 } else {
     buffer.set_data_raw(my_peekable_iterator);
 }
