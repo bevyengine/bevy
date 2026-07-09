@@ -43,6 +43,7 @@
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
+use bevy_utils::default;
 
 use crate::LineBreak;
 
@@ -296,9 +297,11 @@ mod tests {
 
     #[test]
     fn scroll_by_lines() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 60.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::new(100.0, 60.0);
         view.scroll_by_lines(2.0, Vec2::new(100.0, 200.0), lines.iter().cloned());
         assert_eq!(view.offset, Vec2::new(0.0, 40.0));
 
@@ -309,9 +312,11 @@ mod tests {
 
     #[test]
     fn scroll_by_lines_preserves_partial_line_offset() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 55.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::new(100.0, 55.0);
 
         view.scroll_by(Vec2::new(0.0, 5.0), Vec2::new(100.0, 200.0));
 
@@ -332,9 +337,11 @@ mod tests {
 
     #[test]
     fn scroll_by_fractional_lines() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::new(100.0, 50.0);
         view.scroll_by(Vec2::new(0.0, 45.0), Vec2::new(100.0, 200.0));
 
         view.scroll_by_lines(0.5, Vec2::new(100.0, 200.0), lines.iter().cloned());
@@ -346,9 +353,11 @@ mod tests {
 
     #[test]
     fn text_view_zero_line_scroll_clamp() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 60.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::new(100.0, 60.0);
         view.scroll_by_lines(10.0, Vec2::new(100.0, 200.0), lines.iter().cloned());
         view.size = Vec2::new(100.0, 180.0);
         view.scroll_by_lines(0.0, Vec2::new(100.0, 200.0), lines);
@@ -358,9 +367,11 @@ mod tests {
 
     #[test]
     fn text_view_scroll_lines_clamps_large_deltas() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 60.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::new(100.0, 60.0);
         view.scroll_by_lines(1000.0, Vec2::new(100.0, 200.0), lines.iter().cloned());
         assert_eq!(view.offset, Vec2::new(0.0, 140.0));
 
@@ -370,8 +381,10 @@ mod tests {
 
     #[test]
     fn text_view_scroll_lines_keeps_offset_zero_when_content_fits() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 200.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 200.0),
+            ..default()
+        };
         view.scroll_by_lines(5.0, Vec2::new(100.0, 80.0), make_lines(4, 20.0));
 
         assert_eq!(view.offset, Vec2::ZERO);
@@ -379,8 +392,10 @@ mod tests {
 
     #[test]
     fn text_view_scrolls_by_variable_lines() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 40.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 40.0),
+            ..default()
+        };
         view.scroll_by(Vec2::new(0.0, 5.0), Vec2::new(100.0, 100.0));
         view.scroll_by_lines(3.0, Vec2::new(100.0, 100.0), VARIABLE_LINE_BOUNDS);
 
@@ -392,8 +407,10 @@ mod tests {
 
     #[test]
     fn text_view_scrolls_by_fractional_variable_lines() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 20.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 20.0),
+            ..default()
+        };
         view.scroll_by(Vec2::new(0.0, 5.0), Vec2::new(100.0, 100.0));
 
         view.scroll_by_lines(1.5, Vec2::new(100.0, 100.0), VARIABLE_LINE_BOUNDS);
@@ -405,8 +422,10 @@ mod tests {
 
     #[test]
     fn text_view_fractional_line_scroll_clamps_at_start() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 50.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
         let content_size = Vec2::new(100.0, 200.0);
 
         view.scroll_by(Vec2::new(0.0, 5.0), content_size);
@@ -416,8 +435,10 @@ mod tests {
 
     #[test]
     fn text_view_scroll_by_clamping() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 50.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
 
         view.scroll_by(Vec2::new(20.0, 30.0), Vec2::new(80.0, 40.0));
         assert_eq!(view.offset, Vec2::ZERO);
@@ -434,8 +455,10 @@ mod tests {
 
     #[test]
     fn text_view_scroll_to_moves_min_distance() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 50.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
         let content_size = Vec2::new(250.0, 180.0);
         view.scroll_by(Vec2::new(30.0, 40.0), content_size);
 
@@ -456,8 +479,10 @@ mod tests {
 
     #[test]
     fn text_view_scroll_to_clamps_to_content_bounds() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 50.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
         let content_size = Vec2::new(250.0, 180.0);
 
         view.scroll_to(Vec2::new(1000.0, 1000.0), content_size);
@@ -469,8 +494,10 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_keeps_visible_caret_in_view() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 55.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 55.0),
+            ..default()
+        };
         let content_size = Vec2::new(100.0, 200.0);
         view.scroll_by(Vec2::new(0.0, 25.0), content_size);
 
@@ -486,9 +513,11 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_quantizes_vertical_scroll_to_lines() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 55.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::new(100.0, 55.0);
         let content_size = Vec2::new(100.0, 200.0);
 
         view.reveal_caret(
@@ -519,9 +548,11 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_rounds_margin_scroll_in_direction() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 90.0),
+            ..default()
+        };
         let lines = make_lines(15, 20.);
-        view.size = Vec2::new(100.0, 90.0);
         let content_size = Vec2::new(100.0, 300.0);
         view.scroll_by(Vec2::new(0.0, 50.0), content_size);
 
@@ -545,8 +576,10 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_rounds_to_variable_line_starts() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 50.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
         let content_size = Vec2::new(100.0, 135.0);
         let lines = [
             TextLineYBounds::new(0.0, 10.0),
@@ -578,8 +611,10 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_without_line_bounds() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(100.0, 50.0);
+        let mut view = TextViewport {
+            size: Vec2::new(100.0, 50.0),
+            ..default()
+        };
 
         view.reveal_caret(
             Rect::new(50.0, 75.0, 52.0, 85.0),
@@ -593,8 +628,10 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_scrolls_horizontally_and_clamps() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::new(50.0, 20.0);
+        let mut view = TextViewport {
+            size: Vec2::new(50.0, 20.0),
+            ..default()
+        };
 
         view.reveal_caret(
             Rect::new(95.0, 0.0, 110.0, 20.0),
@@ -608,8 +645,10 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_keeps_target_inside_margin_safe_region() {
-        let mut view = TextViewport::default();
-        view.size = Vec2::splat(100.0);
+        let mut view = TextViewport {
+            size: Vec2::splat(100.0),
+            ..default()
+        };
         let content_size = Vec2::splat(300.0);
         view.scroll_by(Vec2::splat(50.0), content_size);
 
@@ -625,9 +664,11 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_scrolls_minimally_at_each_margin_edge() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::splat(100.0),
+            ..default()
+        };
         let lines = make_lines(15, 20.);
-        view.size = Vec2::splat(100.0);
         let content_size = Vec2::splat(300.0);
 
         view.scroll_by(Vec2::splat(50.0), content_size);
@@ -668,9 +709,11 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_independent_margins() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::splat(100.0),
+            ..default()
+        };
         let lines = make_lines(15, 20.);
-        view.size = Vec2::splat(100.0);
         let content_size = Vec2::splat(300.0);
         view.scroll_by(Vec2::splat(50.0), content_size);
 
@@ -693,9 +736,11 @@ mod tests {
 
     #[test]
     fn text_view_reveal_caret_margin_clamped_at_layout_edges() {
-        let mut view = TextViewport::default();
+        let mut view = TextViewport {
+            size: Vec2::splat(100.0),
+            ..default()
+        };
         let lines = make_lines(10, 20.);
-        view.size = Vec2::splat(100.0);
         let content_size = Vec2::splat(200.0);
 
         view.reveal_caret(
