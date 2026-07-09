@@ -105,7 +105,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # Examples
     ///
     /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::ScheduleLabel;
     /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
     /// # struct Update;
@@ -401,10 +401,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     NotFertilized,
     /// }
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedules::default();
     /// # let mut world = World::new();
     /// # fn slow_plant_growth() {}
     /// app.add_systems(
+    ///     Update,
     ///     // The slow_plant_growth system will only execute if both the `in_state(WeatherState::Sunny)`
     ///     // run condition and `in_state(SoilState::Fertilized)` run condition evaluate to `false`.
     ///     slow_plant_growth.run_if(
@@ -418,6 +419,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```compile_fail
     /// app.add_systems(
+    ///     Update,
     ///     slow_plant_growth.run_if(
     ///         not(in_state(WeatherState::Sunny).or_else(in_state(SoilState::Fertilized))),
     ///     ),
@@ -474,7 +476,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::ScheduleLabel;
     /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
     /// # struct Update;
@@ -559,10 +561,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     Inactive,
     /// }
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedules::default();
     /// # let mut world = World::new();
     /// # fn take_drink_orders() {}
     /// app.add_systems(
+    ///     Update,
     ///     // The take_drink_orders system will only execute if the `in_state(CoffeeMachineState::Inactive)`
     ///     // run condition and `in_state(TeaKettleState::Inactive)` run conditions both evaluate to `false`,
     ///     // or both evaluate to `true`.
@@ -570,6 +573,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///         in_state(CoffeeMachineState::Inactive).xnor(in_state(TeaKettleState::Inactive))
     ///     ),
     /// );
+    /// # let app = app.get_mut(Update).unwrap();
     /// # app.run(&mut world);
     /// ```
     ///
@@ -577,6 +581,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```compile_fail
     /// app.add_systems(
+    ///     Update,
     ///     take_drink_orders.run_if(
     ///         not(in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive)))
     ///     ),
@@ -614,10 +619,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     Inactive,
     /// }
     ///
-    /// # let mut app = Schedule::default();
+    /// # let mut app = Schedules::default();
     /// # let mut world = World::new();
     /// # fn prepare_beverage() {}
     /// app.add_systems(
+    ///     Update,
     ///     // The prepare_beverage system will only execute if either the `in_state(CoffeeMachineState::Inactive)`
     ///     // run condition or `in_state(TeaKettleState::Inactive)` run condition evaluates to `true`,
     ///     // but not both.
@@ -625,6 +631,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///         in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive))
     ///     ),
     /// );
+    /// # let app = app.get_mut(Update).unwrap();
     /// # app.run(&mut world);
     /// ```
     fn xor<M, C: SystemCondition<M, In>>(self, other: C) -> Xor<Self::System, C::System> {
@@ -679,7 +686,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // This is the first time the condition will be evaluated so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
@@ -724,7 +732,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` hasn't been added so `my_system` won't run
     /// app.run(&mut world);
     /// world.init_resource::<Counter>();
@@ -769,7 +778,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` is `0` so `my_system` can run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
@@ -812,7 +822,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` hasn't been added so `my_system` can't run
     /// app.run(&mut world);
     /// world.init_resource::<Counter>();
@@ -866,7 +877,8 @@ pub mod common_conditions {
     ///
     /// world.insert_resource(Counter(0));
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `ShouldRun` hasn't been added, so `increment` can't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
@@ -921,7 +933,8 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<Counter>();
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` was just added so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
@@ -980,7 +993,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` hasn't been changed so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
@@ -1035,7 +1049,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` doesn't exist so `my_system` won't run
     /// app.run(&mut world);
     /// world.init_resource::<Counter>();
@@ -1106,7 +1121,8 @@ pub mod common_conditions {
     ///     }
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `Counter` hasn't been changed so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
@@ -1169,7 +1185,8 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<MyResource>();
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `MyResource` hasn't just been removed so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
@@ -1227,7 +1244,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // No new `MyMessage` messages have been pushed so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
@@ -1279,7 +1297,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // No entities exist yet with a `MyComponent` component so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
@@ -1339,7 +1358,8 @@ pub mod common_conditions {
     ///     my_system.run_if(not(always)),
     /// );
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// fn my_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
@@ -1389,7 +1409,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `MyResource` is initially there, the inner condition is true, the system runs once
     /// world.insert_resource(MyResource);
     /// app.run(&mut world);
@@ -1445,7 +1466,8 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// # let app = app.get_mut(Update).unwrap();
+    /// let app = app.get_mut(Update).unwrap();
+    ///
     /// // `MyResource` is initially there, the inner condition is true, the system runs once
     /// world.insert_resource(MyResource);
     /// app.run(&mut world);
