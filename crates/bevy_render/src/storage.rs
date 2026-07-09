@@ -107,37 +107,21 @@ impl ShaderBuffer {
     }
 
     /// Sets the data of the shader buffer to the given iterator of [`ShaderType`].
-    /// If the iterator is empty, this will set the data to one zeroed `T` element.
     pub fn set_data<T>(&mut self, values: impl Iterator<Item = T>)
     where
         T: ShaderType + WriteInto,
     {
         self.clear();
-
-        let mut values = values.peekable();
-        if values.peek().is_none() {
-            let size = T::min_size().get() as usize;
-            self.extend_raw(core::iter::repeat_n(0u8, size));
-        } else {
-            self.extend(values);
-        }
+        self.extend(values);
     }
 
     /// Sets the data of the shader buffer to the given iterator of [`bytemuck::NoUninit`].
-    /// If the iterator is empty, this will set the data to one zeroed `T` element.
     pub fn set_data_raw<T>(&mut self, values: impl Iterator<Item = T>)
     where
         T: bytemuck::NoUninit,
     {
         self.clear();
-
-        let mut values = values.peekable();
-        if values.peek().is_none() {
-            let size = size_of::<T>();
-            self.extend_raw(core::iter::repeat_n(0u8, size));
-        } else {
-            self.extend_raw(values);
-        }
+        self.extend_raw(values);
     }
 
     /// Extends the data with an iterator of [`ShaderType`].
