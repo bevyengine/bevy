@@ -150,7 +150,20 @@ pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
     }
 }
 
-/// A component that stores an arbitrary index used to identify the mesh instance when rendering.
+/// A component that stores an arbitrary index used to identify the mesh
+/// instance when rendering.
+///
+/// You can fetch the value of the tag in the shader using the `tag` field on
+/// `bevy_pbr::mesh_bindings::mesh`.
+///
+/// When using a [`GpuComponentArrayBuffer`], the tag represents the index of
+/// the mesh instance data in the buffer. In this case, Bevy automatically
+/// manages the tag, keeping it up to date as component data are extracted to
+/// and removed from the buffer. If you aren't using a
+/// [`GpuComponentArrayBuffer`], the tag is free for you to use for whatever
+/// purpose you wish.
+///
+/// [`GpuComponentArrayBuffer`]: bevy_render::gpu_component_array_buffer::GpuComponentArrayBuffer
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct MeshTag(pub u32);

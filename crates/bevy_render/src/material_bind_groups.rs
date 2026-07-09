@@ -5,7 +5,7 @@
 //! appropriate.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, UntypedAssetId};
+use bevy_asset::{Asset, AssetId, Handle, UntypedAssetId};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -23,8 +23,10 @@ use tracing::{error, trace};
 
 use crate::{
     erased_render_asset::PrepareAssetError,
+    render_asset::RenderAssets,
     render_resource::{AsBindGroup, AsBindGroupError, BindlessSlabResourceLimit, PipelineCache},
-    GpuResourceAppExt as _, Render, RenderApp, RenderStartup, RenderSystems,
+    storage::ShaderBuffer,
+    GpuResourceAppExt as _, Render, RenderApp, RenderSystems,
 };
 use crate::{
     render_resource::{
@@ -38,6 +40,7 @@ use crate::{
     },
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    storage::{GpuShaderBuffer, RenderChangedShaderBuffers},
     texture::FallbackImage,
 };
 
@@ -47,9 +50,6 @@ use crate::{
 /// It packs multiple materials into a small number of bind groups, allowing
 /// Bevy to render large parts of the scene with a small number of drawcalls.
 pub struct MaterialBindGroupPlugin;
-
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
 
 /// A resource that maps each untyped material ID to its binding.
 ///
@@ -65,6 +65,10 @@ pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
 /// Internally, Bevy has separate allocators for bindless and non-bindless
 /// materials. This resource provides a common interface to the specific
 /// allocator in use.
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
+
+/// The allocator that manages a specific material.
 pub enum MaterialBindGroupAllocator {
     /// The allocator used when the material is bindless.
     Bindless(Box<MaterialBindGroupBindlessAllocator>),
@@ -125,6 +129,12 @@ pub struct MaterialBindlessSlab {
     textures: HashMap<BindlessResourceType, MaterialBindlessBindingArray<TextureView>>,
     /// The binding arrays containing buffers.
     buffers: HashMap<BindlessIndex, MaterialBindlessBindingArray<Buffer>>,
+    /// The binding arrays containing shader buffers.
+    ///
+    /// These differ from the binding arrays containing raw buffers because
+    /// shader buffers are assets, and therefore the actual underlying buffer
+    /// can change.
+    shader_buffers: HashMap<BindlessIndex, MaterialBindlessBindingArray<Handle<ShaderBuffer>>>,
     /// The buffers that contain plain old data (i.e. the structure-level
     /// `#[data]` attribute of `AsBindGroup`).
     data_buffers: HashMap<BindlessIndex, MaterialDataBuffer>,
@@ -229,7 +239,16 @@ enum MaterialNonBindlessAllocatedBindGroup {
     },
     /// A bind group that's already been prepared.
     Prepared {
+        /// The actual bind group.
         bind_group: PreparedBindGroup,
+        /// The layout descriptor that reflects the layout of this bind group.
+        ///
+        /// Rendering doesn't use this, but we need to keep it around in case we
+        /// need to demote a prepared bind group to an unprepared one. That will
+        /// happen if a shader buffer changes, causing the bind group to become
+        /// invalid.
+        layout: BindGroupLayoutDescriptor,
+        /// Uniform buffers referenced by the bind group.
         #[expect(dead_code, reason = "These buffers are only referenced by bind groups")]
         uniform_buffers: Vec<Buffer>,
     },
@@ -247,6 +266,11 @@ pub struct FallbackBindlessResources {
     comparison_sampler: Sampler,
 }
 
+/// A dummy buffer that substitutes for a shader buffer if that shader buffer
+/// points to an invalid buffer.
+#[derive(Resource, Deref, DerefMut)]
+pub struct FallbackBuffer(Buffer);
+
 /// The `wgpu` ID of a single bindless or non-bindless resource.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum BindingResourceId {
@@ -261,6 +285,8 @@ enum BindingResourceId {
     /// This corresponds to the `#[data]` structure-level attribute on
     /// `AsBindGroup`.
     DataBuffer,
+    /// A [`ShaderBuffer`] asset.
+    ShaderBuffer(AssetId<ShaderBuffer>),
 }
 
 /// A temporary list of references to `wgpu` bindless resources.
@@ -443,6 +469,9 @@ impl<'a> From<&'a OwnedBindingResource> for BindingResourceId {
     fn from(value: &'a OwnedBindingResource) -> Self {
         match *value {
             OwnedBindingResource::Buffer(ref buffer) => BindingResourceId::Buffer(buffer.id()),
+            OwnedBindingResource::ShaderBuffer(ref shader_buffer) => {
+                BindingResourceId::ShaderBuffer(shader_buffer.id())
+            }
             OwnedBindingResource::Data(_) => BindingResourceId::DataBuffer,
             OwnedBindingResource::TextureView(ref texture_view_dimension, ref texture_view) => {
                 BindingResourceId::TextureView(*texture_view_dimension, texture_view.id())
@@ -492,7 +521,6 @@ impl Plugin for MaterialBindGroupPlugin {
             .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
             .init_gpu_resource::<RenderMaterialBindings>()
             .allow_ambiguous_resource::<RenderMaterialBindings>()
-            .add_systems(RenderStartup, init_fallback_bindless_resources)
             .add_systems(
                 Render,
                 (
@@ -502,6 +530,12 @@ impl Plugin for MaterialBindGroupPlugin {
                     .chain()
                     .in_set(RenderSystems::PrepareBindGroups),
             );
+    }
+}
+
+impl GetBindingResourceId for Handle<ShaderBuffer> {
+    fn binding_resource_id(&self, _: BindlessResourceType) -> BindingResourceId {
+        BindingResourceId::ShaderBuffer(self.id())
     }
 }
 
@@ -578,6 +612,7 @@ impl MaterialBindGroupAllocator {
     pub fn allocate_prepared(
         &mut self,
         prepared_bind_group: PreparedBindGroup,
+        bind_group_layout: BindGroupLayoutDescriptor,
     ) -> MaterialBindingId {
         match *self {
             MaterialBindGroupAllocator::Bindless(_) => {
@@ -587,7 +622,7 @@ impl MaterialBindGroupAllocator {
                 )
             }
             MaterialBindGroupAllocator::NonBindless(ref mut non_bindless_allocator) => {
-                non_bindless_allocator.allocate_prepared(prepared_bind_group)
+                non_bindless_allocator.allocate_prepared(prepared_bind_group, bind_group_layout)
             }
         }
     }
@@ -614,6 +649,9 @@ impl MaterialBindGroupAllocator {
         pipeline_cache: &PipelineCache,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_image: &FallbackImage,
+        fallback_buffer: &FallbackBuffer,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
+        changed_shader_buffers: &RenderChangedShaderBuffers,
     ) {
         match *self {
             MaterialBindGroupAllocator::Bindless(
@@ -623,11 +661,18 @@ impl MaterialBindGroupAllocator {
                 pipeline_cache,
                 fallback_bindless_resources,
                 fallback_image,
+                shader_buffer_assets,
+                changed_shader_buffers,
             ),
             MaterialBindGroupAllocator::NonBindless(
                 ref mut material_bind_group_non_bindless_allocator,
-            ) => material_bind_group_non_bindless_allocator
-                .prepare_bind_groups(render_device, pipeline_cache),
+            ) => material_bind_group_non_bindless_allocator.prepare_bind_groups(
+                render_device,
+                pipeline_cache,
+                fallback_buffer,
+                shader_buffer_assets,
+                changed_shader_buffers,
+            ),
         }
     }
 
@@ -927,6 +972,8 @@ impl MaterialBindGroupBindlessAllocator {
         pipeline_cache: &PipelineCache,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_image: &FallbackImage,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
+        changed_shader_buffers: &RenderChangedShaderBuffers,
     ) {
         for slab in &mut self.slabs {
             slab.prepare(
@@ -937,6 +984,8 @@ impl MaterialBindGroupBindlessAllocator {
                 fallback_bindless_resources,
                 &self.fallback_buffers,
                 fallback_image,
+                shader_buffer_assets,
+                changed_shader_buffers,
                 &self.bindless_descriptor,
                 self.slab_capacity,
             );
@@ -1050,6 +1099,24 @@ impl MaterialBindlessSlab {
                     }
                 }
 
+                OwnedBindingResource::ShaderBuffer(ref shader_buffer) => {
+                    let Some(binding_array) = self.shader_buffers.get(&bindless_index) else {
+                        error!(
+                            "Binding array wasn't present for shader buffer at index {:?}",
+                            bindless_index
+                        );
+                        return None;
+                    };
+                    match binding_array.find(BindingResourceId::ShaderBuffer(shader_buffer.id())) {
+                        Some(slot) => {
+                            allocation_candidate
+                                .pre_existing_resources
+                                .insert(bindless_index, slot);
+                        }
+                        None => allocation_candidate.needed_free_slots += 1,
+                    }
+                }
+
                 OwnedBindingResource::Data(_) => {
                     // The size of a data buffer is unlimited.
                 }
@@ -1128,14 +1195,24 @@ impl MaterialBindlessSlab {
                         .insert(binding_resource_id, buffer);
                     allocated_resource_slots.insert(bindless_index, slot);
 
-                    if let Some(pre_existing_slot) = pre_existing_slot {
-                        assert_eq!(*pre_existing_slot, slot);
-
-                        false
-                    } else {
-                        true
-                    }
+                    debug_assert!(pre_existing_slot
+                        .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
+                    pre_existing_slot.is_none()
                 }
+
+                OwnedBindingResource::ShaderBuffer(shader_buffer) => {
+                    let slot = self
+                        .shader_buffers
+                        .get_mut(&bindless_index)
+                        .expect("Shader buffer binding array should exist")
+                        .insert(binding_resource_id, shader_buffer);
+                    allocated_resource_slots.insert(bindless_index, slot);
+
+                    debug_assert!(pre_existing_slot
+                        .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
+                    pre_existing_slot.is_none()
+                }
+
                 OwnedBindingResource::Data(data) => {
                     if pre_existing_slot.is_some() {
                         panic!("Data buffers can't be deduplicated")
@@ -1149,6 +1226,7 @@ impl MaterialBindlessSlab {
                     allocated_resource_slots.insert(bindless_index, slot);
                     false
                 }
+
                 OwnedBindingResource::TextureView(texture_view_dimension, texture_view) => {
                     let bindless_resource_type = BindlessResourceType::from(texture_view_dimension);
                     let slot = self
@@ -1158,14 +1236,11 @@ impl MaterialBindlessSlab {
                         .insert(binding_resource_id, texture_view);
                     allocated_resource_slots.insert(bindless_index, slot);
 
-                    if let Some(pre_existing_slot) = pre_existing_slot {
-                        assert_eq!(*pre_existing_slot, slot);
-
-                        false
-                    } else {
-                        true
-                    }
+                    debug_assert!(pre_existing_slot
+                        .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
+                    pre_existing_slot.is_none()
                 }
+
                 OwnedBindingResource::Sampler(sampler_binding_type, sampler) => {
                     let bindless_resource_type = BindlessResourceType::from(sampler_binding_type);
                     let slot = self
@@ -1175,13 +1250,9 @@ impl MaterialBindlessSlab {
                         .insert(binding_resource_id, sampler);
                     allocated_resource_slots.insert(bindless_index, slot);
 
-                    if let Some(pre_existing_slot) = pre_existing_slot {
-                        assert_eq!(*pre_existing_slot, slot);
-
-                        false
-                    } else {
-                        true
-                    }
+                    debug_assert!(pre_existing_slot
+                        .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
+                    pre_existing_slot.is_none()
                 }
             };
 
@@ -1219,6 +1290,11 @@ impl MaterialBindlessSlab {
                     .buffers
                     .get_mut(&bindless_index)
                     .expect("Buffer should exist with that bindless index")
+                    .remove(bindless_binding),
+                BindlessResourceType::ShaderBuffer => self
+                    .shader_buffers
+                    .get_mut(&bindless_index)
+                    .expect("Shader buffer should exist with that bindless index")
                     .remove(bindless_binding),
                 BindlessResourceType::DataBuffer => {
                     self.data_buffers
@@ -1271,9 +1347,13 @@ impl MaterialBindlessSlab {
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
         fallback_image: &FallbackImage,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
+        changed_shader_buffers: &RenderChangedShaderBuffers,
         bindless_descriptor: &BindlessDescriptor,
         slab_capacity: u32,
     ) {
+        self.invalidate_bind_group_for_changed_shader_buffers_if_needed(changed_shader_buffers);
+
         // Create the bindless index table buffers if needed.
         for bindless_index_table in &mut self.bindless_index_tables {
             bindless_index_table.buffer.prepare(render_device);
@@ -1293,6 +1373,7 @@ impl MaterialBindlessSlab {
             fallback_bindless_resources,
             fallback_buffers,
             fallback_image,
+            shader_buffer_assets,
             bindless_descriptor,
             slab_capacity,
         );
@@ -1309,6 +1390,7 @@ impl MaterialBindlessSlab {
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
         fallback_image: &FallbackImage,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
         bindless_descriptor: &BindlessDescriptor,
         slab_capacity: u32,
     ) {
@@ -1332,6 +1414,7 @@ impl MaterialBindlessSlab {
             fallback_bindless_resources,
             fallback_buffers,
             fallback_image,
+            shader_buffer_assets,
             bindless_descriptor,
             required_binding_array_size,
         );
@@ -1378,6 +1461,34 @@ impl MaterialBindlessSlab {
         ));
     }
 
+    /// If this bind group contains a [`ShaderBuffer`], and the shader buffer
+    /// has changed, marks the bind group as invalid so that it'll be rebuilt.
+    ///
+    /// Shader buffers are assets that can legally be updated to point to a
+    /// different raw buffer. This will happen when, for example, the shader
+    /// buffer grows. We must detect this circumstance and rebuild the bind
+    /// group when it happens.
+    fn invalidate_bind_group_for_changed_shader_buffers_if_needed(
+        &mut self,
+        changed_shader_buffers: &RenderChangedShaderBuffers,
+    ) {
+        if !changed_shader_buffers.is_empty()
+            && self.bind_group.is_some()
+            && self.shader_buffers.values().any(|buffer| {
+                matches!(buffer.resource_type, BindlessResourceType::ShaderBuffer)
+                    && buffer.resource_to_slot.keys().any(|binding_resource_id| {
+                        matches!(
+                            *binding_resource_id,
+                            BindingResourceId::ShaderBuffer(ref shader_buffer) if
+                                changed_shader_buffers.contains(shader_buffer)
+                        )
+                    })
+            })
+        {
+            self.bind_group = None;
+        }
+    }
+
     /// Writes any buffers that we're managing to the GPU.
     ///
     /// Currently, this consists of the bindless index table plus any data
@@ -1401,6 +1512,7 @@ impl MaterialBindlessSlab {
         fallback_bindless_resources: &'a FallbackBindlessResources,
         fallback_buffers: &'a HashMap<BindlessIndex, Buffer>,
         fallback_image: &'a FallbackImage,
+        shader_buffer_assets: &'a RenderAssets<GpuShaderBuffer>,
         bindless_descriptor: &'a BindlessDescriptor,
         required_binding_array_size: Option<u32>,
     ) -> Vec<(&'a u32, BindingResourceArray<'a>)> {
@@ -1426,6 +1538,7 @@ impl MaterialBindlessSlab {
         self.create_buffer_binding_resource_arrays(
             &mut binding_resource_arrays,
             fallback_buffers,
+            shader_buffer_assets,
             bindless_descriptor,
             required_binding_array_size,
         );
@@ -1578,54 +1691,108 @@ impl MaterialBindlessSlab {
         &'a self,
         binding_resource_arrays: &'b mut Vec<(&'a u32, BindingResourceArray<'a>)>,
         fallback_buffers: &'a HashMap<BindlessIndex, Buffer>,
+        shader_buffer_assets: &'a RenderAssets<GpuShaderBuffer>,
         bindless_descriptor: &'a BindlessDescriptor,
         required_binding_array_size: Option<u32>,
     ) {
         for bindless_buffer_descriptor in bindless_descriptor.buffers.iter() {
-            let Some(buffer_bindless_binding_array) =
+            // If this is a raw buffer, create the binding.
+            if let Some(buffer_bindless_binding_array) =
                 self.buffers.get(&bindless_buffer_descriptor.bindless_index)
-            else {
-                // This is OK, because index buffers are present in
-                // `BindlessDescriptor::buffers` but not in
-                // `BindlessDescriptor::resources`.
+            {
+                let fallback_buffer = fallback_buffers
+                    .get(&bindless_buffer_descriptor.bindless_index)
+                    .expect("Fallback buffer should exist");
+
+                let mut buffer_bindings: Vec<_> = buffer_bindless_binding_array
+                    .bindings
+                    .iter()
+                    .map(|maybe_bindless_binding| {
+                        let buffer = match *maybe_bindless_binding {
+                            None => fallback_buffer,
+                            Some(ref bindless_binding) => &bindless_binding.resource,
+                        };
+                        BufferBinding {
+                            buffer,
+                            offset: 0,
+                            size: None,
+                        }
+                    })
+                    .collect();
+
+                if let Some(required_binding_array_size) = required_binding_array_size {
+                    buffer_bindings.extend(iter::repeat_n(
+                        BufferBinding {
+                            buffer: fallback_buffer,
+                            offset: 0,
+                            size: None,
+                        },
+                        required_binding_array_size as usize - buffer_bindings.len(),
+                    ));
+                }
+
+                binding_resource_arrays.push((
+                    &*buffer_bindless_binding_array.binding_number,
+                    BindingResourceArray::Buffers(buffer_bindings),
+                ));
+
+                continue;
+            }
+
+            // If this is a shader buffer, look up the asset ID in the
+            // `shader_buffer_assets` and fetch the raw buffer from there.
+            if let Some(shader_buffer_bindless_binding_array) = self
+                .shader_buffers
+                .get(&bindless_buffer_descriptor.bindless_index)
+            {
+                let fallback_buffer = fallback_buffers
+                    .get(&bindless_buffer_descriptor.bindless_index)
+                    .expect("Fallback buffer should exist");
+
+                let mut buffer_bindings: Vec<_> = shader_buffer_bindless_binding_array
+                    .bindings
+                    .iter()
+                    .map(|maybe_bindless_binding| {
+                        let buffer =
+                            match maybe_bindless_binding
+                                .as_ref()
+                                .and_then(|bindless_binding| {
+                                    shader_buffer_assets.get(bindless_binding.resource.id())
+                                }) {
+                                None => fallback_buffer,
+                                Some(gpu_shader_buffer) => &gpu_shader_buffer.buffer,
+                            };
+                        BufferBinding {
+                            buffer,
+                            offset: 0,
+                            size: None,
+                        }
+                    })
+                    .collect();
+
+                if let Some(required_binding_array_size) = required_binding_array_size {
+                    buffer_bindings.extend(iter::repeat_n(
+                        BufferBinding {
+                            buffer: fallback_buffer,
+                            offset: 0,
+                            size: None,
+                        },
+                        required_binding_array_size as usize - buffer_bindings.len(),
+                    ));
+                }
+
+                binding_resource_arrays.push((
+                    &*shader_buffer_bindless_binding_array.binding_number,
+                    BindingResourceArray::Buffers(buffer_bindings),
+                ));
+
                 continue;
             };
 
-            let fallback_buffer = fallback_buffers
-                .get(&bindless_buffer_descriptor.bindless_index)
-                .expect("Fallback buffer should exist");
-
-            let mut buffer_bindings: Vec<_> = buffer_bindless_binding_array
-                .bindings
-                .iter()
-                .map(|maybe_bindless_binding| {
-                    let buffer = match *maybe_bindless_binding {
-                        None => fallback_buffer,
-                        Some(ref bindless_binding) => &bindless_binding.resource,
-                    };
-                    BufferBinding {
-                        buffer,
-                        offset: 0,
-                        size: None,
-                    }
-                })
-                .collect();
-
-            if let Some(required_binding_array_size) = required_binding_array_size {
-                buffer_bindings.extend(iter::repeat_n(
-                    BufferBinding {
-                        buffer: fallback_buffer,
-                        offset: 0,
-                        size: None,
-                    },
-                    required_binding_array_size as usize - buffer_bindings.len(),
-                ));
-            }
-
-            binding_resource_arrays.push((
-                &*buffer_bindless_binding_array.binding_number,
-                BindingResourceArray::Buffers(buffer_bindings),
-            ));
+            // If we got here, just ignore the buffer and continue. For example,
+            // index buffers are present in `BindlessDescriptor::buffers` but
+            // not in `BindlessDescriptor::resources`, so we need to ignore them
+            // here.
         }
     }
 
@@ -1779,6 +1946,7 @@ impl MaterialBindlessSlab {
         let mut samplers = HashMap::default();
         let mut textures = HashMap::default();
         let mut data_buffers = HashMap::default();
+        let mut shader_buffers = HashMap::default();
 
         for (bindless_index, bindless_resource_type) in
             bindless_descriptor.resources.iter().enumerate()
@@ -1799,6 +1967,23 @@ impl MaterialBindlessSlab {
                         )
                         .binding_number;
                     buffers.insert(
+                        bindless_index,
+                        MaterialBindlessBindingArray::new(binding_number, *bindless_resource_type),
+                    );
+                }
+                BindlessResourceType::ShaderBuffer => {
+                    let binding_number = bindless_descriptor
+                        .buffers
+                        .iter()
+                        .find(|bindless_buffer_descriptor| {
+                            bindless_buffer_descriptor.bindless_index == bindless_index
+                        })
+                        .expect(
+                            "Bindless buffer descriptor matching that bindless index should be \
+                             present",
+                        )
+                        .binding_number;
+                    shader_buffers.insert(
                         bindless_index,
                         MaterialBindlessBindingArray::new(binding_number, *bindless_resource_type),
                     );
@@ -1866,6 +2051,7 @@ impl MaterialBindlessSlab {
             samplers,
             textures,
             buffers,
+            shader_buffers,
             data_buffers,
             free_slots: vec![],
             live_allocation_count: 0,
@@ -1874,7 +2060,9 @@ impl MaterialBindlessSlab {
     }
 }
 
-pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+/// Creates and inserts the [`FallbackBindlessResources`] and [`FallbackBuffer`].
+pub fn init_fallback_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+    // Create the `FallbackBindlessResources`.
     commands.insert_resource(FallbackBindlessResources {
         filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
             label: Some("fallback filtering sampler"),
@@ -1893,6 +2081,16 @@ pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: R
             ..default()
         }),
     });
+
+    // Creates the `FallbackBuffer`.
+    commands.insert_resource(FallbackBuffer(render_device.create_buffer(
+        &BufferDescriptor {
+            label: Some("fallback buffer"),
+            size: 1,
+            usage: BufferUsages::COPY_SRC | BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        },
+    )));
 }
 
 impl MaterialBindGroupNonBindlessAllocator {
@@ -1952,9 +2150,14 @@ impl MaterialBindGroupNonBindlessAllocator {
 
     /// Inserts an prepared bind group into this allocator and returns a
     /// [`MaterialBindingId`].
-    fn allocate_prepared(&mut self, prepared_bind_group: PreparedBindGroup) -> MaterialBindingId {
+    fn allocate_prepared(
+        &mut self,
+        prepared_bind_group: PreparedBindGroup,
+        bind_group_layout: BindGroupLayoutDescriptor,
+    ) -> MaterialBindingId {
         self.allocate(MaterialNonBindlessAllocatedBindGroup::Prepared {
             bind_group: prepared_bind_group,
+            layout: bind_group_layout,
             uniform_buffers: vec![],
         })
     }
@@ -1992,7 +2195,12 @@ impl MaterialBindGroupNonBindlessAllocator {
         &mut self,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
+        fallback_buffer: &FallbackBuffer,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
+        changed_shader_buffers: &RenderChangedShaderBuffers,
     ) {
+        self.invalidate_bind_group_for_changed_shader_buffers_if_needed(changed_shader_buffers);
+
         for bind_group_index in mem::take(&mut self.to_prepare) {
             let Some(MaterialNonBindlessAllocatedBindGroup::Unprepared {
                 bind_group: unprepared_bind_group,
@@ -2031,6 +2239,27 @@ impl MaterialBindGroupNonBindlessAllocator {
                                 .as_entire_binding(),
                         });
                     }
+                    OwnedBindingResource::ShaderBuffer(ref shader_buffer) => bind_group_entries
+                        .push(BindGroupEntry {
+                            binding: *index,
+                            resource: {
+                                // Fetch the raw buffer from the
+                                // `shader_buffer_assets`. If it's not there,
+                                // use the fallback buffer.
+                                match shader_buffer_assets.get(shader_buffer.id()) {
+                                    Some(shader_buffer) => BindingResource::Buffer(BufferBinding {
+                                        buffer: &shader_buffer.buffer,
+                                        offset: 0,
+                                        size: None,
+                                    }),
+                                    None => BindingResource::Buffer(BufferBinding {
+                                        buffer: fallback_buffer,
+                                        offset: 0,
+                                        size: None,
+                                    }),
+                                }
+                            },
+                        }),
                     _ => bind_group_entries.push(BindGroupEntry {
                         binding: *index,
                         resource: binding.get_binding(),
@@ -2051,8 +2280,69 @@ impl MaterialBindGroupNonBindlessAllocator {
                         bindings: unprepared_bind_group.bindings,
                         bind_group,
                     },
+                    layout: bind_group_layout,
                     uniform_buffers,
                 });
+        }
+    }
+
+    /// Invalidates any bind group that contains a shader buffer if the shader
+    /// buffer has changed identity.
+    fn invalidate_bind_group_for_changed_shader_buffers_if_needed(
+        &mut self,
+        changed_shader_buffers: &RenderChangedShaderBuffers,
+    ) {
+        // Early out if there are no changed shader buffers. This is important,
+        // as scanning for invalidated bind groups can be expensive.
+        if changed_shader_buffers.is_empty() {
+            return;
+        }
+
+        // Look for bind groups that are now invalid.
+        for (allocated_bind_group_index, maybe_allocated_bind_group) in
+            self.bind_groups.iter_mut().enumerate()
+        {
+            // We only care about prepared bind groups. Unprepared bind groups
+            // store only the asset ID of the shader buffer, which is stable,
+            // rather than the buffer itself, which is not.
+            let Some(MaterialNonBindlessAllocatedBindGroup::Prepared {
+                bind_group: ref mut prepared_bind_group,
+                ref mut layout,
+                ..
+            }) = *maybe_allocated_bind_group
+            else {
+                continue;
+            };
+
+            // Check to see if any shader buffer within the bind group was
+            // invalidated.
+            if prepared_bind_group
+                .bindings
+                .iter()
+                .all(|(_, binding_resource)| match *binding_resource {
+                    OwnedBindingResource::ShaderBuffer(ref shader_buffer) => {
+                        !changed_shader_buffers.contains(&shader_buffer.id())
+                    }
+                    _ => true,
+                })
+            {
+                continue;
+            }
+
+            // If we got here, we know the bind group is invalid. Mark it as
+            // such by "un-preparing" it. The logic in `prepare_bind_groups`
+            // will detect that the bind group is now unprepared and will
+            // rebuild it.
+            let resources = mem::take(&mut prepared_bind_group.bindings);
+            let layout = mem::take(layout);
+            *maybe_allocated_bind_group = Some(MaterialNonBindlessAllocatedBindGroup::Unprepared {
+                bind_group: UnpreparedBindGroup {
+                    bindings: resources,
+                },
+                layout,
+            });
+            self.to_prepare
+                .insert(MaterialBindGroupIndex(allocated_bind_group_index as u32));
         }
     }
 }
@@ -2138,7 +2428,10 @@ pub fn prepare_material_bind_groups(
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     fallback_image: Res<FallbackImage>,
+    fallback_buffer: Res<FallbackBuffer>,
     fallback_resources: Res<FallbackBindlessResources>,
+    shader_buffer_assets: Res<RenderAssets<GpuShaderBuffer>>,
+    changed_shader_buffers: Res<RenderChangedShaderBuffers>,
 ) {
     for (_, allocator) in allocators.iter_mut() {
         allocator.prepare_bind_groups(
@@ -2146,6 +2439,9 @@ pub fn prepare_material_bind_groups(
             &pipeline_cache,
             &fallback_resources,
             &fallback_image,
+            &fallback_buffer,
+            &shader_buffer_assets,
+            &changed_shader_buffers,
         );
     }
 }
@@ -2248,8 +2544,8 @@ impl RenderMaterialBindings {
                         let bind_group_allocator =
                             bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
                         // Store the resulting bind group directly in the slot.
-                        let material_binding_id =
-                            bind_group_allocator.allocate_prepared(prepared_bind_group);
+                        let material_binding_id = bind_group_allocator
+                            .allocate_prepared(prepared_bind_group, material_layout.clone());
                         self.insert(material_id.into(), material_binding_id);
                         Ok(material_binding_id)
                     }

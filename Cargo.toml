@@ -5628,3 +5628,14 @@ name = "Material - 2D Bindless"
 description = "Demonstrates bindless materials in 2D"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "gpu_component_array_buffer"
+path = "examples/shader/gpu_component_array_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_component_array_buffer]
+name = "GPU Component Array Buffer"
+description = "Shows how to expose per-mesh-instance data to the GPU"
+category = "Shaders"
+wasm = false
