@@ -13,7 +13,6 @@ enable wgpu_ray_query;
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
-const SPECULAR_DOMINANCE_SKIP_RESAMPLING_THRESHOLD = 0.2;
 
 @compute @workgroup_size(8, 8, 1)
 fn initial(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
