@@ -53,6 +53,9 @@ struct HexColorInput;
 struct DemoDisabledButton;
 
 #[derive(Component, Clone, Copy, Default)]
+struct DemoDialogToggle;
+
+#[derive(Component, Clone, Copy, Default)]
 struct DemoScalarField;
 
 #[derive(Component, Clone, Copy, Default, VariantDefaults)]
@@ -361,6 +364,23 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
+                }
+                Children [
+                    label("Dialog:"),
+                    (
+                        @FeathersToggleSwitch
+                        DemoDialogToggle
+                        on(toggle_demo_dialog)
+                    ),
+                ]
+            ),
+            (
                 @FeathersCheckbox {
                     @caption: bsn! { Text("Checkbox") ThemedText }
                 }
@@ -488,8 +508,8 @@ fn demo_column_1() -> impl Scene {
             (
                 @FeathersSlider {
                     @max: 100.0,
-                    @value: 20.0,
                 }
+                SliderValue(20.0)
                 SliderStep(10.)
                 SliderPrecision(2)
                 on(slider_self_update)
@@ -973,4 +993,39 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                 commands.entity(close.event_target()).despawn();
             })
         ));
+}
+
+fn toggle_demo_dialog(
+    change: On<ValueChange<bool>>,
+    mut commands: Commands,
+    dialogs: Query<Entity, With<FeathersFloatingDialog>>,
+) {
+    let toggle = change.source;
+    if change.value {
+        commands.entity(toggle).insert(Checked);
+        // Spawn at the root rather than as a child of the toggle, so clicks on the
+        // dialog don't bubble up to the toggle switch.
+        commands.spawn_scene(bsn! {
+            @FeathersFloatingDialog {
+                @title: {"Hello".to_string()},
+                @width: px(280),
+                @contents: bsn_list! {
+                    Text("Close this dialog to unset the toggle.") ThemedText
+                }
+            }
+            // The dialog despawns itself on close; this just clears the toggle.
+            on(|_close: On<RequestClose>,
+                mut commands: Commands,
+                toggles: Query<Entity, With<DemoDialogToggle>>| {
+                for toggle in toggles.iter() {
+                    commands.entity(toggle).remove::<Checked>();
+                }
+            })
+        });
+    } else {
+        commands.entity(toggle).remove::<Checked>();
+        for dialog in dialogs.iter() {
+            commands.entity(dialog).despawn();
+        }
+    }
 }

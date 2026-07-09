@@ -9,6 +9,7 @@
 use bevy::color::palettes::css::DARK_GREY;
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::{
+    pointer_focus::PointerFocusPlugin,
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
 };
@@ -18,7 +19,7 @@ use bevy::text::{EditableText, TextCursorStyle};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(TabNavigationPlugin)
+        .add_plugins((TabNavigationPlugin, PointerFocusPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, text_submission)
         .run();

@@ -82,7 +82,7 @@ fn on_menu_event(
                 if q_popovers.contains(*child) {
                     commands
                         .entity(*child)
-                        .insert((Visibility::Visible, MenuFocusState::Opening(nav)));
+                        .try_insert((Visibility::Visible, MenuFocusState::Opening(nav)));
                     return;
                 }
             }
@@ -96,9 +96,9 @@ fn on_menu_event(
                 if let Ok(visibility) = q_popovers.get(*child) {
                     ev.propagate(false);
                     if visibility == Visibility::Visible {
-                        commands.entity(*child).insert(Visibility::Hidden);
+                        commands.entity(*child).try_insert(Visibility::Hidden);
                     } else {
-                        commands.entity(*child).insert((
+                        commands.entity(*child).try_insert((
                             Visibility::Visible,
                             MenuFocusState::Opening(NavAction::First),
                         ));
@@ -115,7 +115,7 @@ fn on_menu_event(
             for child in children.iter() {
                 if q_popovers.contains(*child) {
                     ev.propagate(false);
-                    commands.entity(*child).insert(Visibility::Hidden);
+                    commands.entity(*child).try_insert(Visibility::Hidden);
                 }
             }
         }
@@ -613,5 +613,36 @@ impl Plugin for MenuPlugin {
             )
                 .in_set(PickingSystems::Last),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
+
+    #[test]
+    fn close_all_ignores_popup_despawned_during_menu_event() {
+        fn despawn_menu(ev: On<MenuEvent>, mut commands: Commands) {
+            commands.entity(ev.source).try_despawn();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<InputFocus>();
+
+        let menu = world.spawn_empty().id();
+        world.spawn((ChildOf(menu), FeathersMenuPopup, Visibility::Visible));
+
+        world.entity_mut(menu).observe(despawn_menu);
+        world.entity_mut(menu).observe(on_menu_event);
+
+        world
+            .run_system_once(move |mut commands: Commands| {
+                commands.trigger(MenuEvent {
+                    source: menu,
+                    action: MenuAction::CloseAll,
+                });
+            })
+            .unwrap();
     }
 }

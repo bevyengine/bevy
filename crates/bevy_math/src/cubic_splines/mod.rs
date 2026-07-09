@@ -165,7 +165,7 @@ impl<P: VectorSpace> CubicHermite<P> {
     /// combination of `p_i`, `v_i`, `p_{i+1}`, and `v_{i+1}`, where `(p_i, v_i)` and
     /// `(p_{i+1}, v_{i+1})` are consecutive control points with tangents.
     #[inline]
-    fn char_matrix(&self) -> [[f32; 4]; 4] {
+    const fn char_matrix(&self) -> [[f32; 4]; 4] {
         [
             [1., 0., 0., 0.],
             [0., 1., 0., 0.],
@@ -300,7 +300,7 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
     /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
     /// combination of four consecutive control points.
     #[inline]
-    fn char_matrix(&self) -> [[f32; 4]; 4] {
+    const fn char_matrix(&self) -> [[f32; 4]; 4] {
         let s = self.tension;
         [
             [0., 1., 0., 0.],
