@@ -106,7 +106,7 @@ pub struct FeathersNumberInputProps {
 impl Default for FeathersNumberInputProps {
     fn default() -> Self {
         Self {
-            sigil_color: tokens::TEXT_INPUT_BG,
+            sigil_color: tokens::TEXT_INPUT_LABEL_BG,
             label_text: None,
         }
     }
@@ -119,7 +119,7 @@ impl FeathersNumberInput {
             Node {
                 column_gap: px(0),
                 border: UiRect {
-                    left: px(if props.label_text.is_some() { 3.0 } else { 0.0 }),
+                    left: px(if props.label_text.is_some() { 4.0 } else { 0.0 }),
                 },
                 padding: UiRect {
                     left: px(0.0),

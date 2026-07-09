@@ -20,7 +20,7 @@ use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, Pressed, UiRect,
+    JustifyContent, LayoutConfig, Node, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 
@@ -99,9 +99,13 @@ impl FeathersRadio {
                 ThemeBackgroundColor(tokens::RADIO_BG)
                 Children [(
                     Node {
-                        width: px(8),
-                        height: px(8),
+                        width: px(12),
+                        height: px(12),
+                        border: px(2),
                         border_radius: BorderRadius::MAX,
+                    }
+                    LayoutConfig {
+                        use_rounding: false,
                     }
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)
