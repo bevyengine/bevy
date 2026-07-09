@@ -456,6 +456,9 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// When a scene is resolved, it will replace and orphan the current entity's children.
     ///
+    /// To retain and extend existing children instead, insert [`RelationshipBehavior::Merge`] on
+    /// the entity before calling this method.
+    ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
     /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::spawn_scene`].
@@ -870,7 +873,7 @@ impl QueuedScenes {
 #[cfg(test)]
 mod tests {
     use super::EntityWorldMutSceneExt;
-    use crate::{self as bevy_scene, bsn, ScenePlugin};
+    use crate::{self as bevy_scene, bsn, RelationshipBehavior, ScenePlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::AssetPlugin;
     use bevy_ecs::{name::Name, prelude::*, template::FromTemplate};
@@ -923,5 +926,44 @@ mod tests {
         // Pre-existing child entity still exists, but is no longer listed under root.
         assert!(world.get_entity(pre_existing).is_ok());
         assert!(!children.contains(&pre_existing));
+    }
+
+    #[test]
+    fn apply_scene_with_merge_extends_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let pre_existing = world.spawn(PreExistingChild).id();
+        let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
+
+        assert_eq!(
+            world.entity(root).get::<Children>().map(Children::len),
+            Some(1)
+        );
+
+        let scene = bsn! {
+            Children [ #SceneChild SceneChild ]
+        };
+        world
+            .entity_mut(root)
+            .insert(RelationshipBehavior::Merge)
+            .apply_scene(scene)
+            .unwrap();
+
+        let children: Vec<Entity> = world
+            .entity(root)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+
+        assert_eq!(children.len(), 2);
+        assert!(children.contains(&pre_existing));
+        assert!(
+            children
+                .iter()
+                .filter(|entity| world.entity(**entity).contains::<SceneChild>())
+                .count()
+                == 1
+        );
     }
 }

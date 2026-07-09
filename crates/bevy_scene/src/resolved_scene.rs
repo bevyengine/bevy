@@ -5,7 +5,7 @@ use bevy_ecs::{
     component::{Component, ComponentsRegistrator},
     entity::Entity,
     error::{BevyError, Result},
-    relationship::{Relationship, RelationshipTarget},
+    relationship::{Relationship, RelationshipSourceCollection, RelationshipTarget},
     template::{SceneEntityReference, SceneEntityReferences, Template, TemplateContext},
     world::{EntityWorldMut, World},
 };
@@ -13,6 +13,21 @@ use bevy_platform::collections::HashSet;
 use bevy_utils::TypeIdMap;
 use core::any::{Any, TypeId};
 use thiserror::Error;
+
+/// Controls how scene application handles existing [`RelationshipTarget`] components on the entity.
+///
+/// Insert this component on an entity before calling [`EntityWorldMutSceneExt::apply_scene`] to
+/// retain and extend existing related entities instead of replacing them.
+///
+/// [`EntityWorldMutSceneExt::apply_scene`]: crate::EntityWorldMutSceneExt::apply_scene
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RelationshipBehavior {
+    /// Replaces existing [`RelationshipTarget`] components with new collections for the scene's related entities.
+    #[default]
+    Overwrite,
+    /// Retains existing [`RelationshipTarget`] components and appends the scene's related entities.
+    Merge,
+}
 
 /// A final "spawnable" root [`ResolvedScene`].
 pub struct ResolvedSceneRoot {
@@ -225,6 +240,11 @@ impl ResolvedScene {
         bundle_scratch: &mut BundleScratch,
         writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
     ) -> Result<(), ApplySceneError> {
+        let relationship_behavior = context
+            .entity
+            .get::<RelationshipBehavior>()
+            .copied()
+            .unwrap_or_default();
         let mut bundle_writer = bundle_scratch.writer();
         for entity_reference in self.entity_references.iter().copied() {
             context
@@ -264,18 +284,13 @@ impl ResolvedScene {
                         error: Box::new(e),
                     })?;
                 self.apply_templates_without_bundle_write(context, &mut bundle_writer, ())?;
-                // SAFETY: World is only used for component registration, which does not affect
-                // the entity location
-                let components = &mut context.entity.world_mut().components_registrator();
                 // This inserts empty RelationshipTarget collections to avoid archetype moves when then related entities are spawned
                 // It pre-allocates space in the collection to avoid reallocs as related entities are added.
-                for related in self.related.values() {
-                    (related.insert_relationship_target)(
-                        &mut bundle_writer,
-                        components,
-                        related.scenes.len(),
-                    );
-                }
+                self.insert_relationship_targets(
+                    context.entity,
+                    &mut bundle_writer,
+                    relationship_behavior,
+                );
 
                 (writer_ops)(context, &mut bundle_writer);
 
@@ -290,18 +305,13 @@ impl ResolvedScene {
             // SAFETY: bundle_writer was used with the same World across all cases in this function,
             unsafe {
                 self.apply_templates_without_bundle_write(context, &mut bundle_writer, ())?;
-                // SAFETY: World is only used for component registration, which does not affect
-                // the entity location
-                let components = &mut context.entity.world_mut().components_registrator();
                 // This inserts empty RelationshipTarget collections to avoid archetype moves when then related entities are spawned
                 // It pre-allocates space in the collection to avoid reallocs as related entities are added.
-                for related in self.related.values() {
-                    (related.insert_relationship_target)(
-                        &mut bundle_writer,
-                        components,
-                        related.scenes.len(),
-                    );
-                }
+                self.insert_relationship_targets(
+                    context.entity,
+                    &mut bundle_writer,
+                    relationship_behavior,
+                );
                 (writer_ops)(context, &mut bundle_writer);
                 bundle_writer.write(context.entity);
                 self.apply_related(context, bundle_scratch)?;
@@ -309,6 +319,37 @@ impl ResolvedScene {
         };
 
         Ok(())
+    }
+
+    fn insert_relationship_targets(
+        &self,
+        entity: &mut EntityWorldMut,
+        bundle_writer: &mut BundleWriter,
+        relationship_behavior: RelationshipBehavior,
+    ) {
+        let mut should_insert = Vec::with_capacity(self.related.len());
+        for related in self.related.values() {
+            should_insert.push((related.prepare_relationship_target)(
+                entity,
+                related.scenes.len(),
+                relationship_behavior,
+            ));
+        }
+        // SAFETY: World is only used for component registration, which does not affect
+        // the entity location
+        let components = unsafe { &mut entity.world_mut().components_registrator() };
+        for (related, insert) in self.related.values().zip(should_insert) {
+            if insert {
+                // SAFETY: caller ensures bundler_writer is always used with the same World
+                unsafe {
+                    (related.insert_relationship_target)(
+                        bundle_writer,
+                        components,
+                        related.scenes.len(),
+                    );
+                }
+            }
+        }
     }
 
     /// # Safety
@@ -626,7 +667,13 @@ pub struct RelatedResolvedScenes {
     pub insert_relationship:
         unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, target: Entity),
     /// The function that will be called to add the relationship target to the spawned scene with the given capacity.
-    pub insert_relationship_target: unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, usize),
+    pub(crate) insert_relationship_target:
+        unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, usize),
+    /// Prepares the relationship target on the entity for the given [`RelationshipBehavior`].
+    ///
+    /// Returns `true` if [`RelatedResolvedScenes::insert_relationship_target`] should be called.
+    pub(crate) prepare_relationship_target:
+        fn(&mut EntityWorldMut, usize, RelationshipBehavior) -> bool,
     /// The type name of the relationship. This is used for more helpful error message.
     pub relationship_name: &'static str,
 }
@@ -657,6 +704,19 @@ impl RelatedResolvedScenes {
                 unsafe {
                     bundle_writer.push_component(components_registrator, relationship_target);
                 };
+            },
+            prepare_relationship_target: |entity, capacity, behavior| match behavior {
+                RelationshipBehavior::Overwrite => true,
+                RelationshipBehavior::Merge => {
+                    if let Some(mut existing) =
+                        entity.get_mut::<<R as Relationship>::RelationshipTarget>()
+                    {
+                        existing.collection_mut_risky().reserve(capacity);
+                        false
+                    } else {
+                        true
+                    }
+                }
             },
             relationship_name: core::any::type_name::<R>(),
         }
