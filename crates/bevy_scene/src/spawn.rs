@@ -1,6 +1,6 @@
 use crate::{
-    ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance,
-    SpawnSceneError,
+    RelationshipBehavior, ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch,
+    ScenePatchInstance, SpawnSceneError,
 };
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
@@ -456,8 +456,10 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// When a scene is resolved, it will replace and orphan the current entity's children.
     ///
-    /// To retain and extend existing children instead, insert [`RelationshipBehavior::Merge`] on
-    /// the entity before calling this method.
+    /// To retain and extend existing children instead, include [`RelationshipBehavior::Merge`] in
+    /// the scene, insert it on the entity, or use [`EntityWorldMutSceneExt::merge_scene`].
+    ///
+    /// If both the scene and entity specify a [`RelationshipBehavior`], the scene takes precedence.
     ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
@@ -479,6 +481,18 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     fn queue_apply_scene<S: Scene>(&mut self, scene: S);
+
+    /// Merges the given [`Scene`] into the current entity, retaining and extending existing related entities.
+    ///
+    /// This inserts [`RelationshipBehavior::Merge`] on the parent entity before calling [`EntityWorldMutSceneExt::apply_scene`].
+    ///
+    /// This approach is semantically awkward because the merge behavior sticks on the entity after
+    /// the scene is applied. A later [`EntityWorldMutSceneExt::apply_scene`] on the same entity will
+    /// keep merging unless the component is removed or overwritten. An alternative would be for
+    /// `apply_scene` to always insert [`RelationshipBehavior::Overwrite`] afterward, but that would
+    /// clobber any behavior intentionally left on the entity, which is equally awkward. Specifying
+    /// behavior on the scene itself avoids this stickiness.
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
 }
 
 impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
@@ -518,6 +532,11 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
         self.resource_mut::<QueuedScenes>()
             .new_scene_entities
             .push((id, handle));
+    }
+
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
+        self.insert(RelationshipBehavior::Merge);
+        self.apply_scene(scene)
     }
 }
 
@@ -582,6 +601,11 @@ pub trait EntityCommandsSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
+
+    /// Merges the given [`Scene`] into the current entity as soon as [`Commands`] are applied.
+    ///
+    /// See [`EntityWorldMutSceneExt::merge_scene`] for details on merge behavior and its caveats.
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
 }
 
 impl EntityCommandsSceneExt for EntityCommands<'_> {
@@ -602,6 +626,15 @@ impl EntityCommandsSceneExt for EntityCommands<'_> {
 
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| entity.queue_apply_scene(scene));
+        self
+    }
+
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| {
+            if let Err(err) = entity.merge_scene(scene) {
+                error!("{err}");
+            }
+        });
         self
     }
 }
@@ -894,6 +927,24 @@ mod tests {
     #[derive(Component)]
     struct PreExistingChild;
 
+    fn assert_merge_extends_children(world: &World, root: Entity, pre_existing: Entity) {
+        let children: Vec<Entity> = world
+            .entity(root)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+
+        assert_eq!(children.len(), 2);
+        assert!(children.contains(&pre_existing));
+        assert!(
+            children
+                .iter()
+                .filter(|entity| world.entity(**entity).contains::<SceneChild>())
+                .count()
+                == 1
+        );
+    }
+
     /// Tests that documented behavior of [`EntityWorldMutSceneExt::apply_scene`] is correct.
     #[test]
     fn apply_scene_replaces_and_orphans_children() {
@@ -929,17 +980,28 @@ mod tests {
     }
 
     #[test]
-    fn apply_scene_with_merge_extends_children() {
+    fn merge_scene_function_extends_children() {
         let mut app = test_app();
         let world = app.world_mut();
 
         let pre_existing = world.spawn(PreExistingChild).id();
         let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
 
-        assert_eq!(
-            world.entity(root).get::<Children>().map(Children::len),
-            Some(1)
-        );
+        let scene = bsn! {
+            Children [ #SceneChild SceneChild ]
+        };
+        world.entity_mut(root).merge_scene(scene).unwrap();
+
+        assert_merge_extends_children(world, root, pre_existing);
+    }
+
+    #[test]
+    fn apply_scene_with_merge_insert_extends_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let pre_existing = world.spawn(PreExistingChild).id();
+        let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
 
         let scene = bsn! {
             Children [ #SceneChild SceneChild ]
@@ -950,20 +1012,6 @@ mod tests {
             .apply_scene(scene)
             .unwrap();
 
-        let children: Vec<Entity> = world
-            .entity(root)
-            .get::<Children>()
-            .map(|c| c.iter().collect())
-            .unwrap_or_default();
-
-        assert_eq!(children.len(), 2);
-        assert!(children.contains(&pre_existing));
-        assert!(
-            children
-                .iter()
-                .filter(|entity| world.entity(**entity).contains::<SceneChild>())
-                .count()
-                == 1
-        );
+        assert_merge_extends_children(world, root, pre_existing);
     }
 }
