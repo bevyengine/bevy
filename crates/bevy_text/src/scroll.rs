@@ -43,7 +43,6 @@
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use bevy_utils::default;
 
 use crate::LineBreak;
 
@@ -277,6 +276,7 @@ fn min_scroll_axis(view_min: f32, view_max: f32, target_min: f32, target_max: f3
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_utils::default;
 
     const VARIABLE_LINE_BOUNDS: [TextLineYBounds; 5] = [
         TextLineYBounds::new(0.0, 10.0),
