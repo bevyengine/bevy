@@ -46,11 +46,6 @@ fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if depth == 0.0 { return; }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
-    // Performance improvement: Skip resampling for low-roughness metallic surfaces
-    if mix(1.0, surface.material.perceptual_roughness, surface.material.metallic) < SPECULAR_DOMINANCE_SKIP_RESAMPLING_THRESHOLD {
-        return;
-    }
-
     let initial_reservoir = reservoirs_b[pixel_index];
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
@@ -80,27 +75,13 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let NdotV = max(dot(surface.world_normal, wo), 0.0001);
     let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
 
-    var combined_reservoir: Reservoir;
-    var shade_brdf_radiance: vec3<f32>;
-    if mix(1.0, surface.material.perceptual_roughness, surface.material.metallic) < SPECULAR_DOMINANCE_SKIP_RESAMPLING_THRESHOLD {
-        // Performance improvement: Skip resampling for low-roughness metallic surfaces
-        combined_reservoir = input_reservoir;
-        var resolved: ResolvedLightSample;
-        if input_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-            resolved = resolve_light_sample(input_reservoir.light_sample, light_sources[input_reservoir.light_sample.light_id >> 16u]);
-        }
-        shade_brdf_radiance = reservoir_contribution(input_reservoir, resolved, surface.world_position, surface.world_normal, wo, surface.material, F_ab).brdf_radiance;
-    } else {
-        let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
-        let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material,
-            spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.material, view.world_position, true, &rng);
-        combined_reservoir = merge_result.merged_reservoir;
-        shade_brdf_radiance = merge_result.selected_sample_brdf_radiance;
-    }
+    let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
+    let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material,
+        spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.material, view.world_position, true, &rng);
 
-    reservoirs_a[pixel_index] = combined_reservoir;
+    reservoirs_a[pixel_index] = merge_result.merged_reservoir;
 
-    var pixel_color = shade_brdf_radiance * combined_reservoir.unbiased_contribution_weight;
+    var pixel_color = merge_result.selected_sample_brdf_radiance * merge_result.merged_reservoir.unbiased_contribution_weight;
     pixel_color += surface.material.emissive;
     pixel_color += textureLoad(view_output, global_id.xy).rgb;
     pixel_color *= view.exposure;
