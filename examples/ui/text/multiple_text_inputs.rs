@@ -8,27 +8,22 @@
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
 use bevy::input_focus::tab_navigation::NavAction;
-use bevy::input_focus::{tab_navigation::TabNavigation, AutoFocus, FocusCause};
 use bevy::input_focus::{
+    pointer_focus::PointerFocusPlugin,
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
 };
+use bevy::input_focus::{tab_navigation::TabNavigation, AutoFocus, FocusCause};
 use bevy::prelude::*;
-use bevy::text::{EditableText, TextCursorStyle};
+use bevy::text::{EditableText, TextCursorStyle, TextEditChange};
 
 fn main() {
     App::new()
         // `EditableTextInputPlugin` is part of `DefaultPlugins`
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin, PointerFocusPlugin))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                synchronize_output_text,
-                submit_text,
-                update_row_border_colors,
-            ),
-        )
+        .add_systems(Update, (submit_text, update_row_border_colors))
+        .add_observer(synchronize_output_text)
         .run();
 }
 
@@ -196,10 +191,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// This system keeps the text of the [`TextOutput`] [`Text`] nodes synchronized with the text
 /// of the [`EditableText`] node on the same row.
 fn synchronize_output_text(
-    changed_inputs: Query<(&EditableText, &TextInputRow), Changed<EditableText>>,
+    on: On<TextEditChange>,
+    inputs: Query<(&EditableText, &TextInputRow)>,
     mut outputs: Query<(&mut Text, &TextInputRow), With<TextOutput>>,
 ) {
-    for (editable_text, input_row) in &changed_inputs {
+    if let Ok((editable_text, input_row)) = &inputs.get(on.event_target()) {
         for (mut text, output_row) in &mut outputs {
             if output_row.0 == input_row.0 {
                 // `EditableText::value()` returns a `SplitString` because Parley may keep IME preedit text

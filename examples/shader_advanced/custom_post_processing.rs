@@ -229,6 +229,7 @@ fn init_post_process_pipeline(
 
 // This is the component that will get passed to the shader
 #[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
+#[extract_app(RenderApp)]
 struct PostProcessSettings {
     intensity: f32,
     // WebGL2 structs must be 16 byte aligned.
