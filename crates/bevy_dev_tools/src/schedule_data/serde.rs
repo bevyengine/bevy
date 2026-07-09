@@ -120,12 +120,12 @@ pub struct AccessData {
 
 impl AccessData {
     fn new(value: &bevy_ecs::query::Access, trace: &mut ComponentTrace) -> Self {
-        // NOTE: `try_reads_and_writes` returns error if `reads_inverted=true`,
+        // NOTE: `try_reads` returns error if `reads_inverted=true`,
         // thus `AccessData` always has `reads_inverted=false`
         // Similarly for `try_writes` and `writes_inverted=false`
         // We return empty vectors when inverted=true, however this should not be used by consumers.
 
-        let reads = value.try_reads_and_writes();
+        let reads = value.try_reads();
         let writes = value.try_writes();
 
         let (reads_inverted, reads) = match reads {
