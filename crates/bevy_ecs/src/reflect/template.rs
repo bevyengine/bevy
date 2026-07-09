@@ -53,68 +53,70 @@ mod tests {
     use std::ops::{Deref};
     use bevy_ecs::prelude::World;
     use bevy_ecs::template::TemplateContext;
-    use bevy_reflect::{Reflect, TypeInfo, TypeRegistry};
-    use bevy_reflect::structs::DynamicStruct;
+    use bevy_reflect::{Reflect, TypeRegistry};
+    use bevy_reflect::prelude::ReflectDefault;
     use crate::reflect::from_template::ReflectFromTemplate;
     use crate::reflect::template::ReflectTemplate;
-    use crate::reflect::PartialReflect;
     use crate::template::{FromTemplate, SceneEntityReferences, Template};
-
-    #[derive(Reflect, Default, Debug, Eq, PartialEq)]
-    struct MyStruct {
-        foo: i32
-    }
-
-    impl FromTemplate for MyStruct {
-        type Template = MyStructTemplate;
-    }
-
-    #[derive(Reflect, Default)]
-    struct MyStructTemplate {
-        foo: i32
-    }
-
-    impl Template for MyStructTemplate {
-        type Output = MyStruct;
-
-        fn build_template(&self, context: &mut TemplateContext) -> bevy_ecs::error::Result<Self::Output> {
-            Ok(MyStruct {
-                foo: self.foo
-            })
-        }
-
-        fn clone_template(&self) -> Self {
-            Self {
-                foo: self.foo.clone()
-            }
-        }
-    }
 
     #[test]
     fn build_template() {
+        #[derive(Reflect, Default, Debug, Eq, PartialEq)]
+        #[reflect(Default, FromTemplate)]
+        struct MyStruct {
+            foo: i32
+        }
+
+        impl FromTemplate for MyStruct {
+            type Template = MyStructTemplate;
+        }
+
+        #[derive(Reflect, Default)]
+        #[reflect(Default, Template)]
+        struct MyStructTemplate {
+            foo: i32
+        }
+
+        impl Template for MyStructTemplate {
+            type Output = MyStruct;
+
+            fn build_template(&self, _context: &mut TemplateContext) -> bevy_ecs::error::Result<Self::Output> {
+                Ok(MyStruct {
+                    foo: self.foo
+                })
+            }
+
+            fn clone_template(&self) -> Self {
+                Self {
+                    foo: self.foo.clone()
+                }
+            }
+        }
+
         let mut world = World::new();
 
         let mut registry = TypeRegistry::empty();
-        registry.register::<MyStruct>();
-        registry.register_type_data::<MyStruct, ReflectFromTemplate>();
-        registry.register::<MyStructTemplate>();
-        registry.register_type_data::<MyStructTemplate, ReflectTemplate>();
+        #[cfg(feature = "reflect_auto_register")]
+        registry.register_derived_types();
+        #[cfg(not(feature = "reflect_auto_register"))]
+        {
+            registry.register::<MyStruct>();
+            registry.register_type_data::<MyStruct, ReflectFromTemplate>();
+            registry.register::<MyStructTemplate>();
+            registry.register_type_data::<MyStructTemplate, ReflectTemplate>();
+            registry.register_type_data::<MyStructTemplate, ReflectDefault>();
+        }
 
         let my_struct_registration = registry.get(TypeId::of::<MyStruct>()).unwrap();
         let reflect_from_template = my_struct_registration.data::<ReflectFromTemplate>().unwrap();
-        let reflect_template = reflect_from_template.get_template(&registry).unwrap();
 
-        let my_struct_template_registration = registry.get(TypeId::of::<MyStructTemplate>()).unwrap();
-        let type_info = my_struct_template_registration.type_info();
-        let TypeInfo::Struct(info) = type_info else {
-            panic!("TypeInfo should be Struct");
-        };
-        let foo = info.field("foo").expect("Should have foo field");
-        let mut template = DynamicStruct::default();
-        template.insert("foo", 0);
-        template.set_represented_type(Some(type_info));
+        let my_struct_template_registration = reflect_from_template.get_template(&registry).unwrap();
+        let reflect_template = my_struct_template_registration.data::<ReflectTemplate>().unwrap();
+        let reflect_default = my_struct_template_registration.data::<ReflectDefault>().unwrap();
 
-        let mut entity = world.spawn(());
+        let template = reflect_default.default();
+
+        let mut entity = world.spawn_empty();
         let mut scene_entity_references = SceneEntityReferences::default();
         let mut template_context = TemplateContext::new(
             &mut entity,
@@ -122,7 +124,7 @@ mod tests {
         );
         let my_struct_reflect = reflect_template.build(
             &mut template_context,
-            &template as &dyn PartialReflect,
+            template.as_partial_reflect(),
             &registry
         ).expect("Should be able to build Template");
         let my_struct = my_struct_reflect.downcast::<MyStruct>().expect("Should be MyStruct");

@@ -1,6 +1,5 @@
 ﻿use core::any::TypeId;
-use bevy_reflect::{CreateTypeData, Reflect, TypeRegistry};
-use crate::reflect::template::ReflectTemplate;
+use bevy_reflect::{CreateTypeData, Reflect, TypeRegistration, TypeRegistry};
 use crate::template::FromTemplate;
 
 #[derive(Clone)]
@@ -8,7 +7,7 @@ pub struct ReflectFromTemplate(ReflectFromTemplateFns);
 
 #[derive(Clone)]
 pub struct ReflectFromTemplateFns {
-    pub get_template: fn(&TypeRegistry) -> Option<&ReflectTemplate>
+    pub get_template: fn(&TypeRegistry) -> Option<&TypeRegistration>
 }
 
 impl ReflectFromTemplateFns {
@@ -18,7 +17,7 @@ impl ReflectFromTemplateFns {
 }
 
 impl ReflectFromTemplate {
-    pub fn get_template<'a>(&self, registry: &'a TypeRegistry) -> Option<&'a ReflectTemplate> {
+    pub fn get_template<'a>(&self, registry: &'a TypeRegistry) -> Option<&'a TypeRegistration> {
         (self.0.get_template)(registry)
     }
 
@@ -37,11 +36,7 @@ impl<B: Reflect + FromTemplate> CreateTypeData<B> for ReflectFromTemplate {
             get_template: |registry: &TypeRegistry| {
                 let registration = registry.get(TypeId::of::<B::Template>());
 
-                let Some(registration) = registration else {
-                    return None
-                };
-
-                registration.data::<ReflectTemplate>()
+                registration
             },
         })
     }
