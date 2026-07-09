@@ -1,3 +1,5 @@
+use std::mem;
+
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
@@ -9,6 +11,7 @@ use bevy_render::{
     },
     mesh::{allocator::MeshSlabId, MeshMetadata, MeshMetadataFallbackBuffer},
     render_resource::binding_types::{storage_buffer_read_only, uniform_buffer_sized},
+    sync_world::MainEntityHashSet,
     RenderStartup,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -102,7 +105,7 @@ impl Plugin for Mesh2dRenderPlugin {
                     ),
                 )
                 .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
-                .add_systems(ExtractSchedule, extract_mesh2d)
+                .add_systems(ExtractSchedule, extract_2d_meshes)
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     Render,
@@ -217,7 +220,7 @@ fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<Asse
     );
     // Forget the handle so we don't have to store it anywhere, and we keep the embedded asset
     // loaded. Note: This is what happens in `load_shader_library` internally.
-    core::mem::forget(handle);
+    mem::forget(handle);
 }
 
 #[derive(Component)]
@@ -288,54 +291,148 @@ pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 #[derive(Component, Default)]
 pub struct Mesh2dMarker;
 
-pub fn extract_mesh2d(
+type Mesh2dExtractionQuery = (
+    Entity,
+    Read<ViewVisibility>,
+    Read<GlobalTransform>,
+    Read<Mesh2d>,
+    Option<Read<MeshTag>>,
+    Has<NoAutomaticBatching>,
+);
+
+/// A render-world system that finds all 2D meshes in the main world that have
+/// been added, changed, or removed since the last frame and updates
+/// [`RenderMesh2dInstances`] accordingly.
+pub fn extract_2d_meshes(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances>,
     render_material_bindings: Res<RenderMaterialBindings>,
-    query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            &Mesh2d,
-            Option<&MeshTag>,
-            Has<NoAutomaticBatching>,
-        )>,
+    changed_meshes_query: Extract<
+        Query<
+            Mesh2dExtractionQuery,
+            Or<(
+                Changed<ViewVisibility>,
+                Changed<GlobalTransform>,
+                Changed<Mesh2d>,
+                Changed<MeshTag>,
+                Changed<NoAutomaticBatching>,
+            )>,
+        >,
     >,
+    all_meshes_query: Query<Mesh2dExtractionQuery>,
+    mut removed_mesh2d_components: Extract<RemovedComponents<Mesh2d>>,
+    mut removed_no_automatic_batching_components: Extract<RemovedComponents<NoAutomaticBatching>>,
+    mut reextract_entities: Local<MainEntityHashSet>,
+    mut reextract_entities_temp: Local<MainEntityHashSet>,
 ) {
-    render_mesh_instances.clear();
+    mem::swap(&mut *reextract_entities, &mut *reextract_entities_temp);
 
-    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in &query {
-        if !view_visibility.get() {
-            continue;
-        }
-        let main_entity = entity.into();
+    // First, process meshes that we recorded as potentially needing to be
+    // reextracted on the previous frame frame.
 
-        // Look up the material index. If we couldn't fetch the material index,
-        // then the material hasn't been prepared yet, perhaps because it hasn't
-        // yet loaded.
-        let Some(mesh_material) = render_material_instances.get(&main_entity) else {
-            continue;
-        };
-        let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+    for reextract_entity in reextract_entities_temp.drain().chain(
+        removed_no_automatic_batching_components
+            .read()
+            .map(MainEntity::from),
+    ) {
+        let Ok((_, view_visibility, transform, handle, tag, no_automatic_batching)) =
+            all_meshes_query.get(reextract_entity.entity())
         else {
             continue;
         };
 
-        render_mesh_instances.insert(
-            main_entity,
-            RenderMesh2dInstance {
-                transforms: Mesh2dTransforms {
-                    world_from_local: transform.affine().into(),
-                    flags: MeshFlags::empty().bits(),
-                },
-                material_bindings_index: mesh_material_binding_id,
-                mesh_asset_id: handle.0.id(),
-                automatic_batching: !no_automatic_batching,
-                tag: tag.map_or(0, |i| **i),
-            },
+        extract_2d_mesh(
+            reextract_entity,
+            view_visibility,
+            transform,
+            handle,
+            tag,
+            no_automatic_batching,
+            &mut render_mesh_instances,
+            &render_material_instances,
+            &render_material_bindings,
+            &mut reextract_entities,
         );
     }
+
+    // Next, process meshes that changed.
+    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in
+        &changed_meshes_query
+    {
+        extract_2d_mesh(
+            entity.into(),
+            view_visibility,
+            transform,
+            handle,
+            tag,
+            no_automatic_batching,
+            &mut render_mesh_instances,
+            &render_material_instances,
+            &render_material_bindings,
+            &mut reextract_entities,
+        );
+    }
+
+    // Now remove meshes corresponding to entities that lost their `Mesh2d`
+    // components.
+    // Only queue a mesh for removal if we didn't pick it up above.
+    // It's possible that the `Mesh2d` component was removed and re-added in the
+    // same frame.
+    for entity in removed_mesh2d_components.read() {
+        let main_entity = MainEntity::from(entity);
+        if !changed_meshes_query.contains(*main_entity)
+            && !reextract_entities.contains(&main_entity)
+        {
+            render_mesh_instances.remove(&main_entity);
+        }
+    }
+}
+
+fn extract_2d_mesh(
+    main_entity: MainEntity,
+    view_visibility: &ViewVisibility,
+    transform: &GlobalTransform,
+    handle: &Mesh2d,
+    tag: Option<&MeshTag>,
+    no_automatic_batching: bool,
+    render_mesh_instances: &mut RenderMesh2dInstances,
+    render_material_instances: &RenderMaterial2dInstances,
+    render_material_bindings: &RenderMaterialBindings,
+    reextract_entities: &mut MainEntityHashSet,
+) {
+    // If the mesh is invisible, we don't extract it. Remove it from the render
+    // world too, if it's there.
+    if !view_visibility.get() {
+        render_mesh_instances.remove(&main_entity);
+        return;
+    }
+
+    // Look up the material index. If we couldn't fetch the material index,
+    // then the material hasn't been prepared yet, perhaps because it hasn't
+    // yet loaded.
+    let Some(mesh_material) = render_material_instances.get(&main_entity) else {
+        reextract_entities.insert(main_entity);
+        return;
+    };
+    let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+    else {
+        reextract_entities.insert(main_entity);
+        return;
+    };
+
+    render_mesh_instances.insert(
+        main_entity,
+        RenderMesh2dInstance {
+            transforms: Mesh2dTransforms {
+                world_from_local: transform.affine().into(),
+                flags: MeshFlags::empty().bits(),
+            },
+            material_bindings_index: mesh_material_binding_id,
+            mesh_asset_id: handle.0.id(),
+            automatic_batching: !no_automatic_batching,
+            tag: tag.map_or(0, |i| **i),
+        },
+    );
 }
 
 #[derive(Resource, Clone)]

@@ -339,7 +339,10 @@ where
             .add_plugins(ErasedRenderAssetPlugin::<MeshMaterial2d<M>>::default())
             .add_systems(
                 PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEventSystems),
+                (
+                    mark_2d_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
+                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
+                ),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -1402,4 +1405,28 @@ where
     add_shader(Material2dFragmentShader.intern(), M::fragment_shader());
 
     shaders
+}
+
+/// A system that ensures that [`super::mesh::extract_2d_meshes`] re-extracts
+/// meshes whose materials changed.
+///
+/// As [`super::mesh::extract_2d_meshes`] only considers meshes that were newly
+/// extracted, and it writes information from the [`RenderMaterial2dInstances`]
+/// into the [`RenderMesh2dInstances`] resource, we must tell
+/// [`super::mesh::extract_2d_meshes`] to re-extract a mesh if its material
+/// changed. Otherwise, the material binding information in the
+/// [`RenderMesh2dInstances`] might not be updated properly.  The easiest way to
+/// ensure that [`super::mesh::extract_2d_meshes`] re-extracts a mesh is to mark
+/// its [`Mesh2d`] as changed, so that's what this system does.
+fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
+    mut changed_meshes_query: Query<
+        &mut Mesh2d,
+        Or<(Changed<MeshMaterial2d<M>>, AssetChanged<MeshMaterial2d<M>>)>,
+    >,
+) where
+    M: Material2d,
+{
+    changed_meshes_query.par_iter_mut().for_each(|mut mesh| {
+        mesh.set_changed();
+    });
 }

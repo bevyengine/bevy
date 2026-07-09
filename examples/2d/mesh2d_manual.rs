@@ -47,8 +47,9 @@ use bevy::{
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
-        extract_mesh2d, init_mesh_2d_pipeline, Mesh2dBindGroup, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, Mesh2dUniform, MeshFlags, RenderMesh2dInstance, SetMesh2dViewBindGroup,
+        extract_2d_meshes, init_mesh_2d_pipeline, Mesh2dBindGroup, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, Mesh2dUniform, MeshFlags, RenderMesh2dInstance,
+        SetMesh2dViewBindGroup,
     },
 };
 use indexmap::IndexMap;
@@ -343,7 +344,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_colored_mesh2d.after(extract_mesh2d),
+                    extract_colored_mesh2d.after(extract_2d_meshes),
                     extract_colored_mesh2d_camera_phases,
                 ),
             )
