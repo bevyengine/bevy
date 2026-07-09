@@ -75,7 +75,7 @@ impl TextViewport {
 
     /// Scroll by a displacement
     pub fn scroll_by(&mut self, displacement: Vec2, max: Vec2) {
-        self.offset = self.offset + displacement;
+        self.offset += displacement;
         self.clamp_inside(max);
     }
 
