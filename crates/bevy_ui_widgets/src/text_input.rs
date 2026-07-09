@@ -823,8 +823,8 @@ mod tests {
 
         // expect autoscroll will have queued a scroll right edit
         assert!(matches!(
-            app.world().entity(entity).get::<EditableText>().unwrap().pending_edits.iter().next().unwrap(),
-            TextEdit::ScrollBy(delta) if 0. < delta.x
+            app.world().entity(entity).get::<EditableText>().unwrap().pending_edits.first(),
+            Some(TextEdit::ScrollBy(delta)) if 0. < delta.x
         ));
     }
 
