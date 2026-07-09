@@ -979,6 +979,7 @@ mod tests {
         assert!(!children.contains(&pre_existing));
     }
 
+    /// Tests that the [`EntityWorldMutSceneExt::merge_scene`] function extends children.
     #[test]
     fn merge_scene_function_extends_children() {
         let mut app = test_app();
@@ -995,6 +996,7 @@ mod tests {
         assert_merge_extends_children(world, root, pre_existing);
     }
 
+    /// Tests that documented behavior of [`EntityWorldMutSceneExt::apply_scene`] is correct when using [`RelationshipBehavior::Merge`].
     #[test]
     fn apply_scene_with_merge_insert_extends_children() {
         let mut app = test_app();
