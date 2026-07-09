@@ -35,9 +35,6 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// A condition that returns true every other time it's called.
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::schedule::ScheduleLabel;
-/// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-/// # struct Update;
 /// fn every_other_time() -> impl SystemCondition<()> {
 ///     IntoSystem::into_system(|mut flag: Local<bool>| {
 ///         *flag = !*flag;
@@ -47,15 +44,15 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// # let mut app = Schedules::default();
-/// app.add_systems(Update, my_system.run_if(every_other_time()));
+/// # let mut schedules = Schedules::default();
+/// schedules.add_systems(Update, my_system.run_if(every_other_time()));
 /// # let mut world = World::new();
-/// # let app = app.get_mut(Update).unwrap();
+/// # let schedule = schedules.get_mut(Update).unwrap();
 /// # world.insert_resource(DidRun(false));
-/// # app.run(&mut world);
+/// # schedule.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 /// # world.insert_resource(DidRun(false));
-/// # app.run(&mut world);
+/// # schedule.run(&mut world);
 /// # assert!(!world.resource::<DidRun>().0);
 /// ```
 ///
@@ -63,22 +60,19 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::schedule::ScheduleLabel;
-/// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-/// # struct Update;
 /// fn identity() -> impl SystemCondition<(), In<bool>> {
 ///     IntoSystem::into_system(|In(x): In<bool>| x)
 /// }
 ///
 /// # fn always_true() -> bool { true }
-/// # let mut app = Schedules::default();
+/// # let mut schedules = Schedules::default();
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// app.add_systems(Update, my_system.run_if(always_true.pipe(identity())));
+/// schedules.add_systems(Update, my_system.run_if(always_true.pipe(identity())));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
-/// # let app = app.get_mut(Update).unwrap();
-/// # app.run(&mut world);
+/// # let schedule = schedules.get_mut(Update).unwrap();
+/// # schedule.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait SystemCondition<Marker, In: SystemInput = ()>:
     IntoSystem<In, bool, Marker, System: ReadOnlySystem>
@@ -106,45 +100,39 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```should_panic
     /// use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     ///
     /// #[derive(Resource, PartialEq)]
     /// struct R(u32);
     ///
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # fn my_system() {}
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// ```
     ///
     /// Use `.and_then()` to avoid checking the condition.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # fn my_system() { unreachable!() }
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_equals` will only get run if the resource `R` exists.
     ///     my_system.run_if(resource_exists::<R>.and_then(resource_equals(R(0)))),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// ```
     ///
     /// Note that in this specific case, it's better to just use the run condition [`resource_exists_and_equals`].
@@ -181,14 +169,11 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
     /// # use std::sync::atomic::AtomicBool;
     /// # use std::sync::atomic::Ordering;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # fn my_system() { unreachable!() }
     /// # static CONDITION_A_RAN: AtomicBool = AtomicBool::new(false);
@@ -201,13 +186,13 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// #   CONDITION_B_RAN.store(true, Ordering::Relaxed);
     /// #   true
     /// # }
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // both conditions will execute, even though the first one returned false
     ///     my_system.run_if(returns_false.and_eager(returns_true)),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// # assert!(CONDITION_A_RAN.load(Ordering::Relaxed));
     /// # assert!(CONDITION_B_RAN.load(Ordering::Relaxed));
     /// ```
@@ -244,9 +229,6 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// #
     /// # #[derive(Resource, Debug, Clone, PartialEq, Eq, Hash)]
     /// # pub enum PlayerState {
@@ -272,10 +254,10 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// # #[derive(Resource)]
     /// # struct RanGameOver(bool);
     /// # fn game_over_credits(mut commands: Commands) { commands.insert_resource(RanGameOver(true)); }
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.insert_resource(PlayerState::Dead);
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // The game_over_credits system will only execute if either the `in_state(PlayerState::Alive)`
     ///     // run condition or `in_state(EnemyState::Alive)` run condition evaluates to `false`.
@@ -283,21 +265,21 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///         in_state(PlayerState::Alive).nand_then(in_state(EnemyState::Alive)),
     ///     ),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// # assert_eq!(IN_STATE_RUN_COUNT.load(Ordering::Relaxed), 1);
     /// # assert!(world.resource::<RanGameOver>().0);
     /// # IN_STATE_RUN_COUNT.store(0, Ordering::Relaxed);
     /// # world.insert_resource(RanGameOver(false));
     /// # world.insert_resource(PlayerState::Alive);
     /// # world.insert_resource(EnemyState::Dead);
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// # assert_eq!(IN_STATE_RUN_COUNT.load(Ordering::Relaxed), 2);
     /// # assert!(world.resource::<RanGameOver>().0);
     /// # IN_STATE_RUN_COUNT.store(0, Ordering::Relaxed);
     /// # world.insert_resource(RanGameOver(false));
     /// # world.insert_resource(EnemyState::Alive);
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// # assert_eq!(IN_STATE_RUN_COUNT.load(Ordering::Relaxed), 2);
     /// # assert!(!world.resource::<RanGameOver>().0);
     /// ```
@@ -306,9 +288,6 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Debug, Clone, PartialEq, Eq, Hash)]
     /// # pub enum PlayerState {
     /// #     Alive,
@@ -323,18 +302,18 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// #   move |current_state| state == *current_state
     /// # }
     /// # fn game_over_credits() { unreachable!() }
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.insert_resource(PlayerState::Alive);
     /// # world.insert_resource(EnemyState::Alive);
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     game_over_credits.run_if(
     ///         not(in_state(PlayerState::Alive).and_then(in_state(EnemyState::Alive))),
     ///     ),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// ```
     fn nand_then<M, C: SystemCondition<M, In>>(
         self,
@@ -401,10 +380,10 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     NotFertilized,
     /// }
     ///
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # fn slow_plant_growth() {}
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // The slow_plant_growth system will only execute if both the `in_state(WeatherState::Sunny)`
     ///     // run condition and `in_state(SoilState::Fertilized)` run condition evaluate to `false`.
@@ -412,13 +391,14 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///         in_state(WeatherState::Sunny).nor_else(in_state(SoilState::Fertilized)),
     ///     ),
     /// );
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// ```
     ///
     /// Equivalent logic can be achieved by using `not` in concert with `or`:
     ///
     /// ```compile_fail
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     slow_plant_growth.run_if(
     ///         not(in_state(WeatherState::Sunny).or_else(in_state(SoilState::Fertilized))),
@@ -477,9 +457,6 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     ///
     /// #[derive(Resource, PartialEq)]
     /// struct A(u32);
@@ -487,29 +464,29 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     /// #[derive(Resource, PartialEq)]
     /// struct B(u32);
     ///
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // Only run the system if either `A` or else `B` exist.
     ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
     /// );
     /// #
-    /// # let app = app.get_mut(Update).unwrap();
+    /// # let schedule = schedules.get_mut(Update).unwrap();
     /// # world.insert_resource(C(false));
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// # assert!(!world.resource::<C>().0);
     /// #
     /// # world.insert_resource(A(0));
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// #
     /// # world.remove_resource::<A>();
     /// # world.insert_resource(B(0));
     /// # world.insert_resource(C(false));
-    /// # app.run(&mut world);
+    /// # schedule.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
     fn or_else<M, C: SystemCondition<M, In>>(self, else_run: C) -> OrElse<Self::System, C::System> {
@@ -561,10 +538,10 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     Inactive,
     /// }
     ///
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # fn take_drink_orders() {}
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // The take_drink_orders system will only execute if the `in_state(CoffeeMachineState::Inactive)`
     ///     // run condition and `in_state(TeaKettleState::Inactive)` run conditions both evaluate to `false`,
@@ -573,14 +550,14 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///         in_state(CoffeeMachineState::Inactive).xnor(in_state(TeaKettleState::Inactive))
     ///     ),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// ```
     ///
     /// Equivalent logic can be achieved by using `not` in concert with `xor`:
     ///
     /// ```compile_fail
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     take_drink_orders.run_if(
     ///         not(in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive)))
@@ -619,10 +596,10 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///     Inactive,
     /// }
     ///
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # fn prepare_beverage() {}
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // The prepare_beverage system will only execute if either the `in_state(CoffeeMachineState::Inactive)`
     ///     // run condition or `in_state(TeaKettleState::Inactive)` run condition evaluates to `true`,
@@ -631,8 +608,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///         in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive))
     ///     ),
     /// );
-    /// # let app = app.get_mut(Update).unwrap();
-    /// # app.run(&mut world);
+    /// # let schedule = schedules.get_mut(Update).unwrap();
+    /// # schedule.run(&mut world);
     /// ```
     fn xor<M, C: SystemCondition<M, In>>(self, other: C) -> Xor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
@@ -668,15 +645,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `run_once` will only return true the first time it's evaluated
     ///     my_system.run_if(run_once),
@@ -686,14 +660,14 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // This is the first time the condition will be evaluated so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // This is the seconds time the condition will be evaluated so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn run_once(mut has_run: Local<bool>) -> bool {
@@ -715,14 +689,11 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_exists` will only return true if the given resource exists in the world
     ///     my_system.run_if(resource_exists::<Counter>),
@@ -732,14 +703,14 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` hasn't been added so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// world.init_resource::<Counter>();
     ///
     /// // `Counter` has now been added so `my_system` can run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_exists<T>(res: Option<Res<T>>) -> bool
@@ -760,15 +731,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_equals` will only return true if the given resource equals the given value
     ///     my_system.run_if(resource_equals(Counter(0))),
@@ -778,14 +746,14 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` is `0` so `my_system` can run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // `Counter` is no longer `0` so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_equals<T>(value: T) -> impl FnMut(Res<T>) -> bool
@@ -804,14 +772,11 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_exists_and_equals` will only return true
     ///     // if the given resource exists and equals the given value
@@ -822,18 +787,18 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` hasn't been added so `my_system` can't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// world.init_resource::<Counter>();
     ///
     /// // `Counter` is `0` so `my_system` can run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // `Counter` is no longer `0` so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_exists_and_equals<T>(value: T) -> impl FnMut(Option<Res<T>>) -> bool
@@ -855,16 +820,13 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, PartialEq)]
     /// # struct Counter(i16);
     /// # #[derive(Resource)]
     /// # struct ShouldRun(String);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_exists_and` will only return true
     ///     // if the given resource exists and satisfies the given condition
@@ -877,21 +839,21 @@ pub mod common_conditions {
     ///
     /// world.insert_resource(Counter(0));
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `ShouldRun` hasn't been added, so `increment` can't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// world.insert_resource(ShouldRun(String::from("bevy")));
     ///
     /// // `ShouldRun` exists and satisfies the run conditions, so `increment` can run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// world.get_resource_mut::<ShouldRun>().unwrap().0 = String::from("bevy ❤");
     ///
     /// // `ShouldRun` exists but has non-ASCII characters and thus
     /// // does not satisfy the run conditions, so `increment` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_exists_and<T>(
@@ -913,14 +875,11 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_added` will only return true if the
     ///     // given resource was just added
@@ -933,14 +892,14 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<Counter>();
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` was just added so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // `Counter` was not just added so `my_system` will not run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_added<T>(res: Option<Res<T>>) -> bool
@@ -968,15 +927,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_changed` will only return true if the
     ///     // given resource was just changed (or added)
@@ -993,16 +949,16 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` hasn't been changed so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Counter>().0 = 50;
     ///
     /// // `Counter` was just changed so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
     pub fn resource_changed<T>(res: Res<T>) -> bool
@@ -1025,14 +981,11 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_exists_and_changed` will only return true if the
     ///     // given resource exists and was just changed (or added)
@@ -1049,20 +1002,20 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` doesn't exist so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// world.init_resource::<Counter>();
     ///
     /// // `Counter` hasn't been changed so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Counter>().0 = 50;
     ///
     /// // `Counter` was just changed so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
     pub fn resource_exists_and_changed<T>(res: Option<Res<T>>) -> bool
@@ -1088,15 +1041,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
@@ -1121,22 +1071,22 @@ pub mod common_conditions {
     ///     }
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `Counter` hasn't been changed so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Counter>().0 = 50;
     ///
     /// // `Counter` was just changed so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     ///
     /// world.remove_resource::<Counter>();
     ///
     /// // `Counter` was just removed so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.contains_resource::<MyResource>(), true);
     /// ```
     pub fn resource_changed_or_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
@@ -1161,15 +1111,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `resource_removed` will only return true if the
     ///     // given resource was just removed
@@ -1185,16 +1132,16 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<MyResource>();
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `MyResource` hasn't just been removed so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.remove_resource::<MyResource>();
     ///
     /// // `MyResource` was just removed so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn resource_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
@@ -1221,18 +1168,15 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Messages<MyMessage>>();
-    /// # app.add_systems(Update, bevy_ecs::message::message_update_system.before(my_system));
+    /// # schedules.add_systems(Update, bevy_ecs::message::message_update_system.before(my_system));
     ///
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     my_system.run_if(on_message::<MyMessage>),
     /// );
@@ -1244,16 +1188,16 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // No new `MyMessage` messages have been pushed so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Messages<MyMessage>>().write(MyMessage);
     ///
     /// // A `MyMessage` message has been pushed so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn on_message<M: Message>(mut reader: MessageReader<M>) -> bool {
@@ -1277,15 +1221,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     my_system.run_if(any_with_component::<MyComponent>),
     /// );
@@ -1297,16 +1238,16 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // No entities exist yet with a `MyComponent` component so `my_system` won't run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.spawn(MyComponent);
     ///
     /// // An entities with `MyComponent` now exists so `my_system` will run
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn any_with_component<T: Component>(query: Query<(), With<T>>) -> bool {
@@ -1342,15 +1283,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     // `not` will inverse any condition you pass in.
     ///     // Since the condition we choose always returns true
@@ -1358,7 +1296,7 @@ pub mod common_conditions {
     ///     my_system.run_if(not(always)),
     /// );
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
@@ -1368,7 +1306,7 @@ pub mod common_conditions {
     ///     true
     /// }
     ///
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
     pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
@@ -1389,15 +1327,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
     /// );
@@ -1409,20 +1344,20 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `MyResource` is initially there, the inner condition is true, the system runs once
     /// world.insert_resource(MyResource);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
     /// world.remove_resource::<MyResource>();
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
     pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl SystemCondition<(), CIn>
@@ -1446,15 +1381,12 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// # #[derive(Debug, Clone, Hash, PartialEq, Eq, ScheduleLabel)]
-    /// # struct Update;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedules::default();
+    /// # let mut schedules = Schedules::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
+    /// schedules.add_systems(
     ///     Update,
     ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
     /// );
@@ -1466,25 +1398,25 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// let app = app.get_mut(Update).unwrap();
+    /// let schedule = schedules.get_mut(Update).unwrap();
     ///
     /// // `MyResource` is initially there, the inner condition is true, the system runs once
     /// world.insert_resource(MyResource);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
     /// world.remove_resource::<MyResource>();
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// // We reinsert `MyResource` again, so the system will run one more time
     /// world.insert_resource(MyResource);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
-    /// app.run(&mut world);
+    /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
     pub fn condition_changed_to<Marker, CIn, C>(
