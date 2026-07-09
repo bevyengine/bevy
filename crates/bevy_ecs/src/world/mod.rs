@@ -2356,6 +2356,14 @@ impl World {
         unsafe { untyped.with_type() }
     }
 
+    /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    #[inline]
+    #[track_caller]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let component_id = self.component_id::<R>()?;
+        self.resource_entities().get(component_id)
+    }
+
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
@@ -4668,5 +4676,20 @@ mod tests {
             world.change_tick(),
             world.resource_ref::<R>().last_changed()
         );
+    }
+
+    #[test]
+    fn world_resource_entity() {
+        #[derive(Resource)]
+        struct R1;
+
+        #[derive(Resource)]
+        struct R2;
+
+        let mut world = World::new();
+        world.insert_resource(R1);
+
+        assert!(world.resource_entity::<R1>().is_some());
+        assert!(world.resource_entity::<R2>().is_none());
     }
 }
