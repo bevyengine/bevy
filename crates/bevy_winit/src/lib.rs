@@ -103,6 +103,21 @@ impl Plugin for WinitPlugin {
             event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 
+        #[cfg(target_os = "macos")]
+        {
+            use bevy_ecs::system::SystemState;
+            use winit::platform::macos::EventLoopBuilderExtMacOS;
+
+            // Don't request app activation on startup if all its windows should
+            // start unfocused. Otherwise, app activation would focus one of the
+            // windows.
+            let mut initial_windows_state =
+                SystemState::<Query<(Entity, &Window)>>::new(app.world_mut());
+            let initial_windows = initial_windows_state.get(app.world()).unwrap();
+            let initially_focused = initial_windows.iter().any(|(_, window)| window.focused);
+            event_loop_builder.with_activate_ignoring_other_apps(initially_focused);
+        }
+
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::EventLoopBuilderExtWindows;

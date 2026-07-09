@@ -291,27 +291,23 @@ impl Measure for ImageMeasure {
         );
 
         if measure_args.style.box_sizing == taffy::style::BoxSizing::BorderBox {
-            if measure_args.known_width.is_none() {
-                width.min = width.min.map(|min| (min - content_inset.x).max(0.));
-                width.preferred = width
-                    .preferred
-                    .map(|preferred| (preferred - content_inset.x).max(0.));
-                width.max = width.max.map(|max| (max - content_inset.x).max(0.));
-                width.effective = width
-                    .effective
-                    .map(|effective| (effective - content_inset.x).max(0.));
-            }
+            width.min = width.min.map(|min| (min - content_inset.x).max(0.));
+            width.preferred = width
+                .preferred
+                .map(|preferred| (preferred - content_inset.x).max(0.));
+            width.max = width.max.map(|max| (max - content_inset.x).max(0.));
+            width.effective = width
+                .effective
+                .map(|effective| (effective - content_inset.x).max(0.));
 
-            if measure_args.known_height.is_none() {
-                height.min = height.min.map(|min| (min - content_inset.y).max(0.));
-                height.preferred = height
-                    .preferred
-                    .map(|preferred| (preferred - content_inset.y).max(0.));
-                height.max = height.max.map(|max| (max - content_inset.y).max(0.));
-                height.effective = height
-                    .effective
-                    .map(|effective| (effective - content_inset.y).max(0.));
-            }
+            height.min = height.min.map(|min| (min - content_inset.y).max(0.));
+            height.preferred = height
+                .preferred
+                .map(|preferred| (preferred - content_inset.y).max(0.));
+            height.max = height.max.map(|max| (max - content_inset.y).max(0.));
+            height.effective = height
+                .effective
+                .map(|effective| (effective - content_inset.y).max(0.));
         }
 
         let inset = match self.visual_box {
