@@ -28,18 +28,20 @@ use syn::{parse_macro_input, DeriveInput};
 ///             @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
 ///             normal_field: 5      // while normal fields are the actual fields of the component
 ///         },
-///         Node {
-///             width: some_var      // variables can be assigned to field values
-///         },
-///         ComponentB({some_variable + 3.}),  // values can be expressions, when wrapped in {}
-///         @Container {
-///             @items: {
-///                 bsn_list![                // sometimes you may need to nest macro calls
-///                     #Item1 SomeComponent, // note: the name #Item1 here is in its own scope
-///                     some_scene() #Item2
-///                 ]
+///         (
+///             Node {
+///                 width: some_var      // variables can be assigned to field values
 ///             }
-///         }
+///             ComponentB({some_variable + 3.})  // values can be expressions, when wrapped in {}
+///             @Container {
+///                 @items: {
+///                     bsn_list![                // sometimes you may need to nest macro calls
+///                         #Item1 SomeComponent, // note: the name #Item1 here is in its own scope
+///                         some_scene() #Item2
+///                     ]
+///                 }
+///             }
+///         ),
 ///     ]
 /// }
 /// ```
