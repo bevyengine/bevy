@@ -1623,14 +1623,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn non_send_drop_from_different_thread() {
+        struct MustNotDrop;
+        impl Drop for MustNotDrop {
+            fn drop(&mut self) {
+                panic!("Must not be dropped");
+            }
+        }
+
         let mut world = World::default();
-        world.insert_non_send(NonSendA::default());
+        world.insert_non_send(MustNotDrop);
 
         let thread = std::thread::spawn(move || {
-            // Dropping the non-send resource on a different thread
-            // Should result in a panic
+            // Dropping the world in another thread must
+            // not access the non-send resource to drop it.
             drop(world);
         });
 
