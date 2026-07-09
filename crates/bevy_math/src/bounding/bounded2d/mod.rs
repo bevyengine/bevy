@@ -493,7 +493,7 @@ pub struct BoundingCircle {
 impl BoundingCircle {
     /// Constructs a bounding circle from its center and radius.
     #[inline]
-    pub fn new(center: Vec2, radius: f32) -> Self {
+    pub const fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
         Self {
             center,
@@ -525,7 +525,7 @@ impl BoundingCircle {
 
     /// Get the radius of the bounding circle
     #[inline]
-    pub fn radius(&self) -> f32 {
+    pub const fn radius(&self) -> f32 {
         self.circle.radius
     }
 

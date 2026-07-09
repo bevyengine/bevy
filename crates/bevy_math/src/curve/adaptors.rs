@@ -55,7 +55,7 @@ where
 {
     /// Create a constant curve, which has the given `domain` and always produces the given `value`
     /// when sampled.
-    pub fn new(domain: Interval, value: T) -> Self {
+    pub const fn new(domain: Interval, value: T) -> Self {
         Self { domain, value }
     }
 }

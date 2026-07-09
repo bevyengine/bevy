@@ -6,6 +6,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, TextureFormat},
+    RenderApp,
 };
 use bevy_shader::ShaderRef;
 use derive_more::derive::From;
@@ -177,6 +178,7 @@ where
 )]
 #[reflect(Component, Default)]
 #[require(Node)]
+#[extract_app(RenderApp)]
 pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
 
 impl<M: UiMaterial> Default for MaterialNode<M> {
