@@ -5617,3 +5617,14 @@ name = "Light Probe Blending"
 description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "shader_material_2d_bindless"
+path = "examples/shader/shader_material_2d_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_2d_bindless]
+name = "Material - 2D Bindless"
+description = "Demonstrates bindless materials in 2D"
+category = "Shaders"
+wasm = false

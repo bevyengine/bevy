@@ -8,18 +8,19 @@
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
 use bevy::input_focus::tab_navigation::NavAction;
-use bevy::input_focus::{tab_navigation::TabNavigation, AutoFocus, FocusCause};
 use bevy::input_focus::{
+    pointer_focus::PointerFocusPlugin,
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
 };
+use bevy::input_focus::{tab_navigation::TabNavigation, AutoFocus, FocusCause};
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle, TextEditChange};
 
 fn main() {
     App::new()
         // `EditableTextInputPlugin` is part of `DefaultPlugins`
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin, PointerFocusPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (submit_text, update_row_border_colors))
         .add_observer(synchronize_output_text)

@@ -482,3 +482,119 @@ impl Plugin for MenuPlugin {
             .add_observer(menubutton_on_activate);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::resource::Resource;
+    use bevy_input::InputPlugin;
+    use bevy_input_focus::{tab_navigation::TabIndex, InputFocusPlugin};
+    use bevy_window::{PrimaryWindow, Window};
+
+    /// Counts `MenuEvent`s with `CloseAll`, so tests can assert the menu asked to close.
+    #[derive(Resource, Default)]
+    struct CloseAllCount(usize);
+
+    fn count_close_all(event: On<MenuEvent>, mut count: ResMut<CloseAllCount>) {
+        // `MenuEvent` bubbles up the `ChildOf` chain, so this observer runs once per ancestor. Count
+        // only the original target hop to get one increment per triggered event.
+        if matches!(event.action, MenuAction::CloseAll)
+            && event.event_target() == event.original_event_target()
+        {
+            count.0 += 1;
+        }
+    }
+
+    fn menu_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputFocusPlugin, MenuPlugin));
+        app.init_resource::<CloseAllCount>();
+        app.add_observer(count_close_all);
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        app.update();
+        (app, window)
+    }
+
+    /// Spawns an open popup (state `Open`) with a single focusable menu item, and focuses that item —
+    /// the steady state of a menu that is open and holding focus.
+    fn spawn_open_menu(app: &mut App, window: Entity) -> (Entity, Entity) {
+        let popup = app
+            .world_mut()
+            .spawn((MenuPopup::default(), MenuFocusState::Open, ChildOf(window)))
+            .id();
+        let item = app
+            .world_mut()
+            .spawn((MenuItem, TabIndex(0), ChildOf(popup)))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(item, FocusCause::Navigated);
+        app.update();
+        (popup, item)
+    }
+
+    /// While a menu item holds focus, the menu stays open.
+    #[test]
+    fn menu_stays_open_while_item_focused() {
+        let (mut app, window) = menu_app();
+        let (popup, _item) = spawn_open_menu(&mut app, window);
+
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(popup).get::<MenuFocusState>().unwrap(),
+            MenuFocusState::Open,
+            "menu must remain open while one of its items holds focus"
+        );
+        assert_eq!(app.world().resource::<CloseAllCount>().0, 0);
+    }
+
+    /// When focus leaves the popup subtree (e.g. clicking the trigger or outside), the menu
+    /// transitions to `Closed` and requests `CloseAll` — exactly once, no reopen flicker.
+    #[test]
+    fn menu_closes_when_focus_leaves() {
+        let (mut app, window) = menu_app();
+        let (popup, _item) = spawn_open_menu(&mut app, window);
+
+        // Move focus outside the popup (as clicking the trigger button / empty space would).
+        let outside = app.world_mut().spawn((TabIndex(0), ChildOf(window))).id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(outside, FocusCause::Navigated);
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(popup).get::<MenuFocusState>().unwrap(),
+            MenuFocusState::Closed,
+            "menu must close once focus leaves its subtree"
+        );
+        assert_eq!(
+            app.world().resource::<CloseAllCount>().0,
+            1,
+            "closing must fire exactly one CloseAll (no open/close/reopen flicker)"
+        );
+
+        // A subsequent frame must not fire another CloseAll now that the menu is Closed.
+        app.update();
+        assert_eq!(app.world().resource::<CloseAllCount>().0, 1);
+    }
+
+    /// When focus is cleared entirely (`None`), the menu also closes.
+    #[test]
+    fn menu_closes_when_focus_cleared() {
+        let (mut app, window) = menu_app();
+        let (popup, _item) = spawn_open_menu(&mut app, window);
+
+        app.world_mut().resource_mut::<InputFocus>().clear();
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(popup).get::<MenuFocusState>().unwrap(),
+            MenuFocusState::Closed,
+        );
+        assert_eq!(app.world().resource::<CloseAllCount>().0, 1);
+    }
+}
