@@ -29,43 +29,45 @@ use crate::App;
 /// Most plugins shouldn't be picky, all they require is the _presence_ of a
 /// resource or other plugin. But some might have tighter, runtime-known constraints.
 ///
-/// Approval functions are expected to, mostly, return true. They're also expected to not
-/// store any internal state or use global state: They should be pure functions.
+/// Approval functions are expected to, mostly, return true.
 pub struct Approval<T: ?Sized, Ctx = ()> {
     approval_fn: Box<dyn Fn(&T, &Ctx) -> bool>,
 }
 
 impl<T> Approval<T, ()> {
+    /// Creates a new approval function which does not care about context.
     pub(crate) fn new(approval: impl Fn(&T) -> bool + 'static) -> Self {
         Self {
             approval_fn: Box::new(move |input, _ctx| approval(input)),
         }
     }
-
+    /// "Asks" if the input is good enough.
     pub(crate) fn approves(&self, input: &T) -> bool {
         (self.approval_fn)(input, &())
     }
 }
 
 impl<T, Ctx> Approval<T, Ctx> {
+    /// Creates a new approval function that does care about context.
     pub(crate) fn new_with_context(approval: impl Fn(&T, &Ctx) -> bool + 'static) -> Self {
         Self {
             approval_fn: Box::new(approval),
         }
     }
 
+    /// "Asks" if the input and context is good enough
     pub(crate) fn approves_with_context(&self, input: &T, ctx: &Ctx) -> bool {
         (self.approval_fn)(input, ctx)
     }
 }
 
-/// A type erased [`Resource`], implemented using a [`WideErased`]. This is
+/// A type erased [`Resource`], implemented using a [`MetadataPtr`]. This is
 /// necessary due to [`Resource`] not being dyn compatible.
-pub struct ErasedResource(WideErased);
+pub struct ErasedResource(MetadataPtr);
 
 /// Fully type erased pointer that owns the data, knows the layout, knows the
 /// [`TypeId`], and holds onto a copy of the drop implementation.
-struct WideErased {
+struct MetadataPtr {
     layout: Layout,
     ptr: NonNull<()>,
     drop_fn: Box<dyn Fn(NonNull<()>, Layout)>,
@@ -73,7 +75,7 @@ struct WideErased {
 }
 
 #[allow(unsafe_code)]
-impl WideErased {
+impl MetadataPtr {
     pub fn new<T: Sized + 'static>(data: T) -> Option<Self> {
         let layout = Layout::for_value(&data);
         // SAFETY: Initialization happens in the next unsafe block, there's no
@@ -83,7 +85,7 @@ impl WideErased {
         // SAFETY: This uses a Layout derived from T
         unsafe { ptr.write(data) };
 
-        Some(WideErased {
+        Some(MetadataPtr {
             layout,
             ptr: ptr.cast(),
             drop_fn: Box::new(|ptr, layout| {
@@ -133,7 +135,7 @@ impl WideErased {
     }
 }
 
-impl Drop for WideErased {
+impl Drop for MetadataPtr {
     fn drop(&mut self) {
         (self.drop_fn)(self.ptr, self.layout);
     }
@@ -142,13 +144,13 @@ impl Drop for WideErased {
 /// Data structure to get around the fact that Resource is not dyn compatible.
 pub struct StagedResource {
     /// The type-erased resource.
-    erased_resource: ErasedResource,
+    pub(crate) erased_resource: ErasedResource,
     /// Function that un-erases the resource and adds it to a given world.
-    unerase_and_insert: Box<dyn Fn(&mut World, ErasedResource)>,
+    pub(crate) unerase_and_insert: Box<dyn Fn(&mut World, ErasedResource)>,
     /// Function that un-erases the resource and check if it meets the plugin's requirements.
-    approval_from_plugin: Approval<ErasedResource>,
+    pub(crate) approval_from_plugin: Approval<ErasedResource>,
     /// If the staged resource is a default, we care about it less than any given
-    is_default: bool,
+    pub(crate) is_default: bool,
 }
 
 impl StagedResource {
@@ -158,7 +160,7 @@ impl StagedResource {
         check_ok: impl Fn(&R) -> bool + 'static,
     ) -> Option<Self> {
         Some(StagedResource {
-            erased_resource: ErasedResource(WideErased::new(resource)?),
+            erased_resource: ErasedResource(MetadataPtr::new(resource)?),
             unerase_and_insert: Box::new(|world, erased| match erased.0.try_reverse_erase::<R>() {
                 Ok(resource) => world.insert_resource(resource),
                 Err(_) => {}
@@ -312,7 +314,7 @@ impl PluginOutput {
     }
 
     pub fn require_resource<R: Resource + Default>(&mut self) -> &mut Self {
-        self.require_resource_with_clash(|_: &R| true)
+        self.require_resource_with_approval(|_: &R| true)
     }
 
     pub fn require_exact_resource<R: Resource + Clone + PartialEq>(
@@ -320,14 +322,14 @@ impl PluginOutput {
         resource: R,
     ) -> &mut Self {
         let cloned = resource.clone();
-        self.require_resource_with_value_and_clash(resource, move |resource: &R| {
+        self.require_resource_with_value_and_approval(resource, move |resource: &R| {
             *resource == cloned
         })
     }
 
-    pub fn require_resource_with_clash<R: Resource + Default>(
+    pub fn require_resource_with_approval<R: Resource + Default>(
         &mut self,
-        clash: impl Fn(&R) -> bool + 'static,
+        approval: impl Fn(&R) -> bool + 'static,
     ) -> &mut Self {
         let Some(resource) = StagedResource::new(R::default(), true, |_| true) else {
             return self;
@@ -344,12 +346,12 @@ impl PluginOutput {
         self
     }
 
-    pub fn require_resource_with_value_and_clash<R: Resource>(
+    pub fn require_resource_with_value_and_approval<R: Resource>(
         &mut self,
         resource: R,
-        clash: impl Fn(&R) -> bool + 'static,
+        approval: impl Fn(&R) -> bool + 'static,
     ) -> &mut Self {
-        let Some(resource) = StagedResource::new(resource, false, clash) else {
+        let Some(resource) = StagedResource::new(resource, false, approval) else {
             return self;
         };
         self.resource_staging.push(resource);
