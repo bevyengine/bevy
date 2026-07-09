@@ -1,9 +1,5 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
-use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::prepare_atmosphere_buffers,
-    skin::skin_uniforms_from_world,
-};
+use crate::{resources::prepare_atmosphere_buffers, skin::skin_uniforms_from_world};
 use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
@@ -40,8 +36,13 @@ use bevy_mesh::{
     MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
-use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
+use bevy_render::batching::gpu_preprocessing::{
+    BufferDataInput, PreviousInstanceInputUniformBuffer,
+};
 use bevy_render::impl_atomic_pod;
+use bevy_render::material_bind_groups::{
+    MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
+};
 use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
@@ -51,7 +52,7 @@ use bevy_render::{
     batching::{
         gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
-            IndirectParametersCpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
+            IndirectParametersIndexed, IndirectParametersMetadata, IndirectParametersNonIndexed,
             InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
@@ -77,7 +78,6 @@ use core::iter;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
-use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
 #[cfg(feature = "trace")]
@@ -632,7 +632,21 @@ pub struct MeshInputUniform {
     pub pad3: u32,
 }
 
+/// Per-mesh-instance data that we retain from the previous frame.
+#[derive(ShaderType, Pod, Zeroable, Clone, Copy, Default, Debug)]
+#[repr(C)]
+pub struct PreviousMeshInputUniform {
+    /// The model transform, an affine 4×3 matrix transposed to 3×4.
+    pub world_from_local: [Vec4; 3],
+}
+
+impl BufferDataInput for MeshInputUniform {
+    type Previous = PreviousMeshInputUniform;
+}
+
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
+
+impl_atomic_pod!(PreviousMeshInputUniform, PreviousMeshInputUniformBlob);
 
 /// Information about each mesh instance needed to cull it on GPU.
 ///
@@ -1550,7 +1564,7 @@ impl RenderMeshInstanceGpuPrepared {
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &PreviousInstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &PreviousInstanceInputUniformBuffer<PreviousMeshInputUniform>,
     ) -> u32 {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
@@ -1564,11 +1578,14 @@ impl RenderMeshInstanceGpuPrepared {
                     .gpu_specific
                     .current_uniform_index();
 
-                // Save the old mesh input uniform. The mesh preprocessing
-                // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform =
-                    current_input_buffer.get_unchecked(current_uniform_index);
-                let previous_input_index = previous_input_buffer.push(previous_mesh_input_uniform);
+                // Save the old mesh transform. The mesh preprocessing shader
+                // will need it to compute motion vectors.
+                let previous_world_from_local = current_input_buffer
+                    .get_unchecked(current_uniform_index)
+                    .world_from_local;
+                let previous_input_index = previous_input_buffer.push(PreviousMeshInputUniform {
+                    world_from_local: previous_world_from_local,
+                });
                 self.mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
@@ -1658,7 +1675,6 @@ impl Default for MeshCullingDataBuffer {
     fn default() -> Self {
         Self(AtomicSparseBufferVec::new(
             BufferUsages::STORAGE,
-            8,
             Arc::from("mesh culling data buffer"),
         ))
     }
@@ -2606,10 +2622,13 @@ pub fn collect_meshes_for_gpu_building(
                                 let current_uniform_index =
                                     render_mesh_instance.gpu_specific.current_uniform_index();
 
-                                let previous_mesh_input_uniform =
-                                    current_input_buffer.get_unchecked(current_uniform_index);
+                                let previous_world_from_local = current_input_buffer
+                                    .get_unchecked(current_uniform_index)
+                                    .world_from_local;
                                 let previous_input_index =
-                                    previous_input_buffer.push(previous_mesh_input_uniform);
+                                    previous_input_buffer.push(PreviousMeshInputUniform {
+                                        world_from_local: previous_world_from_local,
+                                    });
                                 prepared.mesh_input_uniform.previous_input_index =
                                     previous_input_index;
 
@@ -2993,12 +3012,16 @@ impl GetFullBatchData for MeshPipeline {
         phase_indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     ) {
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 Some(batch_set_index) => u32::from(batch_set_index),
                 None => !0,
             },
+            // These fields are filled in by the GPU:
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -3748,7 +3771,7 @@ pub struct MeshPhaseBindGroups {
     skinned: HashMap<MeshSlabId, MeshBindGroupPair>,
     /// Bind groups for meshes with morph targets.
     morph_targets: MeshMorphTargetBindGroups,
-    lightmaps: HashMap<LightmapSlabIndex, BindGroup>,
+    lightmaps: HashMap<(MeshSlabId, LightmapSlabIndex), BindGroup>,
 }
 
 /// Stores bind groups for each mesh with morph targets.
@@ -3888,7 +3911,7 @@ impl MeshPhaseBindGroups {
                 .get(&metadata_slab_id)
                 .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
             (false, MeshMorphBindGroupKey::NoMorphTargets, Some(lightmap_slab)) => {
-                self.lightmaps.get(&lightmap_slab)
+                self.lightmaps.get(&(metadata_slab_id, lightmap_slab))
             }
             (false, MeshMorphBindGroupKey::NoMorphTargets, None) => {
                 self.model_only.get(&metadata_slab_id)
@@ -3943,8 +3966,9 @@ pub fn prepare_mesh_bind_groups(
     weights_uniform: Res<MorphUniforms>,
     mesh_allocator: Res<MeshAllocator>,
     render_morph_target_allocator: Res<RenderMorphTargetAllocator>,
-    mut render_lightmaps: ResMut<RenderLightmaps>,
+    render_lightmaps: Res<RenderLightmaps>,
     metadata_fallback_buffer: Res<MeshMetadataFallbackBuffer>,
+    mut mesh_bind_groups: Option<ResMut<MeshBindGroups>>,
 ) {
     // CPU mesh preprocessing path.
     if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
@@ -3952,8 +3976,23 @@ pub fn prepare_mesh_bind_groups(
             .into_inner()
             .instance_data_binding()
     {
+        // Reuse allocations
+        let mut cpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
+            None | Some(MeshBindGroups::GpuPreprocessing(_)) => {
+                MeshPhaseBindGroups::new(&render_device)
+            }
+            Some(MeshBindGroups::CpuPreprocessing(cpu_preprocessing_mesh_bind_groups)) => {
+                core::mem::replace(
+                    cpu_preprocessing_mesh_bind_groups,
+                    MeshPhaseBindGroups::new(&render_device),
+                )
+            }
+        };
+        cpu_preprocessing_mesh_bind_groups.reset();
+
         // In this path, we only have a single set of bind groups for all phases.
-        let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
+        prepare_mesh_bind_groups_for_phase(
+            &mut cpu_preprocessing_mesh_bind_groups,
             instance_data_binding,
             &meshes,
             &mesh_pipeline,
@@ -3963,7 +4002,7 @@ pub fn prepare_mesh_bind_groups(
             &weights_uniform,
             &mesh_allocator,
             &render_morph_target_allocator,
-            &mut render_lightmaps,
+            &render_lightmaps,
             &metadata_fallback_buffer,
         );
 
@@ -3975,7 +4014,13 @@ pub fn prepare_mesh_bind_groups(
 
     // GPU mesh preprocessing path.
     if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        let mut gpu_preprocessing_mesh_bind_groups = TypeIdMap::default();
+        // Reuse allocations
+        let mut gpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
+            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdMap::default(),
+            Some(MeshBindGroups::GpuPreprocessing(gpu_preprocessing_mesh_bind_groups)) => {
+                core::mem::take(gpu_preprocessing_mesh_bind_groups)
+            }
+        };
 
         // Loop over each phase.
         for (phase_type_id, batched_phase_instance_buffers) in
@@ -3986,8 +4031,13 @@ pub fn prepare_mesh_bind_groups(
             else {
                 continue;
             };
+            let groups = gpu_preprocessing_mesh_bind_groups
+                .entry(*phase_type_id)
+                .or_insert(MeshPhaseBindGroups::new(&render_device));
+            groups.reset();
 
-            let mesh_phase_bind_groups = prepare_mesh_bind_groups_for_phase(
+            prepare_mesh_bind_groups_for_phase(
+                groups,
                 instance_data_binding,
                 &meshes,
                 &mesh_pipeline,
@@ -3997,11 +4047,9 @@ pub fn prepare_mesh_bind_groups(
                 &weights_uniform,
                 &mesh_allocator,
                 &render_morph_target_allocator,
-                &mut render_lightmaps,
+                &render_lightmaps,
                 &metadata_fallback_buffer,
             );
-
-            gpu_preprocessing_mesh_bind_groups.insert(*phase_type_id, mesh_phase_bind_groups);
         }
 
         commands.insert_resource(MeshBindGroups::GpuPreprocessing(
@@ -4012,6 +4060,7 @@ pub fn prepare_mesh_bind_groups(
 
 /// Creates the per-mesh bind groups for each type of mesh, for a single phase.
 fn prepare_mesh_bind_groups_for_phase(
+    groups: &mut MeshPhaseBindGroups,
     model: BindingResource,
     meshes: &RenderAssets<RenderMesh>,
     mesh_pipeline: &MeshPipeline,
@@ -4021,12 +4070,10 @@ fn prepare_mesh_bind_groups_for_phase(
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
     render_morph_target_allocator: &RenderMorphTargetAllocator,
-    render_lightmaps: &mut RenderLightmaps,
+    render_lightmaps: &RenderLightmaps,
     metadata_fallback_buffer: &MeshMetadataFallbackBuffer,
-) -> MeshPhaseBindGroups {
+) {
     let layouts = &mesh_pipeline.mesh_layouts;
-    // TODO: Reuse allocations.
-    let mut groups = MeshPhaseBindGroups::new(render_device);
 
     for metadata_slab_id in mesh_allocator.metadata_slabs() {
         let metadata_buffer = mesh_allocator
@@ -4103,9 +4150,12 @@ fn prepare_mesh_bind_groups_for_phase(
 
         // Create lightmap bindgroups. There will be one bindgroup for each slab.
         let bindless_supported = render_lightmaps.bindless_supported;
-        for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
+        for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter().enumerate() {
             groups.lightmaps.insert(
-                LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+                (
+                    metadata_slab_id,
+                    LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+                ),
                 layouts.lightmapped(
                     render_device,
                     pipeline_cache,
@@ -4154,8 +4204,6 @@ fn prepare_mesh_bind_groups_for_phase(
             }
         }
     }
-
-    groups
 }
 
 /// Creates per-mesh morph target bind groups for a single phase.

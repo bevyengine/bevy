@@ -8,7 +8,7 @@
 // the position of the command in the indirect parameters buffer that will draw
 // that entity.
 
-#import bevy_pbr::mesh_preprocess_types::PreprocessWorkItem
+#import bevy_pbr::mesh_preprocess_types::{BinMetadata, PreprocessWorkItem}
 
 // Information needed to unpack bins belonging to a single batch set.
 struct BinUnpackingMetadata {
@@ -53,10 +53,16 @@ struct BinnedMeshInstance {
 // The output list of `PreprocessWorkItem`s.
 @group(0) @binding(2) var<storage, read_write> preprocess_work_items: array<PreprocessWorkItem>;
 
-// A mapping from each `bin_index` to the index of the GPU indirect parameters
-// for this bin, relative to the start of the indirect parameters for this batch
+// The bin metadata, which contains the index of the GPU indirect parameters for
+// this bin, relative to the start of the indirect parameters for this batch
 // set.
-@group(0) @binding(3) var<storage> bin_index_to_indirect_parameters_offset: array<u32>;
+//
+// This is indexed by the bin metadata index below.
+@group(0) @binding(3) var<storage> bin_metadata: array<BinMetadata>;
+
+// A mapping from the bin index to the metadata index within the `bin_metadata`
+// buffer.
+@group(0) @binding(4) var<storage> bin_index_to_bin_metadata_index: array<u32>;
 
 @compute
 @workgroup_size(64)
@@ -73,7 +79,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     // Look up the indirect parameters index for this bin, relative to the first
     // indirect parameters offset for this batch set.
-    let indirect_parameters_offset = bin_index_to_indirect_parameters_offset[bin_index];
+    let bin_metadata_index = bin_index_to_bin_metadata_index[bin_index];
+    let indirect_parameters_offset = bin_metadata[bin_metadata_index].indirect_parameters_offset;
 
     // Determine the location we should write the work item to.
     let output_index = bin_unpacking_metadata.base_output_work_item_index + global_id;

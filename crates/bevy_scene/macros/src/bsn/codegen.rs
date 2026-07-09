@@ -205,7 +205,7 @@ impl BsnEntry {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
-                        "value",
+                        "__value",
                         proc_macro2::Span::call_site(),
                     ))],
                     is_ref: true,
@@ -218,7 +218,7 @@ impl BsnEntry {
                     }
                 } else {
                     quote! {
-                        let value = _scene.get_or_insert_template::<#path>(_context);
+                        let __value = _scene.get_or_insert_template::<#path>(_context);
                         #(#assigns)*
                     }
                 })
@@ -227,7 +227,7 @@ impl BsnEntry {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
-                        "value",
+                        "__value",
                         proc_macro2::Span::call_site(),
                     ))],
                     is_ref: true,
@@ -240,7 +240,7 @@ impl BsnEntry {
                     }
                 } else {
                     quote! {
-                        let value = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                        let __value = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
                         #(#assigns)*
                     }
                 })
@@ -249,8 +249,8 @@ impl BsnEntry {
                 type_path,
                 const_ident,
             } => EntryResult::CombinedSceneFunction(quote! {
-                let value = _scene.get_or_insert_template::<#type_path>(_context);
-                *value = #type_path::#const_ident;
+                let __value = _scene.get_or_insert_template::<#type_path>(_context);
+                *__value = #type_path::#const_ident;
             }),
             BsnEntry::TemplateConstructor(BsnConstructor {
                 type_path,
@@ -259,8 +259,8 @@ impl BsnEntry {
             }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
                 quote! {
-                    let value = _scene.get_or_insert_template::<#type_path>(_context);
-                    *value = #type_path::#function #args;
+                    let __value = _scene.get_or_insert_template::<#type_path>(_context);
+                    *__value = #type_path::#function #args;
                 }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
@@ -270,8 +270,8 @@ impl BsnEntry {
             }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
                 quote! {
-                    let value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                    *value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
+                    let __value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                    *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
                 }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
@@ -310,8 +310,8 @@ impl BsnScene {
                 // which imposes constraints like requiring the type to impl FromTemplate, and requiring
                 // enums to have VariantDefault.
                 let mut assignments = Vec::new();
-                let props = format_ident!("props");
-                let props_ref = format_ident!("props_ref");
+                let props = format_ident!("__props");
+                let props_ref = format_ident!("__props_ref");
                 let target = PatchTarget {
                     path: &[Member::Named(props_ref.clone())],
                     is_ref: true,
@@ -320,7 +320,7 @@ impl BsnScene {
                 let mut assigns = Vec::new();
                 let target = PatchTarget {
                     path: &[Member::Named(Ident::new(
-                        "value",
+                        "__value",
                         proc_macro2::Span::call_site(),
                     ))],
                     is_ref: true,
@@ -329,7 +329,7 @@ impl BsnScene {
                 let path = &bsn_type.path;
                 let bevy_scene = ctx.bevy_scene;
                 let from_template_patch = quote! {
-                    <#path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
+                    <#path as #bevy_scene::PatchFromTemplate>::patch(move |__value, _context| {
                         #(#assigns)*
                     })
                 };
@@ -489,7 +489,7 @@ impl BsnType {
                         continue;
                     }
 
-                    if field.value.is_none() {
+                    if field.value.is_none() && !field.is_name_shorthand {
                         ctx.errors.push(syn::Error::new_spanned(
                             field_name,
                             format!("Field `{}` is missing a value.", field_name),
@@ -497,7 +497,7 @@ impl BsnType {
                     }
 
                     let path = if field.is_prop {
-                        &[Member::Named(format_ident!("props"))]
+                        &[Member::Named(format_ident!("__props"))]
                     } else {
                         target.path
                     };
@@ -508,6 +508,7 @@ impl BsnType {
                         path,
                         Member::Named(field_name.clone()),
                         field.value.as_ref(),
+                        field.is_name_shorthand,
                     )?;
                 }
             }
@@ -523,6 +524,7 @@ impl BsnType {
                         target.path,
                         Member::Unnamed(Index::from(i)),
                         Some(&field.value),
+                        false,
                     ) {
                         ctx.errors.push(err);
                     }
@@ -539,25 +541,31 @@ impl BsnType {
         base_path: &[Member],
         member: Member,
         value: Option<&BsnValue>,
+        is_name_shorthand: bool,
     ) -> syn::Result<()> {
         match value {
+            // NOTE: It is very important to still produce outputs for None field values. This is what
+            // enables field autocomplete in Rust Analyzer
+            None => {
+                if is_name_shorthand {
+                    assignments.push(quote! {
+                        #(#base_path.)*#member = #member.into();
+                    });
+                } else {
+                    assignments.push(quote! {
+                        #(#base_path.)*#member;
+                    });
+                }
+            }
             // Enables field autocomplete in Rust Analyzer
             Some(
-                BsnValue::Ident(_) | BsnValue::Expr(_) | BsnValue::Closure(_) | BsnValue::Tuple(_),
-            )
-            | None => {
-                // NOTE: It is very important to still produce outputs for None field values. This is what
-                // enables field autocomplete in Rust Analyzer
-                assignments.push(
-                    value
-                        .map(|v| {
-                            let ident = ctx.hoisted_expressions.hoist(v);
-                            quote! { #(#base_path.)*#member = #ident; }
-                        })
-                        .unwrap_or(quote! {
-                            #(#base_path.)*#member;
-                        }),
-                );
+                value @ (BsnValue::Ident(_)
+                | BsnValue::Expr(_)
+                | BsnValue::Closure(_)
+                | BsnValue::Tuple(_)),
+            ) => {
+                let ident = ctx.hoisted_expressions.hoist(value);
+                assignments.push(quote! { #(#base_path.)*#member = #ident; });
             }
             Some(BsnValue::Lit(_)) => {
                 // value is Some
@@ -572,8 +580,8 @@ impl BsnType {
                     #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id);
                 });
             }
-            Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
-                assignments.push(quote! {#(#base_path.)*#member = #ty;});
+            Some(value @ BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
+                assignments.push(quote! {#(#base_path.)*#member = #value;});
             }
             Some(BsnValue::Type(ty)) => {
                 let mut new_path = base_path.to_vec();
@@ -722,7 +730,7 @@ impl ToTokens for BsnValue {
                 let inner = t.0.iter();
                 quote! {(#(#inner),*)}.to_tokens(tokens);
             }
-            BsnValue::Type(ty) => ty.to_tokens(tokens),
+            BsnValue::Type(ty) => quote! {(#ty).into()}.to_tokens(tokens),
             BsnValue::Name(_) => {
                 // Name requires additional context to convert to tokens
                 unreachable!()
@@ -781,11 +789,13 @@ mod tests {
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!({}))),
                     is_prop: false,
+                    is_name_shorthand: false,
                 },
                 BsnNamedField {
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!({}))),
                     is_prop: false,
+                    is_name_shorthand: false,
                 },
             ]),
         };
@@ -820,6 +830,7 @@ mod tests {
             enum_variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
                 is_prop: false,
+                is_name_shorthand: false,
                 name: parse_quote!(child_field),
                 value: Some(BsnValue::Type(BsnType {
                     path: parse_quote!(Child),
@@ -829,11 +840,13 @@ mod tests {
                             name: parse_quote!(x),
                             value: Some(BsnValue::Expr(quote!({}))),
                             is_prop: false,
+                            is_name_shorthand: false,
                         },
                         BsnNamedField {
                             name: parse_quote!(x),
                             value: Some(BsnValue::Expr(quote!({}))),
                             is_prop: false,
+                            is_name_shorthand: false,
                         },
                     ]),
                 })),
@@ -871,6 +884,7 @@ mod tests {
             enum_variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
                 is_prop: false,
+                is_name_shorthand: false,
                 name: parse_quote!(x),
                 value: None,
             }]),
@@ -895,6 +909,47 @@ mod tests {
     }
 
     #[test]
+    fn enum_variant_field_values_use_implicit_into() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let mut assignments = Vec::new();
+        let font = BsnType {
+            path: parse_quote!(TextFont),
+            enum_variant: None,
+            fields: BsnFields::Named(vec![BsnNamedField {
+                is_prop: false,
+                is_name_shorthand: false,
+                name: parse_quote!(font_size),
+                value: Some(BsnValue::Type(BsnType {
+                    path: parse_quote!(TextSize),
+                    enum_variant: Some(parse_quote!(Large)),
+                    fields: BsnFields::Named(Vec::new()),
+                })),
+            }]),
+        };
+
+        let res = font.push_struct_patch(
+            &mut ctx,
+            &mut assignments,
+            false,
+            false,
+            PatchTarget {
+                path: &[Member::Named(parse_quote!(value))],
+                is_ref: false,
+            },
+        );
+
+        assert!(res.is_ok());
+        assert!(ctx.errors.is_empty());
+        assert_eq!(
+            assignments[0].to_string(),
+            "value . font_size = (TextSize :: Large { }) . into () ;"
+        );
+    }
+
+    #[test]
     fn enum_duplicate_field() {
         // Arrange
         let mut refs = EntityRefs::default();
@@ -908,11 +963,13 @@ mod tests {
             fields: BsnFields::Named(vec![
                 BsnNamedField {
                     is_prop: false,
+                    is_name_shorthand: false,
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!(1))),
                 },
                 BsnNamedField {
                     is_prop: false,
+                    is_name_shorthand: false,
                     name: parse_quote!(x),
                     value: Some(BsnValue::Expr(quote!(2))),
                 },

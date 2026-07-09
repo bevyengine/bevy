@@ -1,8 +1,9 @@
 //! Demonstrates multiple text inputs
 //!
-//! This example arranges three text inputs in a 3x3 grid layout.  The first column of each row is an [`EditableText`] text input node, the second column is a `Text` node
-//! that is kept synchronized with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
-//! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Enter`.
+//! This example arranges text inputs in a four-column grid layout. The first column shows the text justification, the second column is an
+//! [`EditableText`] text input node, the third column is a `Text` node that is kept synchronized with the [`EditableText`]'s contents by the
+//! [`synchronize_output_text`] system, and the fourth column is updated by the [`submit_text`] system when the user submits the
+//! [`EditableText`]'s text by pressing `Enter`.
 
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
@@ -13,21 +14,15 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, TextCursorStyle};
+use bevy::text::{EditableText, TextCursorStyle, TextEditChange};
 
 fn main() {
     App::new()
         // `EditableTextInputPlugin` is part of `DefaultPlugins`
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                synchronize_output_text,
-                submit_text,
-                update_row_border_colors,
-            ),
-        )
+        .add_systems(Update, (submit_text, update_row_border_colors))
+        .add_observer(synchronize_output_text)
         .run();
 }
 
@@ -57,8 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 display: Display::Grid,
                 justify_content: JustifyContent::Center,
                 align_content: AlignContent::Center,
-                grid_template_columns: RepeatedGridTrack::px(3, 320.),
-                grid_template_rows: RepeatedGridTrack::auto(6),
+                grid_template_columns: vec![GridTrack::px(160.), RepeatedGridTrack::px(3, 320.)],
                 row_gap: px(8.),
                 column_gap: px(8.),
                 ..default()
@@ -69,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn((
                 Text::new("Multiple Text Inputs Example"),
                 Node {
-                    grid_column: GridPlacement::span(3),
+                    grid_column: GridPlacement::span(4),
                     justify_self: JustifySelf::Center,
                     margin: px(16).bottom(),
                     ..default()
@@ -79,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
 
             let label_font = font.clone().with_font_size(14.);
-            for label in ["EditableText", "value", "submission"] {
+            for label in ["Justify", "EditableText", "value", "submission"] {
                 parent.spawn((
                     Text::new(label),
                     label_font.clone(),
@@ -91,7 +85,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ));
             }
 
-            for row in 0..3 {
+            for (row, justify) in [
+                Justify::Left,
+                Justify::Center,
+                Justify::Right,
+                Justify::Justified,
+                Justify::Start,
+                Justify::End,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                parent.spawn((
+                    Node {
+                        border: px(4).all(),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderColor::all(Color::WHITE),
+                    children![(Text::new(format!("{justify:?}")), font.clone(),)],
+                ));
+
                 let mut input = parent.spawn((
                     Node {
                         border: px(4.).all(),
@@ -103,7 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font.clone(),
                     BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
                     TextInputRow(row),
-                    TextLayout::no_wrap(),
+                    TextLayout::no_wrap().with_justify(justify),
                     TabIndex(row as i32),
                     BorderColor::all(SLATE_300),
                 ));
@@ -162,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn((
                 Text::new("Press Enter to submit"),
                 Node {
-                    grid_column: GridPlacement::span(3),
+                    grid_column: GridPlacement::span(4),
                     justify_self: JustifySelf::Center,
                     margin: px(16).top(),
                     ..default()
@@ -175,10 +190,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// This system keeps the text of the [`TextOutput`] [`Text`] nodes synchronized with the text
 /// of the [`EditableText`] node on the same row.
 fn synchronize_output_text(
-    changed_inputs: Query<(&EditableText, &TextInputRow), Changed<EditableText>>,
+    on: On<TextEditChange>,
+    inputs: Query<(&EditableText, &TextInputRow)>,
     mut outputs: Query<(&mut Text, &TextInputRow), With<TextOutput>>,
 ) {
-    for (editable_text, input_row) in &changed_inputs {
+    if let Ok((editable_text, input_row)) = &inputs.get(on.event_target()) {
         for (mut text, output_row) in &mut outputs {
             if output_row.0 == input_row.0 {
                 // `EditableText::value()` returns a `SplitString` because Parley may keep IME preedit text

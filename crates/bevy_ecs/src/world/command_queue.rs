@@ -32,13 +32,16 @@ struct CommandMeta {
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
 pub struct CommandQueue {
-    // This buffer densely stores all queued commands.
-    //
-    // For each command, one `CommandMeta` is stored, followed by zero or more bytes
-    // to store the command itself. To interpret these bytes, a pointer must
-    // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
+    /// This buffer densely stores all queued commands.
+    ///
+    /// For each command, one `CommandMeta` is stored, followed by zero or more bytes
+    /// to store the command itself. To interpret these bytes, a pointer must
+    /// be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
+    /// Index into `bytes` at which unapplied commands start.
     pub(crate) cursor: usize,
+    /// Commands that have not yet been applied because a previous command has panicked.
+    /// Only contains data during a panic.
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
     pub(crate) caller: MaybeLocation,
     /// Always emit a warning if a command is dropped before it is applied.
@@ -171,8 +174,8 @@ impl RawCommandQueue {
     /// Returns true if the queue is empty.
     ///
     /// # Safety
-    ///
-    /// * Caller ensures that `bytes` and `cursor` point to valid memory
+    /// - Caller ensures that `bytes` and `cursor` point to valid memory
+    /// - there is no other unsynchonized access to the same underlying queue
     pub unsafe fn is_empty(&self) -> bool {
         // SAFETY: Pointers are guaranteed to be valid by requirements on `.clone_unsafe`
         (unsafe { *self.cursor.as_ref() }) >= (unsafe { self.bytes.as_ref() }).len()
@@ -181,8 +184,8 @@ impl RawCommandQueue {
     /// Push a [`Command`] onto the queue.
     ///
     /// # Safety
-    ///
-    /// * Caller ensures that `self` has not outlived the underlying queue
+    /// - Caller ensures that `self` has not outlived the underlying queue
+    /// - there is no other unsynchonized access to the same underlying queue
     #[inline]
     pub unsafe fn push<C: Command<Out = ()>>(&mut self, command: C) {
         // Stores a command alongside its metadata.
@@ -198,6 +201,8 @@ impl RawCommandQueue {
             consume_command_and_get_size: |command, world, cursor| {
                 *cursor += size_of::<C>();
 
+                // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
+                // but also because applying the command may cause the command queue to reallocate.
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
@@ -253,20 +258,22 @@ impl RawCommandQueue {
     /// This clears the queue.
     ///
     /// # Safety
-    ///
-    /// * Caller ensures that `self` has not outlived the underlying queue
+    /// - `self` has not outlived the underlying queue
+    /// - there is no other unsynchonized access to the same underlying queue
     #[inline]
     pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
-        // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
-        // If this is not the command queue on world we have exclusive ownership and self will not be mutated
-        let start = *self.cursor.as_ref();
-        let stop = self.bytes.as_ref().len();
+        // SAFETY: Queue is life & there is no other unsynchronized access
+        let (start, stop) = unsafe { (self.cursor.read(), self.bytes.as_ref().len()) };
         let mut local_cursor = start;
         // SAFETY: we are setting the global cursor to the current length to prevent the executing commands from applying
         // the remaining commands currently in this list. This is safe.
-        *self.cursor.as_mut() = stop;
+        unsafe {
+            self.cursor.write(stop);
+        }
 
         while local_cursor < stop {
+            // We must re-read the pointer to the allocation before each command
+            // as the previous might have cause a reallocation.
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe {
@@ -304,27 +311,30 @@ impl RawCommandQueue {
                 let result = std::panic::catch_unwind(f);
 
                 if let Err(payload) = result {
-                    // local_cursor now points to the location _after_ the panicked command.
-                    // Add the remaining commands that _would have_ been applied to the
-                    // panic_recovery queue.
-                    //
-                    // This uses `current_stop` instead of `stop` to account for any commands
-                    // that were queued _during_ this panic.
-                    //
-                    // This is implemented in such a way that if apply_or_drop_queued() are nested recursively in,
-                    // an applied Command, the correct command order will be retained.
-                    let panic_recovery = self.panic_recovery.as_mut();
-                    let bytes = self.bytes.as_mut();
-                    let current_stop = bytes.len();
-                    panic_recovery.extend_from_slice(&bytes[local_cursor..current_stop]);
-                    bytes.set_len(start);
-                    *self.cursor.as_mut() = start;
+                    // SAFETY: Queue is life & there is no other unsynchronized access
+                    unsafe {
+                        // local_cursor now points to the location _after_ the panicked command.
+                        // Add the remaining commands that _would have_ been applied to the
+                        // panic_recovery queue.
+                        //
+                        // This uses `current_stop` instead of `stop` to account for any commands
+                        // that were queued _during_ this panic.
+                        //
+                        // This is implemented in such a way that if apply_or_drop_queued() are nested recursively in,
+                        // an applied Command, the correct command order will be retained.
+                        let panic_recovery = self.panic_recovery.as_mut();
+                        let bytes = self.bytes.as_mut();
+                        let current_stop = bytes.len();
+                        panic_recovery.extend_from_slice(&bytes[local_cursor..current_stop]);
+                        bytes.set_len(start);
+                        self.cursor.write(start);
 
-                    // This was the "top of the apply stack". If we are _not_ at the top of the apply stack,
-                    // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
-                    // until we reach the top.
-                    if start == 0 {
-                        bytes.append(panic_recovery);
+                        // This was the "top of the apply stack". If we are _not_ at the top of the apply stack,
+                        // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
+                        // until we reach the top.
+                        if start == 0 {
+                            bytes.append(panic_recovery);
+                        }
                     }
                     std::panic::resume_unwind(payload);
                 }

@@ -44,10 +44,10 @@ pub use rangefinder::*;
 use wgpu::{BufferUsages, Features};
 
 use crate::batching::gpu_preprocessing::{
-    GpuPreprocessingMode, GpuPreprocessingSupport, PhaseBatchedInstanceBuffers,
+    GpuBinMetadata, GpuPreprocessingMode, GpuPreprocessingSupport, PhaseBatchedInstanceBuffers,
     PhaseIndirectParametersBuffers,
 };
-use crate::render_resource::RawBufferVec;
+use crate::render_resource::{RawBufferVec, UninitBufferVec};
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::{ExtractedView, RetainedViewEntity};
@@ -78,7 +78,6 @@ use core::{
     hash::Hash,
     iter,
     marker::PhantomData,
-    mem,
     ops::{Range, RangeBounds},
 };
 use smallvec::SmallVec;
@@ -195,7 +194,7 @@ impl RenderMultidrawableBin {
     /// Creates a new, empty [`RenderMultidrawableBin`].
     fn new() -> RenderMultidrawableBin {
         RenderMultidrawableBin {
-            entity_to_binned_mesh_instance_index: HashMap::default(),
+            entity_to_binned_mesh_instance_index: MainEntityHashMap::default(),
         }
     }
 
@@ -207,16 +206,16 @@ impl RenderMultidrawableBin {
 
 /// The index of a mesh instance in the
 /// [`RenderMultidrawableBatchSetGpuBuffers::render_binned_mesh_instance_buffer`]
-/// and [`RenderMultidrawableBatchSet::render_binned_mesh_instances_cpu`]
-/// arrays.
-///
-/// These two arrays are parallel and always have the same length.
+/// array.
 ///
 /// These binned mesh instance indices aren't stable from frame to frame; they
 /// can change as entities are added and removed from bins. To reference a mesh
 /// instance in a stable manner, simply use [`MainEntity`].
 #[derive(Clone, Copy, Debug, Deref, DerefMut)]
 pub(crate) struct RenderBinnedMeshInstanceIndex(pub(crate) u32);
+
+#[derive(Clone, Copy, Debug, Deref, DerefMut)]
+pub(crate) struct RenderBinMetadataIndex(pub(crate) u32);
 
 /// The GPU buffers that go along with [`RenderMultidrawableBatchSet`].
 ///
@@ -230,31 +229,20 @@ pub struct RenderMultidrawableBatchSetGpuBuffers {
     /// (`RenderBinnedMeshInstanceIndex`) to its input uniform index
     /// ([`InputUniformIndex`]) and bin index (`RenderBinIndex`).
     pub render_binned_mesh_instance_buffer: RawBufferVec<GpuRenderBinnedMeshInstance>,
-    /// A mapping from each `RenderBinnedMeshInstanceIndex` to the offset of its
-    /// indirect draw parameters.
-    pub bin_index_to_indirect_parameters_offset_buffer: RawBufferVec<u32>,
-}
 
-/// Information about each binned mesh instance that the
-/// [`RenderMultidrawableBatchSet`] keeps on CPU.
-#[derive(Clone, Copy)]
-pub(crate) struct CpuRenderBinnedMeshInstance {
-    /// The entity associated with this mesh instance.
-    pub(crate) main_entity: MainEntity,
+    /// A mapping from each `RenderBinMetadataIndex` to the offset of its indirect draw
+    /// parameters.
+    pub bin_metadata_buffer: RawBufferVec<GpuBinMetadata>,
 
-    /// The index of the bin that the entity is in.
+    /// A mapping from each `RenderBinIndex` to the associated bin metadata
+    /// index.
     ///
-    /// Note that bin indices are stable from frame to frame.
-    bin_index: RenderBinIndex,
-}
+    /// This array isn't necessarily tightly packed (i.e. it can have holes).
+    pub bin_index_to_bin_metadata_index_buffer: RawBufferVec<u32>,
 
-impl Default for CpuRenderBinnedMeshInstance {
-    fn default() -> Self {
-        CpuRenderBinnedMeshInstance {
-            main_entity: MainEntity::from(Entity::PLACEHOLDER),
-            bin_index: RenderBinIndex::default(),
-        }
-    }
+    /// A temporary buffer used to store intermediate sums during the uniform
+    /// allocation phase.
+    pub fan_buffer: UninitBufferVec<u32>,
 }
 
 impl RenderMultidrawableBatchSetGpuBuffers {
@@ -262,26 +250,31 @@ impl RenderMultidrawableBatchSetGpuBuffers {
     fn new() -> RenderMultidrawableBatchSetGpuBuffers {
         let mut render_bin_entry_buffer = RawBufferVec::new(BufferUsages::STORAGE);
         render_bin_entry_buffer.set_label(Some("render bin entry buffer"));
-        let mut bin_index_to_indirect_parameters_offset_buffer =
-            RawBufferVec::new(BufferUsages::STORAGE);
-        bin_index_to_indirect_parameters_offset_buffer
-            .set_label(Some("bin index to indirect parameters offset buffer"));
+        let mut bin_metadata_buffer = RawBufferVec::new(BufferUsages::STORAGE);
+        bin_metadata_buffer.set_label(Some("bin metadata buffer"));
+        let mut bin_index_to_bin_metadata_index_buffer = RawBufferVec::new(BufferUsages::STORAGE);
+        bin_index_to_bin_metadata_index_buffer
+            .set_label(Some("bin-index-to-bin-metadata-index buffer"));
+        let mut fan_buffer = UninitBufferVec::new(BufferUsages::STORAGE);
+        fan_buffer.set_label(Some("fan buffer"));
 
         RenderMultidrawableBatchSetGpuBuffers {
             render_binned_mesh_instance_buffer: render_bin_entry_buffer,
-            bin_index_to_indirect_parameters_offset_buffer,
+            bin_metadata_buffer,
+            bin_index_to_bin_metadata_index_buffer,
+            fan_buffer,
         }
     }
 
-    /// Inserts an entity into the GPU buffers.
+    /// Inserts an entity into the GPU buffers and returns its index.
+    #[must_use]
     fn insert(
         &mut self,
         bin: &mut RenderMultidrawableBin,
-        cpu_binned_mesh_instance_buffer: &mut Vec<CpuRenderBinnedMeshInstance>,
         main_entity: MainEntity,
         input_uniform_index: InputUniformIndex,
         bin_index: RenderBinIndex,
-    ) {
+    ) -> RenderBinnedMeshInstanceIndex {
         // Creates a `GpuRenderBinnedMeshInstance`.
         let gpu_render_bin_entry = GpuRenderBinnedMeshInstance {
             input_uniform_index: input_uniform_index.0,
@@ -300,29 +293,24 @@ impl RenderMultidrawableBatchSetGpuBuffers {
                             .push(GpuRenderBinnedMeshInstance::default())
                             as u32,
                     );
-                    cpu_binned_mesh_instance_buffer.push(CpuRenderBinnedMeshInstance::default());
                     vacant_entry.insert(render_bin_buffer_index);
                     render_bin_buffer_index
                 }
             };
 
-        // Place the entry in the instance buffer at the proper spot. Also, save
-        // the entity and bin index in the CPU-side array.
+        // Place the entry in the instance buffer at the proper spot.
         self.render_binned_mesh_instance_buffer.values_mut()
             [render_binned_mesh_instance_buffer_index.0 as usize] = gpu_render_bin_entry;
-        cpu_binned_mesh_instance_buffer[render_binned_mesh_instance_buffer_index.0 as usize] =
-            CpuRenderBinnedMeshInstance {
-                main_entity,
-                bin_index,
-            };
 
-        // The GPU-side `render_binned_mesh_instance_buffer` and the CPU-side
-        // `cpu_binned_mesh_instance_buffer` are parallel arrays and must have
-        // the same length, so assert that in debug mode.
+        let bin_metadata_index =
+            self.bin_index_to_bin_metadata_index_buffer.values()[bin_index.0 as usize];
+        self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count += 1;
         debug_assert_eq!(
-            self.render_binned_mesh_instance_buffer.len(),
-            cpu_binned_mesh_instance_buffer.len()
+            self.bin_metadata_buffer.values()[bin_metadata_index as usize].instance_count as usize,
+            bin.entity_to_binned_mesh_instance_index.len()
         );
+
+        render_binned_mesh_instance_buffer_index
     }
 
     /// Removes an entity from a bin.
@@ -339,39 +327,48 @@ impl RenderMultidrawableBatchSetGpuBuffers {
     fn remove(
         &mut self,
         bin: &mut RenderMultidrawableBin,
-        cpu_binned_mesh_instance_buffer: &mut Vec<CpuRenderBinnedMeshInstance>,
+        bin_index: RenderBinIndex,
         entity_to_remove: MainEntity,
-    ) -> Option<(RenderBinnedMeshInstanceIndex, CpuRenderBinnedMeshInstance)> {
+    ) -> RenderMultidrawableBatchSetGpuInstanceRemovalResult {
         // Remove the entity from the `entity_to_binned_mesh_instance_index`
         // map.
-        let old_index = bin
+        let removed_instance_index = bin
             .entity_to_binned_mesh_instance_index
             .remove(&entity_to_remove)
             .expect("Entity not in bin");
 
-        // Remove the entity from the reverse
-        // `render_binned_mesh_instance_buffer` list, as well
-        // as the parallel `render_binned_mesh_instance_buffer`.  Because binned
-        // mesh instance indices must be contiguous, this requires use of
-        // `swap_remove`.
-        cpu_binned_mesh_instance_buffer.swap_remove(old_index.0 as usize);
-        self.render_binned_mesh_instance_buffer
-            .swap_remove(old_index.0 as usize);
-
-        // Both `render_binned_mesh_instance_buffer` and
-        // `cpu_binned_mesh_instance_buffer` must be parallel arrays, so assert
-        // that they have the same length.
+        let bin_metadata_index =
+            self.bin_index_to_bin_metadata_index_buffer.values()[bin_index.0 as usize];
+        self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count -= 1;
         debug_assert_eq!(
-            cpu_binned_mesh_instance_buffer.len(),
-            self.render_binned_mesh_instance_buffer.len()
+            self.bin_metadata_buffer.values()[bin_metadata_index as usize].instance_count as usize,
+            bin.entity_to_binned_mesh_instance_index.len()
         );
+
+        // Remove the entity from the `render_binned_mesh_instance_buffer` list.
+        // Because binned mesh instance indices must be contiguous, this
+        // requires use of `swap_remove`.
+        self.render_binned_mesh_instance_buffer
+            .swap_remove(removed_instance_index.0 as usize);
 
         // If an entity was displaced (i.e. has a new binned mesh instance index
         // now), then return that to the caller so that they can perform
         // whatever bookkeeping is necessary.
-        cpu_binned_mesh_instance_buffer
-            .get(old_index.0 as usize)
-            .map(|entity_indices| (old_index, *entity_indices))
+        RenderMultidrawableBatchSetGpuInstanceRemovalResult {
+            removed_instance_index,
+            displaced_instance: self
+                .render_binned_mesh_instance_buffer
+                .values()
+                .get(removed_instance_index.0 as usize)
+                .map(|displaced_instance| {
+                    (
+                        RenderBinnedMeshInstanceIndex(
+                            self.render_binned_mesh_instance_buffer.len() as u32,
+                        ),
+                        *displaced_instance,
+                    )
+                }),
+        }
     }
 }
 
@@ -383,6 +380,26 @@ impl RenderMultidrawableBatchSetGpuBuffers {
 #[repr(transparent)]
 pub(crate) struct RenderBinIndex(pub(crate) u32);
 
+/// Represents the changes to the [`RenderMultidrawableBatchSetGpuBuffers`] that
+/// occurred as a result of an instance removal operation
+/// ([`RenderMultidrawableBatchSetGpuBuffers::remove`]).
+///
+/// Because we use `swap_remove` to remove instances, removal of an instance
+/// from the middle of the buffer causes *displacement* of another instance to
+/// fill the gap. This structure contains information about the instance that
+/// was displaced in such cases so that the caller of `remove` can perform
+/// additional bookkeeping.
+struct RenderMultidrawableBatchSetGpuInstanceRemovalResult {
+    /// The index of the instance that was removed from the buffer.
+    removed_instance_index: RenderBinnedMeshInstanceIndex,
+    /// The former index of the instance that was displaced to fill the gap, as
+    /// well as the corresponding [`GpuRenderBinnedMeshInstance`].
+    displaced_instance: Option<(RenderBinnedMeshInstanceIndex, GpuRenderBinnedMeshInstance)>,
+}
+
+/// The number of threads per workgroup in the `allocate_uniforms` shader.
+pub const UNIFORM_ALLOCATION_WORKGROUP_SIZE: u32 = 256;
+
 /// A collection of mesh instances that can be drawn together, sorted into bins.
 ///
 /// This data structure stores a list of entity indices corresponding to mesh
@@ -393,50 +410,61 @@ pub(crate) struct RenderBinIndex(pub(crate) u32);
 /// of the data structure is as follows:
 ///
 /// ```text
-///         ┌─
-///         │                ─────┬──────────────┬─────
-///         │                     │ Mesh Inst. 2 │
-///         │  Binned Mesh    ... ├──────────────┤ ...
-///         │  Instances          │ Entity 8     │
-///         │                ─────┴───┬──────────┴─────
-///         │                         │
-///         │                         │   ┌───────────────────────────────┐
-///         │                         │   │                               │
-///         │                         ▼   ▼                               │
-///         │               ┌───────┬───────┬───────┬─────                │
-///         │  Bins         │ Bin 0 │ Bin 1 │ Bin 2 │ ...                 │
-///         │               └───────┴───┬───┴───────┴─────                │
-///         │                           │                                 │
-///     CPU │                           │                                 │
-///         │  Entity-to-               │  ┌──────────┬──────────┬─────   │
-///         │  Binned-Mesh-             └─►│ Entity 3 │ Entity 8 │ ...    │
-///         │  Instance-                   └──────────┴──────┬───┴─────   │
-///         │  Index                                         │            │
-///         │                                                │            │
-///         │                                                │            │
-///         │                                                │            │
-///         │                                                │            │
-///         │  Indirect-     ┌───────┬───────┬───────┬─────  │            │
-///         │  Parameters-   │ IPO 0 │ IPO 1 │ IPO 2 │ ...   │            │
-///         │  Offset-to-    └───────┴───────┴───────┴─────  │            │
-///         │  Bin-Index                         ▲           │            │
-///         │                                    │           │            │
-///         └─                                   │           │            │
-///                                      ┌───────┘           │            │
-///         ┌─                           │                   │            │
-///         │                            │                   │            │
-///         │  Bin-to-                   ▼                   │            │
-///         │  Indirect-     ┌───────┬───────┬───────┬─────  │            │
-///         │  Parameters-   │ Bin 0 │ Bin 1 │ Bin 2 │ ...   │            │
-///         │  Offset        └───────┴───────┴───────┴─────  │            │
-///     GPU │  Buffer                                        │            │
-///         │                                                │            │
-///         │                                                ▼            │
-///         │  Binned Mesh   ─────┬──────────────┬──────────────┬─────    │
-///         │  Instance       ... │ Mesh Inst. 1 │ Mesh Inst. 2 │ ...     │
-///         │  Buffer        ─────┴──────────────┴───────────┬──┴─────    │
-///         │                                                │            │
-///         └─                                               └────────────┘
+///           Bin Key to
+///           Bin Index
+///
+///          │    ...    │
+///          ├───────────┤
+///          │ Bin Key A │                                        Bins
+///          ├───────────┤                                      ┌────────────┐
+///          │ Bin Key B ├───┬─────────────────────────────────►│ Bin 1      │◄──────────────────┐
+///          ├───────────┤   │                                  └─┬──────────┤                   │
+///          │ Bin Key C │   │                                    │ Entity 3 │                   │
+///          ├───────────┤   │        Mesh Instance               ├──────────┤                   │
+///          │    ...    │   │        to Entity          ┌───────►│ Entity 7 ├────────┐          │
+///                          │                           │        ├──────────┤        │          │
+///                          │       │   ...    │        │        │ Entity 9 │        │          │
+///                          │       ├──────────┤        │      ┌─┴──────────┤        │          │
+///                          │       │ Entity 4 │        │      │ Bin 2      │        │          │
+///                          │       ├──────────┤        │      └─┬──────────┤        │          │
+///                          │       │ Entity 7 │◄───────┘        │   ...    │        │          │
+///                          │       ├──────────┤                                     │          │
+///                          │       │ Entity 1 │                                     │          │
+///                          │       ├──────────┤                                     │          │
+///                          │       │ Entity 3 │                                     │          │
+///                          │       ├──────────┤                                     │          │
+///                          │       │   ...    │                                     │          │
+///   CPU ▲                  │                                                        │          │
+/// ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄│┄
+///   GPU ▼                  │                                                        │          │
+///                          │                                     Binned Mesh        │          │
+///                          │                                     Instances          │          │
+///                          │                                                        │          │
+///                          │                                  │      ...        │   │          │
+///                          │                                ┌─┴─────────────────┤   │          │
+///                          │                                │ Mesh Instance 4   │◄──┘          │
+///                          │                                └─┬─────────────────┤              │
+///                          │                                  │ Input Uniform 5 │              │
+///                          │                                  ├─────────────────┤              │
+///                          │                                  │ Bin 1           ├──────────────┤
+///                          │                                ┌─┴─────────────────┤              │
+///                          │            Bin Index to Bin    │        ...        │              │
+///                          │            Metadata Index                                         │
+///                          │                                                                   │
+///                          │           │     ...      │                                        │
+///                          │           ├──────────────┤           Bin Metadata                 │
+///                          │           │ Bin Metadata │                                        │
+///                          │           │ Index 2      │         │          ...           │     │
+///                          │           ├──────────────┤       ┌─┴────────────────────────┤     │
+///                          └──────────►│ Bin Metadata ├──────►│ Bin 1                    ├─────┘
+///                                      │ Index 9      │       └─┬────────────────────────┤
+///                                      ├──────────────┤         │ Indirect Params Offset │
+///                                      │ Bin Metadata │         ├────────────────────────┤
+///                                      │ Index 4      │         │ Instance Count         │
+///                                      ├──────────────┤       ┌─┴────────────────────────┤
+///                                      │     ...      │       │ Bin 12                   │
+///                                                             └─┬────────────────────────┤
+///                                                               │          ...           │
 /// ```
 pub struct RenderMultidrawableBatchSet<BPI>
 where
@@ -454,9 +482,7 @@ where
     /// This list isn't tightly packed.
     bins: Vec<Option<RenderMultidrawableBin>>,
 
-    /// A list of unused [`RenderBinIndex`]es waiting to be reused.
-    ///
-    /// Each [`RenderBinIndex`] in this list corresponds to an empty bin.
+    /// A list of free `RenderBinIndex` values.
     bin_free_list: Vec<RenderBinIndex>,
 
     /// A mapping from the indirect parameters offset to the index of each bin.
@@ -466,8 +492,12 @@ where
     /// set.
     indirect_parameters_offset_to_bin_index: Vec<RenderBinIndex>,
 
-    /// Information about each binned mesh instance kept on CPU.
-    pub(crate) render_binned_mesh_instances_cpu: Vec<CpuRenderBinnedMeshInstance>,
+    /// A reverse mapping from the `RenderBinnedMeshInstanceIndex` back to the
+    /// associated [`MainEntity`].
+    binned_mesh_instance_index_to_entity: Vec<MainEntity>,
+
+    /// The total number of mesh instances in the batch.
+    pub(crate) instance_count: u32,
 }
 
 impl<BPI> RenderMultidrawableBatchSet<BPI>
@@ -483,7 +513,8 @@ where
             bins: vec![],
             bin_free_list: vec![],
             indirect_parameters_offset_to_bin_index: vec![],
-            render_binned_mesh_instances_cpu: vec![],
+            binned_mesh_instance_index_to_entity: vec![],
+            instance_count: 0,
         }
     }
 
@@ -535,19 +566,29 @@ where
                 vacant_entry.insert(bin_index);
 
                 // Grab an indirect parameters offset.
-                self.allocate_indirect_parameters(bin_index);
+                self.allocate_bin_metadata(bin_index);
+
+                // Add space to the fan buffer if necessary.
+                if bin_index.0.div_ceil(UNIFORM_ALLOCATION_WORKGROUP_SIZE)
+                    == self.gpu_buffers.fan_buffer.len() as u32
+                {
+                    self.gpu_buffers.fan_buffer.add();
+                }
             }
         }
 
+        self.instance_count += 1;
+
         // Update the GPU buffers.
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
-        self.gpu_buffers.insert(
-            bin,
-            &mut self.render_binned_mesh_instances_cpu,
-            main_entity,
-            input_uniform_index,
-            bin_index,
+        let binned_mesh_instance_index =
+            self.gpu_buffers
+                .insert(bin, main_entity, input_uniform_index, bin_index);
+        debug_assert_eq!(
+            binned_mesh_instance_index.0 as usize,
+            self.binned_mesh_instance_index_to_entity.len()
         );
+        self.binned_mesh_instance_index_to_entity.push(main_entity);
     }
 
     /// Removes the given entity from the bin with the given key.
@@ -561,47 +602,82 @@ where
             .expect("Bin key not present");
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
 
-        let maybe_displaced_entity_indices =
-            self.gpu_buffers
-                .remove(bin, &mut self.render_binned_mesh_instances_cpu, main_entity);
-        if let Some((old_render_bin_buffer_index, displaced_entity_indices)) =
-            maybe_displaced_entity_indices
-        {
-            self.bins[displaced_entity_indices.bin_index.0 as usize]
-                .as_mut()
-                .expect("Bin not present")
-                .entity_to_binned_mesh_instance_index
-                .insert(
-                    displaced_entity_indices.main_entity,
-                    old_render_bin_buffer_index,
+        let instance_removal_result = self.gpu_buffers.remove(bin, bin_index, main_entity);
+
+        // Because the instance is removed with `swap_remove`, we have two cases
+        // to consider.
+        match instance_removal_result.displaced_instance {
+            // Case 1: The instance was removed from the middle of the array. In
+            // that case, we have a *displaced entity* that was swapped in to
+            // fill the hole. We need to update the table that maps binned mesh
+            // instance index to entity and the reverse table that maps entity
+            // to binned mesh instance index.
+            Some((displaced_instance_index, displaced_instance)) => {
+                debug_assert_eq!(
+                    displaced_instance_index.0 + 1,
+                    self.binned_mesh_instance_index_to_entity.len() as u32
                 );
+                let displaced_entity = self.binned_mesh_instance_index_to_entity.pop().expect(
+                    "If an entity was displaced, the list of mesh instances must be nonempty",
+                );
+                self.binned_mesh_instance_index_to_entity
+                    [instance_removal_result.removed_instance_index.0 as usize] = displaced_entity;
+                self.bins[displaced_instance.bin_index as usize]
+                    .as_mut()
+                    .expect("Bin not present")
+                    .entity_to_binned_mesh_instance_index
+                    .insert(
+                        displaced_entity,
+                        instance_removal_result.removed_instance_index,
+                    );
+            }
+
+            // Case 2: The instance was removed from the end of the array. In
+            // that case, we have no displaced entity, so all we need to do is
+            // to remove it from the instance index to entity table.
+            None => {
+                debug_assert_eq!(
+                    instance_removal_result.removed_instance_index.0 + 1,
+                    self.binned_mesh_instance_index_to_entity.len() as u32
+                );
+                let removed_entity = self.binned_mesh_instance_index_to_entity.pop();
+                debug_assert_eq!(removed_entity, Some(main_entity));
+            }
         }
+
+        self.instance_count -= 1;
 
         self.remove_bin_if_empty(bin_key, bin_index);
     }
 
     /// Allocates an indirect parameters slot for a new bin.
-    fn allocate_indirect_parameters(&mut self, bin_index: RenderBinIndex) {
+    fn allocate_bin_metadata(&mut self, bin_index: RenderBinIndex) {
         // Indirect parameters must be tightly packed, so we always add one to
         // the end of the list. Record the bin index for the new indirect
         // parameters offset.
         let indirect_parameters_offset = self.indirect_parameters_offset_to_bin_index.len() as u32;
         self.indirect_parameters_offset_to_bin_index.push(bin_index);
 
-        // Update the reverse mapping from bin index to indirect parameters offset.
-        if bin_index.0 as usize
+        let bin_metadata_index =
+            RenderBinMetadataIndex(self.gpu_buffers.bin_metadata_buffer.push(GpuBinMetadata {
+                indirect_parameters_offset,
+                instance_count: 0,
+                bin_index: bin_index.0,
+            }) as u32);
+
+        if bin_index.0
             == self
                 .gpu_buffers
-                .bin_index_to_indirect_parameters_offset_buffer
-                .len()
+                .bin_index_to_bin_metadata_index_buffer
+                .len() as u32
         {
             self.gpu_buffers
-                .bin_index_to_indirect_parameters_offset_buffer
-                .push(indirect_parameters_offset);
+                .bin_index_to_bin_metadata_index_buffer
+                .push(bin_metadata_index.0);
         } else {
             self.gpu_buffers
-                .bin_index_to_indirect_parameters_offset_buffer
-                .values_mut()[bin_index.0 as usize] = indirect_parameters_offset;
+                .bin_index_to_bin_metadata_index_buffer
+                .set(bin_index.0, bin_metadata_index.0);
         }
     }
 
@@ -618,19 +694,38 @@ where
         self.bin_free_list.push(bin_index);
         self.bins[bin_index.0 as usize] = None;
 
+        // Remove the bin index from the metadata list.
+        let old_bin_metadata_index = RenderBinMetadataIndex(
+            self.gpu_buffers
+                .bin_index_to_bin_metadata_index_buffer
+                .values()[bin_index.0 as usize],
+        );
+        self.gpu_buffers
+            .bin_index_to_bin_metadata_index_buffer
+            .values_mut()[bin_index.0 as usize] = u32::MAX;
+
+        // Remove the metadata.
+        let old_bin_metadata = self
+            .gpu_buffers
+            .bin_metadata_buffer
+            .swap_remove(old_bin_metadata_index.0 as usize);
+        debug_assert_eq!(old_bin_metadata.bin_index, bin_index.0);
+        if let Some(displaced_metadata) = self
+            .gpu_buffers
+            .bin_metadata_buffer
+            .get(old_bin_metadata_index.0)
+        {
+            self.gpu_buffers
+                .bin_index_to_bin_metadata_index_buffer
+                .set(displaced_metadata.bin_index, old_bin_metadata_index.0);
+        }
+
         // Remove the indirect parameters offset corresponding to the bin. Note
         // that indirect parameters must be tightly packed. Thus we must use
         // `swap_remove`.
-        let indirect_parameters_offset = mem::replace(
-            &mut self
-                .gpu_buffers
-                .bin_index_to_indirect_parameters_offset_buffer
-                .values_mut()[bin_index.0 as usize],
-            u32::MAX,
-        );
         let removed_bin_index = self
             .indirect_parameters_offset_to_bin_index
-            .swap_remove(indirect_parameters_offset as usize);
+            .swap_remove(old_bin_metadata.indirect_parameters_offset as usize);
         debug_assert_eq!(bin_index, removed_bin_index);
 
         // `swap_remove` may have changed the indirect parameter index of some
@@ -641,18 +736,24 @@ where
         // reflect the new offset of that displaced bin.
         if let Some(displaced_bin_index) = self
             .indirect_parameters_offset_to_bin_index
-            .get(indirect_parameters_offset as usize)
+            .get(old_bin_metadata.indirect_parameters_offset as usize)
         {
-            self.gpu_buffers
-                .bin_index_to_indirect_parameters_offset_buffer
-                .set(displaced_bin_index.0, indirect_parameters_offset);
+            let displaced_bin_metadata_index = self
+                .gpu_buffers
+                .bin_index_to_bin_metadata_index_buffer
+                .values()[displaced_bin_index.0 as usize];
+            self.gpu_buffers.bin_metadata_buffer.values_mut()
+                [displaced_bin_metadata_index as usize]
+                .indirect_parameters_offset = old_bin_metadata.indirect_parameters_offset;
         }
     }
 
+    /// Returns true if all bins are empty: i.e. there are no mesh instances.
     fn is_empty(&self) -> bool {
         self.bin_free_list.len() == self.bins.len()
     }
 
+    /// Returns the number of bins (i.e. draws) in this batch set.
     pub(crate) fn bin_count(&self) -> usize {
         self.bin_key_to_bin_index.len()
     }
@@ -773,6 +874,8 @@ pub struct BinnedRenderPhaseBatchSet<BK> {
     /// The index of the first preprocessing work item for this batch set in the
     /// preprocessing work item buffer.
     pub(crate) first_work_item_index: u32,
+    pub(crate) first_indirect_parameters_index: u32,
+    pub(crate) first_output_mesh_uniform_index: u32,
 }
 
 impl<BK> BinnedRenderPhaseBatchSets<BK> {
@@ -937,7 +1040,7 @@ where
 /// This field is ignored if GPU preprocessing isn't in use, such as (currently)
 /// in the case of 2D meshes. In that case, it can be safely set to
 /// [`core::default::Default::default`].
-#[derive(Clone, Copy, PartialEq, Default, Deref, DerefMut, Debug, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Debug, Pod, Zeroable)]
 #[repr(transparent)]
 pub struct InputUniformIndex(pub u32);
 
@@ -2232,9 +2335,10 @@ impl RenderBin {
 
 #[cfg(test)]
 mod tests {
+    use bevy_platform::collections::HashMap;
     use proptest_derive::Arbitrary;
 
-    use crate::render_phase::GpuRenderBinnedMeshInstance;
+    use crate::render_phase::{GpuRenderBinnedMeshInstance, RenderBinnedMeshInstanceIndex};
 
     /// A `proptest`-based randomized test for `RenderMultidrawableBatchSet`.
     ///
@@ -2243,10 +2347,6 @@ mod tests {
     /// operations, then verify that the data structure is consistent and that
     /// all invariants are upheld.
     #[test]
-    #[expect(
-        non_local_definitions,
-        reason = "`derive(Arbitrary)` generates an impl here"
-    )]
     fn render_multidrawable_batch_set() {
         use super::RenderMultidrawableBatchSet;
 
@@ -2366,6 +2466,8 @@ mod tests {
             bin_index_to_entities: Vec<MainEntityHashSet>,
             /// A mapping from each entity ID to the binned mesh instance data.
             entity_to_binned_mesh_instance: MainEntityHashMap<GpuRenderBinnedMeshInstance>,
+            /// A mapping from each input uniform index back to the entity.
+            input_uniform_index_to_entity: HashMap<InputUniformIndex, MainEntity>,
         }
 
         impl ExpectedMultidrawableBatchSet {
@@ -2384,6 +2486,8 @@ mod tests {
                     },
                 );
                 self.bin_index_to_entities[bin_index.0 as usize].insert(entity);
+                self.input_uniform_index_to_entity
+                    .insert(input_uniform_index, entity);
             }
 
             /// Removes an entity from the control structure and returns its instance.
@@ -2392,6 +2496,10 @@ mod tests {
                     self.entity_to_binned_mesh_instance.remove(&entity).unwrap();
                 self.bin_index_to_entities[render_binned_mesh_instance.bin_index as usize]
                     .remove(&entity);
+                self.input_uniform_index_to_entity
+                    .remove(&InputUniformIndex(
+                        render_binned_mesh_instance.input_uniform_index,
+                    ));
                 render_binned_mesh_instance
             }
         }
@@ -2416,6 +2524,7 @@ mod tests {
                     let mut expected = ExpectedMultidrawableBatchSet {
                         bin_index_to_entities: vec![MainEntityHashSet::default(); 1024],
                         entity_to_binned_mesh_instance: MainEntityHashMap::default(),
+                        input_uniform_index_to_entity: HashMap::default(),
                     };
 
                     // Process each operation, skipping invalid ones.
@@ -2431,10 +2540,15 @@ mod tests {
                                 ));
                                 let input_uniform_index = InputUniformIndex(input_uniform_index);
 
-                                // Skip this operation if it's trying to add an entity that's already binned.
+                                // Skip this operation if it's trying to add an
+                                // entity that's already binned or duplicating
+                                // an input uniform index.
                                 if expected
                                     .entity_to_binned_mesh_instance
                                     .contains_key(&entity)
+                                    || expected
+                                        .input_uniform_index_to_entity
+                                        .contains_key(&input_uniform_index)
                                 {
                                     continue;
                                 }
@@ -2505,7 +2619,9 @@ mod tests {
             verify_render_binned_mesh_instance_buffer(batch_set, &expected.bin_index_to_entities);
 
             // Verify that no indirect parameter offsets overlap.
-            verify_indirect_parameters_offsets(batch_set);
+            verify_bin_metadata(batch_set);
+
+            verify_instance_count(batch_set);
         }
 
         /// Verifies that every entity is present in the multidrawable batch
@@ -2566,6 +2682,14 @@ mod tests {
             batch_set: &RenderMultidrawableBatchSet<MockBinnedPhaseItem>,
             expected: &[MainEntityHashSet],
         ) {
+            assert_eq!(
+                batch_set
+                    .gpu_buffers
+                    .render_binned_mesh_instance_buffer
+                    .len(),
+                batch_set.binned_mesh_instance_index_to_entity.len()
+            );
+
             for (render_bin_buffer_index, gpu_render_binned_mesh_instance) in batch_set
                 .gpu_buffers
                 .render_binned_mesh_instance_buffer
@@ -2573,13 +2697,15 @@ mod tests {
                 .iter()
                 .enumerate()
             {
-                let binned_mesh_instance_cpu =
-                    &batch_set.render_binned_mesh_instances_cpu[render_bin_buffer_index];
+                let render_bin_buffer_index =
+                    RenderBinnedMeshInstanceIndex(render_bin_buffer_index as u32);
+
+                let mapped_entity = batch_set.binned_mesh_instance_index_to_entity
+                    [render_bin_buffer_index.0 as usize];
 
                 // Make sure that the `GpuRenderBinnedMeshInstance::bin_index`
                 // matches the `CpuRenderBinnedMeshInstance::bin_index`.
                 let gpu_render_bin_index = gpu_render_binned_mesh_instance.bin_index;
-                assert_eq!(gpu_render_bin_index, *binned_mesh_instance_cpu.bin_index);
 
                 let render_bin = batch_set.bins[gpu_render_bin_index as usize]
                     .as_ref()
@@ -2588,12 +2714,12 @@ mod tests {
                 // Make sure that the entity in the
                 // `RenderMultidrawableBin::entity_to_binned_mesh_instance_index`
                 // table matches the entity in the
-                // `CpuRenderBinnedMeshInstance`.
+                // `binned_mesh_instance_index_to_entity` table.
                 let Some(entity) = render_bin
                     .entity_to_binned_mesh_instance_index
                     .iter()
                     .find_map(|(entity, buffer_index)| {
-                        if render_bin_buffer_index as u32 == buffer_index.0 {
+                        if render_bin_buffer_index.0 == buffer_index.0 {
                             Some(entity)
                         } else {
                             None
@@ -2605,7 +2731,7 @@ mod tests {
                         render_bin_buffer_index, gpu_render_bin_index
                     );
                 };
-                assert_eq!(binned_mesh_instance_cpu.main_entity, *entity);
+                assert_eq!(mapped_entity, *entity);
 
                 // Make sure that the bin with the appropriate bin key should
                 // actually contain the entity.
@@ -2630,40 +2756,71 @@ mod tests {
             }
         }
 
-        fn verify_indirect_parameters_offsets(
-            batch_set: &RenderMultidrawableBatchSet<MockBinnedPhaseItem>,
-        ) {
-            for (render_bin_index, indirect_parameters_offset) in batch_set
-                .gpu_buffers
-                .bin_index_to_indirect_parameters_offset_buffer
-                .values()
-                .iter()
-                .enumerate()
-            {
-                if *indirect_parameters_offset == u32::MAX {
+        /// Ensures that the `BinMetadata` and
+        /// indirect-parameters-offset-to-bin-index maps are correct.
+        fn verify_bin_metadata(batch_set: &RenderMultidrawableBatchSet<MockBinnedPhaseItem>) {
+            for bin_metadata in batch_set.gpu_buffers.bin_metadata_buffer.values().iter() {
+                if bin_metadata.indirect_parameters_offset == u32::MAX {
                     continue;
                 }
                 assert_eq!(
                     batch_set.indirect_parameters_offset_to_bin_index
-                        [*indirect_parameters_offset as usize],
-                    RenderBinIndex(render_bin_index as u32)
+                        [bin_metadata.indirect_parameters_offset as usize],
+                    RenderBinIndex(bin_metadata.bin_index)
                 );
             }
+
             for (indirect_parameters_offset, render_bin_index) in batch_set
                 .indirect_parameters_offset_to_bin_index
                 .iter()
                 .enumerate()
             {
                 assert!(batch_set.bins[render_bin_index.0 as usize].is_some());
+
+                let gpu_metadata_index = *batch_set
+                    .gpu_buffers
+                    .bin_index_to_bin_metadata_index_buffer
+                    .get(render_bin_index.0)
+                    .unwrap();
+
+                let gpu_metadata = batch_set
+                    .gpu_buffers
+                    .bin_metadata_buffer
+                    .get(gpu_metadata_index)
+                    .unwrap();
+
+                // Verify that the bidirectional indirect parameters offset ↔
+                // bin index mapping is correct.
                 assert_eq!(
-                    *batch_set
-                        .gpu_buffers
-                        .bin_index_to_indirect_parameters_offset_buffer
-                        .get(render_bin_index.0)
-                        .unwrap(),
+                    gpu_metadata.indirect_parameters_offset,
                     indirect_parameters_offset as u32
                 );
+                // Verify that the bin indices match up.
+                assert_eq!(gpu_metadata.bin_index, render_bin_index.0);
+                // Verify that the instance count for that bin matches up.
+                assert_eq!(
+                    gpu_metadata.instance_count,
+                    batch_set.bins[render_bin_index.0 as usize]
+                        .as_ref()
+                        .unwrap()
+                        .entity_to_binned_mesh_instance_index
+                        .len() as u32
+                );
             }
+        }
+
+        /// Ensures that the recorded `instance_count` matches the actual number
+        /// of instances.
+        fn verify_instance_count(batch_set: &RenderMultidrawableBatchSet<MockBinnedPhaseItem>) {
+            let mut total_instance_count = 0;
+            for bin in batch_set
+                .bins
+                .iter()
+                .filter_map(|maybe_bin| maybe_bin.as_ref())
+            {
+                total_instance_count += bin.entity_to_binned_mesh_instance_index.len() as u32;
+            }
+            assert_eq!(batch_set.instance_count, total_instance_count);
         }
     }
 }

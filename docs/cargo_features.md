@@ -97,7 +97,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
-|bevy_settings|Load and save user preferences|
+|bevy_settings|Load and save settings|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|
@@ -114,7 +114,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |clipboard_image|Enables image copy/paste via the system clipboard. Not supported on WASM.|
-|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
+|compressed_image_saver|Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)|
+|compressed_image_saver_universal|Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|

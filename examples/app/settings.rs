@@ -1,10 +1,11 @@
-//! Demonstrates persistence of user preferences.
+//! Demonstrates persistence of settings.
 //!
 //! A counter is shown in the window. It can be incremented and decremented via input press.
-//! Its value persists between app sessions via user preferences.
+//! Its value persists between app sessions via settings.
 //!
 //! On desktop, if you quit the app and then restart it, the counter value should display
-//! the most recent value the app had before exiting.
+//! the most recent value the app had before exiting. Settings are saved as TOML at
+//! `{preferences_dir}/org.bevy.examples.settings/settings.toml` (see [`SettingsPlugin`]).
 //! On web, if you navigate away and then come back to the window, the counter
 //! should display the most recent value the app had before navigating away.
 use std::time::Duration;
@@ -12,8 +13,7 @@ use std::time::Duration;
 use bevy::{
     prelude::*,
     settings::{
-        PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
-        SettingsGroup,
+        ReflectSettingsGroup, SaveSettingsDeferred, SaveSettingsSync, SettingsGroup, SettingsPlugin,
     },
     window::{ExitCondition, WindowCloseRequested},
 };
@@ -21,17 +21,15 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            // We want to intercept the exit so that we can save prefs.
+            // We want to intercept the exit so that we can save settings.
             exit_condition: ExitCondition::DontExit,
             primary_window: Some(Window {
-                title: "Prefs Counter".into(),
+                title: "Settings Counter".into(),
                 ..default()
             }),
             ..default()
         }))
-        .add_plugins(PreferencesPlugin::new(
-            "org.bevy.examples.persisting_preferences",
-        ))
+        .add_plugins(SettingsPlugin::new("org.bevy.examples.settings"))
         .add_systems(Startup, setup)
         .add_systems(Update, (show_count, change_count, on_window_close))
         .run();
@@ -45,15 +43,17 @@ struct Counter {
 
 /// A different settings group which has the name group name as the previous. The two groups will be
 /// merged into a single section in the config file.
-#[derive(Resource, SettingsGroup, Reflect, Default)]
+#[derive(Resource, SettingsGroup, Reflect)]
 #[reflect(Resource, SettingsGroup, Default)]
 #[settings_group(group = "counter")]
-#[expect(
-    dead_code,
-    reason = "Example showing additional settings in the same group"
-)]
 struct OtherSettings {
     enabled: bool,
+}
+
+impl Default for OtherSettings {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
 }
 
 #[derive(Component)]
@@ -91,10 +91,20 @@ fn setup(mut commands: Commands) {
         });
 }
 
-fn show_count(mut query: Query<&mut Text, With<CounterDisplay>>, counter: Res<Counter>) {
-    if counter.is_changed() {
+fn show_count(
+    mut query: Query<&mut Text, With<CounterDisplay>>,
+    counter: Res<Counter>,
+    other: Res<OtherSettings>,
+) {
+    if other.enabled {
+        if counter.is_changed() {
+            for mut text in query.iter_mut() {
+                text.0 = format!("Count: {}", counter.count);
+            }
+        }
+    } else {
         for mut text in query.iter_mut() {
-            text.0 = format!("Count: {}", counter.count);
+            text.0 = "Disabled".into();
         }
     }
 }
@@ -115,24 +125,14 @@ fn change_count(
     }
 
     if changed {
-        commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.1)));
+        commands.queue(SaveSettingsDeferred(Duration::from_secs_f32(0.1)));
     }
 }
 
 fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands: Commands) {
-    // Save preferences immediately, then quit.
+    // Save settings immediately, then quit.
     if let Some(_close_event) = close.read().next() {
-        commands.queue(SavePreferencesSync::IfChanged);
-        commands.queue(ExitAfterSave);
-    }
-}
-
-struct ExitAfterSave;
-
-impl Command for ExitAfterSave {
-    type Out = ();
-
-    fn apply(self, world: &mut World) {
-        world.write_message(AppExit::Success);
+        commands.queue(SaveSettingsSync::IfChanged);
+        commands.write_message(AppExit::Success);
     }
 }

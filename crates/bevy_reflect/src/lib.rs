@@ -614,7 +614,6 @@ pub mod structs;
 pub mod tuple;
 pub mod tuple_struct;
 mod type_data;
-mod type_info;
 mod type_path;
 mod type_registry;
 
@@ -649,8 +648,10 @@ pub mod attributes;
 pub mod convert;
 pub mod enums;
 mod generics;
+mod info;
 pub mod serde;
 pub mod std_traits;
+pub mod ty;
 #[cfg(feature = "debug_stack")]
 mod type_info_stack;
 pub mod utility;
@@ -678,14 +679,15 @@ pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
+pub use info::*;
 pub use is::*;
 pub use kind::*;
 pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
+pub use ty::*;
 pub use type_data::*;
-pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
 

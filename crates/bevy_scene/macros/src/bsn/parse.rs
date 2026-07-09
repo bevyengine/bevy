@@ -98,7 +98,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 
 impl BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Token![:]) {
+        Ok(if input.peek(Token![:]) && !input.peek(Token![::]) {
             BsnEntry::CachedScene(BsnScene::parse(input)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
@@ -358,6 +358,7 @@ impl Parse for BsnNamedField {
             false
         };
         let name = input.parse::<Ident>()?;
+        let mut is_name_shorthand = false;
         let value = if input.peek(Colon) {
             input.parse::<Colon>()?;
 
@@ -367,12 +368,14 @@ impl Parse for BsnNamedField {
                 Some(input.parse::<BsnValue>()?)
             }
         } else {
+            is_name_shorthand = true;
             None
         };
         Ok(BsnNamedField {
             name,
             value,
             is_prop,
+            is_name_shorthand,
         })
     }
 }
