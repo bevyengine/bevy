@@ -1,4 +1,4 @@
-//! EditableText scrolling logic
+//! `EditableText` scrolling logic
 //!
 //! - [`TextViewport`] is a rectangle aligned to the text layout's axis representing
 //! the user's view of the text layout.
