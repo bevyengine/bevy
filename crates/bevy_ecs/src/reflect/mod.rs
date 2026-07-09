@@ -19,6 +19,8 @@ mod from_world;
 mod map_entities;
 mod message;
 mod resource;
+mod from_template;
+mod template;
 
 use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
