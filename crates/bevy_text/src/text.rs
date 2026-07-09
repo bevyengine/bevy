@@ -514,7 +514,8 @@ impl FontSource {
                                             .map_while(Result::ok),
                                     );
                                 }
-                                FontSource::List(_) => {}
+                                FontSource::List(_) => {                            unreachable!("FontSource::flatten should not return lists")
+                        }}
                                 FontSource::Generic(generic_family) => {
                                     #[cfg(not(feature = "system_font_discovery"))]
                                     bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
