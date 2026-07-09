@@ -428,14 +428,14 @@ impl FontSource {
     }
 
     /// Returns true if the `FontSource` is a list-like source (either the `Families` or `List` variant).
-    pub const fn is_list(&self) -> bool {
+    pub const fn is_list_like(&self) -> bool {
         matches!(self, FontSource::Families(_) | FontSource::List(_))
     }
 
     /// Returns true if this `FontSource` is a `List` that contains at least one list-like source.
     pub fn is_recursive(&self) -> bool {
         match self {
-            FontSource::List(font_sources) => font_sources.iter().any(Self::is_list),
+            FontSource::List(font_sources) => font_sources.iter().any(Self::is_list_like),
             _ => false,
         }
     }
