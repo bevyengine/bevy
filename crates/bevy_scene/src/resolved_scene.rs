@@ -15,12 +15,7 @@ use core::any::{Any, TypeId};
 use thiserror::Error;
 
 /// Controls how scene application handles existing [`RelationshipTarget`] components on the entity.
-///
-/// Insert this component on an entity before calling [`EntityWorldMutSceneExt::apply_scene`] to
-/// retain and extend existing related entities instead of replacing them.
-///
-/// [`EntityWorldMutSceneExt::apply_scene`]: crate::EntityWorldMutSceneExt::apply_scene
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RelationshipBehavior {
     /// Replaces existing [`RelationshipTarget`] components with new collections for the scene's related entities.
     #[default]
@@ -82,10 +77,26 @@ impl ResolvedSceneRoot {
         entity: &mut EntityWorldMut,
         bundle_scratch: &mut BundleScratch,
     ) -> Result<(), ApplySceneError> {
+        self.patch(
+            entity,
+            bundle_scratch,
+            RelationshipBehavior::Overwrite,
+        )
+    }
+
+    /// Applies this scene to the given [`EntityWorldMut`] using the given [`RelationshipBehavior`].
+    pub fn patch(
+        &self,
+        entity: &mut EntityWorldMut,
+        bundle_scratch: &mut BundleScratch,
+        relationship_behavior: RelationshipBehavior,
+    ) -> Result<(), ApplySceneError> {
         let mut entity_references = SceneEntityReferences::default();
         let mut context = TemplateContext::new(entity, &mut entity_references);
 
-        let result = self.scene.apply(&mut context, bundle_scratch);
+        let result = self
+            .scene
+            .apply(&mut context, bundle_scratch, relationship_behavior);
         if !bundle_scratch.is_empty() {
             // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
             unsafe {
@@ -149,6 +160,7 @@ impl ResolvedSceneListRoot {
             let result = scene.apply(
                 &mut TemplateContext::new(&mut entity, &mut entity_references),
                 &mut bundle_scratch,
+                RelationshipBehavior::Overwrite,
             );
             if let Err(err) = result {
                 // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
@@ -219,8 +231,9 @@ impl ResolvedScene {
         &self,
         context: &mut TemplateContext,
         bundle_scratch: &mut BundleScratch,
+        relationship_behavior: RelationshipBehavior,
     ) -> Result<(), ApplySceneError> {
-        self.apply_with(context, bundle_scratch, |_, _| {})
+        self.apply_with(context, bundle_scratch, |_, _| {}, relationship_behavior)
     }
 
     /// Applies this scene to the given [`TemplateContext`] (which holds an already-spawned [`EntityWorldMut`]).
@@ -239,12 +252,8 @@ impl ResolvedScene {
         context: &mut TemplateContext,
         bundle_scratch: &mut BundleScratch,
         writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
+        relationship_behavior: RelationshipBehavior,
     ) -> Result<(), ApplySceneError> {
-        let relationship_behavior = context
-            .entity
-            .get::<RelationshipBehavior>()
-            .copied()
-            .unwrap_or_default();
         let mut bundle_writer = bundle_scratch.writer();
         for entity_reference in self.entity_references.iter().copied() {
             context
@@ -425,6 +434,7 @@ impl ResolvedScene {
                                     );
                                 }
                             },
+                            RelationshipBehavior::Overwrite,
                         )
                         .map_err(|e| ApplySceneError::RelatedSceneError {
                             relationship_type_name: related_resolved_scenes.relationship_name,
