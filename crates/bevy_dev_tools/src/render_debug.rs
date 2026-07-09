@@ -47,10 +47,7 @@ use bevy_pbr::{
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 #[derive(Default)]
-pub struct RenderDebugOverlayPlugin {
-    /// Whether to enable the automatic keybindings
-    pub enable_keybindings: bool,
-}
+pub struct RenderDebugOverlayPlugin;
 
 impl Plugin for RenderDebugOverlayPlugin {
     fn build(&self, app: &mut App) {
@@ -60,17 +57,12 @@ impl Plugin for RenderDebugOverlayPlugin {
             .register_type::<GlobalRenderDebugOverlay>()
             .init_resource::<GlobalRenderDebugOverlay>()
             .add_message::<RenderDebugOverlayEvent>()
+            .init_resource::<RenderDebugOverlayKeybindings>()
             .add_plugins((
                 ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
-            ));
-
-        if self.enable_keybindings {
-            app.init_resource::<RenderDebugOverlayKeybindings>();
-            app.add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
-        } else {
-            app.add_systems(bevy_app::Update, update_overlay);
-        }
+            ))
+            .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -110,6 +102,8 @@ impl Plugin for RenderDebugOverlayPlugin {
 /// keybinding resource for configurable keybindings for the overlay
 #[derive(Resource, Clone, Copy)]
 pub struct RenderDebugOverlayKeybindings {
+    /// Whether to enable the automatic keybindings
+    pub enable_keybindings: bool,
     /// Key used to cycle to the next supported debug overlay mode. Defaults to F1
     pub cycle_mode: KeyCode,
     /// Key used to cycle the overlay opacity. Defaults to F2
@@ -120,6 +114,7 @@ pub struct RenderDebugOverlayKeybindings {
 impl Default for RenderDebugOverlayKeybindings {
     fn default() -> Self {
         Self {
+            enable_keybindings: false,
             cycle_mode: KeyCode::F1,
             cycle_opacity: KeyCode::F2,
         }
@@ -132,6 +127,10 @@ pub fn handle_input(
     keybindings: Res<RenderDebugOverlayKeybindings>,
     mut events: MessageWriter<RenderDebugOverlayEvent>,
 ) {
+    if !keybindings.enable_keybindings {
+        return;
+    }
+
     if keyboard.just_pressed(keybindings.cycle_mode) {
         events.write(RenderDebugOverlayEvent::CycleMode);
     }
