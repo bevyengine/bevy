@@ -2,6 +2,7 @@ use benches::bench;
 use bevy_math::prelude::*;
 use bevy_platform::collections::AlignedVec;
 use bytemuck::{Pod, Zeroable};
+use core::hint::black_box;
 use criterion::{
     criterion_group, measurement::Measurement, BenchmarkGroup, BenchmarkId, Criterion,
 };
@@ -23,7 +24,7 @@ struct S128A128 {
     pad2: [u32; 16], // 64, 128
 }
 
-const ELEMENT_COUNTS: &[usize] = &[10000];
+const ELEMENT_COUNTS: &[usize] = &[100000];
 
 fn bytes_read_write(c: &mut Criterion) {
     bench_group::<u8, 1, _>(&mut c.benchmark_group(bench!("size1_align1")));
@@ -46,7 +47,7 @@ fn bytes_read_write(c: &mut Criterion) {
                             let t: T = bytemuck::pod_read_unaligned(
                                 &bytes[(i * size_of::<T>())..((i + 1) * size_of::<T>())],
                             );
-                            assert_eq!(bytemuck::bytes_of(&t), &create_seq_array::<T, S>(i));
+                            black_box(t);
                         }
                     });
                 },
@@ -60,7 +61,7 @@ fn bytes_read_write(c: &mut Criterion) {
                     b.iter(|| {
                         for i in 0..element_count {
                             let t: T = slice[i];
-                            assert_eq!(bytemuck::bytes_of(&t), &create_seq_array::<T, S>(i));
+                            black_box(t);
                         }
                     });
                 },
