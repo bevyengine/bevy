@@ -704,15 +704,17 @@ mod tests {
         }
 
         let expected_lines = alloc::vec![
+            "<bevy_ecs::error::bevy_error::BevyError as core::convert::From<core::num::error::ParseIntError>>::from",
+            "<core::result::Result<(), bevy_ecs::error::bevy_error::BevyError> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, core::num::error::ParseIntError>>>::from_residual",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
-            "core::ops::function::FnOnce::call_once",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
+            "<bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0} as core::ops::function::FnOnce<()>>::call_once",
+            "<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once",
         ];
 
         for expected in expected_lines {
-            let line = lines.next().unwrap();
-            assert_eq!(&line[6..], expected);
+            // On mac, it can sometimes start with an "at" line
             let mut skip = false;
             if let Some(line) = lines.peek()
                 && line.starts_with("             at")
@@ -723,6 +725,20 @@ mod tests {
             if skip {
                 lines.next().unwrap();
             }
+
+            let line = lines.next().unwrap();
+            assert_eq!(&line[6..], expected);
+        }
+        // To handle any potential "at" line after the expected lines
+        let mut skip = false;
+        if let Some(line) = lines.peek()
+            && line.starts_with("             at")
+        {
+            skip = true;
+        }
+
+        if skip {
+            lines.next().unwrap();
         }
 
         // on linux there is a second call_once
