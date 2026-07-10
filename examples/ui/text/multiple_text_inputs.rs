@@ -10,7 +10,7 @@ use bevy::input::keyboard::Key;
 use bevy::input_focus::tab_navigation::NavAction;
 use bevy::input_focus::{tab_navigation::TabNavigation, AutoFocus, FocusCause};
 use bevy::input_focus::{
-    tab_navigation::{TabGroup, TabIndex},
+    tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
 };
 use bevy::prelude::*;
