@@ -1,6 +1,8 @@
 use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use std::fmt::Debug;
+use proc_macro2::TokenTree;
 use syn::{
     parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
     Data, DeriveInput, Fields, FieldsUnnamed, Ident, Index, Path, Result, Token, WhereClause,
@@ -13,6 +15,7 @@ const BUILT_IN_ATTRIBUTE: &str = "built_in";
 pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs = BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"));
+    let bevy_reflect = BevyManifest::shared(|manifest| manifest.get_path("bevy_reflect"));
 
     let type_ident = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -21,6 +24,30 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
     let is_pub = matches!(ast.vis, syn::Visibility::Public(_));
     let maybe_pub = if is_pub { quote!(pub) } else { quote!() };
+
+    let reflect_derive = match ast.attrs.into_iter().find(|attr| attr.path().is_ident("reflect")) {
+        Some(attr) => (||{
+            let Ok(list) = attr.meta.require_list() else {
+                return quote!()
+            };
+
+            if list.tokens.clone().into_iter().find(|token| match token {
+                TokenTree::Ident(ident) => ident.to_string() == "FromTemplate",
+                _ => false
+            }).is_none() {
+                return quote!()
+            }
+
+            quote!(
+                #[cfg_attr(
+                    feature = "bevy_reflect",
+                    derive(#bevy_reflect::Reflect),
+                    reflect(Default, #bevy_ecs::reflect::ReflectTemplate)
+                )]
+            )
+        })(),
+        None => quote!()
+    };
 
     let template = match &ast.data {
         Data::Struct(data_struct) => {
@@ -35,91 +62,95 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 template_field_clones,
                 ..
             } = result;
+
             match &data_struct.fields {
                 Fields::Named(_) => {
                     quote! {
-                        #[allow(missing_docs)]
-                        #maybe_pub struct #template_ident #impl_generics #where_clause {
-                            #(#template_fields,)*
-                        }
-
-                        impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
-                            type Output = #type_ident #type_generics;
-                            fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                #bevy_ecs::error::Result::Ok(#type_ident {
-                                    #(#template_field_builds,)*
-                                })
+                            #[allow(missing_docs)]
+                            #reflect_derive
+                            #maybe_pub struct #template_ident #impl_generics #where_clause {
+                                #(#template_fields,)*
                             }
 
-                            fn clone_template(&self) -> Self {
-                                Self {
-                                    #(#template_field_clones,)*
+                            impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
+                                type Output = #type_ident #type_generics;
+                                fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
+                                    #bevy_ecs::error::Result::Ok(#type_ident {
+                                        #(#template_field_builds,)*
+                                    })
+                                }
+
+                                fn clone_template(&self) -> Self {
+                                    Self {
+                                        #(#template_field_clones,)*
+                                    }
+                                }
+                            }
+
+                            impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
+                                fn default() -> Self {
+                                    Self {
+                                        #(#template_field_defaults,)*
+                                    }
                                 }
                             }
                         }
-
-                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
-                            fn default() -> Self {
-                                Self {
-                                    #(#template_field_defaults,)*
-                                }
-                            }
-                        }
-                    }
                 }
                 Fields::Unnamed(_) => {
                     quote! {
-                        #[allow(missing_docs)]
-                        #maybe_pub struct #template_ident #impl_generics (
-                            #(#template_fields,)*
-                        )  #where_clause;
+                            #[allow(missing_docs)]
+                            #reflect_derive
+                            #maybe_pub struct #template_ident #impl_generics (
+                                #(#template_fields,)*
+                            )  #where_clause;
 
-                        impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
-                            type Output = #type_ident #type_generics;
-                            fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                #bevy_ecs::error::Result::Ok(#type_ident (
-                                    #(#template_field_builds,)*
-                                ))
+                            impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
+                                type Output = #type_ident #type_generics;
+                                fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
+                                    #bevy_ecs::error::Result::Ok(#type_ident (
+                                        #(#template_field_builds,)*
+                                    ))
+                                }
+
+                                fn clone_template(&self) -> Self {
+                                    Self(
+                                        #(#template_field_clones,)*
+                                    )
+                                }
                             }
 
-                            fn clone_template(&self) -> Self {
-                                Self(
-                                    #(#template_field_clones,)*
-                                )
+                            impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
+                                fn default() -> Self {
+                                    Self (
+                                        #(#template_field_defaults,)*
+                                    )
+                                }
                             }
                         }
-
-                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
-                            fn default() -> Self {
-                                Self (
-                                    #(#template_field_defaults,)*
-                                )
-                            }
-                        }
-                    }
                 }
                 Fields::Unit => {
                     quote! {
-                        #[allow(missing_docs)]
-                        #maybe_pub struct #template_ident;
+                            #[allow(missing_docs)]
+                            #reflect_derive
+                            #maybe_pub struct #template_ident;
 
-                        impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
-                            type Output = #type_ident;
-                            fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                #bevy_ecs::error::Result::Ok(#type_ident)
+                            impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
+                                type Output = #type_ident;
+                                fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
+                                    #bevy_ecs::error::Result::Ok(#type_ident)
+                                }
+
+                                fn clone_template(&self) -> Self {
+                                    Self
+                                }
                             }
 
-                            fn clone_template(&self) -> Self {
-                                Self
+                            impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
+                                fn default() -> Self {
+                                    Self
+                                }
                             }
                         }
-
-                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
-                            fn default() -> Self {
-                                Self
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -273,6 +304,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[allow(missing_docs)]
+                #reflect_derive
                 #maybe_pub enum #template_ident #type_generics #where_clause {
                     #(#variant_definitions,)*
                 }

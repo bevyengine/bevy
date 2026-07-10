@@ -14,7 +14,7 @@ pub struct ReflectTemplateFns {
 }
 
 impl ReflectTemplateFns {
-    pub fn new<T: Reflect + Template<Output=impl Reflect> + TypePath>() -> Self {
+    pub fn new<T: Reflect + Template<Output: Reflect> + TypePath>() -> Self {
         <ReflectTemplate as CreateTypeData<T>>::create_type_data(()).0
     }
 }
@@ -28,12 +28,12 @@ impl ReflectTemplate {
         Self(fns)
     }
 
-    pub fn fn_pointer(&self) -> &ReflectTemplateFns {
+    pub fn fn_pointers(&self) -> &ReflectTemplateFns {
         &self.0
     }
 }
 
-impl<T: Reflect + Template<Output=impl Reflect> + TypePath> CreateTypeData<T> for ReflectTemplate {
+impl<T: Reflect + Template<Output: Reflect> + TypePath> CreateTypeData<T> for ReflectTemplate {
     fn create_type_data(_input: ()) -> Self {
         ReflectTemplate(ReflectTemplateFns {
             build: |context, reflected_template, registry| {
@@ -50,7 +50,6 @@ impl<T: Reflect + Template<Output=impl Reflect> + TypePath> CreateTypeData<T> fo
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
-    use std::ops::{Deref};
     use bevy_ecs::prelude::World;
     use bevy_ecs::template::TemplateContext;
     use bevy_reflect::{Reflect, TypeRegistry};
@@ -61,51 +60,21 @@ mod tests {
 
     #[test]
     fn build_template() {
-        #[derive(Reflect, Default, Debug, Eq, PartialEq)]
+        #[derive(Reflect, Default, FromTemplate, Clone, Debug, Eq, PartialEq)]
         #[reflect(Default, FromTemplate)]
         struct MyStruct {
             foo: i32
         }
 
-        impl FromTemplate for MyStruct {
-            type Template = MyStructTemplate;
-        }
-
-        #[derive(Reflect, Default)]
-        #[reflect(Default, Template)]
-        struct MyStructTemplate {
-            foo: i32
-        }
-
-        impl Template for MyStructTemplate {
-            type Output = MyStruct;
-
-            fn build_template(&self, _context: &mut TemplateContext) -> bevy_ecs::error::Result<Self::Output> {
-                Ok(MyStruct {
-                    foo: self.foo
-                })
-            }
-
-            fn clone_template(&self) -> Self {
-                Self {
-                    foo: self.foo.clone()
-                }
-            }
-        }
-
         let mut world = World::new();
 
         let mut registry = TypeRegistry::empty();
-        #[cfg(feature = "reflect_auto_register")]
-        registry.register_derived_types();
-        #[cfg(not(feature = "reflect_auto_register"))]
-        {
-            registry.register::<MyStruct>();
-            registry.register_type_data::<MyStruct, ReflectFromTemplate>();
-            registry.register::<MyStructTemplate>();
-            registry.register_type_data::<MyStructTemplate, ReflectTemplate>();
-            registry.register_type_data::<MyStructTemplate, ReflectDefault>();
-        }
+        
+        registry.register::<MyStruct>();
+        registry.register_type_data::<MyStruct, ReflectFromTemplate>();
+        registry.register::<MyStructTemplate>();
+        registry.register_type_data::<MyStructTemplate, ReflectTemplate>();
+        registry.register_type_data::<MyStructTemplate, ReflectDefault>();
 
         let my_struct_registration = registry.get(TypeId::of::<MyStruct>()).unwrap();
         let reflect_from_template = my_struct_registration.data::<ReflectFromTemplate>().unwrap();
@@ -124,13 +93,13 @@ mod tests {
         );
         let my_struct_reflect = reflect_template.build(
             &mut template_context,
-            template.as_partial_reflect(),
+            template.as_ref(),
             &registry
         ).expect("Should be able to build Template");
         let my_struct = my_struct_reflect.downcast::<MyStruct>().expect("Should be MyStruct");
 
         assert_eq!(
-            *my_struct.deref(),
+            *my_struct,
             MyStruct {
                 foo: 0
             }

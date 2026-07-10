@@ -40,7 +40,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Changed, Or},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -85,7 +85,7 @@ pub struct LightmapPlugin;
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect, FromTemplate)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, FromTemplate)]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,

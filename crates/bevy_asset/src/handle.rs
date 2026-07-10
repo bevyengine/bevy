@@ -4,8 +4,9 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
+use bevy_ecs::reflect::ReflectTemplate;
 use bevy_platform::{collections::Equivalent, sync::Mutex};
-use bevy_reflect::{enums::Enum, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath};
+use bevy_reflect::{enums::Enum, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath, std_traits::ReflectDefault};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -15,6 +16,7 @@ use crossbeam_channel::{Receiver, Sender};
 use disqualified::ShortName;
 use thiserror::Error;
 use uuid::Uuid;
+use bevy_ecs::reflect;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.
@@ -268,6 +270,7 @@ impl<T: Asset> FromTemplate for Handle<T> {
 /// as the asset is loaded from the given path, and the resulting handle is assigned to the field,
 /// pointing to the asset that was found at the file path in our original string.
 #[derive(Reflect)]
+#[reflect(Default, Template)]
 pub enum HandleTemplate<T: Asset> {
     /// Creates a [`Handle`] by calling [`AssetServer::load`] on the given [`AssetPath`].
     Path(AssetPath<'static>),

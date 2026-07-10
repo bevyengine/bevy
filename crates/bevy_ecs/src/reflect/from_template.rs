@@ -25,7 +25,7 @@ impl ReflectFromTemplate {
         Self(fns)
     }
 
-    pub fn fn_pointer(&self) -> &ReflectFromTemplateFns {
+    pub fn fn_pointers(&self) -> &ReflectFromTemplateFns {
         &self.0
     }
 }

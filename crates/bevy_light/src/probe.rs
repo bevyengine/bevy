@@ -3,6 +3,7 @@ use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass}
 use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::template::{FromTemplate, OptionTemplate};
+use bevy_ecs::reflect::{ReflectFromTemplate};
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -103,7 +104,7 @@ impl LightProbe {
 ///
 /// See `bevy_pbr::environment_map` for detailed information.
 #[derive(Clone, Component, Reflect, FromTemplate)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, FromTemplate)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
@@ -231,7 +232,7 @@ impl Default for EnvironmentMapLight {
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
 #[derive(Component, Clone, Reflect, FromTemplate)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, FromTemplate)]
 pub struct Skybox {
     /// The cubemap to use.
     ///
@@ -265,7 +266,7 @@ impl Default for Skybox {
 ///
 /// See `bevy_pbr::light_probe::generate` for detailed information.
 #[derive(Clone, Component, Reflect, FromTemplate)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, FromTemplate)]
 pub struct GeneratedEnvironmentMapLight {
     /// Source cubemap to be filtered on the GPU, size must be a power of two.
     pub environment_map: Handle<Image>,
