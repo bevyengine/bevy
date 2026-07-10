@@ -174,6 +174,10 @@ fn on_pointer_press(
     let Ok((mut editable_text, node, target, transform, text_scroll)) =
         text_input_query.get_mut(press.entity)
     else {
+        // The press landed on something that isn't an `EditableText`. Clicking away to blur a
+        // focused text input is handled by `PointerFocusPlugin` (in `bevy_input_focus`), which
+        // triggers a bubbling `AcquireFocus` that clears focus at the window, so there is nothing
+        // to do here.
         return;
     };
 

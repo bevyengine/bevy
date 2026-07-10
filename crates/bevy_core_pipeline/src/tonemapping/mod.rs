@@ -33,6 +33,7 @@ use crate::FullscreenShader;
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
+#[extract_app(RenderApp)]
 pub struct TonemappingLuts {
     pub blender_filmic: Handle<Image>,
     pub agx: Handle<Image>,
@@ -116,6 +117,7 @@ pub struct TonemappingPipeline {
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -380,6 +382,7 @@ pub fn prepare_view_tonemapping_pipelines(
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
 pub enum DebandDither {
     #[default]
     Disabled,

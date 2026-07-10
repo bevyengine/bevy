@@ -361,3 +361,120 @@ pub fn radio_self_update(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::App;
+    use bevy_input::InputPlugin;
+    use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
+    use bevy_math::Vec2;
+    use bevy_picking::backend::HitData;
+    use bevy_picking::pointer::{Location, PointerButton, PointerId};
+    use bevy_window::{PrimaryWindow, Window, WindowRef};
+
+    /// Builds a headless app with the radio-group observers plus [`radio_self_update`], so that a
+    /// group's `ValueChange<Entity>` moves the [`Checked`] component onto the selected button.
+    fn radio_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((
+            InputPlugin,
+            InputFocusPlugin,
+            TabNavigationPlugin,
+            RadioGroupPlugin,
+        ));
+        app.add_observer(radio_self_update);
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        app.update();
+        (app, window)
+    }
+
+    fn window_location(window: Entity) -> Location {
+        Location {
+            target: bevy_camera::NormalizedRenderTarget::Window(
+                WindowRef::Entity(window).normalize(Some(window)).unwrap(),
+            ),
+            position: Vec2::ZERO,
+        }
+    }
+
+    /// Triggers the `Pointer<Click>` event, the last event a real click ends with, on `target`.
+    fn click_entity(app: &mut App, target: Entity, window: Entity) {
+        app.world_mut().trigger(Pointer::new(
+            PointerId::Mouse,
+            window_location(window),
+            Click {
+                button: PointerButton::Primary,
+                hit: HitData::new(window, 0.0, None, None),
+                duration: core::time::Duration::from_millis(10),
+                count: 1,
+            },
+            target,
+        ));
+        app.update();
+    }
+
+    /// Clicking a radio option moves the selection to it. Clicking a different option moves it
+    /// again, and the previously-selected option is unchecked (mutual exclusion within the group).
+    #[test]
+    fn click_moves_radio_selection_within_group() {
+        let (mut app, window) = radio_app();
+        let group = app.world_mut().spawn((RadioGroup, ChildOf(window))).id();
+        let option_a = app.world_mut().spawn((RadioButton, ChildOf(group))).id();
+        let option_b = app.world_mut().spawn((RadioButton, ChildOf(group))).id();
+        app.update();
+
+        assert!(!app.world().entity(option_a).contains::<Checked>());
+        assert!(!app.world().entity(option_b).contains::<Checked>());
+
+        click_entity(&mut app, option_a, window);
+        assert!(app.world().entity(option_a).contains::<Checked>());
+        assert!(!app.world().entity(option_b).contains::<Checked>());
+
+        click_entity(&mut app, option_b, window);
+        assert!(
+            !app.world().entity(option_a).contains::<Checked>(),
+            "selecting another option must uncheck the previous one"
+        );
+        assert!(app.world().entity(option_b).contains::<Checked>());
+    }
+
+    /// Clicking an already-checked radio option leaves it selected (no toggle-off for radios).
+    #[test]
+    fn clicking_checked_radio_keeps_it_selected() {
+        let (mut app, window) = radio_app();
+        let group = app.world_mut().spawn((RadioGroup, ChildOf(window))).id();
+        let option = app.world_mut().spawn((RadioButton, ChildOf(group))).id();
+        app.update();
+
+        click_entity(&mut app, option, window);
+        assert!(app.world().entity(option).contains::<Checked>());
+
+        click_entity(&mut app, option, window);
+        assert!(
+            app.world().entity(option).contains::<Checked>(),
+            "clicking an already-selected radio must not deselect it"
+        );
+    }
+
+    /// A disabled radio option does not become selected on click.
+    #[test]
+    fn disabled_radio_button_does_not_select() {
+        let (mut app, window) = radio_app();
+        let group = app.world_mut().spawn((RadioGroup, ChildOf(window))).id();
+        let option = app
+            .world_mut()
+            .spawn((RadioButton, InteractionDisabled, ChildOf(group)))
+            .id();
+        app.update();
+
+        click_entity(&mut app, option, window);
+        assert!(
+            !app.world().entity(option).contains::<Checked>(),
+            "a disabled radio option must not become selected"
+        );
+    }
+}

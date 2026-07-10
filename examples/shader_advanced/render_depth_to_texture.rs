@@ -334,7 +334,7 @@ impl FromWorld for DemoDepthTexture {
     }
 }
 
-impl ExtractResource for DemoDepthTexture {
+impl ExtractResource<RenderApp> for DemoDepthTexture {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {

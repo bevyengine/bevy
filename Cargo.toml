@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.95.0"
+rust-version = "1.96.0"
 
 [workspace]
 resolver = "3"
@@ -441,7 +441,12 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_internal/compressed_image_saver_universal",
+]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
 
 # Enables system-level clipboard support.
@@ -2085,6 +2090,18 @@ doc-scrape-examples = true
 [package.metadata.example.asset_decompression]
 name = "Asset Decompression"
 description = "Demonstrates loading a compressed asset"
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "compressed_image_saver"
+path = "examples/asset/compressed_image_saver.rs"
+doc-scrape-examples = true
+required-features = ["compressed_image_saver", "asset_processor", "jpeg"]
+
+[package.metadata.example.compressed_image_saver]
+name = "Compressed Image Saver"
+description = "Demonstrates compressing textures and generating mipmaps using CompressedImageSaver"
 category = "Assets"
 wasm = false
 
@@ -5599,4 +5616,15 @@ required-features = ["free_camera", "https"]
 name = "Light Probe Blending"
 description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "shader_material_2d_bindless"
+path = "examples/shader/shader_material_2d_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_2d_bindless]
+name = "Material - 2D Bindless"
+description = "Demonstrates bindless materials in 2D"
+category = "Shaders"
 wasm = false
