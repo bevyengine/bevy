@@ -41,6 +41,7 @@ impl Drop for AlignedVec {
 
 impl AlignedVec {
     /// The alignment of the vector
+    #[inline]
     pub fn alignment(&self) -> usize {
         self.align
     }
@@ -49,11 +50,13 @@ impl AlignedVec {
     ///
     /// Dictated by the requirements of [`Layout::from_size_align`]:
     /// `size`, when rounded up to the nearest multiple of `align`, must not overflow `isize`.
-    fn max_size_for_alignment(align: usize) -> usize {
+    #[inline]
+    const fn max_size_for_alignment(align: usize) -> usize {
         isize::MAX as usize + 1 - align
     }
 
-    /// Maximum valid capacity of the vector with `self.alignment`.
+    /// Maximum valid capacity of the vector with `self.align`.
+    #[inline]
     fn max_capacity(&self) -> usize {
         Self::max_size_for_alignment(self.alignment())
     }
@@ -67,6 +70,7 @@ impl AlignedVec {
     /// # use bevy_platform::collections::AlignedVec;
     /// let mut vec = AlignedVec::new(16);
     /// ```
+    #[inline]
     pub fn new(align: usize) -> Self {
         Self::with_capacity(align, 0)
     }
@@ -97,6 +101,7 @@ impl AlignedVec {
     /// assert_eq!(vec.len(), 11);
     /// assert!(vec.capacity() >= 11);
     /// ```
+    #[inline]
     pub fn with_capacity(align: usize, capacity: usize) -> Self {
         assert!(align > 0, "align must be 1 or more");
         assert!(align.is_power_of_two(), "align must be a power of 2");
@@ -144,6 +149,7 @@ impl AlignedVec {
         }
     }
 
+    #[inline]
     fn layout(&self) -> Layout {
         // SAFETY: `cap` and `align` are valid for layout
         unsafe { Layout::from_size_align_unchecked(self.cap, self.alignment()) }
@@ -164,6 +170,7 @@ impl AlignedVec {
     ///
     /// assert!(v.is_empty());
     /// ```
+    #[inline]
     pub fn clear(&mut self) {
         self.len = 0;
     }
@@ -199,7 +206,7 @@ impl AlignedVec {
                 let new_ptr = unsafe { realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
                 if new_ptr.is_null() {
                     // SAFETY:
-                    // - `ALIGNMENT` is always guaranteed to be a nonzero power
+                    // - `self.align` is always guaranteed to be a nonzero power
                     //   of two.
                     // - We checked that `new_cap` doesn't overflow `isize` when
                     //   rounded up to the nearest power of two.
@@ -210,7 +217,7 @@ impl AlignedVec {
                 new_ptr
             } else {
                 // SAFETY:
-                // - `ALIGNMENT` is always guaranteed to be a nonzero power of
+                // - `self.align` is always guaranteed to be a nonzero power of
                 //   two.
                 // - We checked that `new_cap` doesn't overflow `isize` when
                 //   rounded up to the nearest power of two.
@@ -261,6 +268,7 @@ impl AlignedVec {
     /// vec.shrink_to_fit();
     /// assert!(vec.capacity() == 0);
     /// ```
+    #[inline]
     pub fn shrink_to_fit(&mut self) {
         if self.cap != self.len {
             // SAFETY: New capacity is equal to length, and cannot exceed max as it's shrinking
@@ -292,6 +300,7 @@ impl AlignedVec {
     /// }
     /// assert_eq!(&*x, &[0, 1, 2, 3]);
     /// ```
+    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.ptr.as_ptr()
     }
@@ -312,6 +321,7 @@ impl AlignedVec {
     ///     assert_eq!(vec.as_mut_slice()[i], i as u8);
     /// }
     /// ```
+    #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         // SAFETY: `ptr` and `len` are valid to construct slice
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
@@ -343,6 +353,7 @@ impl AlignedVec {
     ///     }
     /// }
     /// ```
+    #[inline]
     pub fn as_ptr(&self) -> *const u8 {
         self.ptr.as_ptr()
     }
@@ -361,6 +372,7 @@ impl AlignedVec {
     ///     assert_eq!(vec.as_slice()[i], i as u8 + 1);
     /// }
     /// ```
+    #[inline]
     pub fn as_slice(&self) -> &[u8] {
         // SAFETY: `ptr` and `len` are valid to construct slice
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
@@ -374,6 +386,7 @@ impl AlignedVec {
     /// let vec = AlignedVec::with_capacity(16, 10);
     /// assert_eq!(vec.capacity(), 10);
     /// ```
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.cap
     }
@@ -438,7 +451,7 @@ impl AlignedVec {
     /// required has already been performed, and you want to avoid doing it
     /// again.
     ///
-    /// Maximum capacity is `isize::MAX + 1 - Self::ALIGNMENT` bytes.
+    /// Maximum capacity is `isize::MAX + 1 - self.align` bytes.
     ///
     /// # Panics
     ///
@@ -475,6 +488,8 @@ impl AlignedVec {
             // Cannot overflow due to check above
             new_cap.next_power_of_two()
         };
+        let min_non_zero_cap = 8;
+        let new_cap = core::cmp::max(new_cap, min_non_zero_cap);
         // SAFETY: We just checked that `new_cap` is greater than or equal to
         // `len` and less than or equal to `max_capacity`.
         unsafe {
@@ -533,6 +548,7 @@ impl AlignedVec {
     /// v.push(1);
     /// assert!(!v.is_empty());
     /// ```
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -548,6 +564,7 @@ impl AlignedVec {
     /// a.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(a.len(), 3);
     /// ```
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -626,6 +643,7 @@ impl AlignedVec {
     /// assert_eq!(vec.pop(), Some(3));
     /// assert_eq!(vec.as_slice(), &[1, 2]);
     /// ```
+    #[inline]
     pub fn pop(&mut self) -> Option<u8> {
         if self.len == 0 {
             None
@@ -651,6 +669,7 @@ impl AlignedVec {
     /// vec.push(3);
     /// assert_eq!(vec.as_slice(), &[1, 2, 3]);
     /// ```
+    #[inline]
     pub fn push(&mut self, value: u8) {
         if self.len == self.cap {
             self.reserve_for_push();
