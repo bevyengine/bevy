@@ -36,30 +36,6 @@ fn bytes_read_write(c: &mut Criterion) {
         }
         for element_count in ELEMENT_COUNTS {
             group.bench_with_input(
-                BenchmarkId::from_parameter(format!("push_{}_elements_unaligned", element_count)),
-                element_count,
-                |b, &element_count| {
-                    b.iter(|| {
-                        let mut bytes = Vec::<u8>::new();
-                        for i in 0..element_count * size_of::<T>() {
-                            bytes.push(i as u8);
-                        }
-                    });
-                },
-            );
-            group.bench_with_input(
-                BenchmarkId::from_parameter(format!("push_{}_elements_aligned", element_count)),
-                element_count,
-                |b, &element_count| {
-                    b.iter(|| {
-                        let mut bytes = AlignedVec::new(align_of::<T>());
-                        for i in 0..element_count * size_of::<T>() {
-                            bytes.push(i as u8);
-                        }
-                    });
-                },
-            );
-            group.bench_with_input(
                 BenchmarkId::from_parameter(format!("read_{}_elements_unaligned", element_count)),
                 element_count,
                 |b, &element_count| {
