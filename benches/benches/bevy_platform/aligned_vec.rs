@@ -2,10 +2,12 @@ use benches::bench;
 use bevy_math::prelude::*;
 use bevy_platform::collections::AlignedVec;
 use bytemuck::{Pod, Zeroable};
+use chacha20::ChaCha8Rng;
 use core::hint::black_box;
 use criterion::{
     criterion_group, measurement::Measurement, BenchmarkGroup, BenchmarkId, Criterion,
 };
+use rand::{RngExt, SeedableRng};
 
 criterion_group!(benches, bytes_read_write);
 
@@ -26,6 +28,10 @@ struct S128A128 {
 
 const ELEMENT_COUNTS: &[usize] = &[100000];
 
+fn deterministic_rand() -> ChaCha8Rng {
+    ChaCha8Rng::seed_from_u64(42)
+}
+
 fn bytes_read_write(c: &mut Criterion) {
     bench_group::<u8, 1, _>(&mut c.benchmark_group(bench!("size1_align1")));
     bench_group::<S64A16, 64, _>(&mut c.benchmark_group(bench!("size64_align16")));
@@ -43,7 +49,9 @@ fn bytes_read_write(c: &mut Criterion) {
                     let bytes = create_bytes_unaligned::<T>(element_count);
 
                     b.iter(|| {
-                        for i in 0..element_count {
+                        let mut rng = deterministic_rand();
+                        for _ in 0..element_count {
+                            let i = rng.random_range(0..element_count);
                             let t: T = bytemuck::pod_read_unaligned(
                                 &bytes[(i * size_of::<T>())..((i + 1) * size_of::<T>())],
                             );
@@ -58,8 +66,11 @@ fn bytes_read_write(c: &mut Criterion) {
                 |b, &element_count| {
                     let bytes = create_bytes_aligned::<T, S>(element_count);
                     let slice = bytes.cast_slice::<T>();
+
                     b.iter(|| {
-                        for i in 0..element_count {
+                        let mut rng = deterministic_rand();
+                        for _ in 0..element_count {
+                            let i = rng.random_range(0..element_count);
                             let t: T = slice[i];
                             black_box(t);
                         }
@@ -73,7 +84,9 @@ fn bytes_read_write(c: &mut Criterion) {
                     let mut bytes = create_bytes_unaligned::<T>(element_count);
 
                     b.iter(|| {
-                        for i in 0..element_count {
+                        let mut rng = deterministic_rand();
+                        for _ in 0..element_count {
+                            let i = rng.random_range(0..element_count);
                             let write_idx = element_count - 1 - i;
                             bytes[(write_idx * size_of::<T>())..((write_idx + 1) * size_of::<T>())]
                                 .copy_from_slice(&create_seq_array::<T, S>(i));
@@ -87,8 +100,11 @@ fn bytes_read_write(c: &mut Criterion) {
                 |b, &element_count| {
                     let mut bytes = create_bytes_aligned::<T, S>(element_count);
                     let slice = bytes.cast_slice_mut::<T>();
+
                     b.iter(|| {
-                        for i in 0..element_count {
+                        let mut rng = deterministic_rand();
+                        for _ in 0..element_count {
+                            let i = rng.random_range(0..element_count);
                             let write_idx = element_count - 1 - i;
                             slice[write_idx] = bytemuck::must_cast(create_seq_array::<T, S>(i));
                         }
