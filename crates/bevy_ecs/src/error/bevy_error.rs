@@ -710,7 +710,6 @@ mod tests {
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
             "<bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0} as core::ops::function::FnOnce<()>>::call_once",
-            "<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once",
         ];
 
         for expected in expected_lines {
@@ -744,7 +743,7 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "core::ops::function::FnOnce::call_once"
+            && &line[6..] == "<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once"
         {
             skip = true;
         }
