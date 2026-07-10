@@ -42,7 +42,7 @@ use bevy::{
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
         view::{
-            ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
+            ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthStencilTexture, ViewTarget,
         },
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
@@ -638,7 +638,7 @@ fn main_colored_transparent_pass_2d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     transparent_phases: Res<ViewSortedRenderPhases<TransparentColoredMesh2d>>,
     mut ctx: RenderContext,
