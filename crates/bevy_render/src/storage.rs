@@ -91,7 +91,7 @@ impl Default for ShaderBufferData {
 
 impl ShaderBuffer {
     /// Creates a new initialized storage buffer with the given data and asset usage, with alignment `align_of::<T>()`.
-    pub fn new<T: bytemuck::Pod>(data: Vec<T>, asset_usage: RenderAssetUsages) -> Self {
+    pub fn new<T: bytemuck::NoUninit>(data: Vec<T>, asset_usage: RenderAssetUsages) -> Self {
         ShaderBuffer {
             data: ShaderBufferData::Initialized(AlignedVec::from(data)),
             asset_usage,
@@ -115,10 +115,10 @@ impl ShaderBuffer {
         }
     }
 
-    /// Initializes (with alignment `align_of::<T>()`) and extends the data with an iterator of [`bytemuck::Pod`].
+    /// Initializes (with alignment `align_of::<T>()`) and extends the data with an iterator of [`bytemuck::NoUninit`].
     pub fn extend<T>(&mut self, values: impl Iterator<Item = T>)
     where
-        T: bytemuck::Pod,
+        T: bytemuck::NoUninit,
     {
         let data = core::mem::take(&mut self.data);
         let mut data = match data {
@@ -141,7 +141,7 @@ impl ShaderBuffer {
     /// Panics:
     /// * If `T` has a greater alignment requirement and the `AlignedVec` isn't aligned.
     /// * If the size of `AlignedVec` is not a multiple of `size_of::<T>()`
-    pub fn as_slice<T: bytemuck::Pod>(&self) -> Option<&[T]> {
+    pub fn as_slice<T: bytemuck::AnyBitPattern>(&self) -> Option<&[T]> {
         match &self.data {
             ShaderBufferData::Uninitialized(_) => None,
             ShaderBufferData::Initialized(aligned_vec) => Some(aligned_vec.cast_slice()),
@@ -153,7 +153,9 @@ impl ShaderBuffer {
     /// Panics:
     /// * If `T` has a greater alignment requirement than the `AlignedVec`.
     /// * If the size of `AlignedVec` is not a multiple of `size_of::<T>()`
-    pub fn as_mut_slice<T: bytemuck::Pod>(&mut self) -> Option<&mut [T]> {
+    pub fn as_mut_slice<T: bytemuck::NoUninit + bytemuck::AnyBitPattern>(
+        &mut self,
+    ) -> Option<&mut [T]> {
         match &mut self.data {
             ShaderBufferData::Uninitialized(_) => None,
             ShaderBufferData::Initialized(aligned_vec) => Some(aligned_vec.cast_slice_mut()),
@@ -190,7 +192,7 @@ impl ShaderBuffer {
     }
 }
 
-impl<T: bytemuck::Pod> From<Vec<T>> for ShaderBuffer {
+impl<T: bytemuck::NoUninit> From<Vec<T>> for ShaderBuffer {
     /// Creates a new initialized storage buffer with the given data, with alignment `align_of::<T>()`.
     fn from(value: Vec<T>) -> Self {
         Self::new(value, Default::default())
