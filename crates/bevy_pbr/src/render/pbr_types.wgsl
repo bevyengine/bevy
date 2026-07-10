@@ -119,7 +119,7 @@ struct PbrInput {
     anisotropy_B: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
-    // Multiplier applied to all directional lights before cascade/contact shadows,
+    // Multiplier applied to all directional lights before cascade and contact shadows,
     // use this for custom shadow maps. Defaults to 1.0. 
     directional_shadow_factor: f32,
 };
