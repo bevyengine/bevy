@@ -795,7 +795,7 @@ impl AlignedVec {
         assert!(align_of::<T>() == self.alignment());
         assert!(self.len().is_multiple_of(size_of::<T>()));
         assert!(self.capacity().is_multiple_of(size_of::<T>()));
-        let (ptr, _align, len, cap) = self.into_parts();
+        let (ptr, _align, len, cap) = self.into_raw_parts();
         // SAFETY: the raw parts from `self` are valid to be used as `Vec`
         unsafe {
             Vec::from_raw_parts(
@@ -850,14 +850,14 @@ impl AlignedVec {
     ///     v.push(i);
     /// }
     ///
-    /// let (ptr, align, len, cap) = v.into_parts();
+    /// let (ptr, align, len, cap) = v.into_raw_parts();
     ///
     /// let rebuilt: AlignedVec =
     ///     unsafe { AlignedVec::from_raw_parts(ptr, align, len, cap) };
     /// assert_eq!(rebuilt.as_slice(), &[1, 2, 3, 4, 5]);
     /// ```
     #[must_use = "losing the pointer will leak memory"]
-    pub fn into_parts(self) -> (NonNull<u8>, usize, usize, usize) {
+    pub fn into_raw_parts(self) -> (NonNull<u8>, usize, usize, usize) {
         let this = ManuallyDrop::new(self);
         (this.ptr, this.align, this.len, this.cap)
     }
@@ -894,7 +894,7 @@ impl AlignedVec {
     ///     v.push(i);
     /// }
     ///
-    /// let (ptr, align, len, cap) = v.into_parts();
+    /// let (ptr, align, len, cap) = v.into_raw_parts();
     ///
     /// let rebuilt: AlignedVec =
     ///     unsafe { AlignedVec::from_raw_parts(ptr, align, len, cap) };

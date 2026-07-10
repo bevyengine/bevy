@@ -175,9 +175,9 @@ fn test_raw_pointers() {
 }
 
 #[test]
-fn test_into_parts() {
+fn test_into_raw_parts() {
     let v = AlignedVec::new(1);
-    let (ptr, align, len, cap) = v.into_parts();
+    let (ptr, align, len, cap) = v.into_raw_parts();
     assert!(align == 1 && len == 0 && cap == 0);
     let rebuilt = unsafe { AlignedVec::from_raw_parts(ptr, align, len, cap) };
     assert!(align == rebuilt.alignment() && len == rebuilt.len() && cap == rebuilt.capacity());
@@ -186,7 +186,7 @@ fn test_into_parts() {
     for i in 1..=5 {
         v.push(i);
     }
-    let (ptr, align, len, cap) = v.into_parts();
+    let (ptr, align, len, cap) = v.into_raw_parts();
     assert!(align == 16 && len == 5 && cap >= len);
     let rebuilt = unsafe { AlignedVec::from_raw_parts(ptr, align, len, cap) };
     assert_eq!(&*rebuilt, &[1, 2, 3, 4, 5]);
