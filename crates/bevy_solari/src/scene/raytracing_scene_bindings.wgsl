@@ -5,12 +5,20 @@ enable wgpu_ray_query;
 #import bevy_pbr::lighting::perceptualRoughnessToRoughness
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 
-struct InstanceGeometryIds {
+struct InstanceRenderInfo {
     vertex_buffer_id: u32,
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
     index_buffer_offset: u32,
     triangle_count: u32,
+    material_id: u32,
+}
+
+struct PackedTransform {
+    current_linear: mat3x3<f32>,
+    current_translate: vec3<f32>,
+    previous_linear: mat3x3<f32>,
+    previous_translate: vec3<f32>,
 }
 
 struct VertexBuffer { vertices: array<PackedVertex> }
@@ -74,21 +82,25 @@ struct DirectionalLight {
 
 const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 
+#ifdef BUFFER_BINDING_ARRAY
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
 @group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
+#else
+@group(0) @binding(0) var<storage> vertex_buffers: VertexBuffer;
+@group(0) @binding(1) var<storage> index_buffers: IndexBuffer;
+#endif
+
 @group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
 @group(0) @binding(3) var samplers: binding_array<sampler>;
 @group(0) @binding(4) var<storage> materials: array<Material>;
 @group(0) @binding(5) var tlas: acceleration_structure;
-@group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
-@group(0) @binding(7) var<storage> previous_frame_transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
-@group(0) @binding(8) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(9) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
-@group(0) @binding(10) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(11) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(12) var<storage> previous_frame_light_id_translations: array<u32>;
-@group(0) @binding(13) var brdf_dfg_lut: texture_2d<f32>;
-@group(0) @binding(14) var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(6) var<storage> transforms: array<PackedTransform>;
+@group(0) @binding(7) var<storage> render_infos: array<InstanceRenderInfo>;
+@group(0) @binding(8) var<storage> light_sources: array<LightSource>;
+@group(0) @binding(9) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(10) var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(11) var brdf_dfg_lut: texture_2d<f32>;
+@group(0) @binding(12) var brdf_dfg_lut_sampler: sampler;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
@@ -161,10 +173,14 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     return resolve_triangle_data_full(ray_hit.instance_index, ray_hit.primitive_index, barycentrics);
 }
 
-fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
+fn load_vertices(instance_geometry_ids: InstanceRenderInfo, triangle_id: u32) -> array<Vertex, 3> {
+#ifdef BUFFER_BINDING_ARRAY
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
-
+#else
+    let index_buffer = &index_buffers.indices;
+    let vertex_buffer = &vertex_buffers.vertices;
+#endif
     let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
     let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
 
@@ -183,14 +199,23 @@ fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> ar
     );
 }
 
+fn unpack_affine(affine_linear: mat3x3<f32>, affine_translate: vec3<f32>) -> mat4x4<f32> {
+    return mat4x4<f32>(
+        vec4<f32>(affine_linear[0], 0.0),
+        vec4<f32>(affine_linear[1], 0.0),
+        vec4<f32>(affine_linear[2], 0.0),
+        vec4<f32>(affine_translate, 1.0),
+    );
+}
+
 fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
-    let material_id = material_ids[instance_id];
+    let material_id = render_infos[instance_id].material_id;
     let material = materials[material_id];
 
-    let transform = transforms[instance_id];
-    let previous_frame_transform = previous_frame_transforms[instance_id];
+    let transform = unpack_affine(transforms[instance_id].current_linear, transforms[instance_id].current_translate);
+    let previous_frame_transform = unpack_affine(transforms[instance_id].previous_linear, transforms[instance_id].previous_translate);
 
-    let instance_geometry_ids = geometry_ids[instance_id];
+    let instance_geometry_ids = render_infos[instance_id];
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
 
     let world_vertices = transform_positions(transform, vertices);

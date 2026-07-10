@@ -880,11 +880,7 @@ where
                 let slab_allocation = general_slab.resident_allocations.get(key)?;
                 Some(SlabAllocationBufferSlice {
                     buffer: general_slab.buffer.as_ref()?,
-                    range: (slab_allocation.allocation.offset
-                        * general_slab.element_layout.elements_per_slot())
-                        ..((slab_allocation.allocation.offset + slab_allocation.slot_count)
-                            * general_slab.element_layout.elements_per_slot())
-                            - slab_allocation.padding,
+                    range: general_slab.get_allocation_range(slab_allocation),
                     phantom: PhantomData,
                 })
             }
@@ -1079,17 +1075,20 @@ where
 
         // Try to grow in increments of `SlabAllocatorSettings::growth_factor`
         // until we're big enough.
-        while self.current_slot_capacity < new_size_in_slots {
-            let new_slab_slot_capacity =
-                ((self.current_slot_capacity as f64 * settings.growth_factor).ceil() as u32)
-                    .min((settings.max_slab_size / self.element_layout.slot_size()) as u32);
-            if new_slab_slot_capacity == self.current_slot_capacity {
+        let mut current_capacity_temp = self.current_slot_capacity;
+        while current_capacity_temp < new_size_in_slots {
+            let new_slab_slot_capacity = ((current_capacity_temp as f64 * settings.growth_factor)
+                .ceil() as u32)
+                .min((settings.max_slab_size / self.element_layout.slot_size()) as u32);
+
+            if new_slab_slot_capacity == current_capacity_temp {
                 // The slab is full.
                 return SlabGrowthResult::CantGrow;
             }
 
-            self.current_slot_capacity = new_slab_slot_capacity;
+            current_capacity_temp = new_slab_slot_capacity;
         }
+        self.current_slot_capacity = current_capacity_temp;
 
         // Tell our caller what we did.
         SlabGrowthResult::NeededGrowth(SlabToReallocate {
@@ -1100,6 +1099,13 @@ where
     /// Returns true if this slab is empty.
     fn is_empty(&self) -> bool {
         self.resident_allocations.is_empty() && self.pending_allocations.is_empty()
+    }
+
+    fn get_allocation_range(&self, allocation: &SlabAllocation) -> Range<u32> {
+        (allocation.allocation.offset * self.element_layout.elements_per_slot())
+            ..((allocation.allocation.offset + allocation.slot_count)
+                * self.element_layout.elements_per_slot())
+                - allocation.padding
     }
 }
 

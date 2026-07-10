@@ -1,4 +1,4 @@
-use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
+use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d, SolariFeatures};
 use bevy_asset::{AssetId, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::{
@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
 };
-use bevy_math::{ops::cos, Mat4, Vec3};
+use bevy_math::{ops::cos, Mat3, Mat4, Vec3};
 use bevy_pbr::{
     DfgLut, ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
 };
@@ -20,6 +20,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use core::{f32::consts::TAU, hash::Hash, num::NonZeroU32, ops::Deref};
+use tracing::warn;
 
 const MAX_MESH_SLAB_COUNT: NonZeroU32 = NonZeroU32::new(500).unwrap();
 const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
@@ -52,6 +53,7 @@ pub fn prepare_raytracing_scene_bindings(
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
+    solari_features: Res<SolariFeatures>,
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
     raytracing_scene_bindings.bind_group = None;
@@ -79,10 +81,8 @@ pub fn prepare_raytracing_scene_bindings(
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
         });
-    let mut transforms = StorageBufferList::<Mat4>::default();
-    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
-    let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
-    let mut material_ids = StorageBufferList::<u32>::default();
+    let mut transforms = StorageBufferList::<PackedTransform>::default();
+    let mut geometry_ids = StorageBufferList::<GpuInstanceRenderInfo>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
     let mut directional_lights = StorageBufferList::<GpuDirectionalLight>::default();
     let mut previous_frame_light_id_translations = StorageBufferList::<u32>::default();
@@ -175,12 +175,12 @@ pub fn prepare_raytracing_scene_bindings(
             0xFF,
         ));
 
-        transforms.get_mut().push(transform);
-        previous_frame_transforms.get_mut().push(
+        transforms.get_mut().push(PackedTransform::from_mat4(
+            transform,
             previous_frame_transform
                 .map(|t| Mat4::from(t.0))
                 .unwrap_or(transform),
-        );
+        ));
 
         let (vertex_buffer_id, _) = vertex_buffers.push_if_absent(
             vertex_slice.buffer.as_entire_buffer_binding(),
@@ -191,15 +191,14 @@ pub fn prepare_raytracing_scene_bindings(
             index_slice.buffer.id(),
         );
 
-        geometry_ids.get_mut().push(GpuInstanceGeometryIds {
+        geometry_ids.get_mut().push(GpuInstanceRenderInfo {
             vertex_buffer_id,
             vertex_buffer_offset: vertex_slice.range.start,
             index_buffer_id,
             index_buffer_offset: index_slice.range.start,
             triangle_count: (index_slice.range.len() / 3) as u32,
+            material_id,
         });
-
-        material_ids.get_mut().push(material_id);
 
         if material.emissive != Vec3::ZERO {
             light_sources
@@ -254,9 +253,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     materials.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
-    previous_frame_transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
-    material_ids.write_buffer(&render_device, &render_queue);
     light_sources.write_buffer(&render_device, &render_queue);
     directional_lights.write_buffer(&render_device, &render_queue);
     previous_frame_light_id_translations.write_buffer(&render_device, &render_queue);
@@ -275,10 +272,8 @@ pub fn prepare_raytracing_scene_bindings(
             &fallback_texture.d2.sampler,
         ));
 
-    raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
-        "raytracing_scene_bind_group",
-        &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
-        &BindGroupEntries::sequential((
+    let bind_group = if solari_features.buffer_binding_array {
+        BindGroupEntries::sequential((
             vertex_buffers.as_slice(),
             index_buffers.as_slice(),
             textures.as_slice(),
@@ -286,45 +281,82 @@ pub fn prepare_raytracing_scene_bindings(
             materials.binding().unwrap(),
             tlas.as_binding(),
             transforms.binding().unwrap(),
-            previous_frame_transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
-            material_ids.binding().unwrap(),
             light_sources.binding().unwrap(),
             directional_lights.binding().unwrap(),
             previous_frame_light_id_translations.binding().unwrap(),
             dfg_view,
             dfg_sampler,
-        )),
+        ))
+    } else if vertex_buffers.is_single() && index_buffers.is_single() {
+        BindGroupEntries::sequential((
+            vertex_buffers.first().cloned().unwrap(),
+            index_buffers.first().cloned().unwrap(),
+            textures.as_slice(),
+            samplers.as_slice(),
+            materials.binding().unwrap(),
+            tlas.as_binding(),
+            transforms.binding().unwrap(),
+            geometry_ids.binding().unwrap(),
+            light_sources.binding().unwrap(),
+            directional_lights.binding().unwrap(),
+            previous_frame_light_id_translations.binding().unwrap(),
+            dfg_view,
+            dfg_sampler,
+        ))
+    } else {
+        warn!("`BUFFER_BINDING_ARRAY` not supported, enlarge `max_slab_size` of `MeshAllocatorSettings` to stage meshes in a single buffer.");
+        return;
+    };
+
+    raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
+        "raytracing_scene_bind_group",
+        &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
+        &bind_group,
     ));
 }
 
 impl RaytracingSceneBindings {
-    pub fn new() -> Self {
+    pub fn new(solari_features: SolariFeatures) -> Self {
+        let entries = if solari_features.buffer_binding_array {
+            (
+                storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
+                storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
+                texture_2d(TextureSampleType::Float { filterable: true }).count(MAX_TEXTURE_COUNT),
+                sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
+                storage_buffer_read_only_sized(false, None),
+                acceleration_structure(),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+            )
+        } else {
+            (
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                texture_2d(TextureSampleType::Float { filterable: true }).count(MAX_TEXTURE_COUNT),
+                sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
+                storage_buffer_read_only_sized(false, None),
+                acceleration_structure(),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+            )
+        };
+
         Self {
             bind_group: None,
             bind_group_layout: BindGroupLayoutDescriptor::new(
                 "raytracing_scene_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
-                        storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
-                        texture_2d(TextureSampleType::Float { filterable: true })
-                            .count(MAX_TEXTURE_COUNT),
-                        sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
-                        storage_buffer_read_only_sized(false, None),
-                        acceleration_structure(),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        texture_2d(TextureSampleType::Float { filterable: true }),
-                        sampler(SamplerBindingType::Filtering),
-                    ),
-                ),
+                &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, entries),
             ),
             previous_frame_light_entities: Vec::new(),
         }
@@ -333,7 +365,7 @@ impl RaytracingSceneBindings {
 
 impl Default for RaytracingSceneBindings {
     fn default() -> Self {
-        Self::new()
+        Self::new(SolariFeatures::default())
     }
 }
 
@@ -365,6 +397,14 @@ impl<T, I: Eq + Hash> CachedBindingArray<T, I> {
         self.vec.is_empty()
     }
 
+    fn is_single(&self) -> bool {
+        self.vec.len() == 1
+    }
+
+    fn first(&self) -> Option<&T> {
+        self.vec.first()
+    }
+
     fn as_slice(&self) -> &[T] {
         self.vec.as_slice()
     }
@@ -373,12 +413,46 @@ impl<T, I: Eq + Hash> CachedBindingArray<T, I> {
 type StorageBufferList<T> = StorageBuffer<Vec<T>>;
 
 #[derive(ShaderType)]
-struct GpuInstanceGeometryIds {
+struct PackedTransform {
+    current_linear: Mat3,
+    current_translate: Vec3,
+    previous_linear: Mat3,
+    previous_translate: Vec3,
+}
+
+impl PackedTransform {
+    #[inline(always)]
+    fn affine_linear(matrix: &Mat4) -> Mat3 {
+        Mat3::from_cols_array_2d(&[
+            [matrix.x_axis.x, matrix.x_axis.y, matrix.x_axis.z],
+            [matrix.y_axis.x, matrix.y_axis.y, matrix.y_axis.z],
+            [matrix.z_axis.x, matrix.z_axis.y, matrix.z_axis.z],
+        ])
+    }
+
+    #[inline(always)]
+    fn affine_translate(matrix: &Mat4) -> Vec3 {
+        Vec3::new(matrix.w_axis.x, matrix.w_axis.y, matrix.w_axis.z)
+    }
+
+    fn from_mat4(current: Mat4, previous: Mat4) -> Self {
+        Self {
+            current_linear: Self::affine_linear(&current),
+            current_translate: Self::affine_translate(&current),
+            previous_linear: Self::affine_linear(&previous),
+            previous_translate: Self::affine_translate(&previous),
+        }
+    }
+}
+
+#[derive(ShaderType)]
+struct GpuInstanceRenderInfo {
     vertex_buffer_id: u32,
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
     index_buffer_offset: u32,
     triangle_count: u32,
+    material_id: u32,
 }
 
 #[derive(ShaderType)]
