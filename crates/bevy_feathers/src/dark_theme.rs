@@ -15,7 +15,7 @@ pub fn default_dark_palette() -> EditablePalette {
         neutrals: OklchaArray {
             hue: 280.0,
             chroma: 0.008,
-            l: [0.2414, 0.287, 0.3120, 0.3373, 0.399, 0.452, 0.485],
+            l: [0.2414, 0.287, 0.3373, 0.42, 0.47, 0.52, 0.57],
         },
         accent: OklchaArray {
             hue: 255.4,
