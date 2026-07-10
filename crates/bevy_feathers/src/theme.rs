@@ -594,5 +594,5 @@ static DEFAULT_TOKEN_SLOTS: &[(ThemeToken, Slot)] = &[
 
 /// Default mapping from each token to a [`Slot`]
 pub fn default_token_slots() -> &'static [(ThemeToken, Slot)] {
-    &DEFAULT_TOKEN_SLOTS
+    DEFAULT_TOKEN_SLOTS
 }
