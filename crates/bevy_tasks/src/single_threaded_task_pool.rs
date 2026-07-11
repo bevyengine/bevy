@@ -1,9 +1,14 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform::sync::Arc;
-use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
+use bevy_platform::sync::{Arc, PoisonError, RwLock};
+use core::{
+    cell::{Cell, RefCell},
+    future::Future,
+    marker::PhantomData,
+    mem,
+};
 
-use crate::executor::LocalExecutor;
 use crate::{block_on, Task};
+use crate::{executor::LocalExecutor, futures::KickOnWake};
 
 crate::cfg::std! {
     if {
@@ -80,8 +85,16 @@ impl TaskPoolBuilder {
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool. In this case - main thread only.
-#[derive(Debug, Default, Clone)]
-pub struct TaskPool {}
+#[derive(Default)]
+pub struct TaskPool {
+    kicker: RwLock<Option<Arc<dyn Fn() + Send + Sync + 'static>>>,
+}
+
+impl core::fmt::Debug for TaskPool {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("TaskPool").finish()
+    }
+}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
@@ -95,7 +108,18 @@ impl TaskPool {
     }
 
     fn new_internal() -> Self {
-        Self {}
+        Self {
+            kicker: Default::default(),
+        }
+    }
+
+    /// Sets the "kicker" that futures will invoke when waking.
+    ///
+    /// This allows event loops to be notified whenever a future resolves. Note changing this at
+    /// runtime can have **unpredictable results**. Users should set this before spawning any
+    /// futures to ensure the kicker is invoked.
+    pub fn set_kicker(&self, kicker: Arc<dyn Fn() + Send + Sync + 'static>) {
+        *self.kicker.write().unwrap_or_else(PoisonError::into_inner) = Some(kicker);
     }
 
     /// Return the number of threads owned by the task pool
@@ -156,6 +180,11 @@ impl TaskPool {
             executor_ref,
             pending_tasks,
             results_ref,
+            kicker: self
+                .kicker
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone(),
             scope: PhantomData,
             env: PhantomData,
         };
@@ -192,20 +221,25 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
+        let kicker = self
+            .kicker
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
         crate::cfg::switch! {{
             crate::cfg::web => {
-                web_task::spawn_local(future)
+                web_task::spawn_local(KickOnWake { kicker, f: future })
             }
             crate::cfg::std => {
                 LOCAL_EXECUTOR.with(|executor| {
-                    let task = executor.spawn(future);
+                    let task = executor.spawn(KickOnWake { kicker, f: future });
                     // Loop until all tasks are done
                     while executor.try_tick() {}
                     task
                 })
             }
             _ => {
-                let task = LOCAL_EXECUTOR.spawn(future);
+                let task = LOCAL_EXECUTOR.spawn(KickOnWake { kicker, f: future });
                 // Loop until all tasks are done
                 while LOCAL_EXECUTOR.try_tick() {}
                 task
@@ -253,17 +287,30 @@ impl TaskPool {
 /// A `TaskPool` scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
-#[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor_ref: &'scope LocalExecutor<'scope>,
     // The number of pending tasks spawned on the scope
     pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
     results_ref: &'env RefCell<Vec<Option<T>>>,
+    /// The kicker to wake whenever a future wakes.
+    kicker: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
+}
+
+impl<'scope, 'env: 'scope, T: core::fmt::Debug> core::fmt::Debug for Scope<'scope, 'env, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Scope")
+            .field("executor_ref", &self.executor_ref)
+            .field("pending_tasks", &self.pending_tasks)
+            .field("results_ref", &self.results_ref)
+            .field("scope", &self.scope)
+            .field("env", &self.env)
+            .finish()
+    }
 }
 
 impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
@@ -320,7 +367,12 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         };
 
         // spawn the job itself
-        self.executor_ref.spawn(f).detach();
+        self.executor_ref
+            .spawn(KickOnWake {
+                kicker: self.kicker.clone(),
+                f,
+            })
+            .detach();
     }
 }
 
@@ -342,7 +394,7 @@ crate::cfg::std! {
 
 #[cfg(test)]
 mod test {
-    use std::{time, thread};
+    use std::{thread, time};
 
     use super::*;
 
@@ -355,16 +407,14 @@ mod test {
     #[test]
     fn scoped_spawn() {
         let (sender, receiver) = async_channel::unbounded();
-        let task_pool = TaskPool {};
+        let task_pool = TaskPool::new();
         let thread = thread::spawn(move || {
             let duration = time::Duration::from_millis(50);
             thread::sleep(duration);
             let _ = sender.send(0);
         });
         task_pool.scope(|scope| {
-            scope.spawn(async {
-                receiver.recv().await
-            });
+            scope.spawn(async { receiver.recv().await });
         });
     }
 }

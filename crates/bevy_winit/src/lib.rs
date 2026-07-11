@@ -14,6 +14,8 @@
 
 extern crate alloc;
 
+use alloc::sync::Arc;
+
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
 use bevy_window::{ExitSystems, RawHandleWrapperHolder, WindowEvent};
@@ -136,10 +138,21 @@ impl Plugin for WinitPlugin {
             .build()
             .expect("Failed to build event loop");
 
+        let event_loop_proxy = event_loop.create_proxy();
+        {
+            let event_loop_proxy = event_loop_proxy.clone();
+            let kicker = Arc::new(move || {
+                // Ignore any errors - this is a best-effort wakeup.
+                let _ = event_loop_proxy.send_event(WinitUserEvent::WakeUp);
+            });
+            bevy_tasks::IoTaskPool::get().set_kicker(kicker.clone());
+            bevy_tasks::AsyncComputeTaskPool::get().set_kicker(kicker);
+        }
+
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
-            .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()))
+            .insert_resource(EventLoopProxyWrapper(event_loop_proxy))
             .add_message::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
