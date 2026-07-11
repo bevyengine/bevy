@@ -35,7 +35,7 @@ use crate::{
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{InheritableThemeTextColor, SurfaceTier, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 use bevy_input_focus::{
@@ -357,6 +357,7 @@ impl FeathersMenuPopup {
             FeathersMenuPopup
             MenuPopup
             Visibility::Hidden
+            SurfaceTier::Float
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
             BoxShadow::new(

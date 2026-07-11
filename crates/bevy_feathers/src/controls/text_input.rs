@@ -27,7 +27,7 @@ use crate::{
     cursor::EntityCursor,
     focus::FocusWithinIndicator,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemedText, UiTheme},
+    theme::{InheritableThemeTextColor, ThemeContextualBackgroundColor, ThemedText, UiTheme},
     tokens,
 };
 
@@ -57,7 +57,12 @@ impl FeathersTextInputContainer {
             }
             FeathersTextInputContainer
             FocusWithinIndicator
-            ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
+            ThemeContextualBackgroundColor {
+                default: tokens::TEXT_INPUT_BG,
+                level1: tokens::TEXT_INPUT_BG_L1,
+                level2: tokens::TEXT_INPUT_BG_L2,
+                float: tokens::TEXT_INPUT_BG_FLOAT,
+            }
             InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
             InheritableFont {
                 font: fonts::REGULAR,

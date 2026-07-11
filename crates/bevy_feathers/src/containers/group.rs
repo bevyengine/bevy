@@ -6,7 +6,7 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{InheritableThemeTextColor, SurfaceTier, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
@@ -42,6 +42,7 @@ pub fn group_header() -> impl Scene {
         ThemeBackgroundColor(tokens::GROUP_HEADER_BG)
         ThemeBorderColor(tokens::GROUP_HEADER_BORDER)
         InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
+        SurfaceTier::Level2
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,

@@ -4,12 +4,15 @@ use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    entity::Entity,
+    hierarchy::ChildOf,
     lifecycle::Insert,
     observer::On,
     query::Changed,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Commands, Query, Res},
+    VariantDefaults,
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
@@ -150,6 +153,32 @@ pub(crate) fn update_theme(
     }
 }
 
+pub(crate) fn update_contextual_theme(
+    mut q_contextual_background: Query<
+        (
+            Entity,
+            &mut BackgroundColor,
+            &ThemeContextualBackgroundColor,
+        ),
+        Changed<ThemeContextualBackgroundColor>,
+    >,
+    q_tier: Query<&SurfaceTier>,
+    q_parent: Query<&ChildOf>,
+    theme: Res<UiTheme>,
+) {
+    if theme.is_changed() {
+        // Update all contextual background colors
+        for (ent, mut bg, theme_bg) in q_contextual_background.iter_mut() {
+            let tier = q_parent
+                .iter_ancestors(ent)
+                .find_map(|e| q_tier.get(e).ok())
+                .cloned()
+                .unwrap_or_default();
+            bg.0 = theme.color(theme_bg.token_for(&tier));
+        }
+    }
+}
+
 pub(crate) fn on_changed_background(
     insert: On<Insert, ThemeBackgroundColor>,
     mut q_background: Query<
@@ -161,6 +190,27 @@ pub(crate) fn on_changed_background(
     // Update background colors where the design token has changed.
     if let Ok((mut bg, theme_bg)) = q_background.get_mut(insert.entity) {
         bg.0 = theme.color(&theme_bg.0);
+    }
+}
+
+pub(crate) fn on_changed_contextual_background(
+    insert: On<Insert, ThemeContextualBackgroundColor>,
+    q_tier: Query<&SurfaceTier>,
+    q_parent: Query<&ChildOf>,
+    mut q_contextual_background: Query<
+        (&mut BackgroundColor, &ThemeContextualBackgroundColor),
+        Changed<ThemeContextualBackgroundColor>,
+    >,
+    theme: Res<UiTheme>,
+) {
+    // Update background colors where the design token has changed.
+    if let Ok((mut bg, theme_bg)) = q_contextual_background.get_mut(insert.entity) {
+        let tier = q_parent
+            .iter_ancestors(insert.entity)
+            .find_map(|e| q_tier.get(e).ok())
+            .cloned()
+            .unwrap_or_default();
+        bg.0 = theme.color(theme_bg.token_for(&tier));
     }
 }
 
@@ -199,5 +249,57 @@ pub(crate) fn on_changed_font_color(
         commands
             .entity(insert.entity)
             .insert(Propagate(TextColor(color)));
+    }
+}
+
+/// A component which allows widgets to change their style based on context. This allows a
+/// slider or text input to have a different background color depending on the background color
+/// of the container that is has been placed within.
+///
+/// Usage: place this component on the container widget (panel, popup, etc.) to influence the
+/// color variations of the child widgets of that container. This affects all widgets which
+/// are descendants of the container.
+#[derive(Component, Clone, PartialEq, Debug, Default, VariantDefaults)]
+pub enum SurfaceTier {
+    /// The default (level 0) background
+    #[default]
+    Default,
+    /// A container with one level of nesting (such as a panel). In dark themes, these
+    /// backgrounds are slightly lighter.
+    Level1,
+    /// A container which has two levels of nesting.
+    Level2,
+    /// A popup or dialog box container which floats above the backdrop.
+    Float,
+}
+
+/// Component which causes the background color of an entity to be set based on a theme color.
+/// This version chooses a different color based on the [`SurfaceTier`] component of the parent
+/// widget.
+#[derive(Component, Clone, Default)]
+#[require(BackgroundColor)]
+#[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
+pub struct ThemeContextualBackgroundColor {
+    /// Color token used when the surface tier is [`SurfaceTier::Default`].
+    pub default: ThemeToken,
+    /// Color token used when the surface tier is [`SurfaceTier::Level1`].
+    pub level1: ThemeToken,
+    /// Color token used when the surface tier is [`SurfaceTier::Level2`].
+    pub level2: ThemeToken,
+    /// Color token used when the surface tier is [`SurfaceTier::Float`].
+    pub float: ThemeToken,
+}
+
+impl ThemeContextualBackgroundColor {
+    /// Returns the [`ThemeToken`] corresponding to the given [`SurfaceTier`].
+    pub fn token_for(&self, tier: &SurfaceTier) -> &ThemeToken {
+        match tier {
+            SurfaceTier::Default => &self.default,
+            SurfaceTier::Level1 => &self.level1,
+            SurfaceTier::Level2 => &self.level2,
+            SurfaceTier::Float => &self.float,
+        }
     }
 }

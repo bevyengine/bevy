@@ -6,7 +6,7 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{InheritableThemeTextColor, SurfaceTier, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
@@ -42,6 +42,7 @@ pub fn subpane_header() -> impl Scene {
         ThemeBackgroundColor(tokens::SUBPANE_HEADER_BG)
         ThemeBorderColor(tokens::SUBPANE_HEADER_BORDER)
         InheritableThemeTextColor(tokens::SUBPANE_HEADER_TEXT)
+        SurfaceTier::Level1
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,

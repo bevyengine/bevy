@@ -99,10 +99,12 @@ impl Plugin for FeathersCorePlugin {
             PostUpdate,
             (
                 theme::update_theme,
+                theme::update_contextual_theme,
                 display::update_themed_icons.after(PropagateSet::<TextColor>::default()),
             ),
         )
         .add_observer(theme::on_changed_background)
+        .add_observer(theme::on_changed_contextual_background)
         .add_observer(theme::on_changed_border)
         .add_observer(theme::on_changed_font_color)
         .add_observer(theme::on_changed_text_color)

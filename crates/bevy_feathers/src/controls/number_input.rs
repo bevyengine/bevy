@@ -51,7 +51,10 @@ use crate::{
     controls::{FeathersTextInput, FeathersTextInputContainer},
     cursor::EntityCursor,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeTextColor, ThemeToken, UiTheme},
+    theme::{
+        ThemeBackgroundColor, ThemeBorderColor, ThemeContextualBackgroundColor, ThemeTextColor,
+        ThemeToken, UiTheme,
+    },
     tokens,
 };
 
@@ -1086,17 +1089,42 @@ fn set_slidebar_styles(
         tokens::SLIDER_BAR
     });
 
-    let bg_color = theme.color(&if focused {
-        tokens::TEXT_INPUT_BG
+    let bg_color = if focused {
+        ThemeContextualBackgroundColor {
+            default: tokens::TEXT_INPUT_BG,
+            level1: tokens::TEXT_INPUT_BG_L1,
+            level2: tokens::TEXT_INPUT_BG_L2,
+            float: tokens::TEXT_INPUT_BG_FLOAT,
+        }
     } else if disabled {
-        tokens::SLIDER_BG_DISABLED
+        ThemeContextualBackgroundColor {
+            default: tokens::SLIDER_BG_DISABLED,
+            level1: tokens::SLIDER_BG_DISABLED,
+            level2: tokens::SLIDER_BG_DISABLED,
+            float: tokens::SLIDER_BG_DISABLED,
+        }
     } else if pressed {
-        tokens::SLIDER_BG_PRESSED
+        ThemeContextualBackgroundColor {
+            default: tokens::SLIDER_BG_PRESSED,
+            level1: tokens::SLIDER_BG_PRESSED,
+            level2: tokens::SLIDER_BG_PRESSED,
+            float: tokens::SLIDER_BG_PRESSED,
+        }
     } else if hovered {
-        tokens::SLIDER_BG_HOVER
+        ThemeContextualBackgroundColor {
+            default: tokens::SLIDER_BG_HOVER,
+            level1: tokens::SLIDER_BG_HOVER,
+            level2: tokens::SLIDER_BG_HOVER,
+            float: tokens::SLIDER_BG_HOVER,
+        }
     } else {
-        tokens::SLIDER_BG
-    });
+        ThemeContextualBackgroundColor {
+            default: tokens::SLIDER_BG,
+            level1: tokens::SLIDER_BG,
+            level2: tokens::SLIDER_BG,
+            float: tokens::SLIDER_BG,
+        }
+    };
 
     let font_color_token = match disabled {
         true => tokens::TEXT_INPUT_TEXT_DISABLED,
@@ -1111,15 +1139,14 @@ fn set_slidebar_styles(
     if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
         linear_gradient.stops[0].color = bar_color;
         linear_gradient.stops[1].color = bar_color;
-        linear_gradient.stops[2].color = bg_color;
-        linear_gradient.stops[3].color = bg_color;
     }
 
-    // Change cursor shape and text color
+    // Change cursor shape and fill color
     commands
         .entity(slidebar_id)
         .insert(EntityCursor::System(cursor_shape))
-        .insert(ThemeTextColor(font_color_token));
+        .insert(ThemeTextColor(font_color_token))
+        .insert(bg_color);
 }
 
 fn emit_drag_value_change(

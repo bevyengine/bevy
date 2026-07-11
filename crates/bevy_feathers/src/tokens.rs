@@ -329,6 +329,12 @@ pub const MENUITEM_TEXT_DISABLED: ThemeToken =
 
 /// Background for text input
 pub const TEXT_INPUT_BG: ThemeToken = ThemeToken::new_static("feathers.textinput.bg");
+/// Background for text input for level 1 context
+pub const TEXT_INPUT_BG_L1: ThemeToken = ThemeToken::new_static("feathers.textinput.bg.l1");
+/// Background for text input for level 1 context
+pub const TEXT_INPUT_BG_L2: ThemeToken = ThemeToken::new_static("feathers.textinput.bg.l2");
+/// Background for text input for level 1 context
+pub const TEXT_INPUT_BG_FLOAT: ThemeToken = ThemeToken::new_static("feathers.textinput.bg.float");
 /// Text color for text input
 pub const TEXT_INPUT_TEXT: ThemeToken = ThemeToken::new_static("feathers.textinput.text");
 /// Text color for text input (disabled)

@@ -264,10 +264,10 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::WHITE.with_alpha(0.5),
             ),
             // Text Input
-            (
-                tokens::TEXT_INPUT_BG,
-                palette::LIGHT_GRAY_MIX.with_alpha(0.028),
-            ),
+            (tokens::TEXT_INPUT_BG, palette::GRAY_2),
+            (tokens::TEXT_INPUT_BG_L1, palette::GRAY_3),
+            (tokens::TEXT_INPUT_BG_L2, palette::GRAY_3.lighter(0.1)),
+            (tokens::TEXT_INPUT_BG_FLOAT, palette::GRAY_3),
             (
                 tokens::TEXT_INPUT_LABEL_BG,
                 palette::LIGHT_GRAY_MIX.with_alpha(0.09),

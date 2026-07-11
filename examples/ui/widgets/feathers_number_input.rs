@@ -2,10 +2,11 @@
 
 use bevy::{
     feathers::{
+        containers::{group, group_body, group_header, subpane, subpane_body, subpane_header},
         controls::*,
         dark_theme::create_dark_theme,
         display::label,
-        theme::{ThemeBackgroundColor, UiTheme},
+        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::tab_navigation::TabGroup,
@@ -84,6 +85,32 @@ fn demo_root() -> impl Scene {
                 InteractionDisabled
                 template_value(SoftLimit(NumberInputRange::F32(0.0..10.0)))
             )),
+
+            (
+                subpane()
+                Children [
+                    subpane_header() Children [
+                        (Text("Subpane") ThemedText),
+                    ],
+                    subpane_body()
+                    Children [
+                        demo_field_f32("subpane child", 1.0, bsn!()),
+                    ]
+                ]
+            ),
+
+            (
+                group()
+                Children [
+                    group_header() Children [
+                        (Text("Group") ThemedText),
+                    ],
+                    group_body()
+                    Children [
+                        demo_field_f32("group child", 1.0, bsn!()),
+                    ]
+                ]
+            )
         ]
     }
 }

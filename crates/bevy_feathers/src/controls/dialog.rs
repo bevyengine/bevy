@@ -19,7 +19,9 @@ use crate::{
     controls::{ButtonVariant, FeathersToolButton},
     display::icon,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, ThemedText},
+    theme::{
+        InheritableThemeTextColor, SurfaceTier, ThemeBackgroundColor, ThemeBorderColor, ThemedText,
+    },
     tokens,
 };
 
@@ -146,6 +148,7 @@ impl FeathersFloatingDialog {
             ThemeBackgroundColor(tokens::DIALOG_BG)
             ThemeBorderColor(tokens::DIALOG_BORDER)
             InheritableThemeTextColor(tokens::DIALOG_TEXT)
+            SurfaceTier::Float
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
                 px(0),
