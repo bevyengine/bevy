@@ -2782,8 +2782,9 @@ mod test {
             {
                 "load_cameras": false
             }
-            "#
-        ).unwrap();
+            "#,
+        )
+        .unwrap();
 
         let default = GltfLoaderSettings::default();
         assert_eq!(settings.load_meshes, default.load_meshes);
