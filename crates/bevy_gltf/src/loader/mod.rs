@@ -2789,7 +2789,7 @@ mod test {
         let default = GltfLoaderSettings::default();
         assert_eq!(settings.load_meshes, default.load_meshes);
         assert_eq!(settings.load_materials, default.load_materials);
-        assert_eq!(settings.load_cameras, false);
+        assert!(!settings.load_cameras);
         assert_eq!(settings.load_lights, default.load_lights);
         assert_eq!(settings.load_animations, default.load_animations);
         assert_eq!(settings.include_source, default.include_source);
