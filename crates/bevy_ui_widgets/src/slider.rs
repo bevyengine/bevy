@@ -76,7 +76,7 @@ pub enum TrackClick {
 /// during dragging with [`SliderPrecision`].
 ///
 /// The canonical way to update the slider value is to insert a new [`SliderValue`] component,
-/// overwriting the old one. The value can set during initial construction and updated later.
+/// overwriting the old one. The value can be set during initial construction and updated later.
 ///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.

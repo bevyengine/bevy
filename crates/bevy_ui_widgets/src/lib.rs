@@ -15,7 +15,7 @@
 //! to update the widget state (as well as any other related game state) in response to a change
 //! event emitted by the widget.
 //!
-//! These widgets emit a [`ValueChange`] event which carries the proposed new state; the app responds
+//! These widgets emit a [`ValueChange`] event which carries the proposed new state; the app should respond
 //! to this event by updating its own internal model, and by updating the widget state. The general
 //! convention is that the widget state is contained in a specific state-bearing component
 //! (like [`SliderValue`]), and the widget detects when this component is inserted or replaced.
