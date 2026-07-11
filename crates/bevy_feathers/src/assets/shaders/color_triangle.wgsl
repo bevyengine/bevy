@@ -5,7 +5,7 @@
 }
 #import bevy_render::maths::PI_2
 
-/// Constants must be the same as in color_triangle.rs
+/// Constants must be the same as in `color_triangle.rs`
 const RING_WIDTH: f32 = 12.0;
 const SPACING: f32 = 4.0;
 const MIN_HEIGHT: f32 = 100.0;

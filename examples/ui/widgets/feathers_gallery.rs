@@ -540,7 +540,7 @@ fn demo_column_1() -> impl Scene {
                         }
                         @FeathersColorWheel::Hsl
                         on(|change: On<ValueChange<ColorWheelValue>>,
-                        mut color: ResMut<DemoWidgetStates>| {
+                            mut color: ResMut<DemoWidgetStates>| {
                             color.hsl_color.hue = change.value.hue;
                             color.hsl_color.saturation = change.value.saturation;
                         })
@@ -551,7 +551,7 @@ fn demo_column_1() -> impl Scene {
                         }
                         @FeathersColorTriangle::Hwb
                         on(|change: On<ValueChange<ColorTriangleValue>>,
-                        mut color: ResMut<DemoWidgetStates>| {
+                            mut color: ResMut<DemoWidgetStates>| {
                             let hsl: Hsla = Hwba::hwb(
                                 change.value.hue,
                                 change.value.whiteness,

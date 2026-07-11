@@ -33,7 +33,7 @@ use bevy_ui_widgets::ValueChange;
 
 use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 
-/// Constants must be the same as in color_triangle.wgsl
+/// Constants must be the same as in `color_triangle.wgsl`
 const RING_WIDTH: f32 = 12.0;
 const SPACING: f32 = 4.0;
 const MIN_HEIGHT: f32 = 100.0;
@@ -46,8 +46,8 @@ const MIN_DIAMETER: f32 = MIN_HEIGHT - 2.0 * PADDING;
 ///
 /// This is spawnable by inheriting it as a "scene component".
 ///
-/// The control emits a [`ValueChange<ColorTriangleValue>`] containing the hue, whiteness and
-/// blackness of the selection.
+/// The control emits a [`ValueChange<ColorTriangleValue>`] containing the `hue`, `whiteness` and
+/// `blackness` of the selection.
 ///
 /// The control does not do any color space conversions internally, except when converting for
 /// display.
@@ -62,7 +62,7 @@ pub enum FeathersColorTriangle {
     Hwb,
 }
 
-/// Component that contains the selected hue on the ring, and the whiteness and blackness
+/// Component that contains the selected `hue` on the ring, and the `whiteness` and `blackness`
 /// selected within the triangle.
 ///
 /// This is also emitted by [`FeathersColorTriangle`] via [`ValueChange`] when the selection
