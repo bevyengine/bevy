@@ -8,9 +8,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 use core::{
-    alloc::Layout,
-    any::{Any, TypeId},
-    ptr::NonNull,
+    alloc::Layout, any::{Any, TypeId}, hash::Hash, ptr::NonNull,
 };
 use std::{
     alloc::{alloc, dealloc},
@@ -29,35 +27,57 @@ use crate::App;
 /// Most plugins shouldn't be picky, all they require is the _presence_ of a
 /// resource or other plugin. But some might have tighter, runtime-known constraints.
 ///
-/// Approval functions are expected to, mostly, return true.
+/// Approval functions are expected to, mostly, return true and neither contain
+/// nor take take advantage of mutable state. Memoization rights reserved.
+#[derive(Default)]
 pub struct Approval<T: ?Sized, Ctx = ()> {
-    approval_fn: Box<dyn Fn(&T, &Ctx) -> bool>,
+    approval_fn: Option<Box<dyn Fn(&T, &Ctx) -> bool>>,
 }
 
 impl<T> Approval<T, ()> {
     /// Creates a new approval function which does not care about context.
     pub(crate) fn new(approval: impl Fn(&T) -> bool + 'static) -> Self {
         Self {
-            approval_fn: Box::new(move |input, _ctx| approval(input)),
+            approval_fn: Some(Box::new(move |input, _ctx| approval(input))),
         }
     }
     /// "Asks" if the input is good enough.
     pub(crate) fn approves(&self, input: &T) -> bool {
-        (self.approval_fn)(input, &())
+        self.approval_fn.as_ref().map(|f| f(input, &())).unwrap_or(true)
     }
 }
 
 impl<T, Ctx> Approval<T, Ctx> {
+
+    /// Create an approval function that will always return true.
+    pub(crate) fn always_approve() -> Self {
+        Self {
+            approval_fn: None,
+        }
+    }
+
     /// Creates a new approval function that does care about context.
     pub(crate) fn new_with_context(approval: impl Fn(&T, &Ctx) -> bool + 'static) -> Self {
         Self {
-            approval_fn: Box::new(approval),
+            approval_fn: Some(Box::new(approval)),
         }
     }
 
     /// "Asks" if the input and context is good enough
     pub(crate) fn approves_with_context(&self, input: &T, ctx: &Ctx) -> bool {
-        (self.approval_fn)(input, ctx)
+        self.approval_fn.as_ref().map(|f| f(input, ctx)).unwrap_or(true)
+    }
+}
+
+impl <T, F: Fn(&T) -> bool + 'static> From<F> for Approval<T, ()> {
+    fn from(value: F) -> Self {
+        Self::new(value)
+    }
+}
+
+impl <T, Ctx> From<()> for Approval<T, Ctx> {
+    fn from(value: ()) -> Self {
+        Self::always_approve()
     }
 }
 
@@ -79,7 +99,8 @@ impl MetadataPtr {
     pub fn new<T: Sized + 'static>(data: T) -> Option<Self> {
         let layout = Layout::for_value(&data);
         // SAFETY: Initialization happens in the next unsafe block, there's no
-        // branching before then.
+        // branching other than null pointer checking before then. Null pointers
+        // cannot be deallocated.
         let ptr = unsafe { alloc(layout) };
         let ptr = NonNull::new(ptr)?.cast();
         // SAFETY: This uses a Layout derived from T
@@ -89,8 +110,8 @@ impl MetadataPtr {
             layout,
             ptr: ptr.cast(),
             drop_fn: Box::new(|ptr, layout| {
-                // SAFETY: These things cannot change, genuinely.
-                let data: T = Self::move_then_deallocate(ptr.cast(), layout);
+                // SAFETY: this function is only ever passed the original layout.
+                let data: T = unsafe {Self::move_then_deallocate(ptr.cast(), layout)};
                 drop(data);
             }),
             type_id: TypeId::of::<T>(),
@@ -101,9 +122,10 @@ impl MetadataPtr {
         let layout = Layout::new::<T>();
         let type_id = TypeId::of::<T>();
         if layout == self.layout && type_id == self.type_id {
-            // SAFETY: we at least know if the data is the right shape and the type IDs are the same
+            // SAFETY: we at least know if the data is the right shape and the type IDs are the same.
             let data: NonNull<T> = self.ptr.cast();
-            Ok(Self::move_then_deallocate(data, layout))
+            // SAFETY: We are passing the original layout this type was constructed with.
+            Ok(unsafe{Self::move_then_deallocate(data, self.layout)})
         } else {
             Err(self)
         }
@@ -111,7 +133,7 @@ impl MetadataPtr {
 
     pub fn peek_reverse_erased<'a, T: Sized + 'static, Y>(
         &'a self,
-        peek: impl Fn(&T) -> Y,
+        peek: impl Fn(&'a T) -> Y,
     ) -> Option<Y> {
         let layout = Layout::new::<T>();
         let type_id = TypeId::of::<T>();
@@ -122,7 +144,8 @@ impl MetadataPtr {
         }
     }
 
-    fn move_then_deallocate<T>(ptr: NonNull<T>, layout: Layout) -> T {
+    /// SAFETY: The layout passed must be the same as what `ptr` was allocated with.
+    unsafe fn move_then_deallocate<T>(ptr: NonNull<T>, layout: Layout) -> T {
         // SAFETY: we deallocate immediately after.
         let data_read = unsafe { ptr.read() };
         // SAFETY: the data is read to the stack already, we can free the ptr
@@ -248,7 +271,10 @@ impl PluginDependency {
 /// Plugin output, opaque to end user.
 ///
 /// This is designed to be a plugin data structure that end users don't need to
-/// think about in terms of what it's "made of."
+/// think about in terms of what it's "made of." Just something that stuff can be
+/// added to.
+/// 
+/// TODO: docs that are user-facing, not reviewer-facing.
 pub struct PluginOutput {
     /// Plugin type ID (used to build edges later)
     pub(crate) working_plugin: PluginTypeId,
@@ -295,15 +321,15 @@ impl PluginOutput {
         self
     }
 
-    pub fn add_dependency_no_worries<P: DeclarativePlugin + Default>(&mut self) -> &mut Self {
-        self.add_dependency::<P, _>(|_| true)
+    pub fn add_dependency<P: DeclarativePlugin + Default>(&mut self) -> &mut Self {
+        self.add_dependency_with_approval::<P, _>(|_| true)
     }
 
-    pub fn add_dependency<P: DeclarativePlugin + Default, F: Fn(&P) -> bool + 'static>(
+    pub fn add_dependency_with_approval<P: DeclarativePlugin + Default, F: Fn(&P) -> bool + 'static>(
         &mut self,
-        evaluate_config: F,
+        approval: F,
     ) -> &mut Self {
-        self.add_dependency_with_plugin_config(P::default(), evaluate_config);
+        self.add_dependency_with_plugin_config_and_approval(P::default(), approval);
         self
     }
 
@@ -368,7 +394,7 @@ impl PluginOutput {
     }
 
     /// Add a plugin dependency to the plugin output
-    pub fn add_dependency_with_plugin_config<P: DeclarativePlugin, F: Fn(&P) -> bool + 'static>(
+    pub fn add_dependency_with_plugin_config_and_approval<P: DeclarativePlugin, F: Fn(&P) -> bool + 'static>(
         &mut self,
         plugin: P,
         evaluate_config: F,
@@ -378,11 +404,11 @@ impl PluginOutput {
         self
     }
 
-    pub fn add_dependency_with_plugin_config_no_worries<P: DeclarativePlugin>(
+    pub fn add_dependency_with_plugin_config<P: DeclarativePlugin>(
         &mut self,
         plugin: P,
     ) -> &mut Self {
-        self.add_dependency_with_plugin_config::<P, _>(plugin, |_| true);
+        self.add_dependency_with_plugin_config_and_approval::<P, _>(plugin, |_| true);
         self
     }
 }
