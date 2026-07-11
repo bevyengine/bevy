@@ -42,7 +42,8 @@ use bevy::{
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
         view::{
-            ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthStencilTexture, ViewTarget,
+            ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthStencilTexture,
+            ViewTarget,
         },
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
