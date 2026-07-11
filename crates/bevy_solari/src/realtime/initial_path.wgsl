@@ -198,7 +198,7 @@ fn generate_nee_candidate(
         let resampling_weight = target_function * di.unbiased_contribution_weight / p_nee;
 
         *weight_sum += resampling_weight;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
+        if rand_f(rng) * (*weight_sum) < resampling_weight {
             (*reservoir).light_sample = di.light_sample;
             *selected_target_function = target_function;
         }
@@ -213,7 +213,7 @@ fn generate_nee_candidate(
             let resampling_weight = target_function;
 
             *weight_sum += resampling_weight;
-            if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
+            if rand_f(rng) * (*weight_sum) < resampling_weight {
                 (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
                 (*reservoir).sample_point_world_position = path.x2_position;
                 (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
@@ -258,7 +258,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
 
         weight_sum += resampling_weight;
 
-        if weight_sum > 0.0 && rand_f(rng) * weight_sum < resampling_weight {
+        if rand_f(rng) * weight_sum < resampling_weight {
             selected_target_function = target_function;
             selected_tile_sample = tile_sample;
             selected_world_position = resolved_light_sample.world_position;
@@ -313,7 +313,7 @@ fn generate_emissive_candidate(
         let resampling_weight = luminance(path.x1_brdf * path.throughput_past_first_hit * ray_hit.material.emissive) * emissive_mis_weight;
 
         *weight_sum += resampling_weight;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
+        if rand_f(rng) * (*weight_sum) < resampling_weight {
             (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, bitcast<u32>(area_pdf));
             (*reservoir).sample_point_world_position = path.x2_position;
             (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
@@ -327,7 +327,7 @@ fn generate_emissive_candidate(
         let resampling_weight = target_function;
 
         *weight_sum += resampling_weight;
-        if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
+        if rand_f(rng) * (*weight_sum) < resampling_weight {
             (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
             (*reservoir).sample_point_world_position = path.x2_position;
             (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
@@ -375,7 +375,7 @@ fn terminate_into_cache(
     let target_function = luminance(path.x1_brdf * cache_L_at_reconnection);
     let resampling_weight = target_function;
     *weight_sum += resampling_weight;
-    if *weight_sum > 0.0 && rand_f(rng) * (*weight_sum) < resampling_weight {
+    if rand_f(rng) * (*weight_sum) < resampling_weight {
         (*reservoir).light_sample = LightSample(NULL_LIGHT_ID, 0u);
         (*reservoir).sample_point_world_position = path.x2_position;
         (*reservoir).sample_point_world_normal = octahedral_encode(path.x2_normal);
