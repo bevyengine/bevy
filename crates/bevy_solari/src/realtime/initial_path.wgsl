@@ -147,13 +147,15 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         path.material = ray_hit.material;
 
         // Russian roulette for early termination
-        // throughput_past_first_hit has the primary brdf*cos divided out (so it can be re-applied at shade
-        // time), which inflates it. Multiply x1_brdf back in to get the true energy-bounded path
-        // throughput, which is the correct quantity for the RR survival probability.
-        let full_throughput = path.throughput_past_first_hit * max(path.x1_brdf, vec3(0.0001));
-        let rr = saturate(luminance(full_throughput));
-        if rand_f(rng) >= rr { break; }
-        path.throughput_past_first_hit /= rr;
+        if bounce > 0u {
+            // throughput_past_first_hit has the primary brdf*cos divided out (so it can be re-applied at shade
+            // time), which inflates it. Multiply x1_brdf back in to get the true energy-bounded path
+            // throughput, which is the correct quantity for the RR survival probability.
+            let full_throughput = path.throughput_past_first_hit * max(path.x1_brdf, vec3(0.0001));
+            let rr = saturate(luminance(full_throughput));
+            if rand_f(rng) >= rr { break; }
+            path.throughput_past_first_hit /= rr;
+        }
     }
 
     if selected_target_function > 0.0 {
