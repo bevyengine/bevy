@@ -350,7 +350,7 @@ fn terminate_into_cache(
     rng: ptr<function, u32>,
 ) -> bool {
     // Only terminate into the world cache when the bounce was from a wide-enough BRDF sample
-    // because the cache is less noist than continuing the path for rough surfaces,
+    // because the cache is less noisy than continuing the path for rough surfaces,
     // but less accurate for smooth surfaces
     let lobe_solid_angle = 1.0 / p_brdf;
     let broad_enough_to_terminate = lobe_solid_angle >= CACHE_TERMINATION_MIN_SOLID_ANGLE;
