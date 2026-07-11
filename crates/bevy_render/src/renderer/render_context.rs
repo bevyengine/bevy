@@ -80,8 +80,9 @@ impl RenderContextStateInner {
 }
 
 /// A resource that holds the current render context state, including command encoder and command buffers.
-/// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to flush
-/// command buffers at the end of each render system in topological system order.
+/// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to
+/// append command buffers, which have already been finished by their producing systems, in topological
+/// system order.
 pub struct RenderContextState(WgpuWrapper<RenderContextStateInner>);
 
 impl Default for RenderContextState {
@@ -121,8 +122,10 @@ impl SystemBuffer for RenderContextState {
 
         let inner = &mut *self.0;
 
-        // flush to ensure correct submission order
-        inner.flush_encoder();
+        debug_assert!(
+            inner.command_encoder.is_none(),
+            "RenderContext must finish its command encoder before deferred buffers are applied"
+        );
 
         if !inner.command_buffers.is_empty() {
             let mut pending = world.resource_mut::<PendingCommandBuffers>();
@@ -144,6 +147,12 @@ pub struct RenderContext<'w, 's> {
 }
 
 impl<'w, 's> RenderContext<'w, 's> {
+    fn flush_encoder(&mut self) {
+        if self.state.0.command_encoder.is_some() {
+            self.state.flush_encoder();
+        }
+    }
+
     fn ensure_device(&mut self) {
         if self.state.0.render_device.is_none() {
             self.state.0.render_device = Some(self.render_device.clone());
@@ -184,8 +193,15 @@ impl<'w, 's> RenderContext<'w, 's> {
 
     /// Adds a finished command buffer to be submitted later.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.state.flush_encoder();
+        self.flush_encoder();
         self.state.0.command_buffers.push(command_buffer);
+    }
+}
+
+impl Drop for RenderContext<'_, '_> {
+    fn drop(&mut self) {
+        // Finish the encoder on the thread that ran this system for parallelism
+        self.flush_encoder();
     }
 }
 
