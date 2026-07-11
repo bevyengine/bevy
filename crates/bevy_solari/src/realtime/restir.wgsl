@@ -15,7 +15,7 @@ enable wgpu_ray_query;
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 
 @compute @workgroup_size(8, 8, 1)
-fn initial(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
+fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
@@ -31,25 +31,10 @@ fn initial(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invoc
     let initial = generate_initial_reservoir(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
 
     textureStore(view_output, global_id.xy, vec4(initial.non_resampled_radiance, 0.0));
-    reservoirs_b[pixel_index] = initial.reservoir;
-}
-
-@compute @workgroup_size(8, 8, 1)
-fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
-
-    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_rng + 0xBB67AE85u;
-
-    let depth = textureLoad(depth_buffer, global_id.xy, 0);
-    if depth == 0.0 { return; }
-    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
-
-    let initial_reservoir = reservoirs_b[pixel_index];
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
     let previous_camera_world_position = previous_camera_homogeneous.xyz / previous_camera_homogeneous.w;
-    let merge_result = merge_reservoirs(initial_reservoir, surface.world_position, surface.world_normal, surface.material,
+    let merge_result = merge_reservoirs(initial.reservoir, surface.world_position, surface.world_normal, surface.material,
         temporal.reservoir, temporal.world_position, temporal.world_normal, temporal.material, previous_camera_world_position, false, &rng);
 
     reservoirs_b[pixel_index] = merge_result.merged_reservoir;
