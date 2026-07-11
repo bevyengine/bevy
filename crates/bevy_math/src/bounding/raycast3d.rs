@@ -41,7 +41,7 @@ impl RayCast3d {
     }
 
     /// Get the cached multiplicative inverse of the direction of the ray.
-    pub fn direction_recip(&self) -> Vec3A {
+    pub const fn direction_recip(&self) -> Vec3A {
         self.direction_recip
     }
 

@@ -3,6 +3,7 @@
 use bevy::color::palettes::css::DARK_SLATE_GRAY;
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::{Key, KeyboardInput};
+use bevy::input_focus::pointer_focus::PointerFocusPlugin;
 use bevy::input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin};
 use bevy::input_focus::{AutoFocus, FocusCause, FocusedInput, InputFocus};
 use bevy::prelude::*;
@@ -15,7 +16,7 @@ use bevy::ui_widgets::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin, PointerFocusPlugin))
         .add_systems(Startup, setup)
         .run();
 }
