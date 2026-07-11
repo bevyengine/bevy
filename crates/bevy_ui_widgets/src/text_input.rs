@@ -411,15 +411,13 @@ fn listen_for_ime_input_when_text_input_focused(
     };
     let editable_text_focused = input_focus
         .get()
-    let editable_text_focused = input_focus
-        .get()
         .and_then(|e| editable_text_query.get_mut(e).ok())
         .is_some_and(|(text_input, mut editable_text)| {
             if text_input.is_changed() && *text_input != TextInput::Editable {
                 editable_text.queue_edit(TextEdit::clear_ime_compose());
             }
             *text_input == TextInput::Editable
-    });
+        });
 
     // The IME should be enabled whenever an EditableText is focused and editable,
     // even if the IME isn't currently composing (i.e. there's no preedit text).
