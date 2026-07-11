@@ -438,7 +438,7 @@ mod test {
     use super::*;
     use crate::{
         component::Component,
-        error::{warn, FallbackErrorHandler},
+        error::{BevyError, ErrorContext, FallbackErrorHandler},
         resource::Resource,
     };
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
@@ -446,6 +446,7 @@ mod test {
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},
     };
+    use std::{string::ToString, sync::Mutex};
 
     #[cfg(miri)]
     use alloc::format;
@@ -579,7 +580,7 @@ mod test {
     }
 
     #[test]
-    fn test_command_queue_inner_panic_safe_warn() {
+    fn test_command_queue_inner_panic_safe_handled() {
         let mut queue = CommandQueue::default();
 
         queue.push(PanicCommand("I panic!".to_owned()));
@@ -587,8 +588,14 @@ mod test {
         // handles the panicking command.
         queue.push(SpawnCommand);
 
+        fn record_last_error(error: BevyError, context: ErrorContext) {
+            *LAST_ERROR.lock().unwrap() = Some((error, context));
+        }
+        static LAST_ERROR: Mutex<Option<(BevyError, ErrorContext)>> = Mutex::new(None);
+        *LAST_ERROR.lock().unwrap() = None;
+
         let mut world = World::new();
-        world.insert_resource(FallbackErrorHandler(warn));
+        world.insert_resource(FallbackErrorHandler(record_last_error));
 
         queue.apply(&mut world);
 
@@ -598,6 +605,11 @@ mod test {
         queue.push(SpawnCommand);
         queue.apply(&mut world);
         assert_eq!(world.query::<&A>().query(&world).count(), 3);
+
+        let (error, context) = LAST_ERROR.lock().unwrap().take().unwrap();
+        assert!(error.to_string().contains("Command panicked"));
+        let name = DebugName::type_name::<PanicCommand>();
+        assert_eq!(context, ErrorContext::Command { name });
     }
 
     #[test]
@@ -631,13 +643,19 @@ mod test {
     }
 
     #[test]
-    fn test_command_queue_inner_nested_panic_safe_warn() {
+    fn test_command_queue_inner_nested_panic_safe_handled() {
         #[derive(Resource, Default)]
         struct Order(Vec<usize>);
 
+        fn record_last_error(error: BevyError, context: ErrorContext) {
+            *LAST_ERROR.lock().unwrap() = Some((error, context));
+        }
+        static LAST_ERROR: Mutex<Option<(BevyError, ErrorContext)>> = Mutex::new(None);
+        *LAST_ERROR.lock().unwrap() = None;
+
         let mut world = World::new();
         world.init_resource::<Order>();
-        world.insert_resource(FallbackErrorHandler(warn));
+        world.insert_resource(FallbackErrorHandler(record_last_error));
 
         fn add_index(index: usize) -> impl Command {
             move |world: &mut World| world.resource_mut::<Order>().0.push(index)
@@ -658,6 +676,11 @@ mod test {
         world.commands().queue(add_index(5));
         world.flush_commands();
         assert_eq!(&world.resource::<Order>().0, &[1, 2, 3, 4, 5]);
+
+        let (error, context) = LAST_ERROR.lock().unwrap().take().unwrap();
+        assert!(error.to_string().contains("Command panicked"));
+        let name = DebugName::type_name_of_val(&PanicCommand(String::new()).handle_error());
+        assert_eq!(context, ErrorContext::Command { name });
     }
 
     // NOTE: `CommandQueue` is `Send` because `Command` is send.
