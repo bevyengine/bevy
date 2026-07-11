@@ -6,6 +6,7 @@ mod checkbox;
 mod color_plane;
 mod color_slider;
 mod color_swatch;
+mod color_triangle;
 mod color_wheel;
 mod dialog;
 mod disclosure_toggle;
@@ -24,6 +25,7 @@ pub use checkbox::*;
 pub use color_plane::*;
 pub use color_slider::*;
 pub use color_swatch::*;
+pub use color_triangle::*;
 pub use color_wheel::*;
 pub use dialog::*;
 pub use disclosure_toggle::*;
@@ -53,6 +55,7 @@ impl Plugin for ControlsPlugin {
             ColorSliderPlugin,
             ColorSwatchPlugin,
             ColorWheelPlugin,
+            ColorTrianglePlugin,
             DisclosureTogglePlugin,
             ListViewPlugin,
             MenuPlugin,
@@ -60,8 +63,7 @@ impl Plugin for ControlsPlugin {
             RadioPlugin,
             ScrollbarPlugin,
             SliderPlugin,
-            TextInputPlugin,
         ));
-        app.add_plugins(ToggleSwitchPlugin);
+        app.add_plugins((TextInputPlugin, ToggleSwitchPlugin));
     }
 }

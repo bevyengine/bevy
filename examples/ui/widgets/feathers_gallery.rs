@@ -527,12 +527,42 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
-                @FeathersColorWheel::Hsl
-                on(|change: On<ValueChange<ColorWheelValue>>,
-                   mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.hue = change.value.hue;
-                    color.hsl_color.saturation = change.value.saturation;
-                })
+                Node {
+                    display: Display::Flex,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceAround,
+                }
+                Children [
+                    (
+                        Node {
+                            height: px(200),
+                        }
+                        @FeathersColorWheel::Hsl
+                        on(|change: On<ValueChange<ColorWheelValue>>,
+                        mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.hue = change.value.hue;
+                            color.hsl_color.saturation = change.value.saturation;
+                        })
+                    ),
+                    (
+                        Node {
+                            height: px(200),
+                        }
+                        @FeathersColorTriangle::Hwb
+                        on(|change: On<ValueChange<ColorTriangleValue>>,
+                        mut color: ResMut<DemoWidgetStates>| {
+                            let hsl: Hsla = Hwba::hwb(
+                                change.value.hue,
+                                change.value.whiteness,
+                                change.value.blackness,
+                            ).into();
+                            color.hsl_color.hue = hsl.hue;
+                            color.hsl_color.saturation = hsl.saturation;
+                            color.hsl_color.lightness = hsl.lightness;
+                        })
+                    ),
+                ]
             ),
             (
                 @FeathersColorSlider {
@@ -766,6 +796,7 @@ fn update_colors(
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<FeathersColorPlane>>,
     mut color_wheels: Query<&mut ColorWheelValue, With<FeathersColorWheel>>,
+    mut color_triangles: Query<&mut ColorTriangleValue, With<FeathersColorTriangle>>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
@@ -837,6 +868,13 @@ fn update_colors(
             wheel_value.hue = states.hsl_color.hue;
             wheel_value.saturation = states.hsl_color.saturation;
             wheel_value.z = states.hsl_color.lightness;
+        }
+
+        for mut triangle_value in color_triangles.iter_mut() {
+            let hwb: Hwba = states.hsl_color.into();
+            triangle_value.hue = hwb.hue;
+            triangle_value.whiteness = hwb.whiteness;
+            triangle_value.blackness = hwb.blackness;
         }
 
         // Only update the hex input field when it's not focused, otherwise it interferes
