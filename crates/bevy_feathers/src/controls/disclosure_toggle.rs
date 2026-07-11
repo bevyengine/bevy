@@ -30,6 +30,9 @@ use crate::{
 /// state.
 ///
 /// This is spawnable by inheriting it as a "scene component".
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Checkbox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct FeathersDisclosureToggle;
