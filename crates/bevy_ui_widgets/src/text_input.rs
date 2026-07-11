@@ -117,12 +117,8 @@ fn on_focused_keyboard_input(
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
             queue_edit(TextEdit::SelectAll);
         }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
-            queue_edit(TextEdit::Copy);
-        }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => {
-            queue_edit(TextEdit::Cut);
-        }
+        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => queue_edit(TextEdit::Copy),
+        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => queue_edit(TextEdit::Cut),
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
             queue_edit(TextEdit::Paste);
         }
@@ -131,34 +127,22 @@ fn on_focused_keyboard_input(
         (WORD, Key::Backspace) => queue_edit(TextEdit::BackspaceWord),
         (WORD, Key::Delete) => queue_edit(TextEdit::DeleteWord),
         #[cfg(target_os = "macos")]
-        (SUPER | SHIFT_SUPER, Key::ArrowLeft) => {
-            queue_edit(TextEdit::HardLineStart(shift_pressed));
-        }
+        (SUPER | SHIFT_SUPER, Key::ArrowLeft) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
         #[cfg(target_os = "macos")]
-        (SUPER | SHIFT_SUPER, Key::ArrowRight) => {
-            queue_edit(TextEdit::HardLineEnd(shift_pressed));
-        }
+        (SUPER | SHIFT_SUPER, Key::ArrowRight) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
         #[cfg(not(target_os = "macos"))]
         (ALT | SHIFT_ALT, Key::Home) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
         #[cfg(not(target_os = "macos"))]
         (ALT | SHIFT_ALT, Key::End) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
         (WORD | SHIFT_WORD, Key::ArrowLeft) => queue_edit(TextEdit::WordLeft(shift_pressed)),
-        (WORD | SHIFT_WORD, Key::ArrowRight) => {
-            queue_edit(TextEdit::WordRight(shift_pressed));
-        }
+        (WORD | SHIFT_WORD, Key::ArrowRight) => queue_edit(TextEdit::WordRight(shift_pressed)),
         (NONE | SHIFT, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift_pressed)),
         (NONE | SHIFT, Key::ArrowRight) => queue_edit(TextEdit::Right(shift_pressed)),
-        (COMMAND | SHIFT_COMMAND, Key::ArrowUp) => {
-            queue_edit(TextEdit::TextStart(shift_pressed));
-        }
-        (COMMAND | SHIFT_COMMAND, Key::ArrowDown) => {
-            queue_edit(TextEdit::TextEnd(shift_pressed));
-        }
+        (COMMAND | SHIFT_COMMAND, Key::ArrowUp) => queue_edit(TextEdit::TextStart(shift_pressed)),
+        (COMMAND | SHIFT_COMMAND, Key::ArrowDown) => queue_edit(TextEdit::TextEnd(shift_pressed)),
         (NONE | SHIFT, Key::ArrowUp) => queue_edit(TextEdit::Up(shift_pressed)),
         (NONE | SHIFT, Key::ArrowDown) => queue_edit(TextEdit::Down(shift_pressed)),
-        (COMMAND | SHIFT_COMMAND, Key::Home) => {
-            queue_edit(TextEdit::TextStart(shift_pressed));
-        }
+        (COMMAND | SHIFT_COMMAND, Key::Home) => queue_edit(TextEdit::TextStart(shift_pressed)),
         (COMMAND | SHIFT_COMMAND, Key::End) => queue_edit(TextEdit::TextEnd(shift_pressed)),
         (NONE | SHIFT, Key::Home) => queue_edit(TextEdit::LineStart(shift_pressed)),
         (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed)),
