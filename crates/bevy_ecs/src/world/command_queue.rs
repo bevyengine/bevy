@@ -9,10 +9,19 @@ use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
-    panic::AssertUnwindSafe,
     ptr::{addr_of_mut, NonNull},
 };
 use log::warn;
+
+#[cfg(feature = "std")]
+use crate::error::{BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER};
+#[cfg(feature = "std")]
+use bevy_utils::DebugName;
+#[cfg(feature = "std")]
+use std::{
+    backtrace::Backtrace,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+};
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -190,7 +199,7 @@ impl RawCommandQueue {
         }
 
         let meta = CommandMeta {
-            consume_command_and_get_size: |command, world, cursor| {
+            consume_command_and_get_size: |command, mut world, cursor| {
                 *cursor += size_of::<C>();
 
                 // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
@@ -198,18 +207,33 @@ impl RawCommandQueue {
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
-                match world {
-                    // Apply command to the provided world...
-                    Some(world) => {
-                        command.apply(world);
-                        // The command may have queued up world commands, which we flush here to ensure they are also picked up.
-                        // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
-                        // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
-                        world.flush();
+
+                let f = || {
+                    match world.as_deref_mut() {
+                        // Apply command to the provided world...
+                        Some(world) => {
+                            command.apply(world);
+                            // The command may have queued up world commands, which we flush here to ensure they are also picked up.
+                            // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
+                            // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
+                            world.flush();
+                        }
+                        // ...or discard it.
+                        None => drop(command),
                     }
-                    // ...or discard it.
-                    None => drop(command),
+                };
+
+                #[cfg(feature = "std")]
+                {
+                    let result = catch_unwind(AssertUnwindSafe(f));
+                    if let Err(payload) = result {
+                        let name = DebugName::type_name::<C>();
+                        handle_panic_payload(world, payload, name);
+                    }
                 }
+
+                #[cfg(not(feature = "std"))]
+                (f)();
             },
         };
 
@@ -319,7 +343,7 @@ impl<'a> CommandQueueRunner<'a> {
     fn run(&mut self, mut world: Option<&mut World>) {
         #[cfg(feature = "std")]
         {
-            crate::error::PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
+            PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
         }
 
         while self.local_cursor < self.stop {
@@ -353,55 +377,44 @@ impl<'a> CommandQueueRunner<'a> {
                         .cast(),
                 ))
             };
-            let f = AssertUnwindSafe(|| {
-                // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
-                // since they were stored next to each other by `.push()`.
-                // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-                // This also advances the cursor past the command. For ZSTs, the cursor will not move.
-                // At this point, it will either point to the next `CommandMeta`,
-                // or the cursor will be out of bounds and the loop will end.
-                unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut(), &mut self.local_cursor) };
-            });
-
-            #[cfg(feature = "std")]
-            {
-                use crate::error::{
-                    BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
-                };
-                use bevy_utils::DebugName;
-                use std::{
-                    backtrace::Backtrace,
-                    panic::{catch_unwind, resume_unwind},
-                };
-
-                let result = catch_unwind(f);
-                let panic_originates_from_error_handler =
-                    PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
-                if let Err(payload) = result {
-                    if panic_originates_from_error_handler {
-                        resume_unwind(payload)
-                    }
-                    let Some(world) = world.as_deref_mut() else {
-                        resume_unwind(payload)
-                    };
-                    let error = BevyError::new_with_backtrace(
-                        Severity::Panic,
-                        "Command panicked",
-                        Backtrace::disabled(),
-                    );
-                    world.fallback_error_handler()(
-                        error,
-                        ErrorContext::Command {
-                            name: DebugName::type_name::<CommandQueue>(),
-                        },
-                    );
-                }
-            }
-
-            #[cfg(not(feature = "std"))]
-            (f)();
+            // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
+            // since they were stored next to each other by `.push()`.
+            // For ZSTs, the type doesn't matter as long as the pointer is non-null.
+            // This also advances the cursor past the command. For ZSTs, the cursor will not move.
+            // At this point, it will either point to the next `CommandMeta`,
+            // or the cursor will be out of bounds and the loop will end.
+            unsafe {
+                (meta.consume_command_and_get_size)(
+                    cmd,
+                    world.as_deref_mut(),
+                    &mut self.local_cursor,
+                )
+            };
         }
     }
+}
+
+/// Handle a panic thrown within a command.
+///
+/// This is a separate non-generic function so that the panic handling code
+/// is not monomorphized separately for each command type.
+#[cfg(feature = "std")]
+#[cold]
+fn handle_panic_payload(
+    world: Option<&mut World>,
+    payload: Box<dyn core::any::Any + Send>,
+    name: DebugName,
+) {
+    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
+    if panic_originates_from_error_handler {
+        resume_unwind(payload)
+    }
+    let Some(world) = world else {
+        resume_unwind(payload)
+    };
+    let error =
+        BevyError::new_with_backtrace(Severity::Panic, "Command panicked", Backtrace::disabled());
+    world.fallback_error_handler()(error, ErrorContext::Command { name });
 }
 
 impl Drop for CommandQueueRunner<'_> {
@@ -553,7 +566,7 @@ mod test {
 
         let mut world = World::new();
 
-        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = catch_unwind(AssertUnwindSafe(|| {
             queue.apply(&mut world);
         }));
 
@@ -608,7 +621,7 @@ mod test {
         });
         world.commands().queue(add_index(4));
 
-        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = catch_unwind(AssertUnwindSafe(|| {
             world.flush_commands();
         }));
 
