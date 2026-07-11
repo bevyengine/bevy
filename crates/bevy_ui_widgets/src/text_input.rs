@@ -100,10 +100,10 @@ fn on_focused_keyboard_input(
 
     let mut should_propagate = true;
 
-    let mut queue_edit = |edit, readonly| {
-        if *text_input == TextInput::Editable
-            || (readonly && *text_input == TextInput::ReadOnly)
-                && keyboard_input.input.state.is_pressed()
+    let mut queue_edit = |edit: TextEdit| {
+        if (*text_input == TextInput::Editable
+            || (!edit.is_destructive() && *text_input == TextInput::ReadOnly))
+            && keyboard_input.input.state.is_pressed()
         {
             editable_text.queue_edit(edit);
         }
@@ -111,69 +111,69 @@ fn on_focused_keyboard_input(
     };
 
     match (mod_flags, &keyboard_input.input.logical_key) {
-        (NONE, Key::Copy) => queue_edit(TextEdit::Copy, true),
-        (NONE, Key::Cut) => queue_edit(TextEdit::Cut, false),
-        (NONE, Key::Paste) => queue_edit(TextEdit::Paste, false),
+        (NONE, Key::Copy) => queue_edit(TextEdit::Copy),
+        (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
+        (NONE, Key::Paste) => queue_edit(TextEdit::Paste),
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
-            queue_edit(TextEdit::SelectAll, true);
+            queue_edit(TextEdit::SelectAll);
         }
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
-            queue_edit(TextEdit::Copy, true);
+            queue_edit(TextEdit::Copy);
         }
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => {
-            queue_edit(TextEdit::Cut, false);
+            queue_edit(TextEdit::Cut);
         }
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
-            queue_edit(TextEdit::Paste, true);
+            queue_edit(TextEdit::Paste);
         }
         #[cfg(not(target_os = "macos"))]
-        (SHIFT, Key::Delete) => queue_edit(TextEdit::Cut, false),
-        (WORD, Key::Backspace) => queue_edit(TextEdit::BackspaceWord, false),
-        (WORD, Key::Delete) => queue_edit(TextEdit::DeleteWord, false),
+        (SHIFT, Key::Delete) => queue_edit(TextEdit::Cut),
+        (WORD, Key::Backspace) => queue_edit(TextEdit::BackspaceWord),
+        (WORD, Key::Delete) => queue_edit(TextEdit::DeleteWord),
         #[cfg(target_os = "macos")]
         (SUPER | SHIFT_SUPER, Key::ArrowLeft) => {
-            queue_edit(TextEdit::HardLineStart(shift_pressed), true);
+            queue_edit(TextEdit::HardLineStart(shift_pressed));
         }
         #[cfg(target_os = "macos")]
         (SUPER | SHIFT_SUPER, Key::ArrowRight) => {
-            queue_edit(TextEdit::HardLineEnd(shift_pressed), true);
+            queue_edit(TextEdit::HardLineEnd(shift_pressed));
         }
         #[cfg(not(target_os = "macos"))]
-        (ALT | SHIFT_ALT, Key::Home) => queue_edit(TextEdit::HardLineStart(shift_pressed), true),
+        (ALT | SHIFT_ALT, Key::Home) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
         #[cfg(not(target_os = "macos"))]
-        (ALT | SHIFT_ALT, Key::End) => queue_edit(TextEdit::HardLineEnd(shift_pressed), true),
-        (WORD | SHIFT_WORD, Key::ArrowLeft) => queue_edit(TextEdit::WordLeft(shift_pressed), true),
+        (ALT | SHIFT_ALT, Key::End) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
+        (WORD | SHIFT_WORD, Key::ArrowLeft) => queue_edit(TextEdit::WordLeft(shift_pressed)),
         (WORD | SHIFT_WORD, Key::ArrowRight) => {
-            queue_edit(TextEdit::WordRight(shift_pressed), true);
+            queue_edit(TextEdit::WordRight(shift_pressed));
         }
-        (NONE | SHIFT, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift_pressed), true),
-        (NONE | SHIFT, Key::ArrowRight) => queue_edit(TextEdit::Right(shift_pressed), true),
+        (NONE | SHIFT, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift_pressed)),
+        (NONE | SHIFT, Key::ArrowRight) => queue_edit(TextEdit::Right(shift_pressed)),
         (COMMAND | SHIFT_COMMAND, Key::ArrowUp) => {
-            queue_edit(TextEdit::TextStart(shift_pressed), true);
+            queue_edit(TextEdit::TextStart(shift_pressed));
         }
         (COMMAND | SHIFT_COMMAND, Key::ArrowDown) => {
-            queue_edit(TextEdit::TextEnd(shift_pressed), true);
+            queue_edit(TextEdit::TextEnd(shift_pressed));
         }
-        (NONE | SHIFT, Key::ArrowUp) => queue_edit(TextEdit::Up(shift_pressed), true),
-        (NONE | SHIFT, Key::ArrowDown) => queue_edit(TextEdit::Down(shift_pressed), true),
+        (NONE | SHIFT, Key::ArrowUp) => queue_edit(TextEdit::Up(shift_pressed)),
+        (NONE | SHIFT, Key::ArrowDown) => queue_edit(TextEdit::Down(shift_pressed)),
         (COMMAND | SHIFT_COMMAND, Key::Home) => {
-            queue_edit(TextEdit::TextStart(shift_pressed), true);
+            queue_edit(TextEdit::TextStart(shift_pressed));
         }
-        (COMMAND | SHIFT_COMMAND, Key::End) => queue_edit(TextEdit::TextEnd(shift_pressed), true),
-        (NONE | SHIFT, Key::Home) => queue_edit(TextEdit::LineStart(shift_pressed), true),
-        (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed), true),
-        (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace, false),
-        (NONE, Key::Delete) => queue_edit(TextEdit::Delete, false),
-        (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection, true),
+        (COMMAND | SHIFT_COMMAND, Key::End) => queue_edit(TextEdit::TextEnd(shift_pressed)),
+        (NONE | SHIFT, Key::Home) => queue_edit(TextEdit::LineStart(shift_pressed)),
+        (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed)),
+        (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
+        (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
+        (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
         (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
             if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
             {
-                queue_edit(TextEdit::Insert(text.clone()), false);
+                queue_edit(TextEdit::Insert(text.clone()));
             }
         }
         (NONE, Key::Enter) if allow_newlines => {
-            queue_edit(TextEdit::Insert("\n".into()), false);
+            queue_edit(TextEdit::Insert("\n".into()));
         }
         _ => {
             // Ignore and propagate to allow for tab navigation and submit actions.
@@ -330,6 +330,8 @@ fn on_ime_input(
     };
 
     if *text_input != TextInput::Editable {
+        // Still need to drain the reader to prevent stale events on next focus.
+        ime_reader.read().for_each(drop);
         return;
     }
 
@@ -389,7 +391,7 @@ fn update_ime_position(
         return;
     };
 
-    if *text_input == TextInput::DisplayOnly {
+    if *text_input != TextInput::Editable {
         return;
     }
 
