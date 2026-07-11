@@ -388,8 +388,8 @@ impl<'a> CommandQueueRunner<'a> {
                     cmd,
                     world.as_deref_mut(),
                     &mut self.local_cursor,
-                )
-            };
+                );
+            }
         }
     }
 }
@@ -441,12 +441,16 @@ mod test {
         error::{BevyError, ErrorContext, FallbackErrorHandler},
         resource::Resource,
     };
-    use alloc::{borrow::ToOwned, string::String, sync::Arc};
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+        sync::Arc,
+    };
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},
     };
-    use std::{string::ToString, sync::Mutex};
+    use std::sync::Mutex;
 
     #[cfg(miri)]
     use alloc::format;
