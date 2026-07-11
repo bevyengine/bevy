@@ -15,6 +15,7 @@ use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::ComputeTaskPool;
 use core::marker::PhantomData;
 use wgpu::CommandBuffer;
@@ -70,37 +71,16 @@ impl PendingCommandBuffers {
         let _finish_command_buffers_span = info_span!("finish_command_buffers").entered();
 
         let commands = core::mem::take(&mut self.0.commands);
-        let mut command_buffers = Vec::with_capacity(commands.len());
-        let mut finished_encoders = ComputeTaskPool::get().scope(|scope| {
-            for (index, command) in commands.into_iter().enumerate() {
-                match command {
-                    PendingCommandBuffer::Buffer(command_buffer) => {
-                        command_buffers.push((index, command_buffer));
-                    }
-                    PendingCommandBuffer::Encoder {
-                        encoder,
-                        #[cfg(feature = "trace")]
-                        name,
-                    } => {
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = info_span!(
-                                "finish_command_buffer",
-                                system = name.as_deref().unwrap_or("unknown")
-                            )
-                            .entered();
-                            (index, encoder.finish())
-                        });
-                    }
-                }
-            }
-        });
 
-        command_buffers.append(&mut finished_encoders);
-        command_buffers.sort_unstable_by_key(|(index, _)| *index);
-        command_buffers
-            .into_iter()
-            .map(|(_, command_buffer)| command_buffer)
+        #[cfg(target_arch = "wasm32")]
+        {
+            finish_sequential(commands)
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            finish_parallel(commands)
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -110,6 +90,55 @@ impl PendingCommandBuffers {
     pub fn len(&self) -> usize {
         self.0.commands.len()
     }
+}
+
+/// Finishes pending command buffers sequentially, preserving their order.
+///
+/// Used on wasm, where wgpu command encoders and buffers are `!Send` and so
+/// cannot be finished across task pool threads.
+#[cfg(target_arch = "wasm32")]
+fn finish_sequential(commands: Vec<PendingCommandBuffer>) -> impl Iterator<Item = CommandBuffer> {
+    commands.into_iter().map(|command| match command {
+        PendingCommandBuffer::Buffer(command_buffer) => command_buffer,
+        PendingCommandBuffer::Encoder { encoder, .. } => encoder.finish(),
+    })
+}
+
+/// Finishes pending command encoders in parallel on the [`ComputeTaskPool`],
+/// then reassembles the command buffers in their original order.
+#[cfg(not(target_arch = "wasm32"))]
+fn finish_parallel(commands: Vec<PendingCommandBuffer>) -> impl Iterator<Item = CommandBuffer> {
+    let mut command_buffers = Vec::with_capacity(commands.len());
+    let mut finished_encoders = ComputeTaskPool::get().scope(|scope| {
+        for (index, command) in commands.into_iter().enumerate() {
+            match command {
+                PendingCommandBuffer::Buffer(command_buffer) => {
+                    command_buffers.push((index, command_buffer));
+                }
+                PendingCommandBuffer::Encoder {
+                    encoder,
+                    #[cfg(feature = "trace")]
+                    name,
+                } => {
+                    scope.spawn(async move {
+                        #[cfg(feature = "trace")]
+                        let _span = info_span!(
+                            "finish_command_buffer",
+                            system = name.as_deref().unwrap_or("unknown")
+                        )
+                        .entered();
+                        (index, encoder.finish())
+                    });
+                }
+            }
+        }
+    });
+
+    command_buffers.append(&mut finished_encoders);
+    command_buffers.sort_unstable_by_key(|(index, _)| *index);
+    command_buffers
+        .into_iter()
+        .map(|(_, command_buffer)| command_buffer)
 }
 
 #[derive(Default)]
