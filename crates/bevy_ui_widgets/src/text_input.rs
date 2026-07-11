@@ -399,10 +399,11 @@ fn update_ime_position(
 /// IME is enabled when an `EditableText` gains focus and disabled when focus moves elsewhere.
 fn listen_for_ime_input_when_text_input_focused(
     input_focus: Res<InputFocus>,
-    editable_text_query: Query<(), With<TextInput>>,
+    text_input_changed_query: Query<(), Changed<TextInput>>,
+    mut editable_text_query: Query<(Ref<TextInput>, &mut EditableText)>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    if !input_focus.is_changed() {
+    if !input_focus.is_changed() && text_input_changed_query.is_empty() {
         return;
     }
     let Ok(mut window) = windows.single_mut() else {
@@ -410,9 +411,17 @@ fn listen_for_ime_input_when_text_input_focused(
     };
     let editable_text_focused = input_focus
         .get()
-        .is_some_and(|e| editable_text_query.contains(e));
+    let editable_text_focused = input_focus
+        .get()
+        .and_then(|e| editable_text_query.get_mut(e).ok())
+        .is_some_and(|(text_input, mut editable_text)| {
+            if text_input.is_changed() && *text_input != TextInput::Editable {
+                editable_text.queue_edit(TextEdit::clear_ime_compose());
+            }
+            *text_input == TextInput::Editable
+    });
 
-    // The IME should be enabled whenever an EditableText is focused,
+    // The IME should be enabled whenever an EditableText is focused and editable,
     // even if the IME isn't currently composing (i.e. there's no preedit text).
     // The field here is about "should" we accept IME input, not "are we currently" accepting IME input
     window.ime_enabled = editable_text_focused;
