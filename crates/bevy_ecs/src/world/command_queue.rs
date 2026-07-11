@@ -20,12 +20,9 @@ struct CommandMeta {
     ///
     /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
     ///
-    /// Advances `runner.local_cursor` by the size of `T` in bytes.
-    consume_command_and_get_size: unsafe fn(
-        value: OwningPtr<Unaligned>,
-        world: Option<&mut World>,
-        runner: &mut CommandQueueRunner,
-    ),
+    /// Advances `cursor` by the size of `T` in bytes.
+    consume_command_and_get_size:
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<&mut World>, cursor: &mut usize),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -193,12 +190,8 @@ impl RawCommandQueue {
         }
 
         let meta = CommandMeta {
-            consume_command_and_get_size: |command, world, runner| {
-                runner.local_cursor += size_of::<C>();
-                #[cfg(all(feature = "debug", feature = "std"))]
-                {
-                    runner.current_command_name = core::any::type_name::<C>();
-                }
+            consume_command_and_get_size: |command, world, cursor| {
+                *cursor += size_of::<C>();
 
                 // Putting the command onto the stack is necessary not just for alignment and to be able to consume it,
                 // but also because applying the command may cause the command queue to reallocate.
@@ -296,20 +289,8 @@ impl SystemBuffer for CommandQueue {
 /// A RAII guard used while running commands to ensure
 /// that unapplied commands are dropped during unwind.
 struct CommandQueueRunner<'a> {
-    local_cursor: usize,
-    /// The type name of the last command to be applied.
-    ///
-    /// This is assigned by [`CommandMeta::consume_command_and_get_size`]
-    /// before running a command so that it is available
-    /// in the error handler if the command panics.
-    ///
-    /// This is not stored as [`DebugName`](bevy_utils::DebugName)
-    /// because that uses [`Cow`](alloc::borrow::Cow) internally,
-    /// so assignments would have to emit code to check the
-    /// variant and deallocate a [`String`](alloc::string::String).
-    #[cfg(all(feature = "debug", feature = "std"))]
-    current_command_name: &'static str,
     command_queue: &'a mut RawCommandQueue,
+    local_cursor: usize,
     start: usize,
     stop: usize,
 }
@@ -328,10 +309,8 @@ impl<'a> CommandQueueRunner<'a> {
         unsafe { command_queue.cursor.write(stop) };
 
         Self {
-            local_cursor: start,
-            #[cfg(all(feature = "debug", feature = "std"))]
-            current_command_name: "Unknown command",
             command_queue,
+            local_cursor: start,
             start,
             stop,
         }
@@ -381,7 +360,7 @@ impl<'a> CommandQueueRunner<'a> {
                 // This also advances the cursor past the command. For ZSTs, the cursor will not move.
                 // At this point, it will either point to the next `CommandMeta`,
                 // or the cursor will be out of bounds and the loop will end.
-                unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut(), self) };
+                unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut(), &mut self.local_cursor) };
             });
 
             #[cfg(feature = "std")]
@@ -413,12 +392,7 @@ impl<'a> CommandQueueRunner<'a> {
                     world.fallback_error_handler()(
                         error,
                         ErrorContext::Command {
-                            #[cfg(feature = "debug")]
-                            name: DebugName::borrowed(self.current_command_name),
-                            // `DebugName` is empty when the feature is disabled,
-                            // so it does not matter what string we pass here.
-                            #[cfg(not(feature = "debug"))]
-                            name: DebugName::borrowed(""),
+                            name: DebugName::type_name::<CommandQueue>(),
                         },
                     );
                 }
