@@ -124,9 +124,7 @@ pub struct SpotLight {
 
     /// Angle defining the distance from the spot light direction to the outer limit
     /// of the light's cone of effect.
-    /// `outer_angle` should be < `PI / 2.0`.
-    /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
-    /// approaches this limit.
+    /// `outer_angle` must be < `PI / 2.0`.
     pub outer_angle: f32,
 
     /// Angle defining the distance from the spot light direction to the inner limit

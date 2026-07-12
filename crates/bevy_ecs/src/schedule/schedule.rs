@@ -708,6 +708,28 @@ impl Schedule {
         Ok(iter)
     }
 
+    /// Returns an iterator over all systems with access in this schedule.
+    ///
+    /// Note: this method will return [`ScheduleNotInitialized`] if the
+    /// schedule has never been initialized or run.
+    pub fn systems_with_access(
+        &self,
+    ) -> Result<impl Iterator<Item = (SystemKey, &SystemWithAccess)> + Sized, ScheduleNotInitialized>
+    {
+        if !self.executor_initialized {
+            return Err(ScheduleNotInitialized);
+        }
+
+        let iter = self
+            .executable
+            .system_ids
+            .iter()
+            .zip(&self.executable.systems)
+            .map(|(&node_id, system)| (node_id, system));
+
+        Ok(iter)
+    }
+
     /// Returns the number of systems in this schedule.
     pub fn systems_len(&self) -> usize {
         if !self.executor_initialized {

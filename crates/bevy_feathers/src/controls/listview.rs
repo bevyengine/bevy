@@ -32,7 +32,10 @@ use crate::{
     tokens,
 };
 
-/// A container that displays a scrolling list of items
+/// A container that displays a scrolling list of items.
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`ListBox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersListViewProps)]
 #[reflect(Component, Clone, Default)]
