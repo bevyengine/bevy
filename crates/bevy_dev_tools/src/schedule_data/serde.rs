@@ -768,6 +768,29 @@ pub mod tests {
         }
     }
 
+    /// Convenience to check the structure of the first schedule in an [`App`], which should always
+    /// be [`First`] containing [`message_update_system`].
+    pub fn validate_message_update_system(schedule: &ScheduleData) {
+        assert_eq!(schedule.name, "First");
+        assert_eq!(
+            schedule.systems,
+            [SystemData {
+                name: "message_update_system".into(),
+                apply_deferred: false,
+                exclusive: true,
+                deferred: false,
+                filtered_accesses: vec![],
+            }]
+        );
+        assert_eq!(
+            schedule.system_sets,
+            [
+                simple_system_set("MessageUpdateSystems"),
+                simple_system_set("SystemTypeSet:message_update_system"),
+            ]
+        );
+    }
+
     /// A convenience system set that is generic allowing us to make many of these quickly.
     #[derive(SystemSet, Hash, PartialEq, Eq, Clone)]
     struct MySet<const NUM: u32>;
@@ -795,25 +818,7 @@ pub mod tests {
         let data = app_data_from_app(&mut app).unwrap();
         // SubApps start with the First schedule by default.
         assert_eq!(data.schedules.len(), 2);
-        let first = &data.schedules[0];
-        assert_eq!(first.name, "First");
-        assert_eq!(
-            first.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![],
-            }]
-        );
-        assert_eq!(
-            first.system_sets,
-            [
-                simple_system_set("MessageUpdateSystems"),
-                simple_system_set("SystemTypeSet:message_update_system"),
-            ]
-        );
+        validate_message_update_system(&data.schedules[0]);
 
         let update = &data.schedules[1];
         assert_eq!(update.name, "Update");
@@ -860,26 +865,7 @@ pub mod tests {
         let data = app_data_from_app(&mut app).unwrap();
         // SubApps start with the First schedule by default.
         assert_eq!(data.schedules.len(), 2);
-        let first = &data.schedules[0];
-        assert_eq!(first.name, "First");
-        assert_eq!(
-            first.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![],
-            }]
-        );
-        assert_eq!(
-            first.system_sets,
-            [
-                simple_system_set("MessageUpdateSystems"),
-                simple_system_set("SystemTypeSet:message_update_system"),
-            ]
-        );
-
+        validate_message_update_system(&data.schedules[0]);
         let update = &data.schedules[1];
         assert_eq!(update.name, "Update");
         assert_eq!(update.systems, []);
@@ -917,26 +903,7 @@ pub mod tests {
         let data = app_data_from_app(&mut app).unwrap();
         // SubApps start with the First schedule by default.
         assert_eq!(data.schedules.len(), 2);
-        let first = &data.schedules[0];
-        assert_eq!(first.name, "First");
-        assert_eq!(
-            first.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![],
-            }]
-        );
-        assert_eq!(
-            first.system_sets,
-            [
-                simple_system_set("MessageUpdateSystems"),
-                simple_system_set("SystemTypeSet:message_update_system"),
-            ]
-        );
-
+        validate_message_update_system(&data.schedules[0]);
         let update = &data.schedules[1];
         assert_eq!(update.name, "Update");
         assert_eq!(update.systems, [simple_system("a")]);
@@ -980,26 +947,7 @@ pub mod tests {
         let data = app_data_from_app(&mut app).unwrap();
         // SubApps start with the First schedule by default.
         assert_eq!(data.schedules.len(), 2);
-        let first = &data.schedules[0];
-        assert_eq!(first.name, "First");
-        assert_eq!(
-            first.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![],
-            }]
-        );
-        assert_eq!(
-            first.system_sets,
-            [
-                simple_system_set("MessageUpdateSystems"),
-                simple_system_set("SystemTypeSet:message_update_system"),
-            ]
-        );
-
+        validate_message_update_system(&data.schedules[0]);
         let update = &data.schedules[1];
         assert_eq!(update.name, "Update");
         assert_eq!(
@@ -1120,26 +1068,7 @@ pub mod tests {
         let data = app_data_from_app(&mut app).unwrap();
         // SubApps start with the First schedule by default.
         assert_eq!(data.schedules.len(), 2);
-        let first = &data.schedules[0];
-        assert_eq!(first.name, "First");
-        assert_eq!(
-            first.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![],
-            }]
-        );
-        assert_eq!(
-            first.system_sets,
-            [
-                simple_system_set("MessageUpdateSystems"),
-                simple_system_set("SystemTypeSet:message_update_system"),
-            ]
-        );
-
+        validate_message_update_system(&data.schedules[0]);
         let update = &data.schedules[1];
         assert_eq!(update.name, "Update");
         assert_eq!(
