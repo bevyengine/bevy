@@ -5,9 +5,7 @@ use crate::{
     },
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
-    entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut,
-    },
+    entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
@@ -741,8 +739,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     #[track_caller]
     pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
-        let component_id = self.world.component_id::<R>()?;
-        Some(component_id.entity())
+        self.world.resource_entity::<R>()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change

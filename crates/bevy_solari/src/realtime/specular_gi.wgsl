@@ -233,7 +233,7 @@ fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mir
 fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
     let clip_position_t = view.unjittered_clip_from_world * vec4(world_position, 1.0);
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view.clip_from_world * vec4(previous_world_position, 1.0);
+    let previous_clip_position_t = previous_view.unjittered_clip_from_world * vec4(previous_world_position, 1.0);
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

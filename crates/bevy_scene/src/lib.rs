@@ -1115,6 +1115,18 @@ mod tests {
     }
 
     #[test]
+    fn supports_fully_qualified_component_paths() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        assert!(world
+            .spawn_scene(bsn! {
+              ::bevy_ecs::prelude::Children[]
+            })
+            .is_ok());
+    }
+
+    #[test]
     fn cached_patching() {
         let mut app = test_app();
         let world = app.world_mut();
@@ -2958,5 +2970,66 @@ mod tests {
             })
             .unwrap();
         assert!(entity.get::<Foo>().is_some());
+    }
+
+    #[test]
+    fn scene_nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn! {
+            #root
+            patch
+        };
+
+        let expected_id = Some(world.spawn_scene(root).unwrap().id());
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
+    }
+
+    #[test]
+    fn scene_list_nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn_list! {
+            #root patch
+        };
+
+        let expected_id = Some(world.spawn_scene_list(root).unwrap()[0]);
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
     }
 }
