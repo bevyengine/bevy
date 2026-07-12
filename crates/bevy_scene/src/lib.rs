@@ -963,7 +963,7 @@ use bevy_ecs::prelude::*;
 /// | `MyEnum::Variant`                          | Enum Component `MyEnum` with the `Variant` variant                                                             |
 /// | `template_value(component)`                | Insert the component value from a variable `component`                                                         |
 /// | `template_value(CompA::from_str("foo"))`   | Insert the component value by immediately calling the constructor                                              |
-/// | `template(|context| { ... })`              | Register a function/closure returning a Template (eg. Component). Its passed [`context`] allowing World access |
+/// | `template(\|context\| { ... })`            | Register a function/closure returning a Template (eg. Component). Its passed [`context`] allowing World access |
 /// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
 /// | **Including Scenes**                       |                                                                                                                |
 /// | `scene()`<br>`scene(val)`                  | Include the result of a `impl `[`Scene`] function                                                              |
@@ -972,7 +972,7 @@ use bevy_ecs::prelude::*;
 /// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
 /// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
 /// | `@MySceneComp { @prop: val1, name: val2 }` | Include a [`SceneComponent`] with both a `prop` and a field                                                    |
-/// | `:"scene.bsn"`                             | <div class="warning">Asset format not yet implemented!</div> Include a cached scene asset file                  |
+/// | `:"scene.bsn"`                             | <div class="warning">Asset format not yet implemented!</div> Include a cached scene asset file                 |
 /// | `:scene()`<br>`:@MySceneComp`              | <div class="warning">Caching for scene includes not yet implemented!</div> Include a cached scene function     |
 /// | **Named entity references**                |                                                                                                                |
 /// | `#MyName`                                  | Becomes `Name("MyName")` when used as a `part` of a scene                                                      |
@@ -983,7 +983,7 @@ use bevy_ecs::prelude::*;
 /// | `on(my_observer)`                          | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a function |
 /// | **Relationships**                          |                                                                                                                |
 /// | `Children []`                              | Spawns each entry as a child of this entity, see **Scene Lists** below for details                             |
-/// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts an [`Entity`] or a `#Name` reference ([`EntityTemplate`])    |
+/// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts an [`Entity`] or a `#Name` reference ([`EntityTemplate`])   |
 /// | `MyRel []`                                 | Like `Children`, but uses any `RelationshipTarget` component                                                   |
 ///
 /// [`context`]: bevy_ecs::template::TemplateContext
