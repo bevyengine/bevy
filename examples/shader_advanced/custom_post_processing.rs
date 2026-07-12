@@ -7,7 +7,9 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    core_pipeline::{schedule::Core3d, Core3dSystems, FullscreenShader},
+    core_pipeline::{
+        schedule::Core3d, tonemapping::tonemapping, Core3dSystems, FullscreenShader,
+    },
     prelude::*,
     render::{
         extract_component::{
@@ -62,7 +64,15 @@ impl Plugin for PostProcessPlugin {
         render_app.add_systems(RenderStartup, init_post_process_pipeline);
         render_app.add_systems(
             Core3d,
-            post_process_system.in_set(Core3dSystems::PostProcess),
+            // Custom post-process effects that call `post_process_write()` MUST be
+            // ordered relative to tonemapping. Without this, the atomic texture swap
+            // in `post_process_write()` races, producing silent corruption (a flat gray
+            // frame) when HDR is enabled (e.g. with Bloom or the `Hdr` camera component).
+            // Place your effect `.after(tonemapping)` unless it needs the pre-tonemapped
+            // HDR data (like bloom, which runs `.before(tonemapping)`).
+            post_process_system
+                .after(tonemapping)
+                .in_set(Core3dSystems::PostProcess),
         );
     }
 }
