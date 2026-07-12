@@ -87,7 +87,11 @@ fn select_component_to_modify(
 ///
 /// 1. Determine the shape of the type using reflection, by converting that to a [`ReflectMut`] object.
 /// 2. Find the field(s) you want to modify by walking the tree of type metadata.
-/// 3. Downcast each field to a concrete type (e.g. with `try_downcast_ref`) to read its value.
+/// 3. Downcast each field to a concrete type (e.g. with `try_downcast_ref``) to read its value.
+///
+/// [`GetPath`], and its cached variant [`ParsedPath`](bevy::reflect::ParsedPath), can be used to simplify this process.
+/// For example, calling `.path_mut::<f32>("translation.y")` on a `ReflectMut` object that stores a transform will return a
+/// `&mut f32` to the `y` field of a `Vec3` inside a `Transform`.
 fn modify_selected_component(world: &mut World) {
     // We're using keyboard input to trigger modifications for simplicity.
     let button_input = world.resource::<ButtonInput<KeyCode>>();
