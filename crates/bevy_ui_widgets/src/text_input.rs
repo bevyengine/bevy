@@ -50,7 +50,6 @@ const SHIFT_ALT: u8 = SHIFT | ALT;
 /// Editable text widget.
 #[derive(Component, Clone, Default, Reflect, PartialEq)]
 #[require(EditableText)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::TextInput)))]
 #[reflect(Component)]
 pub enum TextInput {
     /// Text input functions normally
@@ -399,7 +398,7 @@ fn update_ime_position(
 /// IME is enabled when an `EditableText` gains focus and disabled when focus moves elsewhere.
 fn listen_for_ime_input_when_text_input_focused(
     input_focus: Res<InputFocus>,
-    text_input_changed_query: Query<(), Changed<TextInput>>,
+    text_input_changed_query: Query<(), Or<(Changed<TextInput>, Changed<EditableText>)>>,
     mut editable_text_query: Query<(Ref<TextInput>, &mut EditableText)>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
@@ -581,6 +580,9 @@ impl Plugin for EditableTextInputPlugin {
         app.register_required_components::<EditableText, Node>()
             .register_required_components::<EditableText, TextNodeFlags>()
             .register_required_components::<EditableText, ContentSize>()
-            .register_required_components::<EditableText, TextScroll>();
+            .register_required_components::<EditableText, TextScroll>()
+            .register_required_components_with::<EditableText, AccessibilityNode>(|| {
+                AccessibilityNode(accesskit::Node::new(Role::TextInput))
+            });
     }
 }
