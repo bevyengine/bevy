@@ -7,9 +7,7 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    core_pipeline::{
-        schedule::Core3d, tonemapping::tonemapping, Core3dSystems, FullscreenShader,
-    },
+    core_pipeline::{schedule::Core3d, tonemapping::tonemapping, Core3dSystems, FullscreenShader},
     prelude::*,
     render::{
         extract_component::{

@@ -957,8 +957,8 @@ impl ViewTarget {
     ///
     /// Multiple systems that call `post_process_write()` on the same view must be
     /// **explicitly ordered** relative to each other (e.g. with
-    /// [`.before(tonemapping)`] or [`.after(tonemapping)`]). If multiple unordered
-    /// systems call this method in the same [`Core3dSystems::PostProcess`] set, the
+    /// `.before(tonemapping)` or `.after(tonemapping)`). If multiple unordered
+    /// systems call this method in the same `Core3dSystems::PostProcess` set, the
     /// internal texture swap (atomic `fetch_xor`) races and produces silent
     /// corruption — typically a flat gray frame in HDR mode.
     ///
@@ -966,8 +966,6 @@ impl ViewTarget {
     /// `fxaa` and `smaa` run `.after(tonemapping)`. Custom post-process effects
     /// must follow the same pattern. See the `custom_post_processing` example.
     ///
-    /// [`.before(tonemapping)`]: bevy_core_pipeline::tonemapping::tonemapping
-    /// [`.after(tonemapping)`]: bevy_core_pipeline::tonemapping::tonemapping
     pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
