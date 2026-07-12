@@ -34,6 +34,7 @@ fn main() {
         ..Default::default()
     }))
     .add_systems(OnEnter(Scene::Image), image::setup)
+    .add_systems(OnEnter(Scene::ImageMeasure), image_measure::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
     .add_systems(OnEnter(Scene::TextMeasurement), text_measurement::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
@@ -74,6 +75,7 @@ fn main() {
 enum Scene {
     #[default]
     Image,
+    ImageMeasure,
     Text,
     TextMeasurement,
     Grid,
@@ -112,7 +114,8 @@ impl std::str::FromStr for Scene {
 impl Next for Scene {
     fn next(&self) -> Self {
         match self {
-            Scene::Image => Scene::Text,
+            Scene::Image => Scene::ImageMeasure,
+            Scene::ImageMeasure => Scene::Text,
             Scene::Text => Scene::TextMeasurement,
             Scene::TextMeasurement => Scene::Grid,
             Scene::Grid => Scene::Borders,
@@ -203,6 +206,130 @@ mod image {
                     }
                 }
             });
+    }
+}
+
+mod image_measure {
+    use bevy::{
+        color::palettes::css::{GREEN, RED},
+        prelude::*,
+    };
+
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::ImageMeasure)));
+        commands.spawn((
+            Node {
+                margin: auto().all(),
+                column_gap: px(5.),
+                ..Default::default()
+            },
+            DespawnOnExit(super::Scene::ImageMeasure),
+            children![
+                (
+                    Node {
+                        width: vmin(20.),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            ..default()
+                        },
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
+                ),
+                (
+                    Node {
+                        width: vmin(20.),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: px(8.).all(),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
+                ),
+                (
+                    Node {
+                        width: vmin(20.),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: px(8.).all(),
+                            padding: px(4.).all(),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
+                ),
+                (
+                    Node {
+                        width: vmin(20.),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
+                ),
+                (
+                    Node {
+                        width: vmin(20.),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            padding: UiRect::axes(px(10.), px(0.)),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
+                ),
+                (
+                    Node {
+                        width: vmin(20.),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: vmin(20.),
+                            border: UiRect::px(4.0, 12.0, 8.0, 16.0),
+                            padding: UiRect::axes(px(0.), px(10.)),
+                            ..default()
+                        },
+                        BorderColor::all(RED),
+                        BackgroundColor(GREEN.into()),
+                        ImageNode::new(asset_server.load("branding/icon.png")),
+                    )],
+                ),
+            ],
+        ));
     }
 }
 

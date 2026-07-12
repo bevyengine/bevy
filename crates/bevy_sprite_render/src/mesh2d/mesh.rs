@@ -4,6 +4,9 @@ use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::{DirtySpecializations, ExtractedCamera},
+    material_bind_groups::{
+        MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
+    },
     mesh::{allocator::MeshSlabId, MeshMetadata, MeshMetadataFallbackBuffer},
     render_resource::binding_types::{storage_buffer_read_only, uniform_buffer_sized},
     RenderStartup,
@@ -11,8 +14,8 @@ use bevy_render::{
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{
-    prepare_pending_mesh_material2d_queues, tonemapping_pipeline_key, Material2dBindGroupId,
-    PendingMeshMaterial2dQueues, RenderMaterial2dBindGroupIds, RenderMaterial2dIds,
+    prepare_pending_mesh_material2d_queues, tonemapping_pipeline_key, PendingMeshMaterial2dQueues,
+    RenderMaterial2dInstances,
 };
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -28,7 +31,10 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{Affine3, Affine3Ext, Vec4};
-use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag, MeshVertexBufferLayoutRef};
+use bevy_mesh::{
+    BaseMeshPipelineKey, Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag,
+    MeshVertexBufferLayoutRef,
+};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
@@ -59,6 +65,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use nonmax::NonMaxU32;
+use static_assertions::const_assert_eq;
 use tracing::error;
 
 #[derive(Default)]
@@ -85,10 +92,6 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .allow_ambiguous_resource::<RenderMesh2dInstances>()
-                .init_resource::<RenderMaterial2dBindGroupIds>()
-                .allow_ambiguous_resource::<RenderMaterial2dBindGroupIds>()
-                .init_resource::<RenderMaterial2dIds>()
-                .allow_ambiguous_resource::<RenderMaterial2dIds>()
                 .init_gpu_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(
                     RenderStartup,
@@ -234,13 +237,17 @@ pub struct Mesh2dUniform {
     pub local_from_world_transpose_a: [Vec4; 2],
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
+    pub material_bind_group_slot: u32,
     pub tag: u32,
     pub metadata_index: u32,
 }
 
 impl Mesh2dUniform {
-    fn from_components(
+    /// Creates a new [`Mesh2dUniform`] from the given transform, bind group
+    /// slot, tag, and optional metadata index.
+    pub fn from_components(
         mesh_transforms: &Mesh2dTransforms,
+        material_bind_group_slot: MaterialBindGroupSlot,
         tag: u32,
         metadata_index: Option<u32>,
     ) -> Self {
@@ -250,6 +257,7 @@ impl Mesh2dUniform {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             local_from_world_transpose_a,
             local_from_world_transpose_b,
+            material_bind_group_slot: material_bind_group_slot.0,
             flags: mesh_transforms.flags,
             tag,
             metadata_index: metadata_index.unwrap_or(0),
@@ -268,8 +276,8 @@ bitflags::bitflags! {
 
 pub struct RenderMesh2dInstance {
     pub transforms: Mesh2dTransforms,
+    pub material_bindings_index: MaterialBindingId,
     pub mesh_asset_id: AssetId<Mesh>,
-    pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
     pub tag: u32,
 }
@@ -282,8 +290,8 @@ pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    render_material_2d_bind_group_ids: Res<RenderMaterial2dBindGroupIds>,
-    render_material_instances: Res<RenderMaterial2dIds>,
+    render_material_instances: Res<RenderMaterial2dInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     query: Extract<
         Query<(
             Entity,
@@ -302,11 +310,18 @@ pub fn extract_mesh2d(
             continue;
         }
         let main_entity = entity.into();
-        let material_bind_group_id = render_material_instances
-            .get(&main_entity)
-            .and_then(|material_id| render_material_2d_bind_group_ids.get(material_id))
-            .copied()
-            .unwrap_or_default();
+
+        // Look up the material index. If we couldn't fetch the material index,
+        // then the material hasn't been prepared yet, perhaps because it hasn't
+        // yet loaded.
+        let Some(mesh_material) = render_material_instances.get(&main_entity) else {
+            continue;
+        };
+        let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+        else {
+            continue;
+        };
+
         render_mesh_instances.insert(
             main_entity,
             RenderMesh2dInstance {
@@ -314,8 +329,8 @@ pub fn extract_mesh2d(
                     world_from_local: transform.affine().into(),
                     flags: MeshFlags::empty().bits(),
                 },
+                material_bindings_index: mesh_material_binding_id,
                 mesh_asset_id: handle.0.id(),
-                material_bind_group_id,
                 automatic_batching: !no_automatic_batching,
                 tag: tag.map_or(0, |i| **i),
             },
@@ -378,8 +393,8 @@ pub fn init_mesh_2d_pipeline(
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = (SRes<RenderMesh2dInstances>, SRes<MeshAllocator>);
-    type BatchSetCompareData = (Material2dBindGroupId, AssetId<Mesh>);
-    type BatchCompareData = ();
+    type BatchSetCompareData = AssetId<Mesh>;
+    type BatchCompareData = MaterialBindGroupIndex;
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
@@ -393,20 +408,18 @@ impl GetBatchData for Mesh2dPipeline {
         let metadata_index = mesh_allocator
             .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
             .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+        let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some((
             Mesh2dUniform::from_components(
                 &mesh_instance.transforms,
+                material_bind_group_index.slot,
                 mesh_instance.tag,
                 metadata_index,
             ),
-            mesh_instance.automatic_batching.then_some((
-                (
-                    mesh_instance.material_bind_group_id,
-                    mesh_instance.mesh_asset_id,
-                ),
-                (),
-            )),
+            mesh_instance
+                .automatic_batching
+                .then_some((mesh_instance.mesh_asset_id, material_bind_group_index.group)),
         ))
     }
 }
@@ -422,9 +435,11 @@ impl GetFullBatchData for Mesh2dPipeline {
         let metadata_index = mesh_allocator
             .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
             .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+        let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some(Mesh2dUniform::from_components(
             &mesh_instance.transforms,
+            material_bind_group_index.slot,
             mesh_instance.tag,
             metadata_index,
         ))
@@ -495,7 +510,8 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     // FIXME: make normals optional?
-    pub struct Mesh2dPipelineKey: u32 {
+    // NB: This must be compatible with [`BaseMeshPipelineKey`].
+    pub struct Mesh2dPipelineKey: u64 {
         const NONE                              = 0;
         const TONEMAP_IN_SHADER                 = 1 << 0;
         const DEBAND_DITHER                     = 1 << 1;
@@ -503,9 +519,6 @@ bitflags::bitflags! {
         const MAY_DISCARD                       = 1 << 3;
         const SRGB_COMPOSITING                  = 1 << 4;
         const OKLAB_COMPOSITING                 = 1 << 5;
-        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
-        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -516,30 +529,33 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_RESERVED_BITS        = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_NONE                 = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_U32                  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_U16                  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
+// Ensure that the bits of `BaseMeshPipelineKey` don't overlap with the bits of `MeshPipelineKey`
+// except the inherited bits.
+const_assert_eq!(
+    BaseMeshPipelineKey::all().bits() & Mesh2dPipelineKey::all().bits(),
+    0
+);
+
 impl Mesh2dPipelineKey {
-    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS;
+    const COLOR_TARGET_FORMAT_MASK_BITS: u64 =
+        bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS as u64;
     const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 6;
-    const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b1111;
-    const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
-    pub const INDEX_FORMAT_MASK_BITS: u32 = 0b11;
-    pub const INDEX_FORMAT_SHIFT_BITS: u32 =
-        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const MSAA_MASK_BITS: u64 = 0b111;
+    const MSAA_SHIFT_BITS: u64 = BaseMeshPipelineKey::STRIP_INDEX_FORMAT_SHIFT_BITS
+        - Self::MSAA_MASK_BITS.count_ones() as u64;
+    const TONEMAP_METHOD_MASK_BITS: u64 = 0b1111;
+    const TONEMAP_METHOD_SHIFT_BITS: u64 =
+        Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones() as u64;
+    pub const INDEX_FORMAT_MASK_BITS: u64 = 0b11;
+    pub const INDEX_FORMAT_SHIFT_BITS: u64 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones() as u64;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        let msaa_bits = ((msaa_samples.trailing_zeros() as u64) & Self::MSAA_MASK_BITS)
+            << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
@@ -547,7 +563,7 @@ impl Mesh2dPipelineKey {
     #[inline]
     pub fn from_target_format(format: TextureFormat) -> Self {
         let code = texture_format_to_code(format)
-            .expect("Texture format is not supported by the pipeline") as u32;
+            .expect("Texture format is not supported by the pipeline") as u64;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
         )
@@ -566,52 +582,20 @@ impl Mesh2dPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    /// Create a [`Mesh2dPipelineKey`] from mesh primitive topology and index format.
-    ///
-    /// For non-strip topologies, [`Self::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
-    pub fn from_primitive_topology_and_strip_index(
-        primitive_topology: PrimitiveTopology,
-        strip_index_format: Option<IndexFormat>,
-    ) -> Self {
-        let index_bits = if primitive_topology.is_strip() {
-            match strip_index_format {
-                None => Self::STRIP_INDEX_FORMAT_NONE,
-                Some(indices) => match indices {
-                    IndexFormat::Uint16 => Self::STRIP_INDEX_FORMAT_U16,
-                    IndexFormat::Uint32 => Self::STRIP_INDEX_FORMAT_U32,
-                },
-            }
-        } else {
-            Self::STRIP_INDEX_FORMAT_NONE
-        }
-        .bits();
-        let primitive_topology_bits = ((primitive_topology as u32)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
-            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits | index_bits)
+    pub fn as_base_mesh_pipeline_key(&self) -> BaseMeshPipelineKey {
+        BaseMeshPipelineKey::from_bits_retain(self.bits())
     }
+}
 
-    pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
-        match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
-            _ => PrimitiveTopology::default(),
-        }
+impl From<u64> for Mesh2dPipelineKey {
+    fn from(value: u64) -> Self {
+        Mesh2dPipelineKey::from_bits_retain(value)
     }
+}
 
-    pub fn strip_index_format(&self) -> Option<IndexFormat> {
-        let index_bits = self.bits() & Self::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
-        match index_bits {
-            x if x == Self::STRIP_INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
-            x if x == Self::STRIP_INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
-            x if x == Self::STRIP_INDEX_FORMAT_NONE.bits() => None,
-            _ => unreachable!(),
-        }
+impl From<Mesh2dPipelineKey> for u64 {
+    fn from(value: Mesh2dPipelineKey) -> Self {
+        value.bits()
     }
 }
 
@@ -777,8 +761,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
-                strip_index_format: key.strip_index_format(),
+                topology: key.as_base_mesh_pipeline_key().primitive_topology(),
+                strip_index_format: key.as_base_mesh_pipeline_key().strip_index_format(),
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
