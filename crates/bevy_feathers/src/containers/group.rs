@@ -6,7 +6,7 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, ThemeOverride},
     tokens,
 };
 
@@ -18,6 +18,10 @@ pub fn group() -> impl Scene {
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
         }
+        ThemeOverride::from([
+            (tokens::SLIDER_BG, tokens::BUTTON_PRIMARY_BG),
+            (tokens::TEXT_INPUT_BG, tokens::BUTTON_PRIMARY_BG),
+        ])
     }
 }
 

@@ -4,12 +4,14 @@ use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    entity::Entity,
+    hierarchy::ChildOf,
     lifecycle::Insert,
     observer::On,
     query::Changed,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Res, SystemParam},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
@@ -83,6 +85,49 @@ impl UiTheme {
     }
 }
 
+/// A component which permits contextual overriding of a theme. This is typically placed on
+/// a container element, such as a panel or group, and allows replacement of one theme token with
+/// another.
+///
+/// Note: Overrides only affect descendant entities, not the entity that this is attached to.
+#[derive(Component, Clone, Default)]
+#[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
+pub struct ThemeOverride(pub HashMap<ThemeToken, ThemeToken>);
+
+impl ThemeOverride {
+    /// Construct a theme override map from an array of tuples.
+    pub fn from<const N: usize>(arr: [(ThemeToken, ThemeToken); N]) -> Self {
+        Self(HashMap::from(arr))
+    }
+}
+
+/// Handles translation of theme tokens based on local context.
+#[derive(SystemParam)]
+pub struct TokenResolver<'w, 's> {
+    // Query for theme overrides.
+    override_query: Query<'w, 's, &'static ThemeOverride>,
+    // Query for parents.
+    parent_query: Query<'w, 's, &'static ChildOf>,
+}
+
+impl TokenResolver<'_, '_> {
+    /// Search the ancestor chain for an override of the given token.
+    pub fn resolve<'a>(&'a self, ent: Entity, token: &'a ThemeToken) -> &'a ThemeToken {
+        self.parent_query
+            .iter_ancestors(ent)
+            .find_map(|ancestor| {
+                self.override_query
+                    .get(ancestor)
+                    .map(|overrides| overrides.0.get(token))
+                    .ok()
+            })
+            .flatten()
+            .unwrap_or(token)
+    }
+}
+
 /// Component which causes the background color of an entity to be set based on a theme color.
 #[derive(Component, Clone, Default)]
 #[require(BackgroundColor)]
@@ -127,25 +172,29 @@ pub struct ThemeTextColor(pub ThemeToken);
 pub struct ThemedText;
 
 pub(crate) fn update_theme(
-    mut q_background: Query<(&mut BackgroundColor, &ThemeBackgroundColor)>,
-    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor)>,
-    mut q_text_color: Query<(&mut TextColor, &ThemeTextColor)>,
+    mut q_background: Query<(Entity, &mut BackgroundColor, &ThemeBackgroundColor)>,
+    mut q_border: Query<(Entity, &mut BorderColor, &ThemeBorderColor)>,
+    mut q_text_color: Query<(Entity, &mut TextColor, &ThemeTextColor)>,
+    resolver: TokenResolver,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
         // Update all background colors
-        for (mut bg, theme_bg) in q_background.iter_mut() {
-            bg.0 = theme.color(&theme_bg.0);
+        for (ent, mut bg, ThemeBackgroundColor(token)) in q_background.iter_mut() {
+            let theme_bg = resolver.resolve(ent, token);
+            bg.0 = theme.color(theme_bg);
         }
 
         // Update all border colors
-        for (mut border, theme_border) in q_border.iter_mut() {
-            border.set_all(theme.color(&theme_border.0));
+        for (ent, mut border, ThemeBorderColor(token)) in q_border.iter_mut() {
+            let theme_border = resolver.resolve(ent, token);
+            border.set_all(theme.color(theme_border));
         }
 
         // Update all direct text span colors
-        for (mut text_color, theme_text_color) in q_text_color.iter_mut() {
-            text_color.0 = theme.color(&theme_text_color.0);
+        for (ent, mut text_color, ThemeTextColor(token)) in q_text_color.iter_mut() {
+            let theme_text_color = resolver.resolve(ent, token);
+            text_color.0 = theme.color(theme_text_color);
         }
     }
 }
@@ -156,33 +205,39 @@ pub(crate) fn on_changed_background(
         (&mut BackgroundColor, &ThemeBackgroundColor),
         Changed<ThemeBackgroundColor>,
     >,
+    resolver: TokenResolver,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut bg, theme_bg)) = q_background.get_mut(insert.entity) {
-        bg.0 = theme.color(&theme_bg.0);
+    if let Ok((mut bg, ThemeBackgroundColor(token))) = q_background.get_mut(insert.entity) {
+        let theme_bg = resolver.resolve(insert.entity, token);
+        bg.0 = theme.color(theme_bg);
     }
 }
 
 pub(crate) fn on_changed_border(
     insert: On<Insert, ThemeBorderColor>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor), Changed<ThemeBorderColor>>,
+    resolver: TokenResolver,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut border, theme_border)) = q_border.get_mut(insert.entity) {
-        border.set_all(theme.color(&theme_border.0));
+    if let Ok((mut border, ThemeBorderColor(token))) = q_border.get_mut(insert.entity) {
+        let theme_border = resolver.resolve(insert.entity, token);
+        border.set_all(theme.color(theme_border));
     }
 }
 
 pub(crate) fn on_changed_text_color(
     insert: On<Insert, ThemeTextColor>,
     mut q_span: Query<(&mut TextColor, &ThemeTextColor), Changed<ThemeTextColor>>,
+    resolver: TokenResolver,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut text_color, theme_text_color)) = q_span.get_mut(insert.entity) {
-        text_color.0 = theme.color(&theme_text_color.0);
+    if let Ok((mut text_color, ThemeTextColor(token))) = q_span.get_mut(insert.entity) {
+        let theme_text_color = resolver.resolve(insert.entity, token);
+        text_color.0 = theme.color(theme_text_color);
     }
 }
 
@@ -191,11 +246,13 @@ pub(crate) fn on_changed_text_color(
 pub(crate) fn on_changed_font_color(
     insert: On<Insert, InheritableThemeTextColor>,
     font_color: Query<&InheritableThemeTextColor>,
+    resolver: TokenResolver,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    if let Ok(token) = font_color.get(insert.entity) {
-        let color = theme.color(&token.0);
+    if let Ok(InheritableThemeTextColor(token)) = font_color.get(insert.entity) {
+        let text_color = resolver.resolve(insert.entity, token);
+        let color = theme.color(text_color);
         commands
             .entity(insert.entity)
             .insert(Propagate(TextColor(color)));
