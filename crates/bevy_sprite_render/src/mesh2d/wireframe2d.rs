@@ -421,6 +421,7 @@ pub struct NoWireframe2d;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
@@ -811,10 +812,7 @@ pub fn specialize_wireframes(
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
-                mesh.primitive_topology(),
-                mesh.index_format(),
-            );
+            mesh_key |= Mesh2dPipelineKey::from_bits_retain(mesh.key_bits.bits());
 
             let pipeline_id =
                 pipelines.specialize(&pipeline_cache, &pipeline, mesh_key, &mesh.layout);

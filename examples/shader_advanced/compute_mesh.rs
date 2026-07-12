@@ -77,6 +77,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
 /// Holds a handle to the empty mesh that should be filled
 /// by the compute shader.
 #[derive(Component, ExtractComponent, Clone)]
+#[extract_app(RenderApp)]
 struct GenerateMesh(Handle<Mesh>);
 
 fn setup(

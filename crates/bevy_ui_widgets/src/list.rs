@@ -22,6 +22,13 @@ use crate::{ScrollIntoView, ValueChange};
 
 /// Headless widget implementation for a list box. This component contains multiple [`ListItem`]
 /// entities. It implements the tab navigation logic and keyboard shortcuts for list items.
+///
+/// Functionally, this acts much like a radio group, emitting [`ValueChange`] events which contain
+/// the entity id of the selected item.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [crate-level documentation].
+/// [crate-level documentation]: crate
 #[derive(Component, Debug, Clone, Default)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::ListBox)),
