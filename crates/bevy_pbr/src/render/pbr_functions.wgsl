@@ -680,17 +680,17 @@ fn apply_pbr_lighting(
 #endif
     for (var i: u32 = rect_light_start; i < rect_light_end; i = i + 1u) {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-        let light = lighting::unpack_clustered_rect_light(clustering::get_clusterable_object_id(i));
+        var light = lighting::unpack_clustered_rect_light(clustering::get_clusterable_object_id(i));
 #else
-        let light = view_bindings::lights.rect_lights[i];
+        var light = view_bindings::lights.rect_lights[i];
 #endif
         let enable_diffuse = true;
-        let light_contrib = lighting::rect_light(light, &lighting_input, enable_diffuse);
+        let light_contrib = lighting::rect_light(&light, &lighting_input, enable_diffuse);
         direct_light += light_contrib;
 
     #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
         let transmitted_light_contrib =
-            lighting::rect_light(light, &transmissive_lighting_input, enable_diffuse);
+            lighting::rect_light(&light, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib;
     #endif
     }

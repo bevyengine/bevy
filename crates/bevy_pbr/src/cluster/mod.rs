@@ -116,7 +116,7 @@ pub struct GpuClusteredLight {
     pub(crate) light_custom_data: Vec4,
     // For rect lights: pack height in color_inverse_square_range.w.
     pub(crate) color_inverse_square_range: Vec4,
-    // For rect lights: pack  width in position_radius.w.
+    // For rect lights: pack width in position_radius.w.
     pub(crate) position_radius: Vec4,
     pub(crate) flags: u32,
     pub(crate) shadow_depth_bias: f32,

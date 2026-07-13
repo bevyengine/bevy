@@ -2004,8 +2004,7 @@ pub fn prepare_lights(
                 let right = rect_light.transform.right().into();
                 let up = rect_light.transform.up().into();
                 gpu_lights.rect_lights[index] = GpuRectLight {
-                    color: Vec4::from_slice(&rect_light.color.to_f32_array())
-                        * rect_light.intensity,
+                    color: rect_light.color.to_vec4() * rect_light.intensity,
                     position: rect_light.transform.translation(),
                     right,
                     up,

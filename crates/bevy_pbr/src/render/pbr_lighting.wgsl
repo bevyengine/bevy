@@ -1031,7 +1031,7 @@ fn unpack_clustered_rect_light(light_id: u32) -> RectLight {
 }
 
 fn rect_light(
-    light: RectLight,
+    light: ptr<function, RectLight>,
     input: ptr<function, LightingInput>,
     enable_diffuse: bool,
 ) -> vec3<f32> {
