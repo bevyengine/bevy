@@ -184,27 +184,35 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 /// Spawns the initial light.
+/// Spawns the light of the correct type based on app_status.
 fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
-    // Because this light can become a directional light, point light, or spot
-    // light depending on the settings, we add the union of the components
-    // necessary for this light to behave as all three of those.
-    commands
-        .spawn((
-            create_directional_light(app_status),
-            Transform::from_rotation(Quat::from_array([
-                0.6539259,
-                -0.34646285,
-                0.36505926,
-                -0.5648683,
-            ]))
+    let mut entity = commands.spawn((
+        Transform::from_rotation(Quat::from_array([
+            0.6539259,
+            -0.34646285,
+            0.36505926,
+            -0.5648683,
+        ]))
             .with_translation(vec3(57.693, 34.334, -6.422)),
-        ))
         // These two are needed for point lights.
-        .insert(CubemapVisibleEntities::default())
-        .insert(CubemapFrusta::default())
+        CubemapVisibleEntities::default(),
+        CubemapFrusta::default(),
         // These two are needed for spot lights.
-        .insert(VisibleMeshEntities::default())
-        .insert(Frustum::default());
+        VisibleMeshEntities::default(),
+        Frustum::default(),
+    ));
+
+    match app_status.light_type {
+        LightType::Directional => {
+            entity.insert(create_directional_light(app_status));
+        }
+        LightType::Point => {
+            entity.insert(create_point_light(app_status));
+        }
+        LightType::Spot => {
+            entity.insert(create_spot_light(app_status));
+        }
+    }
 }
 
 /// Loads and spawns the glTF palm tree scene.
