@@ -171,10 +171,12 @@ fn modify_selected_component(world: &mut World) {
                 return;
             };
 
-            // Get the `translation` field
+            // Get the `translation` field as a &mut dyn PartialReflect,
+            // which is a type-erased representation of a value that can be modified.
             let translation_field = struct_mut.field_mut("translation").unwrap();
 
-            // Now, repeat the process to get the `y` field of the `translation` Vec3
+            // Now, we can repeat the process to get the `y` field of the `translation` Vec3
+            // In a real application, this would probably be done via a recursive function!
             let ReflectMut::Struct(translation_struct) = translation_field.reflect_mut() else {
                 error!("Expected the translation field to be a struct");
                 return;
