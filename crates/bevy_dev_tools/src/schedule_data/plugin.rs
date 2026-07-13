@@ -139,9 +139,8 @@ mod tests {
 
     use crate::schedule_data::{
         plugin::collect_system_data_inner,
-        serde::{
-            tests::{remove_module_paths, simple_system, sort_app_data},
-            SystemData,
+        serde::tests::{
+            remove_module_paths, simple_system, sort_app_data, validate_message_update_system,
         },
     };
 
@@ -164,17 +163,7 @@ mod tests {
 
         assert_eq!(app_data.schedules.len(), 3);
         let first = &app_data.schedules[0];
-        assert_eq!(first.name, "First");
-        assert_eq!(
-            first.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![],
-            }]
-        );
+        validate_message_update_system(first);
         let post_update = &app_data.schedules[1];
         assert_eq!(post_update.name, "PostUpdate");
         assert_eq!(post_update.systems, [simple_system("c")]);
