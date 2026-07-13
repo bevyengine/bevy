@@ -421,6 +421,38 @@ mod tests {
     }
 
     #[test]
+    fn update_context_after_parented() {
+        let mut app = setup_test_app();
+        let world = app.world_mut();
+
+        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
+        let camera2 = world.spawn(Camera2d).id();
+        let parent = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
+        let child = world.spawn(Node::default()).id();
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedUiTargetCamera>(child)
+                .unwrap()
+                .get(),
+            Some(camera1)
+        );
+
+        app.world_mut().entity_mut(parent).add_child(child);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedUiTargetCamera>(child)
+                .unwrap()
+                .get(),
+            Some(camera2)
+        );
+    }
+
+    #[test]
     fn update_context_after_parent_removed() {
         let mut app = setup_test_app();
         let world = app.world_mut();
