@@ -288,7 +288,10 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
 ) -> InsertTemplate {
-    InsertTemplate(TypeId::of::<T>(), Box::new(value))
+    InsertTemplate {
+        type_id: TypeId::of::<T>(),
+        template: Box::new(value),
+    }
 }
 
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
@@ -344,14 +347,19 @@ impl<
 }
 
 /// A [`Scene`] that replaces the given template with the given value
-pub struct InsertTemplate(pub TypeId, pub Box<dyn ErasedComponentTemplate>);
+pub struct InsertTemplate {
+    /// The type id of the [`Template`] in `template`.
+    pub type_id: TypeId,
+    /// The template to insert.
+    pub template: Box<dyn ErasedComponentTemplate>,
+}
 impl Scene for InsertTemplate {
     fn resolve(
         self,
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.insert_erased_template(self.0, self.1);
+        scene.insert_erased_template(self.type_id, self.template);
         Ok(())
     }
 }
