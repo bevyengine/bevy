@@ -1,4 +1,4 @@
-use crate::bsn::types::{
+use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
     BsnType, BsnValue,
@@ -742,7 +742,7 @@ impl ToTokens for BsnValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bsn::types::*;
+    use crate::_bsn::types::*;
     use syn::parse_quote;
 
     struct TestPaths {

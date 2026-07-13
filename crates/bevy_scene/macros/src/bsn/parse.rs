@@ -1,4 +1,4 @@
-use crate::bsn::types::{
+use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
     BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
