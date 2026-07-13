@@ -136,7 +136,7 @@ fn modify_selected_component(world: &mut World) {
         ))
         .type_id();
 
-    let mut dynamic_mut: Mut<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
+    let mut reflected_component: Mut<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
 
     match selected {
         // Downcasting is the easy path:
@@ -148,9 +148,10 @@ fn modify_selected_component(world: &mut World) {
             // In a real project, you would want to handle this gracefully.
             // Downcasting converts the value *directly* into a specified concrete type,
             // allowing you to escape back into faster, strongly-typed code.
-            let downcasted = dynamic_mut.downcast_mut::<Sprite>().unwrap();
+            let downcast_sprite: &mut Sprite =
+                reflected_component.downcast_mut::<Sprite>().unwrap();
             // Be careful not to modify a copy of the color!
-            let color = &mut downcasted.color;
+            let color = &mut downcast_sprite.color;
 
             let new_alpha = (color.alpha() + 0.01 * direction_of_modification).clamp(0.0, 1.0);
             color.set_alpha(new_alpha);
@@ -161,10 +162,10 @@ fn modify_selected_component(world: &mut World) {
         // to operate over *any* data based on our knowledge of its shape (recorded using reflection),
         // without needing to know the concrete type at compile time.
         SelectedComponent::Transform => {
-            let reflect_mut = dynamic_mut.reflect_mut();
+            let reflect_mut: ReflectMut<'_> = reflected_component.reflect_mut();
             // In the fully generic case, we would need to match on the `ReflectMut` variants
             // and handle each of the arms exhaustively.
-            // struct_mut is of type &mut (dyn Struct + 'static), one of a number
+            // struct_mut is of type &mut dyn Struct, one of a number
             // of traits that encodes the logic of Rust's type system into a runtime representation.
             let ReflectMut::Struct(struct_mut) = reflect_mut else {
                 error!("Expected the Transform component type to be a struct");
