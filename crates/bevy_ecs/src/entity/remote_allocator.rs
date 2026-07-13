@@ -51,11 +51,16 @@ use super::{Entity, EntityIndex, EntitySetIterator};
 ///
 /// We use relaxed atomics internally not for special ordering but for *a* ordering.
 /// Conceptually, this could just be `SyncCell<Entity>` with no atomics, but that can cause UB, as demonstrated in #24897.
+#[repr(C)]
 struct Slot {
     #[cfg(not(target_has_atomic = "64"))]
-    entity_index: AtomicU32,
+    #[cfg(target_endian = "little")]
+    low_entity: AtomicU32,
     #[cfg(not(target_has_atomic = "64"))]
-    entity_generation: AtomicU32,
+    high_entity: AtomicU32,
+    #[cfg(not(target_has_atomic = "64"))]
+    #[cfg(target_endian = "big")]
+    low_entity: AtomicU32,
     #[cfg(target_has_atomic = "64")]
     inner_entity: AtomicU64,
 }
@@ -71,8 +76,8 @@ impl Slot {
         let source = Entity::PLACEHOLDER;
         #[cfg(not(target_has_atomic = "64"))]
         return Self {
-            entity_index: AtomicU32::new(source.index()),
-            entity_generation: AtomicU32::new(source.generation().to_bits()),
+            low_entity: AtomicU32::new(soruce.to_bits() as u32),
+            high_entity: AtomicU32::new((soruce.to_bits() >> 32) as u32),
         };
         #[cfg(target_has_atomic = "64")]
         return Self {
@@ -84,10 +89,11 @@ impl Slot {
     #[inline]
     fn set_entity(&self, entity: Entity) {
         #[cfg(not(target_has_atomic = "64"))]
-        self.entity_generation
-            .store(entity.generation().to_bits(), Ordering::Relaxed);
+        self.low_bits
+            .store(soruce.to_bits() as u32, Ordering::Relaxed);
         #[cfg(not(target_has_atomic = "64"))]
-        self.entity_index.store(entity.index(), Ordering::Relaxed);
+        self.high_bits
+            .store((soruce.to_bits() >> 32) as u32, Ordering::Relaxed);
         #[cfg(target_has_atomic = "64")]
         self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
@@ -96,22 +102,16 @@ impl Slot {
     #[inline]
     fn get_entity(&self) -> Entity {
         #[cfg(not(target_has_atomic = "64"))]
-        return Entity {
-            // SAFETY: This is valid since it was from an entity's index to begin with.
-            row: unsafe {
-                EntityRow::new(NonMaxU32::new_unchecked(
-                    self.entity_index.load(Ordering::Relaxed),
-                ))
-            },
-            generation: super::EntityGeneration::from_bits(
-                self.entity_generation.load(Ordering::Relaxed),
-            ),
+        let inner = {
+            (self.low_bits.load(Ordering::Relaxed) as u64)
+                | ((self.high_bits.load(Ordering::Relaxed) as u64) << 32)
         };
         #[cfg(target_has_atomic = "64")]
+        let inner = { self.inner_entity.load(Ordering::Relaxed) };
         // SAFETY: This is always sourced from a proper entity.
-        return unsafe {
-            Entity::try_from_bits(self.inner_entity.load(Ordering::Relaxed)).unwrap_unchecked()
-        };
+        // Even if the low and high bits don't come from the same entity,
+        // this still forms a valid entity since both the index and generation are valid.
+        unsafe { Entity::try_from_bits(inner).unwrap_unchecked() }
     }
 }
 
