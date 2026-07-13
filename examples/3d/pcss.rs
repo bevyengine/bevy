@@ -210,11 +210,11 @@ fn spawn_buttons(commands: &mut Commands) {
             radio::feathers_option_buttons(
                 "Shadow Filter",
                 &[
-                    (ShadowFilter::Temporal, "Temporal"),
                     (
                         ShadowFilter::NonTemporal,
                         "Non-Temporal",
                     ),
+                    (ShadowFilter::Temporal, "Temporal"),
                 ],
             ),
             radio::feathers_option_buttons(
