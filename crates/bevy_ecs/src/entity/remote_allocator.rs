@@ -152,9 +152,12 @@ impl Chunk {
             target.get_entity()
         } else {
             // SAFETY: Caller ensures memory ordering.
-            // The `Slot` has the same memory representation as `Entity`
+            // The `Slot` has the same memory representation as `u64`
             // and currently represents a valid entity value because this is not concurrent with any `free`.
-            unsafe { core::ptr::from_ref(target).cast::<Entity>().read() }
+            unsafe {
+                let bits = core::ptr::from_ref(target).cast::<u64>().read();
+                Entity::try_from_bits(bits).unwrap_unchecked()
+            }
         }
     }
 
