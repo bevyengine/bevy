@@ -87,7 +87,7 @@ fn select_component_to_modify(
 ///
 /// 1. Determine the shape of the type using reflection, by converting that to a [`ReflectMut`] object.
 /// 2. Find the field(s) you want to modify by walking the tree of type metadata.
-/// 3. Downcast each field to a concrete type (e.g. with `try_downcast_ref``) to read its value.
+/// 3. Downcast each field to a concrete type (e.g. with `try_downcast_ref`) to read its value.
 ///
 /// [`GetPath`], and its cached variant [`ParsedPath`](bevy::reflect::ParsedPath), can be used to simplify this process.
 /// For example, calling `.path_mut::<f32>("translation.y")` on a `ReflectMut` object that stores a transform will return a
@@ -131,9 +131,7 @@ fn modify_selected_component(world: &mut World) {
     let type_id = app_registry
         .read()
         .get_with_type_path(type_name)
-        .expect(&format!(
-            "type {type_name} was not registered, or its full path was ambiguous"
-        ))
+        .expect("Type was not registered, or its full path was ambiguous")
         .type_id();
 
     let mut reflected_component: Mut<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
