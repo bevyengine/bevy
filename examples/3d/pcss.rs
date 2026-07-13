@@ -186,14 +186,27 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the initial light.
 /// Spawns the light of the correct type based on app_status.
 fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
-    let mut entity = commands.spawn((
+    spawn_light_with_transform(
+        commands,
+        app_status,
         Transform::from_rotation(Quat::from_array([
             0.6539259,
             -0.34646285,
             0.36505926,
             -0.5648683,
         ]))
-            .with_translation(vec3(57.693, 34.334, -6.422)),
+        .with_translation(vec3(57.693, 34.334, -6.422)),
+    );
+}
+
+fn spawn_light_with_transform(
+    commands: &mut Commands,
+    app_status: &AppStatus,
+    transform: Transform,
+) {
+
+    let mut light = commands.spawn((
+        transform,
         // These two are needed for point lights.
         CubemapVisibleEntities::default(),
         CubemapFrusta::default(),
@@ -204,13 +217,13 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
     match app_status.light_type {
         LightType::Directional => {
-            entity.insert(create_directional_light(app_status));
+            light.insert(create_directional_light(app_status));
         }
         LightType::Point => {
-            entity.insert(create_point_light(app_status));
+            light.insert(create_point_light(app_status));
         }
         LightType::Spot => {
-            entity.insert(create_spot_light(app_status));
+            light.insert(create_spot_light(app_status));
         }
     }
 }
@@ -287,10 +300,13 @@ fn update_radio_buttons(
     }
 }
 
-/// Handles requests from the user to change the type of light.
+/// Handles requests from the user to change the type of light. Handles multiple lights.
 fn handle_light_type_change(
     mut commands: Commands,
-    mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
+    mut lights: Query<
+        (Entity, &Transform),
+        Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>,
+    >,
     mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -300,13 +316,17 @@ fn handle_light_type_change(
         };
         app_status.light_type = light_type;
 
-        for old_light in lights.iter_mut() {
-            // Despawn the old light entirely
+        // Despawn each old light, then recreate the same number of lights with
+        // the new type and the old transforms.
+        let mut old_light_transforms = Vec::new();
+        for (old_light, transform) in lights.iter_mut() {
+            old_light_transforms.push(*transform);
             commands.entity(old_light).despawn();
         }
 
-        // Spawn a fresh light entity with the new type
-        spawn_light(&mut commands, &app_status);
+        for transform in old_light_transforms {
+            spawn_light_with_transform(&mut commands, &app_status, transform);
+        }
     }
 }
 
