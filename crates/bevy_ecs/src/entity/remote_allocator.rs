@@ -32,7 +32,6 @@
 
 use arrayvec::ArrayVec;
 use bevy_platform::{
-    cell::SyncUnsafeCell,
     prelude::{Box, Vec},
     sync::{
         atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},
@@ -49,8 +48,16 @@ use super::{Entity, EntityIndex, EntitySetIterator};
 
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
+///
+/// We use relaxed atomics internally not for special ordering but for *a* ordering.
+/// Conceptually, this could just be `SyncCell<Entity>` with no atomics, but that can cause UB, as demonstrated in #24897.
 struct Slot {
-    inner: SyncUnsafeCell<Entity>,
+    #[cfg(not(target_has_atomic = "64"))]
+    entity_index: AtomicU32,
+    #[cfg(not(target_has_atomic = "64"))]
+    entity_generation: AtomicU32,
+    #[cfg(target_has_atomic = "64")]
+    inner_entity: AtomicU64,
 }
 
 impl Slot {
@@ -60,37 +67,51 @@ impl Slot {
     /// Importantly, [`FreeCount`] determines which part of the free buffer is the free list.
     /// An empty slot may be in the free buffer, but should not be in the free list.
     /// This can be thought of as the `MaybeUninit` uninit in `Vec`'s excess capacity.
-    const fn empty() -> Self {
+    fn empty() -> Self {
         let source = Entity::PLACEHOLDER;
-        Self {
-            inner: SyncUnsafeCell::new(source),
-        }
+        #[cfg(not(target_has_atomic = "64"))]
+        return Self {
+            entity_index: AtomicU32::new(source.index()),
+            entity_generation: AtomicU32::new(source.generation().to_bits()),
+        };
+        #[cfg(target_has_atomic = "64")]
+        return Self {
+            inner_entity: AtomicU64::new(source.to_bits()),
+        };
     }
 
     /// Sets the entity at this slot.
-    ///
-    /// # Safety
-    ///
-    /// There must be a clear, strict order between this call and the previous uses of this [`Slot`].
-    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    const unsafe fn set_entity(&self, entity: Entity) {
-        // SAFETY: Ensured by caller.
-        unsafe {
-            self.inner.get().write(entity);
-        }
+    fn set_entity(&self, entity: Entity) {
+        #[cfg(not(target_has_atomic = "64"))]
+        self.entity_generation
+            .store(entity.generation().to_bits(), Ordering::Relaxed);
+        #[cfg(not(target_has_atomic = "64"))]
+        self.entity_index.store(entity.index(), Ordering::Relaxed);
+        #[cfg(target_has_atomic = "64")]
+        self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
 
     /// Gets the stored entity. The result will be [`Entity::PLACEHOLDER`] unless [`set_entity`](Self::set_entity) has been called.
-    ///
-    /// # Safety
-    ///
-    /// There must be a clear, strict order between this call and the previous uses of this [`Slot`].
-    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    const unsafe fn get_entity(&self) -> Entity {
-        // SAFETY: Ensured by caller.
-        unsafe { self.inner.get().read() }
+    fn get_entity(&self) -> Entity {
+        #[cfg(not(target_has_atomic = "64"))]
+        return Entity {
+            // SAFETY: This is valid since it was from an entity's index to begin with.
+            row: unsafe {
+                EntityRow::new(NonMaxU32::new_unchecked(
+                    self.entity_index.load(Ordering::Relaxed),
+                ))
+            },
+            generation: super::EntityGeneration::from_bits(
+                self.entity_generation.load(Ordering::Relaxed),
+            ),
+        };
+        #[cfg(target_has_atomic = "64")]
+        // SAFETY: This is always sourced from a proper entity.
+        return unsafe {
+            Entity::try_from_bits(self.inner_entity.load(Ordering::Relaxed)).unwrap_unchecked()
+        };
     }
 }
 
@@ -113,16 +134,13 @@ impl Chunk {
     /// # Safety
     ///
     /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
-    /// There must be a clear, strict order between this call and the previous uses of this `index`.
-    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
         // Relaxed is fine since caller has already assured memory ordering is satisfied.
         let head = self.first.load(Ordering::Relaxed);
         // SAFETY: caller ensures we are in bounds and init (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
-        // SAFETY: Caller ensures ordering.
-        unsafe { target.get_entity() }
+        target.get_entity()
     }
 
     /// Gets a slice of indices.
@@ -148,8 +166,6 @@ impl Chunk {
     /// # Safety
     ///
     /// Index must be in bounds.
-    /// There must be a clear, strict order between this call and the previous uses of this `index`.
-    /// Otherwise, the compiler will make unsound optimizations.
     /// This must not be called on the same chunk concurrently.
     #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
@@ -168,10 +184,7 @@ impl Chunk {
         // For that to happen, you would first run out of memory in practice.
         let target = unsafe { &*head.add(index as usize) };
 
-        // SAFETY: Ensured by caller.
-        unsafe {
-            target.set_entity(entity);
-        }
+        target.set_entity(entity);
     }
 
     /// Initializes the chunk to be valid, returning the pointer.
@@ -264,8 +277,6 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// [`set`](Self::set) must have been called on this index to initialize its memory.
-    /// There must be a clear, strict order between this call and the previous uses of this `full_index`.
-    /// Otherwise, the compiler will make unsound optimizations.
     unsafe fn get(&self, full_index: u32) -> Entity {
         let (chunk, index, _) = self.index_in_chunk(full_index);
         // SAFETY: Ensured by caller.
@@ -276,8 +287,6 @@ impl FreeBuffer {
     ///
     /// # Safety
     ///
-    /// There must be a clear, strict order between this call and the previous uses of this `full_index`.
-    /// Otherwise, the compiler will make unsound optimizations.
     /// This must not be called on the same buffer concurrently.
     #[inline]
     unsafe fn set(&self, full_index: u32, entity: Entity) {
@@ -334,9 +343,7 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(found) = self.current_chunk_slice.next() {
-            // SAFETY: We have `&mut self`, so that memory order is certain.
-            // The caller of `FreeBuffer::iter` ensures the memory order of this value's lifetime.
-            return Some(unsafe { found.get_entity() });
+            return Some(found.get_entity());
         }
 
         let still_need = self.future_buffer_indices.len() as u32;
@@ -354,9 +361,7 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
         // SAFETY: Constructor ensures these indices are valid in the buffer; the buffer is not sparse, and we just got the next slice.
         // So the only way for the slice to be empty is if the constructor did not uphold safety.
         let next = unsafe { self.current_chunk_slice.next().debug_checked_unwrap() };
-        // SAFETY: We have `&mut self`, so that memory order is certain.
-        // The caller of `FreeBuffer::iter` ensures the memory order of this value's lifetime.
-        Some(unsafe { next.get_entity() })
+        Some(next.get_entity())
     }
 
     #[inline]
@@ -623,9 +628,6 @@ impl FreeList {
         let index = len.checked_sub(1)?;
 
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
-        // There is a strict memory ordering of this use of the index because the length is only decreasing.
-        // That means there is only one use of this index since the last call to `free`.
-        // The only time the length increases is during `free`, which the caller ensures has a "happened before" relationship with this call.
         Some(unsafe { self.buffer.get(index) })
     }
 
@@ -702,22 +704,7 @@ impl FreeList {
             let len = state.length();
             let index = len.checked_sub(1)?;
 
-            // SAFETY:
-            //
-            // If no `free` call has started, this safety follows the same logic as in non-remote `alloc`.
-            // That is, the len always counts down, so this is the only use of this index since the last `free`,
-            // and another `free` hasn't happened.
-            //
-            // But if a `free` did start at this point, it would be operating on indices greater than `index`.
-            // We haven't updated the `FreeCount` yet, so the `free` call would be adding to it, while we've been subtracting from it.
-            // That means this is still the only time this index is used since the last `free`!
-            // So, even though we can't guarantee when the concurrent `free` is happening in memory order, it doesn't matter since that `free` doesn't use this index.
-            // We can still establish a clear, strict ordering for this slot because 1) any concurrent `free` doesn't use this index and 2) we have an `Acquire` relationship with the `free` before it.
-            //
-            // So yeah, we could be reading from outdated memory (the free buffer), but the part that we are reading, hasn't changed, so that's ok.
-            // That satisfies safety but not correctness.
-            // We still need to double check that a free didn't happen, and retry if it did.
-            // Otherwise, this entity might be given out twice.
+            // SAFETY: This is within the length, so it must have been initialized.
             let entity = unsafe { self.buffer.get(index) };
 
             let ideal_state = state.pop(1);
