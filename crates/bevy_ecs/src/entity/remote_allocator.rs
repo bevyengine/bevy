@@ -55,12 +55,12 @@ use super::{Entity, EntityIndex, EntitySetIterator};
 struct Slot {
     #[cfg(not(target_has_atomic = "64"))]
     #[cfg(target_endian = "little")]
-    low_entity: AtomicU32,
+    low_bits: AtomicU32,
     #[cfg(not(target_has_atomic = "64"))]
-    high_entity: AtomicU32,
+    high_bits: AtomicU32,
     #[cfg(not(target_has_atomic = "64"))]
     #[cfg(target_endian = "big")]
-    low_entity: AtomicU32,
+    low_bits: AtomicU32,
     #[cfg(target_has_atomic = "64")]
     inner_entity: AtomicU64,
 }
@@ -76,8 +76,8 @@ impl Slot {
         let source = Entity::PLACEHOLDER;
         #[cfg(not(target_has_atomic = "64"))]
         return Self {
-            low_entity: AtomicU32::new(source.to_bits() as u32),
-            high_entity: AtomicU32::new((source.to_bits() >> 32) as u32),
+            low_bits: AtomicU32::new(source.to_bits() as u32),
+            high_bits: AtomicU32::new((source.to_bits() >> 32) as u32),
         };
         #[cfg(target_has_atomic = "64")]
         return Self {
