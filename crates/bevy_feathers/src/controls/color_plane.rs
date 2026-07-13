@@ -63,6 +63,10 @@ pub enum FeathersColorPlane {
     /// Show hue on the horizontal axis and lightness on the vertical.
     #[default]
     HueLightness,
+    /// Show OKHSL hue on horizontal axis and saturation on vertical.
+    OkhslHueSaturation,
+    /// Show OKHSL hue on horizontal axis and lightness on vertical.
+    OkhslHueLightness,
 }
 
 /// Component that contains the two components of the selected color, as well as the "z" value.
@@ -129,6 +133,8 @@ impl UiMaterial for ColorPlaneMaterial {
             FeathersColorPlane::GreenBlue => "PLANE_GB",
             FeathersColorPlane::HueSaturation => "PLANE_HS",
             FeathersColorPlane::HueLightness => "PLANE_HL",
+            FeathersColorPlane::OkhslHueSaturation => "PLANE_OKHS",
+            FeathersColorPlane::OkhslHueLightness => "PLANE_OKHL",
         };
         descriptor.fragment.as_mut().unwrap().shader_defs =
             vec![ShaderDefVal::Bool(plane_def.into(), true)];
