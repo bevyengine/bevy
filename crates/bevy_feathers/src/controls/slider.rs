@@ -32,6 +32,7 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    display::caption,
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -47,7 +48,10 @@ use crate::{
 ///
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Slider`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersSliderProps)]
 #[require(Slider)]
@@ -90,6 +94,7 @@ impl FeathersSlider {
             EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
             TabIndex(0)
             FocusIndicator
+            InheritableThemeTextColor(tokens::SLIDER_TEXT)
             // Use a gradient to draw the moving bar
             BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                 angle: PI * 0.5,
@@ -110,13 +115,12 @@ impl FeathersSlider {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                 }
-                InheritableThemeTextColor(tokens::SLIDER_TEXT)
                 InheritableFont {
                     font: fonts::MONO,
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(Text("10.0") ThemedText SliderValueText)]
+                Children [(caption("10.0") SliderValueText)]
             )]
         }
     }
@@ -162,6 +166,7 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
         FocusIndicator,
+        InheritableThemeTextColor(tokens::SLIDER_TEXT),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -184,7 +189,6 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            InheritableThemeTextColor(tokens::SLIDER_TEXT),
             InheritableFont {
                 font_size: size::SMALL_FONT,
                 weight: FontWeight::NORMAL,
@@ -203,6 +207,7 @@ fn update_slider_styles(
             Has<Pressed>,
             &Hovered,
             &mut BackgroundGradient,
+            &InheritableThemeTextColor,
         ),
         (
             With<FeathersSlider>,
@@ -217,7 +222,7 @@ fn update_slider_styles(
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    for (slider_ent, disabled, pressed, hovered, mut gradient) in q_sliders.iter_mut() {
+    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color) in q_sliders.iter_mut() {
         set_slider_styles(
             slider_ent,
             &theme,
@@ -225,6 +230,7 @@ fn update_slider_styles(
             pressed,
             hovered.0,
             gradient.as_mut(),
+            font_color,
             &mut commands,
         );
     }
@@ -238,6 +244,7 @@ fn update_slider_styles_remove(
             Has<Pressed>,
             &Hovered,
             &mut BackgroundGradient,
+            &InheritableThemeTextColor,
         ),
         With<FeathersSlider>,
     >,
@@ -250,7 +257,7 @@ fn update_slider_styles_remove(
         .read()
         .chain(remove_pressed.read())
         .for_each(|ent| {
-            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient)) =
+            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient, font_color)) =
                 q_sliders.get_mut(ent)
             {
                 set_slider_styles(
@@ -260,6 +267,7 @@ fn update_slider_styles_remove(
                     pressed,
                     hovered.0,
                     gradient.as_mut(),
+                    font_color,
                     &mut commands,
                 );
             }
@@ -275,6 +283,7 @@ fn update_slider_styles_theme(
             Has<Pressed>,
             &Hovered,
             &mut BackgroundGradient,
+            &InheritableThemeTextColor,
         ),
         With<FeathersSlider>,
     >,
@@ -284,7 +293,7 @@ fn update_slider_styles_theme(
     if !theme.is_changed() {
         return;
     }
-    for (slider_ent, disabled, pressed, hovered, mut gradient) in q_sliders.iter_mut() {
+    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color) in q_sliders.iter_mut() {
         set_slider_styles(
             slider_ent,
             &theme,
@@ -292,6 +301,7 @@ fn update_slider_styles_theme(
             pressed,
             hovered.0,
             gradient.as_mut(),
+            font_color,
             &mut commands,
         );
     }
@@ -304,6 +314,7 @@ fn set_slider_styles(
     pressed: bool,
     hovered: bool,
     gradient: &mut BackgroundGradient,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let bar_color = theme.color(&if disabled {
@@ -326,6 +337,12 @@ fn set_slider_styles(
         tokens::SLIDER_BG
     });
 
+    let text_token = if disabled {
+        tokens::SLIDER_TEXT_DISABLED
+    } else {
+        tokens::SLIDER_TEXT
+    };
+
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,
         false => bevy_window::SystemCursorIcon::EwResize,
@@ -336,6 +353,13 @@ fn set_slider_styles(
         linear_gradient.stops[1].color = bar_color;
         linear_gradient.stops[2].color = bg_color;
         linear_gradient.stops[3].color = bg_color;
+    }
+
+    // Change value-text color (dim when disabled)
+    if font_color.0 != text_token {
+        commands
+            .entity(slider_ent)
+            .insert(InheritableThemeTextColor(text_token));
     }
 
     // Change cursor shape
