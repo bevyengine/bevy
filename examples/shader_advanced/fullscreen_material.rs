@@ -8,7 +8,7 @@
 use bevy::{
     core_pipeline::fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
     prelude::*,
-    render::{extract_component::ExtractComponent, render_resource::ShaderType},
+    render::{extract_component::ExtractComponent, render_resource::ShaderType, RenderApp},
     shader::ShaderRef,
 };
 
@@ -112,6 +112,7 @@ fn toggle_effect(
 }
 
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
+#[extract_app(RenderApp)]
 struct FullscreenEffect {
     intensity: f32,
     // WebGL2 structs must be 16 byte aligned.
