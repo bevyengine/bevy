@@ -69,14 +69,14 @@ use syn::{parse_macro_input, DeriveInput};
 /// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are comma-separated.
 /// Each comma-separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
 ///
-/// Note: The examples below omit the relationship or macro call `Children [<scene list>]` or a list macro like `bsn_list![<scene list>]`
+/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn_list![<scene list>]`
 ///
 /// | Example                      | Meaning                                                                                                               |
 /// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 /// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
 /// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
-/// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the `SceneList` returned by expr, then one named `Last` |
-/// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a `Scene` and will only spawn one entity using it                   |
+/// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the [`SceneList`] returned by expr, then one named `Last` |
+/// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a [`Scene`] and will only spawn one entity using it                   |
 ///  
 /// ### Values
 ///
@@ -90,14 +90,14 @@ use syn::{parse_macro_input, DeriveInput};
 /// | `1.1` or `-0.1` or `1.` or `-2.` | Float         | Floating point number, common types: [`f32`], [`f64`]                                   |
 /// | `true` or `false`                | Bool          | Boolean, type: [`bool`]                                                                 |
 /// | `"somename"`                     | String        | Text, types: [`String`] or [`&'static str`](str)                                        |
-/// | `"mypicture.png"`                | Asset path    | Asset, when used in a field which expects a [`Handle`] to the matching `Asset` type     |
+/// | `"mypicture.png"`                | Asset path    | Asset, when used in a field which expects a [`Handle`] to the matching [`Asset`] type     |
 /// | `some_function(1)`               | Function call | Calls a function with the provided arguments                                            |
 /// | `GREEN`                          | Constant      | Fixed value, must be in scope                                                           |
 /// | `std::f32::consts::PI`           | Constant      | Fixed value, uses full path so doesn't need to be in scope                              |
 /// | **Expression syntax**            |               |                                                                                         |
 /// | `{ 1 + 2 }`                      | Expression    | Any rust expression works in `{}`, in this case addition of 2 integers                  |
 /// | `{ vec![true, false] }`          | Vector        | An expression returning a [`Vec`], a collection of multiple items of one specific type. |
-/// | `{ bsn!{ Text("foo") Style } }`  | Scene         | Sometimes, you may need to pass a small `Scene` as a value to something else            |
+/// | `{ bsn!{ Text("foo") Style } }`  | Scene         | Sometimes, you may need to pass a small [`Scene`] as a value to something else            |
 ///
 /// ### Other Rust syntax
 ///
@@ -167,6 +167,8 @@ use syn::{parse_macro_input, DeriveInput};
 /// [`FromTemplate`]: https://docs.rs/bevy/latest/bevy/ecs/prelude/trait.FromTemplate.html
 /// [`RelationshipTarget`]: https://docs.rs/bevy/latest/bevy/ecs/prelude/trait.RelationshipTarget.html
 /// [`Handle`]: https://docs.rs/bevy/latest/bevy/asset/enum.Handle.html
+/// [`Asset`]: https://docs.rs/bevy/latest/bevy/asset/trait.Asset.html
+/// [`SceneList`]: https://docs.rs/bevy/latest/bevy/prelude/trait.SceneList.html
 ///
 #[proc_macro]
 pub fn bsn(input: TokenStream) -> TokenStream {
