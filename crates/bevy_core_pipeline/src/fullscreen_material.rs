@@ -250,7 +250,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         return;
     };
 
-    for (entity, view_target, mut maybe_bind_groups) in &mut view {
+    for (entity, view_target, mut maybe_bind_groups, material) in &mut view {
         if material.is_none() {
             commands
                 .entity(entity)
