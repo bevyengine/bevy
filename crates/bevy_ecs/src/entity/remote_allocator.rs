@@ -134,13 +134,22 @@ impl Chunk {
     /// # Safety
     ///
     /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
+    /// If this is not `ATOMIC`, this must have a clear, strict order between this call and the previous `set`s of this `index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    unsafe fn get(&self, index: u32) -> Entity {
+    unsafe fn get<const ATOMIC: bool>(&self, index: u32) -> Entity {
         // Relaxed is fine since caller has already assured memory ordering is satisfied since *some* set.
         let head = self.first.load(Ordering::Relaxed);
         // SAFETY: caller ensures we are in bounds and init (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
-        target.get_entity()
+        if ATOMIC {
+            target.get_entity()
+        } else {
+            // SAFETY: Caller ensures memory ordering.
+            // The `Slot` has the same memory representation as `Entity`
+            // and currently represents a valid entity value because this is not concurrent with any `free`.
+            unsafe { core::ptr::from_ref(target).cast::<Entity>().read() }
+        }
     }
 
     /// Gets a slice of indices.
@@ -279,10 +288,12 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// [`set`](Self::set) must have been called on this index to initialize its memory.
-    unsafe fn get(&self, full_index: u32) -> Entity {
+    /// If this is not `ATOMIC`, this must have a clear, strict order between this call and the previous `set`s of this `index`.
+    /// Otherwise, the compiler will make unsound optimizations.
+    unsafe fn get<const ATOMIC: bool>(&self, full_index: u32) -> Entity {
         let (chunk, index, _) = self.index_in_chunk(full_index);
         // SAFETY: Ensured by caller.
-        unsafe { chunk.get(index) }
+        unsafe { chunk.get::<ATOMIC>(index) }
     }
 
     /// Sets an entity at an index.
@@ -634,7 +645,7 @@ impl FreeList {
 
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
         // This is after `free` because the caller enforces a strict ordering.
-        Some(unsafe { self.buffer.get(index) })
+        Some(unsafe { self.buffer.get::<false>(index) })
     }
 
     /// Allocates as many [`Entity`]s from the free list as are available, up to `count`.
@@ -712,7 +723,7 @@ impl FreeList {
 
             // SAFETY: This is within the length, so it must have been initialized.
             // We used acquire ordering on the state, so this is after any `free`, which would have set the slot.
-            let entity = unsafe { self.buffer.get(index) };
+            let entity = unsafe { self.buffer.get::<true>(index) };
 
             let ideal_state = state.pop(1);
             // If we fail, we need to acquire the new state.
