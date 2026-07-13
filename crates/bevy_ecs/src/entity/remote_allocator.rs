@@ -586,10 +586,11 @@ impl FreeList {
     #[inline]
     unsafe fn free(&self, entities: &[Entity]) {
         // Disable remote allocation.
-        // We don't need to acquire the most recent memory from remote threads because we never read it.
-        // We do not need to release to remote threads because we only changed the disabled bit,
-        // which the remote allocator would with relaxed ordering.
-        let state = self.len.disable_len_for_state(Ordering::Relaxed);
+        // Safety-wise, this only needs relaxed ordering.
+        // However, this can cause logical race conditions where we overwrite entities a remote allocation is reading.
+        // To prevent that, this needs to use acquire ordering.
+        // For more information see #24897.
+        let state = self.len.disable_len_for_state(Ordering::Acquire);
 
         // Append onto the buffer
         let mut len = state.length();
@@ -709,10 +710,13 @@ impl FreeList {
 
             let ideal_state = state.pop(1);
             // If we fail, we need to acquire the new state.
-            // If we succeed, we are finished, and we haven't changed any memory, so we can used relaxed ordering.
+            // If we succeed, we are finished, but while we've been reading memory, a free could have been writing it.
+            // We want to finish the read before the write from free to make sure we get the *right* entity.
+            // We use release ordering for this, otherwise this could leak it.
+            // For more info, see #24897.
             match self
                 .len
-                .try_set_state(state, ideal_state, Ordering::Relaxed, Ordering::Acquire)
+                .try_set_state(state, ideal_state, Ordering::Release, Ordering::Acquire)
             {
                 Ok(_) => return Some(entity),
                 Err(new_state) => state = new_state,
