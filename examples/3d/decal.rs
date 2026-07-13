@@ -3,7 +3,7 @@
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
+    core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
 };

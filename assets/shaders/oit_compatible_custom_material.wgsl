@@ -24,7 +24,7 @@ fn fragment(
     let color = vec4f(material_color.rgb, alpha);
 
 #ifdef MATERIAL_OIT_ENABLED
-    // OIT assumes color is alpha-premultiplied.
+    // The input color of `oit_draw` should be alpha-premultiplied.
     oit_draw(in.position, vec4f(color.rgb * color.a, color.a));
     discard;
 #endif // MATERIAL_OIT_ENABLED
