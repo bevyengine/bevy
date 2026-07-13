@@ -136,7 +136,7 @@ fn modify_selected_component(world: &mut World) {
         ))
         .type_id();
 
-    let mut dynamic_mut = world.get_reflect_mut(entity, type_id).unwrap();
+    let mut dynamic_mut: Mut<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
 
     match selected {
         // Downcasting is the easy path:
