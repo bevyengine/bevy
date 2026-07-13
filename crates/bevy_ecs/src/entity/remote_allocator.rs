@@ -136,7 +136,7 @@ impl Chunk {
     /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
     #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
-        // Relaxed is fine since caller has already assured memory ordering is satisfied.
+        // Relaxed is fine since caller has already assured memory ordering is satisfied since *some* set.
         let head = self.first.load(Ordering::Relaxed);
         // SAFETY: caller ensures we are in bounds and init (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
@@ -167,6 +167,8 @@ impl Chunk {
     ///
     /// Index must be in bounds.
     /// This must not be called on the same chunk concurrently.
+    /// There must be a clear, strict order between this call and the previous `set`s of this `index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
         // Relaxed is fine here since the caller ensures memory ordering.
@@ -288,6 +290,8 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// This must not be called on the same buffer concurrently.
+    /// There must be a clear, strict order between this call and the previous `set`s of this `index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn set(&self, full_index: u32, entity: Entity) {
         let (chunk, index, chunk_capacity) = self.index_in_chunk(full_index);
@@ -629,6 +633,7 @@ impl FreeList {
         let index = len.checked_sub(1)?;
 
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+        // This is after `free` because the caller enforces a strict ordering.
         Some(unsafe { self.buffer.get(index) })
     }
 
@@ -706,6 +711,7 @@ impl FreeList {
             let index = len.checked_sub(1)?;
 
             // SAFETY: This is within the length, so it must have been initialized.
+            // We used acquire ordering on the state, so this is after any `free`, which would have set the slot.
             let entity = unsafe { self.buffer.get(index) };
 
             let ideal_state = state.pop(1);
