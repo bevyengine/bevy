@@ -73,7 +73,6 @@ impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
