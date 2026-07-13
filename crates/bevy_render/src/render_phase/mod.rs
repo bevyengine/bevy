@@ -274,7 +274,7 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         main_entity: MainEntity,
         input_uniform_index: InputUniformIndex,
         bin_index: RenderBinIndex,
-    ) -> RenderBinnedMeshInstanceIndex {
+    ) -> (RenderBinnedMeshInstanceIndex, bool) {
         // Creates a `GpuRenderBinnedMeshInstance`.
         let gpu_render_bin_entry = GpuRenderBinnedMeshInstance {
             input_uniform_index: input_uniform_index.0,
@@ -284,9 +284,11 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         // Fetch the index of this entity in the
         // `render_binned_mesh_instance_buffer`. If there isn't one, then
         // allocate one.
-        let render_binned_mesh_instance_buffer_index =
+        let bin_metadata_index =
+            self.bin_index_to_bin_metadata_index_buffer.values()[bin_index.0 as usize];
+        let (render_binned_mesh_instance_buffer_index, is_new) =
             match bin.entity_to_binned_mesh_instance_index.entry(main_entity) {
-                Entry::Occupied(occupied_entry) => *occupied_entry.get(),
+                Entry::Occupied(occupied_entry) => (*occupied_entry.get(), false),
                 Entry::Vacant(vacant_entry) => {
                     let render_bin_buffer_index = RenderBinnedMeshInstanceIndex(
                         self.render_binned_mesh_instance_buffer
@@ -294,7 +296,9 @@ impl RenderMultidrawableBatchSetGpuBuffers {
                             as u32,
                     );
                     vacant_entry.insert(render_bin_buffer_index);
-                    render_bin_buffer_index
+                    self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize]
+                        .instance_count += 1;
+                    (render_bin_buffer_index, true)
                 }
             };
 
@@ -302,15 +306,12 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         self.render_binned_mesh_instance_buffer.values_mut()
             [render_binned_mesh_instance_buffer_index.0 as usize] = gpu_render_bin_entry;
 
-        let bin_metadata_index =
-            self.bin_index_to_bin_metadata_index_buffer.values()[bin_index.0 as usize];
-        self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count += 1;
         debug_assert_eq!(
             self.bin_metadata_buffer.values()[bin_metadata_index as usize].instance_count as usize,
             bin.entity_to_binned_mesh_instance_index.len()
         );
 
-        render_binned_mesh_instance_buffer_index
+        (render_binned_mesh_instance_buffer_index, is_new)
     }
 
     /// Removes an entity from a bin.
@@ -577,18 +578,23 @@ where
             }
         }
 
-        self.instance_count += 1;
-
         // Update the GPU buffers.
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
-        let binned_mesh_instance_index =
+        let (binned_mesh_instance_index, is_new) =
             self.gpu_buffers
                 .insert(bin, main_entity, input_uniform_index, bin_index);
-        debug_assert_eq!(
-            binned_mesh_instance_index.0 as usize,
-            self.binned_mesh_instance_index_to_entity.len()
-        );
-        self.binned_mesh_instance_index_to_entity.push(main_entity);
+
+        // Only update instance tracking for genuinely new entities; duplicate
+        // inserts of the same entity (e.g. due to deferred command timing) must
+        // not corrupt the reverse-lookup table or inflate the instance count.
+        if is_new {
+            self.instance_count += 1;
+            debug_assert_eq!(
+                binned_mesh_instance_index.0 as usize,
+                self.binned_mesh_instance_index_to_entity.len()
+            );
+            self.binned_mesh_instance_index_to_entity.push(main_entity);
+        }
     }
 
     /// Removes the given entity from the bin with the given key.
@@ -667,9 +673,9 @@ where
 
         if bin_index.0
             == self
-                .gpu_buffers
-                .bin_index_to_bin_metadata_index_buffer
-                .len() as u32
+            .gpu_buffers
+            .bin_index_to_bin_metadata_index_buffer
+            .len() as u32
         {
             self.gpu_buffers
                 .bin_index_to_bin_metadata_index_buffer
@@ -1550,10 +1556,10 @@ impl UnbatchableBinnedEntityIndexSet {
         match self {
             UnbatchableBinnedEntityIndexSet::NoEntities => None,
             UnbatchableBinnedEntityIndexSet::Sparse { instance_range, .. }
-                if entity_index >= instance_range.len() as u32 =>
-            {
-                None
-            }
+            if entity_index >= instance_range.len() as u32 =>
+                {
+                    None
+                }
             UnbatchableBinnedEntityIndexSet::Sparse {
                 instance_range,
                 first_indirect_parameters_index: None,
@@ -1813,26 +1819,26 @@ impl UnbatchableBinnedEntityIndexSet {
                 first_indirect_parameters_index,
             } if instance_range.end == indices.instance_index
                 && ((first_indirect_parameters_index.is_none()
-                    && indices.extra_index == PhaseItemExtraIndex::None)
-                    || first_indirect_parameters_index.is_some_and(
-                        |first_indirect_parameters_index| match indices.extra_index {
-                            PhaseItemExtraIndex::IndirectParametersIndex {
-                                range: ref this_range,
-                                ..
-                            } => {
-                                u32::from(first_indirect_parameters_index) + instance_range.end
-                                    - instance_range.start
-                                    == this_range.start
-                            }
-                            PhaseItemExtraIndex::DynamicOffset(_) | PhaseItemExtraIndex::None => {
-                                false
-                            }
-                        },
-                    )) =>
-            {
-                // This is the normal case on non-WebGL 2.
-                instance_range.end += 1;
-            }
+                && indices.extra_index == PhaseItemExtraIndex::None)
+                || first_indirect_parameters_index.is_some_and(
+                |first_indirect_parameters_index| match indices.extra_index {
+                    PhaseItemExtraIndex::IndirectParametersIndex {
+                        range: ref this_range,
+                        ..
+                    } => {
+                        u32::from(first_indirect_parameters_index) + instance_range.end
+                            - instance_range.start
+                            == this_range.start
+                    }
+                    PhaseItemExtraIndex::DynamicOffset(_) | PhaseItemExtraIndex::None => {
+                        false
+                    }
+                },
+            )) =>
+                {
+                    // This is the normal case on non-WebGL 2.
+                    instance_range.end += 1;
+                }
 
             UnbatchableBinnedEntityIndexSet::Sparse { instance_range, .. } => {
                 // We thought we were in non-WebGL 2 mode, but we got a dynamic
@@ -2547,8 +2553,8 @@ mod tests {
                                     .entity_to_binned_mesh_instance
                                     .contains_key(&entity)
                                     || expected
-                                        .input_uniform_index_to_entity
-                                        .contains_key(&input_uniform_index)
+                                    .input_uniform_index_to_entity
+                                    .contains_key(&input_uniform_index)
                                 {
                                     continue;
                                 }
@@ -2648,9 +2654,9 @@ mod tests {
                 };
                 for expected_entity in expected_entities {
                     let Some(GpuRenderBinnedMeshInstance {
-                        bin_index,
-                        input_uniform_index,
-                    }) = entity_to_bin_index_and_input_uniform_index.get(expected_entity)
+                                 bin_index,
+                                 input_uniform_index,
+                             }) = entity_to_bin_index_and_input_uniform_index.get(expected_entity)
                     else {
                         panic!(
                             "Test harness bug: entity-to-bin-index-and-input-uniform-index \
