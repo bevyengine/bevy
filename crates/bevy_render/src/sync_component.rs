@@ -5,6 +5,7 @@ use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
 };
+use bevy_log::warn_once;
 
 use crate::{
     sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld},
@@ -57,7 +58,14 @@ impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
         app.world_mut()
             .register_component_hooks::<C>()
             .on_remove(|mut world, context| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
+                let Some(mut pending) = world.get_resource_mut::<PendingSyncEntity>() else {
+                    warn_once!(
+                        "Removed a render-synced component, but the render world does not exist \
+                        (e.g. the app is running headless with `WgpuSettings {{ backends: None }}`), \
+                        so there is nothing to sync. Skipping render world cleanup."
+                    );
+                    return;
+                };
                 pending.push(EntityRecord::ComponentRemoved(
                     context.entity,
                     |mut entity| {
@@ -65,5 +73,34 @@ impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
                     },
                 ));
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_ecs::component::Component;
+
+    use super::{SyncComponent, SyncComponentPlugin};
+    use crate::RenderApp;
+
+    #[derive(Component)]
+    struct SyncedComponent;
+
+    impl SyncComponent<RenderApp> for SyncedComponent {
+        type Target = Self;
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/24927:
+    // without a render world (e.g. headless with no rendering backend),
+    // `PendingSyncEntity` does not exist and removing a synced component must
+    // not panic.
+    #[test]
+    fn remove_synced_component_without_render_world() {
+        let mut app = App::new();
+        app.add_plugins(SyncComponentPlugin::<SyncedComponent>::default());
+
+        let entity = app.world_mut().spawn(SyncedComponent).id();
+        app.world_mut().despawn(entity);
     }
 }
