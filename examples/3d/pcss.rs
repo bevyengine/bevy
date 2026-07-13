@@ -292,24 +292,14 @@ fn handle_light_type_change(
         };
         app_status.light_type = light_type;
 
-        for light in lights.iter_mut() {
-            let mut light_commands = commands.entity(light);
-            light_commands
-                .remove::<DirectionalLight>()
-                .remove::<PointLight>()
-                .remove::<SpotLight>();
-            match light_type {
-                LightType::Point => {
-                    light_commands.insert(create_point_light(&app_status));
-                }
-                LightType::Spot => {
-                    light_commands.insert(create_spot_light(&app_status));
-                }
-                LightType::Directional => {
-                    light_commands.insert(create_directional_light(&app_status));
-                }
-            }
+        for old_light in lights.iter_mut() {
+            // Despawn the old light entirely
+            commands.entity(old_light).despawn();
         }
+
+        //println!("Light type changed to {:?}", app_status.light_type);
+        // Spawn a fresh light entity with the new type
+        spawn_light(&mut commands, &app_status);
     }
 }
 
