@@ -77,7 +77,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
 /// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the [`SceneList`] returned by expr, then one named `Last` |
 /// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a [`Scene`] and will only spawn one entity using it                   |
-///  
+///
 /// ### Values
 ///
 /// Values in BSN (as in `val`,`val1` etc used above) are generally any literal Rust values, plus a few bsn-specific quirks.
@@ -137,18 +137,20 @@ use syn::{parse_macro_input, DeriveInput};
 ///             @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
 ///             normal_field: 5      // while normal fields are the actual fields of the component
 ///         },
-///         Node {
-///             width: some_var      // you can directly use variables without {}
-///         }
-///         ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-///         @Container {
-///             @items: {
-///                 bsn_list![                // sometimes you may need to nest macro calls
-///                     #item1 SomeComponent, // note: the name #item1 here is in its own scope
-///                     some_scene() #item2
-///                 ]
+///         (
+///             Node {
+///                 width: some_var      // you can directly use variables without {}
 ///             }
-///         }
+///             ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
+///             @Container {
+///                 @items: {
+///                     bsn_list![                // sometimes you may need to nest macro calls
+///                         #item1 SomeComponent, // note: the name #item1 here is in its own scope
+///                         some_scene() #item2
+///                     ]
+///                 }
+///             }
+///         ),
 ///     ]
 /// };
 /// ```
