@@ -76,8 +76,8 @@ impl Slot {
         let source = Entity::PLACEHOLDER;
         #[cfg(not(target_has_atomic = "64"))]
         return Self {
-            low_entity: AtomicU32::new(soruce.to_bits() as u32),
-            high_entity: AtomicU32::new((soruce.to_bits() >> 32) as u32),
+            low_entity: AtomicU32::new(source.to_bits() as u32),
+            high_entity: AtomicU32::new((source.to_bits() >> 32) as u32),
         };
         #[cfg(target_has_atomic = "64")]
         return Self {
@@ -90,10 +90,10 @@ impl Slot {
     fn set_entity(&self, entity: Entity) {
         #[cfg(not(target_has_atomic = "64"))]
         self.low_bits
-            .store(soruce.to_bits() as u32, Ordering::Relaxed);
+            .store(source.to_bits() as u32, Ordering::Relaxed);
         #[cfg(not(target_has_atomic = "64"))]
         self.high_bits
-            .store((soruce.to_bits() >> 32) as u32, Ordering::Relaxed);
+            .store((source.to_bits() >> 32) as u32, Ordering::Relaxed);
         #[cfg(target_has_atomic = "64")]
         self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
