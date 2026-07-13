@@ -12,6 +12,7 @@ use crate::{
 };
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform::sync::Arc;
+use bevy_reflect::Type;
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
 
@@ -364,7 +365,18 @@ impl Function for DynamicFunction<'static> {
 }
 
 impl PartialReflect for DynamicFunction<'static> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        None
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
         None
     }
 

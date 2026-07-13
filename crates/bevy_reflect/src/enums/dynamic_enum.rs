@@ -12,6 +12,7 @@ use crate::{
 };
 
 use alloc::{boxed::Box, string::String};
+use bevy_reflect::Type;
 use core::fmt::Formatter;
 use derive_more::derive::From;
 
@@ -174,7 +175,7 @@ impl DynamicEnum {
     ///
     /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
     pub fn from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Self {
-        let type_info = value.get_represented_type_info();
+        let type_info = value.runtime_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
                 value.variant_index(),
@@ -291,8 +292,18 @@ impl Enum for DynamicEnum {
 
 impl PartialReflect for DynamicEnum {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.represented_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]

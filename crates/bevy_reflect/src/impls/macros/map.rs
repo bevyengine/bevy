@@ -44,7 +44,7 @@ macro_rules! impl_reflect_for_hashmap {
 
                 fn to_dynamic_map(&self) -> $crate::map::DynamicMap {
                     let mut dynamic_map = $crate::map::DynamicMap::default();
-                    dynamic_map.set_represented_type($crate::reflect::PartialReflect::get_represented_type_info(self));
+                    dynamic_map.set_represented_type($crate::reflect::PartialReflect::runtime_type_info(self));
                     for (k, v) in self {
                         let key = K::from_reflect(k).unwrap_or_else(|| {
                             panic!(
@@ -96,8 +96,19 @@ macro_rules! impl_reflect_for_hashmap {
                 V: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
-                    Some(<Self as $crate::info::Typed>::type_info())
+                #[inline]
+                fn runtime_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                    <Self as $crate::info::MaybeTyped>::maybe_type_info()
+                }
+
+                #[inline]
+                fn comptime_type(&self) -> $crate::ty::Type {
+                    $crate::ty::Type::of::<Self>()
+                }
+
+                #[inline]
+                fn runtime_type(&self) -> Option<$crate::ty::Type> {
+                    Some($crate::ty::Type::of::<Self>())
                 }
 
                 #[inline]

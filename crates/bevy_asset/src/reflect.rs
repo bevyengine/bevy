@@ -360,12 +360,12 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
             // This is a slow path. Users are unlikely to be intentionally serializing types without
             // reflection, especially in production apps, so we can afford to be slow and give
             // better diagnostics.
-            if let Some(type_info) = value_reflect.get_represented_type_info()
-                && type_info.type_path().starts_with("bevy_asset::Handle")
+            if let Some(ty) = value_reflect.runtime_type()
+                && ty.path().starts_with("bevy_asset::Handle")
             {
                 warn!(
-                    "HandleSerializeProcessor attempted to serialize a handle type \"{}\" without type data. This likely means the asset type was not registered.",
-                    type_info.type_path()
+                    "HandleSerializeProcessor attempted to serialize a handle type \"{:?}\" without type data. This likely means the asset type was not registered.",
+                    ty
                 );
             }
             // Otherwise, fall back to the underlying serializer. Let it handle the error.

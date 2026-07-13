@@ -61,14 +61,14 @@ pub trait Tuple: PartialReflect {
     /// Creates a new [`DynamicTuple`] from this tuple.
     fn to_dynamic_tuple(&self) -> DynamicTuple {
         DynamicTuple {
-            represented_type: self.get_represented_type_info(),
+            represented_type: self.runtime_type_info(),
             fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
-        self.get_represented_type_info()?.as_tuple().ok()
+        self.runtime_type_info()?.as_tuple().ok()
     }
 }
 
@@ -289,8 +289,18 @@ impl Tuple for DynamicTuple {
 
 impl PartialReflect for DynamicTuple {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.represented_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -322,6 +332,10 @@ impl PartialReflect for DynamicTuple {
         tuple_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        tuple_try_apply(self, value)
+    }
+
     #[inline]
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Tuple
@@ -340,10 +354,6 @@ impl PartialReflect for DynamicTuple {
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Tuple(self)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        tuple_try_apply(self, value)
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
@@ -550,8 +560,19 @@ macro_rules! impl_reflect_tuple {
         }
 
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
-            fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-                Some(<Self as Typed>::type_info())
+            #[inline]
+            fn runtime_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                <Self as $crate::info::MaybeTyped>::maybe_type_info()
+            }
+
+            #[inline]
+            fn comptime_type(&self) -> $crate::ty::Type {
+                $crate::ty::Type::of::<Self>()
+            }
+
+            #[inline]
+            fn runtime_type(&self) -> Option<$crate::ty::Type> {
+                Some($crate::ty::Type::of::<Self>())
             }
 
             #[inline]

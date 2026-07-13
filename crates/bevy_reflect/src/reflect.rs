@@ -13,9 +13,9 @@ use core::{
     fmt::Debug,
 };
 
-use thiserror::Error;
-
 use crate::utility::NonGenericTypeInfoCell;
+use bevy_reflect::Type;
+use thiserror::Error;
 
 /// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Debug)]
@@ -103,6 +103,32 @@ where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
     Self: 'static,
 {
+    /// Returns the [`Type`] of this reflected value as known at compile-time.
+    ///
+    /// Unlike [`Self::runtime_type`], this method should behave the same for concrete and dynamic types,
+    /// with no special-casing for proxies.
+    /// This means that a [`DynamicStruct`] will always return the [`Type`] for [`DynamicStruct`],
+    /// regardless of proxy status.
+    ///
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    fn comptime_type(&self) -> Type;
+
+    /// Returns the [`TypeInfo`] of this reflected value as known at runtime.
+    ///
+    /// For dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the [`TypeInfo`] of the type that they are proxying,
+    /// or `None` if they are not proxying any type.
+    ///
+    /// This method is great if you have an instance of a type or a `dyn Reflect`,
+    /// and want to access its [`TypeInfo`].
+    /// However, if this method is to be called frequently,
+    /// consider using [`TypeRegistry::get_type_info`] as it can often be more performant for such use cases.
+    ///
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
+    /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo>;
+
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
     /// For most types, this will simply return their own `TypeInfo`.
@@ -118,7 +144,26 @@ where
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `PartialReflect::runtime_type_info` instead"
+    )]
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.runtime_type_info()
+    }
+
+    /// Returns the [`Type`] of this reflected value as known at runtime.
+    ///
+    /// For dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the [`Type`] of the type that they are proxying,
+    /// or `None` if they are not proxying any type.
+    ///
+    /// In all other cases, this method should return the same [`Type`]
+    /// as returned by [`Self::comptime_type`].
+    ///
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
+    fn runtime_type(&self) -> Option<Type>;
 
     /// Casts this type to a boxed, reflected value.
     ///
@@ -457,7 +502,7 @@ impl dyn PartialReflect {
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
-        self.get_represented_type_info()
+        self.runtime_type_info()
             .is_some_and(|t| t.type_path() == T::type_path())
     }
 

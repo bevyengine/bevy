@@ -86,7 +86,7 @@ use super::ReflectDeserializerProcessor;
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
 /// // We can also do this dynamically with `ReflectFromReflect`.
-/// let type_id = output.get_represented_type_info().unwrap().type_id();
+/// let type_id = output.runtime_type_info().unwrap().type_id();
 /// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
 /// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
 /// assert!(value.is::<MyStruct>());
@@ -254,7 +254,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
 /// // We can also do this dynamically with `ReflectFromReflect`.
-/// let type_id = output.get_represented_type_info().unwrap().type_id();
+/// let type_id = output.runtime_type_info().unwrap().type_id();
 /// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
 /// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
 /// assert!(value.is::<MyStruct>());

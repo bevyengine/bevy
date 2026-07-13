@@ -10,6 +10,7 @@ use crate::{
         TypeRegistration, TypeRegistry,
     },
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
+    Type,
 };
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::{impl_reflect_opaque, impl_type_path};
@@ -318,8 +319,19 @@ impl_reflect_opaque!(f64(
 impl_type_path!(str);
 
 impl PartialReflect for &'static str {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -345,6 +357,18 @@ impl PartialReflect for &'static str {
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            self.clone_from(value);
+        } else {
+            return Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: Self::type_path().into(),
+            });
+        }
+        Ok(())
     }
 
     fn reflect_ref(&self) -> ReflectRef<'_> {
@@ -388,18 +412,6 @@ impl PartialReflect for &'static str {
 
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            return Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: Self::type_path().into(),
-            });
-        }
-        Ok(())
     }
 }
 
@@ -489,8 +501,19 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> PartialReflect
     for [T; N]
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+    #[inline]
+    fn comptime_type(&self) -> Type {
+        Type::of::<Self>()
+    }
+
+    #[inline]
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        <Self as MaybeTyped>::maybe_type_info()
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        Some(Type::of::<Self>())
     }
 
     #[inline]
@@ -516,6 +539,15 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
+    }
+
+    fn apply(&mut self, value: &dyn PartialReflect) {
+        crate::array::array_apply(self, value);
+    }
+
+    #[inline]
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        crate::array::array_try_apply(self, value)
     }
 
     #[inline]
@@ -551,15 +583,6 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     #[inline]
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
         crate::array::array_partial_cmp(self, value)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::array::array_apply(self, value);
-    }
-
-    #[inline]
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::array::array_try_apply(self, value)
     }
 }
 
