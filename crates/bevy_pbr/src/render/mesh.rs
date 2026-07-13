@@ -1,9 +1,5 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
-use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::prepare_atmosphere_buffers,
-    skin::skin_uniforms_from_world,
-};
+use crate::{resources::prepare_atmosphere_buffers, skin::skin_uniforms_from_world};
 use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
@@ -44,6 +40,9 @@ use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
 };
 use bevy_render::impl_atomic_pod;
+use bevy_render::material_bind_groups::{
+    MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
+};
 use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
@@ -53,7 +52,7 @@ use bevy_render::{
     batching::{
         gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
-            IndirectParametersCpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
+            IndirectParametersIndexed, IndirectParametersMetadata, IndirectParametersNonIndexed,
             InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
@@ -79,7 +78,6 @@ use core::iter;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
-use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
 #[cfg(feature = "trace")]
@@ -1677,7 +1675,6 @@ impl Default for MeshCullingDataBuffer {
     fn default() -> Self {
         Self(AtomicSparseBufferVec::new(
             BufferUsages::STORAGE,
-            8,
             Arc::from("mesh culling data buffer"),
         ))
     }
@@ -3015,12 +3012,16 @@ impl GetFullBatchData for MeshPipeline {
         phase_indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     ) {
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 Some(batch_set_index) => u32::from(batch_set_index),
                 None => !0,
             },
+            // These fields are filled in by the GPU:
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {

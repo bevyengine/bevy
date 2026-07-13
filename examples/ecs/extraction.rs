@@ -21,6 +21,7 @@ use bevy::render::{
 // To be noted that the `SyncToRenderWorld` component, which spawns the corresponding entity on the Render World,
 // is automatically added as a requirement through the `ExtractComponentPlugin`.
 #[derive(Component, Clone, ExtractComponent, Debug)]
+#[extract_app(RenderApp)]
 struct A(pub f32);
 
 // The B component is extracted manually inside the `extract_components` system.

@@ -40,6 +40,7 @@ pub mod resolve;
 #[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType, Component)]
 #[extract_component_sync_target((Self, OrderIndependentTransparencySettingsOffset, OitResolvePipelineId))]
 #[reflect(Clone, Default)]
+#[extract_app(RenderApp)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many fragments will be exactly sorted.
     /// If the scene has more fragments than this, they will be merged approximately.
