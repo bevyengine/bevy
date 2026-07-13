@@ -111,10 +111,13 @@ fn modify_selected_component(world: &mut World) {
     let entity = sprite_query.iter(world).next().unwrap();
 
     // We could cheat and use `TypeId::of::<T>()` to get the type ID of a known type,
-    // but real applications identify types by name (from a UI dropdown, text entry or a script)
+    // but real applications identify types by name (from a UI dropdown, text entry or a script).
     let type_name = match selected {
-        SelectedComponent::Transform => "Transform",
-        SelectedComponent::Sprite => "Sprite",
+        // Note that Bevy's native types are registered under their full subcrate paths:
+        // `bevy_transform`, not `bevy::transform`, `bevy::prelude` or `bevy_transform::prelude`.
+        // You can use `std::any::type_name::<T>()` to look this up.
+        SelectedComponent::Transform => "bevy_transform::components::transform::Transform",
+        SelectedComponent::Sprite => "bevy_sprite::sprite::Sprite",
     };
 
     // Then, we need to use a type registry to resolve the type name to a `TypeId`.
@@ -122,11 +125,15 @@ fn modify_selected_component(world: &mut World) {
     // but you can also register your own types using .register_type.
     // Generic types always need to be registered manually unfortunately;
     // if a type is not showing up in your tool, check if that's the problem.
+    // You can check which types are registered by calling `AppTypeRegistry::iter()`,
+    // and then Debug-printing the `TypeRegistration` objects to see their names and paths.
     let app_registry = world.resource::<AppTypeRegistry>().clone();
     let type_id = app_registry
         .read()
-        .get_with_short_type_path(type_name)
-        .expect("type was not registered, or its short name was ambiguous")
+        .get_with_type_path(type_name)
+        .expect(&format!(
+            "type {type_name} was not registered, or its full path was ambiguous"
+        ))
         .type_id();
 
     let mut dynamic_mut = world.get_reflect_mut(entity, type_id).unwrap();
