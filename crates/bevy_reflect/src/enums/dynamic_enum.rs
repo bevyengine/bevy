@@ -183,7 +183,7 @@ impl DynamicEnum {
 
     /// Create a [`DynamicEnum`] from an existing one.
     ///
-    /// This is functionally the same as [`DynamicEnum::from_ref`] except it takes an owned value.
+    /// This is functionally the same as [`DynamicEnum::try_from_ref`] except it takes an owned value.
     ///
     /// Returns an error if any field of the active variant cannot be converted via
     /// [`PartialReflect::to_dynamic`].
@@ -204,7 +204,7 @@ impl DynamicEnum {
 
     /// Create a [`DynamicEnum`] from an existing one.
     ///
-    /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
+    /// This is functionally the same as [`DynamicEnum::try_from`] except it takes a reference.
     ///
     /// Returns an error if any field of the active variant cannot be converted via
     /// [`PartialReflect::to_dynamic`].
