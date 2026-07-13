@@ -50,24 +50,14 @@ const SHADOW_MAP_NEAR_Z: f32 = 50.0;
 
 /// The current application settings (light type, shadow filter, and the status
 /// of PCSS).
-#[derive(Resource)]
+#[derive(Default, Resource)]
 struct AppStatus {
     /// The type of light presently in the scene: either directional or point.
     light_type: LightType,
     /// The type of shadow filter: Gaussian or temporal.
     shadow_filter: ShadowFilter,
     /// Whether soft shadows are enabled.
-    soft_shadows: bool,
-}
-
-impl Default for AppStatus {
-    fn default() -> Self {
-        Self {
-            light_type: default(),
-            shadow_filter: default(),
-            soft_shadows: true,
-        }
-    }
+    soft_shadows: SoftShadows,
 }
 
 /// The type of light presently in the scene: directional, point, or spot.
@@ -99,7 +89,7 @@ enum ShadowFilter {
 }
 
 /// Whether soft shadows is enabled. Defaults to `true`.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Deref, PartialEq)]
 struct SoftShadows(bool);
 
 impl Default for SoftShadows {
@@ -285,6 +275,7 @@ fn handle_shadow_filter_change(
     let Ok(radio::RadioButtonOptionValue(shadow_filter)) = new_value_query.get(event.value) else {
         return;
     };
+
     app_status.shadow_filter = *shadow_filter;
 
     for (camera, mut shadow_filtering_method) in cameras.iter_mut() {
@@ -310,9 +301,7 @@ fn handle_pcss_toggle(
     mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    let Ok(radio::RadioButtonOptionValue(SoftShadows(soft_shadows))) =
-        new_value_query.get(event.value)
-    else {
+    let Ok(radio::RadioButtonOptionValue(soft_shadows)) = new_value_query.get(event.value) else {
         return;
     };
     app_status.soft_shadows = *soft_shadows;
@@ -335,7 +324,7 @@ fn handle_pcss_toggle(
 fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
     DirectionalLight {
         shadow_maps_enabled: true,
-        soft_shadow_size: if app_status.soft_shadows {
+        soft_shadow_size: if *app_status.soft_shadows {
             Some(LIGHT_RADIUS)
         } else {
             None
@@ -352,7 +341,7 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
         range: POINT_LIGHT_RANGE,
         shadow_maps_enabled: true,
         radius: LIGHT_RADIUS,
-        soft_shadows_enabled: app_status.soft_shadows,
+        soft_shadows_enabled: *app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()
@@ -366,7 +355,7 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         range: POINT_LIGHT_RANGE,
         radius: LIGHT_RADIUS,
         shadow_maps_enabled: true,
-        soft_shadows_enabled: app_status.soft_shadows,
+        soft_shadows_enabled: *app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()
