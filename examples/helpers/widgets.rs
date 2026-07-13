@@ -3,6 +3,15 @@
 //! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 use bevy::prelude::*;
 
+#[cfg(feature = "bevy_feathers")]
+use bevy::{
+    color::palettes,
+    feathers::{controls::FeathersRadio, display::caption, theme::ThemeProps},
+    platform::collections::HashMap,
+    ui::Checked,
+    ui_widgets::RadioGroup,
+};
+
 /// An event that's sent whenever the user changes one of the settings by
 /// clicking a radio button.
 #[derive(Clone, Message, Deref, DerefMut)]
@@ -22,6 +31,13 @@ pub struct RadioButton;
 /// A marker component that we place on all `Text` inside radio buttons.
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
+
+#[cfg(feature = "bevy_feathers")]
+/// A component that wraps a radio button's option value
+#[derive(Clone, Copy, Component, Default)]
+pub struct RadioButtonOptionValue<T>(pub T)
+where
+    T: Clone + Default + Send + Sync + Unpin + 'static;
 
 /// The size of the border that surrounds buttons.
 pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
@@ -51,6 +67,95 @@ pub fn main_ui_node() -> Node {
         left: px(10),
         bottom: px(10),
         ..default()
+    }
+}
+
+/// Returns a [`Node`] appropriate for the outer main UI node as a `Scene`.
+///
+/// This UI is in the bottom left corner and has flex column support
+pub fn main_ui_node_scene() -> impl Scene {
+    bsn! {
+        Node {
+            flex_direction: FlexDirection::Column,
+            position_type: PositionType::Absolute,
+            row_gap: px(6),
+            left: px(10),
+            bottom: px(10),
+        }
+    }
+}
+
+/// Creates a basic feathers theme props for the radio buttons.
+#[cfg(feature = "bevy_feathers")]
+pub fn option_buttons_theme() -> ThemeProps {
+    let mut color = HashMap::new();
+    color.insert(bevy::feathers::tokens::RADIO_TEXT, Color::BLACK);
+    color.insert(bevy::feathers::tokens::RADIO_MARK, Color::BLACK);
+    color.insert(bevy::feathers::tokens::RADIO_MARK_HOVER, Color::BLACK);
+    color.insert(bevy::feathers::tokens::RADIO_MARK_PRESSED, Color::BLACK);
+
+    color.insert(bevy::feathers::tokens::RADIO_BG, Color::WHITE);
+    color.insert(
+        bevy::feathers::tokens::RADIO_BG_HOVER,
+        palettes::basic::GRAY.into(),
+    );
+    color.insert(
+        bevy::feathers::tokens::RADIO_BG_PRESSED,
+        palettes::basic::GRAY.into(),
+    );
+    color.insert(bevy::feathers::tokens::RADIO_BG_CHECKED, Color::WHITE);
+    color.insert(bevy::feathers::tokens::RADIO_BG_CHECKED_HOVER, Color::BLACK);
+    color.insert(
+        bevy::feathers::tokens::RADIO_BG_CHECKED_PRESSED,
+        Color::BLACK,
+    );
+
+    color.insert(bevy::feathers::tokens::RADIO_BORDER, Color::BLACK);
+    color.insert(
+        bevy::feathers::tokens::RADIO_BORDER_HOVER,
+        palettes::basic::GRAY.into(),
+    );
+    color.insert(
+        bevy::feathers::tokens::RADIO_BORDER_PRESSED,
+        palettes::basic::BLACK.into(),
+    );
+    color.insert(bevy::feathers::tokens::RADIO_BORDER_CHECKED, Color::BLACK);
+    color.insert(
+        bevy::feathers::tokens::RADIO_BORDER_CHECKED_HOVER,
+        Color::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::RADIO_BORDER_CHECKED_PRESSED,
+        Color::BLACK,
+    );
+    ThemeProps { color }
+}
+
+/// Spawns a single feathers radio button that allows configuration of a setting.
+#[cfg(feature = "bevy_feathers")]
+pub fn feathers_option_button<T>(
+    option_value: T,
+    option_name: &str,
+    is_selected: bool,
+) -> Box<dyn Scene>
+where
+    T: Clone + Default + Send + Sync + Unpin + 'static,
+{
+    if is_selected {
+        Box::new(bsn! {
+            @FeathersRadio {
+                @caption: bsn! { caption(option_name) }
+            }
+            Checked
+            RadioButtonOptionValue<T>(option_value)
+        })
+    } else {
+        Box::new(bsn! {
+            @FeathersRadio {
+                @caption: bsn! { caption(option_name) }
+            }
+            RadioButtonOptionValue<T>(option_value)
+        })
     }
 }
 
@@ -105,6 +210,38 @@ where
             WidgetClickSender(option_value),
         )],
     )
+}
+
+/// Spawns the buttons that allow configuration of a setting.
+#[cfg(feature = "bevy_feathers")]
+pub fn feathers_option_buttons<T>(title: &'static str, options: &[(T, &str)]) -> impl Scene
+where
+    T: Clone + Default + Send + Sync + Unpin + 'static,
+{
+    let buttons = options
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(option_index, (option_value, option_name))| {
+            feathers_option_button(option_value, option_name, option_index == 0)
+        })
+        .collect::<Vec<_>>();
+    // Add the parent node for the row.
+    bsn! {
+        Node {
+            align_items: AlignItems::Center,
+            column_gap: px(5),
+        }
+        RadioGroup
+        Children [
+            Text::new(title)
+            TextFont {
+                font_size: FontSize::Px(18.0),
+            }
+            TextColor(Color::BLACK),
+            {buttons}
+        ]
+    }
 }
 
 /// Spawns the buttons that allow configuration of a setting.
