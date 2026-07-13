@@ -49,9 +49,15 @@ use super::{Entity, EntityIndex, EntitySetIterator};
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
 ///
-/// We use relaxed atomics internally not for special ordering but for *a* ordering.
-/// Conceptually, this could just be `SyncCell<Entity>` with no atomics, but that can cause UB, as demonstrated in #24897.
-#[repr(C)]
+/// This uses atomics to allow optimistic reads.
+/// It is UB for a non-atomic read to race with a non-atomic write,
+/// even if the value that is read is never used.
+/// `remote_alloc()` performs an unsynchronized read on a `Slot`,
+/// and then attempts to claim the value using a `compare_exchange`.
+/// Another thread could write that same `Slot` if it performs a
+/// `remote_alloc()` followed by a `free()`,
+/// so the read and write must be atomic.
+#[repr(C, align(8))]
 struct Slot {
     #[cfg(not(target_has_atomic = "64"))]
     #[cfg(target_endian = "little")]
@@ -177,7 +183,6 @@ impl Chunk {
     /// Index must be in bounds.
     /// This must not be called on the same chunk concurrently.
     /// There must be a clear, strict order between this call and the previous `set`s of this `index`.
-    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
         // Relaxed is fine here since the caller ensures memory ordering.
@@ -601,10 +606,8 @@ impl FreeList {
     #[inline]
     unsafe fn free(&self, entities: &[Entity]) {
         // Disable remote allocation.
-        // Safety-wise, this only needs relaxed ordering.
-        // However, this can cause logical race conditions where we overwrite entities a remote allocation is reading.
-        // To prevent that, this needs to use acquire ordering.
-        // For more information see #24897.
+        // `Acquire` ordering pairs with `Release` in `remote_alloc` to ensure every
+        // write to a slot happens after any reads of the old value.
         let state = self.len.disable_len_for_state(Ordering::Acquire);
 
         // Append onto the buffer
@@ -727,10 +730,8 @@ impl FreeList {
 
             let ideal_state = state.pop(1);
             // If we fail, we need to acquire the new state.
-            // If we succeed, we are finished, but while we've been reading memory, a free could have been writing it.
-            // We want to finish the read before the write from free to make sure we get the *right* entity.
-            // We use release ordering for this, otherwise this could leak it.
-            // For more info, see #24897.
+            // `Release` ordering on success pairs with `Acquire` in `free` to ensure the
+            // read from the slot happens before any future writes.
             match self
                 .len
                 .try_set_state(state, ideal_state, Ordering::Release, Ordering::Acquire)
