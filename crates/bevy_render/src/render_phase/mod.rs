@@ -266,7 +266,7 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         }
     }
 
-    /// Inserts an entity into the GPU buffers and returns its index.
+    /// Inserts an entity into the GPU buffers and returns its index and whether or not it was newly inserted
     #[must_use]
     fn insert(
         &mut self,
