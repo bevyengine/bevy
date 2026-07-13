@@ -30,8 +30,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     let instructions = "\
-Press 'T' to select Transform component's y-translation for modification
-Press 'S' to select Sprite component's alpha value for modification
+Press 'T' to select the Transform component's y-translation for modification
+Press 'S' to select the Sprite component's alpha value for modification
 Press 'Up Arrow' to increase the selected component's value
 Press 'Down Arrow' to decrease the selected component's value"
         .to_string();
@@ -73,7 +73,7 @@ fn select_component_to_modify(
 /// This function demonstrates the core logic of modifying a component value via reflection.
 ///
 /// Because we're operating over *any* component type,
-/// we require full &mut access to [`World`].
+/// we require full `&mut` access to [`World`].
 ///
 /// To mutate a component value via reflection:
 /// 1. Determine the entity whose component you want to modify.
@@ -114,19 +114,19 @@ fn modify_selected_component(world: &mut World) {
     // but real applications identify types by name (from a UI dropdown, text entry or a script).
     let type_name = match selected {
         // Note that Bevy's native types are registered under their full subcrate paths:
-        // `bevy_transform`, not `bevy::transform`, `bevy::prelude` or `bevy_transform::prelude`.
-        // You can use `std::any::type_name::<T>()` to look this up.
+        // `bevy_transform`, not `bevy::transform`, `bevy::prelude`, or `bevy_transform::prelude`.
+        // You can use `<T as TypePath>::type_path()` to look this up.
         SelectedComponent::Transform => "bevy_transform::components::transform::Transform",
         SelectedComponent::Sprite => "bevy_sprite::sprite::Sprite",
     };
 
     // Then, we need to use a type registry to resolve the type name to a `TypeId`.
     // Types are (for the most part) registered automatically by Bevy,
-    // but you can also register your own types using .register_type.
-    // Generic types always need to be registered manually unfortunately;
+    // but you can also register your own types using `App::register_type`.
+    // Generic types always need to be registered manually;
     // if a type is not showing up in your tool, check if that's the problem.
-    // You can check which types are registered by calling `AppTypeRegistry::iter()`,
-    // and then Debug-printing the `TypeRegistration` objects to see their names and paths.
+    // You can check which types are registered by calling `TypeRegistry::iter()`,
+    // and then use the `Debug` impl for `TypeRegistration` objects to see their names and paths.
     let app_registry = world.resource::<AppTypeRegistry>().clone();
     let type_id = app_registry
         .read()
@@ -148,7 +148,7 @@ fn modify_selected_component(world: &mut World) {
             // allowing you to escape back into faster, strongly-typed code.
             let downcast_sprite: &mut Sprite =
                 reflected_component.downcast_mut::<Sprite>().unwrap();
-            // Be careful not to modify a copy of the color!
+            // Be careful not to modify a copy of the color — use `&mut`!
             let color = &mut downcast_sprite.color;
 
             let new_alpha = (color.alpha() + 0.01 * direction_of_modification).clamp(0.0, 1.0);
@@ -156,21 +156,21 @@ fn modify_selected_component(world: &mut World) {
         }
         // This arm demonstrates the more realistic, generic pattern:
         // walking the reflected type info to find fields to modify.
-        // This is much more verbose, but the benefit is that we can use these patterns
+        // The benefit is that we can use these patterns
         // to operate over *any* data based on our knowledge of its shape (recorded using reflection),
         // without needing to know the concrete type at compile time.
         SelectedComponent::Transform => {
             let reflect_mut: ReflectMut<'_> = reflected_component.reflect_mut();
             // In the fully generic case, we would need to match on the `ReflectMut` variants
             // and handle each of the arms exhaustively.
-            // struct_mut is of type &mut dyn Struct, one of a number
+            // `struct_mut` is of type `&mut dyn Struct`, one of a number
             // of traits that encodes the logic of Rust's type system into a runtime representation.
             let ReflectMut::Struct(struct_mut) = reflect_mut else {
                 error!("Expected the Transform component type to be a struct");
                 return;
             };
 
-            // Get the `translation` field as a &mut dyn PartialReflect,
+            // Get the `translation` field as a `&mut dyn PartialReflect`,
             // which is a type-erased representation of a value that can be modified.
             let translation_field = struct_mut.field_mut("translation").unwrap();
 
@@ -187,7 +187,7 @@ fn modify_selected_component(world: &mut World) {
             // The solution lies in the way that Bevy can reflect *traits* as well as types,
             // allowing type owners to define and register additional behavior for their types.
             // This data is registered automatically at compile time using an inventory-like solution,
-            // and operates on a per-type x trait basis,
+            // and operates on a per-type x per-trait basis,
             // just like ordinary type reflection.
             //
             // We want to increase or decrease the value here,
@@ -203,6 +203,8 @@ fn modify_selected_component(world: &mut World) {
             // Bevy provides a few of these out of the box, including `ReflectAddAssign` and `ReflectSubAssign`.
             // That's what the `#[reflect(Add)]` attributes that you see scattered about in Bevy's source code are doing:
             // generating implementations of the reflect versions of the traits, so they can later be registered and used at runtime.
+            //
+            // For more information, see the `type_data` example.
             let y_field: &mut dyn PartialReflect = translation_struct.field_mut("y").unwrap();
             let field_type_id = y_field
                 .get_represented_type_info()
@@ -229,7 +231,7 @@ fn modify_selected_component(world: &mut World) {
             // something like dedicated `increment` and `decrement` methods, which handle the type-specific logic of how to modify the value.
             // Remember to register that trait, and create your own analog of `ReflectAddAssign` for it!
             //
-            // We don't do that here to avoid making this example *even* more complicated.
+            // We don't do that here to avoid making this example *even more* complicated.
             const MAGNITUDE_OF_MODIFICATION: f32 = 10.;
             let delta = direction_of_modification * MAGNITUDE_OF_MODIFICATION;
             let boxed_delta: Box<dyn PartialReflect> = Box::new(delta);
