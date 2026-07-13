@@ -15,3 +15,14 @@ commands.spawn((
     Visibility::default(),
 ));
 ```
+
+Alternatively, applications can preserve the previous automatic insertion
+behavior by manually registering `Visibility` as a required component:
+
+```rust
+app.register_required_components::<WorldAssetRoot, Visibility>();
+app.register_required_components::<DynamicWorldRoot, Visibility>();
+```
+
+This registration must occur before either root component is first inserted
+into the world.
