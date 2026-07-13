@@ -1,7 +1,8 @@
+use bevy_app::Propagate;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
     event::EntityEvent, hierarchy::Children, observer::On, reflect::ReflectComponent,
-    system::Commands,
+    system::Commands, template::template,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
@@ -19,7 +20,10 @@ use crate::{
     controls::{ButtonVariant, FeathersToolButton},
     display::icon,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, ThemedText},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext, ThemedText,
+    },
     tokens,
 };
 
@@ -80,6 +84,7 @@ impl FeathersDialog {
                 ThemeBackgroundColor(tokens::DIALOG_BG)
                 ThemeBorderColor(tokens::DIALOG_BORDER)
                 InheritableThemeTextColor(tokens::DIALOG_TEXT)
+                template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
                 BoxShadow::new(
                     Srgba::BLACK.with_alpha(0.9).into(),
                     px(0),
@@ -170,6 +175,7 @@ impl FeathersFloatingDialog {
                     DialogDragHandle
                     InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
                     ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
+                    template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
                     InheritableFont {
                         font: fonts::REGULAR,
                         font_size: size::HEADER_FONT,
