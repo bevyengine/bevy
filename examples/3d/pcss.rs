@@ -19,8 +19,8 @@ use bevy::{
     ui_widgets::{radio_self_update, ValueChange},
 };
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 /// The size of the light, which affects the size of the penumbras.
 const LIGHT_RADIUS: f32 = 10.0;
@@ -115,7 +115,7 @@ fn main() {
 
     App::new()
         .init_resource::<AppStatus>()
-        .insert_resource(UiTheme(widgets::option_buttons_theme()))
+        .insert_resource(UiTheme(radio::basic_radio_button_theme()))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -207,9 +207,9 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        widgets::main_ui_node_scene()
+        radio::main_ui_node_scene()
         Children [
-            widgets::feathers_option_buttons(
+            radio::feathers_option_buttons(
                 "Light Type",
                 &[
                     (LightType::Directional, "Directional"),
@@ -217,7 +217,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (LightType::Spot, "Spot"),
                 ],
             ),
-            widgets::feathers_option_buttons(
+            radio::feathers_option_buttons(
                 "Shadow Filter",
                 &[
                     (ShadowFilter::Temporal, "Temporal"),
@@ -227,7 +227,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     ),
                 ],
             ),
-            widgets::feathers_option_buttons(
+            radio::feathers_option_buttons(
                 "Soft Shadows",
                 &[
                     (SoftShadows(true), "On"),
@@ -241,12 +241,12 @@ fn spawn_buttons(commands: &mut Commands) {
 /// Handles requests from the user to change the type of light.
 fn handle_light_type_change(
     event: On<ValueChange<Entity>>,
-    new_value_query: Query<&widgets::RadioButtonOptionValue<LightType>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<LightType>>,
     mut commands: Commands,
     mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    let Ok(widgets::RadioButtonOptionValue(light_type)) = new_value_query.get(event.value) else {
+    let Ok(radio::RadioButtonOptionValue(light_type)) = new_value_query.get(event.value) else {
         return;
     };
     app_status.light_type = *light_type;
@@ -277,13 +277,12 @@ fn handle_light_type_change(
 /// appropriate.
 fn handle_shadow_filter_change(
     event: On<ValueChange<Entity>>,
-    new_value_query: Query<&widgets::RadioButtonOptionValue<ShadowFilter>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<ShadowFilter>>,
     mut commands: Commands,
     mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    let Ok(widgets::RadioButtonOptionValue(shadow_filter)) = new_value_query.get(event.value)
-    else {
+    let Ok(radio::RadioButtonOptionValue(shadow_filter)) = new_value_query.get(event.value) else {
         return;
     };
     app_status.shadow_filter = *shadow_filter;
@@ -307,11 +306,11 @@ fn handle_shadow_filter_change(
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
     event: On<ValueChange<Entity>>,
-    new_value_query: Query<&widgets::RadioButtonOptionValue<SoftShadows>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<SoftShadows>>,
     mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    let Ok(widgets::RadioButtonOptionValue(SoftShadows(soft_shadows))) =
+    let Ok(radio::RadioButtonOptionValue(SoftShadows(soft_shadows))) =
         new_value_query.get(event.value)
     else {
         return;
