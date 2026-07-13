@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_mesh::Indices;
 use glam::Vec4;
-use tracing::warn;
+use bevy_log::warn;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
 #[cfg(feature = "morph")]
