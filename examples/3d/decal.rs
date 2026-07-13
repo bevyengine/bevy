@@ -14,7 +14,6 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, toggle_oit)
         .run();
 }
 
@@ -132,39 +131,4 @@ fn setup(
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
-
-    commands.spawn((
-        Text::new("(T) Order independent transparency: Off"),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
-}
-
-fn toggle_oit(
-    mut text: Single<&mut Text>,
-    mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera>>,
-) {
-    if keys.just_pressed(KeyCode::KeyT) {
-        let (entity, has_oit) = *camera;
-        if has_oit {
-            commands
-                .entity(entity)
-                .remove::<OrderIndependentTransparencySettings>()
-                .insert(Msaa::default());
-            text.clear();
-            text.push_str("(T) Order independent transparency: Off");
-        } else {
-            commands
-                .entity(entity)
-                .insert((OrderIndependentTransparencySettings::default(), Msaa::Off));
-            text.clear();
-            text.push_str("(T) Order independent transparency: On");
-        }
-    }
 }
