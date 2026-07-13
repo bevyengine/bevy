@@ -75,15 +75,7 @@ fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32
     let lod_f = log2(1.0 + camera_distance);
     let lod_fract = fract(lod_f);
     let lod = floor(lod_f) + select(0.0, 1.0, rand_f(rng) < lod_fract * lod_fract * lod_fract);
-    var cell_size = constants.world_cache_position_base_cell_size * exp2(lod);
-
-    // Reduce light leaks
-    if ray_t < cell_size {
-        let shrunk_lod = max(floor(log2(ray_t / constants.world_cache_position_base_cell_size)), 0.0);
-        cell_size = constants.world_cache_position_base_cell_size * exp2(shrunk_lod);
-    }
-
-    return cell_size;
+    return constants.world_cache_position_base_cell_size * exp2(lod);
 }
 
 fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
