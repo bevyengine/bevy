@@ -183,16 +183,61 @@ fn modify_selected_component(world: &mut World) {
                 return;
             };
 
-            let y_field = translation_struct.field_mut("y").unwrap();
+            // We could downcast to an f32 again here, but that would be cheating!
+            // How do you generalize this sort of operation, if, for example,
+            // you wanted to build a generic inspector that could modify any numeric field of any component type?
+            // The solution lies in the way that Bevy can reflect *traits* as well as types,
+            // allowing type owners to define and register additional behavior for their types.
+            // This data is registered automatically at compile time using an inventory-like solution,
+            // and operates on a per-type x trait basis,
+            // just like ordinary type reflection.
+            //
+            // We want to increase or decrease the value here,
+            // so we need the `AddAssign` trait
+            // which are already implemented for f32.
+            //
+            // But `AddAssign` is not a supertrait of `PartialReflect`!
+            // We don't have access to its methods! How could that possibly work?
+            //
+            // The solution is again to register the compile time information that we want to use at runtime;
+            // storing function pointers to the trait methods in the type registry.
+            // In order to make this work, we need shadow "reflect" versions of the traits we want to use at runtime.
+            // Bevy provides a few of these out of the box, including `ReflectAddAssign` and `ReflectSubAssign`.
+            // That's what the `#[reflect(Add)]` attributes that you see scattered about in Bevy's source code are doing:
+            // generating implementations of the reflect versions of the traits, so they can later be registered and used at runtime.
+            let y_field: &mut dyn PartialReflect = translation_struct.field_mut("y").unwrap();
+            let field_type_id = y_field
+                .get_represented_type_info()
+                .expect("Found a dynamic type unexpectedly")
+                .type_id();
 
-            // Convert the field to a concrete type to read the current value
-            let current_y = y_field.try_downcast_ref::<f32>().unwrap();
-            let new_y = current_y + 10.0 * direction_of_modification;
+            let add_assign_trait_data = app_registry
+                .read()
+                .get_type_data::<ReflectAddAssign>(field_type_id)
+                .expect("f32 failed to register ReflectAddAssign")
+                .clone();
 
-            // Set the new value using reflection
-            // Unlike downcasting, apply and similar methods stay type-erased the entire time,
-            // so you can work on data that doesn't *have* a concrete Rust type.
-            y_field.apply(&new_y);
+            // We need to operate on the value as a concrete type,
+            // so we need to convert it into the more powerful &dyn Reflect type.
+            let y_field: &mut dyn Reflect = y_field.try_as_reflect_mut().expect(
+                "Found a dynamic type unexpectedly, but we need a concrete type to modify it",
+            );
+
+            // We're still cheating a bit here!
+            // By doing this we just *assume* that there's an f32 value when trying to determine what to add to the field.
+            // We *could* try all of the common numeric types, but that would be slow and non-extensible.
+            //
+            // In a real workflow, you would want a dedicated trait with additional methods that exposes
+            // something like dedicated `increment` and `decrement` methods, which handle the type-specific logic of how to modify the value.
+            // Remember to register that trait, and create your own analog of `ReflectAddAssign` for it!
+            //
+            // We don't do that here to avoid making this example *even* more complicated.
+            const MAGNITUDE_OF_MODIFICATION: f32 = 10.;
+            let delta = direction_of_modification * MAGNITUDE_OF_MODIFICATION;
+            let boxed_delta: Box<dyn PartialReflect> = Box::new(delta);
+            add_assign_trait_data
+                .add_assign(y_field, boxed_delta)
+                .expect("We cheated and know the types match, so this should always succeed.");
         }
     }
 }
