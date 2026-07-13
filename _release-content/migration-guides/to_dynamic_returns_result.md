@@ -34,8 +34,3 @@ have been replaced with an error, and no new failing paths were added.
 
 However, if your code was defensively guarding against the old panic,
 you can now handle the returned `Result` directly instead and simplify your error handling.
-
-These changes were made to more robustly support the introduction of `PartialReflect::reflect_clone_incomplete`,
-designed for inspector-like use cases.
-That method, which gracefully skips fields excluded from reflectio (such as by `#[reflect(ignore)]`),
-is probably worth considering for many pieces of code that called these methods.
