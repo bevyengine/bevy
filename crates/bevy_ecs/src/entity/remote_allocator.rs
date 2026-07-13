@@ -90,10 +90,10 @@ impl Slot {
     fn set_entity(&self, entity: Entity) {
         #[cfg(not(target_has_atomic = "64"))]
         self.low_bits
-            .store(source.to_bits() as u32, Ordering::Relaxed);
+            .store(entity.to_bits() as u32, Ordering::Relaxed);
         #[cfg(not(target_has_atomic = "64"))]
         self.high_bits
-            .store((source.to_bits() >> 32) as u32, Ordering::Relaxed);
+            .store((entity.to_bits() >> 32) as u32, Ordering::Relaxed);
         #[cfg(target_has_atomic = "64")]
         self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
