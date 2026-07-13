@@ -6,7 +6,7 @@ pull_requests: [24969]
 
 Feathers now supports "contextual theming", meaning that the theme variables can change depending
 on the parent entity. So widgets that are inside of a dialog box or subpanel can have different
-colors than wigets that are on a regular panel or window background.
+colors than widgets that are on a regular panel or window background.
 
 The design follows that of popular web toolkits like MUI, Radix, or Chakra. There's a new component,
 `ThemeContext`, which lets you select which color scheme the widget's descendants should use;
