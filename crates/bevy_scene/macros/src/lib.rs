@@ -169,6 +169,8 @@ use syn::{parse_macro_input, DeriveInput};
 /// [`Handle`]: https://docs.rs/bevy/latest/bevy/asset/enum.Handle.html
 /// [`Asset`]: https://docs.rs/bevy/latest/bevy/asset/trait.Asset.html
 /// [`SceneList`]: https://docs.rs/bevy/latest/bevy/prelude/trait.SceneList.html
+/// [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
+/// [`Vec`]: https://doc.rust-lang.org/std/vec/struct.Vec.html
 ///
 #[proc_macro]
 pub fn bsn(input: TokenStream) -> TokenStream {
