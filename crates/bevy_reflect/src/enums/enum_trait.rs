@@ -129,7 +129,7 @@ pub trait Enum: PartialReflect {
     /// Returns an error if any field of the active variant cannot be converted via
     /// [`PartialReflect::to_dynamic`].
     fn to_dynamic_enum(&self) -> Result<DynamicEnum, ReflectCloneError> {
-        DynamicEnum::from_ref(self)
+        DynamicEnum::try_from_ref(self)
     }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {

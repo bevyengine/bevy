@@ -159,7 +159,8 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
             (0..size as u64)
                 .zip(iter::repeat(0))
                 .collect::<HashMap<u64, u64>>()
-                .to_dynamic_map().unwrap()
+                .to_dynamic_map()
+                .unwrap()
         }
     };
 

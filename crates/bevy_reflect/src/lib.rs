@@ -3765,7 +3765,8 @@ bevy_reflect::tests::Test {
             Struct { value: String },
         }
 
-        let mut patch = DynamicEnum::from(MyType(external_crate::TheirType::Tuple(123))).unwrap();
+        let mut patch =
+            DynamicEnum::try_from(MyType(external_crate::TheirType::Tuple(123))).unwrap();
 
         let mut data = MyType(external_crate::TheirType::Unit);
 
@@ -3773,7 +3774,7 @@ bevy_reflect::tests::Test {
         data.apply(&patch);
         assert_eq!(external_crate::TheirType::Tuple(123), data.0);
 
-        patch = DynamicEnum::from(MyType(external_crate::TheirType::Struct {
+        patch = DynamicEnum::try_from(MyType(external_crate::TheirType::Struct {
             value: "Hello world!".to_string(),
         }))
         .unwrap();
@@ -3796,7 +3797,7 @@ bevy_reflect::tests::Test {
             },
         }
 
-        let patch = DynamicEnum::from(ContainerEnum::Bar {
+        let patch = DynamicEnum::try_from(ContainerEnum::Bar {
             their_type: external_crate::TheirType::Tuple(123),
         })
         .unwrap();

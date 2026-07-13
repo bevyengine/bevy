@@ -20,8 +20,8 @@ In order to make that change properly robust, the per-kind helpers are now falli
 - `Set::to_dynamic_set`
 - `Enum::to_dynamic_enum`
 
-Similarly, `DynamicEnum::from` and `DynamicEnum::from_ref` now return
-`Result<DynamicEnum, ReflectCloneError>`.
+Similarly, `DynamicEnum::from` and `DynamicEnum::from_ref` have been deprecated in favor of `try_from` equivalents,
+which now return `Result<DynamicEnum, ReflectCloneError>`.
 
 Finally, `PartialReflect::try_apply` (and `apply`) build dynamic values internally when applying a value
 onto a larger collection or a different enum variant.
