@@ -297,7 +297,6 @@ fn handle_light_type_change(
             commands.entity(old_light).despawn();
         }
 
-        //println!("Light type changed to {:?}", app_status.light_type);
         // Spawn a fresh light entity with the new type
         spawn_light(&mut commands, &app_status);
     }
