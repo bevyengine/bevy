@@ -18,7 +18,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// Often, this is by inserting/patching a component or its values or including other scenes.
 /// Scene entries can have prefix characters which specify/disambiguate the following entry.
 ///
-/// ```text
+/// ```rust,ignore
 /// bsn! {
 ///     <scene entry>
 ///     :<cached scene include>
@@ -119,8 +119,8 @@ use syn::{parse_macro_input, DeriveInput};
 /// bsn! {
 ///     some_scene()        // include a scene function
 ///     #SomeName           // entity name, will insert Name("SomeName")
-///     ComponentA          // component without fields: will use the default field values
-///     ComponentB(0.0)     // when setting a field, unmentioned fields will use defaults
+///     ComponentA          // component without a value will use default
+///     ComponentB(0.0)     // passing a value, other fields will use default
 ///     Node {
 ///         height: px(0.1) // same with named fields, unmentioned ones stay default
 ///     }
@@ -129,27 +129,28 @@ use syn::{parse_macro_input, DeriveInput};
 ///         b.0 += evt.value;
 ///     })
 ///     Children [                   // spawning multiple related entities using a RelationshipTarget component
-///         #Child1 ComponentA,      // entities are comma-separated
-///         (other_scene() #Child3), // parentheses around a single entity are optional for clarity
+///         #Child1 ComponentA       // whitespace doesn't have to be newlines
+///         ,                        // entities are comma-separated
+///         (other_scene() #Child3), // parentheses around a single entity are optional
 ///         Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
 ///         @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
 ///             @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
 ///             normal_field: 5      // while normal fields are the actual fields of the component
 ///         },
 ///         Node {
-///             width: some_var      // variables can be assigned to field values
+///             width: some_var      // you can directly use variables without {}
 ///         }
-///         ComponentB({some_variable + 3.})  // values can be expressions, when wrapped in {}
+///         ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
 ///         @Container {
 ///             @items: {
 ///                 bsn_list![                // sometimes you may need to nest macro calls
-///                     #Item1 SomeComponent, // note: the name #Item1 here is in its own scope
-///                     some_scene() #Item2
+///                     #item1 SomeComponent, // note: the name #item1 here is in its own scope
+///                     some_scene() #item2
 ///                 ]
 ///             }
 ///         }
 ///     ]
-/// }
+/// };
 /// ```
 ///
 /// [`Scene`]: https://docs.rs/bevy/latest/bevy/prelude/trait.Scene.html
@@ -162,6 +163,10 @@ use syn::{parse_macro_input, DeriveInput};
 /// [`SceneComponent`]: https://docs.rs/bevy/latest/bevy/prelude/trait.SceneComponent.html
 /// [patching]: https://docs.rs/bevy/latest/bevy/scene/index.html#patching
 /// [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
+/// [`Template`]: https://docs.rs/bevy/latest/bevy/ecs/prelude/trait.Template.html
+/// [`FromTemplate`]: https://docs.rs/bevy/latest/bevy/ecs/prelude/trait.FromTemplate.html
+/// [`RelationshipTarget`]: https://docs.rs/bevy/latest/bevy/ecs/prelude/trait.RelationshipTarget.html
+/// [`Handle`]: https://docs.rs/bevy/latest/bevy/asset/enum.Handle.html
 ///
 #[proc_macro]
 pub fn bsn(input: TokenStream) -> TokenStream {

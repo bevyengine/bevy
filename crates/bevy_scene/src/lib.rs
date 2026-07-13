@@ -2625,7 +2625,7 @@ mod tests {
         // Copy of the macro from bevy_scene/macros/src/lib.rs
         // why? because it should be tested
         // why not doctests? because the macro can't depend on this crate
-        // why not include! it here and include_str! it in the docs? because rust-analyzer ignores #[doc = include_str!()] and this is mostly a showcase for rust-analyzer
+        // why not include! it here and include_str! it in the docs? because rust-analyzer inline docs ignores #[doc = include_str!()]
         let scene = bsn! {
             some_scene()        // include a scene function
             #SomeName           // entity name, will insert Name("SomeName")
