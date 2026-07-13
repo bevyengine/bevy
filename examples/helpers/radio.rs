@@ -78,7 +78,7 @@ pub fn basic_radio_button_theme() -> ThemeProps {
 /// Spawns the radio buttons that allow configuration of a setting.
 ///
 /// To react to changes in value, create an observer that listens to
-/// `ValueChange<Entity>>`. Query for the value entity's RadioButtonOptionValue
+/// `ValueChange<Entity>>`. Query for the value entity's `RadioButtonOptionValue`
 /// and unwrap the new option value.
 ///
 /// Ensure the radio button self updates its own state by adding the
