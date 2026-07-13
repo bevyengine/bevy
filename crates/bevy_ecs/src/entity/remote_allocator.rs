@@ -78,7 +78,7 @@ impl Slot {
     /// Importantly, [`FreeCount`] determines which part of the free buffer is the free list.
     /// An empty slot may be in the free buffer, but should not be in the free list.
     /// This can be thought of as the `MaybeUninit` uninit in `Vec`'s excess capacity.
-    fn empty() -> Self {
+    const fn empty() -> Self {
         let source = Entity::PLACEHOLDER;
         #[cfg(not(target_has_atomic = "64"))]
         return Self {
