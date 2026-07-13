@@ -140,9 +140,8 @@ fn modify_selected_component(world: &mut World) {
 
     match selected {
         // Downcasting is the easy path:
-        // if you happen to know the type,
-        // you can downcast and modify directly.
-        // The problem is that each of these paths would need to be hard-coded (or use code-gen),
+        // if you happen to know the type, you can downcast and modify directly.
+        // The problem is that each of these paths would need to be hard-coded (or rely on extensive code-gen),
         // largely defeating the purpose of using reflection in the first place.
         SelectedComponent::Sprite => {
             // Make sure that the type matches the component type you requested to modify.
@@ -156,10 +155,17 @@ fn modify_selected_component(world: &mut World) {
             let new_alpha = (color.alpha() + 0.01 * direction_of_modification).clamp(0.0, 1.0);
             color.set_alpha(new_alpha);
         }
-        // More realistically, we have to walk the reflected type info to find fields to modify.
+        // This arm demonstrates the more realistic, generic pattern:
+        // walking the reflected type info to find fields to modify.
+        // This is much more verbose, but the benefit is that we can use these patterns
+        // to operate over *any* data based on our knowledge of its shape (recorded using reflection),
+        // without needing to know the concrete type at compile time.
         SelectedComponent::Transform => {
             let reflect_mut = dynamic_mut.reflect_mut();
-            // In the generic case, we would want to match on the `ReflectMut` variants
+            // In the fully generic case, we would need to match on the `ReflectMut` variants
+            // and handle each of the arms exhaustively.
+            // struct_mut is of type &mut (dyn Struct + 'static), one of a number
+            // of traits that encodes the logic of Rust's type system into a runtime representation.
             let ReflectMut::Struct(struct_mut) = reflect_mut else {
                 error!("Expected the Transform component type to be a struct");
                 return;
