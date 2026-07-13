@@ -1446,7 +1446,7 @@ struct UiVertex {
     pub flags: u32,
     /// Border radius of the UI node.
     /// Ordering: top left, top right, bottom right, bottom left.
-    pub radius: [f32; 4],
+    pub radius: [[f32; 4]; 2],
     /// Border thickness of the UI node.
     /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
@@ -1948,7 +1948,7 @@ pub fn prepare_uinodes(
                                     uv: uvs[i].into(),
                                     color,
                                     flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
-                                    radius: [0.0; 4],
+                                    radius: [[0.0; 4]; 2],
                                     border: [0.0; 4],
                                     size: rect_size.into(),
                                     point: [0.0; 2],
