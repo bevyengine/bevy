@@ -173,7 +173,6 @@ mod tests {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use core::{
         any::TypeId,
-        marker::PhantomData,
         sync::atomic::{AtomicUsize, Ordering},
     };
     use std::sync::Mutex;
@@ -186,9 +185,6 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
-
-    #[derive(Default)]
-    struct NonSendA(PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -1624,15 +1620,9 @@ mod tests {
 
     #[test]
     fn non_send_drop_from_different_thread() {
-        struct MustNotDrop;
-        impl Drop for MustNotDrop {
-            fn drop(&mut self) {
-                panic!("Must not be dropped");
-            }
-        }
-
         let mut world = World::default();
-        world.insert_non_send(MustNotDrop);
+        let (dropck, dropped) = DropCk::new_pair();
+        world.insert_non_send(dropck);
 
         let thread = std::thread::spawn(move || {
             // Dropping the world in another thread must
@@ -1643,13 +1633,27 @@ mod tests {
         if let Err(err) = thread.join() {
             std::panic::resume_unwind(err);
         }
+
+        // The non-send data was not dropped, since the world was dropped on the wrong thread.
+        assert_eq!(0, dropped.load(Ordering::Relaxed));
     }
 
     #[test]
     fn non_send_drop_from_same_thread() {
         let mut world = World::default();
-        world.insert_non_send(NonSendA::default());
+        let (dropck, dropped) = DropCk::new_pair();
+        world.insert_non_send(dropck);
         drop(world);
+        // The non-send data was dropped with the world.
+        assert_eq!(1, dropped.load(Ordering::Relaxed));
+
+        let mut world = World::default();
+        let (dropck, dropped) = DropCk::new_pair();
+        world.insert_non_send(dropck);
+        let _removed = world.remove_non_send::<DropCk>();
+        drop(world);
+        // The non-send data was not dropped, since it was removed from the world.
+        assert_eq!(0, dropped.load(Ordering::Relaxed));
     }
 
     #[test]
