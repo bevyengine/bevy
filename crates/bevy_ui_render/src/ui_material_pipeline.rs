@@ -368,10 +368,12 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         Extract<RemovedComponents<CalculatedClip>>,
         Extract<RemovedComponents<ComputedUiTargetCamera>>,
     ),
+    mut nodes_to_reextract_next_frame: Local<MainEntityHashSet>,
     mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
     nodes_processed_this_frame.clear();
     let mut camera_mapper = camera_map.get_mapper();
+    let nodes_to_reextract = mem::take(&mut *nodes_to_reextract_next_frame);
 
     for (
         entity,
@@ -382,10 +384,19 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         inherited_visibility,
         clip,
         camera,
-    ) in uinode_query.iter()
-    {
+    ) in uinode_query.iter().chain(
+        nodes_to_reextract
+            .into_iter()
+            .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok()),
+    ) {
         let main_entity = MainEntity::from(entity);
 
+        // Make sure we don't process the same node more than once.
+        // This is possible if the node was marked for reextraction on the
+        // previous frame and was also otherwise changed on this frame.
+        if nodes_processed_this_frame.contains(&main_entity) {
+            continue;
+        }
         // If there were any previous UI nodes for this entity, despawn them.
         for (render_entity, _) in extracted_uinodes
             .uinodes
@@ -401,8 +412,10 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         }
 
-        // Skip loading materials
+        // If the material hasn't finished loading, skip the entity, and
+        // remember that we did so that we reextract the node next frame.
         if !materials.contains(handle) {
+            nodes_to_reextract_next_frame.insert(main_entity);
             continue;
         }
 
