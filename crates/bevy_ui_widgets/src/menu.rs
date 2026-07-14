@@ -30,7 +30,8 @@
 
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
+use bevy_camera::visibility::VisibilitySystems;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -471,7 +472,12 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (menu_acquire_focus, menu_on_lose_focus).chain())
+        app.add_systems(
+            PostUpdate,
+            (menu_acquire_focus, menu_on_lose_focus)
+                .chain()
+                .after(VisibilitySystems::VisibilityPropagate),
+            )
             .add_observer(menu_on_key_event)
             .add_observer(menu_item_on_pointer_down)
             .add_observer(menu_item_on_pointer_up)
