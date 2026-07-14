@@ -455,6 +455,7 @@ Example | Description
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+[Mutation by Reflection](../examples/reflection/mutation_by_reflection.rs) | Demonstrates how to mutate abstract or non-Rust data at runtime using reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Serialization](../examples/reflection/serialization.rs) | Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits
@@ -500,6 +501,7 @@ Example | Description
 [Instancing](../examples/shader_advanced/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
+[Material - 2D Bindless](../examples/shader/shader_material_2d_bindless.rs) | Demonstrates bindless materials in 2D
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates

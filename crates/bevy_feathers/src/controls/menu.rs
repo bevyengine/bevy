@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use bevy_app::{Plugin, PreUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_color::{Alpha, Srgba};
@@ -12,7 +13,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_log::warn;
+use bevy_log::{info, warn};
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
@@ -29,7 +30,7 @@ use bevy_ui_widgets::{
 
 use crate::{
     constants::{fonts, icons, size},
-    controls::{ButtonVariant, FeathersButton},
+    controls::{ButtonVariant, FeathersButton, FeathersToolButton},
     cursor::EntityCursor,
     display::icon,
     font_styles::InheritableFont,
@@ -133,6 +134,120 @@ fn on_menu_event(
     }
 }
 
+/// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
+/// This is slightly different from the normal [`FeathersMenu`] in that it dynamically spawns
+/// the menu popup when the menu is shown and despawns it when it is closed, instead of simply
+/// hiding the popup. This is the recommended approach for popups which are large, expensive to
+/// keep around, or whose items are dynamically generated.
+///
+/// The popup function should return a scene whose root entity is a [`FeathersMenuPopup`].
+#[derive(SceneComponent, Clone)]
+pub struct FeathersLazyMenu {
+    /// Callback which constructs the popup
+    pub popup: Arc<dyn Fn() -> Box<dyn Scene> + Sync + Send>,
+}
+
+impl Default for FeathersLazyMenu {
+    fn default() -> Self {
+        Self {
+            popup: Arc::new(|| {
+                warn!("Menu content not specified");
+                Box::new(bsn!())
+            }),
+        }
+    }
+}
+
+impl FeathersLazyMenu {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                height: size::ROW_HEIGHT,
+                justify_content: JustifyContent::Stretch,
+                align_items: AlignItems::Stretch,
+            }
+            FeathersMenu
+            on(on_lazy_menu_event)
+        }
+    }
+}
+
+fn on_lazy_menu_event(
+    mut ev: On<MenuEvent>,
+    q_menu_lazy: Query<&FeathersLazyMenu>,
+    q_menu_children: Query<&Children>,
+    q_popovers: Query<(), With<FeathersMenuPopup>>,
+    q_buttons: Query<(), With<FeathersMenuButton>>,
+    mut commands: Commands,
+    mut focus: ResMut<InputFocus>,
+) {
+    match ev.event().action {
+        MenuAction::Open(nav) => {
+            let Ok(FeathersLazyMenu { popup }) = q_menu_lazy.get(ev.source) else {
+                return;
+            };
+            ev.propagate(false);
+            commands
+                .entity(ev.source)
+                .queue_spawn_related_scenes::<Children>(bsn!(
+                    popup()
+                    template_value(MenuFocusState::Opening(nav))
+                    Visibility::Visible
+                ));
+        }
+        MenuAction::Toggle => {
+            let Ok(FeathersLazyMenu { popup }) = q_menu_lazy.get(ev.source) else {
+                return;
+            };
+            let Ok(children) = q_menu_children.get(ev.source) else {
+                return;
+            };
+            let mut menu_open = false;
+            for child in children.iter() {
+                if q_popovers.contains(*child) {
+                    ev.propagate(false);
+                    menu_open = true;
+                    commands.entity(*child).despawn();
+                }
+            }
+
+            if !menu_open {
+                commands
+                    .entity(ev.source)
+                    .queue_spawn_related_scenes::<Children>(bsn!(
+                        popup()
+                        template_value(MenuFocusState::Opening(NavAction::First))
+                        Visibility::Visible
+                    ));
+            }
+        }
+        MenuAction::CloseAll => {
+            let Ok(children) = q_menu_children.get(ev.source) else {
+                return;
+            };
+            for child in children.iter() {
+                if q_popovers.contains(*child) {
+                    ev.propagate(false);
+                    commands.entity(*child).despawn();
+                }
+            }
+        }
+        MenuAction::FocusRoot => {
+            info!("FocusRoot");
+            let Ok(children) = q_menu_children.get(ev.source) else {
+                return;
+            };
+            for child in children.iter() {
+                if q_buttons.contains(*child) {
+                    ev.propagate(false);
+                    focus.set(*child, FocusCause::Navigated);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /// A menu button widget. This produces a button that has a dropdown arrow.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuButtonProps`].
@@ -175,16 +290,46 @@ impl FeathersMenuButton {
             // Additional children for menu chevron
             Children [
                 {
-                    if props.arrow {
-                        Box::new(bsn_list!(
-                            Node {
-                                flex_grow: 1.0,
-                            },
-                            icon(icons::CHEVRON_DOWN),
-                        )) as Box<dyn SceneList>
-                    } else {
-                        Box::new(bsn_list!()) as Box<dyn SceneList>
-                    }
+                    props.arrow.then(|| bsn_list!(
+                        Node {
+                            flex_grow: 1.0,
+                        },
+                        icon(icons::CHEVRON_DOWN),
+                    ))
+                }
+            ]
+        }
+    }
+}
+
+/// A menu button widget with the tool button form factor. This produces a button that has a
+/// dropdown arrow.
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuButtonProps`].
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersMenuButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct FeathersMenuToolButton;
+
+impl FeathersMenuToolButton {
+    fn scene(props: FeathersMenuButtonProps) -> impl Scene {
+        bsn! {
+            @FeathersToolButton {
+                @caption: {props.caption},
+                @variant: ButtonVariant::Normal,
+                @corners: {props.corners},
+            }
+            ActivateOnPress
+            MenuButton
+            FeathersMenuButton
+            // Additional children for menu chevron
+            Children [
+                {
+                    props.arrow.then(|| bsn_list!(
+                        Node { min_width: px(2) },
+                        icon(icons::CHEVRON_DOWN),
+                    ))
                 }
             ]
         }
