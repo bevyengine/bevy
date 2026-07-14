@@ -1204,25 +1204,6 @@ mod text_wrap {
                 ));
             }
         }
-
-        commands.spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                padding: UiRect::px(10.0, 10.0, 8.0, 6.0),
-                top: px(300.0),
-                left: px(300.0),
-                width: vmin(30.0),
-                ..default()
-            },
-            BackgroundColor::from(bevy::color::palettes::css::GREEN),
-            Text::new("initial text here"),
-            TextColor(Color::WHITE),
-            TextLayout {
-                justify: Justify::Left,
-                linebreak: LineBreak::WordBoundary,
-            },
-            DespawnOnExit(super::Scene::TextWrap),
-        ));
     }
 }
 
@@ -2306,75 +2287,487 @@ mod editable_text {
     use bevy::color::palettes::css::YELLOW;
     use bevy::prelude::*;
     use bevy::text::EditableText;
+    use bevy::text::TextCursorStyle;
     use bevy::text::TextEdit;
-    use bevy::ui::widget::TextScroll;
+
+    const DUMMY_TEXT: &str = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten";
+    const LOREM_TEXT: &str = concat!(
+        "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. ",
+        "Aenean commodo ligula eget dolor. Aenean massa. ",
+        "Cum sociis natoque penatibus et magnis dis parturient montes, nascetur reprehenderit mus. ",
+        "Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. ",
+        "Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. ",
+        "In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. ", 
+        "Nullam dictum felis eu pede mollis pretium. Integer tincidunt. ", 
+        "Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. ",
+        "Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. ",
+        "Aliquam lorem ante, dapibus in, viverra quis, feugiat a, tellus. ",
+        "Phasellus viverra nulla ut metus officia laoreet. Quisque rutrum. ",
+        "Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi.", 
+        " Qui eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, ", 
+        "sem quam semper libero, sit amet adipiscing sem neque sed ipsum. ",
+        "Qui quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. ",
+        "Maecenas nec odio et ante tincidunt tempus. Donec vitae sapien ut libero venenatis faucibus. ",
+        "Nullam quis ante. Etiam sit amet orci eget eros faucibus tincidunt. Duis leo. ",
+        "Sed fringilla mauris sit amet nibh. Donec sodales sagittis magna. ",
+        "Sed consequat, leo eget bibendum sodales, augue velit cursus nunc,"
+    );
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::EditableText)));
         commands.spawn((
             Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
+                flex_wrap: FlexWrap::Wrap,
+                align_items: AlignItems::Start,
+                margin: px(10.).all(),
                 width: vw(100),
                 height: vh(100),
-                row_gap: px(25.),
+                row_gap: px(10),
+                column_gap: px(20),
                 ..default()
             },
             DespawnOnExit(super::Scene::EditableText),
             children![
                 (
-                    EditableText {
-                        pending_edits: vec![TextEdit::Insert("Single line EditableText".into())],
-                        ..default()
-                    },
                     Node {
-                        width: px(200.),
-                        border: px(2).all(),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
                         ..default()
                     },
-                    BorderColor::all(YELLOW),
+                    children![
+                        Text::new("Single line"),
+                        (
+                            EditableText {
+                                pending_edits: vec![TextEdit::Insert(
+                                    "Single line EditableText".into(),
+                                )],
+                                ..default()
+                            },
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                        Text::new("Initial end"),
+                        (
+                            EditableText::new(LOREM_TEXT),
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                        Text::new("Insert end"),
+                        (
+                            EditableText {
+                                pending_edits: vec![TextEdit::Insert(LOREM_TEXT.into())],
+                                ..default()
+                            },
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                        Text::new("Select line start"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(LOREM_TEXT.into()),
+                                    TextEdit::LineStart(true),
+                                ],
+                                ..default()
+                            },
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
                 ),
                 (
-                    EditableText {
-                        pending_edits: vec![
-                            TextEdit::Insert(
-                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
-                                    .into()
-                            ),
-                            TextEdit::TextStart(false),
-                        ],
-                        visible_lines: Some(8.),
-                        ..default()
-                    },
-                    TextScroll::default(),
                     Node {
-                        width: px(350.),
-                        border: px(2).all(),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
                         ..default()
                     },
-                    BorderColor::all(YELLOW),
+                    children![
+                        Text::new("Wrapped start"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(LOREM_TEXT.into()),
+                                    TextEdit::TextStart(false),
+                                ],
+                                visible_lines: Some(8.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
                 ),
                 (
-                    EditableText {
-                        pending_edits: vec![
-                            TextEdit::Insert(
-                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
-                                    .into()
-                            ),
-                            TextEdit::TextEnd(true),
-                        ],
-                        visible_lines: Some(8.),
-                        ..default()
-                    },
-                    TextScroll::default(),
                     Node {
-                        width: px(350.),
-                        border: px(2).all(),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
                         ..default()
                     },
-                    BorderColor::all(YELLOW),
+                    children![
+                        Text::new("Wrapped selection"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(LOREM_TEXT.into()),
+                                    TextEdit::TextStart(false),
+                                    TextEdit::Down(false),
+                                    TextEdit::TextEnd(true),
+                                ],
+                                visible_lines: Some(8.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
                 ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Clamp top"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-10.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Home, Scroll 1"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollTo(Vec2::ZERO),
+                                    TextEdit::ScrollByLines(1.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Home, Scroll 2"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollTo(Vec2::ZERO),
+                                    TextEdit::ScrollByLines(2.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Clamp bottom"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-1000.0),
+                                    TextEdit::ScrollByLines(1000.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Bottom -1"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-1000.0),
+                                    TextEdit::ScrollByLines(1000.0),
+                                    TextEdit::ScrollByLines(-1.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Top +3"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-1000.0),
+                                    TextEdit::ScrollByLines(3.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Select down 3"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::TextStart(false),
+                                    TextEdit::Down(false),
+                                    TextEdit::Down(true),
+                                    TextEdit::Down(true),
+                                    TextEdit::Down(true),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("End, Scroll 1"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(1.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("End, Scroll -0.5"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-0.5),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                )
             ],
         ));
     }
