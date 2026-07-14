@@ -81,6 +81,7 @@ impl Plugin for GpuReadbackPlugin {
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
 /// when complete. If this component is not removed, the readback will be attempted every frame
 #[derive(Component, ExtractComponent, Clone, Debug, FromTemplate)]
+#[extract_app(RenderApp)]
 pub enum Readback {
     #[default]
     Texture(Handle<Image>),
