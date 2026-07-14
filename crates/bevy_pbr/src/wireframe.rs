@@ -50,7 +50,7 @@ use bevy_render::{
     },
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
@@ -1541,6 +1541,7 @@ fn queue_wireframes(
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
     mut pending_wireframe_queues: ResMut<PendingWireframeQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut mesh_instances_queued_this_frame: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
@@ -1579,6 +1580,7 @@ fn queue_wireframes(
             view.retained_view_entity,
             render_mesh_visible_entities,
             &view_pending_wireframe_queues.prev_frame,
+            &mut mesh_instances_queued_this_frame,
         ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;

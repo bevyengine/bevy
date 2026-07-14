@@ -46,7 +46,7 @@ use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap, RenderEntity};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
 use bevy_render::view::{
     RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin, RenderShadowMapVisibleEntities,
     RenderVisibleEntities, VisibilityExtractionSystemParam,
@@ -2576,6 +2576,7 @@ pub fn queue_shadows(
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
     mut pending_shadow_queues: ResMut<PendingShadowQueues>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut mesh_instances_queued_this_frame: Local<MainEntityHashSet>,
 ) {
     for (light_entity, extracted_view_light, view_light_render_layers) in &view_light_entities {
         let Some(shadow_phase) =
@@ -2617,6 +2618,7 @@ pub fn queue_shadows(
             extracted_view_light.retained_view_entity,
             visible_entities,
             &view_pending_shadow_queues.prev_frame,
+            &mut mesh_instances_queued_this_frame,
         ) {
             let Some(&(pipeline_id, draw_function)) =
                 view_specialized_material_pipeline_cache.get(main_entity)

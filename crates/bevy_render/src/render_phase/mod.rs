@@ -281,22 +281,18 @@ impl RenderMultidrawableBatchSetGpuBuffers {
             bin_index: bin_index.0,
         };
 
-        // Fetch the index of this entity in the
-        // `render_binned_mesh_instance_buffer`. If there isn't one, then
-        // allocate one.
-        let render_binned_mesh_instance_buffer_index =
-            match bin.entity_to_binned_mesh_instance_index.entry(main_entity) {
-                Entry::Occupied(occupied_entry) => *occupied_entry.get(),
-                Entry::Vacant(vacant_entry) => {
-                    let render_bin_buffer_index = RenderBinnedMeshInstanceIndex(
-                        self.render_binned_mesh_instance_buffer
-                            .push(GpuRenderBinnedMeshInstance::default())
-                            as u32,
-                    );
-                    vacant_entry.insert(render_bin_buffer_index);
-                    render_bin_buffer_index
-                }
-            };
+        // Allocate a spot for this entity in the `render_mesh_instance_buffer`.
+        let render_binned_mesh_instance_buffer_index = RenderBinnedMeshInstanceIndex(
+            self.render_binned_mesh_instance_buffer
+                .push(GpuRenderBinnedMeshInstance::default()) as u32,
+        );
+        let maybe_previous_binned_mesh_instance_buffer_index = bin
+            .entity_to_binned_mesh_instance_index
+            .insert(main_entity, render_binned_mesh_instance_buffer_index);
+        // It's illegal to bin an entity that was already binned.
+        // If an entity is to change bins, it must first be removed from the bin
+        // it was previously in.
+        debug_assert!(maybe_previous_binned_mesh_instance_buffer_index.is_none());
 
         // Place the entry in the instance buffer at the proper spot.
         self.render_binned_mesh_instance_buffer.values_mut()
