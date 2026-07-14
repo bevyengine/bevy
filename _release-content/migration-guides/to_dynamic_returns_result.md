@@ -6,7 +6,7 @@ pull_requests: [24748]
 `PartialReflect::to_dynamic` now returns `Result<Box<dyn PartialReflect>, ReflectCloneError>`
 rather than panicking.
 These methods will fail if *any* value stored inside
-is a an opaque type whose `reflect_clone` fails, *including* nested opaque values.
+is an opaque type whose `reflect_clone` fails, *including* nested opaque values.
 
 In order to make that change properly robust, the per-kind helpers are now fallible as well, returning
 `Result<_, ReflectCloneError>`:
