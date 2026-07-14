@@ -233,7 +233,7 @@ pub(crate) fn submit_pending_command_buffers(
     let (mut pending, queue) = state.get_mut(world).unwrap();
     #[cfg(feature = "trace")]
     let buffer_count = pending.len();
-    let mut buffers = pending.take().peekable();
+    let mut buffers = pending.finish().peekable();
 
     if buffers.peek().is_some() {
         #[cfg(feature = "trace")]

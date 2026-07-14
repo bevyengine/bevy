@@ -470,7 +470,7 @@ pub fn resolve_font_source<'a>(
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::update_text_layout_info`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
-#[derive(Component, Clone, Default, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
     /// The target scale factor for this text layout
@@ -504,6 +504,20 @@ impl TextLayoutInfo {
         self.cursor = None;
         self.selection_rects.clear();
         self.preedit_underline_rects.clear();
+    }
+}
+
+impl Default for TextLayoutInfo {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.,
+            glyphs: Default::default(),
+            run_geometry: Default::default(),
+            size: Vec2::ZERO,
+            cursor: None,
+            selection_rects: Default::default(),
+            preedit_underline_rects: Default::default(),
+        }
     }
 }
 

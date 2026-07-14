@@ -114,7 +114,7 @@ pub fn resolve_encoder(
     let mut encoder =
         render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
     recorder.resolve(&mut encoder);
-    pending_buffers.push_encoder(encoder);
+    pending_buffers.push_encoder(encoder, "resolve_diagnostics");
 }
 
 /// Ends the current frame for the diagnostics recorder and syncs it with the main world.
