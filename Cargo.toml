@@ -3088,6 +3088,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "mutation_by_reflection"
+path = "examples/reflection/mutation_by_reflection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mutation_by_reflection]
+name = "Mutation by Reflection"
+description = "Demonstrates how to mutate abstract or non-Rust data at runtime using reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "auto_register_static"
 path = "examples/reflection/auto_register_static/src/lib.rs"
 doc-scrape-examples = true
