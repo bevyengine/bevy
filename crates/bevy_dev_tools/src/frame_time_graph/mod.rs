@@ -120,7 +120,7 @@ fn update_frame_time_values(
             .peekable();
         if frame_times.peek().is_none() {
             // Ensure the buffer is not zero-sized
-            buffer.extend(core::iter::once(0f32));
+            buffer.extend([0f32]);
         } else {
             buffer.extend(frame_times);
         }

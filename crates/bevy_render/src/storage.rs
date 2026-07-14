@@ -116,10 +116,11 @@ impl ShaderBuffer {
     }
 
     /// Initializes (with alignment `align_of::<T>()`) and extends the data with an iterator of [`bytemuck::NoUninit`].
-    pub fn extend<T>(&mut self, values: impl Iterator<Item = T>)
+    pub fn extend<T>(&mut self, values: impl IntoIterator<Item = T>)
     where
         T: bytemuck::NoUninit,
     {
+        let values = values.into_iter();
         let data = core::mem::take(&mut self.data);
         let mut data = match data {
             ShaderBufferData::Uninitialized(_) => AlignedVec::new(align_of::<T>()),
