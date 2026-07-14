@@ -3,6 +3,7 @@
 use std::fmt;
 use std::ops::Range;
 
+use bevy::render::renderer::RenderDevice;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Hdr,
@@ -233,6 +234,7 @@ fn setup(
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     asset_server: Res<AssetServer>,
     app_settings: Res<AppSettings>,
+    render_device: Res<RenderDevice>,
 ) {
     spawn_cube(
         &mut commands,
@@ -250,7 +252,7 @@ fn setup(
         &mut meshes,
         &mut water_materials,
     );
-    spawn_camera(&mut commands, &asset_server, &app_settings);
+    spawn_camera(&mut commands, &asset_server, &app_settings, &render_device);
     spawn_buttons(&mut commands, &app_settings);
 }
 
@@ -409,12 +411,17 @@ fn spawn_water(
 }
 
 // Spawns the camera.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_settings: &AppSettings) {
+fn spawn_camera(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    app_settings: &AppSettings,
+    render_device: &RenderDevice,
+) {
     // Create the camera. Add an environment map and skybox so the water has
     // something interesting to reflect, other than the cube. Enable deferred
     // rendering by adding depth and deferred prepasses. Turn on FXAA to make
     // the scene look a little nicer. Finally, add screen space reflections.
-    commands.spawn((
+    let mut entity = commands.spawn((
         Camera3d::default(),
         Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
@@ -426,7 +433,6 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
             edge_fadeout: app_settings.edge_fadeout.clone(),
             ..default()
         },
-        ScreenSpaceAmbientOcclusion::default(),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -439,6 +445,10 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
             ..default()
         },
     ));
+
+    if render_device.limits().max_sampled_textures_per_shader_stage >= 17 {
+        entity.insert(ScreenSpaceAmbientOcclusion::default());
+    }
 }
 
 fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
