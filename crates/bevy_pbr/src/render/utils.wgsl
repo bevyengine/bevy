@@ -187,7 +187,7 @@ fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
 }
 
 // Weights can be used in `dot(textureGather(..), bilinear_weights(texel_coord))`
-// with nearset sampler to emulate linear sampler
+// to emulate linear sampling for unfilterable textures.
 fn bilinear_weights(texel_coord: vec2f) -> vec4f {
     let a: vec2f = fract(texel_coord - vec2f(0.5));
     let b: vec2f = vec2f(1.0) - a;
