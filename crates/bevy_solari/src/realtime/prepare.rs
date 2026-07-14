@@ -4,26 +4,30 @@ use bevy_anti_alias::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
+use bevy_diagnostic::FrameCount;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
     system::{Commands, Query, Res},
 };
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, TextureView, TextureViewDescriptor,
-    },
-    renderer::RenderDevice,
+    render_resource::{Buffer, BufferDescriptor, BufferInitDescriptor, BufferUsages},
+    renderer::{RenderDevice, RenderQueue},
 };
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_render::{
+    render_resource::{
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+    },
+    texture::CachedTexture,
+};
+use bytemuck::{Pod, Zeroable};
 
 /// Size of the `LightSample` shader struct in bytes.
 const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
@@ -31,8 +35,8 @@ const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
 /// Size of the `ResolvedLightSamplePacked` shader struct in bytes.
 const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 24;
 
-/// Size of the GI `Reservoir` shader struct in bytes.
-const GI_RESERVOIR_STRUCT_SIZE: u64 = 48;
+/// Size of the `Reservoir` shader struct in bytes.
+const RESERVOIR_STRUCT_SIZE: u64 = 48;
 
 pub const LIGHT_TILE_BLOCKS: u64 = 128;
 pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
@@ -40,15 +44,55 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
+/// GPU representation of the user-configurable [`SolariLighting`] settings, plus
+/// per-frame state.
+///
+/// Field order and types must match the `SolariLightingSettings` struct in
+/// `realtime_bindings.wgsl`.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct SolariLightingUniforms {
+    confidence_weight_cap: f32,
+    primary_di_samples: u32,
+    secondary_di_samples: u32,
+    max_bounces: u32,
+    world_cache_max_temporal_samples: f32,
+    world_cache_direct_light_sample_count: u32,
+    world_cache_max_gi_ray_distance: f32,
+    world_cache_cell_updates_soft_target: u32,
+    world_cache_position_base_cell_size: f32,
+    world_cache_position_lod_scale: f32,
+    frame_rng: u32,
+    reset: u32,
+}
+
+impl SolariLightingUniforms {
+    fn new(settings: &SolariLighting, frame_count: u32) -> Self {
+        Self {
+            confidence_weight_cap: settings.confidence_weight_cap,
+            primary_di_samples: settings.primary_di_samples,
+            secondary_di_samples: settings.secondary_di_samples,
+            max_bounces: settings.max_bounces,
+            world_cache_max_temporal_samples: settings.world_cache_max_temporal_samples,
+            world_cache_direct_light_sample_count: settings.world_cache_direct_light_sample_count,
+            world_cache_max_gi_ray_distance: settings.world_cache_max_gi_ray_distance,
+            world_cache_cell_updates_soft_target: settings.world_cache_cell_updates_soft_target,
+            world_cache_position_base_cell_size: settings.world_cache_position_base_cell_size,
+            world_cache_position_lod_scale: settings.world_cache_position_lod_scale,
+            frame_rng: frame_count.wrapping_mul(5782582),
+            reset: settings.reset as u32,
+        }
+    }
+}
+
 /// Internal rendering resources used for Solari lighting.
 #[derive(Component)]
 pub struct SolariLightingResources {
+    pub constants: Buffer,
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub di_reservoirs_a: TextureView,
-    pub di_reservoirs_b: TextureView,
-    pub gi_reservoirs_a: Buffer,
-    pub gi_reservoirs_b: Buffer,
+    pub reservoirs_a: Buffer,
+    pub reservoirs_b: Buffer,
     pub world_cache_checksums: Buffer,
     pub world_cache_life: Buffer,
     pub world_cache_radiance: Buffer,
@@ -64,34 +108,39 @@ pub struct SolariLightingResources {
 }
 
 pub fn prepare_solari_lighting_resources(
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            Option<&SolariLightingResources>,
-            Option<&MainPassResolutionOverride>,
-        ),
-        With<SolariLighting>,
-    >,
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            Option<&SolariLightingResources>,
-            Option<&MainPassResolutionOverride>,
-            Has<Dlss<DlssRayReconstructionFeature>>,
-        ),
-        With<SolariLighting>,
-    >,
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<(
+        Entity,
+        &ExtractedCamera,
+        &SolariLighting,
+        Option<&SolariLightingResources>,
+        Option<&MainPassResolutionOverride>,
+    )>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<(
+        Entity,
+        &ExtractedCamera,
+        &SolariLighting,
+        Option<&SolariLightingResources>,
+        Option<&MainPassResolutionOverride>,
+        Has<Dlss<DlssRayReconstructionFeature>>,
+    )>,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    frame_count: Res<FrameCount>,
     mut commands: Commands,
 ) {
     for query_item in &query {
         #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-        let (entity, camera, solari_lighting_resources, resolution_override) = query_item;
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let (entity, camera, solari_lighting_resources, resolution_override, has_dlss_rr) =
+        let (entity, camera, solari_lighting, solari_lighting_resources, resolution_override) =
             query_item;
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        let (
+            entity,
+            camera,
+            solari_lighting,
+            solari_lighting_resources,
+            resolution_override,
+            has_dlss_rr,
+        ) = query_item;
 
         let Some(mut view_size) = camera.physical_viewport_size else {
             continue;
@@ -100,9 +149,25 @@ pub fn prepare_solari_lighting_resources(
             view_size = *resolution_override;
         }
 
-        if solari_lighting_resources.map(|r| r.view_size) == Some(view_size) {
+        let uniforms = SolariLightingUniforms::new(solari_lighting, frame_count.0);
+
+        if let Some(solari_lighting_resources) = solari_lighting_resources
+            && solari_lighting_resources.view_size == view_size
+        {
+            // The constants uniform can change every frame, so always upload it.
+            render_queue.write_buffer(
+                &solari_lighting_resources.constants,
+                0,
+                bytemuck::bytes_of(&uniforms),
+            );
             continue;
         }
+
+        let constants = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("solari_lighting_constants"),
+            contents: bytemuck::bytes_of(&uniforms),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
 
         let light_tile_samples = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_light_tile_samples"),
@@ -120,33 +185,16 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
-        let di_reservoirs = |name| {
-            render_device
-                .create_texture(&TextureDescriptor {
-                    label: Some(name),
-                    size: view_size.to_extents(),
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::Rgba32Uint,
-                    usage: TextureUsages::STORAGE_BINDING,
-                    view_formats: &[],
-                })
-                .create_view(&TextureViewDescriptor::default())
-        };
-        let di_reservoirs_a = di_reservoirs("solari_lighting_di_reservoirs_a");
-        let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
-
-        let gi_reservoirs = |name| {
+        let reservoirs_buffer = |name| {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
-                size: (view_size.x * view_size.y) as u64 * GI_RESERVOIR_STRUCT_SIZE,
+                size: (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE,
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
             })
         };
-        let gi_reservoirs_a = gi_reservoirs("solari_lighting_gi_reservoirs_a");
-        let gi_reservoirs_b = gi_reservoirs("solari_lighting_gi_reservoirs_b");
+        let reservoirs_a = reservoirs_buffer("solari_lighting_reservoirs_a");
+        let reservoirs_b = reservoirs_buffer("solari_lighting_reservoirs_b");
 
         let world_cache_checksums = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_checksums"),
@@ -226,12 +274,11 @@ pub fn prepare_solari_lighting_resources(
         });
 
         commands.entity(entity).insert(SolariLightingResources {
+            constants,
             light_tile_samples,
             light_tile_resolved_samples,
-            di_reservoirs_a,
-            di_reservoirs_b,
-            gi_reservoirs_a,
-            gi_reservoirs_b,
+            reservoirs_a,
+            reservoirs_b,
             world_cache_checksums,
             world_cache_life,
             world_cache_radiance,

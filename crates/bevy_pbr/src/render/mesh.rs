@@ -3470,25 +3470,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
 
+        if key.contains(MeshPipelineKey::OIT_ENABLED) {
+            shader_defs.push("OIT_ENABLED".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED)
-            && matches!(
-                pass,
-                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-            )
-        {
-            label = "oit_mesh_pipeline".into();
-            // TODO tail blending would need alpha blending
-            blend = None;
-            shader_defs.push("OIT_ENABLED".into());
-            // TODO it should be possible to use this to combine MSAA and OIT
-            // alpha_to_coverage_enabled = true;
-            depth_write_enabled = false;
-        } else if pass == MeshPipelineKey::BLEND_ALPHA {
+        if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
