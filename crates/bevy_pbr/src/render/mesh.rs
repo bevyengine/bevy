@@ -2734,6 +2734,9 @@ pub struct MeshPipeline {
     /// Whether mesh metadata will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub metadata_use_uniform_buffers: bool,
+
+    /// Whether depth texture is filterable.
+    pub depth_filterable: bool,
 }
 
 fn init_mesh_pipeline(
@@ -2764,6 +2767,12 @@ fn init_mesh_pipeline(
         skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
         metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
             &render_device.limits(),
+        ),
+        depth_filterable: texture_format_contains_feature_flags(
+            CORE_3D_DEPTH_FORMAT,
+            &render_device,
+            &render_adapter,
+            TextureFormatFeatureFlags::FILTERABLE,
         ),
     };
 
@@ -3570,8 +3579,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
-        #[cfg(feature = "experimental_pbr_pcss")]
-        shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
+        if cfg!(feature = "experimental_pbr_pcss") && self.depth_filterable {
+            shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
+        }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());

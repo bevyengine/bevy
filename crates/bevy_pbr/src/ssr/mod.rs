@@ -5,7 +5,7 @@ use core::ops::Range;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
+    core_3d::{main_opaque_pass_3d, CORE_3D_DEPTH_FORMAT, DEPTH_PREPASS_TEXTURE_SUPPORTED},
     prepass::{DeferredPrepass, DepthPrepass},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
@@ -45,8 +45,9 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, deferred::deferred_lighting, Bluenoise, MeshPipelineSystems,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, ViewKeyCache,
+    binding_arrays_are_usable, deferred::deferred_lighting, texture_format_contains_feature_flags,
+    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, ViewKeyCache,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -188,6 +189,7 @@ pub struct ViewScreenSpaceReflectionsUniformOffset(u32);
 pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
     target_format: TextureFormat,
+    depth_filterable: bool,
 }
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
@@ -388,6 +390,8 @@ pub fn init_screen_space_reflections_pipeline(
 /// Sets up screen space reflection pipelines for each applicable view.
 pub fn prepare_ssr_pipelines(
     mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>,
@@ -412,6 +416,12 @@ pub fn prepare_ssr_pipelines(
             ScreenSpaceReflectionsPipelineKey {
                 mesh_pipeline_view_key: (*view_key).into(),
                 target_format: extracted_view.target_format,
+                depth_filterable: texture_format_contains_feature_flags(
+                    CORE_3D_DEPTH_FORMAT,
+                    &render_device,
+                    &render_adapter,
+                    wgpu_types::TextureFormatFeatureFlags::FILTERABLE,
+                ),
             },
         );
 
@@ -518,9 +528,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("AREA_LIGHT_LUTS".into());
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        shader_defs.push("USE_DEPTH_SAMPLERS".into());
-
+        if key.depth_filterable {
+            shader_defs.push("USE_DEPTH_SAMPLERS".into());
+        }
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
             layout,

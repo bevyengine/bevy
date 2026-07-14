@@ -31,6 +31,7 @@ pub mod contact_shadows;
 pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
 use bevy_render::{
+    renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
     view::{
         RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin,
@@ -497,6 +498,25 @@ pub fn area_light_luts_placeholder() -> Image {
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
     }
+}
+
+pub(crate) fn texture_format_contains_feature_flags(
+    format: TextureFormat,
+    render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
+    flags: wgpu_types::TextureFormatFeatureFlags,
+) -> bool {
+    format
+        .guaranteed_format_features(render_device.features())
+        .flags
+        .contains(flags)
+        || (render_device
+            .features()
+            .contains(wgpu_types::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
+            && render_adapter
+                .get_texture_format_features(format)
+                .flags
+                .contains(flags))
 }
 
 impl SyncComponent<RenderApp, PbrPlugin> for DirectionalLight {
