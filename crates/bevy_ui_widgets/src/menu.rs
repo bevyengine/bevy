@@ -477,15 +477,15 @@ impl Plugin for MenuPlugin {
             (menu_acquire_focus, menu_on_lose_focus)
                 .chain()
                 .after(VisibilitySystems::VisibilityPropagate),
-            )
-            .add_observer(menu_on_key_event)
-            .add_observer(menu_item_on_pointer_down)
-            .add_observer(menu_item_on_pointer_up)
-            .add_observer(menu_item_on_pointer_click)
-            .add_observer(menu_item_on_pointer_drag_end)
-            .add_observer(menu_item_on_pointer_cancel)
-            .add_observer(menubutton_on_key_event)
-            .add_observer(menubutton_on_activate);
+        )
+        .add_observer(menu_on_key_event)
+        .add_observer(menu_item_on_pointer_down)
+        .add_observer(menu_item_on_pointer_up)
+        .add_observer(menu_item_on_pointer_click)
+        .add_observer(menu_item_on_pointer_drag_end)
+        .add_observer(menu_item_on_pointer_cancel)
+        .add_observer(menubutton_on_key_event)
+        .add_observer(menubutton_on_activate);
     }
 }
 
