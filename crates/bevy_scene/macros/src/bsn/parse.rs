@@ -1,4 +1,4 @@
-use crate::bsn::types::{
+use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
     BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
@@ -98,7 +98,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 
 impl BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Token![:]) {
+        Ok(if input.peek(Token![:]) && !input.peek(Token![::]) {
             BsnEntry::CachedScene(BsnScene::parse(input)?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;

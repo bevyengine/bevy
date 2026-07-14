@@ -1,4 +1,4 @@
-use crate::bsn::types::{
+use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
     BsnType, BsnValue,
@@ -633,6 +633,17 @@ impl BsnType {
             return Ok(quote! {#(#type_assigns)*});
         }
 
+        if let Some(
+            value @ (BsnValue::Ident(_)
+            | BsnValue::Expr(_)
+            | BsnValue::Closure(_)
+            | BsnValue::Tuple(_)),
+        ) = value
+        {
+            let ident = ctx.hoisted_expressions.hoist(value);
+            return Ok(quote! { *#bind_name = #ident; });
+        }
+
         // NOTE: It is very important to still produce outputs for None field values. This is what
         // enables field autocomplete in Rust Analyzer
         value
@@ -742,7 +753,7 @@ impl ToTokens for BsnValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bsn::types::*;
+    use crate::_bsn::types::*;
     use syn::parse_quote;
 
     struct TestPaths {
@@ -993,6 +1004,49 @@ mod tests {
         assert!(ctx.errors[0]
             .to_string()
             .contains("Duplicate field `x` found in BSN enum variant"));
+    }
+
+    #[test]
+    fn enum_variant_expr_is_hoisted() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let mut assignments = vec![];
+        let handle = BsnType {
+            path: parse_quote!(FontSourceTemplate),
+            enum_variant: Some(parse_quote!(Handle)),
+            fields: BsnFields::Tuple(vec![BsnUnnamedField {
+                value: BsnValue::Expr(quote!(some_borrow.clone())),
+            }]),
+        };
+
+        let res = handle.push_enum_patch(
+            &mut ctx,
+            &parse_quote!(Handle),
+            &mut assignments,
+            PatchTarget {
+                path: &[],
+                is_ref: false,
+            },
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(ctx.errors.len(), 0);
+        assert_eq!(exprs.expressions.len(), 1);
+        assert_eq!(
+            exprs.expressions[0].to_string(),
+            "let _expr0 = { some_borrow . clone () } . into () ;"
+        );
+        let assignment_output: String = assignments.iter().map(|t| t.to_string()).collect();
+        assert!(
+            assignment_output.contains("_expr0"),
+            "expected hoisted ident in assignment output: {assignment_output}"
+        );
+        assert!(
+            !assignment_output.contains("some_borrow"),
+            "borrow should not appear inline in assignment output: {assignment_output}"
+        );
     }
 
     #[test]

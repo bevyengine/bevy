@@ -29,7 +29,7 @@ use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{
-    ImageNode, ImageNodeSize, NodeImageMode, Text, TextScroll, TextShadow, ViewportNode,
+    ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode,
 };
 use bevy_ui::{
     BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
@@ -46,7 +46,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -439,7 +439,6 @@ pub fn extract_uinode_changes(
                         Changed<TextLayoutInfo>,
                     )>,
                     Or<(
-                        Changed<TextScroll>,
                         Changed<TextCursorStyle>,
                         Changed<TextShadow>,
                         Changed<BackgroundGradient>,
@@ -509,7 +508,6 @@ pub fn extract_uinode_changes(
         Extract<RemovedComponents<TextLayoutInfo>>,
     ),
     (
-        mut removed_text_scroll_query,
         mut removed_text_cursor_style_query,
         mut removed_text_shadow_query,
         mut removed_background_gradient_query,
@@ -517,7 +515,6 @@ pub fn extract_uinode_changes(
         mut removed_editable_text_query,
         mut removed_ui_debug_options,
     ): (
-        Extract<RemovedComponents<TextScroll>>,
         Extract<RemovedComponents<TextCursorStyle>>,
         Extract<RemovedComponents<TextShadow>>,
         Extract<RemovedComponents<BackgroundGradient>>,
@@ -550,7 +547,6 @@ pub fn extract_uinode_changes(
         .chain(removed_computed_text_block_query.read())
         .chain(removed_text_color_query.read())
         .chain(removed_text_layout_info_query.read())
-        .chain(removed_text_scroll_query.read())
         .chain(removed_text_cursor_style_query.read())
         .chain(removed_text_shadow_query.read())
         .chain(removed_background_gradient_query.read())
@@ -1127,7 +1123,7 @@ pub fn extract_ui_camera_view(
             }
 
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
-            let projection_matrix = Mat4::orthographic_rh(
+            let projection_matrix = proj::orthographic(
                 0.0,
                 physical_viewport_rect.width() as f32,
                 physical_viewport_rect.height() as f32,
@@ -1324,7 +1320,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
-            Option<&TextScroll>,
+            Option<&EditableText>,
             Option<&TextCursorStyle>,
         )>,
     >,
@@ -1347,7 +1343,7 @@ pub fn extract_text_sections(
         computed_block,
         text_color,
         text_layout_info,
-        text_scroll,
+        editable_text,
         cursor_style,
     ) in extracted_uinodes
         .changed
@@ -1365,10 +1361,11 @@ pub fn extract_text_sections(
 
         let transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                uinode.content_box().min
+                    - editable_text.map_or(Vec2::ZERO, |text| text.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),
@@ -1475,7 +1472,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
-            Option<&TextScroll>,
+            Option<&EditableText>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1497,7 +1494,7 @@ pub fn extract_text_shadows(
         text_layout_info,
         shadow,
         computed_block,
-        text_scroll,
+        editable_text,
     ) in extracted_uinodes
         .changed
         .iter()
@@ -1515,10 +1512,10 @@ pub fn extract_text_shadows(
         let node_transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
                 uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor()
-                    - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                    - editable_text.map_or(Vec2::ZERO, |text| text.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),
@@ -1661,7 +1658,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
-            Option<&TextScroll>,
+            Option<&EditableText>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1687,7 +1684,7 @@ pub fn extract_text_decorations(
         maybe_clip,
         camera,
         text_layout_info,
-        text_scroll,
+        editable_text,
     ) in extracted_uinodes
         .changed
         .iter()
@@ -1704,10 +1701,11 @@ pub fn extract_text_decorations(
 
         let transform = Affine2::from(global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+                uinode.content_box().min
+                    - editable_text.map_or(Vec2::ZERO, |text| text.viewport.offset),
             );
 
-        let clip = if text_scroll.is_some() {
+        let clip = if editable_text.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
                 global_transform.affine().translation + content_box.center(),
@@ -1852,7 +1850,7 @@ struct UiVertex {
     pub flags: u32,
     /// Border radius of the UI node.
     /// Ordering: top left, top right, bottom right, bottom left.
-    pub radius: [f32; 4],
+    pub radius: [[f32; 4]; 2],
     /// Border thickness of the UI node.
     /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
@@ -2361,7 +2359,7 @@ pub fn prepare_uinodes(
                                     uv: uvs[i].into(),
                                     color,
                                     flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
-                                    radius: [0.0; 4],
+                                    radius: [[0.0; 4]; 2],
                                     border: [0.0; 4],
                                     size: rect_size.into(),
                                     point: [0.0; 2],

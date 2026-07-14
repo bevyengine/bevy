@@ -626,11 +626,34 @@ impl<'a, K: EntityEquivalent + Hash> Iterator for Iter<'a, K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash> DoubleEndedIterator for Iter<'_, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -711,11 +734,34 @@ impl<K: EntityEquivalent + Hash> Iterator for IntoIter<K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash> DoubleEndedIterator for IntoIter<K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -799,11 +845,34 @@ impl<'a, K: EntityEquivalent + Hash> Iterator for Drain<'a, K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash> DoubleEndedIterator for Drain<'_, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 

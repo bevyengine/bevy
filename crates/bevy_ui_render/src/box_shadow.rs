@@ -74,7 +74,7 @@ struct BoxShadowVertex {
     uvs: [f32; 2],
     vertex_color: [f32; 4],
     size: [f32; 2],
-    radius: [f32; 4],
+    radius: [[f32; 4]; 2],
     blur: f32,
     bounds: [f32; 2],
 }
@@ -146,7 +146,9 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x4,
                 // target rect size
                 VertexFormat::Float32x2,
-                // corner radius values (top left, top right, bottom right, bottom left)
+                // corner radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // corner radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // blur radius
                 VertexFormat::Float32,

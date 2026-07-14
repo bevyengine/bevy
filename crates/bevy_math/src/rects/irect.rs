@@ -156,7 +156,7 @@ impl IRect {
     /// assert_eq!(r.width(), 5);
     /// ```
     #[inline]
-    pub fn width(&self) -> i32 {
+    pub const fn width(&self) -> i32 {
         self.max.x - self.min.x
     }
 
@@ -170,7 +170,7 @@ impl IRect {
     /// assert_eq!(r.height(), 1);
     /// ```
     #[inline]
-    pub fn height(&self) -> i32 {
+    pub const fn height(&self) -> i32 {
         self.max.y - self.min.y
     }
 
