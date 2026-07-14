@@ -1270,6 +1270,7 @@ where
                 prepass_specialize: None,
                 shadows_enabled: false,
                 prepass_enabled: false,
+                oit_enabled: false,
             }),
         })
     }

@@ -336,19 +336,20 @@ impl TabNavigation<'_, '_> {
         if let Ok((entity, tabindex, children, inherited_visibility)) =
             self.tabindex_query.get(parent)
         {
-            // Skip entities that are not visible in the hierarchy. An entity without an
+            // Skip hidden entities and their entire subtree. An entity without an
             // `InheritedVisibility` component (e.g. a non-UI entity) is treated as visible.
-            if inherited_visibility.is_none_or(|v| v.get())
-                && let Some(tabindex) = tabindex
-                && tabindex.0 >= 0
-            {
-                out.push((entity, *tabindex, tab_group_idx));
-            }
-            if let Some(children) = children {
-                for child in children.iter() {
-                    // Don't traverse into tab groups, as they are handled separately.
-                    if self.tabgroup_query.get(*child).is_err() {
-                        self.gather_focusable(out, *child, tab_group_idx);
+            if inherited_visibility.is_none_or(|v| v.get()) {
+                if let Some(tabindex) = tabindex
+                    && tabindex.0 >= 0
+                {
+                    out.push((entity, *tabindex, tab_group_idx));
+                }
+                if let Some(children) = children {
+                    for child in children.iter() {
+                        // Don't traverse into tab groups, as they are handled separately.
+                        if self.tabgroup_query.get(*child).is_err() {
+                            self.gather_focusable(out, *child, tab_group_idx);
+                        }
                     }
                 }
             }

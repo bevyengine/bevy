@@ -98,7 +98,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, First, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{
@@ -258,7 +258,7 @@ pub struct RenderScheduleOrder {
 impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![Render.intern()],
+            labels: vec![First.intern(), Render.intern()],
         }
     }
 }

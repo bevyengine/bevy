@@ -683,6 +683,9 @@ fn prepare_ssao_bind_groups(
     };
 
     for (entity, ssao_resources, prepass_textures) in &views {
+        let Some(depth_view) = prepass_textures.depth_only_view() else {
+            continue;
+        };
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.common_bind_group_layout),
@@ -711,7 +714,7 @@ fn prepare_ssao_bind_groups(
             "ssao_preprocess_depth_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
             &BindGroupEntries::sequential((
-                prepass_textures.depth_view().unwrap(),
+                depth_view,
                 &create_depth_view(0),
                 &create_depth_view(1),
                 &create_depth_view(2),
