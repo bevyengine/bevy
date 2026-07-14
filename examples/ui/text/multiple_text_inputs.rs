@@ -1,9 +1,9 @@
 //! Demonstrates multiple text inputs
 //!
 //! This example arranges text inputs in a four-column grid layout. The first column shows the text justification, the second column is an
-//! [`EditableText`] text input node, the third column is a `Text` node that is kept synchronized with the [`EditableText`]'s contents by the
+//! [`TextInput`] text input node, the third column is a `Text` node that is kept synchronized with the [`TextInput`]'s contents by the
 //! [`synchronize_output_text`] system, and the fourth column is updated by the [`submit_text`] system when the user submits the
-//! [`EditableText`]'s text by pressing `Enter`.
+//! [`TextInput`]'s text by pressing `Enter`.
 
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
@@ -19,7 +19,7 @@ use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
-        // `EditableTextInputPlugin` is part of `DefaultPlugins`
+        // `TextInputPlugin` is part of `DefaultPlugins`
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (submit_text, update_row_border_colors))
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: px(4.).all(),
                         ..default()
                     },
-                    TextInput::default(),
+                    TextInput,
                     EditableText::new(format!("Initial text {row}")),
                     TextCursorStyle::default(),
                     font.clone(),

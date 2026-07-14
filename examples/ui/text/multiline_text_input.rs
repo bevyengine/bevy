@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 padding: px(8.).all(),
                                 ..default()
                             },
-                            TextInput::default(),
+                            TextInput,
                             EditableText {
                                 visible_lines: Some(8.),
                                 allow_newlines: true,
@@ -150,7 +150,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
-                                    TextInput::default(),
+                                    TextInput,
                                     EditableText::new("8"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit() || c == '.'),
                                     TextCursorStyle {
@@ -235,7 +235,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
-                                    TextInput::default(),
+                                    TextInput,
                                     EditableText::new("30"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit()),
                                     TextCursorStyle {
@@ -317,7 +317,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
-                                    TextInput::default(),
+                                    TextInput,
                                     EditableText::new("0"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit() || c == '.'),
                                     TextCursorStyle {

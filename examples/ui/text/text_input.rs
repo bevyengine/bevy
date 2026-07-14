@@ -1,6 +1,6 @@
-//! Demonstrates a simple, unstyled [`EditableText`] widget.
+//! Demonstrates a simple, unstyled [`TextInput`] widget.
 //!
-//! [`EditableText`] is a basic primitive for text input in Bevy UI.
+//! [`TextInput`] is a basic primitive for text input in Bevy UI.
 //! In most cases, this should be combined with other entities to create a compound widget
 //! that includes e.g. a background, border, and text label.
 //!
@@ -125,7 +125,7 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
             },
             BorderColor::from(Color::from(SLATE_300)),
             Name::new(if is_left { "Left" } else { "Right" }),
-            TextInput::default(),
+            TextInput,
             EditableText {
                 visible_width: Some(10.),
                 allow_newlines: false,

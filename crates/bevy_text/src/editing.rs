@@ -311,6 +311,20 @@ pub struct EditableTextGeneration(parley::Generation);
 #[derive(Component, Clone, Default)]
 pub struct EditableTextFilter(Option<Arc<dyn Fn(char) -> bool + Send + Sync + 'static>>);
 
+/// Indicates whether the text is editable, or is in "readonly" mode. A special "static" mode is
+/// also available, which is used by the feathers number input widget.
+#[derive(Component, Clone, Copy, Default, PartialEq)]
+pub enum TextReadWriteMode {
+    /// Text input functions normally
+    #[default]
+    Editable,
+    /// Cursor movement, selection, and copy to clipboard is still enabled, but no mutations are allowed
+    ReadOnly,
+    /// Display only, all interactions disabled - this is used by number input widget when dragging.
+    /// This disallows cursor movement and selection as well.
+    Static,
+}
+
 impl EditableTextFilter {
     /// Create a new `EditableTextFilter` from the given filter function.
     pub fn new(filter: impl Fn(char) -> bool + Send + Sync + 'static) -> Self {

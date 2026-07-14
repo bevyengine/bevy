@@ -33,7 +33,7 @@ fn setup(mut commands: Commands) {
                     padding: px(8.).all(),
                     ..default()
                 },
-                TextInput::default(),
+                TextInput,
                 EditableText {
                     max_characters: Some(8),
                     ..default()
