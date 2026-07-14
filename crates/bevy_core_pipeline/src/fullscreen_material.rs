@@ -193,9 +193,16 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipeline: ResMut<FullscreenMaterialPipeline<T>>,
-    views: Query<(Entity, &ExtractedView), With<ExtractedCamera>>,
+    views: Query<(Entity, &ExtractedView, Option<&T>), With<ExtractedCamera>>,
 ) -> Result<(), BevyError> {
-    for (entity, view) in &views {
+    for (entity, view, material) in &views {
+        if material.is_none() {
+            commands
+                .entity(entity)
+                .remove::<FullscreenMaterialPipelineId>();
+            continue;
+        }
+
         let pipeline_key = FullscreenMaterialPipelineKey {
             target_format: view.target_format,
         };
@@ -229,6 +236,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         Entity,
         &ViewTarget,
         Option<&mut FullscreenMaterialBindGroup<T>>,
+        Option<&T>,
     )>,
     fullscreen_pipeline: Option<Res<FullscreenMaterialPipeline<T>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -242,7 +250,14 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         return;
     };
 
-    for (entity, view_target, mut maybe_bind_groups) in &mut view {
+    for (entity, view_target, mut maybe_bind_groups, material) in &mut view {
+        if material.is_none() {
+            commands
+                .entity(entity)
+                .remove::<FullscreenMaterialBindGroup<T>>();
+            continue;
+        }
+
         let builder = PostProcessBindGroupCacheBuilder::new(|texture: &TextureView| {
             (
                 texture.id(),

@@ -23,7 +23,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -620,7 +620,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewDepthTexture,
+            &ViewDepthStencilTexture,
             &Msaa,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
@@ -667,6 +667,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
     for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
+        let Some(depth_view) = view_depth_texture
+            .attachment
+            .depth_stencil_views()
+            .depth_only_view()
+        else {
+            continue;
+        };
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -776,7 +783,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
                 // view depth texture
-                (13, view_depth_texture.view()),
+                (13, depth_view),
             )),
         );
 
