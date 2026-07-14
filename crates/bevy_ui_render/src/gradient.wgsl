@@ -16,6 +16,7 @@
     hsv_to_linear_rgb,
     hsl_to_linear_rgb,
     oklab_to_linear_rgb,
+    srgb_to_linear,
 }
 
 #import bevy_render::maths::PI
@@ -208,7 +209,7 @@ fn convert_to_linear_rgba(
 #else ifdef IN_OKLAB
     let rgb = oklab_to_linear_rgb(color.xyz);
 #else ifdef IN_SRGB
-    let rgb = pow(color.xyz, vec3(2.2));
+    let rgb = srgb_to_linear(color.xyz);
 #else
     // Color is already in linear rgba space
     let rgb = color.rgb;
