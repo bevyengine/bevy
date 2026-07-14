@@ -264,6 +264,16 @@ pub fn extract_shadows(
     {
         let main_entity = MainEntity::from(entity);
 
+        // If there were any previous box shadows for this entity, despawn them.
+        for (render_entity, _) in extracted_box_shadows
+            .box_shadows
+            .get_mut(&main_entity)
+            .iter_mut()
+            .flat_map(|main_entity| main_entity.drain(..))
+        {
+            commands.entity(render_entity).despawn();
+        }
+
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;

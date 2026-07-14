@@ -384,6 +384,18 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         camera,
     ) in uinode_query.iter()
     {
+        let main_entity = MainEntity::from(entity);
+
+        // If there were any previous UI nodes for this entity, despawn them.
+        for (render_entity, _) in extracted_uinodes
+            .uinodes
+            .get_mut(&main_entity)
+            .iter_mut()
+            .flat_map(|main_entity| main_entity.drain(..))
+        {
+            commands.entity(render_entity).despawn();
+        }
+
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
@@ -398,7 +410,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let main_entity = MainEntity::from(entity);
         nodes_processed_this_frame.insert(main_entity);
 
         extracted_uinodes

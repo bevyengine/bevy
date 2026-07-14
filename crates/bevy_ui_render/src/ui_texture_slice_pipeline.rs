@@ -275,6 +275,16 @@ pub fn extract_ui_texture_slices(
     {
         let main_entity = MainEntity::from(entity);
 
+        // If there were any previous UI slices for this entity, despawn them.
+        for (render_entity, _) in extracted_ui_slicers
+            .slices
+            .get_mut(&main_entity)
+            .iter_mut()
+            .flat_map(|main_entity| main_entity.drain(..))
+        {
+            commands.entity(render_entity).despawn();
+        }
+
         let visual_box = match image.visual_box {
             VisualBox::ContentBox => uinode.content_box(),
             VisualBox::PaddingBox => uinode.padding_box(),

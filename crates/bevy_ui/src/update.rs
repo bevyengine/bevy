@@ -12,8 +12,7 @@ use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
-    hierarchy::ChildOf,
-    query::{Has, With, Without},
+    query::{AnyOf, Has},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -119,26 +118,29 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: Query<
-        (
-            Entity,
-            Option<&Propagate<ComputedUiTargetCamera>>,
-            Option<&Propagate<ComputedUiRenderTargetInfo>>,
-        ),
-        (With<Node>, Without<ChildOf>),
+    propagated_components_query: Query<
+        AnyOf<(
+            &Propagate<ComputedUiTargetCamera>,
+            &Propagate<ComputedUiRenderTargetInfo>,
+        )>,
     >,
+    ui_root_nodes: UiRootNodes,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
-    for (root_entity, maybe_computed_ui_target_camera, maybe_computed_ui_render_target_info) in
-        ui_root_nodes.iter()
-    {
+    for root_entity in ui_root_nodes.iter() {
         let camera = target_camera_query
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
+
+        // Fetch the components that are being propagated.
+        let (maybe_computed_ui_target_camera, maybe_computed_ui_render_target_info) =
+            propagated_components_query
+                .get(root_entity)
+                .unwrap_or_default();
 
         // Only update `ComputedUiTargetCamera` if it actually changed.
         match maybe_computed_ui_target_camera {

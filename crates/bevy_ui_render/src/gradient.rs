@@ -407,6 +407,16 @@ pub fn extract_gradients(
     {
         let main_entity = MainEntity::from(entity);
 
+        // If there were any previous gradients for this entity, despawn them.
+        for (render_entity, _) in extracted_gradients
+            .items
+            .get_mut(&main_entity)
+            .iter_mut()
+            .flat_map(|main_entity| main_entity.drain(..))
+        {
+            commands.entity(render_entity).despawn();
+        }
+
         // Skip invisible images
         if !inherited_visibility.get() {
             continue;
