@@ -39,7 +39,7 @@ fn bytes_read_write(c: &mut Criterion) {
 
     fn bench_group<T: Pod, const S: usize, M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
         const {
-            assert_eq!(size_of::<T>(), S);
+            assert!(size_of::<T>() == S);
         }
         for element_count in ELEMENT_COUNTS {
             group.bench_with_input(
