@@ -1,5 +1,8 @@
 #import bevy_render::view::View;
 #import bevy_render::globals::Globals;
+#import bevy_ui::ui_node::{
+    select_corner_radius
+}
 
 const PI: f32 = 3.14159265358979323846;
 const SAMPLES: i32 = #SHADOW_SAMPLES;
@@ -11,8 +14,9 @@ struct BoxShadowVertexOutput {
     @location(0) point: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) @interpolate(flat) size: vec2<f32>,
-    @location(3) @interpolate(flat) radius: vec4<f32>,    
-    @location(4) @interpolate(flat) blur: f32,
+    @location(3) @interpolate(flat) radius_x: vec4<f32>,
+    @location(4) @interpolate(flat) radius_y: vec4<f32>,
+    @location(5) @interpolate(flat) blur: f32,
 }
 
 fn gaussian(x: f32, sigma: f32) -> f32 {
@@ -29,14 +33,12 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
     return s - s / (result * result);
 }
 
-// returns the closest corner radius based on the signs of the components of p
-fn selectCorner(p: vec2<f32>, c: vec4<f32>) -> f32 {
-    return mix(mix(c.x, c.y, step(0., p.x)), mix(c.w, c.z, step(0., p.x)), step(0., p.y));
-}
-
-fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, corner: f32, half_size: vec2<f32>) -> f32 {
-    let d = min(half_size.y - corner - abs(y), 0.);
-    let c = half_size.x - corner + sqrt(max(0., corner * corner - d * d));
+fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {    
+    var c = half_size.x;
+    if 0.0 < min(radius.x, radius.y) {
+        let d = min(half_size.y - radius.y - abs(y), 0.);
+        c = half_size.x - radius.x + radius.x * sqrt(max(0., 1. - d * d / (radius.y * radius.y)));
+    }
     let integral = 0.5 + 0.5 * erf((x + vec2(-c, c)) * (sqrt(0.5) / blur));
     return integral.y - integral.x;
 }
@@ -46,7 +48,8 @@ fn roundedBoxShadow(
     upper: vec2<f32>,
     point: vec2<f32>,
     blur: f32,
-    corners: vec4<f32>,
+    corners_x: vec4<f32>,
+    corners_y: vec4<f32>,
 ) -> f32 {
     let center = (lower + upper) * 0.5;
     let half_size = (upper - lower) * 0.5;
@@ -59,7 +62,7 @@ fn roundedBoxShadow(
     var y = start + step * 0.5;
     var value: f32 = 0.0;
     for (var i = 0; i < SAMPLES; i++) {
-        let corner = selectCorner(p, corners);
+        let corner = select_corner_radius(p, corners_x, corners_y);
         value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;
     }
@@ -72,16 +75,18 @@ fn vertex(
     @location(1) uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
     @location(3) size: vec2<f32>,
-    @location(4) radius: vec4<f32>,
-    @location(5) blur: f32,
-    @location(6) bounds: vec2<f32>,
+    @location(4) radius_x: vec4<f32>,
+    @location(5) radius_y: vec4<f32>,
+    @location(6) blur: f32,
+    @location(7) bounds: vec2<f32>,
 ) -> BoxShadowVertexOutput {
     var out: BoxShadowVertexOutput;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.point = (uv.xy - 0.5) * bounds;
     out.color = vertex_color;
     out.size = size;
-    out.radius = radius;
+    out.radius_x = radius_x;
+    out.radius_y = radius_y;
     out.blur = blur;
     return out;
 }
@@ -90,9 +95,8 @@ fn vertex(
 fn fragment(
     in: BoxShadowVertexOutput,
 ) -> @location(0) vec4<f32> {
-    let g = in.color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, in.point, max(in.blur, 0.01), in.radius);
+    let g = in.color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, in.point, max(in.blur, 0.01), in.radius_x, in.radius_y);
     return vec4(in.color.rgb, g);
 }
-
 
 

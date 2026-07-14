@@ -61,6 +61,14 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         true
     }
 
+    /// Controls whether order independent transparency is enabled for the Material.
+    /// This is ignored if the camera does not have [`bevy_core_pipeline::oit::OrderIndependentTransparencySettings`]
+    /// or if [`Self::alpha_mode`] is not supported by OIT.
+    #[inline]
+    fn enable_oit() -> bool {
+        true
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
     /// will be used.
     fn prepass_vertex_shader() -> ShaderRef {
@@ -353,6 +361,10 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
 
     fn enable_shadows() -> bool {
         E::enable_shadows()
+    }
+
+    fn enable_oit() -> bool {
+        E::enable_oit()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {

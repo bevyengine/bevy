@@ -221,6 +221,14 @@ impl<'a, K: EntityEquivalent + Hash, V> Iterator for Keys<'a, K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.0.fold(init, f)
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> ExactSizeIterator for Keys<'_, K, V> {}
@@ -299,6 +307,14 @@ impl<K: EntityEquivalent + Hash, V> Iterator for IntoKeys<K, V> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
+    }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.0.fold(init, f)
     }
 }
 
