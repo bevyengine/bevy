@@ -12,7 +12,7 @@ use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
-    query::{AnyOf, Has, Or, With},
+    query::{Has, Or, With},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -118,12 +118,6 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    propagated_components_query: Query<
-        AnyOf<(
-            &Propagate<ComputedUiTargetCamera>,
-            &Propagate<ComputedUiRenderTargetInfo>,
-        )>,
-    >,
     ui_root_nodes: UiRootNodes,
     ui_children: UiChildren,
     propagate_query: Query<
@@ -153,21 +147,9 @@ pub fn propagate_ui_target_cameras(
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
-        // Fetch the components that are being propagated.
-        let (maybe_computed_ui_target_camera, maybe_computed_ui_render_target_info) =
-            propagated_components_query
-                .get(root_entity)
-                .unwrap_or_default();
-
-        // Only update `ComputedUiTargetCamera` if it actually changed.
-        match maybe_computed_ui_target_camera {
-            Some(computed_ui_target_camera) if computed_ui_target_camera.0.camera == camera => {}
-            _ => {
-                commands
-                    .entity(root_entity)
-                    .try_insert(Propagate(ComputedUiTargetCamera { camera }));
-            }
-        }
+        commands
+            .entity(root_entity)
+            .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
         let (scale_factor, physical_size) = camera_query
             .get(camera)
@@ -180,21 +162,12 @@ pub fn propagate_ui_target_cameras(
             })
             .unwrap_or((1., UVec2::ZERO));
 
-        let new_computed_ui_render_target_info = ComputedUiRenderTargetInfo {
-            scale_factor,
-            physical_size,
-        };
-
-        // Only update `ComputedUiRenderTargetInfo` if it actually changed.
-        match maybe_computed_ui_render_target_info {
-            Some(computed_ui_render_target_info)
-                if computed_ui_render_target_info.0 == new_computed_ui_render_target_info => {}
-            _ => {
-                commands
-                    .entity(root_entity)
-                    .try_insert(Propagate(new_computed_ui_render_target_info));
-            }
-        }
+        commands
+            .entity(root_entity)
+            .try_insert(Propagate(ComputedUiRenderTargetInfo {
+                scale_factor,
+                physical_size,
+            }));
     }
 }
 
