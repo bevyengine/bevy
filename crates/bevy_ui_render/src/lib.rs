@@ -28,9 +28,7 @@ use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{
-    ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode,
-};
+use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
     ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node, OuterColor, Outline,
@@ -394,6 +392,15 @@ pub struct ExtractedUiNodes {
     pub changed: MainEntityHashSet,
 }
 
+/// A query filter that matches all UI nodes.
+type UiNodeQueryFilter = (
+    With<ComputedNode>,
+    With<ComputedStackIndex>,
+    With<UiGlobalTransform>,
+    With<InheritedVisibility>,
+    With<ComputedUiTargetCamera>,
+);
+
 // Note: Whenever you add a new component that affects UI rendering, make sure
 // to add a `Changed` query filter and a reference to the `RemovedComponents`
 // resource to `extract_uinode_changes` below.
@@ -408,15 +415,12 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinode_changes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    uinode_query: Extract<
+    all_uinodes_query: Extract<Query<Entity, UiNodeQueryFilter>>,
+    changed_uinodes_query: Extract<
         Query<
             Entity,
             (
-                With<ComputedNode>,
-                With<ComputedStackIndex>,
-                With<UiGlobalTransform>,
-                With<InheritedVisibility>,
-                With<ComputedUiTargetCamera>,
+                UiNodeQueryFilter,
                 Or<(
                     Or<(
                         Changed<ComputedNode>,
@@ -528,46 +532,65 @@ pub fn extract_uinode_changes(
         Extract<RemovedComponents<EditableText>>,
         Extract<RemovedComponents<UiDebugOptions>>,
     ),
+    global_ui_debug_options: Extract<Res<GlobalUiDebugOptions>>,
     mut extra_nodes_to_invalidate: Local<MainEntityHashSet>,
 ) {
     extracted_uinodes.changed.clear();
 
-    // Go through all nodes that have changed and invalidate any render world
-    // data associated with them.
-    for main_entity in uinode_query
-        .iter()
-        .chain(text_span_query.iter())
-        .chain(removed_computed_node_query.read())
-        .chain(removed_computed_stack_index_query.read())
-        .chain(removed_ui_global_transform_query.read())
-        .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
-        .chain(removed_computed_ui_target_camera_query.read())
-        .chain(removed_background_color_query.read())
-        .chain(removed_outer_color_query.read())
-        .chain(removed_image_node_query.read())
-        .chain(removed_image_node_size_query.read())
-        .chain(removed_border_color_query.read())
-        .chain(removed_outline_query.read())
-        .chain(removed_viewport_node_query.read())
-        .chain(removed_computed_text_block_query.read())
-        .chain(removed_text_color_query.read())
-        .chain(removed_text_layout_info_query.read())
-        .chain(removed_text_cursor_style_query.read())
-        .chain(removed_text_shadow_query.read())
-        .chain(removed_background_gradient_query.read())
-        .chain(removed_border_gradient_query.read())
-        .chain(removed_editable_text_query.read())
-        .chain(removed_ui_debug_options.read())
-    {
-        process_changed_entity(
-            main_entity.into(),
-            &mut commands,
-            &text_span_parent_query,
-            &text_query,
-            &mut extracted_uinodes,
-            Some(&mut extra_nodes_to_invalidate),
-        );
+    // If the debug options changed, we wipe everything.
+    // That's a bit coarse-grained, but having the debug options change is rare
+    // and should only happen in, well, debugging.
+    let must_wipe_all_nodes = global_ui_debug_options.is_changed();
+
+    if must_wipe_all_nodes {
+        for main_entity in &all_uinodes_query {
+            process_changed_entity(
+                main_entity.into(),
+                &mut commands,
+                &text_span_parent_query,
+                &text_query,
+                &mut extracted_uinodes,
+                Some(&mut extra_nodes_to_invalidate),
+            );
+        }
+    } else {
+        // Go through all nodes that have changed and invalidate any render world
+        // data associated with them.
+        for main_entity in changed_uinodes_query
+            .iter()
+            .chain(text_span_query.iter())
+            .chain(removed_computed_node_query.read())
+            .chain(removed_computed_stack_index_query.read())
+            .chain(removed_ui_global_transform_query.read())
+            .chain(removed_inherited_visibility_query.read())
+            .chain(removed_calculated_clip_query.read())
+            .chain(removed_computed_ui_target_camera_query.read())
+            .chain(removed_background_color_query.read())
+            .chain(removed_outer_color_query.read())
+            .chain(removed_image_node_query.read())
+            .chain(removed_image_node_size_query.read())
+            .chain(removed_border_color_query.read())
+            .chain(removed_outline_query.read())
+            .chain(removed_viewport_node_query.read())
+            .chain(removed_computed_text_block_query.read())
+            .chain(removed_text_color_query.read())
+            .chain(removed_text_layout_info_query.read())
+            .chain(removed_text_cursor_style_query.read())
+            .chain(removed_text_shadow_query.read())
+            .chain(removed_background_gradient_query.read())
+            .chain(removed_border_gradient_query.read())
+            .chain(removed_editable_text_query.read())
+            .chain(removed_ui_debug_options.read())
+        {
+            process_changed_entity(
+                main_entity.into(),
+                &mut commands,
+                &text_span_parent_query,
+                &text_query,
+                &mut extracted_uinodes,
+                Some(&mut extra_nodes_to_invalidate),
+            );
+        }
     }
 
     for main_entity in extra_nodes_to_invalidate.drain() {
