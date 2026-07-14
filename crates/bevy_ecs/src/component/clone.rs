@@ -1,5 +1,4 @@
 use core::marker::PhantomData;
-use log::error;
 
 use crate::component::Component;
 use crate::entity::{ComponentCloneCtx, SourceComponent};
@@ -144,7 +143,7 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         let Ok(source_component_cloned) = source_component_reflect.to_dynamic() else {
             let component_info = ctx.component_info();
 
-            error!(
+            log::error!(
                 "Failed to clone source component ({}) because to_dynamic call failed. Does your component contain an opaque type that does not implement Reflect?",
                 component_info.name()
             );
