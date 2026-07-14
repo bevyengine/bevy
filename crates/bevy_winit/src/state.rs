@@ -718,6 +718,9 @@ impl WinitAppRunnerState {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                             self.scheduled_tick_start = Some(next);
                         }
+                    } else {
+                        event_loop.set_control_flow(ControlFlow::Wait);
+                        self.scheduled_tick_start = None;
                     }
                 }
             }
