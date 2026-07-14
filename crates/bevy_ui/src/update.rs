@@ -12,7 +12,7 @@ use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
-    query::Has,
+    query::{Has, Or, With},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -119,8 +119,25 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
+    ui_children: UiChildren,
+    propagate_query: Query<
+        Entity,
+        Or<(
+            With<Propagate<ComputedUiTargetCamera>>,
+            With<Propagate<ComputedUiRenderTargetInfo>>,
+        )>,
+    >,
 ) {
     let default_camera_entity = default_ui_camera.get();
+
+    for entity in propagate_query.iter() {
+        if ui_children.get_parent(entity).is_some() {
+            commands.entity(entity).remove::<(
+                Propagate<ComputedUiTargetCamera>,
+                Propagate<ComputedUiRenderTargetInfo>,
+            )>();
+        }
+    }
 
     for root_entity in ui_root_nodes.iter() {
         let camera = target_camera_query
@@ -417,6 +434,38 @@ mod tests {
                 .get()
                 .unwrap(),
             camera2
+        );
+    }
+
+    #[test]
+    fn update_context_after_parented() {
+        let mut app = setup_test_app();
+        let world = app.world_mut();
+
+        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
+        let camera2 = world.spawn(Camera2d).id();
+        let parent = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
+        let child = world.spawn(Node::default()).id();
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedUiTargetCamera>(child)
+                .unwrap()
+                .get(),
+            Some(camera1)
+        );
+
+        app.world_mut().entity_mut(parent).add_child(child);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedUiTargetCamera>(child)
+                .unwrap()
+                .get(),
+            Some(camera2)
         );
     }
 
