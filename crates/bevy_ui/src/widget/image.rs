@@ -444,17 +444,19 @@ pub fn update_image_content_size_system(
 /// A system that marks [`ImageNode`]s as changed if either their [`Image`] or
 /// [`TextureAtlasLayout`] changed.
 pub fn mark_images_as_changed_if_their_assets_changed(
-    mut images_query: Query<&mut ImageNode, AssetChanged<ImageNode>>,
-    mut texture_atlas_layouts_query: Query<
-        &mut ImageNodeTextureAtlasLayout,
-        AssetChanged<ImageNodeTextureAtlasLayout>,
+    mut query: Query<
+        (&mut ImageNode, Option<&mut ImageNodeTextureAtlasLayout>),
+        Or<(
+            AssetChanged<ImageNode>,
+            AssetChanged<ImageNodeTextureAtlasLayout>,
+        )>,
     >,
 ) {
-    for mut image in &mut images_query {
+    for (mut image, maybe_texture_atlas_layout) in &mut query {
         image.set_changed();
-    }
-    for mut texture_atlas_layout in &mut texture_atlas_layouts_query {
-        texture_atlas_layout.set_changed();
+        if let Some(mut texture_atlas_layout) = maybe_texture_atlas_layout {
+            texture_atlas_layout.set_changed();
+        }
     }
 }
 

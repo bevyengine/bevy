@@ -446,6 +446,12 @@ pub fn extract_uinode_changes(
                         Changed<BoxShadow>,
                         Changed<EditableText>,
                         Changed<UiDebugOptions>,
+                        Changed<Underline>,
+                    )>,
+                    Or<(
+                        Changed<Strikethrough>,
+                        Changed<StrikethroughColor>,
+                        Changed<UnderlineColor>,
                     )>,
                 )>,
             ),
