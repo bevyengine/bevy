@@ -1620,9 +1620,15 @@ mod tests {
 
     #[test]
     fn non_send_drop_from_different_thread() {
+        struct MustNotDrop;
+        impl Drop for MustNotDrop {
+            fn drop(&mut self) {
+                panic!("Must not be dropped");
+            }
+        }
+
         let mut world = World::default();
-        let (dropck, dropped) = DropCk::new_pair();
-        world.insert_non_send(dropck);
+        world.insert_non_send(MustNotDrop);
 
         let thread = std::thread::spawn(move || {
             // Dropping the world in another thread must
@@ -1633,9 +1639,6 @@ mod tests {
         if let Err(err) = thread.join() {
             std::panic::resume_unwind(err);
         }
-
-        // The non-send data was not dropped, since the world was dropped on the wrong thread.
-        assert_eq!(0, dropped.load(Ordering::Relaxed));
     }
 
     #[test]
