@@ -382,7 +382,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::Unit);
+        let expected = DynamicEnum::try_from(MyEnum::Unit).unwrap();
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
 
         // === NewType Variant === //
@@ -393,7 +393,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::NewType(123));
+        let expected = DynamicEnum::try_from(MyEnum::NewType(123)).unwrap();
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
 
         // === Tuple Variant === //
@@ -404,7 +404,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::Tuple(1.23, 3.21));
+        let expected = DynamicEnum::try_from(MyEnum::Tuple(1.23, 3.21)).unwrap();
         assert!(expected
             .reflect_partial_eq(output.as_partial_reflect())
             .unwrap());
@@ -419,9 +419,10 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::Struct {
+        let expected = DynamicEnum::try_from(MyEnum::Struct {
             value: String::from("I <3 Enums"),
-        });
+        })
+        .unwrap();
         assert!(expected
             .reflect_partial_eq(output.as_partial_reflect())
             .unwrap());
