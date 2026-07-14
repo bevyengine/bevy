@@ -45,7 +45,7 @@ impl Drop for NonSendData {
             && self.origin_thread_id != Some(std::thread::current().id())
         {
             log::warn!(
-                "Attempted drop non-send data {} from thread {:?} while dropping `World` a thread {:?}.  The data will be forgotten instead.",
+                "Attempted drop non-send data {} from thread {:?} while dropping `World` in thread {:?}.  The data will be forgotten instead.",
                 self.type_name,
                 self.origin_thread_id,
                 std::thread::current().id()
