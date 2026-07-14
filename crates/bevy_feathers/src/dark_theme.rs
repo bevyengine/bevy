@@ -26,7 +26,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::TEXT_DIM, palette::LIGHT_GRAY_2),
             (
                 semantic::TEXT_DISABLED,
-                palette::LIGHT_GRAY_1.with_alpha(0.5),
+                palette::LIGHT_GRAY_1.with_alpha(0.4),
             ),
             (semantic::TEXT_ON_ACCENT, palette::WHITE),
             (semantic::FILL_ACCENT_DEFAULT, palette::ACCENT),
@@ -239,10 +239,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::SWITCH_BORDER, semantic::FILL_SOLID_DEFAULT),
             (tokens::SWITCH_BORDER_HOVER, semantic::FILL_SOLID_HOVER),
             (tokens::SWITCH_BORDER_PRESSED, semantic::FILL_SOLID_PRESSED),
-            (
-                tokens::SWITCH_BORDER_DISABLED,
-                semantic::FILL_SOLID_DISABLED,
-            ),
+            (tokens::SWITCH_BORDER_DISABLED, semantic::FILL_SOLID_DEFAULT),
             (tokens::SWITCH_BORDER_CHECKED, semantic::FILL_ACCENT_DEFAULT),
             (
                 tokens::SWITCH_BORDER_CHECKED_HOVER,
@@ -254,7 +251,7 @@ pub fn create_dark_theme() -> ThemeProps {
             ),
             (
                 tokens::SWITCH_BORDER_CHECKED_DISABLED,
-                semantic::FILL_ACCENT_DISABLED,
+                semantic::FILL_SOLID_DEFAULT,
             ),
             (tokens::SWITCH_SLIDE_BG, semantic::TEXT_DEFAULT),
             (tokens::SWITCH_SLIDE_BG_HOVER, semantic::TEXT_DEFAULT),
