@@ -627,7 +627,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             color_rng.random(),
             color_rng.random(),
             color_rng.random(),
-            color_rng.random(),
+            255,
         ];
         textures.push(images.add(Image::new_fill(
             Extent3d {

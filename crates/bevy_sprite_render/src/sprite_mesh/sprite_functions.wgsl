@@ -30,7 +30,7 @@ fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     return textureSample(
         bindless_textures_2d[material_indices[slot].texture],
         bindless_samplers_filtering[material_indices[slot].texture_sampler],
-        uv
+        final_uv
     );
 #else   // BINDLESS
     return textureSample(texture, texture_sampler, final_uv);
