@@ -1,4 +1,4 @@
-use crate::contact_shadows::ViewContactShadowsUniformOffset;
+use crate::contact_shadows::ContactShadows;
 use crate::{
     material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
@@ -383,7 +383,7 @@ pub fn check_views_need_specialization(
             Has<OrderIndependentTransparencySettings>,
             Has<ExtractedAtmosphere>,
             Has<ScreenSpaceReflectionsUniform>,
-            Has<ViewContactShadowsUniformOffset>,
+            Has<ContactShadows>,
         ),
     )>,
 ) {
