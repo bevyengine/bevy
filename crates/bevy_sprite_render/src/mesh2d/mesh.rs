@@ -1,4 +1,4 @@
-use std::mem;
+use core::mem;
 
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
@@ -388,6 +388,11 @@ pub fn extract_2d_meshes(
     }
 }
 
+/// Extracts a single 2D mesh instance from the main world to
+/// `RenderMesh2dInstances` in the render world if it's ready.
+///
+/// If the mesh isn't ready, this method instead adds the instance to
+/// `reextract_entities` and returns.
 fn extract_2d_mesh(
     main_entity: MainEntity,
     view_visibility: &ViewVisibility,
@@ -420,6 +425,7 @@ fn extract_2d_mesh(
         return;
     };
 
+    // Go ahead and extract the mesh instance.
     render_mesh_instances.insert(
         main_entity,
         RenderMesh2dInstance {
