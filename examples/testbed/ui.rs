@@ -40,6 +40,10 @@ fn main() {
     .add_systems(OnEnter(Scene::TextMeasurement), text_measurement::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
     .add_systems(OnEnter(Scene::Borders), borders::setup)
+    .add_systems(
+        OnEnter(Scene::EllipticalBorderRadius),
+        elliptical_border_radius::setup,
+    )
     .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
     .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
     .add_systems(OnEnter(Scene::Overflow), overflow::setup)
@@ -82,6 +86,7 @@ enum Scene {
     TextMeasurement,
     Grid,
     Borders,
+    EllipticalBorderRadius,
     BoxShadow,
     TextWrap,
     Overflow,
@@ -122,7 +127,8 @@ impl Next for Scene {
             Scene::FontLists => Scene::TextMeasurement,
             Scene::TextMeasurement => Scene::Grid,
             Scene::Grid => Scene::Borders,
-            Scene::Borders => Scene::BoxShadow,
+            Scene::Borders => Scene::EllipticalBorderRadius,
+            Scene::EllipticalBorderRadius => Scene::BoxShadow,
             Scene::BoxShadow => Scene::TextWrap,
             Scene::TextWrap => Scene::Overflow,
             Scene::Overflow => Scene::Slice,
@@ -1242,6 +1248,359 @@ mod borders {
     }
 }
 
+mod elliptical_border_radius {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+        commands.spawn((
+            Camera2d,
+            DespawnOnExit(super::Scene::EllipticalBorderRadius),
+        ));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: px(40),
+                    row_gap: px(40),
+                    margin: auto().all(),
+                    padding: px(30).all(),
+                    ..default()
+                },
+                BackgroundColor(DARK_GRAY.into()),
+                DespawnOnExit(super::Scene::EllipticalBorderRadius),
+            ))
+            .with_children(|builder| {
+                builder.spawn((
+                    Node {
+                        width: px(200),
+                        height: px(100),
+                        border: UiRect::all(px(8)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(90), px(24)),
+                            Val2::new(px(18), px(70)),
+                            Val2::new(px(110), px(32)),
+                            Val2::new(px(28), px(58)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(ORANGE.into()),
+                    BackgroundGradient::from(LinearGradient {
+                        stops: vec![
+                            RED.into(),
+                            Color::BLACK.into(),
+                            BLUE.into(),
+                            WHEAT.into(),
+                            GREEN.into(),
+                        ],
+                        ..default()
+                    }),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(4),
+                        offset: px(8),
+                        color: WHITE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(150),
+                        height: px(150),
+                        border: UiRect {
+                            left: px(16),
+                            right: px(4),
+                            top: px(24),
+                            bottom: px(8),
+                        },
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(65), percent(20)),
+                            Val2::new(percent(20), percent(65)),
+                            Val2::new(percent(65), percent(20)),
+                            Val2::new(percent(20), percent(65)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(MEDIUM_SEA_GREEN.into()),
+                    BorderColor::all(DARK_GREEN),
+                    Outline {
+                        width: px(3),
+                        offset: px(10),
+                        color: LIME.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(210),
+                        height: px(75),
+                        border: UiRect::axes(px(12), px(4)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(140), px(18)),
+                            Val2::new(px(140), px(18)),
+                            Val2::new(px(42), px(54)),
+                            Val2::new(px(42), px(54)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(DODGER_BLUE.into()),
+                    BorderColor::all(NAVY),
+                    Outline {
+                        width: px(5),
+                        offset: px(6),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::all(px(30)),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(25), px(20)),
+                            Val2::new(px(20), px(25)),
+                            Val2::new(px(20), px(25)),
+                            Val2::new(px(20), px(25)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(80),
+                        height: px(160),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::axes(px(20), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(80),
+                        height: px(160),
+                        border: UiRect::all(px(10)).with_right(px(25)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::all(px(5)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(px(20), px(20)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+            });
+    }
+}
+
 mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
@@ -1268,7 +1627,7 @@ mod box_shadow {
                         Vec2::ZERO,
                         10.,
                         0.,
-                        BorderRadius::bottom_right(px(10)),
+                        BorderRadius::bottom_right(Val2::all(px(10))),
                     ),
                     (Vec2::new(200., 50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
                     (
@@ -1283,7 +1642,7 @@ mod box_shadow {
                         Vec2::splat(20.),
                         10.,
                         10.,
-                        BorderRadius::bottom_right(px(10)),
+                        BorderRadius::bottom_right(Val2::all(px(10))),
                     ),
                     (
                         Vec2::splat(100.),
@@ -1849,7 +2208,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -1860,7 +2219,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2213,7 +2572,7 @@ mod outer_color {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        let radius = percent(33.);
+        let radius = Val2::all(percent(33.));
         let width = px(10.);
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
@@ -2234,7 +2593,7 @@ mod outer_color {
                     (UiRect::top(width), BorderRadius::top(radius), false),
                     (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
                     (UiRect::left(width), BorderRadius::left(radius), false),
-                    (UiRect::all(width), BorderRadius::all(radius), true),
+                    (UiRect::all(width), BorderRadius::all(radius.x), true),
                     (UiRect::right(width), BorderRadius::right(radius), false),
                     (UiRect::ZERO, BorderRadius::top_right(radius), true),
                     (UiRect::bottom(width), BorderRadius::bottom(radius), false),
