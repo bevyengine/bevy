@@ -196,38 +196,32 @@ pub struct ThemeTextColor(pub ThemeToken);
 pub struct ThemedText;
 
 pub(crate) fn update_theme(
-    mut q_background: Query<(Entity, &mut BackgroundColor, &ThemeBackgroundColor)>,
-    mut q_border: Query<(Entity, &mut BorderColor, &ThemeBorderColor)>,
-    mut q_text_color: Query<(Entity, &mut TextColor, &ThemeTextColor)>,
-    q_context: Query<&ThemeContext>,
+    mut q_background: Query<(
+        &mut BackgroundColor,
+        &ThemeBackgroundColor,
+        Option<&ThemeContext>,
+    )>,
+    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor, Option<&ThemeContext>)>,
+    mut q_text_color: Query<(&mut TextColor, &ThemeTextColor, Option<&ThemeContext>)>,
     q_context_changed: Query<Entity, Changed<ThemeContext>>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
         // Update all background colors
-        for (ent, mut bg, ThemeBackgroundColor(token)) in q_background.iter_mut() {
-            let context = q_context
-                .get(ent)
-                .map(|tc| tc.0)
-                .unwrap_or(SurfaceLevel::Base);
+        for (mut bg, ThemeBackgroundColor(token), ctx) in q_background.iter_mut() {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             bg.0 = theme.context_color(token, context);
         }
 
         // Update all border colors
-        for (ent, mut border, ThemeBorderColor(token)) in q_border.iter_mut() {
-            let context = q_context
-                .get(ent)
-                .map(|tc| tc.0)
-                .unwrap_or(SurfaceLevel::Base);
+        for (mut border, ThemeBorderColor(token), ctx) in q_border.iter_mut() {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             border.set_all(theme.context_color(token, context));
         }
 
         // Update all direct text span colors
-        for (ent, mut text_color, ThemeTextColor(token)) in q_text_color.iter_mut() {
-            let context = q_context
-                .get(ent)
-                .map(|tc| tc.0)
-                .unwrap_or(SurfaceLevel::Base);
+        for (mut text_color, ThemeTextColor(token), ctx) in q_text_color.iter_mut() {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             text_color.0 = theme.context_color(token, context);
         }
     }
@@ -235,29 +229,20 @@ pub(crate) fn update_theme(
     // Because propagation happens after observers run, do a fix-up pass
     for ent in q_context_changed.iter() {
         // Update the background color
-        if let Ok((_, mut bg, ThemeBackgroundColor(token))) = q_background.get_mut(ent) {
-            let context = q_context
-                .get(ent)
-                .map(|tc| tc.0)
-                .unwrap_or(SurfaceLevel::Base);
+        if let Ok((mut bg, ThemeBackgroundColor(token), ctx)) = q_background.get_mut(ent) {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             bg.0 = theme.context_color(token, context);
         }
 
         // Update the border color
-        if let Ok((_, mut border, ThemeBorderColor(token))) = q_border.get_mut(ent) {
-            let context = q_context
-                .get(ent)
-                .map(|tc| tc.0)
-                .unwrap_or(SurfaceLevel::Base);
+        if let Ok((mut border, ThemeBorderColor(token), ctx)) = q_border.get_mut(ent) {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             border.set_all(theme.context_color(token, context));
         }
 
         // Update the direct text span color
-        if let Ok((_, mut text_color, ThemeTextColor(token))) = q_text_color.get_mut(ent) {
-            let context = q_context
-                .get(ent)
-                .map(|tc| tc.0)
-                .unwrap_or(SurfaceLevel::Base);
+        if let Ok((mut text_color, ThemeTextColor(token), ctx)) = q_text_color.get_mut(ent) {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             text_color.0 = theme.context_color(token, context);
         }
     }
