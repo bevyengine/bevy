@@ -24,3 +24,6 @@ pub mod primitives;
 
 #[cfg(all(feature = "meshing", feature = "alloc"))]
 pub mod meshing;
+
+#[cfg(feature = "bounding")]
+pub mod bounding;

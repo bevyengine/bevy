@@ -11,6 +11,7 @@ version      = "0.20.0-dev"
 
 [dependencies]
 approx = { default-features = false, optional = true, version = "0.5" }
+arrayvec = { default-features = false, optional = true, version = "0.7" }
 bevy_asset = { default-features = false, optional = true, path = "../bevy_asset" }
 bevy_math = { default-features = false, path = "../bevy_math" }
 bevy_mesh = { default-features = false, optional = true, path = "../bevy_mesh" }
@@ -41,6 +42,7 @@ std     = ["alloc", "bevy_math/std"]
 
 approx = ["bevy_math/approx", "dep:approx"]
 bevy_reflect = ["alloc", "bevy_math/bevy_reflect", "dep:bevy_reflect"]
+bounding = ["dep:arrayvec"]
 extrusion = ["meshing"]
 meshing = [
   "bevy_reflect",
