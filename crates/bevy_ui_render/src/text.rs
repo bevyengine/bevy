@@ -111,28 +111,29 @@ pub fn extract_text_cursor(
             {
                 let radius = selection.height() * selection_radius;
                 let mut border_radius = ResolvedBorderRadius {
-                    top_left: radius,
-                    top_right: radius,
-                    bottom_right: radius,
-                    bottom_left: radius,
+                    top_left: Vec2::splat(radius),
+                    top_right: Vec2::splat(radius),
+                    bottom_right: Vec2::splat(radius),
+                    bottom_left: Vec2::splat(radius),
                 };
 
                 if let Some(prev) = prev {
                     if selection.min.x <= prev.max.x {
-                        border_radius.top_left = (prev.min.x - selection.min.x).clamp(0., radius);
+                        border_radius.top_left.x = (prev.min.x - selection.min.x).clamp(0., radius);
                     }
                     if prev.min.x <= selection.max.x {
-                        border_radius.top_right = (selection.max.x - prev.max.x).clamp(0., radius);
+                        border_radius.top_right.x =
+                            (selection.max.x - prev.max.x).clamp(0., radius);
                     }
                 }
 
                 if let Some(next) = next {
                     if selection.min.x <= next.max.x {
-                        border_radius.bottom_left =
+                        border_radius.bottom_left.x =
                             (next.min.x - selection.min.x).clamp(0., radius);
                     }
                     if next.min.x <= selection.max.x {
-                        border_radius.bottom_right =
+                        border_radius.bottom_right.x =
                             (selection.max.x - next.max.x).clamp(0., radius);
                     }
                 }

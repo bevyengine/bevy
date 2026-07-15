@@ -5,8 +5,8 @@ use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     ty::impl_type_methods,
-    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -77,13 +77,15 @@ pub trait Struct: PartialReflect {
     fn iter_fields(&self) -> FieldIter<'_>;
 
     /// Creates a new [`DynamicStruct`] from this struct.
-    fn to_dynamic_struct(&self) -> DynamicStruct {
+    ///
+    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_struct(&self) -> Result<DynamicStruct, ReflectCloneError> {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
         for (name, value) in self.iter_fields() {
-            dynamic_struct.insert_boxed(name, value.to_dynamic());
+            dynamic_struct.insert_boxed(name, value.to_dynamic()?);
         }
-        dynamic_struct
+        Ok(dynamic_struct)
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
@@ -786,7 +788,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_at() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -814,7 +816,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_by_name() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -842,7 +844,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_if() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -860,7 +862,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_combo() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
