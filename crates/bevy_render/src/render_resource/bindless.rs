@@ -121,6 +121,8 @@ pub enum BindlessResourceType {
     None,
     /// A storage buffer.
     Buffer,
+    /// A handle to a [`ShaderBuffer`](bevy_render::storage::ShaderBuffer).
+    ShaderBuffer,
     /// A filtering sampler.
     SamplerFiltering,
     /// A non-filtering sampler (nearest neighbor).
@@ -190,6 +192,8 @@ pub struct BindlessBufferDescriptor {
     pub bindless_index: BindlessIndex,
     /// The size of the buffer in bytes, if known.
     pub size: Option<usize>,
+    /// True if this buffer is a shader buffer; false if it's a raw buffer.
+    pub is_shader_buffer: bool,
 }
 
 /// Describes the layout of the bindless index table, which maps bindless
@@ -285,6 +289,7 @@ pub fn create_bindless_bind_group_layout_entries(
             }
             BindlessResourceType::None
             | BindlessResourceType::Buffer
+            | BindlessResourceType::ShaderBuffer
             | BindlessResourceType::DataBuffer => None,
         }) else {
             continue;

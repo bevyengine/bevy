@@ -221,6 +221,8 @@ fn setup(
             #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
             {
                 // Todo: Needs a better design that works with responsive sizing.
+
+                use bevy_render::storage::ShaderBufferData;
                 let font_size = 20.;
                 p.spawn((
                     Node {
@@ -236,10 +238,11 @@ fn setup(
                     Pickable::IGNORE,
                     MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
                         values: buffers.add(ShaderBuffer {
-                            // Initialize with dummy data because the default (`data: None`) will
-                            // cause a panic in the shader if the frame time graph is constructed
-                            // with `enabled: false`.
-                            data: Some(vec![0, 0, 0, 0]),
+                            // Initialize with dummy data because the default
+                            // (`data: ShaderBufferData::Uninitialized(0)`) will
+                            // cause a panic in the shader if the frame time
+                            // graph is constructed with `enabled: false`.
+                            data: ShaderBufferData::Initialized(vec![0, 0, 0, 0]),
                             ..Default::default()
                         }),
                         config: FrameTimeGraphConfigUniform::new(

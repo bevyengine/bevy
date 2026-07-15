@@ -2,8 +2,10 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
     renderer::{RenderDevice, WgpuWrapper},
+    storage::ShaderBuffer,
     texture::GpuImage,
 };
+use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_material::descriptor::BindGroupLayoutDescriptor;
@@ -643,7 +645,7 @@ pub struct UnpreparedBindGroup {
 
 /// A pair of binding index and binding resource, used as part of
 /// [`PreparedBindGroup`] and [`UnpreparedBindGroup`].
-#[derive(Deref, DerefMut)]
+#[derive(Default, Deref, DerefMut)]
 pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
@@ -652,6 +654,7 @@ pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
 #[derive(Debug)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
+    ShaderBuffer(Handle<ShaderBuffer>),
     TextureView(TextureViewDimension, TextureView),
     Sampler(SamplerBindingType, Sampler),
     Data(OwnedData),
@@ -674,6 +677,12 @@ impl OwnedBindingResource {
     pub fn get_binding(&self) -> BindingResource<'_> {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
+            OwnedBindingResource::ShaderBuffer(_) => {
+                panic!(
+                    "You can't use `get_binding` with a `ShaderBuffer`; fetch the buffer from \
+                     the `RenderAssets<GpuShaderBuffer>` instead"
+                )
+            }
             OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
             OwnedBindingResource::Data(_) => panic!("`OwnedData` has no binding resource"),
