@@ -14,6 +14,8 @@ use crate::{
     RenderApp,
 };
 
+use bevy_log::warn_once;
+
 /// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
 ///
 /// This plugin is automatically added by [`ExtractComponentPlugin`], and only needs to be added for manual extraction implementations.
@@ -65,7 +67,11 @@ impl<
         app.register_required_components::<C, SyncToSubWorld<L>>();
 
         app.add_observer(
-            |remove: On<Remove, C>, mut pending: ResMut<PendingSyncEntity<L>>| {
+            |remove: On<Remove, C>, maybe_pending: Option<ResMut<PendingSyncEntity<L>>>| {
+                let Some(mut pending) = maybe_pending else {
+                    warn_once!("A component with sync plugin was removed, but the sub world does not exist, so there is nothing to sync. Skip sync to sub world.");
+                    return;
+                };
                 pending.push(EntityRecord::<L>::ComponentRemoved(
                     remove.entity,
                     |mut entity| {
@@ -74,5 +80,33 @@ impl<
                 ));
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_ecs::component::Component;
+
+    use super::{SyncComponent, SyncComponentPlugin};
+    use crate::RenderApp;
+
+    #[derive(Component)]
+    struct TestSyncComponent;
+
+    impl SyncComponent<RenderApp> for TestSyncComponent {
+        type Target = Self;
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/24927:
+    // with `WgpuSettings { backends: None }` there is no render world, and Bevy used to crash on removing any synced component.
+    // This test checks that the bug does not happen again.
+    #[test]
+    fn remove_synced_component_without_render_world() {
+        let mut app = App::new();
+        app.add_plugins(SyncComponentPlugin::<TestSyncComponent>::default());
+
+        let entity = app.world_mut().spawn(TestSyncComponent).id();
+        app.world_mut().despawn(entity);
     }
 }

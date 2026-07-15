@@ -1,9 +1,5 @@
-use crate::contact_shadows::ViewContactShadowsUniformOffset;
-use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::prepare_atmosphere_buffers,
-    skin::skin_uniforms_from_world,
-};
+use crate::contact_shadows::ContactShadows;
+use crate::{resources::prepare_atmosphere_buffers, skin::skin_uniforms_from_world};
 use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
@@ -44,6 +40,9 @@ use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
 };
 use bevy_render::impl_atomic_pod;
+use bevy_render::material_bind_groups::{
+    MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
+};
 use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
@@ -79,7 +78,6 @@ use core::iter;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
-use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
 #[cfg(feature = "trace")]
@@ -387,7 +385,7 @@ pub fn check_views_need_specialization(
             Has<OrderIndependentTransparencySettings>,
             Has<ExtractedAtmosphere>,
             Has<ScreenSpaceReflectionsUniform>,
-            Has<ViewContactShadowsUniformOffset>,
+            Has<ContactShadows>,
         ),
     )>,
 ) {
@@ -1677,7 +1675,6 @@ impl Default for MeshCullingDataBuffer {
     fn default() -> Self {
         Self(AtomicSparseBufferVec::new(
             BufferUsages::STORAGE,
-            8,
             Arc::from("mesh culling data buffer"),
         ))
     }
@@ -3473,25 +3470,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
 
+        if key.contains(MeshPipelineKey::OIT_ENABLED) {
+            shader_defs.push("OIT_ENABLED".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED)
-            && matches!(
-                pass,
-                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-            )
-        {
-            label = "oit_mesh_pipeline".into();
-            // TODO tail blending would need alpha blending
-            blend = None;
-            shader_defs.push("OIT_ENABLED".into());
-            // TODO it should be possible to use this to combine MSAA and OIT
-            // alpha_to_coverage_enabled = true;
-            depth_write_enabled = false;
-        } else if pass == MeshPipelineKey::BLEND_ALPHA {
+        if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
