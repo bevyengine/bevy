@@ -2674,6 +2674,160 @@ impl Mesh {
     }
 }
 
+// implement common mesh constructors
+impl Mesh {
+    /// Creates a rectangular quad mesh centered at the origin.
+    ///
+    /// The resulting mesh lies in the *XY* plane with normals pointing along the
+    /// positive *Z* axis. `half_size` specifies half of the quad's width and height,
+    /// so the full dimensions are `half_size * 2.0`.
+    ///
+    /// The mesh consists of four vertices and two triangles, and includes position,
+    /// normal, and UV attributes.
+    pub fn quad_mesh(half_size: Vec2) -> Self {
+        let [hw, hh] = half_size.to_array();
+        let positions = alloc::vec![
+            [hw, hh, 0.0],
+            [-hw, hh, 0.0],
+            [-hw, -hh, 0.0],
+            [hw, -hh, 0.0],
+        ];
+        let normals = alloc::vec![[0.0, 0.0, 1.0]; 4];
+        let uvs = alloc::vec![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let indices = Indices::U32(alloc::vec![0, 1, 2, 0, 2, 3]);
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_indices(indices)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+
+    /// Creates a subdivided plane mesh.
+    ///
+    /// The plane is centered at the origin and has a total size of
+    /// `half_size * 2.0`. It is initially generated in the *XZ* plane and then
+    /// rotated so that its normal matches `normal`.
+    ///
+    /// `subdivisions_x` and `subdivisions_z` control the number of subdivisions
+    /// along each axis. A value of `0` produces a single quad.
+    pub fn plane_mesh(
+        normal: Dir3,
+        half_size: Vec2,
+        subdivisions_x: u32,
+        subdivisions_z: u32,
+    ) -> Self {
+        let z_vertex_count = subdivisions_z + 2;
+        let x_vertex_count = subdivisions_x + 2;
+        let num_vertices = (z_vertex_count * x_vertex_count) as usize;
+        let num_indices = ((z_vertex_count - 1) * (x_vertex_count - 1) * 6) as usize;
+
+        let mut positions: Vec<Vec3> = Vec::with_capacity(num_vertices);
+        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(num_vertices);
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(num_vertices);
+        let mut indices: Vec<u32> = Vec::with_capacity(num_indices);
+
+        let rotation = Quat::from_rotation_arc(Vec3::Y, *normal);
+        let size = half_size * 2.0;
+
+        for z in 0..z_vertex_count {
+            for x in 0..x_vertex_count {
+                let tx = x as f32 / (x_vertex_count - 1) as f32;
+                let tz = z as f32 / (z_vertex_count - 1) as f32;
+                let pos = rotation * Vec3::new((-0.5 + tx) * size.x, 0.0, (-0.5 + tz) * size.y);
+                positions.push(pos);
+                normals.push(normal.to_array());
+                uvs.push([tx, tz]);
+            }
+        }
+
+        for z in 0..z_vertex_count - 1 {
+            for x in 0..x_vertex_count - 1 {
+                let quad = z * x_vertex_count + x;
+                indices.push(quad + x_vertex_count + 1);
+                indices.push(quad + 1);
+                indices.push(quad + x_vertex_count);
+                indices.push(quad);
+                indices.push(quad + x_vertex_count);
+                indices.push(quad + 1);
+            }
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+
+    pub fn cuboid_mesh(half_size: Vec3) -> Self {
+        let min = -half_size;
+        let max = half_size;
+
+        // Suppose Y-up right hand, and camera look from +Z to -Z
+        let vertices = &[
+            // Front
+            ([min.x, min.y, max.z], [0.0, 0.0, 1.0], [0.0, 0.0]),
+            ([max.x, min.y, max.z], [0.0, 0.0, 1.0], [1.0, 0.0]),
+            ([max.x, max.y, max.z], [0.0, 0.0, 1.0], [1.0, 1.0]),
+            ([min.x, max.y, max.z], [0.0, 0.0, 1.0], [0.0, 1.0]),
+            // Back
+            ([min.x, max.y, min.z], [0.0, 0.0, -1.0], [1.0, 0.0]),
+            ([max.x, max.y, min.z], [0.0, 0.0, -1.0], [0.0, 0.0]),
+            ([max.x, min.y, min.z], [0.0, 0.0, -1.0], [0.0, 1.0]),
+            ([min.x, min.y, min.z], [0.0, 0.0, -1.0], [1.0, 1.0]),
+            // Right
+            ([max.x, min.y, min.z], [1.0, 0.0, 0.0], [0.0, 0.0]),
+            ([max.x, max.y, min.z], [1.0, 0.0, 0.0], [1.0, 0.0]),
+            ([max.x, max.y, max.z], [1.0, 0.0, 0.0], [1.0, 1.0]),
+            ([max.x, min.y, max.z], [1.0, 0.0, 0.0], [0.0, 1.0]),
+            // Left
+            ([min.x, min.y, max.z], [-1.0, 0.0, 0.0], [1.0, 0.0]),
+            ([min.x, max.y, max.z], [-1.0, 0.0, 0.0], [0.0, 0.0]),
+            ([min.x, max.y, min.z], [-1.0, 0.0, 0.0], [0.0, 1.0]),
+            ([min.x, min.y, min.z], [-1.0, 0.0, 0.0], [1.0, 1.0]),
+            // Top
+            ([max.x, max.y, min.z], [0.0, 1.0, 0.0], [1.0, 0.0]),
+            ([min.x, max.y, min.z], [0.0, 1.0, 0.0], [0.0, 0.0]),
+            ([min.x, max.y, max.z], [0.0, 1.0, 0.0], [0.0, 1.0]),
+            ([max.x, max.y, max.z], [0.0, 1.0, 0.0], [1.0, 1.0]),
+            // Bottom
+            ([max.x, min.y, max.z], [0.0, -1.0, 0.0], [0.0, 0.0]),
+            ([min.x, min.y, max.z], [0.0, -1.0, 0.0], [1.0, 0.0]),
+            ([min.x, min.y, min.z], [0.0, -1.0, 0.0], [1.0, 1.0]),
+            ([max.x, min.y, min.z], [0.0, -1.0, 0.0], [0.0, 1.0]),
+        ];
+
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+
+        let indices = Indices::U32(alloc::vec![
+            0, 1, 2, 2, 3, 0, // front
+            4, 5, 6, 6, 7, 4, // back
+            8, 9, 10, 10, 11, 8, // right
+            12, 13, 14, 14, 15, 12, // left
+            16, 17, 18, 18, 19, 16, // top
+            20, 21, 22, 22, 23, 20, // bottom
+        ]);
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(indices)
+    }
+}
+
 #[cfg(feature = "morph")]
 impl Mesh {
     /// Whether this mesh has morph targets.
