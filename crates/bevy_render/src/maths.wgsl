@@ -63,12 +63,6 @@ fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
     return mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
 }
 
-// Copy the sign bit from B onto A.
-// copysign allows proper handling of negative zero to match the rust implementation of orthonormalize
-fn copysign(a: f32, b: f32) -> f32 {
-    return bitcast<f32>((bitcast<u32>(a) & 0x7FFFFFFF) | (bitcast<u32>(b) & 0x80000000));
-}
-
 // Constructs a right-handed orthonormal basis from a given unit Z vector.
 //
 // NOTE: requires unit-length (normalized) input to function properly.
@@ -78,12 +72,22 @@ fn copysign(a: f32, b: f32) -> f32 {
 // the construction of the orthonormal basis up and right vectors here needs to precisely match the rust
 // implementation in bevy_light/spot_light.rs:spot_light_world_from_view
 fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
-    let sign = copysign(1.0, z_basis.z);
+    let sign = select(-1.0, 1.0, z_basis.z >= 0.0);
     let a = -1.0 / (sign + z_basis.z);
     let b = z_basis.x * z_basis.y * a;
     let x_basis = vec3(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
     let y_basis = vec3(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     return mat3x3(x_basis, y_basis, z_basis);
+}
+
+// Like `orthonormalize`, but only returns the orthonormal y axis.
+fn orthonormal_y_axis(z_basis: vec3f) -> vec3f {
+    let sign = select(-1.0, 1.0, z_basis.z >= 0.0);
+    let a = -1.0 / (sign + z_basis.z);
+    let b = z_basis.x * z_basis.y * a;
+    // let x_basis = vec3f(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
+    let y_basis = vec3f(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
+    return y_basis;
 }
 
 // Returns true if any part of a sphere is on the positive side of a plane.
@@ -109,15 +113,15 @@ fn sphere_intersects_plane_half_space(
 // Returns vec2(t0, t1). If there is no intersection, returns vec2(-1.0).
 fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
     let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
-    
+
     // No intersection
     if discriminant < 0.0 {
         return vec2(-1.0);
     }
-    
+
     let q = -r * mu;
     let sqrt_discriminant = sqrt(discriminant);
-    
+
     // Return both intersection distances
     return vec2(
         q - sqrt_discriminant,

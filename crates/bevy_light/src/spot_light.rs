@@ -175,7 +175,7 @@ impl Default for SpotLight {
 // so we reproduce it here to avoid a mismatch if glam changes.
 // See bevy_render/maths.wgsl:orthonormalize
 pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
-    let sign = 1f32.copysign(z_basis.z);
+    let sign = if z_basis.z >= 0.0 { 1.0 } else { -1.0 };
     let a = -1.0 / (sign + z_basis.z);
     let b = z_basis.x * z_basis.y * a;
     let x_basis = Vec3::new(
@@ -204,7 +204,7 @@ pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
 }
 
 /// Add to a [`SpotLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
+/// A texture mask is applied to the light source to modulate its intensity,
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]

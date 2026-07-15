@@ -3416,6 +3416,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
+        if layout
+            .0
+            .get_attribute_compression()
+            .contains(MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE)
+        {
+            // The mesh has tangents but doesn't have `Mesh::ATTRIBUTE_TANGENT`
+            shader_defs.push("VERTEX_TANGENTS".into());
+            shader_defs.push("VERTEX_PACKED_TANGENT_ANGLE".into());
+        }
+
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
         }

@@ -539,6 +539,15 @@ impl PrepassPipeline {
                 }
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::PACKED_TANGENT_ANGLE)
+            {
+                // The mesh has tangents but doesn't have `Mesh::ATTRIBUTE_TANGENT`
+                shader_defs.push("VERTEX_TANGENTS".into());
+                shader_defs.push("VERTEX_PACKED_TANGENT_ANGLE".into());
+            }
         }
         if mesh_key
             .intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS | MeshPipelineKey::DEFERRED_PREPASS)

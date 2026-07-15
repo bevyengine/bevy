@@ -26,7 +26,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 
 # other
 bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5" }
+bytemuck = { version = "1.5", features = ["must_cast"] }
 wgpu-types = { version = "29.0.3", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
