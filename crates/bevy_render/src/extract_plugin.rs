@@ -427,7 +427,6 @@ mod test {
 
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((
-                RenderComponent,
                 RenderComponentSeparateA,
                 RenderComponentSeparateB,
                 RenderComponentSeparateBoth,
