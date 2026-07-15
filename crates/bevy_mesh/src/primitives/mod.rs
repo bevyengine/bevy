@@ -1,13 +1,14 @@
-//! Mesh generation for [primitive shapes](bevy_math::primitives).
+//! Mesh generation traits.
 //!
-//! Primitives that support meshing implement the [`Meshable`] trait.
-//! Calling [`mesh`](Meshable::mesh) will return either a [`Mesh`] or a builder
-//! that can be used to specify shape-specific configuration for creating the [`Mesh`].
+//! Anything that support meshing implement the [`Meshable`] trait.
+//! Calling [`mesh`](Meshable::mesh) will return a [`Mesh`] while calling
+//! [`mesh_builder`](Meshable::mesh_builder) returns a builder that can be used to specify
+//! shape-specific configuration for creating the [`Mesh`].
 //!
 //! ```
 //! # use bevy_asset::Assets;
 //! # use bevy_ecs::prelude::ResMut;
-//! # use bevy_math::prelude::Circle;
+//! # use bevy_shapes::prelude::Circle;
 //! # use bevy_mesh::*;
 //! #
 //! # fn setup(mut meshes: ResMut<Assets<Mesh>>) {
@@ -15,18 +16,9 @@
 //! let circle = meshes.add(Circle { radius: 25.0 });
 //!
 //! // Specify number of vertices
-//! let circle = meshes.add(Circle { radius: 25.0 }.mesh().resolution(64));
+//! let circle = meshes.add(Circle { radius: 25.0 }.mesh_builder().resolution(64));
 //! # }
 //! ```
-
-mod dim2;
-pub use dim2::*;
-
-mod dim3;
-pub use dim3::*;
-
-mod extrusion;
-pub use extrusion::*;
 
 use super::Mesh;
 

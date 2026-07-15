@@ -4,7 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
-    primitives::{HalfSpace, ViewFrustum},
+    camera::{HalfSpace, ViewFrustum},
     Affine3A, Mat3A, Vec3, Vec3A,
 };
 use bevy_mesh::{Mesh, VertexAttributeValues};

@@ -11,8 +11,8 @@ use bevy_ecs::{
     system::{Local, Query, Res},
 };
 use bevy_math::{
+    camera::HalfSpace,
     ops::{self, sin_cos},
-    primitives::HalfSpace,
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
 use bevy_transform::components::GlobalTransform;

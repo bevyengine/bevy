@@ -1,4 +1,4 @@
-//! Module implementing [`BoundedExtrusion`] for all the primitives in bevy_shapes
+//! Implement [`BoundedExtrusion`] for all the primitives in bevy_shapes
 
 use core::f32::consts::FRAC_PI_2;
 

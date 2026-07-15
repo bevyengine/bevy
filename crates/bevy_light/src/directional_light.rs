@@ -7,7 +7,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::primitives::ViewFrustum;
+use bevy_math::camera::ViewFrustum;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 use tracing::warn;

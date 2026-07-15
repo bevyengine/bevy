@@ -17,7 +17,6 @@ use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_math::{
     bounding::{Aabb2d, Aabb3d},
-    primitives::Triangle3d,
     *,
 };
 use bevy_platform::collections::{hash_map, HashMap};
@@ -2537,17 +2536,15 @@ impl Mesh {
     ///
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
-    pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
+    pub fn triangles(&self) -> Result<impl Iterator<Item = [Vec3; 3]> + '_, MeshTrianglesError> {
         fn indices_to_triangle<T: TryInto<usize> + Copy>(
             vertices: &[[f32; 3]],
             indices: &[T; 3],
-        ) -> Option<Triangle3d> {
+        ) -> Option<[Vec3; 3]> {
             let vert0 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
             let vert1 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
             let vert2 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
-            Some(Triangle3d {
-                vertices: [vert0, vert1, vert2],
-            })
+            Some([vert0, vert1, vert2])
         }
 
         let position_data = self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
@@ -3049,7 +3046,6 @@ mod tests {
     use crate::{MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology};
     use bevy_asset::RenderAssetUsages;
     use bevy_math::bounding::Aabb3d;
-    use bevy_math::primitives::Triangle3d;
     use bevy_math::{Vec3, Vec3A};
     use bevy_transform::components::Transform;
 
@@ -3340,22 +3336,18 @@ mod tests {
         mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
         assert_eq!(
             vec![
-                Triangle3d {
-                    vertices: [
-                        Vec3::new(0., 0., 0.),
-                        Vec3::new(1., 0., 0.),
-                        Vec3::new(1., 1., 0.),
-                    ]
-                },
-                Triangle3d {
-                    vertices: [
-                        Vec3::new(1., 1., 0.),
-                        Vec3::new(0., 1., 0.),
-                        Vec3::new(0., 0., 0.),
-                    ]
-                }
+                [
+                    Vec3::new(0., 0., 0.),
+                    Vec3::new(1., 0., 0.),
+                    Vec3::new(1., 1., 0.),
+                ],
+                [
+                    Vec3::new(1., 1., 0.),
+                    Vec3::new(0., 1., 0.),
+                    Vec3::new(0., 0., 0.),
+                ]
             ],
-            mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+            mesh.triangles().unwrap().collect::<Vec<_>>()
         );
     }
 
@@ -3387,20 +3379,12 @@ mod tests {
         mesh.insert_indices(Indices::U32(vec![0, 1, 2, 3, 4, 5]));
         assert_eq!(
             vec![
-                Triangle3d {
-                    vertices: [positions[0], positions[1], positions[2]]
-                },
-                Triangle3d {
-                    vertices: [positions[2], positions[1], positions[3]]
-                },
-                Triangle3d {
-                    vertices: [positions[2], positions[3], positions[4]]
-                },
-                Triangle3d {
-                    vertices: [positions[4], positions[3], positions[5]]
-                },
+                [positions[0], positions[1], positions[2]],
+                [positions[2], positions[1], positions[3]],
+                [positions[2], positions[3], positions[4]],
+                [positions[4], positions[3], positions[5]]
             ],
-            mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+            mesh.triangles().unwrap().collect::<Vec<_>>()
         );
     }
 

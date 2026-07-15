@@ -640,7 +640,7 @@ mod tests {
             Vec3::ZERO.into(),
             "incorrect bounding sphere center"
         );
-        assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
+        assert_eq!(bs.radius(), 0.0, "incorrect bounding sphere radius");
 
         let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
         let bs = dup_degenerate_triangle.bounding_sphere(Isometry3d::IDENTITY);
@@ -649,7 +649,7 @@ mod tests {
             Vec3::new(0.5, 0.0, 0.0).into(),
             "incorrect bounding sphere center"
         );
-        assert_eq!(bs.sphere.radius, 0.5, "incorrect bounding sphere radius");
+        assert_eq!(bs.radius(), 0.5, "incorrect bounding sphere radius");
         let br = dup_degenerate_triangle.aabb_3d(Isometry3d::IDENTITY);
         assert_eq!(
             br.center(),
@@ -669,7 +669,7 @@ mod tests {
             Vec3::ZERO.into(),
             "incorrect bounding sphere center"
         );
-        assert_eq!(bs.sphere.radius, 1.0, "incorrect bounding sphere radius");
+        assert_eq!(bs.radius(), 1.0, "incorrect bounding sphere radius");
         let br = collinear_degenerate_triangle.aabb_3d(Isometry3d::IDENTITY);
         assert_eq!(
             br.center(),

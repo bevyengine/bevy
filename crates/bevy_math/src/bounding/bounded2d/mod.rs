@@ -1,5 +1,3 @@
-mod primitive_impls;
-
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
     ops,

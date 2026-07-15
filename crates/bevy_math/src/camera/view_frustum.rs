@@ -1,5 +1,5 @@
-use crate::primitives::HalfSpace;
-use bevy_math::{Mat4, Vec3, Vec4};
+use crate::camera::HalfSpace;
+use crate::{Mat4, Vec3, Vec4};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -115,7 +115,7 @@ mod view_frustum_tests {
     use approx::assert_relative_eq;
 
     use super::ViewFrustum;
-    use crate::primitives::HalfSpace;
+    use crate::camera::HalfSpace;
     use bevy_math::{Vec3, Vec4};
 
     #[test]

@@ -4,9 +4,9 @@ use derive_more::derive::From;
 use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
+use crate::primitives::Inset;
 use bevy_math::{
     ops::{self, FloatPow},
-    primitives::Inset,
     Dir2, InvalidDirectionError, Isometry2d, Ray2d, Rot2, Vec2,
 };
 

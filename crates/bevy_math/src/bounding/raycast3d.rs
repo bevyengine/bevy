@@ -183,7 +183,7 @@ impl BoundingSphereCast {
     /// Get the distance at which the [`BoundingSphere`]s collide, if at all.
     pub fn sphere_collision_at(&self, mut sphere: BoundingSphere) -> Option<f32> {
         sphere.center -= self.sphere.center;
-        sphere.sphere.radius += self.sphere.radius();
+        sphere.radius += self.sphere.radius();
         self.ray.sphere_intersection_at(&sphere)
     }
 }

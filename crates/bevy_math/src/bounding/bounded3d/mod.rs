@@ -1,12 +1,8 @@
-mod extrusion;
-mod primitive_impls;
-
 use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
     ops::{self, FloatPow},
-    primitives::Cuboid,
     Isometry3d, Quat, Vec3A,
 };
 
@@ -16,8 +12,6 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
-
-pub use extrusion::BoundedExtrusion;
 
 /// Computes the geometric center of the given set of points.
 #[inline]
@@ -125,15 +119,6 @@ impl Aabb3d {
     pub fn closest_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         // Clamp point coordinates to the AABB
         point.into().clamp(self.min, self.max)
-    }
-}
-
-impl From<Cuboid> for Aabb3d {
-    fn from(value: Cuboid) -> Self {
-        Aabb3d {
-            min: (-value.half_size).into(),
-            max: value.half_size.into(),
-        }
     }
 }
 
@@ -495,8 +480,6 @@ mod aabb3d_tests {
     }
 }
 
-use crate::primitives::Sphere;
-
 /// A bounding sphere
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(
@@ -513,7 +496,7 @@ pub struct BoundingSphere {
     /// The center of the bounding sphere
     pub center: Vec3A,
     /// The sphere
-    pub sphere: Sphere,
+    pub radius: f32,
 }
 
 impl BoundingSphere {
@@ -522,7 +505,7 @@ impl BoundingSphere {
         debug_assert!(radius >= 0.);
         Self {
             center: center.into(),
-            sphere: Sphere { radius },
+            radius,
         }
     }
 
@@ -554,7 +537,7 @@ impl BoundingSphere {
     /// Get the radius of the bounding sphere
     #[inline]
     pub const fn radius(&self) -> f32 {
-        self.sphere.radius
+        self.radius
     }
 
     /// Computes the smallest [`Aabb3d`] containing this [`BoundingSphere`].
@@ -637,9 +620,7 @@ impl BoundingVolume for BoundingSphere {
         debug_assert!(amount >= 0.);
         Self {
             center: self.center,
-            sphere: Sphere {
-                radius: self.radius() + amount,
-            },
+            radius: self.radius() + amount,
         }
     }
 
@@ -650,9 +631,7 @@ impl BoundingVolume for BoundingSphere {
         debug_assert!(self.radius() >= amount);
         Self {
             center: self.center,
-            sphere: Sphere {
-                radius: self.radius() - amount,
-            },
+            radius: self.radius() - amount,
         }
     }
 

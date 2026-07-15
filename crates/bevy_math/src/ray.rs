@@ -1,8 +1,4 @@
-use crate::{
-    ops,
-    primitives::{InfinitePlane3d, Plane2d},
-    Dir2, Dir3, Vec2, Vec3,
-};
+use crate::{ops, Dir2, Dir3, Vec2, Vec3};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -45,10 +41,10 @@ impl Ray2d {
     ///
     /// Use [`Ray2d::plane_intersection_point`] to get the intersection point directly.
     #[inline]
-    pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
-        let denominator = plane.normal.dot(*self.direction);
+    pub fn intersect_plane(&self, plane_origin: Vec2, plane_normal: Dir2) -> Option<f32> {
+        let denominator = plane_normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
-            let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
+            let distance = (plane_origin - self.origin).dot(*plane_normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
             }
@@ -60,8 +56,8 @@ impl Ray2d {
     ///
     /// Calls [`Ray2d::get_point`] on the result of [`Ray2d::intersect_plane`].
     #[inline]
-    pub fn plane_intersection_point(&self, plane_origin: Vec2, plane: Plane2d) -> Option<Vec2> {
-        self.intersect_plane(plane_origin, plane)
+    pub fn plane_intersection_point(&self, plane_origin: Vec2, plane_normal: Dir2) -> Option<Vec2> {
+        self.intersect_plane(plane_origin, plane_normal)
             .map(|distance| self.get_point(distance))
     }
 }
@@ -102,10 +98,10 @@ impl Ray3d {
     ///
     /// Use [`Ray3d::plane_intersection_point`] to get the intersection point directly.
     #[inline]
-    pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
-        let denominator = plane.normal.dot(*self.direction);
+    pub fn intersect_plane(&self, plane_origin: Vec3, plane_normal: Dir3) -> Option<f32> {
+        let denominator = plane_normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
-            let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
+            let distance = (plane_origin - self.origin).dot(*plane_normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
             }
@@ -117,12 +113,8 @@ impl Ray3d {
     ///
     /// Calls [`Ray3d::get_point`] on the result of [`Ray3d::intersect_plane`].
     #[inline]
-    pub fn plane_intersection_point(
-        &self,
-        plane_origin: Vec3,
-        plane: InfinitePlane3d,
-    ) -> Option<Vec3> {
-        self.intersect_plane(plane_origin, plane)
+    pub fn plane_intersection_point(&self, plane_origin: Vec3, plane_normal: Dir3) -> Option<Vec3> {
+        self.intersect_plane(plane_origin, plane_normal)
             .map(|distance| self.get_point(distance))
     }
 }

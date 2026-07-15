@@ -33,7 +33,6 @@ pub mod frustum;
 pub mod gizmos;
 mod global;
 pub mod grid;
-pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
 mod simplex_stroke_font;
@@ -65,7 +64,6 @@ pub mod prelude {
         },
         gizmos::Gizmos,
         global::gizmo,
-        primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
     };
