@@ -109,7 +109,7 @@ impl MeshBuilder for ConeMeshBuilder {
         // of the normal. This allows us to normalize vertex normals efficiently.
         let normal_slope = self.cone.radius / self.cone.height;
         // Equivalent to Vec2::new(1.0, slope).length().recip()
-        let normalization_factor = (1.0 + normal_slope * normal_slope).sqrt().recip();
+        let normalization_factor = ops::sqrt(1.0 + normal_slope * normal_slope).recip();
 
         // How much the angle changes at each step
         let step_theta = core::f32::consts::TAU / self.resolution as f32;
@@ -181,6 +181,12 @@ impl Meshable for Cone {
             cone: *self,
             ..Default::default()
         }
+    }
+}
+
+impl From<Cone> for Mesh {
+    fn from(value: Cone) -> Self {
+        value.mesh()
     }
 }
 

@@ -431,3 +431,9 @@ impl Meshable for Capsule3d {
         }
     }
 }
+
+impl From<Capsule3d> for Mesh {
+    fn from(value: Capsule3d) -> Self {
+        value.mesh()
+    }
+}

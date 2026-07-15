@@ -84,6 +84,7 @@ pub use bevy_scene as scene;
 pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
 pub use bevy_shader as shader;
+pub use bevy_shapes as shapes;
 #[cfg(feature = "bevy_solari")]
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]

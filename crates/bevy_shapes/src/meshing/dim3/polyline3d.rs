@@ -36,3 +36,9 @@ impl Meshable for Polyline3d {
         }
     }
 }
+
+impl From<Polyline3d> for Mesh {
+    fn from(value: Polyline3d) -> Self {
+        value.mesh()
+    }
+}

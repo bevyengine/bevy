@@ -2,7 +2,6 @@
 //! syntax.
 
 use bevy::ecs::{entity::SpawnError, error::warn, world::DeferredWorld};
-use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
 use chacha20::ChaCha8Rng;
@@ -98,7 +97,9 @@ fn setup(
     ));
 
     // Generate random sample points:
-    let triangles = sphere_mesh.triangles()?;
+    let triangles = sphere_mesh
+        .triangles()?
+        .map(|vertices| Triangle3d { vertices });
     let distribution = UniformMeshSampler::try_new(triangles)?;
 
     // Setup sample points:

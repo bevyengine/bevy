@@ -1,8 +1,6 @@
 use crate::primitives::Plane3d;
-use alloc::vec::Vec;
-use bevy_asset::RenderAssetUsages;
-use bevy_math::{Dir3, Quat, Vec2, Vec3};
-use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
+use bevy_math::{Dir3, Vec2};
+use bevy_mesh::{Mesh, MeshBuilder, Meshable};
 use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Plane3d`] shape.
@@ -160,5 +158,11 @@ impl Meshable for Plane3d {
             subdivisions_x: 0,
             subdivisions_z: 0,
         }
+    }
+}
+
+impl From<Plane3d> for Mesh {
+    fn from(value: Plane3d) -> Self {
+        value.mesh()
     }
 }

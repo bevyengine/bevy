@@ -6,6 +6,8 @@
 //! - [`IntersectsVolume`] abstracts intersection tests against a [`BoundingVolume`]
 //! - [`Bounded2d`]/[`Bounded3d`] are abstractions for shapes to generate [`BoundingVolume`]s
 
-pub mod dim2;
-pub mod dim3;
-pub mod extrusion;
+mod dim2;
+mod dim3;
+
+mod extrusion;
+pub use extrusion::*;

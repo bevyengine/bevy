@@ -127,14 +127,17 @@ shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 serialize = [
   "bevy_a11y?/serialize",
   "bevy_color?/serialize",
+  "bevy_dev_tools?/serialize",
   "bevy_ecs/serialize",
   "bevy_image?/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
+  "bevy_shapes/serialize",
   "bevy_world_serialization?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
+  "bevy_utils/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
   "bevy_platform/serialize",
@@ -416,6 +419,7 @@ std = [
   "bevy_input/std",
   "bevy_input_focus?/std",
   "bevy_math/std",
+  "bevy_shapes/std",
   "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
@@ -502,6 +506,10 @@ bevy_input = { path = "../bevy_input", version = "0.20.0-dev", default-features 
   "bevy_reflect",
 ] }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
+  "bevy_reflect",
+  "nostd-libm",
+] }
+bevy_shapes = { path = "../bevy_shapes", version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
   "nostd-libm",
 ] }

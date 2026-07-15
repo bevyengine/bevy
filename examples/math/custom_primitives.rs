@@ -12,12 +12,9 @@ use bevy::{
     color::palettes::css::{RED, WHITE},
     input::common_conditions::{input_just_pressed, input_toggle_active},
     math::{
-        bounding::{
-            Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
-        },
+        bounding::{Aabb2d, Bounded2d, Bounded3d, BoundingCircle, BoundingVolume},
         Isometry2d,
     },
-    mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
 };
 

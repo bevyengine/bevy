@@ -1,7 +1,7 @@
 use crate::primitives::Triangle3d;
 use alloc::vec::Vec;
 use bevy_asset::RenderAssetUsages;
-use bevy_math::Vec3;
+use bevy_math::{ops, Vec3};
 use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 
@@ -42,6 +42,12 @@ impl Meshable for Triangle3d {
     }
 }
 
+impl From<Triangle3d> for Mesh {
+    fn from(value: Triangle3d) -> Self {
+        value.mesh()
+    }
+}
+
 /// The normal of a [`Triangle3d`] with zeroing so that a [`Vec3`] is always obtained for meshing.
 #[inline]
 pub(crate) fn normal_vec(triangle: &Triangle3d) -> Vec3 {
@@ -72,7 +78,7 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
     // Obtuse triangle leaning to the left => x direction extends to the left, shifting a from 0.
     if offset < 0. {
         let total_length = 1. - offset;
-        let a_uv = [offset.abs() / total_length, 0.];
+        let a_uv = [ops::abs(offset) / total_length, 0.];
         let b_uv = [1., 0.];
         let c_uv = [0., 1.];
 

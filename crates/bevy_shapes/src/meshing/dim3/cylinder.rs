@@ -216,3 +216,9 @@ impl Meshable for Cylinder {
         }
     }
 }
+
+impl From<Cylinder> for Mesh {
+    fn from(value: Cylinder) -> Self {
+        value.mesh()
+    }
+}

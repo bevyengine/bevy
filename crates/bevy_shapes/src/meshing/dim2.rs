@@ -75,6 +75,12 @@ impl Meshable for Circle {
     }
 }
 
+impl From<Circle> for Mesh {
+    fn from(value: Circle) -> Self {
+        value.mesh()
+    }
+}
+
 /// Specifies how to generate UV-mappings for the [`CircularSector`] and [`CircularSegment`] shapes.
 ///
 /// Currently the only variant is `Mask`, which is good for showing a portion of a texture that includes
@@ -213,6 +219,12 @@ impl Meshable for CircularSector {
     }
 }
 
+impl From<CircularSector> for Mesh {
+    fn from(value: CircularSector) -> Self {
+        value.mesh()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`CircularSegment`] shape.
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
@@ -333,6 +345,12 @@ impl Meshable for CircularSegment {
     }
 }
 
+impl From<CircularSegment> for Mesh {
+    fn from(value: CircularSegment) -> Self {
+        value.mesh()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`ConvexPolygon`] shape.
 ///
 /// You must verify that the `vertices` are not concave when constructing this type. You can
@@ -351,6 +369,12 @@ impl Meshable for ConvexPolygon {
         Self::Output {
             vertices: self.vertices().to_vec(),
         }
+    }
+}
+
+impl From<ConvexPolygon> for Mesh {
+    fn from(value: ConvexPolygon) -> Self {
+        value.mesh()
     }
 }
 
@@ -397,7 +421,7 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
 #[reflect(Default, Debug, Clone)]
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
-    sides: u32,
+    pub(crate) sides: u32,
 }
 
 impl Default for RegularPolygonMeshBuilder {
@@ -439,6 +463,12 @@ impl Meshable for RegularPolygon {
             circumradius: self.circumcircle.radius,
             sides: self.sides,
         }
+    }
+}
+
+impl From<RegularPolygon> for Mesh {
+    fn from(value: RegularPolygon) -> Self {
+        value.mesh()
     }
 }
 
@@ -541,6 +571,12 @@ impl Meshable for Ellipse {
     }
 }
 
+impl From<Ellipse> for Mesh {
+    fn from(value: Ellipse) -> Self {
+        value.mesh()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Segment2d`].
 pub struct Segment2dMeshBuilder {
     /// The [`Segment2d`] shape.
@@ -571,6 +607,12 @@ impl Meshable for Segment2d {
 
     fn mesh_builder(&self) -> Self::Output {
         Segment2dMeshBuilder::new(*self)
+    }
+}
+
+impl From<Segment2d> for Mesh {
+    fn from(value: Segment2d) -> Self {
+        value.mesh()
     }
 }
 
@@ -609,6 +651,12 @@ impl Meshable for Polyline2d {
         Polyline2dMeshBuilder {
             polyline: self.clone(),
         }
+    }
+}
+
+impl From<Polyline2d> for Mesh {
+    fn from(value: Polyline2d) -> Self {
+        value.mesh()
     }
 }
 
@@ -721,6 +769,12 @@ impl Meshable for Annulus {
     }
 }
 
+impl From<Annulus> for Mesh {
+    fn from(value: Annulus) -> Self {
+        value.mesh()
+    }
+}
+
 /// A builder for creating a [`Mesh`] with an [`Rhombus`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Default, Debug, Clone)]
@@ -793,11 +847,17 @@ impl Meshable for Rhombus {
     }
 }
 
+impl From<Rhombus> for Mesh {
+    fn from(value: Rhombus) -> Self {
+        value.mesh()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Default, Debug, Clone)]
 pub struct Triangle2dMeshBuilder {
-    triangle: Triangle2d,
+    pub(crate) triangle: Triangle2d,
 }
 
 impl Triangle2dMeshBuilder {
@@ -814,6 +874,12 @@ impl Meshable for Triangle2d {
 
     fn mesh_builder(&self) -> Self::Output {
         Self::Output { triangle: *self }
+    }
+}
+
+impl From<Triangle2d> for Mesh {
+    fn from(value: Triangle2d) -> Self {
+        value.mesh()
     }
 }
 
@@ -894,6 +960,12 @@ impl Meshable for Rectangle {
         RectangleMeshBuilder {
             half_size: self.half_size,
         }
+    }
+}
+
+impl From<Rectangle> for Mesh {
+    fn from(value: Rectangle) -> Self {
+        value.mesh()
     }
 }
 
@@ -1026,6 +1098,12 @@ impl Meshable for Capsule2d {
     }
 }
 
+impl From<Capsule2d> for Mesh {
+    fn from(value: Capsule2d) -> Self {
+        value.mesh()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Ring`] shape.
 pub struct RingMeshBuilder<P>
 where
@@ -1056,7 +1134,7 @@ where
         self
     }
 
-    fn get_vertex_attributes(&self) -> Option<RingMeshBuilderVertexAttributes> {
+    pub(crate) fn get_vertex_attributes(&self) -> Option<RingMeshBuilderVertexAttributes> {
         fn get_positions(mesh: &mut Mesh) -> Option<&mut Vec<[f32; 3]>> {
             if let VertexAttributeValues::Float32x3(data) =
                 mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)?
@@ -1112,13 +1190,13 @@ where
     }
 }
 
-struct RingMeshBuilderVertexAttributes {
-    outer_positions: Vec<[f32; 3]>,
-    inner_positions: Vec<[f32; 3]>,
-    outer_normals: Vec<[f32; 3]>,
-    inner_normals: Vec<[f32; 3]>,
-    outer_uvs: Vec<[f32; 2]>,
-    inner_uvs: Vec<[f32; 2]>,
+pub(crate) struct RingMeshBuilderVertexAttributes {
+    pub(crate) outer_positions: Vec<[f32; 3]>,
+    pub(crate) inner_positions: Vec<[f32; 3]>,
+    pub(crate) outer_normals: Vec<[f32; 3]>,
+    pub(crate) inner_normals: Vec<[f32; 3]>,
+    pub(crate) outer_uvs: Vec<[f32; 2]>,
+    pub(crate) inner_uvs: Vec<[f32; 2]>,
 }
 
 impl<P> MeshBuilder for RingMeshBuilder<P>
@@ -1213,6 +1291,15 @@ where
 
     fn mesh_builder(&self) -> Self::Output {
         RingMeshBuilder::new(self)
+    }
+}
+
+impl<P> From<Ring<P>> for Mesh
+where
+    P: Primitive2d + Meshable,
+{
+    fn from(value: Ring<P>) -> Self {
+        value.mesh()
     }
 }
 

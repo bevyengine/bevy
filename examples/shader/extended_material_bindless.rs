@@ -4,7 +4,6 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::{css::RED, tailwind::GRAY_600},
-    mesh::{SphereKind, SphereMeshBuilder},
     pbr::{ExtendedMaterial, MaterialExtension, MeshMaterial3d},
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},

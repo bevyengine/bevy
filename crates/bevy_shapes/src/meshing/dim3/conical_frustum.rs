@@ -178,3 +178,9 @@ impl Meshable for ConicalFrustum {
         }
     }
 }
+
+impl From<ConicalFrustum> for Mesh {
+    fn from(value: ConicalFrustum) -> Self {
+        value.mesh()
+    }
+}

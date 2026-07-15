@@ -41,9 +41,18 @@ bevy_platform = { default-features = false, path = "../bevy_platform" }
 chacha20 = { default-features = false, features = ["rng"], version = "0.10.0" }
 
 [features]
-alloc   = ["bevy_math/alloc"]
-default = ["bevy_math/default", "std"]
-std     = ["alloc", "bevy_math/std"]
+alloc = ["bevy_math/alloc"]
+default = [
+  "bevy_math/default",
+  "std",
+  # all extensions are available (opt-out)
+  "bounding",
+  "extrusion",
+  "gizmos",
+  "meshing",
+  "sampling",
+]
+std = ["alloc", "bevy_math/std"]
 
 approx       = ["bevy_math/approx", "dep:approx"]
 bevy_reflect = ["alloc", "bevy_math/bevy_reflect", "dep:bevy_reflect"]

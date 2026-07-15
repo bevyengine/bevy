@@ -61,3 +61,9 @@ impl Meshable for Tetrahedron {
         TetrahedronMeshBuilder { tetrahedron: *self }
     }
 }
+
+impl From<Tetrahedron> for Mesh {
+    fn from(value: Tetrahedron) -> Self {
+        value.mesh()
+    }
+}

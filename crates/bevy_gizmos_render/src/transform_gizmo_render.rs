@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{Quat, Vec3};
-use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, Meshable};
+use bevy_mesh::{Mesh, Mesh3d, Meshable};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 use bevy_shapes::primitives::{Cone, Cuboid, Cylinder, Torus};
 use bevy_transform::{

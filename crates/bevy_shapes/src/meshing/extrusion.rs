@@ -1,6 +1,13 @@
-use crate::primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d};
+use crate::meshing::{
+    AnnulusMeshBuilder, Capsule2dMeshBuilder, CircleMeshBuilder, CircularSectorMeshBuilder,
+    CircularSegmentMeshBuilder, ConvexPolygonMeshBuilder, EllipseMeshBuilder, RectangleMeshBuilder,
+    RegularPolygonMeshBuilder, RhombusMeshBuilder, RingMeshBuilder, Triangle2dMeshBuilder,
+};
+use crate::primitives::{
+    Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d, WindingOrder,
+};
 use alloc::vec::Vec;
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{ops, Vec2, Vec3};
 
 use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology, VertexAttributeValues};
 
@@ -96,6 +103,16 @@ where
             half_depth: self.half_depth,
             segments: 1,
         }
+    }
+}
+
+impl<P> From<Extrusion<P>> for Mesh
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    fn from(value: Extrusion<P>) -> Mesh {
+        value.mesh()
     }
 }
 

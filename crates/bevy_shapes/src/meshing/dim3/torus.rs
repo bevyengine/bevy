@@ -170,3 +170,9 @@ impl Meshable for Torus {
         }
     }
 }
+
+impl From<Torus> for Mesh {
+    fn from(value: Torus) -> Self {
+        value.mesh()
+    }
+}

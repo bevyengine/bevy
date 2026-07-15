@@ -3,7 +3,6 @@
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
     math::prelude::*,
-    mesh::SphereKind,
     prelude::*,
 };
 use chacha20::ChaCha8Rng;

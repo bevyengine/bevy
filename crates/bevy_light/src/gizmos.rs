@@ -2,7 +2,7 @@
 
 use core::f32::consts::PI;
 
-use bevy_shapes::gizmos::dim3::GizmoPrimitive3d;
+use bevy_shapes::gizmos::GizmoPrimitive3d;
 use bevy_shapes::primitives::{Cone, Sphere};
 
 use crate::{DirectionalLight, PointLight, RectLight, SpotLight};
