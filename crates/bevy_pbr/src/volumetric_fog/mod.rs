@@ -37,11 +37,8 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{resource::Resource, schedule::IntoScheduleConfigs as _};
 use bevy_light::FogVolume;
-use bevy_math::{
-    primitives::{Cuboid, Plane3d},
-    Vec2, Vec3,
-};
-use bevy_mesh::{Mesh, Meshable};
+use bevy_math::{Dir3, Vec2, Vec3};
+use bevy_mesh::Mesh;
 use bevy_render::{
     render_resource::SpecializedRenderPipelines,
     sync_component::{SyncComponent, SyncComponentPlugin},
@@ -67,8 +64,8 @@ impl Plugin for VolumetricFogPlugin {
         embedded_asset!(app, "volumetric_fog.wgsl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
-        let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh_builder());
-        let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh_builder());
+        let plane_mesh = meshes.add(Mesh::plane_mesh(Dir3::Z, Vec2::ONE, 0, 0));
+        let cube_mesh = meshes.add(Mesh::cuboid_mesh(Vec3::ONE));
 
         app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 

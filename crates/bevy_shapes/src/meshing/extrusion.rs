@@ -431,3 +431,216 @@ where
         front_face
     }
 }
+
+impl Extrudable for CircleMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        alloc::vec![PerimeterSegment::Smooth {
+            first_normal: Vec2::Y,
+            last_normal: Vec2::Y,
+            indices: (0..self.resolution).chain([0]).collect(),
+        }]
+    }
+}
+
+impl Extrudable for CircularSectorMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let (sin, cos) = ops::sin_cos(self.sector.arc.half_angle);
+        let first_normal = Vec2::new(sin, cos);
+        let last_normal = Vec2::new(-sin, cos);
+        alloc::vec![
+            PerimeterSegment::Flat {
+                indices: alloc::vec![self.resolution, 0, 1],
+            },
+            PerimeterSegment::Smooth {
+                first_normal,
+                last_normal,
+                indices: (1..=self.resolution).collect(),
+            },
+        ]
+    }
+}
+
+impl Extrudable for CircularSegmentMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let (sin, cos) = ops::sin_cos(self.segment.arc.half_angle);
+        let first_normal = Vec2::new(sin, cos);
+        let last_normal = Vec2::new(-sin, cos);
+        alloc::vec![
+            PerimeterSegment::Flat {
+                indices: alloc::vec![self.resolution, 0, 1],
+            },
+            PerimeterSegment::Smooth {
+                first_normal,
+                last_normal,
+                indices: (1..=self.resolution).collect(),
+            },
+        ]
+    }
+}
+
+impl Extrudable for ConvexPolygonMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        alloc::vec![PerimeterSegment::Flat {
+            indices: (0..self.vertices.len() as u32).chain([0]).collect(),
+        }]
+    }
+}
+
+impl Extrudable for RegularPolygonMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        alloc::vec![PerimeterSegment::Flat {
+            indices: (0..self.sides).chain([0]).collect(),
+        }]
+    }
+}
+
+impl Extrudable for EllipseMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        alloc::vec![PerimeterSegment::Smooth {
+            first_normal: Vec2::Y,
+            last_normal: Vec2::Y,
+            indices: (0..self.resolution).chain([0]).collect(),
+        }]
+    }
+}
+
+impl Extrudable for AnnulusMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let vert_count = 2 * self.resolution;
+        alloc::vec![
+            PerimeterSegment::Smooth {
+                first_normal: Vec2::NEG_Y,
+                last_normal: Vec2::NEG_Y,
+                indices: (0..vert_count).step_by(2).chain([0]).rev().collect(), // Inner hole
+            },
+            PerimeterSegment::Smooth {
+                first_normal: Vec2::Y,
+                last_normal: Vec2::Y,
+                indices: (1..vert_count).step_by(2).chain([1]).collect(), // Outer perimeter
+            },
+        ]
+    }
+}
+
+impl Extrudable for RhombusMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        alloc::vec![PerimeterSegment::Flat {
+            indices: alloc::vec![0, 1, 2, 3, 0],
+        }]
+    }
+}
+
+impl Extrudable for Triangle2dMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
+        if is_ccw {
+            alloc::vec![PerimeterSegment::Flat {
+                indices: alloc::vec![0, 1, 2, 0],
+            }]
+        } else {
+            alloc::vec![PerimeterSegment::Flat {
+                indices: alloc::vec![2, 1, 0, 2],
+            }]
+        }
+    }
+}
+
+impl Extrudable for RectangleMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        alloc::vec![PerimeterSegment::Flat {
+            indices: alloc::vec![0, 1, 2, 3, 0],
+        }]
+    }
+}
+
+impl Extrudable for Capsule2dMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let resolution = self.resolution;
+        let top_semi_indices = (0..resolution).collect();
+        let bottom_semi_indices = (resolution..(2 * resolution)).collect();
+        alloc::vec![
+            PerimeterSegment::Smooth {
+                first_normal: Vec2::X,
+                last_normal: Vec2::NEG_X,
+                indices: top_semi_indices,
+            }, // Top semi-circle
+            PerimeterSegment::Flat {
+                indices: alloc::vec![resolution - 1, resolution],
+            }, // Left edge
+            PerimeterSegment::Smooth {
+                first_normal: Vec2::NEG_X,
+                last_normal: Vec2::X,
+                indices: bottom_semi_indices,
+            }, // Bottom semi-circle
+            PerimeterSegment::Flat {
+                indices: alloc::vec![2 * resolution - 1, 0],
+            }, // Right edge
+        ]
+    }
+}
+
+impl<P> Extrudable for RingMeshBuilder<P>
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    /// A list of the indices each representing a part of the perimeter of the mesh.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the following assumptions are not met.
+    ///
+    /// It is assumed that the inner and outer meshes have the same number of vertices.
+    /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
+    /// a different number of vertices for the inner and outer instances of the primitive.
+    ///
+    /// It is assumed that the `primitive_topology` of the mesh returned by
+    /// the underlying builder is [`PrimitiveTopology::TriangleList`]
+    /// and that the mesh has [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes.
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let outer_vertex_count = self
+            .get_vertex_attributes()
+            .filter(|r| r.outer_positions.len() == r.inner_positions.len())
+            .expect("The inner and outer meshes should have the same number of vertices, and have required attributes")
+            .outer_positions
+            .len();
+
+        let mut outer_perimeter = self.outer_shape_builder.perimeter();
+        let inner_perimeter =
+            self.inner_shape_builder
+                .perimeter()
+                .into_iter()
+                .rev()
+                .map(|segment| match segment {
+                    PerimeterSegment::Smooth {
+                        first_normal,
+                        last_normal,
+                        mut indices,
+                    } => PerimeterSegment::Smooth {
+                        first_normal: -last_normal,
+                        last_normal: -first_normal,
+                        indices: {
+                            let outer_perimeter_vertex_count = outer_vertex_count as u32;
+                            indices.reverse();
+                            for i in &mut indices {
+                                *i += outer_perimeter_vertex_count;
+                            }
+                            indices
+                        },
+                    },
+                    PerimeterSegment::Flat { mut indices } => PerimeterSegment::Flat {
+                        indices: {
+                            let outer_perimeter_vertex_count = outer_vertex_count as u32;
+                            indices.reverse();
+                            for i in &mut indices {
+                                *i += outer_perimeter_vertex_count;
+                            }
+                            indices
+                        },
+                    },
+                });
+
+        outer_perimeter.extend(inner_perimeter);
+        outer_perimeter
+    }
+}

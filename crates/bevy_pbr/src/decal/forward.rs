@@ -7,8 +7,8 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
-use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
-use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
+use bevy_math::{Quat, Vec2, Vec3};
+use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -28,14 +28,12 @@ impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "forward_decal.wgsl");
 
-        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
-            Rectangle::from_size(Vec2::ONE)
-                .mesh_builder()
-                .build()
+        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add({
+            Mesh::quad_mesh(Vec2::ONE)
                 .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
                 .with_generated_tangents()
-                .unwrap(),
-        );
+                .unwrap()
+        });
 
         app.insert_resource(ForwardDecalMesh(mesh));
 

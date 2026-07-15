@@ -1,6 +1,6 @@
 use bevy_camera::primitives::{Aabb, Frustum, Sphere};
 use bevy_math::{
-    primitives::{HalfSpace, ViewFrustum},
+    camera::{HalfSpace, ViewFrustum},
     Affine3A, Quat, Vec3, Vec3A, Vec4,
 };
 use core::hint::black_box;

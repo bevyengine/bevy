@@ -18,12 +18,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_math::{
-    primitives::{Cone, Cuboid, Cylinder, Torus},
-    Quat, Vec3,
-};
+use bevy_math::{Quat, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, Meshable};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
+use bevy_shapes::primitives::{Cone, Cuboid, Cylinder, Torus};
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     systems::propagate_transforms_for,
@@ -167,40 +165,30 @@ fn spawn_gizmo_meshes(
     };
 
     // Pre-create meshes
-    let shaft_mesh = meshes.add(
-        Cylinder::new(SHAFT_RADIUS, SHAFT_LENGTH)
-            .mesh_builder()
-            .build(),
-    );
-    let cone_mesh = meshes.add(Cone::new(CONE_RADIUS, CONE_HEIGHT).mesh_builder().build());
-    let scale_cube_mesh = meshes.add(
-        Cuboid::new(SCALE_CUBE_SIZE, SCALE_CUBE_SIZE, SCALE_CUBE_SIZE)
-            .mesh_builder()
-            .build(),
-    );
+    let shaft_mesh = meshes.add(Cylinder::new(SHAFT_RADIUS, SHAFT_LENGTH).mesh());
+    let cone_mesh = meshes.add(Cone::new(CONE_RADIUS, CONE_HEIGHT).mesh());
+    let scale_cube_mesh =
+        meshes.add(Cuboid::new(SCALE_CUBE_SIZE, SCALE_CUBE_SIZE, SCALE_CUBE_SIZE).mesh());
     let rotate_torus_mesh = meshes.add(
         Torus {
             minor_radius: 0.015,
             major_radius: ROTATE_RING_RADIUS,
         }
-        .mesh_builder()
-        .build(),
+        .mesh(),
     );
     let view_circle_mesh = meshes.add(
         Torus {
             minor_radius: VIEW_CIRCLE_MINOR,
             major_radius: VIEW_CIRCLE_MAJOR,
         }
-        .mesh_builder()
-        .build(),
+        .mesh(),
     );
     let view_ring_mesh = meshes.add(
         Torus {
             minor_radius: VIEW_RING_MINOR,
             major_radius: VIEW_RING_MAJOR,
         }
-        .mesh_builder()
-        .build(),
+        .mesh(),
     );
 
     // Axis rotations: cylinder default is Y-up

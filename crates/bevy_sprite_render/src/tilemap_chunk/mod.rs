@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{primitives::Rectangle, UVec2};
+use bevy_math::UVec2;
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
@@ -173,7 +173,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         mesh.clone()
     } else {
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
-        meshes.add(Rectangle::from_size(mesh_size.as_vec2()))
+        meshes.add(Mesh::quad_mesh(mesh_size.as_vec2()))
     };
 
     let mut images = world.resource_mut::<Assets<Image>>();

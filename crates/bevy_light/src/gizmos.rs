@@ -2,7 +2,8 @@
 
 use core::f32::consts::PI;
 
-use bevy_gizmos::primitives::dim3::GizmoPrimitive3d;
+use bevy_shapes::gizmos::dim3::GizmoPrimitive3d;
+use bevy_shapes::primitives::{Cone, Sphere};
 
 use crate::{DirectionalLight, PointLight, RectLight, SpotLight};
 use bevy_app::{Plugin, PostUpdate};
@@ -18,11 +19,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
-use bevy_math::{
-    ops,
-    primitives::{Cone, Sphere},
-    Isometry3d, Quat, Vec3,
-};
+use bevy_math::{ops, Isometry3d, Quat, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 

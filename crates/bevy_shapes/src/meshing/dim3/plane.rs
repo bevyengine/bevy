@@ -142,50 +142,12 @@ impl PlaneMeshBuilder {
 
 impl MeshBuilder for PlaneMeshBuilder {
     fn build(&self) -> Mesh {
-        let z_vertex_count = self.subdivisions_z + 2;
-        let x_vertex_count = self.subdivisions_x + 2;
-        let num_vertices = (z_vertex_count * x_vertex_count) as usize;
-        let num_indices = ((z_vertex_count - 1) * (x_vertex_count - 1) * 6) as usize;
-
-        let mut positions: Vec<Vec3> = Vec::with_capacity(num_vertices);
-        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(num_vertices);
-        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(num_vertices);
-        let mut indices: Vec<u32> = Vec::with_capacity(num_indices);
-
-        let rotation = Quat::from_rotation_arc(Vec3::Y, *self.plane.normal);
-        let size = self.plane.half_size * 2.0;
-
-        for z in 0..z_vertex_count {
-            for x in 0..x_vertex_count {
-                let tx = x as f32 / (x_vertex_count - 1) as f32;
-                let tz = z as f32 / (z_vertex_count - 1) as f32;
-                let pos = rotation * Vec3::new((-0.5 + tx) * size.x, 0.0, (-0.5 + tz) * size.y);
-                positions.push(pos);
-                normals.push(self.plane.normal.to_array());
-                uvs.push([tx, tz]);
-            }
-        }
-
-        for z in 0..z_vertex_count - 1 {
-            for x in 0..x_vertex_count - 1 {
-                let quad = z * x_vertex_count + x;
-                indices.push(quad + x_vertex_count + 1);
-                indices.push(quad + 1);
-                indices.push(quad + x_vertex_count);
-                indices.push(quad);
-                indices.push(quad + x_vertex_count);
-                indices.push(quad + 1);
-            }
-        }
-
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+        Mesh::plane_mesh(
+            self.plane.normal,
+            self.plane.half_size,
+            self.subdivisions_x,
+            self.subdivisions_z,
         )
-        .with_inserted_indices(Indices::U32(indices))
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
 }
 
