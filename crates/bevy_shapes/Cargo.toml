@@ -53,6 +53,7 @@ bounding = ["dep:arrayvec"]
 extrusion = ["meshing"]
 gizmos = ["dep:bevy_color", "dep:bevy_gizmos"]
 meshing = [
+  "alloc",
   "bevy_reflect",
   "dep:bevy_asset",
   "dep:bevy_mesh",

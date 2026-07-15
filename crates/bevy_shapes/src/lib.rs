@@ -60,7 +60,7 @@ extern crate alloc;
 
 pub mod primitives;
 
-#[cfg(all(feature = "meshing", feature = "alloc"))]
+#[cfg(feature = "meshing")]
 pub mod meshing;
 
 #[cfg(feature = "bounding")]
@@ -71,3 +71,27 @@ pub mod sampling;
 
 #[cfg(feature = "gizmos")]
 pub mod gizmos;
+
+/// The shapes prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::primitives::*;
+
+    #[doc(hidden)]
+    #[cfg(feature = "meshing")]
+    pub use crate::meshing::*;
+
+    #[doc(hidden)]
+    #[cfg(feature = "bounding")]
+    pub use crate::bounding::*;
+
+    #[doc(hidden)]
+    #[cfg(feature = "sampling")]
+    pub use crate::sampling::*;
+
+    #[doc(hidden)]
+    #[cfg(feature = "gizmos")]
+    pub use crate::gizmos::*;
+}
