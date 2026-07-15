@@ -569,23 +569,20 @@ impl ActiveAnimation {
         }
 
         self.elapsed += delta;
-        if clip_duration > 0.0 {
-            self.seek_time += delta * self.speed;
-        }
+        self.seek_time += delta * self.speed;
 
         let over_time = self.speed > 0.0 && self.seek_time >= clip_duration;
         let under_time = self.speed < 0.0 && self.seek_time < 0.0;
 
-        if over_time || under_time || clip_duration == 0.0 {
+        if over_time || under_time {
             self.just_completed = true;
             self.completions += 1;
-
-            if self.is_finished() {
-                return;
-            }
         }
         if clip_duration == 0.0 {
             self.seek_time = 0.0;
+            return;
+        }
+        if self.is_finished() {
             return;
         }
         if self.seek_time >= clip_duration {
