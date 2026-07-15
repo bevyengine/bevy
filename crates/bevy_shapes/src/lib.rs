@@ -27,3 +27,6 @@ pub mod meshing;
 
 #[cfg(feature = "bounding")]
 pub mod bounding;
+
+#[cfg(feature = "sampling")]
+pub mod sampling;

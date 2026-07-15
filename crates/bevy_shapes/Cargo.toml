@@ -23,6 +23,8 @@ derive_more = { default-features = false, features = [
   "into",
 ], version = "2" }
 hexasphere = { default-features = false, optional = true, version = "19.0.0" }
+rand = { default-features = false, optional = true, version = "0.10" }
+rand_distr = { optional = true, version = "0.6" }
 serde = { default-features = false, features = [
   "derive",
 ], optional = true, version = "1" }
@@ -34,14 +36,17 @@ bevy_math = { default-features = false, features = [
   "approx",
 ], path = "../bevy_math" }
 bevy_platform = { default-features = false, path = "../bevy_platform" }
+chacha20 = { default-features = false, features = ["rng"], version = "0.10.0" }
 
 [features]
 alloc   = ["bevy_math/alloc"]
 default = ["bevy_math/default", "std"]
 std     = ["alloc", "bevy_math/std"]
 
-approx = ["bevy_math/approx", "dep:approx"]
+approx       = ["bevy_math/approx", "dep:approx"]
 bevy_reflect = ["alloc", "bevy_math/bevy_reflect", "dep:bevy_reflect"]
+serialize    = ["bevy_math/serialize", "dep:serde"]
+
 bounding = ["dep:arrayvec"]
 extrusion = ["meshing"]
 meshing = [
@@ -51,7 +56,7 @@ meshing = [
   "dep:hexasphere",
   "dep:wgpu-types",
 ]
-serialize = ["bevy_math/serialize", "dep:serde"]
+sampling = ["bevy_math/rand", "dep:rand", "dep:rand_distr"]
 
 [lints]
 workspace = true
