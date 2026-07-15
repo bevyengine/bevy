@@ -390,6 +390,7 @@ impl Meshable for CircularSegment {
 #[derive(Clone, Debug, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct ConvexPolygonMeshBuilder {
+    /// The verticies of the convex polygons
     pub vertices: Vec<Vec2>,
 }
 
@@ -1199,7 +1200,9 @@ pub struct RingMeshBuilder<P>
 where
     P: Primitive2d + Meshable,
 {
+    /// The outside shape of the [`Ring`], determined by a [`Primitive2d`] mesh builder
     pub outer_shape_builder: P::Output,
+    /// The inside shape of the [`Ring`], determined by a [`Primitive2d`] mesh builder
     pub inner_shape_builder: P::Output,
 }
 

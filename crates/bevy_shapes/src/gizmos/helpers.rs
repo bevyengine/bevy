@@ -1,3 +1,5 @@
+//! Helper functions for primitives gizmos rendering
+
 use core::f32::consts::TAU;
 
 use bevy_math::{ops, Vec2};

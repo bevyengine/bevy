@@ -1,3 +1,41 @@
+//! # Bevy Shapes
+//!
+//! Geometric primitives and shape-related traits for Bevy.
+//!
+//! This crate provides the complete collection of 2D and 3D geometric primitives
+//! used throughout the Bevy ecosystem, along with implementations of common traits
+//! for operations such as meshing, bounding volumes, sampling, and debug rendering.
+//!
+//! ## Feature flags
+//!
+//! Additional functionality is available through optional features:
+//!
+//! - `meshing` — Generate meshes from supported primitives.
+//! - `bounding` — Compute bounding volumes.
+//! - `sampling` — Sample points on or within primitives.
+//! - `gizmos` — Draw primitives using Bevy Gizmos.
+//!
+//! ## Examples
+//!
+//! Constructing a primitive:
+//!
+//! ```
+//! use bevy_shapes::primitives::Circle;
+//!
+//! let circle = Circle::new(1.0);
+//! ```
+//!
+//! Many traits are implemented behind feature flags:
+//!
+//! ```ignore
+//! use bevy_shapes::primitives::Sphere;
+//! use bevy_shapes::meshing::Meshable;
+//!
+//! let mesh = sphere.mesh();
+//! ```
+//!
+//! Most users will interact with the types in the [`primitives`] module, while
+//! optional modules provide additional functionality for those primitives.
 #![forbid(unsafe_code)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),

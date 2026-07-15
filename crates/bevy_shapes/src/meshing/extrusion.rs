@@ -108,8 +108,12 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
+    /// The base mesh builder for a [`Primitive2d`] which is going to be extruded
     pub base_builder: P::Output,
+    /// The extrusion length halved. It is applied in both directions 'up' and 'down' from the base
+    /// shape
     pub half_depth: f32,
+    /// The number of segments along the depth of the extrusion
     pub segments: usize,
 }
 
