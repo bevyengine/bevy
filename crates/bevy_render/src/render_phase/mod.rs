@@ -275,7 +275,7 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         input_uniform_index: InputUniformIndex,
         bin_index: RenderBinIndex,
     ) -> RenderBinnedMeshInstanceIndex {
-        // Creates a `GpuRenderBinnedMeshInstance`.
+        // Create a `GpuRenderBinnedMeshInstance`.
         let gpu_render_bin_entry = GpuRenderBinnedMeshInstance {
             input_uniform_index: input_uniform_index.0,
             bin_index: bin_index.0,
@@ -573,13 +573,13 @@ where
             }
         }
 
-        self.instance_count += 1;
-
         // Update the GPU buffers.
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
         let binned_mesh_instance_index =
             self.gpu_buffers
                 .insert(bin, main_entity, input_uniform_index, bin_index);
+
+        self.instance_count += 1;
         debug_assert_eq!(
             binned_mesh_instance_index.0 as usize,
             self.binned_mesh_instance_index_to_entity.len()

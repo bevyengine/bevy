@@ -53,7 +53,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
-        RetainedViewEntity, ViewDepthTexture, ViewTarget,
+        RetainedViewEntity, ViewDepthStencilTexture, ViewTarget,
     },
     Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
@@ -799,7 +799,7 @@ pub fn wireframe_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     mut ctx: RenderContext,
