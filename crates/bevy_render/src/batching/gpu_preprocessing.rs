@@ -858,11 +858,6 @@ pub struct IndirectParametersBuildJob {
     /// The index of the last batch that this build operation is to process
     /// (exclusive).
     pub last_batch_index: u32,
-    pad_0: u32,
-    pad_1: u32,
-    pad_2: UVec4,
-    pad_3: UVec4,
-    pad_4: UVec4,
 }
 
 impl IndirectParametersBuildJob {
@@ -872,11 +867,6 @@ impl IndirectParametersBuildJob {
         Self {
             first_batch_index: batch_range.start,
             last_batch_index: batch_range.end,
-            pad_0: 0,
-            pad_1: 0,
-            pad_2: default(),
-            pad_3: default(),
-            pad_4: default(),
         }
     }
 }
@@ -999,14 +989,70 @@ pub struct IndirectParametersBuffersSettings {
 /// [`IndirectParametersBuildJob`]. We could have used immediates instead of a
 /// dynamic uniform buffer, but we want this to work on WebGPU, where immediate
 /// support can't be guaranteed.
-#[derive(Resource, Deref, DerefMut)]
-pub struct IndirectParametersBuildJobs(pub RawBufferVec<IndirectParametersBuildJob>);
+#[derive(Resource)]
+pub struct IndirectParametersBuildJobs {
+    /// The [`RawBufferVec`] containing the jobs.
+    ///
+    /// Each job in this buffer must be aligned to [`Self::buffer_alignment`]
+    /// bytes.
+    buffer: RawBufferVec<IndirectParametersBuildJob>,
 
-impl Default for IndirectParametersBuildJobs {
-    fn default() -> IndirectParametersBuildJobs {
-        IndirectParametersBuildJobs(RawBufferVec::new(
-            BufferUsages::UNIFORM | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
-        ))
+    /// The alignment *in bytes* we need to pad each
+    /// [`IndirectParametersBuildJob`] to.
+    ///
+    /// This will be equal to
+    /// [`wgpu::Limits::min_uniform_buffer_offset_alignment`].
+    buffer_alignment: u32,
+}
+
+impl FromWorld for IndirectParametersBuildJobs {
+    fn from_world(world: &mut World) -> IndirectParametersBuildJobs {
+        let render_device = world.resource::<RenderDevice>();
+        IndirectParametersBuildJobs {
+            buffer: RawBufferVec::new(
+                BufferUsages::UNIFORM | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+            ),
+            buffer_alignment: render_device.limits().min_uniform_buffer_offset_alignment,
+        }
+    }
+}
+
+impl IndirectParametersBuildJobs {
+    /// Pushes a new [`IndirectParametersBuildJob`] onto the buffer and returns
+    /// the offset of the newly pushed job *in bytes*.
+    fn push(&mut self, job: IndirectParametersBuildJob) -> u32 {
+        // Align up.
+        //
+        // Note that this code aligns to the LCM of the buffer alignment and the
+        // size of a build job rather than the minimum alignment required. But
+        // that's OK, because the buffer alignment divides the size of a build
+        // job and so it'll be as tightly packed as possible. We assert this
+        // below.
+        //
+        // We aren't using `DynamicUniformBuffer` because it uses `encase`,
+        // which is slow.
+        debug_assert_eq!(
+            self.buffer_alignment as usize % size_of::<IndirectParametersBuildJob>(),
+            0
+        );
+        while !(self.buffer.len() * size_of::<IndirectParametersBuildJob>())
+            .is_multiple_of(self.buffer_alignment as usize)
+        {
+            self.buffer.push(default());
+        }
+
+        let index = self.buffer.push(job);
+        (index * size_of::<IndirectParametersBuildJob>()) as u32
+    }
+
+    /// Clears out all jobs in preparation for a new frame.
+    fn clear(&mut self) {
+        self.buffer.clear();
+    }
+
+    /// Returns the GPU buffer containing the jobs.
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.buffer()
     }
 }
 
@@ -2597,9 +2643,9 @@ pub fn prepare_indirect_parameters_build_jobs(
             .view_to_indirect_parameters_batch_range
             .iter()
         {
-            let uniform_offset = (indirect_parameters_build_jobs.push(
+            let uniform_offset = indirect_parameters_build_jobs.push(
                 IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
-            ) * size_of::<IndirectParametersBuildJob>()) as u32;
+            );
             build_indirect_parameters_metadata
                 .entry(*retained_view_entity)
                 .or_default()
@@ -2617,9 +2663,9 @@ pub fn prepare_indirect_parameters_build_jobs(
             .view_to_indirect_parameters_batch_range
             .iter()
         {
-            let uniform_offset = (indirect_parameters_build_jobs.push(
+            let uniform_offset = indirect_parameters_build_jobs.push(
                 IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
-            ) * size_of::<IndirectParametersBuildJob>()) as u32;
+            );
             build_indirect_parameters_metadata
                 .entry(*retained_view_entity)
                 .or_default()
@@ -3078,7 +3124,9 @@ pub fn write_indirect_parameters_build_jobs(
     render_queue: Res<RenderQueue>,
     mut indirect_parameters_build_jobs: ResMut<IndirectParametersBuildJobs>,
 ) {
-    indirect_parameters_build_jobs.write_buffer(&render_device, &render_queue);
+    indirect_parameters_build_jobs
+        .buffer
+        .write_buffer(&render_device, &render_queue);
 }
 
 #[cfg(test)]

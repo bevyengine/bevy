@@ -24,11 +24,6 @@ struct IndirectParametersBuildJob {
     // The last batch index that this shader invocation should process
     // (exclusive).
     last_batch_index: u32,
-    pad_a: u32,
-    pad_b: u32,
-    pad_c: vec4<u32>,
-    pad_d: vec4<u32>,
-    pad_e: vec4<u32>,
 }
 
 // The data for each mesh that the CPU supplied to the GPU.
