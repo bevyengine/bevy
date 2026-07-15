@@ -31,11 +31,11 @@ use bevy_log::warn_once;
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C, F = (), L: AppLabel = RenderApp>(PhantomData<(L, C, F)>);
+pub struct SyncComponentPlugin<C, L: AppLabel = RenderApp, F = ()>(PhantomData<(C, L, F)>);
 
-// pub type SyncComponentPlugin<C, F = ()> = SyncComponentPlugin<RenderApp, C, F>;
+// pub type SyncComponentPlugin<C, F = ()> = SyncComponentPlugin<C, RenderApp, F>;
 
-impl<L: AppLabel, C: SyncComponent<L, F>, F> Default for SyncComponentPlugin<C, F, L> {
+impl<C: SyncComponent<L, F>, L: AppLabel, F> Default for SyncComponentPlugin<C, L, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -58,10 +58,10 @@ pub trait SyncComponent<L: AppLabel, F = ()>: Component {
 }
 
 impl<
-        L: AppLabel + Default + Clone + Copy + Eq,
         C: SyncComponent<L, F>,
+        L: AppLabel + Default + Clone + Copy + Eq,
         F: Send + Sync + 'static,
-    > Plugin for SyncComponentPlugin<C, F, L>
+    > Plugin for SyncComponentPlugin<C, L, F>
 {
     fn build(&self, app: &mut App) {
         app.register_required_components::<C, SyncToSubWorld<L>>();

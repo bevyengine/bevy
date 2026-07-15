@@ -30,27 +30,27 @@ pub trait ExtractResource<L: AppLabel, F = ()>: Resource {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub struct ExtractResourcePlugin<R: ExtractResource<L, F>, F = (), L: AppLabel = RenderApp>(
-    PhantomData<(L, R, F)>,
+pub struct ExtractResourcePlugin<R: ExtractResource<L, F>, L: AppLabel = RenderApp, F = ()>(
+    PhantomData<(R, L, F)>,
 );
 
-// pub type ExtractResourcePlugin<R, F = ()> = ExtractResourcePlugin<RenderApp, R, F>;
+// pub type ExtractResourcePlugin<R, F = ()> = ExtractResourcePlugin<R, RenderApp, F>;
 
-impl<L: AppLabel, R: ExtractResource<L, F>, F> Default for ExtractResourcePlugin<R, F, L> {
+impl<R: ExtractResource<L, F>, L: AppLabel, F> Default for ExtractResourcePlugin<R, L, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
 impl<
-        L: AppLabel + Default,
         R: ExtractResource<L, F, Mutability = Mutable>,
+        L: AppLabel + Default,
         F: 'static + Send + Sync,
-    > Plugin for ExtractResourcePlugin<R, F, L>
+    > Plugin for ExtractResourcePlugin<R, L, F>
 {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(L::default()) {
-            render_app.add_systems(ExtractSchedule, extract_resource::<L, R, F>);
+            render_app.add_systems(ExtractSchedule, extract_resource::<R, L, F>);
         } else {
             once!(bevy_log::error!(
                 "Render app did not exist when trying to add `extract_resource` for <{}>.",
@@ -61,7 +61,7 @@ impl<
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-pub fn extract_resource<L: AppLabel, R: ExtractResource<L, F, Mutability = Mutable>, F>(
+pub fn extract_resource<R: ExtractResource<L, F, Mutability = Mutable>, L: AppLabel, F>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,

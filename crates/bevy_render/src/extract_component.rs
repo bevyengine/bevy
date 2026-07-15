@@ -57,14 +57,14 @@ pub trait ExtractComponent<L: AppLabel, F = ()>: SyncComponent<L, F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub struct ExtractComponentPlugin<C, F = (), L: AppLabel = RenderApp> {
+pub struct ExtractComponentPlugin<C, L: AppLabel = RenderApp, F = ()> {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> (L, C, F)>,
+    marker: PhantomData<fn() -> (C, L, F)>,
 }
 
-// pub type ExtractComponentPlugin<C, F> = ExtractComponentPlugin<RenderApp, C, F>;
+// pub type ExtractComponentPlugin<C, F> = ExtractComponentPlugin<C, RenderApp, F>;
 
-impl<L: AppLabel, C, F> Default for ExtractComponentPlugin<C, F, L> {
+impl<C, L: AppLabel, F> Default for ExtractComponentPlugin<C, L, F> {
     fn default() -> Self {
         Self {
             only_extract_visible: false,
@@ -73,7 +73,7 @@ impl<L: AppLabel, C, F> Default for ExtractComponentPlugin<C, F, L> {
     }
 }
 
-impl<L: AppLabel, C, F> ExtractComponentPlugin<C, F, L> {
+impl<C, L: AppLabel, F> ExtractComponentPlugin<C, L, F> {
     pub fn extract_visible() -> Self {
         Self {
             only_extract_visible: true,
@@ -83,26 +83,26 @@ impl<L: AppLabel, C, F> ExtractComponentPlugin<C, F, L> {
 }
 
 impl<
-        L: AppLabel + Default + Clone + Copy + Eq,
         C: ExtractComponent<L, F>,
+        L: AppLabel + Default + Clone + Copy + Eq,
         F: 'static + Send + Sync,
-    > Plugin for ExtractComponentPlugin<C, F, L>
+    > Plugin for ExtractComponentPlugin<C, L, F>
 {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncComponentPlugin::<C, F, L>::default());
+        app.add_plugins(SyncComponentPlugin::<C, L, F>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(L::default()) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<L, C, F>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C, L, F>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<L, C, F>);
+                render_app.add_systems(ExtractSchedule, extract_components::<C, L, F>);
             }
         }
     }
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<L: AppLabel + Clone + Copy + Eq, C: ExtractComponent<L, F>, F>(
+fn extract_components<C: ExtractComponent<L, F>, L: AppLabel + Clone + Copy + Eq, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(SubEntity<L>, C::QueryData), C::QueryFilter>>,
@@ -120,7 +120,7 @@ fn extract_components<L: AppLabel + Clone + Copy + Eq, C: ExtractComponent<L, F>
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<L: AppLabel + Clone + Copy + Eq, C: ExtractComponent<L, F>, F>(
+fn extract_visible_components<C: ExtractComponent<L, F>, L: AppLabel + Clone + Copy + Eq, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(SubEntity<L>, &ViewVisibility, C::QueryData), C::QueryFilter>>,

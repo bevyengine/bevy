@@ -44,10 +44,10 @@ pub trait ExtractInstance<L: AppLabel>: Send + Sync + Sized + 'static {
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified
 /// [`ExtractedInstances`].
 #[derive(Default)]
-pub struct ExtractInstancesPlugin<L, EI>
+pub struct ExtractInstancesPlugin<EI, L>
 where
-    L: AppLabel,
     EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (L, EI)>,
@@ -55,25 +55,25 @@ where
 
 /// Stores all extract instances of a type in the sub world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedInstances<L, EI>(#[deref] MainEntityHashMap<EI>, PhantomData<L>)
+pub struct ExtractedInstances<EI, L>(#[deref] MainEntityHashMap<EI>, PhantomData<L>)
 where
-    L: AppLabel,
-    EI: ExtractInstance<L>;
-
-impl<L, EI> Default for ExtractedInstances<L, EI>
-where
-    L: AppLabel,
     EI: ExtractInstance<L>,
+    L: AppLabel;
+
+impl<EI, L> Default for ExtractedInstances<EI, L>
+where
+    EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
-impl<L, EI> ExtractInstancesPlugin<L, EI>
+impl<EI, L> ExtractInstancesPlugin<EI, L>
 where
-    L: AppLabel,
     EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     /// Creates a new [`ExtractInstancesPlugin`] that unconditionally extracts to
     /// the sub world, whether the entity is visible or not.
@@ -94,29 +94,29 @@ where
     }
 }
 
-impl<L, EI> Plugin for ExtractInstancesPlugin<L, EI>
+impl<EI, L> Plugin for ExtractInstancesPlugin<EI, L>
 where
-    L: AppLabel + Default,
     EI: ExtractInstance<L>,
+    L: AppLabel + Default,
 {
     fn build(&self, app: &mut App) {
         if let Some(sub_app) = app.get_sub_app_mut(L::default()) {
-            sub_app.init_resource::<ExtractedInstances<L, EI>>();
+            sub_app.init_resource::<ExtractedInstances<EI, L>>();
             if self.only_extract_visible {
-                sub_app.add_systems(ExtractSchedule, extract_visible::<L, EI>);
+                sub_app.add_systems(ExtractSchedule, extract_visible::<EI, L>);
             } else {
-                sub_app.add_systems(ExtractSchedule, extract_all::<L, EI>);
+                sub_app.add_systems(ExtractSchedule, extract_all::<EI, L>);
             }
         }
     }
 }
 
-fn extract_all<L, EI>(
-    mut extracted_instances: ResMut<ExtractedInstances<L, EI>>,
+fn extract_all<EI, L>(
+    mut extracted_instances: ResMut<ExtractedInstances<EI, L>>,
     query: Extract<Query<(Entity, EI::QueryData), EI::QueryFilter>>,
 ) where
-    L: AppLabel,
     EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     extracted_instances.clear();
     for (entity, other) in &query {
@@ -126,12 +126,12 @@ fn extract_all<L, EI>(
     }
 }
 
-fn extract_visible<L, EI>(
-    mut extracted_instances: ResMut<ExtractedInstances<L, EI>>,
+fn extract_visible<EI, L>(
+    mut extracted_instances: ResMut<ExtractedInstances<EI, L>>,
     query: Extract<Query<(Entity, &ViewVisibility, EI::QueryData), EI::QueryFilter>>,
 ) where
-    L: AppLabel,
     EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     extracted_instances.clear();
     for (entity, view_visibility, other) in &query {

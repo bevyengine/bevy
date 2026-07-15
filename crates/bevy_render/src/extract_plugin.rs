@@ -408,26 +408,22 @@ mod test {
 
         app.add_plugins(ExtractComponentPlugin::<
             RenderComponentSeparateA,
-            (),
             ExtractAppA,
         >::default());
         app.add_plugins(ExtractComponentPlugin::<
             RenderComponentSeparateB,
-            (),
             ExtractAppB,
         >::default());
         app.add_plugins(ExtractComponentPlugin::<
             RenderComponentSeparateBoth,
-            (),
             ExtractAppA,
         >::default());
         app.add_plugins(ExtractComponentPlugin::<
             RenderComponentSeparateBoth,
-            (),
             ExtractAppB,
         >::default());
-        app.add_plugins(ExtractComponentPlugin::<RenderComponentDual, (), ExtractAppA>::default());
-        app.add_plugins(ExtractComponentPlugin::<RenderComponentDual, (), ExtractAppB>::default());
+        app.add_plugins(ExtractComponentPlugin::<RenderComponentDual, ExtractAppA>::default());
+        app.add_plugins(ExtractComponentPlugin::<RenderComponentDual, ExtractAppB>::default());
 
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((
