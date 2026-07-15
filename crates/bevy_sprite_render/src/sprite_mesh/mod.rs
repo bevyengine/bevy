@@ -51,7 +51,7 @@ fn add_mesh(
     let quad = quad.get_or_insert_with(|| {
         meshes.add(
             Rectangle::from_size(vec2(1.0, 1.0))
-                .mesh()
+                .mesh_builder()
                 .build()
                 .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
                 .compressed_mesh(

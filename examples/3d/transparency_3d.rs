@@ -19,13 +19,13 @@ fn setup(
 ) {
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(6.0, 6.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(6.0, 6.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
     // Transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
+        Mesh3d(meshes.add(Sphere::new(0.5).mesh_builder().ico(3).unwrap())),
         MeshMaterial3d(materials.add(StandardMaterial {
             // Alpha channel of the color controls transparency.
             // We set it to 0.0 here, because it will be changed over time in the
@@ -42,7 +42,7 @@ fn setup(
 
     // Transparent unlit sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
+        Mesh3d(meshes.add(Sphere::new(0.5).mesh_builder().ico(3).unwrap())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.1),
@@ -75,7 +75,7 @@ fn setup(
 
     // Opaque sphere
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
+        Mesh3d(meshes.add(Sphere::new(0.5).mesh_builder().ico(3).unwrap())),
         MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.1))),
         Transform::from_xyz(0.0, 0.5, -1.5),
     ));

@@ -107,7 +107,7 @@ fn setup(
     }
 
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(5.0, 5.0))),
         MeshMaterial3d(standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,

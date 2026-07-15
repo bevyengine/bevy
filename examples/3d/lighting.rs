@@ -48,7 +48,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(10.0, 10.0))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
@@ -109,7 +109,7 @@ fn setup(
     ));
     // sphere
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().uv(32, 18))),
+        Mesh3d(meshes.add(Sphere::new(0.5).mesh_builder().uv(32, 18))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: LIMEGREEN.into(),
             ..default()
@@ -136,7 +136,7 @@ fn setup(
         },
         Transform::from_xyz(1.0, 2.0, 0.0),
         children![(
-            Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
+            Mesh3d(meshes.add(Sphere::new(0.1).mesh_builder().uv(32, 18))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: RED.into(),
                 emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
@@ -177,7 +177,7 @@ fn setup(
         },
         Transform::from_xyz(0.0, 4.0, 0.0),
         children![(
-            Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
+            Mesh3d(meshes.add(Sphere::new(0.1).mesh_builder().uv(32, 18))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: BLUE.into(),
                 emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),

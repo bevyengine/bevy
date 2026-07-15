@@ -66,7 +66,7 @@ fn setup(
 
     // Make a plane for establishing space.
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(12.0, 12.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
@@ -87,7 +87,7 @@ fn setup(
     ));
 
     // Create a new sphere mesh:
-    let mut sphere_mesh = Sphere::new(1.0).mesh().ico(7)?;
+    let mut sphere_mesh = Sphere::new(1.0).mesh_builder().ico(7)?;
     sphere_mesh.generate_tangents()?;
 
     // Spawn the mesh into the scene:
@@ -102,7 +102,7 @@ fn setup(
     let distribution = UniformMeshSampler::try_new(triangles)?;
 
     // Setup sample points:
-    let point_mesh = meshes.add(Sphere::new(0.01).mesh().ico(3)?);
+    let point_mesh = meshes.add(Sphere::new(0.01).mesh_builder().ico(3)?);
     let point_material = materials.add(StandardMaterial {
         base_color: Srgba::RED.into(),
         emissive: LinearRgba::rgb(1.0, 0.0, 0.0),

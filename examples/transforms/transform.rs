@@ -45,7 +45,7 @@ fn setup(
 ) {
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap())),
+        Mesh3d(meshes.add(Sphere::new(3.0).mesh_builder().ico(32).unwrap())),
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
         Transform::from_translation(Vec3::ZERO),
         Center {

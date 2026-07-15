@@ -42,7 +42,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(100.0, 100.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Movable,
     ));
@@ -71,8 +71,8 @@ fn setup(
         .take(40),
     );
 
-    let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
-    let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
+    let sphere_mesh = meshes.add(Sphere::new(0.05).mesh_builder().uv(32, 18));
+    let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh_builder().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
         base_color: RED.into(),
         emissive: LinearRgba::new(1.0, 0.0, 0.0, 0.0),

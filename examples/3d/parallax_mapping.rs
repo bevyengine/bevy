@@ -223,7 +223,7 @@ fn setup(
     ));
 
     // represent the light source as a sphere
-    let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
+    let mesh = meshes.add(Sphere::new(0.05).mesh_builder().ico(3).unwrap());
 
     // light
     commands.spawn((
@@ -237,7 +237,7 @@ fn setup(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(10.0, 10.0))),
         MeshMaterial3d(materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.

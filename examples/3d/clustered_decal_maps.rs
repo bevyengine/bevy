@@ -196,7 +196,7 @@ fn spawn_plane_mesh(
             normal: Dir3::NEG_Z,
             half_size: Vec2::splat(PLANE_HALF_SIZE),
         }
-        .mesh()
+        .mesh_builder()
         .build()
         .with_duplicated_vertices()
         .with_computed_flat_normals()

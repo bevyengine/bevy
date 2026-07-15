@@ -229,7 +229,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
 
     commands.spawn((
-        Mesh3d(asset_server.add(Circle::default().mesh().into())),
+        Mesh3d(asset_server.add(Circle::default().mesh_builder().into())),
         MeshMaterial3d(asset_server.add(StandardMaterial {
             base_color: Color::srgb(0.06, 0.06, 0.06),
             ..default()

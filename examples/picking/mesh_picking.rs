@@ -59,8 +59,8 @@ fn setup_scene(
         meshes.add(Cylinder::default()),
         meshes.add(Cone::default()),
         meshes.add(ConicalFrustum::default()),
-        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
-        meshes.add(Sphere::default().mesh().uv(32, 18)),
+        meshes.add(Sphere::default().mesh_builder().ico(5).unwrap()),
+        meshes.add(Sphere::default().mesh_builder().uv(32, 18)),
     ];
 
     let extrusions = [
@@ -121,7 +121,14 @@ fn setup_scene(
 
     // Ground
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        Mesh3d(
+            meshes.add(
+                Plane3d::default()
+                    .mesh_builder()
+                    .size(50.0, 50.0)
+                    .subdivisions(10),
+            ),
+        ),
         MeshMaterial3d(ground_matl.clone()),
         Pickable::IGNORE, // Disable picking for the ground plane.
     ));

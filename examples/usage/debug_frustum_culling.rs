@@ -184,7 +184,7 @@ fn setup(
         Mesh3d(
             meshes.add(
                 Plane3d::default()
-                    .mesh()
+                    .mesh_builder()
                     .size(SHAPE_RING_RADIUS * 4., SHAPE_RING_RADIUS * 4.),
             ),
         ),
@@ -192,7 +192,7 @@ fn setup(
     ));
     // Blue Wall Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5., 5.))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(5., 5.))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.3, 0.5))),
         Transform::from_xyz(20., 2.5, 10.).with_rotation(Quat::from_rotation_z(PI / 2.)),
     ));
@@ -230,7 +230,7 @@ fn setup(
         meshes.add(Cuboid {
             half_size: Vec3::new(1., 0.1, 2.),
         }),
-        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
+        meshes.add(Sphere::default().mesh_builder().ico(5).unwrap()),
     ];
     let shapes_len = shapes.len() as f32;
     let mut shape_ring = commands.spawn((Transform::default(), Visibility::default(), ShapeRing));

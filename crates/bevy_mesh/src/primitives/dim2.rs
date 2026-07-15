@@ -61,7 +61,7 @@ impl CircleMeshBuilder {
 impl MeshBuilder for CircleMeshBuilder {
     fn build(&self) -> Mesh {
         Ellipse::new(self.circle.radius, self.circle.radius)
-            .mesh()
+            .mesh_builder()
             .resolution(self.resolution)
             .build()
     }
@@ -80,7 +80,7 @@ impl Extrudable for CircleMeshBuilder {
 impl Meshable for Circle {
     type Output = CircleMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         CircleMeshBuilder {
             circle: *self,
             ..Default::default()
@@ -90,7 +90,7 @@ impl Meshable for Circle {
 
 impl From<Circle> for Mesh {
     fn from(circle: Circle) -> Self {
-        circle.mesh().build()
+        circle.mesh_builder().build()
     }
 }
 
@@ -242,7 +242,7 @@ impl Extrudable for CircularSectorMeshBuilder {
 impl Meshable for CircularSector {
     type Output = CircularSectorMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         CircularSectorMeshBuilder {
             sector: *self,
             ..Default::default()
@@ -255,7 +255,7 @@ impl From<CircularSector> for Mesh {
     ///
     /// See the documentation of [`CircularSectorMeshBuilder`] for more details.
     fn from(sector: CircularSector) -> Self {
-        sector.mesh().build()
+        sector.mesh_builder().build()
     }
 }
 
@@ -389,7 +389,7 @@ impl Extrudable for CircularSegmentMeshBuilder {
 impl Meshable for CircularSegment {
     type Output = CircularSegmentMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         CircularSegmentMeshBuilder {
             segment: *self,
             ..Default::default()
@@ -402,7 +402,7 @@ impl From<CircularSegment> for Mesh {
     ///
     /// See the documentation of [`CircularSegmentMeshBuilder`] for more details.
     fn from(segment: CircularSegment) -> Self {
-        segment.mesh().build()
+        segment.mesh_builder().build()
     }
 }
 
@@ -419,7 +419,7 @@ pub struct ConvexPolygonMeshBuilder {
 impl Meshable for ConvexPolygon {
     type Output = ConvexPolygonMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Self::Output {
             vertices: self.vertices().to_vec(),
         }
@@ -474,7 +474,7 @@ impl Extrudable for ConvexPolygonMeshBuilder {
 
 impl From<ConvexPolygon> for Mesh {
     fn from(polygon: ConvexPolygon) -> Self {
-        polygon.mesh().build()
+        polygon.mesh_builder().build()
     }
 }
 
@@ -520,7 +520,7 @@ impl RegularPolygonMeshBuilder {
 impl Meshable for RegularPolygon {
     type Output = RegularPolygonMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Self::Output {
             circumradius: self.circumcircle.radius,
             sides: self.sides,
@@ -532,7 +532,7 @@ impl MeshBuilder for RegularPolygonMeshBuilder {
     fn build(&self) -> Mesh {
         // The ellipse mesh is just a regular polygon with two radii
         Ellipse::new(self.circumradius, self.circumradius)
-            .mesh()
+            .mesh_builder()
             .resolution(self.sides)
             .build()
     }
@@ -548,7 +548,7 @@ impl Extrudable for RegularPolygonMeshBuilder {
 
 impl From<RegularPolygon> for Mesh {
     fn from(polygon: RegularPolygon) -> Self {
-        polygon.mesh().build()
+        polygon.mesh_builder().build()
     }
 }
 
@@ -643,7 +643,7 @@ impl Extrudable for EllipseMeshBuilder {
 impl Meshable for Ellipse {
     type Output = EllipseMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         EllipseMeshBuilder {
             ellipse: *self,
             ..Default::default()
@@ -653,7 +653,7 @@ impl Meshable for Ellipse {
 
 impl From<Ellipse> for Mesh {
     fn from(ellipse: Ellipse) -> Self {
-        ellipse.mesh().build()
+        ellipse.mesh_builder().build()
     }
 }
 
@@ -685,7 +685,7 @@ impl MeshBuilder for Segment2dMeshBuilder {
 impl Meshable for Segment2d {
     type Output = Segment2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Segment2dMeshBuilder::new(*self)
     }
 }
@@ -693,7 +693,7 @@ impl Meshable for Segment2d {
 impl From<Segment2d> for Mesh {
     /// Converts this segment into a [`Mesh`] using a default [`Segment2dMeshBuilder`].
     fn from(segment: Segment2d) -> Self {
-        segment.mesh().build()
+        segment.mesh_builder().build()
     }
 }
 
@@ -728,7 +728,7 @@ impl MeshBuilder for Polyline2dMeshBuilder {
 impl Meshable for Polyline2d {
     type Output = Polyline2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Polyline2dMeshBuilder {
             polyline: self.clone(),
         }
@@ -737,7 +737,7 @@ impl Meshable for Polyline2d {
 
 impl From<Polyline2d> for Mesh {
     fn from(polyline: Polyline2d) -> Self {
-        polyline.mesh().build()
+        polyline.mesh_builder().build()
     }
 }
 
@@ -860,7 +860,7 @@ impl Extrudable for AnnulusMeshBuilder {
 impl Meshable for Annulus {
     type Output = AnnulusMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         AnnulusMeshBuilder {
             annulus: *self,
             ..Default::default()
@@ -870,7 +870,7 @@ impl Meshable for Annulus {
 
 impl From<Annulus> for Mesh {
     fn from(annulus: Annulus) -> Self {
-        annulus.mesh().build()
+        annulus.mesh_builder().build()
     }
 }
 
@@ -947,7 +947,7 @@ impl Extrudable for RhombusMeshBuilder {
 impl Meshable for Rhombus {
     type Output = RhombusMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Self::Output {
             half_diagonals: self.half_diagonals,
         }
@@ -956,7 +956,7 @@ impl Meshable for Rhombus {
 
 impl From<Rhombus> for Mesh {
     fn from(rhombus: Rhombus) -> Self {
-        rhombus.mesh().build()
+        rhombus.mesh_builder().build()
     }
 }
 
@@ -979,7 +979,7 @@ impl Triangle2dMeshBuilder {
 impl Meshable for Triangle2d {
     type Output = Triangle2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Self::Output { triangle: *self }
     }
 }
@@ -1033,7 +1033,7 @@ impl Extrudable for Triangle2dMeshBuilder {
 
 impl From<Triangle2d> for Mesh {
     fn from(triangle: Triangle2d) -> Self {
-        triangle.mesh().build()
+        triangle.mesh_builder().build()
     }
 }
 
@@ -1104,7 +1104,7 @@ impl Extrudable for RectangleMeshBuilder {
 impl Meshable for Rectangle {
     type Output = RectangleMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         RectangleMeshBuilder {
             half_size: self.half_size,
         }
@@ -1113,7 +1113,7 @@ impl Meshable for Rectangle {
 
 impl From<Rectangle> for Mesh {
     fn from(rectangle: Rectangle) -> Self {
-        rectangle.mesh().build()
+        rectangle.mesh_builder().build()
     }
 }
 
@@ -1264,7 +1264,7 @@ impl Extrudable for Capsule2dMeshBuilder {
 impl Meshable for Capsule2d {
     type Output = Capsule2dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Capsule2dMeshBuilder {
             capsule: *self,
             ..Default::default()
@@ -1274,7 +1274,7 @@ impl Meshable for Capsule2d {
 
 impl From<Capsule2d> for Mesh {
     fn from(capsule: Capsule2d) -> Self {
-        capsule.mesh().build()
+        capsule.mesh_builder().build()
     }
 }
 
@@ -1294,8 +1294,8 @@ where
     /// Create a new `RingMeshBuilder<P>` from a given `Ring<P>` shape.
     pub fn new(ring: &Ring<P>) -> Self {
         Self {
-            outer_shape_builder: ring.outer_shape.mesh(),
-            inner_shape_builder: ring.inner_shape.mesh(),
+            outer_shape_builder: ring.outer_shape.mesh_builder(),
+            inner_shape_builder: ring.inner_shape.mesh_builder(),
         }
     }
 
@@ -1527,7 +1527,7 @@ where
 {
     type Output = RingMeshBuilder<P>;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         RingMeshBuilder::new(self)
     }
 }
@@ -1537,7 +1537,7 @@ where
     P: Primitive2d + Meshable,
 {
     fn from(ring: Ring<P>) -> Self {
-        ring.mesh().build()
+        ring.mesh_builder().build()
     }
 }
 
@@ -1562,7 +1562,7 @@ mod tests {
 
     #[test]
     fn test_annulus() {
-        let mesh = Annulus::new(1.0, 1.2).mesh().resolution(16).build();
+        let mesh = Annulus::new(1.0, 1.2).mesh_builder().resolution(16).build();
 
         assert_eq!(
             32,

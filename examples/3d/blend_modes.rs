@@ -31,7 +31,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     let base_color = Color::srgb(0.9, 0.2, 0.3);
-    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh_builder().ico(7).unwrap());
 
     // Opaque
     let opaque = commands
@@ -122,7 +122,7 @@ fn setup(
     let black_material = materials.add(Color::BLACK);
     let white_material = materials.add(Color::WHITE);
 
-    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
+    let plane_mesh = meshes.add(Plane3d::default().mesh_builder().size(2.0, 2.0));
 
     for x in -3..4 {
         for z in -3..4 {

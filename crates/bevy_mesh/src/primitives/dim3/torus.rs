@@ -161,7 +161,7 @@ impl MeshBuilder for TorusMeshBuilder {
 impl Meshable for Torus {
     type Output = TorusMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         TorusMeshBuilder {
             torus: *self,
             ..Default::default()
@@ -171,6 +171,6 @@ impl Meshable for Torus {
 
 impl From<Torus> for Mesh {
     fn from(torus: Torus) -> Self {
-        torus.mesh().build()
+        torus.mesh_builder().build()
     }
 }

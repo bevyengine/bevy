@@ -271,7 +271,7 @@ fn spawn_reflective_sphere(
     material: Handle<StandardMaterial>,
 ) {
     // Create a mesh.
-    let sphere = meshes.add(Sphere::default().mesh().uv(32, 18));
+    let sphere = meshes.add(Sphere::default().mesh_builder().uv(32, 18));
 
     // Spawn the sphere.
     commands.spawn((
@@ -296,7 +296,7 @@ fn spawn_reflective_prism(
         Cuboid {
             half_size: vec3(2.0, 1.0, 10.0),
         }
-        .mesh()
+        .mesh_builder()
         .build()
         // We use flat normals so that the surface appears flat, not curved.
         .with_duplicated_vertices()

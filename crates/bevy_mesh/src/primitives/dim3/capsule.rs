@@ -421,7 +421,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
 impl Meshable for Capsule3d {
     type Output = Capsule3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Capsule3dMeshBuilder {
             capsule: *self,
             ..Default::default()
@@ -431,6 +431,6 @@ impl Meshable for Capsule3d {
 
 impl From<Capsule3d> for Mesh {
     fn from(capsule: Capsule3d) -> Self {
-        capsule.mesh().build()
+        capsule.mesh_builder().build()
     }
 }

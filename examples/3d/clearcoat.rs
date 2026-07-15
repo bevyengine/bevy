@@ -83,7 +83,7 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
     // We're going to use normal maps, so make sure we've generated tangents, or
     // else the normal maps won't show up.
 
-    let mut sphere_mesh = Sphere::new(1.0).mesh().build();
+    let mut sphere_mesh = Sphere::new(1.0).mesh_builder().build();
     sphere_mesh
         .generate_tangents()
         .expect("Failed to generate tangents");

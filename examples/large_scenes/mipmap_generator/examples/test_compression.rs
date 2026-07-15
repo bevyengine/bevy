@@ -65,7 +65,7 @@ fn setup(
     let mut mat_rgba = StandardMaterial::from(images.add(image_rgba));
     mat_rgba.unlit = true;
 
-    let plane_h = meshes.add(Plane3d::default().mesh().size(20.0, 30.0));
+    let plane_h = meshes.add(Plane3d::default().mesh_builder().size(20.0, 30.0));
 
     // planes
     commands.spawn((

@@ -70,7 +70,7 @@ fn setup(
             normal: -Dir3::Z,
             half_size: Vec2::new(2.0, 0.5),
         }
-        .mesh(),
+        .mesh_builder(),
     ));
 
     // Build a dimly lit box around the camera, with a slot to see the bright skybox.

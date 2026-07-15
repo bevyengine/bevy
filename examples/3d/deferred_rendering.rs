@@ -88,12 +88,12 @@ fn setup(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(50.0, 50.0))),
         MeshMaterial3d(forward_mat_h.clone()),
     ));
 
     let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
-    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
+    let sphere_h = meshes.add(Sphere::new(0.125).mesh_builder().uv(32, 18));
 
     // Cubes
     commands.spawn((

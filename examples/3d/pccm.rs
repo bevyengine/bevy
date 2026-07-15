@@ -110,7 +110,7 @@ fn spawn_inner_cube(
         Cuboid {
             half_size: Vec3::new(5.0, 1.0, 2.0),
         }
-        .mesh()
+        .mesh_builder()
         .build()
         .with_duplicated_vertices()
         .with_computed_flat_normals(),

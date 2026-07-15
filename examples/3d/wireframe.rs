@@ -98,7 +98,7 @@ fn setup(
 
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(5.0, 5.0))),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh

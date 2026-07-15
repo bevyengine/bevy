@@ -49,7 +49,7 @@ fn setup(
 
     // Ground plane (not pickable)
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(10.0, 10.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.3, 0.3))),
         Pickable::IGNORE,
     ));

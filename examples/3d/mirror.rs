@@ -298,7 +298,7 @@ fn spawn_mirror(
         .with_translation(MIRROR_POSITION);
 
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(1.0, 1.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(1.0, 1.0))),
         MeshMaterial3d(screen_space_texture_materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: Color::BLACK,

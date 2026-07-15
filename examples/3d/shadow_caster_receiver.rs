@@ -56,7 +56,7 @@ fn setup(
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(20.0, 20.0))),
         MeshMaterial3d(materials.add(Color::from(LIME))),
         Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
@@ -65,7 +65,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(20.0, 20.0))),
         MeshMaterial3d(white_handle),
     ));
 

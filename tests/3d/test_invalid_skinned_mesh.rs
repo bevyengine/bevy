@@ -80,7 +80,14 @@ fn setup_environment(
     // Add a plane behind the meshes so we can see the shadows.
     commands.spawn((
         Transform::from_xyz(0.0, 0.0, -1.0),
-        Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(100.0, 100.0).normal(Dir3::Z))),
+        Mesh3d(
+            mesh_assets.add(
+                Plane3d::default()
+                    .mesh_builder()
+                    .size(100.0, 100.0)
+                    .normal(Dir3::Z),
+            ),
+        ),
         MeshMaterial3d(material_assets.add(StandardMaterial {
             base_color: Color::srgb(0.05, 0.05, 0.15),
             reflectance: 0.2,
@@ -211,7 +218,14 @@ fn setup_meshes(
         // Add a square behind the mesh to distinguish it from the other meshes.
         commands.spawn((
             Transform::from_xyz(transform.translation.x, transform.translation.y, -0.8),
-            Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(4.3, 4.3).normal(Dir3::Z))),
+            Mesh3d(
+                mesh_assets.add(
+                    Plane3d::default()
+                        .mesh_builder()
+                        .size(4.3, 4.3)
+                        .normal(Dir3::Z),
+                ),
+            ),
             MeshMaterial3d(background_material_handle.clone()),
         ));
     }

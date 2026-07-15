@@ -285,7 +285,7 @@ fn spawn_small_cubes(
 
     // Create the sphere mesh, and extract the positions of its vertices.
     let sphere = Sphere::new(OUTER_RADIUS)
-        .mesh()
+        .mesh_builder()
         .ico(OUTER_SUBDIVISION_COUNT)
         .unwrap();
     let sphere_positions = sphere.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();

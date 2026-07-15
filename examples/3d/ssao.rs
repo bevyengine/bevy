@@ -58,7 +58,7 @@ fn setup(
         Transform::from_xyz(1.0, 0.0, 0.0),
     ));
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.4).mesh().uv(72, 36))),
+        Mesh3d(meshes.add(Sphere::new(0.4).mesh_builder().uv(72, 36))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.4, 0.4, 0.4),
             perceptual_roughness: 1.0,

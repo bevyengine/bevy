@@ -99,7 +99,7 @@ fn setup_camera_and_environment(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(500000.0, 500000.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 

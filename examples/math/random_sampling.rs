@@ -59,7 +59,7 @@ fn setup(
 
     // Make a plane for establishing space.
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(12.0, 12.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
@@ -98,7 +98,7 @@ fn setup(
     commands.insert_resource(PointMesh(
         meshes.add(
             Sphere::new(0.03)
-                .mesh()
+                .mesh_builder()
                 .kind(SphereKind::Ico { subdivisions: 3 }),
         ),
     ));

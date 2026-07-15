@@ -104,7 +104,7 @@ fn setup_scene(
 
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(5.0, 5.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
     ));
     // cube
@@ -115,7 +115,7 @@ fn setup_scene(
     ));
     // sphere
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap())),
+        Mesh3d(meshes.add(Sphere::new(0.5).mesh_builder().ico(4).unwrap())),
         MeshMaterial3d(materials.add(Color::srgb(0.1, 0.4, 0.8))),
         Transform::from_xyz(1.5, 1.5, 1.5),
     ));

@@ -102,7 +102,7 @@ fn setup(
     // Spawn the sphere.
     commands.spawn((
         Transform::from_rotation(Quat::from_rotation_x(PI * 0.5)),
-        Mesh3d(meshes.add(Sphere::default().mesh().uv(32, 18))),
+        Mesh3d(meshes.add(Sphere::default().mesh_builder().uv(32, 18))),
         MeshMaterial3d(standard_materials.add(StandardMaterial {
             // We want only reflected specular light here, so we set the base
             // color as black.

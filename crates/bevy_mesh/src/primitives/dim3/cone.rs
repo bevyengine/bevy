@@ -174,7 +174,7 @@ impl MeshBuilder for ConeMeshBuilder {
 impl Meshable for Cone {
     type Output = ConeMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         ConeMeshBuilder {
             cone: *self,
             ..Default::default()
@@ -184,7 +184,7 @@ impl Meshable for Cone {
 
 impl From<Cone> for Mesh {
     fn from(cone: Cone) -> Self {
-        cone.mesh().build()
+        cone.mesh_builder().build()
     }
 }
 
@@ -211,7 +211,7 @@ mod tests {
             radius: 0.5,
             height: 1.0,
         }
-        .mesh()
+        .mesh_builder()
         .resolution(4)
         .build();
 

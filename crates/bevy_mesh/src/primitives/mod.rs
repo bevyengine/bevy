@@ -35,8 +35,13 @@ pub trait Meshable {
     /// The output of [`Self::mesh`]. This will be a [`MeshBuilder`] used for creating a [`Mesh`].
     type Output: MeshBuilder;
 
+    /// Creates a [`MeshBuilder`] for a shape.
+    fn mesh_builder(&self) -> Self::Output;
+
     /// Creates a [`Mesh`] for a shape.
-    fn mesh(&self) -> Self::Output;
+    fn mesh(&self) -> Mesh {
+        self.mesh_builder().build()
+    }
 }
 
 /// A trait used to build [`Mesh`]es from a configuration

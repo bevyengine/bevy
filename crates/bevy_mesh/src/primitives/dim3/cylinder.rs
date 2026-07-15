@@ -207,7 +207,7 @@ impl MeshBuilder for CylinderMeshBuilder {
 impl Meshable for Cylinder {
     type Output = CylinderMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         CylinderMeshBuilder {
             cylinder: *self,
             ..Default::default()
@@ -217,6 +217,6 @@ impl Meshable for Cylinder {
 
 impl From<Cylinder> for Mesh {
     fn from(cylinder: Cylinder) -> Self {
-        cylinder.mesh().build()
+        cylinder.mesh_builder().build()
     }
 }

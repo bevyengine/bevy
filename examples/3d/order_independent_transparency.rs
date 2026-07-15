@@ -387,7 +387,7 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
 
     let offset = Vec3::new(0.0, 0.0, 0.0);
 
-    let sphere_handle = meshes.add(Sphere::new(2.0).mesh());
+    let sphere_handle = meshes.add(Sphere::new(2.0).mesh_builder());
 
     let alpha = 0.25;
 
@@ -431,7 +431,7 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
     let meshes = &mut resources.meshes;
     let materials = &mut resources.materials;
 
-    let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
+    let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh_builder());
     let render_layers = RenderLayers::layer(1);
     let xform = |x, y, z| {
         Transform::from_rotation(Quat::from_rotation_y(0.5))
@@ -499,8 +499,8 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
     let meshes = &mut resources.meshes;
     let materials = &mut resources.materials;
 
-    let sphere_handle = meshes.add(Sphere::new(1.0).mesh());
-    let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
+    let sphere_handle = meshes.add(Sphere::new(1.0).mesh_builder());
+    let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh_builder());
     let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
 
     let render_layers = RenderLayers::layer(1);

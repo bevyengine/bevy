@@ -215,7 +215,7 @@ fn setup_many_lights(
     let mut rng = ChaCha8Rng::seed_from_u64(42);
 
     let mut plane_mesh = Plane3d::default()
-        .mesh()
+        .mesh_builder()
         .size(400.0, 400.0)
         .build()
         .with_generated_tangents()
@@ -229,14 +229,14 @@ fn setup_many_lights(
     let plane_mesh = meshes.add(plane_mesh);
     let cube_mesh = meshes.add(
         Cuboid::default()
-            .mesh()
+            .mesh_builder()
             .build()
             .with_generated_tangents()
             .unwrap(),
     );
     let sphere_mesh = meshes.add(
         Sphere::new(1.0)
-            .mesh()
+            .mesh_builder()
             .build()
             .with_generated_tangents()
             .unwrap(),

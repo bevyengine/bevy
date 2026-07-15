@@ -67,8 +67,8 @@ impl Plugin for VolumetricFogPlugin {
         embedded_asset!(app, "volumetric_fog.wgsl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
-        let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
-        let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
+        let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh_builder());
+        let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh_builder());
 
         app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 

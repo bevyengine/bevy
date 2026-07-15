@@ -24,14 +24,14 @@ impl MeshBuilder for Segment3dMeshBuilder {
 impl Meshable for Segment3d {
     type Output = Segment3dMeshBuilder;
 
-    fn mesh(&self) -> Self::Output {
+    fn mesh_builder(&self) -> Self::Output {
         Segment3dMeshBuilder { segment: *self }
     }
 }
 
 impl From<Segment3d> for Mesh {
     fn from(segment: Segment3d) -> Self {
-        segment.mesh().build()
+        segment.mesh_builder().build()
     }
 }
 
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn segment3d_mesh_builder() {
         let segment = Segment3d::new(Vec3::ZERO, Vec3::X);
-        let mesh = segment.mesh().build();
+        let mesh = segment.mesh_builder().build();
         assert_eq!(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len(), 2);
         assert_eq!(mesh.indices().unwrap().len(), 2);
     }

@@ -51,11 +51,11 @@ fn spawn_scene(
     let diffuse_env_map = asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2");
     let specular_env_map = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
 
-    let floor_mesh = meshes.add(Circle::new(4.0).mesh().resolution(128).build());
+    let floor_mesh = meshes.add(Circle::new(4.0).mesh_builder().resolution(128).build());
 
     let sphere_mesh = meshes.add(
         Sphere::new(1.0)
-            .mesh()
+            .mesh_builder()
             .kind(SphereKind::Ico { subdivisions: 50 })
             .build()
             .with_generated_tangents()

@@ -132,7 +132,7 @@ mod light {
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
         commands.spawn((
-            Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+            Mesh3d(meshes.add(Plane3d::default().mesh_builder().size(10.0, 10.0))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 perceptual_roughness: 1.0,
@@ -236,7 +236,7 @@ mod bloom {
             ..default()
         });
 
-        let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
+        let mesh = meshes.add(Sphere::new(0.5).mesh_builder().ico(5).unwrap());
 
         for z in -2..3_i32 {
             let material = match (z % 2).abs() {
