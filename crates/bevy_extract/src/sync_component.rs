@@ -82,16 +82,18 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::App;
+    use bevy_app::{App, AppLabel};
     use bevy_ecs::component::Component;
 
     use super::{SyncComponent, SyncComponentPlugin};
-    use crate::RenderApp;
+
+    #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+    pub struct ExtractApp;
 
     #[derive(Component)]
     struct TestSyncComponent;
 
-    impl SyncComponent<RenderApp> for TestSyncComponent {
+    impl SyncComponent<ExtractApp> for TestSyncComponent {
         type Target = Self;
     }
 
@@ -101,7 +103,7 @@ mod tests {
     #[test]
     fn remove_synced_component_without_render_world() {
         let mut app = App::new();
-        app.add_plugins(SyncComponentPlugin::<TestSyncComponent>::default());
+        app.add_plugins(SyncComponentPlugin::<TestSyncComponent, ExtractApp>::default());
 
         let entity = app.world_mut().spawn(TestSyncComponent).id();
         app.world_mut().despawn(entity);
