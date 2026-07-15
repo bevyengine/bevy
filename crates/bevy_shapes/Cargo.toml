@@ -10,6 +10,41 @@ rust-version = "1.94.0"
 version      = "0.20.0-dev"
 
 [dependencies]
+approx = { default-features = false, optional = true, version = "0.5" }
+bevy_math = { default-features = false, path = "../bevy_math" }
+bevy_reflect = { default-features = false, features = [
+  "glam",
+], optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
+derive_more = { default-features = false, features = [
+  "from",
+  "into",
+], version = "2" }
+serde = { default-features = false, features = [
+  "derive",
+], optional = true, version = "1" }
+thiserror = { default-features = false, version = "2" }
+
+[dev-dependencies]
+bevy_math = { default-features = false, features = [
+  "approx",
+], path = "../bevy_math" }
+
+[features]
+alloc   = ["bevy_math/alloc"]
+default = ["bevy_math/default", "std"]
+std     = ["alloc", "bevy_math/std"]
+
+approx       = ["bevy_math/approx", "dep:approx"]
+bevy_reflect = ["alloc", "bevy_math/bevy_reflect", "dep:bevy_reflect"]
+serialize    = ["bevy_math/serialize", "dep:serde"]
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+  "-Zunstable-options",
+]
