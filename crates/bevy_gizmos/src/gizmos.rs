@@ -288,7 +288,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    pub(crate) enabled: bool,
+    // needs to be public for [`bevy_shapes`]
+    /// whether or not this buffer will be rendered
+    pub enabled: bool,
     /// The positions of line segment endpoints.
     pub list_positions: Vec<Vec3>,
     /// The colors of line segment endpoints.
