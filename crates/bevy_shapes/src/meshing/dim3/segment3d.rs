@@ -1,0 +1,49 @@
+use crate::{
+    meshing::{MeshBuilder, Meshable},
+    primitives::Segment3d,
+};
+use alloc::vec::Vec;
+use bevy_asset::RenderAssetUsages;
+use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_reflect::prelude::*;
+
+/// A builder used for creating a [`Mesh`] with a [`Segment3d`] shape.
+#[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Default, Debug, Clone)]
+pub struct Segment3dMeshBuilder {
+    segment: Segment3d,
+}
+
+impl MeshBuilder for Segment3dMeshBuilder {
+    fn build(&self) -> Mesh {
+        let positions: Vec<_> = self.segment.vertices.into();
+        let indices = Indices::U32(alloc::vec![0, 1]);
+
+        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+            .with_inserted_indices(indices)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    }
+}
+
+impl Meshable for Segment3d {
+    type Output = Segment3dMeshBuilder;
+
+    fn mesh_builder(&self) -> Self::Output {
+        Segment3dMeshBuilder { segment: *self }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::meshing::{MeshBuilder, Meshable};
+    use bevy_math::Vec3;
+
+    #[test]
+    fn segment3d_mesh_builder() {
+        let segment = Segment3d::new(Vec3::ZERO, Vec3::X);
+        let mesh = segment.mesh_builder().build();
+        assert_eq!(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len(), 2);
+        assert_eq!(mesh.indices().unwrap().len(), 2);
+    }
+}

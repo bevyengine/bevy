@@ -21,3 +21,6 @@ extern crate std;
 extern crate alloc;
 
 pub mod primitives;
+
+#[cfg(all(feature = "meshing", feature = "alloc"))]
+pub mod meshing;
