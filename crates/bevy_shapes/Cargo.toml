@@ -1,0 +1,15 @@
+[package]
+description  = "Provides primitive shapes for Bevy Engine"
+edition      = "2024"
+homepage     = "https://bevy.org"
+keywords     = ["bevy"]
+license      = "MIT OR Apache-2.0"
+name         = "bevy_shapes"
+repository   = "https://github.com/bevyengine/bevy"
+rust-version = "1.94.0"
+version      = "0.20.0-dev"
+
+[dependencies]
+
+[lints]
+workspace = true
