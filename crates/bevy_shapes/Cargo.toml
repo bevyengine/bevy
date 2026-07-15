@@ -13,6 +13,8 @@ version      = "0.20.0-dev"
 approx = { default-features = false, optional = true, version = "0.5" }
 arrayvec = { default-features = false, optional = true, version = "0.7" }
 bevy_asset = { default-features = false, optional = true, path = "../bevy_asset" }
+bevy_color = { default-features = false, optional = true, path = "../bevy_color" }
+bevy_gizmos = { default-features = false, optional = true, path = "../bevy_gizmos" }
 bevy_math = { default-features = false, path = "../bevy_math" }
 bevy_mesh = { default-features = false, optional = true, path = "../bevy_mesh" }
 bevy_reflect = { default-features = false, features = [
@@ -49,6 +51,7 @@ serialize    = ["bevy_math/serialize", "dep:serde"]
 
 bounding = ["dep:arrayvec"]
 extrusion = ["meshing"]
+gizmos = ["dep:bevy_color", "dep:bevy_gizmos"]
 meshing = [
   "bevy_reflect",
   "dep:bevy_asset",

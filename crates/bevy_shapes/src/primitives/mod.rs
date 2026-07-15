@@ -13,6 +13,7 @@ mod polygon;
 pub use half_space::*;
 mod view_frustum;
 pub use view_frustum::*;
+mod math;
 
 /// A marker trait for 2D primitives
 pub trait Primitive2d {}

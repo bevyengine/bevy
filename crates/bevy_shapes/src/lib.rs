@@ -30,3 +30,6 @@ pub mod bounding;
 
 #[cfg(feature = "sampling")]
 pub mod sampling;
+
+#[cfg(feature = "gizmos")]
+pub mod gizmos;
