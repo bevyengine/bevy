@@ -764,7 +764,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[reflect(opaque, Debug)]
     struct TrailingNewlineDebug;
 
-    impl alloc::fmt::Debug for TrailingNewlineDebug {
+    impl core::fmt::Debug for TrailingNewlineDebug {
         fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
             writeln!(f, "value")
         }
@@ -796,7 +796,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[reflect(opaque, Debug)]
     struct TrailingNewlineThenSpaces;
 
-    impl alloc::fmt::Debug for TrailingNewlineThenSpaces {
+    impl core::fmt::Debug for TrailingNewlineThenSpaces {
         fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "value\n  ")
         }
@@ -828,7 +828,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[reflect(opaque, Debug)]
     struct MultiLineDebug;
 
-    impl alloc::fmt::Debug for MultiLineDebug {
+    impl core::fmt::Debug for MultiLineDebug {
         fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "line1\nline2")
         }
@@ -858,7 +858,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[reflect(opaque, Debug)]
     struct BlankInteriorLineDebug;
 
-    impl alloc::fmt::Debug for BlankInteriorLineDebug {
+    impl core::fmt::Debug for BlankInteriorLineDebug {
         fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "line1\n   \nline2")
         }
@@ -903,7 +903,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[reflect(opaque, Debug)]
     struct LeadingNewlineDebug;
 
-    impl alloc::fmt::Debug for LeadingNewlineDebug {
+    impl core::fmt::Debug for LeadingNewlineDebug {
         fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "\nvalue")
         }
