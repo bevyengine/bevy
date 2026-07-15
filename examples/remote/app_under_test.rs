@@ -12,6 +12,7 @@
 use bevy::{
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
+    text::FontSourceTemplate,
     time::common_conditions::on_timer,
     ui::UiGlobalTransform,
 };
@@ -68,46 +69,38 @@ fn move_button(mut rng: ResMut<SeededRng>, mut button_query: Query<&mut Node, Wi
     }
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>, mut rng: ResMut<SeededRng>) {
+fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
     let (left_pct, top_pct) = random_position(&mut rng.0);
-
     commands.spawn(Camera2d);
-    commands
-        .spawn(Node {
+    commands.spawn_scene(bsn! {
+        Node {
             width: percent(100),
             height: percent(100),
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Button,
-                    Node {
-                        width: px(150),
-                        height: px(65),
-                        border: UiRect::all(px(5)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::MAX,
-                        left: percent(left_pct),
-                        top: percent(top_pct),
-                        ..default()
-                    },
-                    BorderColor::all(Color::WHITE),
-                    BackgroundColor(Color::BLACK),
-                ))
-                .observe(on_button_click)
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Button"),
-                        TextFont {
-                            font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(33.0),
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        TextShadow::default(),
-                    ));
-                });
-        });
+        }
+        Children [
+            Button
+            Node {
+                width: px(150),
+                height: px(65),
+                border: UiRect::all(px(5)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::MAX,
+                left: percent(left_pct),
+                top: percent(top_pct),
+            }
+            BorderColor::all(Color::WHITE)
+            BackgroundColor(Color::BLACK)
+            on(on_button_click)
+            Children [
+                Text::new("Button")
+                TextFont {
+                    font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
+                    font_size: FontSize::Px(33.0),
+                }
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                TextShadow::default()
+            ]
+        ]
+    });
 }
