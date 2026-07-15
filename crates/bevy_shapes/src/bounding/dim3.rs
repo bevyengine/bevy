@@ -200,11 +200,11 @@ impl Bounded3d for Cone {
 
         // Because of circular symmetry, we can use the bounding circle of the triangle
         // for the bounding sphere of the cone.
-        let BoundingCircle { circle, center } = triangle.bounding_circle(Isometry2d::IDENTITY);
+        let BoundingCircle { radius, center } = triangle.bounding_circle(Isometry2d::IDENTITY);
 
         BoundingSphere::new(
             isometry.rotation * Vec3A::from(center.extend(0.0)) + isometry.translation,
-            circle.radius,
+            radius,
         )
     }
 }

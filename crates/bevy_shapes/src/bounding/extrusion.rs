@@ -238,10 +238,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
         // Since each of the extrusions bases will have the same distance from its center,
         // and they are just shifted along the Z-axis, the minimum bounding sphere will be the bounding sphere
         // of the cylinder defined by the two bounding circles of the bases for any base shape
-        let BoundingCircle {
-            center,
-            circle: Circle { radius },
-        } = self.bounding_circle(Isometry2d::IDENTITY);
+        let BoundingCircle { center, radius } = self.bounding_circle(Isometry2d::IDENTITY);
         let radius = ops::hypot(radius, half_depth);
         let center = isometry * Vec3A::from(center.extend(0.));
 

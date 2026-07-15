@@ -469,8 +469,6 @@ mod aabb2d_tests {
     }
 }
 
-use crate::primitives::Circle;
-
 /// A bounding circle
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(
@@ -486,8 +484,8 @@ use crate::primitives::Circle;
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
-    /// The circle
-    pub circle: Circle,
+    /// The radius of the circle
+    pub radius: f32,
 }
 
 impl BoundingCircle {
@@ -495,10 +493,7 @@ impl BoundingCircle {
     #[inline]
     pub const fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
-        Self {
-            center,
-            circle: Circle { radius },
-        }
+        Self { center, radius }
     }
 
     /// Computes a [`BoundingCircle`] containing the given set of points,
@@ -526,7 +521,7 @@ impl BoundingCircle {
     /// Get the radius of the bounding circle
     #[inline]
     pub const fn radius(&self) -> f32 {
-        self.circle.radius
+        self.radius
     }
 
     /// Computes the smallest [`Aabb2d`] containing this [`BoundingCircle`].
@@ -544,7 +539,20 @@ impl BoundingCircle {
     /// Otherwise, it will be inside the circle and returned as is.
     #[inline]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
-        self.circle.closest_point(point - self.center) + self.center
+        let centered_point = point - self.center;
+        let distance_squared = centered_point.length_squared();
+
+        let closest_point = if distance_squared <= self.radius.squared() {
+            // The point is inside the circle.
+            point
+        } else {
+            // The point is outside the circle.
+            // Find the closest point on the perimeter of the circle.
+            let dir_to_point = point / ops::sqrt(distance_squared);
+            self.radius * dir_to_point
+        };
+
+        closest_point + self.center
     }
 }
 

@@ -172,7 +172,7 @@ impl BoundingCircleCast {
     /// Get the distance at which the [`BoundingCircle`]s collide, if at all.
     pub fn circle_collision_at(&self, mut circle: BoundingCircle) -> Option<f32> {
         circle.center -= self.circle.center;
-        circle.circle.radius += self.circle.radius();
+        circle.radius += self.circle.radius();
         self.ray.circle_intersection_at(&circle)
     }
 }
