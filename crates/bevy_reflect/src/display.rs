@@ -1106,11 +1106,11 @@ bevy_reflect::display::tests::MyEnum::Struct {
         assert_eq!(
             format!("{}", &outer as &dyn PartialReflect),
             concat!(
-                "bevy_reflect::display::tests::A {\n",
+                "bevy_reflect::display::tests::MutuallyRecursiveA {\n",
                 "  items: [\n",
-                "    bevy_reflect::display::tests::B {\n",
+                "    bevy_reflect::display::tests::MutuallyRecursiveB {\n",
                 "      items: [\n",
-                "        bevy_reflect::display::tests::A { ... },\n",
+                "        bevy_reflect::display::tests::MutuallyRecursiveA { ... },\n",
                 "      ],\n",
                 "    },\n",
                 "  ],\n",
