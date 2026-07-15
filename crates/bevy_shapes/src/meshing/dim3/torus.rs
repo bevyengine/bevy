@@ -1,11 +1,8 @@
-use crate::{
-    meshing::{MeshBuilder, Meshable},
-    primitives::Torus,
-};
+use crate::primitives::Torus;
 use alloc::vec::Vec;
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, Vec3};
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 use core::ops::RangeInclusive;
 

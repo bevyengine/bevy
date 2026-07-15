@@ -1,11 +1,8 @@
-use crate::{
-    meshing::{MeshBuilder, Meshable},
-    primitives::Plane3d,
-};
+use crate::primitives::Plane3d;
 use alloc::vec::Vec;
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{Dir3, Quat, Vec2, Vec3};
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Plane3d`] shape.

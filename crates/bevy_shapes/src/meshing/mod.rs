@@ -29,25 +29,3 @@ pub use dim3::*;
 mod extrusion;
 #[cfg(feature = "extrusion")]
 pub use extrusion::*;
-
-use bevy_mesh::Mesh;
-
-/// A trait for shapes that can be turned into a [`Mesh`].
-pub trait Meshable {
-    /// The output of [`Self::mesh`]. This will be a [`MeshBuilder`] used for creating a [`Mesh`].
-    type Output: MeshBuilder;
-
-    /// Creates a [`MeshBuilder`] for a shape.
-    fn mesh_builder(&self) -> Self::Output;
-
-    /// Creates a [`Mesh`] for a shape.
-    fn mesh(&self) -> Mesh {
-        self.mesh_builder().build()
-    }
-}
-
-/// A trait used to build [`Mesh`]es from a configuration
-pub trait MeshBuilder {
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    fn build(&self) -> Mesh;
-}

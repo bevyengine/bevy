@@ -1,10 +1,10 @@
 use crate::{
-    meshing::{triangle3d, MeshBuilder, Meshable},
+    meshing::triangle3d,
     primitives::{Tetrahedron, Triangle3d},
 };
 use alloc::vec::Vec;
 use bevy_asset::RenderAssetUsages;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Tetrahedron`] shape.

@@ -1,11 +1,8 @@
-use crate::{
-    meshing::{MeshBuilder, Meshable},
-    primitives::Sphere,
-};
+use crate::primitives::Sphere;
 use alloc::vec::Vec;
 use bevy_asset::RenderAssetUsages;
 use bevy_math::ops;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 use core::f32::consts::PI;
 use hexasphere::shapes::IcoSphere;

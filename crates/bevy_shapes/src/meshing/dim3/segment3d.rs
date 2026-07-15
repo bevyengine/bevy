@@ -1,10 +1,7 @@
-use crate::{
-    meshing::{MeshBuilder, Meshable},
-    primitives::Segment3d,
-};
+use crate::primitives::Segment3d;
 use alloc::vec::Vec;
 use bevy_asset::RenderAssetUsages;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Segment3d`] shape.
@@ -36,8 +33,8 @@ impl Meshable for Segment3d {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::meshing::{MeshBuilder, Meshable};
     use bevy_math::Vec3;
+    use bevy_mesh::{MeshBuilder, Meshable};
 
     #[test]
     fn segment3d_mesh_builder() {

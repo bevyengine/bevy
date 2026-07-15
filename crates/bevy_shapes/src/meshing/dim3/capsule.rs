@@ -1,10 +1,7 @@
-use crate::{
-    meshing::{MeshBuilder, Meshable},
-    primitives::Capsule3d,
-};
+use crate::primitives::Capsule3d;
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, Vec2, Vec3};
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_reflect::prelude::*;
 
 use alloc::vec::Vec;

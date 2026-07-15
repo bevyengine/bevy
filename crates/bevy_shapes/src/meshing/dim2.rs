@@ -2,17 +2,16 @@ use core::f32::consts::FRAC_PI_2;
 use core::mem;
 
 use bevy_asset::RenderAssetUsages;
-use bevy_mesh::{Indices, Mesh, VertexAttributeValues};
+use bevy_mesh::{Indices, Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 
 use crate::{
-    meshing::{extrusion::PerimeterSegment, Extrudable, MeshBuilder, Meshable},
+    meshing::{extrusion::PerimeterSegment, Extrudable},
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d, Triangle3d,
-        WindingOrder,
+        Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
+        Triangle3d, WindingOrder,
     },
 };
-use bevy_math::prelude::Polyline2d;
 use bevy_math::{ops, FloatExt, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use wgpu_types::PrimitiveTopology;
@@ -1453,12 +1452,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::meshing::{MeshBuilder, Meshable};
     use crate::primitives::{Annulus, ConvexPolygon, RegularPolygon};
     use bevy_math::{FloatOrd, Vec2};
     use bevy_platform::collections::HashSet;
 
-    use bevy_mesh::{Mesh, VertexAttributeValues};
+    use bevy_mesh::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 
     fn count_distinct_positions(points: &[[f32; 3]]) -> usize {
         let mut map = <HashSet<_>>::default();
