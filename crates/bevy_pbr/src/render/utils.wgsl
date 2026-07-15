@@ -185,3 +185,21 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
 fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
     return vec4<f32>(mix(bg.rgb * bg.a, fg.rgb, fg.a), bg.a + fg.a * (1.0 - bg.a));
 }
+
+// Weights can be used in `dot(textureGather(..), bilinear_weights(texel_coord))`
+// to emulate linear sampling for unfilterable textures.
+fn bilinear_weights(texel_coord: vec2f) -> vec4f {
+    let a: vec2f = fract(texel_coord - vec2f(0.5));
+    let b: vec2f = vec2f(1.0) - a;
+    // +-----------+-----------+
+    // | W=b.x*b.y | Z=a.x*b.y |
+    // +-----------+-----------+
+    // | X=b.x*a.y | Y=a.x*a.y |
+    // +-----------+-----------+
+    return vec4f(
+        b.x * a.y, // x
+        a.x * a.y, // y
+        a.x * b.y, // z
+        b.x * b.y, // w
+    );
+}
