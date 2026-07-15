@@ -104,7 +104,7 @@ impl core::fmt::Debug for SemanticToken {
 #[reflect(Default, Debug)]
 pub struct ThemeProps {
     /// Map of design tokens to semantic tokens.
-    pub color: HashMap<ThemeToken, SemanticToken>,
+    pub token_assignments: HashMap<ThemeToken, SemanticToken>,
     /// Map of semantic tokens to colors.
     pub semantic_base: HashMap<SemanticToken, Color>,
     /// Map of semantic tokens + context to colors.
@@ -120,32 +120,18 @@ pub struct UiTheme(pub ThemeProps);
 impl UiTheme {
     /// Lookup a color by design token. If the theme does not have an entry for that token,
     /// logs a warning and returns an error color.
+    ///
+    /// This version does not take context into account, and is mainly left here for
+    /// backwards-compatibility reasons.
     pub fn color(&self, token: &ThemeToken) -> Color {
-        let Some(semantic_token) = self.0.color.get(token) else {
-            warn_once!("Theme color {} not found.", token);
-            // Return a bright obnoxious color to make the error obvious.
-            return palettes::basic::FUCHSIA.into();
-        };
-        if let Some(color) = self
-            .0
-            .semantic_overrides
-            .get(&SurfaceLevel::Base)
-            .and_then(|m| m.get(semantic_token))
-        {
-            return *color;
-        }
-        if let Some(color) = self.0.semantic_base.get(semantic_token) {
-            return *color;
-        }
-        warn_once!("Theme semantic color {:?} not found.", semantic_token);
-        palettes::basic::FUCHSIA.into()
+        self.context_color(token, SurfaceLevel::Base)
     }
 
     /// Lookup a color by design token and context. If the combination of token and context is
     /// not found, then use the base map. If the theme does not have an entry for that
     /// token, logs a warning and returns an error color.
     pub fn context_color(&self, token: &ThemeToken, context: SurfaceLevel) -> Color {
-        let Some(semantic_token) = self.0.color.get(token) else {
+        let Some(semantic_token) = self.0.token_assignments.get(token) else {
             warn_once!("Theme color {} not found.", token);
             // Return a bright obnoxious color to make the error obvious.
             return palettes::basic::FUCHSIA.into();
@@ -248,7 +234,7 @@ pub(crate) fn update_theme(
 
     // Because propagation happens after observers run, do a fix-up pass
     for ent in q_context_changed.iter() {
-        // Update all background colors
+        // Update the background color
         if let Ok((_, mut bg, ThemeBackgroundColor(token))) = q_background.get_mut(ent) {
             let context = q_context
                 .get(ent)
@@ -257,7 +243,7 @@ pub(crate) fn update_theme(
             bg.0 = theme.context_color(token, context);
         }
 
-        // Update all border colors
+        // Update the border color
         if let Ok((_, mut border, ThemeBorderColor(token))) = q_border.get_mut(ent) {
             let context = q_context
                 .get(ent)
@@ -266,7 +252,7 @@ pub(crate) fn update_theme(
             border.set_all(theme.context_color(token, context));
         }
 
-        // Update all direct text span colors
+        // Update the direct text span color
         if let Ok((_, mut text_color, ThemeTextColor(token))) = q_text_color.get_mut(ent) {
             let context = q_context
                 .get(ent)

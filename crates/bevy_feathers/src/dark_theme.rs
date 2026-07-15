@@ -95,7 +95,7 @@ pub fn create_dark_theme() -> ThemeProps {
                 ]),
             ),
         ]),
-        color: HashMap::from([
+        token_assignments: HashMap::from([
             (tokens::WINDOW_BG, semantic::SURFACE_WINDOW),
             (tokens::FOCUS_RING, semantic::FOCUS_RING),
             (tokens::TEXT_MAIN, semantic::TEXT_DEFAULT),

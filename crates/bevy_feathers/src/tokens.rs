@@ -432,7 +432,7 @@ pub mod semantic {
     pub const SURFACE_PANE_BODY: SemanticToken = SemanticToken::new_static("surface.pane.body");
     /// Fill for pane header
     pub const SURFACE_PANE_HEADER: SemanticToken = SemanticToken::new_static("surface.pane.header");
-    /// Fill for pane body
+    /// Fill for subpane body
     pub const SURFACE_SUBPANE_BODY: SemanticToken =
         SemanticToken::new_static("surface.subpane.body");
     /// Fill for subpane header
@@ -461,7 +461,7 @@ pub mod semantic {
     /// Disabled text
     pub const TEXT_DISABLED: SemanticToken = SemanticToken::new_static("text.disabled");
 
-    // Fill: 4 tiers of prominence: ACCENT, SOLID, ITEM and DIM
+    // Fill: 4 tiers of prominence: ACCENT, SOLID, ITEM and FIELD
 
     /// Accent fill - used for primary buttons, checked states
     pub const FILL_ACCENT_DEFAULT: SemanticToken = SemanticToken::new_static("fill.accent.default");
