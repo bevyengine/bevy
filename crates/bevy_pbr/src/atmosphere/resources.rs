@@ -567,7 +567,11 @@ pub(super) fn prepare_atmosphere_transforms(
         // World-horizontal reference for back, projected orthogonal to atmo_y.
         let world_ref = Vec3A::NEG_Z;
         let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
-        let atmo_z = ref_horizontal.normalize();
+        let atmo_z = ref_horizontal.try_normalize().unwrap_or_else(|| {
+            // `NEG_Z` is degenerate at the poles of a Z-up world.
+            let fallback_ref = Vec3A::NEG_Y;
+            (fallback_ref - atmo_y * atmo_y.dot(fallback_ref)).normalize()
+        });
         let atmo_x = atmo_y.cross(atmo_z).normalize();
 
         let world_from_atmosphere = Mat4::from(Affine3A::from_cols(
