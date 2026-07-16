@@ -172,7 +172,7 @@ fn generate_grouping_tree(
         let mut included_children: Vec<Entity> = children
             .iter()
             .filter(|child| entities.contains(*child))
-            .map(|child| *child)
+            .copied()
             .collect();
         sort_entities(world, &mut included_children);
         tree.sub_groups = included_children
