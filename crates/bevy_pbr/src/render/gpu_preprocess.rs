@@ -584,7 +584,14 @@ impl Plugin for GpuMeshPreprocessPlugin {
 /// performing this on the GPU, we avoid having to traverse every visible mesh
 /// on the CPU every frame.
 pub fn allocate_uniforms(
-    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    current_view: ViewQuery<
+        (
+            Option<&ViewLightEntities>,
+            Option<&PointLightShadowViewEntities>,
+            Option<&SpotLightShadowViewEntity>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
     view_query: Query<&ExtractedView, Without<SkipGpuPreprocess>>,
     light_query: Query<&LightEntity>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
@@ -640,9 +647,15 @@ pub fn allocate_uniforms(
 
     // Gather up all views.
     let view_entity = current_view.entity();
-    let shadow_cascade_views = current_view.into_inner();
-    let all_views =
-        gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
+    let (shadow_cascade_views, point_light_shadow_views, spot_light_shadow_view) =
+        current_view.into_inner();
+    let all_views = gather_shadow_cascades_for_view(
+        view_entity,
+        shadow_cascade_views,
+        point_light_shadow_views,
+        spot_light_shadow_view,
+        &light_query,
+    );
 
     // Loop over each view…
     for view_entity in all_views {
