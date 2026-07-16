@@ -7,3 +7,4 @@ The window data used in the render world is now stored directly as a component o
 
 If you were using `ExtractedWindows` or `ExtractedWindowSurfaces` you can now use `Query<&ExtractedWindow>` or `Query<&SurfaceData>`.
 
+If you were relying on `ExtractedWindows::primary` you can now use `Query<&ExtractedWindow, With<PrimaryWindow>>`.
