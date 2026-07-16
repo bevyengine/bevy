@@ -20,7 +20,7 @@ std = ["disqualified/alloc"]
 
 debug = ["bevy_platform/alloc"]
 
-serialize = ["dep::serde"]
+serialize = ["dep:serde"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false }
