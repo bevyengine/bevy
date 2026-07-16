@@ -11,7 +11,7 @@ use core::fmt::Display;
 /// "kibibytes" instead of "kilobytes", "mebibytes" instead of "megabytes", etc.,
 /// the more common terms are used here for familiarity and discoverability.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct MemorySize(pub u64);
 
 impl MemorySize {
