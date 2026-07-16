@@ -17,6 +17,14 @@ struct SpriteMaterial {
     center_stretch_value: vec2<f32>,
 };
 
+#ifdef BINDLESS
+struct SpriteMaterialBindings {
+    material: u32,          // 0
+    texture: u32,           // 1
+    texture_sampler: u32,   // 2
+}
+#endif  // BINDLESS
+
 const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
 const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
 const SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
