@@ -134,7 +134,6 @@ pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
 pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
-/// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
 
