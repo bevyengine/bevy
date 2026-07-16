@@ -44,7 +44,11 @@ bitflags! {
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
-#[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a system",
+    label = "invalid system",
+    note = "If `{Self}` is a function and returns `impl Trait`, it may capture lifetimes from its parameters.\nIn Rust 2024, returning `impl Trait` from a function implicitly captures all lifetimes in scope. You can opt out of this by adding `+ use<>` to the return type: `impl Trait + use<>`"
+)]
 pub trait System: Send + Sync + 'static {
     /// The system's input.
     type In: SystemInput;

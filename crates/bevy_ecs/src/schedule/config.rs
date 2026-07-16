@@ -309,7 +309,8 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not describe a valid system configuration",
-    label = "invalid system configuration"
+    label = "invalid system configuration",
+    note = "If `{Self}` is a function and returns `impl Trait`, it may capture lifetimes from its parameters.\nIn Rust 2024, returning `impl Trait` from a function implicitly captures all lifetimes in scope. You can opt out of this by adding `+ use<>` to the return type: `impl Trait + use<>`"
 )]
 pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>, Marker>:
     Sized

@@ -848,7 +848,8 @@ where
 /// [`ParamSet`]: crate::system::ParamSet
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid system",
-    label = "invalid system"
+    label = "invalid system",
+    note = "If `{Self}` is a function and returns `impl Trait`, it may capture lifetimes from its parameters.\nIn Rust 2024, returning `impl Trait` from a function implicitly captures all lifetimes in scope. You can opt out of this by adding `+ use<>` to the return type: `impl Trait + use<>`"
 )]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type of this system. See [`System::In`].
