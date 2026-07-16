@@ -2600,7 +2600,9 @@ fn create_point_shadow_maps(
                 .entity(view_light_entity)
                 .insert(view_render_layers.intersection(light_render_layers));
         } else {
-            // This should not happen as auxiliary_entity should be set to a view.
+            // This should not happen as `auxiliary_entity` should be set to a view.
+            // However, as the RenderLayers should always be present on the ShadowView
+            // to prevent error in `queue_shadows()`, we set it here just in case.
             commands
                 .entity(view_light_entity)
                 .insert(RenderLayers::default().intersection(light_render_layers));
@@ -2758,7 +2760,9 @@ fn create_spot_shadow_map(
             .entity(view_light_entity)
             .insert(view_render_layers.intersection(light_render_layers));
     } else {
-        // This should not happen as auxiliary_entity should be set to a view.
+        // This should not happen as `auxiliary_entity` should be set to a view.
+        // However, as the RenderLayers should always be present on the ShadowView
+        // to prevent error in `queue_shadows()`, we set it here just in case.
         commands
             .entity(view_light_entity)
             .insert(RenderLayers::default().intersection(light_render_layers));
