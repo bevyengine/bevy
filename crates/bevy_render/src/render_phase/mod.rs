@@ -41,6 +41,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
+use tracing::error;
 use wgpu::{BufferUsages, Features};
 
 use crate::batching::gpu_preprocessing::{
@@ -292,7 +293,12 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         // It's illegal to bin an entity that was already binned.
         // If an entity is to change bins, it must first be removed from the bin
         // it was previously in.
-        debug_assert!(maybe_previous_binned_mesh_instance_buffer_index.is_none());
+        if maybe_previous_binned_mesh_instance_buffer_index.is_some() {
+            error!(
+                "Binning main entity {:?} when it was already binned. This should never happen.",
+                main_entity
+            );
+        }
 
         // Place the entry in the instance buffer at the proper spot.
         self.render_binned_mesh_instance_buffer.values_mut()
@@ -300,7 +306,13 @@ impl RenderMultidrawableBatchSetGpuBuffers {
 
         let bin_metadata_index =
             self.bin_index_to_bin_metadata_index_buffer.values()[bin_index.0 as usize];
-        self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count += 1;
+        // There should never be a previous binned mesh buffer index, because
+        // it's illegal to bin a mesh instance that was already binned. But, if
+        // that error case *does* happen due to a bug, then at least don't
+        // corrupt the bins.
+        if maybe_previous_binned_mesh_instance_buffer_index.is_none() {
+            self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count += 1;
+        }
         debug_assert_eq!(
             self.bin_metadata_buffer.values()[bin_metadata_index as usize].instance_count as usize,
             bin.entity_to_binned_mesh_instance_index.len()
