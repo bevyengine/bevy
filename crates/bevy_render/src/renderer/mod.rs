@@ -31,6 +31,19 @@ use wgpu::{
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
 /// in the [`render_system`] system and is responsible for driving the entire rendering process.
+///
+/// The default bevy render graph is executed as follows:
+/// ```ignore
+/// RenderApp (App)
+///   Render (Schedule)
+///     RenderSystems::Render (SystemSet)
+///       render_system (System)
+///         RenderGraph (Schedule)
+///           camera_driver (System)
+///             Core2d (Schedule)
+///             Core3d (Schedule)
+///             CUSTOM_PIPELINE (Schedule)
+/// ```
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct RenderGraph;
 

@@ -26,8 +26,8 @@ use bevy_time::{Real, Time};
 use bevy_ui::widget::{sync_editable_text_viewports, update_editable_text_layout};
 use bevy_ui::UiSystems;
 use bevy_ui::{
-    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
-    UiGlobalTransform, UiScale,
+    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
+    InteractionDisabled, Node, UiGlobalTransform, UiScale,
 };
 use bevy_window::{Ime, PrimaryWindow, Window};
 
@@ -66,7 +66,7 @@ const AUTOSCROLL_RAMP_DISTANCE: f32 = 0.5;
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
     mut keyboard_input: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut EditableText>,
+    mut query: Query<&mut EditableText, Without<InteractionDisabled>>,
     keys: Res<ButtonInput<Key>>,
 ) {
     let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
@@ -173,12 +173,15 @@ fn on_focused_keyboard_input(
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_press(
     mut press: On<Pointer<Press>>,
-    mut text_input_query: Query<(
-        &mut EditableText,
-        &ComputedNode,
-        &ComputedUiRenderTargetInfo,
-        &UiGlobalTransform,
-    )>,
+    mut text_input_query: Query<
+        (
+            &mut EditableText,
+            &ComputedNode,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+        ),
+        Without<InteractionDisabled>,
+    >,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
@@ -278,7 +281,7 @@ fn on_pointer_drag(
     ));
 }
 
-fn text_input_autoscroll_system(
+pub(crate) fn text_input_autoscroll_system(
     time: Res<Time<Real>>,
     pointer_state: Res<PointerState>,
     input_focus: Res<InputFocus>,
