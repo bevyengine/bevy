@@ -15,6 +15,8 @@ use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
 use bevy_utils::PreHashMap;
 use indexmap::Equivalent;
 use variadics_please::all_tuples;
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, Typed, std_traits::ReflectDefault};
+use crate::reflect::ReflectTemplate;
 
 /// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`], etc), can produce a [`Template::Output`].
 ///
@@ -139,10 +141,18 @@ impl SceneEntityReferences {
 /// - the `name_id` should uniquely identify a name in the individual macros scope
 /// - runtime, per-scope counter for each runtime call (usually from a static `AtomicU64`)
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+)]
 pub struct SceneEntityReference(Hashed<InnerSceneEntityReference>);
 
 /// The inner struct actually storing the unique index
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+)]
 pub struct InnerSceneEntityReference {
     file: &'static str,
     line: usize,
@@ -419,6 +429,11 @@ pub trait SpecializeFromTemplate: Sized {}
 ///
 /// This is only valid during scene spawning and should **never** be used as a [`Component`](bevy_ecs::prelude::Component) field.
 #[derive(Copy, Clone, Default, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Template)
+)]
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
     Entity(Entity),
@@ -519,6 +534,12 @@ impl<T: FromTemplate> BuiltInTemplate for Vec<T> {
 
 /// A [`Template`] for [`Option`].
 #[derive(Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(where T: Template<Output: FromReflect + Typed + GetTypeRegistration>),
+    reflect(Default, Template)
+)]
 pub enum OptionTemplate<T> {
     /// Template of [`Option::Some`].
     Some(T),
@@ -561,6 +582,12 @@ impl<T: Template> Template for OptionTemplate<T> {
 }
 
 /// A [`Template`] for [`Vec`].
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(where T: Template<Output: FromReflect + Typed + GetTypeRegistration>),
+    reflect(Default, Template)
+)]
 pub struct VecTemplate<T>(pub Vec<T>);
 
 impl<T> Default for VecTemplate<T> {
@@ -600,7 +627,6 @@ mod tests {
             #[template(built_in)]
             handle: Option<Handle>,
         }
-
         let mut world = World::new();
         let foo_template = FooTemplate {
             handle: Some(HandleTemplate("handle_path".to_string())).into(),

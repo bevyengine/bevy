@@ -1,3 +1,4 @@
+use bevy_ecs::reflect::ReflectFromTemplate;
 use crate::{
     ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ResolvedAxis,
     VisualBox,
@@ -13,7 +14,7 @@ use taffy::{MaybeMath, ResolveOrZero};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect, FromTemplate)]
-#[reflect(Component, Default, Debug, Clone)]
+#[reflect(Component, Default, Debug, Clone, FromTemplate)]
 #[require(Node, ImageNodeSize)]
 pub struct ImageNode {
     /// The tint color used to draw the image.

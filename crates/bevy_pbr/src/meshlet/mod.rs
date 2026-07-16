@@ -58,7 +58,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Has,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
     template::FromTemplate,
@@ -229,7 +229,7 @@ fn check_meshlet_features(render_device: Res<RenderDevice>) {
 #[derive(
     Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
 )]
-#[reflect(Component, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Clone, PartialEq, FromTemplate)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);

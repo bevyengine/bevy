@@ -2,7 +2,7 @@ use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::{ReflectComponent, ReflectFromTemplate}};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
@@ -265,6 +265,7 @@ impl From<Justify> for parley::Alignment {
 }
 
 #[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
+#[reflect(FromTemplate)]
 /// Determines how the font face for a text sections is selected.
 ///
 /// A [`FontSource`] can be a handle to a font asset, a font family name,
@@ -372,7 +373,7 @@ impl From<&str> for FontSource {
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq, FromTemplate)]
-#[reflect(Component, Default, Debug, Clone)]
+#[reflect(Component, Default, Debug, Clone, FromTemplate)]
 pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
