@@ -214,12 +214,12 @@ pub fn resolve_label(
 ///
 /// # Priority Conventions
 ///
-/// See the associated constants on [`NameDefinitionPriority`] for recommended priority levels.
+/// See the associated constants on [`LabelDefinitionPriority`] for recommended priority levels.
 ///
 /// # Usage
 ///
 /// Components that should be "label-defining" should be registered in this registry
-/// using [`NameResolutionRegistry::register_label_defining_type`],
+/// using [`LabelResolutionRegistry::register_label_defining_type`],
 /// typically in the plugin that defines the component.
 #[derive(Debug, Resource, Default)]
 pub struct LabelResolutionRegistry {
