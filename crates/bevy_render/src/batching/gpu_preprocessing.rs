@@ -1291,24 +1291,37 @@ impl UntypedPhaseIndirectParametersBuffers {
     }
 
     /// Adds a new batch set to `Self::indexed_batch_sets` or
-    /// `Self::non_indexed_batch_sets` as appropriate.
+    /// `Self::non_indexed_batch_sets` as appropriate and updates the
+    /// `view_to_indirect_parameters_batch_range`.
     ///
     /// `indexed` specifies whether the meshes that these batch sets correspond
-    /// to are indexed or not. `indirect_parameters_base` specifies the offset
-    /// within `Self::indexed_data` or `Self::non_indexed_data` of the first
-    /// batch in this batch set.
+    /// to are indexed or not. `retained_view_entity` specifies the view that
+    /// this batch set is associated with. `indirect_parameters_base` specifies
+    /// the offset within `Self::indexed_data` or `Self::non_indexed_data` of
+    /// the first batch in this batch set.
     #[inline]
-    pub fn add_batch_set(&mut self, indexed: bool, indirect_parameters_base: u32) {
+    pub fn add_batch_set(
+        &mut self,
+        indexed: bool,
+        retained_view_entity: &RetainedViewEntity,
+        indirect_parameters_range: Range<u32>,
+    ) {
         if indexed {
             self.indexed.batch_sets.push(IndirectBatchSet {
-                indirect_parameters_base,
+                indirect_parameters_base: indirect_parameters_range.start,
                 indirect_parameters_count: 0,
             });
+            self.indexed
+                .view_to_indirect_parameters_batch_range
+                .insert(*retained_view_entity, indirect_parameters_range.clone());
         } else {
             self.non_indexed.batch_sets.push(IndirectBatchSet {
-                indirect_parameters_base,
+                indirect_parameters_base: indirect_parameters_range.start,
                 indirect_parameters_count: 0,
             });
+            self.non_indexed
+                .view_to_indirect_parameters_batch_range
+                .insert(*retained_view_entity, indirect_parameters_range.clone());
         }
     }
 
@@ -1725,6 +1738,9 @@ where
     /// True if the mesh in question has an index buffer; false otherwise.
     indexed: bool,
 
+    /// The ID of the view that this render phase is for.
+    retained_view_entity: RetainedViewEntity,
+
     /// The index of the indirect parameters for this batch in the
     /// [`IndirectParametersBuffers`].
     ///
@@ -1768,8 +1784,11 @@ where
             None => PhaseItemExtraIndex::None,
         };
         if let Some(ref indirect_parameters_index_range) = self.indirect_parameters_index_range {
-            phase_indirect_parameters_buffers
-                .add_batch_set(self.indexed, indirect_parameters_index_range.start);
+            phase_indirect_parameters_buffers.add_batch_set(
+                self.indexed,
+                &self.retained_view_entity,
+                indirect_parameters_index_range.clone(),
+            );
         }
     }
 }
@@ -1967,6 +1986,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                     batch_set = Some(SortedRenderBatchSet {
                         phase_item_start_index: current_index as u32,
                         instance_start_index: output_index,
+                        retained_view_entity: extracted_view.retained_view_entity,
                         indexed: item_is_indexed,
                         indirect_parameters_index_range: indirect_parameters_index
                             .map(|i| i..(i + 1)),
@@ -2178,9 +2198,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                                 batch_set_index: None,
                             },
                         });
-                    phase_indirect_parameters_buffers
-                        .buffers
-                        .add_batch_set(key.0.indexed(), *indirect_parameters_index);
+                    phase_indirect_parameters_buffers.buffers.add_batch_set(
+                        key.0.indexed(),
+                        &extracted_view.retained_view_entity,
+                        *indirect_parameters_index..(*indirect_parameters_index + 1),
+                    );
                     *indirect_parameters_index += 1;
                 } else {
                     work_item_buffer.push(
@@ -2545,8 +2567,8 @@ where
         });
     }
 
-    /// Writes the batch ranges for this phase and mesh class to the for the
-    /// indirect batch set building shader to use.
+    /// Writes the batch ranges for this phase and mesh class to the indirect
+    /// parameters buffers for the indirect batch set building shader to use.
     fn flush_batch_range_to<IP>(
         &self,
         indirect_parameters_buffers: &mut MeshClassIndirectParametersBuffers<IP>,
