@@ -30,7 +30,7 @@ impl Plugin for WindowRenderPlugin {
         app.add_plugins(ScreenshotPlugin);
 
         // We need to sync the window entity in the render world
-        // We can't use [`SyncComponentPlugin`] because it would introduce a `bevy_render` as
+        // We can't use [`SyncComponentPlugin`] because it would introduce `bevy_render` as
         // a dependency to `bevy_window`
         {
             app.add_observer(|trigger: On<Add, Window>, mut commands: Commands| {
