@@ -122,7 +122,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
     }
 }
 
-impl ExtractResource for ClearColor {
+impl ExtractResource<RenderApp> for ClearColor {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
@@ -130,11 +130,11 @@ impl ExtractResource for ClearColor {
     }
 }
 
-impl SyncComponent for CameraMainTextureUsages {
+impl SyncComponent<RenderApp> for CameraMainTextureUsages {
     type Target = Self;
 }
 
-impl ExtractComponent for CameraMainTextureUsages {
+impl ExtractComponent<RenderApp> for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
     type Out = Self;
@@ -144,11 +144,11 @@ impl ExtractComponent for CameraMainTextureUsages {
     }
 }
 
-impl SyncComponent for Camera2d {
+impl SyncComponent<RenderApp> for Camera2d {
     type Target = Self;
 }
 
-impl ExtractComponent for Camera2d {
+impl ExtractComponent<RenderApp> for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
     type Out = Self;
@@ -158,11 +158,11 @@ impl ExtractComponent for Camera2d {
     }
 }
 
-impl SyncComponent for Camera3d {
+impl SyncComponent<RenderApp> for Camera3d {
     type Target = Self;
 }
 
-impl ExtractComponent for Camera3d {
+impl ExtractComponent<RenderApp> for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
     type Out = Self;
@@ -976,12 +976,22 @@ impl DirtySpecializations {
     ///
     /// `last_frame_view_pending_queues` should be the contents of the
     /// [`ViewPendingQueues::prev_frame`] list.
+    /// `mesh_instances_queued_this_iteration_scratch_space` should be a
+    /// `Local<MainEntityHashSet>`; it's used internally to avoid yielding the
+    /// same mesh instance multiple times.
     pub fn iter_to_queue<'a>(
         &'a self,
         view: RetainedViewEntity,
         render_visible_mesh_entities: &'a RenderVisibleEntitiesClass,
         last_frame_view_pending_queues: &'a HashSet<(Entity, MainEntity)>,
+        mesh_instances_queued_this_iteration_scratch_space: &'a mut MainEntityHashSet,
     ) -> impl Iterator<Item = (&'a Entity, &'a MainEntity)> {
+        mesh_instances_queued_this_iteration_scratch_space.clear();
+
+        // Use `mesh_instances_queued_this_iteration_scratch_space` to avoid
+        // yielding the same mesh instance twice.
+        // Yielding a mesh instance twice would result in binning it twice,
+        // which is illegal.
         (if self.must_wipe_specializations_for_view(view) {
             Either::Left(render_visible_mesh_entities.iter_visible())
         } else {
@@ -991,37 +1001,21 @@ impl DirtySpecializations {
                     .iter()
                     .map(|(entity, main_entity)| (entity, main_entity))
                     .chain(self.changed_renderables.iter().filter_map(|main_entity| {
-                        // Only include entities that need respecialization, are
-                        // visible, and *didn't* become visible this frame. The
-                        // third criterion exists because we already yielded
-                        // such entities just prior to this and don't want to
-                        // yield the same entity twice.
-                        // Note that binary searching works because all lists in
-                        // `RenderVisibleEntities` are guaranteed to be sorted.
-                        if render_visible_mesh_entities
-                            .added_entities()
-                            .binary_search_by_key(main_entity, |(_, main_entity)| *main_entity)
-                            .is_err()
-                        {
-                            self.entity_pair_from_visible_main_entity(
-                                render_visible_mesh_entities,
-                                main_entity,
-                            )
-                        } else {
-                            None
-                        }
+                        self.entity_pair_from_visible_main_entity(
+                            render_visible_mesh_entities,
+                            main_entity,
+                        )
                     })),
             )
         })
-        .chain(last_frame_view_pending_queues.iter().filter_map(
-            |(entity, main_entity)| {
-                if render_visible_mesh_entities.entity_pair_is_visible(*entity, *main_entity) {
-                    Some((entity, main_entity))
-                } else {
-                    None
-                }
-            },
-        ))
+        .chain(
+            last_frame_view_pending_queues
+                .iter()
+                .map(|(entity, main_entity)| (entity, main_entity)),
+        )
+        .filter(|(_, main_entity)| {
+            mesh_instances_queued_this_iteration_scratch_space.insert(**main_entity)
+        })
     }
 }
 

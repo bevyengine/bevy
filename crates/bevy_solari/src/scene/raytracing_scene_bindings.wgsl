@@ -2,7 +2,6 @@ enable wgpu_ray_query;
 
 #define_import_path bevy_solari::scene_bindings
 
-#import bevy_pbr::lighting::perceptualRoughnessToRoughness
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 
 struct InstanceGeometryIds {
@@ -215,7 +214,8 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        let Nt = sample_texture(material.normal_map_texture_id, uv);
+        var Nt = sample_texture(material.normal_map_texture_id, uv) * 2.0 - 1.0;
+        Nt.z = sqrt(max(1.0 - dot(Nt.xy, Nt.xy), 0.0)); // Reconstruct Z to support two-channel normal maps
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 

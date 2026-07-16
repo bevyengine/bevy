@@ -441,7 +441,12 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_internal/compressed_image_saver_universal",
+]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
 
 # Enables system-level clipboard support.
@@ -2089,6 +2094,18 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "compressed_image_saver"
+path = "examples/asset/compressed_image_saver.rs"
+doc-scrape-examples = true
+required-features = ["compressed_image_saver", "asset_processor", "jpeg"]
+
+[package.metadata.example.compressed_image_saver]
+name = "Compressed Image Saver"
+description = "Demonstrates compressing textures and generating mipmaps using CompressedImageSaver"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 doc-scrape-examples = true
@@ -3067,6 +3084,17 @@ doc-scrape-examples = false
 [package.metadata.example.type_data]
 name = "Type Data"
 description = "Demonstrates how to create and use type data"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "mutation_by_reflection"
+path = "examples/reflection/mutation_by_reflection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mutation_by_reflection]
+name = "Mutation by Reflection"
+description = "Demonstrates how to mutate abstract or non-Rust data at runtime using reflection"
 category = "Reflection"
 wasm = false
 
@@ -5599,4 +5627,15 @@ required-features = ["free_camera", "https"]
 name = "Light Probe Blending"
 description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "shader_material_2d_bindless"
+path = "examples/shader/shader_material_2d_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_2d_bindless]
+name = "Material - 2D Bindless"
+description = "Demonstrates bindless materials in 2D"
+category = "Shaders"
 wasm = false
