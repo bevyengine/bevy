@@ -191,15 +191,6 @@ impl RenderContextState {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) })
         })
     }
-
-    pub fn finish(&mut self) -> impl Iterator<Item = CommandBuffer> {
-        self.flush_encoder();
-        let commands = core::mem::take(&mut self.0.commands);
-        commands.into_iter().map(|command| match command {
-            PendingCommandBuffer::Buffer(command_buffer) => command_buffer,
-            PendingCommandBuffer::Encoder { encoder, .. } => encoder.finish(),
-        })
-    }
 }
 
 impl SystemBuffer for RenderContextState {
