@@ -4243,6 +4243,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "nameplates"
+path = "examples/ui/nameplates.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.nameplates]
+name = "Nameplates"
+description = "Displays name and health-bar labels that float above animated 3D characters"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_target_camera"
 path = "examples/ui/ui_target_camera.rs"
 doc-scrape-examples = true
