@@ -118,12 +118,12 @@ fn extract_windows(
     mut commands: Commands,
     mut extracted_windows: Query<&mut ExtractedWindow>,
     mut closing: Extract<MessageReader<WindowClosing>>,
-    windows: Extract<Query<(RenderEntity, &Window, Has<PrimaryWindow>, &RawHandleWrapper)>>,
+    windows: Extract<Query<(RenderEntity, &Window, &RawHandleWrapper, Has<PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut removed_primary: Extract<RemovedComponents<PrimaryWindow>>,
     mapper: Extract<Query<&RenderEntity>>,
 ) {
-    for (render_entity, window, is_primary, handle) in windows.iter() {
+    for (render_entity, window, handle, is_primary) in windows.iter() {
         if is_primary {
             commands.entity(render_entity).insert(PrimaryWindow);
         }
