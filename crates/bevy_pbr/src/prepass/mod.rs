@@ -36,7 +36,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
+    sync_world::{MainEntityHashSet, RenderEntity},
     view::{
         ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
         ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
@@ -1299,6 +1299,7 @@ pub fn queue_prepass_material_meshes(
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache>,
     mut pending_prepass_mesh_material_queues: ResMut<PendingPrepassMeshMaterialQueues>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (extracted_view, visible_entities) in &views {
         let (
@@ -1364,6 +1365,7 @@ pub fn queue_prepass_material_meshes(
             extracted_view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_prepass_mesh_material_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(&(_, pipeline_id, draw_function)) =
                 view_specialized_material_pipeline_cache.get(visible_entity)
