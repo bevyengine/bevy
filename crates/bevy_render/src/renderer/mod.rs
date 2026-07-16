@@ -31,6 +31,19 @@ use wgpu::{
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
 /// in the [`render_system`] system and is responsible for driving the entire rendering process.
+///
+/// The default bevy render graph is executed as follows:
+/// ```ignore
+/// RenderApp (App)
+///   Render (Schedule)
+///     RenderSystems::Render (SystemSet)
+///       render_system (System)
+///         RenderGraph (Schedule)
+///           camera_driver (System)
+///             Core2d (Schedule)
+///             Core3d (Schedule)
+///             CUSTOM_PIPELINE (Schedule)
+/// ```
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct RenderGraph;
 
@@ -103,7 +116,7 @@ pub fn render_system(
                 });
 
                 if view_needs_present || window.needs_initial_present {
-                    window.present();
+                    window.present(world.resource::<RenderQueue>());
                     window.needs_initial_present = false;
                 }
             }
@@ -204,7 +217,10 @@ pub async fn initialize_renderer(
                 force_shader_model: ForceShaderModelToken::default(),
                 agility_sdk: None,
             },
-            noop: wgpu::NoopBackendOptions { enable: false },
+            noop: wgpu::NoopBackendOptions {
+                enable: false,
+                ..Default::default()
+            },
         },
     };
 
@@ -250,6 +266,7 @@ pub async fn initialize_renderer(
         power_preference: options.power_preference,
         compatible_surface: surface.as_ref(),
         force_fallback_adapter,
+        apply_limit_buckets: false,
     };
 
     #[cfg(not(target_family = "wasm"))]

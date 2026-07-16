@@ -74,7 +74,7 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 #[states(scoped_entities)]
 enum Scene {
     #[default]
@@ -101,6 +101,32 @@ enum Scene {
     EditableText,
 }
 
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Image,
+        Scene::ImageMeasure,
+        Scene::Text,
+        Scene::TextMeasurement,
+        Scene::Grid,
+        Scene::Borders,
+        Scene::EllipticalBorderRadius,
+        Scene::BoxShadow,
+        Scene::TextWrap,
+        Scene::Overflow,
+        Scene::Slice,
+        Scene::LayoutRounding,
+        Scene::LinearGradient,
+        Scene::RadialGradient,
+        #[cfg(feature = "bevy_ui_debug")]
+        Scene::DebugOutlines,
+        Scene::Transformations,
+        Scene::ViewportCoords,
+        Scene::OuterColor,
+        Scene::BoxedContent,
+        Scene::EditableText,
+    ];
+}
+
 impl std::str::FromStr for Scene {
     type Err = String;
 
@@ -118,32 +144,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Image => Scene::ImageMeasure,
-            Scene::ImageMeasure => Scene::Text,
-            Scene::Text => Scene::TextMeasurement,
-            Scene::TextMeasurement => Scene::Grid,
-            Scene::Grid => Scene::Borders,
-            Scene::Borders => Scene::EllipticalBorderRadius,
-            Scene::EllipticalBorderRadius => Scene::BoxShadow,
-            Scene::BoxShadow => Scene::TextWrap,
-            Scene::TextWrap => Scene::Overflow,
-            Scene::Overflow => Scene::Slice,
-            Scene::Slice => Scene::LayoutRounding,
-            Scene::LayoutRounding => Scene::LinearGradient,
-            Scene::LinearGradient => Scene::RadialGradient,
-            #[cfg(feature = "bevy_ui_debug")]
-            Scene::RadialGradient => Scene::DebugOutlines,
-            #[cfg(feature = "bevy_ui_debug")]
-            Scene::DebugOutlines => Scene::Transformations,
-            #[cfg(not(feature = "bevy_ui_debug"))]
-            Scene::RadialGradient => Scene::Transformations,
-            Scene::Transformations => Scene::ViewportCoords,
-            Scene::ViewportCoords => Scene::OuterColor,
-            Scene::OuterColor => Scene::BoxedContent,
-            Scene::BoxedContent => Scene::EditableText,
-            Scene::EditableText => Scene::Image,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
