@@ -115,7 +115,23 @@ impl ShaderBuffer {
         }
     }
 
-    /// Initializes (with alignment `align_of::<T>()`) and extends the data with an iterator of [`bytemuck::NoUninit`].
+    /// Extends the data with a slice of [`bytemuck::NoUninit`].
+    /// If [`Self::data`] is uninitialized, it will be initialized with alignment `align_of::<T>()`
+    pub fn extend_from_slice<T>(&mut self, values: &[T])
+    where
+        T: bytemuck::NoUninit,
+    {
+        let data = core::mem::take(&mut self.data);
+        let mut data = match data {
+            ShaderBufferData::Uninitialized(_) => AlignedVec::new(align_of::<T>()),
+            ShaderBufferData::Initialized(aligned_vec) => aligned_vec,
+        };
+        data.extend_from_slice(bytemuck::cast_slice(values));
+        self.data = ShaderBufferData::Initialized(data);
+    }
+
+    /// Extends the data with an iterator of [`bytemuck::NoUninit`].
+    /// If [`Self::data`] is uninitialized, it will be initialized with alignment `align_of::<T>()`
     pub fn extend<T>(&mut self, values: impl IntoIterator<Item = T>)
     where
         T: bytemuck::NoUninit,
