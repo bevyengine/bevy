@@ -2585,22 +2585,25 @@ fn create_point_shadow_maps(
                 light_entity: *light_entity,
                 face_index,
             },
-            (*light_render_layers).clone(),
         ));
 
         if auxiliary_entity.is_none() {
-            commands
-                .entity(view_light_entity)
-                .insert(RootNonCameraView(Core3d.intern()));
+            commands.entity(view_light_entity).insert((
+                RootNonCameraView(Core3d.intern()),
+                (*light_render_layers).clone(),
+            ));
         } else if let Some((entity, _)) = auxiliary_entity
             && let Some((_, _, _, _, maybe_render_layers, _, _, _)) = views.get(*entity).ok()
-            && let Some(render_layers) = maybe_render_layers
         {
-            // When render_layers is fixed for lights, this should make sure
-            // that the resulting render_layers is the intersection of the light's and the view's
+            let view_render_layers = maybe_render_layers.unwrap_or_default();
             commands
                 .entity(view_light_entity)
-                .insert(render_layers.clone());
+                .insert(view_render_layers.intersection(light_render_layers));
+        } else {
+            // This should not happen as auxiliary_entity should be set to a view.
+            commands
+                .entity(view_light_entity)
+                .insert(RenderLayers::default().intersection(light_render_layers));
         }
 
         if !matches!(
@@ -2743,18 +2746,22 @@ fn create_spot_shadow_map(
         (*light_render_layers).clone(),
     ));
     if auxiliary_entity.is_none() {
-        commands
-            .entity(view_light_entity)
-            .insert(RootNonCameraView(Core3d.intern()));
+        commands.entity(view_light_entity).insert((
+            RootNonCameraView(Core3d.intern()),
+            (*light_render_layers).clone(),
+        ));
     } else if let Some((entity, _)) = auxiliary_entity
         && let Some((_, _, _, _, maybe_render_layers, _, _, _)) = views.get(*entity).ok()
-        && let Some(render_layers) = maybe_render_layers
     {
-        // When render_layers is fixed for lights, this should make sure
-        // that the resulting render_layers is the intersection of the light's and the view's
+        let view_render_layers = maybe_render_layers.unwrap_or_default();
         commands
             .entity(view_light_entity)
-            .insert(render_layers.clone());
+            .insert(view_render_layers.intersection(light_render_layers));
+    } else {
+        // This should not happen as auxiliary_entity should be set to a view.
+        commands
+            .entity(view_light_entity)
+            .insert(RenderLayers::default().intersection(light_render_layers));
     }
 
     if !matches!(
