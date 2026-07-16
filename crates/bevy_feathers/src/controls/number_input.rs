@@ -46,7 +46,7 @@ use bevy_ui_widgets::ValueChange;
 
 use crate::{
     constants::{fonts, size},
-    controls::{FeathersTextInput, FeathersTextInputContainer},
+    controls::{FeathersTextInputBare, FeathersTextInputContainer},
     cursor::EntityCursor,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeTextColor, ThemeToken, UiTheme},
@@ -157,7 +157,7 @@ impl FeathersNumberInput {
 
                 (
                     // The editable text entity
-                    @FeathersTextInput {
+                    @FeathersTextInputBare {
                         @max_characters: 20usize,
                     }
                     Node {

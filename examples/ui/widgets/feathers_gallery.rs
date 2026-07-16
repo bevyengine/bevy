@@ -637,24 +637,20 @@ fn demo_column_1() -> impl Scene {
                     flex_spacer(),
                     // Text input
                     (
-                        @FeathersTextInputContainer
+                        @FeathersTextInput {
+                            @visible_width: 10f32,
+                            @max_characters: 9usize,
+                            @input: bsn! {
+                                InheritableFont { font: fonts::MONO }
+                                HexColorInput
+                                on(handle_hex_color_change)
+                            },
+                            @leading_controls: bsn! { caption("#") },
+                        }
                         Node {
                             flex_grow: 0.
                             padding: { px(4).left() },
                         }
-                        Children [
-                            (
-                                @FeathersTextInput {
-                                    @visible_width: 10f32,
-                                    @max_characters: 9usize,
-                                }
-                                InheritableFont {
-                                    font: fonts::MONO
-                                }
-                                HexColorInput
-                                on(handle_hex_color_change)
-                            )
-                        ]
                     )
                     (@FeathersColorSwatch {
                         @opaque_color_percentage: 30.0,

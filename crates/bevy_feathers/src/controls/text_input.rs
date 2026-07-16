@@ -3,8 +3,9 @@ use bevy_asset::AssetServer;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
+    hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::{Added, Has, With},
+    query::{Added, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
@@ -68,15 +69,12 @@ impl FeathersTextInputContainer {
     }
 }
 
-/// Scene function to spawn a text input. For proper styling, this should be enclosed by a [`FeathersTextInputContainer`].
+/// Scene function to spawn a decorated text input.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersTextInputProps`].
 ///
 /// ```ignore
-/// @FeathersTextInputContainer
-/// Children [
-///     :FeathersTextInput
-/// ]
+/// @FeathersTextInput
 /// ```
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersTextInputProps)]
@@ -85,16 +83,110 @@ impl FeathersTextInputContainer {
 pub struct FeathersTextInput;
 
 /// Props used to construct the [`FeathersTextInput`] scene.
-#[derive(Default, Clone)]
 pub struct FeathersTextInputProps {
+    /// Visible width
+    pub visible_width: Option<f32>,
+    /// Max characters
+    pub max_characters: Option<usize>,
+    /// Components and observers to add to the editable text entity.
+    pub input: Box<dyn Scene>,
+    /// Additional controls to place before the editable text entity.
+    pub leading_controls: Box<dyn SceneList>,
+    /// Additional controls to place after the editable text entity.
+    pub extra_controls: Box<dyn SceneList>,
+}
+
+impl Default for FeathersTextInputProps {
+    fn default() -> Self {
+        Self {
+            visible_width: None,
+            max_characters: None,
+            input: Box::new(bsn!()),
+            leading_controls: Box::new(bsn_list!()),
+            extra_controls: Box::new(bsn_list!()),
+        }
+    }
+}
+
+impl FeathersTextInput {
+    fn scene(props: FeathersTextInputProps) -> impl Scene {
+        bsn! {
+            @FeathersTextInputContainer
+            FeathersTextInput
+            Children [{props.leading_controls}, (
+                @FeathersTextInputBare {
+                    @visible_width: {props.visible_width},
+                    @max_characters: {props.max_characters},
+                }
+                {props.input}
+            ), {props.extra_controls}]
+        }
+    }
+}
+
+fn update_text_input_disabled(
+    q_inputs: Query<
+        (Entity, Has<InteractionDisabled>),
+        (
+            With<FeathersTextInput>,
+            Or<(Added<FeathersTextInput>, Added<InteractionDisabled>)>,
+        ),
+    >,
+    q_children: Query<&Children>,
+    q_bare_input: Query<(), With<FeathersTextInputBare>>,
+    mut commands: Commands,
+) {
+    for (entity, disabled) in &q_inputs {
+        if let Some(input) = q_children
+            .iter_descendants(entity)
+            .find(|entity| q_bare_input.contains(*entity))
+        {
+            if disabled {
+                commands.entity(input).insert(InteractionDisabled);
+            } else {
+                commands.entity(input).remove::<InteractionDisabled>();
+            }
+        }
+    }
+}
+
+fn update_text_input_disabled_remove(
+    q_inputs: Query<(), With<FeathersTextInput>>,
+    q_children: Query<&Children>,
+    q_bare_input: Query<(), With<FeathersTextInputBare>>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+    mut commands: Commands,
+) {
+    for entity in removed_disabled
+        .read()
+        .filter(|entity| q_inputs.contains(*entity))
+    {
+        if let Some(input) = q_children
+            .iter_descendants(entity)
+            .find(|entity| q_bare_input.contains(*entity))
+        {
+            commands.entity(input).remove::<InteractionDisabled>();
+        }
+    }
+}
+
+/// An undecorated text input for embedding in custom containers.
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[scene(FeathersTextInputBareProps)]
+#[reflect(Component, Default, Clone)]
+pub struct FeathersTextInputBare;
+
+/// Props used to construct a [`FeathersTextInputBare`] scene.
+#[derive(Default)]
+pub struct FeathersTextInputBareProps {
     /// Visible width
     pub visible_width: Option<f32>,
     /// Max characters
     pub max_characters: Option<usize>,
 }
 
-impl FeathersTextInput {
-    fn scene(props: FeathersTextInputProps) -> impl Scene {
+impl FeathersTextInputBare {
+    fn scene(props: FeathersTextInputBareProps) -> impl Scene {
         bsn! {
             Node {
                 flex_grow: {
@@ -105,7 +197,7 @@ impl FeathersTextInput {
                     }
                 } ,
             }
-            FeathersTextInput
+            FeathersTextInputBare
             EditableText {
                 cursor_width: 0.3,
                 visible_width: {props.visible_width},
@@ -132,7 +224,7 @@ impl FeathersTextInput {
 }
 
 fn update_text_cursor_color(
-    mut q_text_input: Query<&mut TextCursorStyle, With<FeathersTextInput>>,
+    mut q_text_input: Query<&mut TextCursorStyle, With<FeathersTextInputBare>>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
@@ -148,7 +240,7 @@ fn update_text_cursor_color(
 fn update_text_input_styles(
     q_inputs: Query<
         (Entity, Has<InteractionDisabled>, &InheritableThemeTextColor),
-        (With<FeathersTextInput>, Added<InteractionDisabled>),
+        (With<FeathersTextInputBare>, Added<InteractionDisabled>),
     >,
     mut commands: Commands,
 ) {
@@ -160,7 +252,7 @@ fn update_text_input_styles(
 fn update_text_input_styles_remove(
     q_inputs: Query<
         (Entity, Has<InteractionDisabled>, &InheritableThemeTextColor),
-        With<FeathersTextInput>,
+        With<FeathersTextInputBare>,
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut commands: Commands,
@@ -210,8 +302,13 @@ impl Plugin for TextInputPlugin {
             PreUpdate,
             (
                 update_text_cursor_color,
-                update_text_input_styles,
-                update_text_input_styles_remove,
+                (
+                    update_text_input_disabled_remove,
+                    update_text_input_disabled,
+                    update_text_input_styles,
+                    update_text_input_styles_remove,
+                )
+                    .chain(),
             )
                 .in_set(PickingSystems::Last),
         );
