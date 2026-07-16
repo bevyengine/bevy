@@ -8,8 +8,8 @@ use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     tuple::{DynamicTuple, Tuple},
     ty::impl_type_methods,
-    ApplyError, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::{
@@ -59,11 +59,16 @@ pub trait TupleStruct: PartialReflect {
     fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
     /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
-    fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct {
+    ///
+    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_tuple_struct(&self) -> Result<DynamicTupleStruct, ReflectCloneError> {
+        Ok(DynamicTupleStruct {
             represented_type: self.get_represented_type_info(),
-            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
-        }
+            fields: self
+                .iter_fields()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.

@@ -2355,9 +2355,12 @@ pub fn prepare_uinodes(
                                 .transform
                                 .transform_vector2(rect_size)
                                 .abs();
-                            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                                || positions_diff[1].y - positions_diff[2].y
-                                    >= transformed_rect_size.y
+                            // Don't try to cull glyphs that have a rotation.
+                            if extracted_uinode.transform.x_axis[1] == 0.0
+                                && (positions_diff[0].x - positions_diff[1].x
+                                    >= transformed_rect_size.x
+                                    || positions_diff[1].y - positions_diff[2].y
+                                        >= transformed_rect_size.y)
                             {
                                 continue;
                             }
