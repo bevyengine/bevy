@@ -19,14 +19,14 @@ use strsim::jaro_winkler;
 /// A best-effort match will be returned,
 /// or `None` if no suitable match could be found.
 ///
-/// See [`fuzzy_resource_name_to_id`] for a similar function for resources.
+/// See [`fuzzy_match_resource_name`] for a similar function for resources.
 ///
 /// Only the "shortname" of the component (i.e., without module paths) is considered.
 ///
 /// The `threshold` parameter controls the minimum similarity score required for a match to be included in the results.
 /// When incrementally searching for a matching name, it may be useful to start with a lower threshold
 /// and increase it as the user types more characters.
-pub fn fuzzy_component_name_to_id(
+pub fn fuzzy_match_component_name(
     world: &World,
     fuzzy_name: &str,
     threshold: f64,
@@ -40,14 +40,14 @@ pub fn fuzzy_component_name_to_id(
 /// A best-effort match will be returned,
 /// or `None` if no suitable match could be found.
 ///
-/// See [`fuzzy_component_name_to_id`] for a similar function for components.
+/// See [`fuzzy_match_component_name`] for a similar function for components.
 ///
 /// Only the "shortname" of the resource (i.e., without module paths) is considered.
 ///
 /// The `threshold` parameter controls the minimum similarity score required for a match to be included in the results.
 /// When incrementally searching for a matching name, it may be useful to start with a lower threshold
 /// and increase it as the user types more characters.
-pub fn fuzzy_resource_name_to_id(
+pub fn fuzzy_match_resource_name(
     world: &World,
     fuzzy_name: &str,
     threshold: f64,
