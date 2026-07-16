@@ -454,7 +454,13 @@ pub trait EntityWorldMutSceneExt {
     /// Applies the given [`Scene`] to the current entity immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
-    /// When a scene is resolved, it will replace and orphan the current entity's children.
+    /// When a scene is resolved, it will replace the current entity's related entities for each
+    /// relationship the scene defines (ex: [`Children`]). Pre-existing related entities are despawned
+    /// if the relationship uses "linked spawn" semantics (see [`RelationshipTarget::LINKED_SPAWN`]),
+    /// which is the case for [`Children`]. Otherwise, they are orphaned.
+    ///
+    /// [`Children`]: bevy_ecs::hierarchy::Children
+    /// [`RelationshipTarget::LINKED_SPAWN`]: bevy_ecs::relationship::RelationshipTarget::LINKED_SPAWN
     ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
@@ -870,7 +876,7 @@ impl QueuedScenes {
 #[cfg(test)]
 mod tests {
     use super::EntityWorldMutSceneExt;
-    use crate::{self as bevy_scene, bsn, ScenePlugin};
+    use crate::{self as bevy_scene, bsn, bsn_list, ScenePlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::AssetPlugin;
     use bevy_ecs::{name::Name, prelude::*, template::FromTemplate};
@@ -893,7 +899,7 @@ mod tests {
 
     /// Tests that documented behavior of [`EntityWorldMutSceneExt::apply_scene`] is correct.
     #[test]
-    fn apply_scene_replaces_and_orphans_children() {
+    fn apply_scene_replaces_and_despawns_children() {
         let mut app = test_app();
         let world = app.world_mut();
 
@@ -920,8 +926,69 @@ mod tests {
         assert_eq!(children.len(), 1);
         assert!(world.entity(children[0]).contains::<SceneChild>());
 
-        // Pre-existing child entity still exists, but is no longer listed under root.
+        // Pre-existing child entity is despawned, because `Children` uses "linked spawn" semantics.
+        assert!(world.get_entity(pre_existing).is_err());
+    }
+
+    /// Applying the same scene to an entity multiple times must not accumulate replaced children
+    /// as orphans (see issue #24939, where re-applying a widget scene left "ghost" UI nodes behind).
+    #[test]
+    fn reapply_scene_does_not_leak_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let root = world.spawn(Name::new("root")).id();
+        for _ in 0..3 {
+            let scene = bsn! {
+                Children [ SceneChild, SceneChild ]
+            };
+            world.entity_mut(root).apply_scene(scene).unwrap();
+        }
+
+        assert_eq!(
+            world.entity(root).get::<Children>().map(Children::len),
+            Some(2)
+        );
+
+        // Only the children from the most recent application exist in the world.
+        let scene_children = world
+            .query_filtered::<(), With<SceneChild>>()
+            .iter(world)
+            .count();
+        assert_eq!(scene_children, 2);
+    }
+
+    /// Relationships without "linked spawn" semantics must orphan (not despawn) the
+    /// pre-existing related entities they replace.
+    #[test]
+    fn apply_scene_orphans_related_without_linked_spawn() {
+        use crate::RelatedScenes;
+        use bevy_ecs::relationship::RelationshipTarget as _;
+
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Liking(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Liking)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let root = world.spawn(Name::new("root")).id();
+        let pre_existing = world.spawn(Liking(root)).id();
+
+        let scene = RelatedScenes::<Liking, _>::new(bsn_list![SceneChild]);
+        world.entity_mut(root).apply_scene(scene).unwrap();
+
+        // The pre-existing related entity is orphaned, not despawned, because `LikedBy`
+        // does not use "linked spawn" semantics.
         assert!(world.get_entity(pre_existing).is_ok());
-        assert!(!children.contains(&pre_existing));
+        assert!(world.entity(pre_existing).get::<Liking>().is_none());
+
+        // The scene's related entity replaced it.
+        let liked_by = world.entity(root).get::<LikedBy>().unwrap();
+        assert_eq!(liked_by.collection().len(), 1);
     }
 }
