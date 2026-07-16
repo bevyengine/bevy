@@ -23,12 +23,12 @@ use smol_str::SmolStr;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Reflect, Default)]
 #[reflect(Default, Debug)]
 pub enum SurfaceLevel {
-    /// The base layer - window, panes and subpanes
+    /// The base layer - window and pane header
     #[default]
     Base,
     /// A raised layer - pane and subpane bodies
     Higher,
-    /// The highest level - groups
+    /// The highest level - groups and subpane headers
     Highest,
     /// An overlay such as a dialog or menu
     Floating,
