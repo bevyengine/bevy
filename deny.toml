@@ -4,6 +4,13 @@ all-features = true
 [advisories]
 version = 2
 ignore = [
+  # quick-xml advisory is low priority, and will be resolved
+  # whenever the accesskit and winit dependencies
+  # are updated with the fix.
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0194
+  # https://rustsec.org/advisories/RUSTSEC-2026-0195
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
   # ttf-parser was announced as unmaintained.
   # See: https://rustsec.org/advisories/RUSTSEC-2026-0192
   # Ignoring to unblock ci
