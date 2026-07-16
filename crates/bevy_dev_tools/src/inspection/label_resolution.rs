@@ -223,7 +223,7 @@ pub fn resolve_label(
 /// typically in the plugin that defines the component.
 #[derive(Debug, Resource, Default)]
 pub struct LabelResolutionRegistry {
-    /// A mapping of label-defining component TypeIds to their priority levels.
+    /// A mapping of label-defining component [`TypeId`]s to their priority levels.
     label_defining_types: HashMap<TypeId, LabelDefinitionPriority>,
 }
 
