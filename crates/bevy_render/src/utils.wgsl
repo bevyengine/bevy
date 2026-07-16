@@ -28,7 +28,7 @@ fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
 
 // Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
 fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
-    let sign = select(-1.0, 1.0, v.y >= 0.0);
+    let sign = sign(v.y);
     var f = v;
     f.y = abs(f.y);
     f.y = f.y * 2.0 - 1.0;
@@ -39,7 +39,7 @@ fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
 // For encoding normals or unit direction vectors as octahedral coordinates.
 fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
     var n = v / (abs(v.x) + abs(v.y) + abs(v.z));
-    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy > vec2f(0.0));
+    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy >= vec2f(0.0));
     let n_xy = select(octahedral_wrap, n.xy, n.z >= 0.0);
     return n_xy * 0.5 + 0.5;
 }

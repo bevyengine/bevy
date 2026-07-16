@@ -32,7 +32,7 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshVertexAttribute, PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
@@ -162,10 +162,8 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
-    /// Default Mesh attribute compression flags for the loaded meshes.
-    pub default_mesh_attribute_compression: MeshAttributeCompressionFlags,
-    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
-    pub default_mesh_index_compression: bool,
+    /// Default mesh compression arguments for the loaded meshes.
+    pub default_mesh_compression: MeshCompressionArgs,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -221,11 +219,8 @@ pub struct GltfLoaderSettings {
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
     /// Mesh attribute compression flags for the loaded meshes.
-    /// If `None`, uses the global default set by [`GltfPlugin::mesh_attribute_compression`](crate::GltfPlugin::mesh_attribute_compression).
-    pub mesh_attribute_compression: Option<MeshAttributeCompressionFlags>,
-    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
-    /// If `None`, uses the global default set by [`GltfPlugin::mesh_index_compression`](crate::GltfPlugin::mesh_index_compression).
-    pub mesh_index_compression: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_compression`](crate::GltfPlugin::mesh_compression).
+    pub mesh_compression: Option<MeshCompressionArgs>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -242,8 +237,7 @@ impl Default for GltfLoaderSettings {
             validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
-            mesh_attribute_compression: None,
-            mesh_index_compression: None,
+            mesh_compression: None,
         }
     }
 }
@@ -879,11 +873,9 @@ impl GltfLoader {
                     primitive_label.to_string(),
                     mesh.compressed_mesh(
                         settings
-                            .mesh_attribute_compression
-                            .unwrap_or(loader.default_mesh_attribute_compression),
-                        settings
-                            .mesh_index_compression
-                            .unwrap_or(loader.default_mesh_index_compression),
+                            .mesh_compression
+                            .clone()
+                            .unwrap_or(loader.default_mesh_compression.clone()),
                     ),
                 );
                 primitives.push(super::GltfPrimitive::new(
