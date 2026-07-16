@@ -17,6 +17,7 @@ pub mod diagnostics_overlay;
 mod easy_screenshot;
 pub mod fps_overlay;
 pub mod frame_time_graph;
+pub mod inspection;
 
 pub mod picking_debug;
 
