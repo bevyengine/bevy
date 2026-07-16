@@ -144,11 +144,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        let index = Scene::ALL_ORDERED
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
             .iter()
             .position(|scene| scene == self)
-            .unwrap();
-        Scene::ALL_ORDERED[(index + 1) % Scene::ALL_ORDERED.len()]
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
