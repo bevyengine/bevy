@@ -11,7 +11,9 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_log::{debug, info, warn};
 use bevy_utils::default;
-use bevy_window::{CompositeAlphaMode, PresentMode, RawHandleWrapper, Window, WindowClosing};
+use bevy_window::{
+    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
+};
 use core::num::NonZero;
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
@@ -47,7 +49,6 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_systems(ExtractSchedule, extract_raw_handle.before(extract_windows))
                 .add_systems(ExtractSchedule, extract_windows.before(extract_cameras))
                 .add_systems(
                     Render,
@@ -57,17 +58,6 @@ impl Plugin for WindowRenderPlugin {
                 )
                 .add_systems(Render, prepare_windows.in_set(RenderSystems::PrepareViews));
         }
-    }
-}
-
-// We can't use [`SyncComponentPlugin`] because it would introduce a `bevy_render` as
-// a dependency to `bevy_window`
-fn extract_raw_handle(
-    mut commands: Commands,
-    handle: Extract<Query<(RenderEntity, &RawHandleWrapper)>>,
-) {
-    for (render_entity, h) in &handle {
-        commands.entity(render_entity).insert(h.clone());
     }
 }
 
@@ -128,31 +118,39 @@ fn extract_windows(
     mut commands: Commands,
     mut extracted_windows: Query<&mut ExtractedWindow>,
     mut closing: Extract<MessageReader<WindowClosing>>,
-    windows: Extract<Query<(RenderEntity, &Window)>>,
+    windows: Extract<Query<(RenderEntity, &Window, Has<PrimaryWindow>, &RawHandleWrapper)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
+    mut removed_primary: Extract<RemovedComponents<PrimaryWindow>>,
     mapper: Extract<Query<&RenderEntity>>,
 ) {
-    for (render_entity, window) in windows.iter() {
+    for (render_entity, window, is_primary, handle) in windows.iter() {
+        if is_primary {
+            commands.entity(render_entity).insert(PrimaryWindow);
+        }
+
         let (new_width, new_height) = (
             window.resolution.physical_width().max(1),
             window.resolution.physical_height().max(1),
         );
 
         let Ok(mut extracted_window) = extracted_windows.get_mut(render_entity) else {
-            commands.entity(render_entity).insert(ExtractedWindow {
-                physical_width: new_width,
-                physical_height: new_height,
-                present_mode: window.present_mode,
-                desired_maximum_frame_latency: window.desired_maximum_frame_latency,
-                swap_chain_texture: None,
-                swap_chain_texture_view: None,
-                size_changed: false,
-                swap_chain_texture_format: None,
-                swap_chain_texture_view_format: None,
-                present_mode_changed: false,
-                alpha_mode: window.composite_alpha_mode,
-                needs_initial_present: true,
-            });
+            commands.entity(render_entity).insert((
+                ExtractedWindow {
+                    physical_width: new_width,
+                    physical_height: new_height,
+                    present_mode: window.present_mode,
+                    desired_maximum_frame_latency: window.desired_maximum_frame_latency,
+                    swap_chain_texture: None,
+                    swap_chain_texture_view: None,
+                    size_changed: false,
+                    swap_chain_texture_format: None,
+                    swap_chain_texture_view_format: None,
+                    present_mode_changed: false,
+                    alpha_mode: window.composite_alpha_mode,
+                    needs_initial_present: true,
+                },
+                handle.clone(),
+            ));
             continue;
         };
 
@@ -198,6 +196,13 @@ fn extract_windows(
     for removed_window in removed.read() {
         if let Ok(render_entity) = mapper.get(removed_window) {
             commands.entity(render_entity.entity()).despawn();
+        }
+    }
+    for removed_window in removed_primary.read() {
+        if let Ok(render_entity) = mapper.get(removed_window) {
+            commands
+                .entity(render_entity.entity())
+                .remove::<PrimaryWindow>();
         }
     }
 }
