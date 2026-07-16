@@ -16,9 +16,8 @@ use bevy::{
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
-    input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
+    input_focus::{tab_navigation::TabGroup, AutoFocus},
     prelude::*,
-    text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled, Selected},
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
@@ -640,13 +639,11 @@ fn demo_column_1() -> impl Scene {
                         @FeathersTextInput {
                             @visible_width: 10f32,
                             @max_characters: 9usize,
-                            @input: bsn! {
-                                InheritableFont { font: fonts::MONO }
-                                HexColorInput
-                                on(handle_hex_color_change)
-                            },
-                            @leading_controls: bsn! { caption("#") },
+                            @leading_adornments: bsn! { caption("#") },
                         }
+                        InheritableFont { font: fonts::MONO }
+                        HexColorInput
+                        on(handle_hex_color_change)
                         Node {
                             flex_grow: 0.
                             padding: { px(4).left() },
@@ -947,11 +944,10 @@ fn update_colors(
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<FeathersColorPlane>>,
-    q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
+    q_text_input: Single<(Entity, &TextInputValue), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
     mut commands: Commands,
-    focus: Res<InputFocus>,
 ) {
     if states.is_changed() {
         for (slider_ent, slider, mut base) in sliders.iter_mut() {
@@ -1014,12 +1010,11 @@ fn update_colors(
             plane_value.0.z = states.rgb_color.green;
         }
 
-        // Only update the hex input field when it's not focused, otherwise it interferes
-        // with typing.
-        let (input_ent, mut editable_text) = q_text_input.into_inner();
-        if Some(input_ent) != focus.get() {
-            editable_text.queue_edit(TextEdit::SelectAll);
-            editable_text.queue_edit(TextEdit::Insert(states.rgb_color.to_hex().into()));
+        let (input_ent, input_value) = q_text_input.into_inner();
+        if Srgba::hex(&input_value.0).ok() != Some(states.rgb_color) {
+            commands
+                .entity(input_ent)
+                .insert(TextInputValue(states.rgb_color.to_hex()));
         }
 
         for scalar_input_ent in q_scalar_input.iter() {
@@ -1042,13 +1037,8 @@ fn update_colors(
     }
 }
 
-fn handle_hex_color_change(
-    _change: On<TextEditChange>,
-    q_text_input: Single<&EditableText, With<HexColorInput>>,
-    mut colors: ResMut<DemoWidgetStates>,
-) {
-    let editable_text = *q_text_input;
-    if let Ok(color) = Srgba::hex(editable_text.value().to_string())
+fn handle_hex_color_change(change: On<ValueChange<String>>, mut colors: ResMut<DemoWidgetStates>) {
+    if let Ok(color) = Srgba::hex(&change.value)
         && color != colors.rgb_color
     {
         colors.rgb_color = color;
