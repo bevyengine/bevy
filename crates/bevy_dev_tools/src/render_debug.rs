@@ -57,6 +57,7 @@ impl Plugin for RenderDebugOverlayPlugin {
             .register_type::<GlobalRenderDebugOverlay>()
             .init_resource::<GlobalRenderDebugOverlay>()
             .add_message::<RenderDebugOverlayEvent>()
+            .init_resource::<RenderDebugOverlayKeybindings>()
             .add_plugins((
                 ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
@@ -98,16 +99,42 @@ impl Plugin for RenderDebugOverlayPlugin {
     }
 }
 
-/// Automatically attach keybinds to make render debug overlays available to users without code
-/// changes when the feature is enabled.
+/// keybinding resource for configurable keybindings for the overlay
+#[derive(Resource, Clone, Copy)]
+pub struct RenderDebugOverlayKeybindings {
+    /// Whether to enable the automatic keybindings
+    pub enable_keybindings: bool,
+    /// Key used to cycle to the next supported debug overlay mode. Defaults to F1
+    pub cycle_mode: KeyCode,
+    /// Key used to cycle the overlay opacity. Defaults to F2
+    pub cycle_opacity: KeyCode,
+}
+
+/// Default keybindings are F1 and F2
+impl Default for RenderDebugOverlayKeybindings {
+    fn default() -> Self {
+        Self {
+            enable_keybindings: false,
+            cycle_mode: KeyCode::F1,
+            cycle_opacity: KeyCode::F2,
+        }
+    }
+}
+
+/// Attach keybinds to make render debug overlays available to users when keybindings are enabled
 pub fn handle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
+    keybindings: Res<RenderDebugOverlayKeybindings>,
     mut events: MessageWriter<RenderDebugOverlayEvent>,
 ) {
-    if keyboard.just_pressed(KeyCode::F1) {
+    if !keybindings.enable_keybindings {
+        return;
+    }
+
+    if keyboard.just_pressed(keybindings.cycle_mode) {
         events.write(RenderDebugOverlayEvent::CycleMode);
     }
-    if keyboard.just_pressed(KeyCode::F2) {
+    if keyboard.just_pressed(keybindings.cycle_opacity) {
         events.write(RenderDebugOverlayEvent::CycleOpacity);
     }
 }
