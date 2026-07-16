@@ -25,21 +25,25 @@ pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ScreenshotPlugin).add_observer(
-            |trigger: On<Add, Window>, mut commands: Commands| {
-                commands.entity(trigger.entity).insert(SyncToRenderWorld);
-            },
-        );
+        app.add_plugins(ScreenshotPlugin);
 
         // We need to sync the window entity in the render world
-        // The primary window gets added before this plugin so we can't rely on the observer
-        let _ = app.world_mut().run_system_once(
-            |mut commands: Commands, windows: Query<Entity, With<Window>>| {
-                for entity in &windows {
-                    commands.entity(entity).insert(SyncToRenderWorld);
-                }
-            },
-        );
+        // We can't use [`SyncComponentPlugin`] because it would introduce a `bevy_render` as
+        // a dependency to `bevy_window`
+        {
+            app.add_observer(|trigger: On<Add, Window>, mut commands: Commands| {
+                commands.entity(trigger.entity).insert(SyncToRenderWorld);
+            });
+
+            // The primary window gets added before this plugin so we can't rely on the observer
+            let _ = app.world_mut().run_system_once(
+                |mut commands: Commands, windows: Query<Entity, With<Window>>| {
+                    for entity in &windows {
+                        commands.entity(entity).insert(SyncToRenderWorld);
+                    }
+                },
+            );
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -56,6 +60,8 @@ impl Plugin for WindowRenderPlugin {
     }
 }
 
+// We can't use [`SyncComponentPlugin`] because it would introduce a `bevy_render` as
+// a dependency to `bevy_window`
 fn extract_raw_handle(
     mut commands: Commands,
     handle: Extract<Query<(RenderEntity, &RawHandleWrapper)>>,
