@@ -201,12 +201,7 @@ impl Plugin for UiPlugin {
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
-                (
-                    widget::mark_images_as_changed_if_their_assets_changed,
-                    widget::update_image_content_size_system,
-                    widget::update_texture_atlas_layout_components,
-                )
-                    .chain()
+                widget::update_image_content_size_system
                     .in_set(UiSystems::Content)
                     .in_set(AmbiguousWithText)
                     .in_set(AmbiguousWithUpdateText2dLayout),

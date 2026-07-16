@@ -9,6 +9,7 @@
 
 pub mod box_shadow;
 mod gradient;
+mod image;
 mod pipeline;
 pub mod render_pass;
 mod text;
@@ -32,7 +33,7 @@ use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow,
 use bevy_ui::{
     BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
     ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node, OuterColor, Outline,
-    ResolvedBorderRadius, UiGlobalTransform, VisualBox,
+    ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
 };
 
 use bevy_app::prelude::*;
@@ -205,6 +206,16 @@ impl Plugin for UiRenderPlugin {
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<GlobalUiDebugOptions>();
+
+        app.add_systems(
+            PostUpdate,
+            (
+                image::mark_images_as_changed_if_their_assets_changed,
+                image::update_texture_atlas_layout_components,
+            )
+                .chain()
+                .after(UiSystems::Content),
+        );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
