@@ -127,6 +127,7 @@ shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 serialize = [
   "bevy_a11y?/serialize",
   "bevy_color?/serialize",
+  "bevy_dev_tools?/serialize",
   "bevy_ecs/serialize",
   "bevy_image?/serialize",
   "bevy_input/serialize",

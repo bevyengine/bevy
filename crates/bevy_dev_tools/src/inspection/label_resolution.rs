@@ -27,7 +27,10 @@ use core::any::TypeId;
 /// Leaving space between these priority levels allows for future expansion
 /// and customization in tricky edge cases.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
 pub struct LabelDefinitionPriority(pub i8);
 
 impl LabelDefinitionPriority {
@@ -64,7 +67,10 @@ pub struct ComponentLabelData<'a> {
 ///
 /// This data is produced by [`resolve_label`].
 #[derive(Clone, Debug, PartialEq, Eq, Deref, DerefMut)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
 pub struct EntityLabel {
     /// The resolved label to display for the entity.
     ///
@@ -110,7 +116,10 @@ impl EntityLabel {
 
 /// Identifies how the inspected entity's label was determined.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
 pub enum LabelOrigin {
     /// The entity label comes from the [`Name`] component.
     Custom,

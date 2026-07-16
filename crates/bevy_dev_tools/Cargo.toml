@@ -20,6 +20,7 @@ schedule_data = [
   "dep:bevy_utils",
   "dep:thiserror",
 ]
+serialize = ["dep:serde"]
 
 [dependencies]
 # bevy
