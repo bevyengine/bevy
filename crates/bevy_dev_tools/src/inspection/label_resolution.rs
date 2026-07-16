@@ -1,17 +1,34 @@
 //! Rules and strategies for determining the inspection-displayed label of an entity.
 
-use bevy::core_pipeline::Skybox;
-use bevy::ecs::component::ComponentId;
-use bevy::ecs::system::SystemIdMarker;
-use bevy::light::{Atmosphere, FogVolume, IrradianceVolume, SunDisk};
-use bevy::pbr::wireframe::Wireframe;
-use bevy::pbr::Lightmap;
-use bevy::picking::pointer::PointerId;
-use bevy::platform::collections::HashMap;
-use bevy::prelude::*;
-use bevy::window::Monitor;
-use bevy_ecs::name::Name;
-use core::any::TypeId;
+use bevy_animation::AnimationPlayer;
+use bevy_app::{App, Plugin};
+use bevy_audio::{AudioPlayer, AudioSink};
+use bevy_camera::{Camera, Camera2d};
+use bevy_core_pipeline::Skybox;
+use bevy_ecs::{
+    component::ComponentId, entity::Entity, name::Name, observer::Observer, resource::Resource,
+    system::SystemIdMarker, world::World,
+};
+use bevy_input::gamepad::Gamepad;
+use bevy_light::{
+    AmbientLight, Atmosphere, DirectionalLight, FogVolume, IrradianceVolume, LightProbe,
+    PointLight, SpotLight, SunDisk,
+};
+use bevy_mesh::{Mesh2d, Mesh3d};
+use bevy_pbr::{wireframe::Wireframe, DistanceFog, Lightmap};
+use bevy_picking::pointer::PointerId;
+use bevy_platform::collections::HashMap;
+use bevy_sprite::{Sprite, Text2d};
+use bevy_text::TextSpan;
+use bevy_ui::{
+    widget::{Button, ImageNode, Text, ViewportNode},
+    Node,
+};
+use bevy_window::{Monitor, Window};
+use core::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 /// The priority level for label-defining components.
 ///
@@ -27,10 +44,7 @@ use core::any::TypeId;
 /// Leaving space between these priority levels allows for future expansion
 /// and customization in tricky edge cases.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serialize::Serialize, serialize::Deserialize)
-)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct LabelDefinitionPriority(pub i8);
 
 impl LabelDefinitionPriority {
@@ -66,20 +80,30 @@ pub struct ComponentLabelData<'a> {
 /// when determining the entity's label.
 ///
 /// This data is produced by [`resolve_label`].
-#[derive(Clone, Debug, PartialEq, Eq, Deref, DerefMut)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serialize::Serialize, serialize::Deserialize)
-)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct EntityLabel {
     /// The resolved label to display for the entity.
     ///
     /// Stored as a [`Name`] to take advantage of the optimizations and conveniences of that type,
     /// even though not all labels are [`Name`]-derived.
-    #[deref]
     pub label: Name,
     /// How the label was determined, which can be used to inform display decisions.
     pub origin: LabelOrigin,
+}
+
+impl Deref for EntityLabel {
+    type Target = Name;
+
+    fn deref(&self) -> &Self::Target {
+        &self.label
+    }
+}
+
+impl DerefMut for EntityLabel {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.label
+    }
 }
 
 impl EntityLabel {
@@ -116,10 +140,7 @@ impl EntityLabel {
 
 /// Identifies how the inspected entity's label was determined.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serialize::Serialize, serialize::Deserialize)
-)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum LabelOrigin {
     /// The entity label comes from the [`Name`] component.
     Custom,
@@ -287,7 +308,7 @@ impl Plugin for LabelResolutionPlugin {
         label_resolution_registry
             .register_label_defining_type::<Camera2d>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
-            .register_label_defining_type::<Camera3d>(LabelDefinitionPriority::LIBRARY);
+            .register_label_defining_type::<Camera2d>(LabelDefinitionPriority::LIBRARY);
 
         // Lights
         label_resolution_registry
