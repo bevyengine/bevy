@@ -234,7 +234,7 @@ fn queue_custom_phase_item(
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_phase_item_queues: ResMut<PendingCustomPhaseItemQueues>,
-    mut mesh_instances_queued_this_frame: Local<MainEntityHashSet>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -274,7 +274,7 @@ fn queue_custom_phase_item(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_phase_item_queues.prev_frame,
-            &mut mesh_instances_queued_this_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for

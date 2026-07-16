@@ -973,7 +973,7 @@ impl DirtySpecializations {
     ///
     /// `last_frame_view_pending_queues` should be the contents of the
     /// [`ViewPendingQueues::prev_frame`] list.
-    /// `mesh_instances_queued_this_frame` should be a
+    /// `mesh_instances_queued_this_iteration_scratch_space` should be a
     /// `Local<MainEntityHashSet>`; it's used internally to avoid yielding the
     /// same mesh instance multiple times.
     pub fn iter_to_queue<'a>(
@@ -981,12 +981,12 @@ impl DirtySpecializations {
         view: RetainedViewEntity,
         render_visible_mesh_entities: &'a RenderVisibleEntitiesClass,
         last_frame_view_pending_queues: &'a HashSet<(Entity, MainEntity)>,
-        mesh_instances_queued_this_frame: &'a mut MainEntityHashSet,
+        mesh_instances_queued_this_iteration_scratch_space: &'a mut MainEntityHashSet,
     ) -> impl Iterator<Item = (&'a Entity, &'a MainEntity)> {
-        mesh_instances_queued_this_frame.clear();
+        mesh_instances_queued_this_iteration_scratch_space.clear();
 
-        // Use `mesh_instances_queued_this_frame` to avoid yielding the same
-        // mesh instance twice.
+        // Use `mesh_instances_queued_this_iteration_scratch_space` to avoid
+        // yielding the same mesh instance twice.
         // Yielding a mesh instance twice would result in binning it twice,
         // which is illegal.
         (if self.must_wipe_specializations_for_view(view) {
@@ -1010,7 +1010,9 @@ impl DirtySpecializations {
                 .iter()
                 .map(|(entity, main_entity)| (entity, main_entity)),
         )
-        .filter(|(_, main_entity)| mesh_instances_queued_this_frame.insert(**main_entity))
+        .filter(|(_, main_entity)| {
+            mesh_instances_queued_this_iteration_scratch_space.insert(**main_entity)
+        })
     }
 }
 

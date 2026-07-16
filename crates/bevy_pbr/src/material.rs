@@ -1204,7 +1204,7 @@ pub fn queue_material_meshes(
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
-    mut mesh_instances_queued_this_frame: Local<MainEntityHashSet>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &views {
         let (
@@ -1255,7 +1255,7 @@ pub fn queue_material_meshes(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_mesh_material_queues.prev_frame,
-            &mut mesh_instances_queued_this_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
