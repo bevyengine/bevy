@@ -1,16 +1,16 @@
 use core::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{
+use crate::dim2::Circle;
+use crate::{Measured2d, Measured3d, Primitive2d, Primitive3d, Ray3d};
+use bevy_math::{
     ops::{self, FloatPow},
-    Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
+    Dir3, InvalidDirectionError, Isometry3d, Mat3, Quat, Vec2, Vec3,
 };
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -325,7 +325,7 @@ impl InfinitePlane3d {
     ///
     /// ```
     /// # use bevy_math::{Vec3, Dir3};
-    /// # use bevy_math::primitives::InfinitePlane3d;
+    /// # use bevy_shape::InfinitePlane3d;
     ///
     /// let triangle_3d @ [a, b, c] = [Vec3::X, Vec3::Y, Vec3::Z];
     /// let center = (a + b + c) / 3.0;
@@ -1579,8 +1579,8 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
+    use bevy_math::{InvalidDirectionError, Quat};
 
     #[test]
     fn direction_creation() {
@@ -1912,12 +1912,12 @@ mod tests {
         assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
         assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
 
-        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
+        let annulus = crate::Annulus::new(0.25, 1.375);
         let tube = Extrusion::new(annulus, 0.333);
         assert_eq!(tube.area(), 14.886437, "incorrect surface area");
         assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
 
-        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
+        let polygon = crate::RegularPolygon::new(3.8, 7);
         let regular_prism = Extrusion::new(polygon, 1.25);
         assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
         assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");

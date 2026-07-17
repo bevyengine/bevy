@@ -1,67 +1,59 @@
 [package]
-name = "bevy_math"
-version = "0.20.0-dev"
-edition = "2024"
 description = "Provides math functionality for Bevy Engine"
+edition = "2024"
 homepage = "https://bevy.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+license = "MIT OR Apache-2.0"
+name = "bevy_math"
+repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.94.0"
+version = "0.20.0-dev"
 
 [dependencies]
-glam = { version = "0.33.2", default-features = false, features = ["bytemuck"] }
-thiserror = { version = "2", default-features = false }
-derive_more = { version = "2", default-features = false, features = [
+approx = { default-features = false, optional = true, version = "0.5" }
+bevy_reflect = { default-features = false, features = [
+  "glam",
+], optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
+derive_more = { default-features = false, features = [
   "from",
   "into",
-] }
-itertools = { version = "0.14.0", default-features = false }
-serde = { version = "1", default-features = false, features = [
+], version = "2" }
+glam = { default-features = false, features = ["bytemuck"], version = "0.33.2" }
+itertools = { default-features = false, version = "0.14.0" }
+libm = { optional = true, version = "0.2" }
+rand = { default-features = false, optional = true, version = "0.10" }
+serde = { default-features = false, features = [
   "derive",
-], optional = true }
-libm = { version = "0.2", optional = true }
-approx = { version = "0.5", default-features = false, optional = true }
-rand = { version = "0.10", default-features = false, optional = true }
-rand_distr = { version = "0.6", optional = true }
-arrayvec = { version = "0.7", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, features = [
-  "glam",
-], optional = true }
+], optional = true, version = "1" }
+thiserror = { default-features = false, version = "2" }
 variadics_please = "2.0"
 
 [dev-dependencies]
 approx = "0.5"
 # Supply rngs for examples and tests
+chacha20 = { default-features = false, features = ["rng"], version = "0.10.0" }
 rand = "0.10"
-chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 # Enable the approx feature when testing.
-bevy_math = { path = ".", default-features = false, features = ["approx"] }
-glam = { version = "0.33.2", default-features = false, features = ["approx"] }
+bevy_math = { default-features = false, features = ["approx"], path = "." }
+glam = { default-features = false, features = ["approx"], version = "0.33.2" }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-getrandom = { version = "0.4", default-features = false, features = [
+getrandom = { default-features = false, features = [
   "wasm_js",
-] }
+], version = "0.4" }
 
 [features]
-default = ["std", "rand", "curve"]
+alloc = ["itertools/use_alloc", "rand?/alloc", "serde?/alloc"]
+default = ["curve", "rand", "std"]
 std = [
   "alloc",
-  "glam/std",
-  "derive_more/std",
-  "itertools/use_std",
-  "serde?/std",
   "approx?/std",
-  "rand?/std",
-  "rand_distr?/std",
   "bevy_reflect?/std",
-]
-alloc = [
-  "itertools/use_alloc",
-  "serde?/alloc",
-  "rand?/alloc",
-  "rand_distr?/alloc",
+  "derive_more/std",
+  "glam/std",
+  "itertools/use_std",
+  "rand?/std",
+  "serde?/std",
 ]
 
 serialize = ["dep:serde", "glam/serde"]
@@ -77,11 +69,11 @@ glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
-rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
+rand = ["dep:rand", "glam/rand"]
 # Include code related to the Curve trait
 curve = []
 # Enable bevy_reflect (requires alloc)
-bevy_reflect = ["dep:bevy_reflect", "alloc"]
+bevy_reflect = ["alloc", "dep:bevy_reflect"]
 # Enable libm mathematical functions as a fallback for no_std environments.
 # Can be overridden with std feature.
 nostd-libm = ["dep:libm", "glam/nostd-libm"]
@@ -90,9 +82,9 @@ nostd-libm = ["dep:libm", "glam/nostd-libm"]
 workspace = true
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = [
-  "-Zunstable-options",
   "--generate-link-to-definition",
   "--generate-macro-expansion",
+  "-Zunstable-options",
 ]
-all-features = true
