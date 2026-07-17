@@ -1,21 +1,15 @@
 use core::f32::consts::FRAC_PI_2;
 
-use glam::{Vec2, Vec3A, Vec3Swizzles};
+use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3A, Vec3Swizzles};
 
 use crate::{
-    bounding::{BoundingCircle, BoundingVolume},
-    ops,
-    primitives::{
-        Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Primitive2d, Rectangle,
-        RegularPolygon, Ring, Segment2d, Triangle2d,
-    },
-    Isometry2d, Isometry3d, Quat, Rot2,
+    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
+    Capsule2d, Circle, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Primitive2d, Rectangle,
+    RegularPolygon, Ring, Segment2d, Triangle2d,
 };
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{Polygon, Polyline2d};
-
-use crate::{bounding::Bounded2d, primitives::Circle};
+use crate::{Polygon, Polyline2d};
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
@@ -260,16 +254,12 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 mod tests {
     use core::f32::consts::FRAC_PI_4;
 
-    use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
+    use bevy_math::{ops, Dir2, EulerRot, Isometry3d, Quat, Vec2, Vec3, Vec3A};
 
     use crate::{
         bounding::{Bounded3d, BoundingVolume},
-        ops,
-        primitives::{
-            Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
-            RegularPolygon, Segment2d, Triangle2d,
-        },
-        Dir2, Isometry3d,
+        Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
+        RegularPolygon, Segment2d, Triangle2d,
     };
 
     #[test]

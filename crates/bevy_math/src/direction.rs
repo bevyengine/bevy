@@ -1,7 +1,4 @@
-use crate::{
-    primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
-};
+use crate::{Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 
 use core::f32::consts::FRAC_1_SQRT_2;
 use core::fmt;
@@ -94,7 +91,6 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 )]
 #[doc(alias = "Direction2d")]
 pub struct Dir2(Vec2);
-impl Primitive2d for Dir2 {}
 
 impl Dir2 {
     /// A unit vector pointing along the positive X axis.
@@ -405,7 +401,6 @@ impl approx::UlpsEq for Dir2 {
 )]
 #[doc(alias = "Direction3d")]
 pub struct Dir3(Vec3);
-impl Primitive3d for Dir3 {}
 
 impl Dir3 {
     /// A unit vector pointing along the positive X axis.
@@ -809,7 +804,6 @@ impl approx::UlpsEq for Dir3 {
 )]
 #[doc(alias = "Direction3dA")]
 pub struct Dir3A(Vec3A);
-impl Primitive3d for Dir3A {}
 
 impl Dir3A {
     /// A unit vector pointing along the positive X axis.
