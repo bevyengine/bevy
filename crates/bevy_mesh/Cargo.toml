@@ -27,17 +27,17 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 # other
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "29.0.3", default-features = false }
+wgpu-types = { version = "30", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
-hexasphere = "18.0"
+hexasphere = "19.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 half = { version = "2.4.1", features = ["bytemuck"] }
 encase = "0.12"
-glam = { version = "0.32.0", default-features = false, optional = true }
+glam = { version = "0.33.2", default-features = false, optional = true }
 
 [dev-dependencies]
 approx = "0.5"

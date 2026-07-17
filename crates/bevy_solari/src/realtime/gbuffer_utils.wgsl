@@ -47,9 +47,12 @@ fn pixel_dissimilar(depth: f32, world_position: vec3<f32>, other_world_position:
 
 fn permute_pixel(pixel_id: vec2<u32>, frame_index: u32, view_size: vec2<f32>) -> vec2<u32> {
     let r = frame_index;
-    let offset = vec2(r & 3u, (r >> 2u) & 3u);
-    var shifted_pixel_id = pixel_id + offset;
-    shifted_pixel_id ^= vec2(3u);
+    let offset = vec2<i32>(i32(r & 3u), i32((r >> 2u) & 3u));
+    var shifted_pixel_id = vec2<i32>(pixel_id) + offset;
+    shifted_pixel_id ^= vec2<i32>(3);
     shifted_pixel_id -= offset;
-    return min(shifted_pixel_id, vec2<u32>(view_size - 1.0));
+    if any(shifted_pixel_id < vec2<i32>(0)) || any(shifted_pixel_id >= vec2<i32>(view_size)) {
+        return pixel_id;
+    }
+    return vec2<u32>(shifted_pixel_id);
 }

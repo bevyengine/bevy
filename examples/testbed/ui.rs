@@ -39,6 +39,10 @@ fn main() {
     .add_systems(OnEnter(Scene::TextMeasurement), text_measurement::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
     .add_systems(OnEnter(Scene::Borders), borders::setup)
+    .add_systems(
+        OnEnter(Scene::EllipticalBorderRadius),
+        elliptical_border_radius::setup,
+    )
     .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
     .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
     .add_systems(OnEnter(Scene::Overflow), overflow::setup)
@@ -70,7 +74,7 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 #[states(scoped_entities)]
 enum Scene {
     #[default]
@@ -80,6 +84,7 @@ enum Scene {
     TextMeasurement,
     Grid,
     Borders,
+    EllipticalBorderRadius,
     BoxShadow,
     TextWrap,
     Overflow,
@@ -94,6 +99,32 @@ enum Scene {
     OuterColor,
     BoxedContent,
     EditableText,
+}
+
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Image,
+        Scene::ImageMeasure,
+        Scene::Text,
+        Scene::TextMeasurement,
+        Scene::Grid,
+        Scene::Borders,
+        Scene::EllipticalBorderRadius,
+        Scene::BoxShadow,
+        Scene::TextWrap,
+        Scene::Overflow,
+        Scene::Slice,
+        Scene::LayoutRounding,
+        Scene::LinearGradient,
+        Scene::RadialGradient,
+        #[cfg(feature = "bevy_ui_debug")]
+        Scene::DebugOutlines,
+        Scene::Transformations,
+        Scene::ViewportCoords,
+        Scene::OuterColor,
+        Scene::BoxedContent,
+        Scene::EditableText,
+    ];
 }
 
 impl std::str::FromStr for Scene {
@@ -113,31 +144,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Image => Scene::ImageMeasure,
-            Scene::ImageMeasure => Scene::Text,
-            Scene::Text => Scene::TextMeasurement,
-            Scene::TextMeasurement => Scene::Grid,
-            Scene::Grid => Scene::Borders,
-            Scene::Borders => Scene::BoxShadow,
-            Scene::BoxShadow => Scene::TextWrap,
-            Scene::TextWrap => Scene::Overflow,
-            Scene::Overflow => Scene::Slice,
-            Scene::Slice => Scene::LayoutRounding,
-            Scene::LayoutRounding => Scene::LinearGradient,
-            Scene::LinearGradient => Scene::RadialGradient,
-            #[cfg(feature = "bevy_ui_debug")]
-            Scene::RadialGradient => Scene::DebugOutlines,
-            #[cfg(feature = "bevy_ui_debug")]
-            Scene::DebugOutlines => Scene::Transformations,
-            #[cfg(not(feature = "bevy_ui_debug"))]
-            Scene::RadialGradient => Scene::Transformations,
-            Scene::Transformations => Scene::ViewportCoords,
-            Scene::ViewportCoords => Scene::OuterColor,
-            Scene::OuterColor => Scene::BoxedContent,
-            Scene::BoxedContent => Scene::EditableText,
-            Scene::EditableText => Scene::Image,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
@@ -1082,6 +1094,359 @@ mod borders {
     }
 }
 
+mod elliptical_border_radius {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+        commands.spawn((
+            Camera2d,
+            DespawnOnExit(super::Scene::EllipticalBorderRadius),
+        ));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: px(40),
+                    row_gap: px(40),
+                    margin: auto().all(),
+                    padding: px(30).all(),
+                    ..default()
+                },
+                BackgroundColor(DARK_GRAY.into()),
+                DespawnOnExit(super::Scene::EllipticalBorderRadius),
+            ))
+            .with_children(|builder| {
+                builder.spawn((
+                    Node {
+                        width: px(200),
+                        height: px(100),
+                        border: UiRect::all(px(8)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(90), px(24)),
+                            Val2::new(px(18), px(70)),
+                            Val2::new(px(110), px(32)),
+                            Val2::new(px(28), px(58)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(ORANGE.into()),
+                    BackgroundGradient::from(LinearGradient {
+                        stops: vec![
+                            RED.into(),
+                            Color::BLACK.into(),
+                            BLUE.into(),
+                            WHEAT.into(),
+                            GREEN.into(),
+                        ],
+                        ..default()
+                    }),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(4),
+                        offset: px(8),
+                        color: WHITE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(150),
+                        height: px(150),
+                        border: UiRect {
+                            left: px(16),
+                            right: px(4),
+                            top: px(24),
+                            bottom: px(8),
+                        },
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(65), percent(20)),
+                            Val2::new(percent(20), percent(65)),
+                            Val2::new(percent(65), percent(20)),
+                            Val2::new(percent(20), percent(65)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(MEDIUM_SEA_GREEN.into()),
+                    BorderColor::all(DARK_GREEN),
+                    Outline {
+                        width: px(3),
+                        offset: px(10),
+                        color: LIME.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(210),
+                        height: px(75),
+                        border: UiRect::axes(px(12), px(4)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(140), px(18)),
+                            Val2::new(px(140), px(18)),
+                            Val2::new(px(42), px(54)),
+                            Val2::new(px(42), px(54)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(DODGER_BLUE.into()),
+                    BorderColor::all(NAVY),
+                    Outline {
+                        width: px(5),
+                        offset: px(6),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::all(px(30)),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(25), px(20)),
+                            Val2::new(px(20), px(25)),
+                            Val2::new(px(20), px(25)),
+                            Val2::new(px(20), px(25)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(80),
+                        height: px(160),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::axes(px(20), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(80),
+                        height: px(160),
+                        border: UiRect::all(px(10)).with_right(px(25)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::all(px(5)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(px(20), px(20)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+            });
+    }
+}
+
 mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
@@ -1108,7 +1473,7 @@ mod box_shadow {
                         Vec2::ZERO,
                         10.,
                         0.,
-                        BorderRadius::bottom_right(px(10)),
+                        BorderRadius::bottom_right(Val2::all(px(10))),
                     ),
                     (Vec2::new(200., 50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
                     (
@@ -1123,7 +1488,7 @@ mod box_shadow {
                         Vec2::splat(20.),
                         10.,
                         10.,
-                        BorderRadius::bottom_right(px(10)),
+                        BorderRadius::bottom_right(Val2::all(px(10))),
                     ),
                     (
                         Vec2::splat(100.),
@@ -1204,25 +1569,6 @@ mod text_wrap {
                 ));
             }
         }
-
-        commands.spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                padding: UiRect::px(10.0, 10.0, 8.0, 6.0),
-                top: px(300.0),
-                left: px(300.0),
-                width: vmin(30.0),
-                ..default()
-            },
-            BackgroundColor::from(bevy::color::palettes::css::GREEN),
-            Text::new("initial text here"),
-            TextColor(Color::WHITE),
-            TextLayout {
-                justify: Justify::Left,
-                linebreak: LineBreak::WordBoundary,
-            },
-            DespawnOnExit(super::Scene::TextWrap),
-        ));
     }
 }
 
@@ -1708,7 +2054,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -1719,7 +2065,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2072,7 +2418,7 @@ mod outer_color {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        let radius = percent(33.);
+        let radius = Val2::all(percent(33.));
         let width = px(10.);
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
@@ -2093,7 +2439,7 @@ mod outer_color {
                     (UiRect::top(width), BorderRadius::top(radius), false),
                     (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
                     (UiRect::left(width), BorderRadius::left(radius), false),
-                    (UiRect::all(width), BorderRadius::all(radius), true),
+                    (UiRect::all(width), BorderRadius::all(radius.x), true),
                     (UiRect::right(width), BorderRadius::right(radius), false),
                     (UiRect::ZERO, BorderRadius::top_right(radius), true),
                     (UiRect::bottom(width), BorderRadius::bottom(radius), false),
@@ -2306,75 +2652,487 @@ mod editable_text {
     use bevy::color::palettes::css::YELLOW;
     use bevy::prelude::*;
     use bevy::text::EditableText;
+    use bevy::text::TextCursorStyle;
     use bevy::text::TextEdit;
-    use bevy::ui::widget::TextScroll;
+
+    const DUMMY_TEXT: &str = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten";
+    const LOREM_TEXT: &str = concat!(
+        "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. ",
+        "Aenean commodo ligula eget dolor. Aenean massa. ",
+        "Cum sociis natoque penatibus et magnis dis parturient montes, nascetur reprehenderit mus. ",
+        "Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. ",
+        "Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. ",
+        "In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. ", 
+        "Nullam dictum felis eu pede mollis pretium. Integer tincidunt. ", 
+        "Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. ",
+        "Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. ",
+        "Aliquam lorem ante, dapibus in, viverra quis, feugiat a, tellus. ",
+        "Phasellus viverra nulla ut metus officia laoreet. Quisque rutrum. ",
+        "Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi.", 
+        " Qui eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, ", 
+        "sem quam semper libero, sit amet adipiscing sem neque sed ipsum. ",
+        "Qui quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. ",
+        "Maecenas nec odio et ante tincidunt tempus. Donec vitae sapien ut libero venenatis faucibus. ",
+        "Nullam quis ante. Etiam sit amet orci eget eros faucibus tincidunt. Duis leo. ",
+        "Sed fringilla mauris sit amet nibh. Donec sodales sagittis magna. ",
+        "Sed consequat, leo eget bibendum sodales, augue velit cursus nunc,"
+    );
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::EditableText)));
         commands.spawn((
             Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
+                flex_wrap: FlexWrap::Wrap,
+                align_items: AlignItems::Start,
+                margin: px(10.).all(),
                 width: vw(100),
                 height: vh(100),
-                row_gap: px(25.),
+                row_gap: px(10),
+                column_gap: px(20),
                 ..default()
             },
             DespawnOnExit(super::Scene::EditableText),
             children![
                 (
-                    EditableText {
-                        pending_edits: vec![TextEdit::Insert("Single line EditableText".into())],
-                        ..default()
-                    },
                     Node {
-                        width: px(200.),
-                        border: px(2).all(),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
                         ..default()
                     },
-                    BorderColor::all(YELLOW),
+                    children![
+                        Text::new("Single line"),
+                        (
+                            EditableText {
+                                pending_edits: vec![TextEdit::Insert(
+                                    "Single line EditableText".into(),
+                                )],
+                                ..default()
+                            },
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                        Text::new("Initial end"),
+                        (
+                            EditableText::new(LOREM_TEXT),
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                        Text::new("Insert end"),
+                        (
+                            EditableText {
+                                pending_edits: vec![TextEdit::Insert(LOREM_TEXT.into())],
+                                ..default()
+                            },
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                        Text::new("Select line start"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(LOREM_TEXT.into()),
+                                    TextEdit::LineStart(true),
+                                ],
+                                ..default()
+                            },
+                            TextLayout::no_wrap(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
                 ),
                 (
-                    EditableText {
-                        pending_edits: vec![
-                            TextEdit::Insert(
-                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
-                                    .into()
-                            ),
-                            TextEdit::TextStart(false),
-                        ],
-                        visible_lines: Some(8.),
-                        ..default()
-                    },
-                    TextScroll::default(),
                     Node {
-                        width: px(350.),
-                        border: px(2).all(),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
                         ..default()
                     },
-                    BorderColor::all(YELLOW),
+                    children![
+                        Text::new("Wrapped start"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(LOREM_TEXT.into()),
+                                    TextEdit::TextStart(false),
+                                ],
+                                visible_lines: Some(8.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
                 ),
                 (
-                    EditableText {
-                        pending_edits: vec![
-                            TextEdit::Insert(
-                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
-                                    .into()
-                            ),
-                            TextEdit::TextEnd(true),
-                        ],
-                        visible_lines: Some(8.),
-                        ..default()
-                    },
-                    TextScroll::default(),
                     Node {
-                        width: px(350.),
-                        border: px(2).all(),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
                         ..default()
                     },
-                    BorderColor::all(YELLOW),
+                    children![
+                        Text::new("Wrapped selection"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(LOREM_TEXT.into()),
+                                    TextEdit::TextStart(false),
+                                    TextEdit::Down(false),
+                                    TextEdit::TextEnd(true),
+                                ],
+                                visible_lines: Some(8.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(200.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
                 ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Clamp top"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-10.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Home, Scroll 1"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollTo(Vec2::ZERO),
+                                    TextEdit::ScrollByLines(1.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Home, Scroll 2"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollTo(Vec2::ZERO),
+                                    TextEdit::ScrollByLines(2.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Clamp bottom"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-1000.0),
+                                    TextEdit::ScrollByLines(1000.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Bottom -1"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-1000.0),
+                                    TextEdit::ScrollByLines(1000.0),
+                                    TextEdit::ScrollByLines(-1.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Top +3"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-1000.0),
+                                    TextEdit::ScrollByLines(3.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("Select down 3"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::TextStart(false),
+                                    TextEdit::Down(false),
+                                    TextEdit::Down(true),
+                                    TextEdit::Down(true),
+                                    TextEdit::Down(true),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("End, Scroll 1"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(1.0),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(10),
+                        ..default()
+                    },
+                    children![
+                        Text::new("End, Scroll -0.5"),
+                        (
+                            EditableText {
+                                pending_edits: vec![
+                                    TextEdit::Insert(DUMMY_TEXT.into()),
+                                    TextEdit::ScrollByLines(-0.5),
+                                ],
+                                visible_lines: Some(5.5),
+                                ..default()
+                            },
+                            TextCursorStyle::default(),
+                            TextFont {
+                                font_size: FontSize::Px(10.),
+                                ..default()
+                            },
+                            Node {
+                                width: px(100.),
+                                border: px(2).all(),
+                                ..default()
+                            },
+                            BorderColor::all(YELLOW),
+                        ),
+                    ],
+                )
             ],
         ));
     }
