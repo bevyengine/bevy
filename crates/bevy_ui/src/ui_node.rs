@@ -1,4 +1,5 @@
 use crate::{
+    auto,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val, Val2,
 };
@@ -2472,11 +2473,6 @@ impl<T: Into<Color>> From<T> for OuterColor {
     fn from(color: T) -> Self {
         Self(color.into())
     }
-}
-
-pub struct Radius {
-    x: Val,
-    y: Val,
 }
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly

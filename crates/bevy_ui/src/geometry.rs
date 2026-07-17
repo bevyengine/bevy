@@ -1163,6 +1163,30 @@ impl From<(Val, Val)> for UiPosition {
     }
 }
 
+/// Radius of a circle or an ellipse.
+/// If one field is auto, the radius will be circular.
+/// If either field is zero or both are auto, the node will have square corners.
+#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Radius {
+    pub x: Val,
+    pub y: Val,
+}
+
+impl Default for Radius {
+    fn default() -> Self {
+        Self {
+            x: auto(),
+            y: auto(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
