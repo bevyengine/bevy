@@ -27,16 +27,11 @@ impl Image {
                 data = image.into_raw();
             }
             DynamicImage::ImageLumaA8(image) => {
-                let i = DynamicImage::ImageLumaA8(image).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                };
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rg8Unorm;
 
-                data = i.into_raw();
+                data = image.into_raw();
             }
             DynamicImage::ImageRgb8(image) => {
                 let i = DynamicImage::ImageRgb8(image).into_rgba8();
@@ -64,7 +59,7 @@ impl Image {
             DynamicImage::ImageLuma16(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::R16Uint;
+                format = TextureFormat::R16Unorm;
 
                 let raw_data = image.into_raw();
 
@@ -73,7 +68,7 @@ impl Image {
             DynamicImage::ImageLumaA16(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::Rg16Uint;
+                format = TextureFormat::Rg16Unorm;
 
                 let raw_data = image.into_raw();
 
@@ -230,5 +225,26 @@ mod test {
 
         // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
+
+        let luma_a8 = Image::from_dynamic(
+            DynamicImage::new_luma_a8(1, 1),
+            false,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rg8Unorm);
+
+        let luma16 = Image::from_dynamic(
+            DynamicImage::new_luma16(1, 1),
+            false,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma16.texture_descriptor.format, TextureFormat::R16Unorm);
+
+        let luma_a16 = Image::from_dynamic(
+            DynamicImage::new_luma_a16(1, 1),
+            false,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma_a16.texture_descriptor.format, TextureFormat::Rg16Unorm);
     }
 }
